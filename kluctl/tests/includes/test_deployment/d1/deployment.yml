@@ -1,0 +1,15 @@
+kustomizeDirs:
+- path: k1
+
+includes:
+- path: d1_sub
+
+commonLabels:
+  a: a2
+  c: c1
+
+deleteByLabels:
+  da: a2
+  dc: c1
+
+overrideNamespace: o2

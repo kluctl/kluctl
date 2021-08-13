@@ -1,0 +1,89 @@
+import logging
+
+from kluctl.utils.k8s_object_utils import get_included_objects, get_label_from_object, get_object_ref, \
+    get_long_object_name_from_ref, split_api_version, get_filtered_api_resources, \
+    remove_api_version_from_ref, remove_namespace_from_ref_if_needed
+
+logger = logging.getLogger(__name__)
+
+# either names or apigroups
+high_level_resources_for_delete = [
+    "monitoring.coreos.com",
+    "kafka.strimzi.io",
+    "zookeeper.pravega.io",
+    "elasticsearch.k8s.elastic.co",
+    "cert-manager.io",
+    "bitnami.com",
+    "acid.zalan.do",
+]
+
+def filter_objects_for_delete(objects, api_filter, inclusion, excluded_objects):
+    filtered_resources = get_filtered_api_resources(api_filter)
+    filtered_resources = set((x.group, x.kind) for x in filtered_resources)
+
+    # we must ignore api versions when checking excluded objects as k8s might have changed the version after an object
+    # was applied
+    excluded_objects = [remove_namespace_from_ref_if_needed(x) for x in excluded_objects]
+    excluded_objects = [remove_api_version_from_ref(x) for x in excluded_objects]
+
+    inclusion_has_tags = inclusion.has_type("tags")
+
+    def exclude(x):
+        group, version = split_api_version(x["apiVersion"])
+        if (group or "", x["kind"]) not in filtered_resources:
+            return True
+
+        # exclude when explicitely requested
+        if x["metadata"].get("annotations", {}).get("kluctl.io/skip-delete", "false").lower() in ["true", "1", "yes"]:
+            return True
+
+        # exclude objects which are owned by some other object
+        if 'ownerReferences' in x['metadata'] and len(x['metadata']['ownerReferences']) != 0:
+            return True
+
+        if len(x["metadata"].get("managedFields", [])) == 0:
+            # We don't know who manages it...be safe and exclude it
+            return True
+
+        # check if kluctl is managing this object
+        if not any([mf['manager'] == 'kluctl' for mf in x['metadata']['managedFields']]):
+            # This object is not managed by kluctl, so we shouldn't delete it
+            return True
+
+        # exclude objects from excluded_objects
+        if remove_api_version_from_ref(get_object_ref(x)) in excluded_objects:
+            return True
+
+        # exclude resources which have the 'kluctl.io/skip-delete-if-tags' annotation set
+        if inclusion_has_tags:
+            # TODO remove label based check
+            if get_label_from_object(x, 'kluctl.io/skip_delete_if_tags', 'false') == 'true':
+                return True
+            if x["metadata"].get("annotations", {}).get("kluctl.io/skip-delete-if-tags", "false").lower() in ["true", "1", "yes"]:
+                return True
+
+        return False
+
+    objects = [x for x in objects if not exclude(x)]
+    objects = [get_object_ref(x) for x in objects]
+    return objects
+
+def find_objects_for_delete(k8s_cluster, labels, inclusion, excluded_objects):
+    logger.info("Getting all cluster objects matching deleteByLabels")
+    all_cluster_objects = get_included_objects(k8s_cluster, ["delete"], labels, inclusion, True)
+    all_cluster_objects = [x for x, warnings in all_cluster_objects]
+
+    ret = []
+    ret += filter_objects_for_delete(all_cluster_objects, ["Namespace"], inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(all_cluster_objects, high_level_resources_for_delete, inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(all_cluster_objects, ['Deployment', 'StatefulSet', 'DaemonSet', 'Service', 'Ingress'], inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(all_cluster_objects, None, inclusion, excluded_objects + ret)
+    return ret
+
+def delete_objects(k8s_cluster, object_refs, do_wait):
+    for ref in object_refs:
+        try:
+            k8s_cluster.delete_single_object(ref, do_wait)
+            logger.info('Deleted object %s' % get_long_object_name_from_ref(ref))
+        except Exception as e:
+            logger.error('Failed to delete object %s. Error=%s' % (get_long_object_name_from_ref(ref), k8s_cluster.get_status_message(e)))

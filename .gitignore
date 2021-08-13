@@ -1,0 +1,10 @@
+.idea
+.venv
+*.pyc
+*.kubeconfig
+.secrets.yml
+.sealed-secrets
+
+dist
+build
+kluctl.egg-info

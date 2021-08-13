@@ -1,0 +1,4 @@
+# test an import without passing context. Global variables should still be usable.
+{% import 'imported.yml' as imp without context %}
+
+a: "{{ imp.importedMacro() }}"

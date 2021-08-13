@@ -1,0 +1,12 @@
+tags:
+- {{ a }}
+- {{ args.a }}
+
+includes:
+- path: {{ include_var }}
+- path: d2
+
+commonLabels:
+  a: {{ var_from_jinja2_vars_yaml }}
+  b: {{ var_from_subdir_jinja2_vars_yaml if var_from_subdir_jinja2_vars_yaml is defined else 'not-defined' }}
+  overridden: {{ overridden }}

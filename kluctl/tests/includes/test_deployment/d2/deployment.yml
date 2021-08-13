@@ -1,0 +1,5 @@
+kustomizeDirs:
+- path: k1
+
+includes:
+- path: d2_sub
