@@ -58,7 +58,8 @@ def remove_non_managed_fields(o, managed_fields):
 
     kluctl_fields = None
     for mf in v1_fields:
-        if mf['manager'] == 'kluctl' and mf['operation'] == 'Apply':
+        # TODO remove legacy deployctl manager
+        if mf['manager'] in ['kluctl', 'deployctl'] and mf['operation'] == 'Apply':
             kluctl_fields = mf
             break
     if kluctl_fields is None:
@@ -69,7 +70,8 @@ def remove_non_managed_fields(o, managed_fields):
 
     did_copy = False
     for mf in v1_fields:
-        if mf['manager'] == 'kluctl':
+        # TODO remove legacy deployctl manager
+        if mf['manager'] in ['kluctl', 'deployctl']:
             continue
         # force-overwrite these
         if mf['manager'] in ['kubectl-edit']:

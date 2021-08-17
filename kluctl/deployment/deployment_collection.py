@@ -3,7 +3,7 @@ import itertools
 import logging
 
 from kubernetes.client import ApiException
-from kubernetes.dynamic.exceptions import ResourceNotFoundError
+from kubernetes.dynamic.exceptions import ResourceNotFoundError, ConflictError
 
 from kluctl.deploy_util import find_objects_for_delete
 from kluctl.deployment.kustomize_deployment import KustomizeDeployment
@@ -15,7 +15,7 @@ from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, 
     ObjectRef
 from kluctl.utils.status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
-from kluctl.utils.utils import MyThreadPoolExecutor
+from kluctl.utils.utils import MyThreadPoolExecutor, copy_dict
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +276,9 @@ class DeploymentCollection:
         if abort_on_error and self.api_errors:
             return {}
 
+        # TODO remove this
+        self.migrate_to_new_manager(k8s_cluster)
+
         return self.do_patch(k8s_cluster, force_apply, replace_on_error, dry_run, ordered, abort_on_error)
 
     def do_diff(self, applied_objects, ignore_tags, ignore_labels, ignore_order):
@@ -370,6 +373,40 @@ class DeploymentCollection:
     def clear_errors_and_warnings(self):
         self.api_errors = set()
         self.api_warnings = set()
+
+    # TODO remove this when legacy deployments are all migrated
+    def migrate_to_new_manager(self, k8s_cluster):
+
+        def do_replace(o):
+            while True:
+                o2 = copy_dict(o)
+                need_replace = False
+                for mf in o2["metadata"].get("managedFields", []):
+                    if mf["manager"] == "deployctl":
+                        mf["manager"] = "kluctl"
+                        need_replace = True
+                        break
+                if not need_replace:
+                    break
+
+                try:
+                    k8s_cluster.replace_object(o2)
+                    logger.info("Migrated %s to new kluctl field manager" % get_long_object_name(o2))
+                    break
+                except ConflictError:
+                    o, _ = k8s_cluster.get_single_object(get_object_ref(o))
+                    logger.info("Conflict while migrating %s to new kluctl field manager" % get_long_object_name(o2))
+                    continue
+
+        with MyThreadPoolExecutor(max_workers=8) as executor:
+            for d in self.deployments:
+                if not d.check_inclusion_for_deploy():
+                    continue
+                for o in d.objects:
+                    o2 = self.remote_objects.get(get_object_ref(o))
+                    if o2 is None:
+                        continue
+                    executor.submit(do_replace, o2)
 
 def do_diff_object(old_object, new_object, ignore_order):
     if old_object == new_object:

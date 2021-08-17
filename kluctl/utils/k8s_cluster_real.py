@@ -212,6 +212,30 @@ class k8s_cluster_real(k8s_cluster_base):
             self.dynamic_client.resources.force_invalidate_cache()
         return r, warnings
 
+    def replace_object(self, body, namespace=None, force_dry_run=False, resource_version=None):
+        namespace = namespace or body.get('metadata', {}).get('namespace')
+        resource_version = resource_version or body.get("metadata", {}).get("resourceVersion")
+        group, version = self._fix_api_version(None, body.get('apiVersion'))
+        kind = body['kind']
+        name = body['metadata']['name']
+        query_params = self._get_dry_run_params(force_dry_run)
+
+        resource = self.dynamic_client.resources.get(group=group, api_version=version, kind=kind)
+        if resource.namespaced:
+            self.dynamic_client.ensure_namespace(resource, namespace, body)
+
+        body = json.dumps(body)
+
+        logger.debug("PUT resource=%s, name=%s, namespace=%s" % (resource, name, namespace))
+        r = self.dynamic_client.replace(resource, body=body, name=name, namespace=namespace, serialize=False,
+                                        query_params=query_params, content_type='application/yaml',
+                                        resource_version=resource_version)
+        warnings = r.headers.getlist("Warning")
+        r = json.loads(r.data)
+        if not force_dry_run and not self.dry_run and kind == "CustomResourceDefinition":
+            self.dynamic_client.resources.force_invalidate_cache()
+        return r, warnings
+
     def _fix_object_for_patch(self, o):
         # A bug in versions < 1.20 cause errors when applying resources that have some fields omitted which have
         # default values. We need to fix these resources.
