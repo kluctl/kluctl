@@ -1,7 +1,7 @@
 import unittest
 
 from kluctl.image_registries.images_registry import ImagesRegistry
-from kluctl.images import Images
+from kluctl.deployment.images import Images
 from kluctl.utils.k8s_cluster_mocked import k8s_cluster_mocked
 from kluctl.utils.versions import PrefixLatestVersion, NumberLatestVersion, LooseSemVerLatestVersion
 

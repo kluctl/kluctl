@@ -11,11 +11,11 @@ from kluctl.deployment.deployment_project import DeploymentProject
 from kluctl.diff.k8s_diff import changes_to_yaml
 from kluctl.diff.k8s_pretty_diff import format_diff
 from kluctl.image_registries import init_image_registries
-from kluctl.images import Images
+from kluctl.deployment.images import Images
 from kluctl.utils.external_args import parse_args
 from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_cluster_base import get_cluster, get_k8s_cluster
-from kluctl.utils.k8s_object_utils import get_object_stub, get_long_object_name_from_ref
+from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
 from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump
 
