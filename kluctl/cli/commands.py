@@ -52,7 +52,7 @@ def diff_command(obj, kwargs):
     sys.exit(1 if result.errors else 0)
 
 def confirmed_delete_objects(k8s_cluster, objects, kwargs):
-    from kluctl.deploy_util import delete_objects
+    from kluctl.k8s_delete_utils import delete_objects
     if len(objects) == 0:
         return
 

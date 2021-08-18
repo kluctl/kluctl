@@ -5,7 +5,7 @@ import logging
 from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError, ConflictError
 
-from kluctl.deploy_util import find_objects_for_delete
+from kluctl.k8s_delete_utils import find_objects_for_delete
 from kluctl.deployment.kustomize_deployment import KustomizeDeployment
 from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.managed_fields import remove_non_managed_fields2
