@@ -2,7 +2,7 @@ import hashlib
 import shutil
 import threading
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 
 def get_external_tool_path(name):
     path = shutil.which(name)

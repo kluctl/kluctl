@@ -4,13 +4,12 @@ import tempfile
 
 import yaml
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.seal.passwordstate import Passwordstate
 from kluctl.seal.sealer import Sealer
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_utils import render_file, render_str, render_dict_strs
 from kluctl.utils.k8s_cluster_base import get_cluster, get_k8s_cluster
-from kluctl.utils.k8s_object_utils import ObjectRef
 from kluctl.utils.utils import merge_dict, get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_load
 

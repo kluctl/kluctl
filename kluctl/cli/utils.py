@@ -5,7 +5,7 @@ import tempfile
 
 import click
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.deployment_collection import DeploymentCollection
 from kluctl.deployment.deployment_project import DeploymentProject
 from kluctl.diff.k8s_diff import changes_to_yaml

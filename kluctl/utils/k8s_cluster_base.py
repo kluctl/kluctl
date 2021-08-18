@@ -5,7 +5,7 @@ import os
 from kubernetes import config
 from kubernetes.client import ApiException
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.utils import MyThreadPoolExecutor
 from kluctl.utils.yaml_utils import yaml_load_file
 

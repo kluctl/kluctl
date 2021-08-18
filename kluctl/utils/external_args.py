@@ -1,6 +1,6 @@
 import re
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.utils import merge_dict
 
 

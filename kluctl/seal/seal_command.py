@@ -1,7 +1,7 @@
 import logging
 import os
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.seal.seal_cluster import SealCluster
 from kluctl.utils.external_args import parse_args
 from kluctl.utils.k8s_cluster_base import load_cluster_config

@@ -7,7 +7,7 @@ import click
 
 from kluctl.cli.utils import load_deployment_collection, output_diff_result, build_seen_images, output_yaml_result, \
     output_validate_result
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_cluster_base import get_k8s_cluster, load_cluster_config
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref

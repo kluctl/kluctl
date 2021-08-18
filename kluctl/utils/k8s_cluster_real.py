@@ -10,7 +10,7 @@ from kubernetes.client import ApiClient, Configuration, ApiException
 from kubernetes.dynamic import EagerDiscoverer, DynamicClient, Resource
 from kubernetes.dynamic.exceptions import NotFoundError, ResourceNotFoundError
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_cluster_base import k8s_cluster_base
 from kluctl.utils.utils import copy_dict
 from kluctl.utils.versions import LooseVersionComparator

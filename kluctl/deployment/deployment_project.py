@@ -1,11 +1,10 @@
 import logging
-import logging
 import os
 
 from jinja2 import FileSystemLoader, StrictUndefined, FileSystemBytecodeCache
 from ordered_set import OrderedSet
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, render_str
 from kluctl.utils.utils import merge_dict, copy_dict, \

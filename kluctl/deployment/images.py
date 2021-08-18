@@ -1,7 +1,7 @@
 import logging
 import threading
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.thread_safe_cache import ThreadSafeMultiCache
 from kluctl.utils.versions import LooseSemVerLatestVersion
 

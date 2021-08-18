@@ -6,7 +6,7 @@ from jinja2 import TemplateError
 from yaml import YAMLError
 
 from kluctl.cli.main_cli_group import cli_group
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 
 logger = logging.getLogger(__name__)
 

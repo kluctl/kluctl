@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 
-from kluctl.command_error import CommandError
+from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.seal.seal_cluster import SEALME_EXT
 from kluctl.utils.external_tools import get_external_tool_hash
