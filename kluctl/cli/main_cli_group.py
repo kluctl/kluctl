@@ -8,6 +8,7 @@ from click_option_group import optgroup
 
 from kluctl import _version
 from kluctl.utils.external_tools import get_external_tool_path
+from kluctl.utils.gitlab.gitlab_util import init_gitlab_util_from_glab
 from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
@@ -69,6 +70,13 @@ def check_external_tools_installed():
     get_external_tool_path("helm")
     get_external_tool_path("kubeseal")
 
+def configure(ctx, param, filename):
+    if not os.path.exists(filename):
+        return
+    config = yaml_load_file(filename)
+    config = config["config"]
+    ctx.default_map = config
+
 @click.group(context_settings={"auto_envvar_prefix": "kluctl"})
 @click.version_option(version=_version.__version__, package_name="kluctl")
 @optgroup.group("Common options")
@@ -88,6 +96,7 @@ def cli_group(ctx: click.Context, verbose, cluster_dir, cluster_name, no_update_
     if not no_update_check:
         check_new_version()
     check_external_tools_installed()
+    init_gitlab_util_from_glab()
 
 def wrapper_helper(options):
     def wrapper(func):

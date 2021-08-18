@@ -1,11 +1,22 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+
 block_cipher = None
 
+datas = []
+data_extensions = [".yml", ".jinja2"]
+for dirpath, dirnames, filenames in os.walk("."):
+    for f in filenames:
+        if not any(f.lower().endswith(e) for e in data_extensions):
+            continue
+        p = os.path.join(dirpath, f)
+        datas.append((p, dirpath))
+print("datas=%s" % datas)
 
 a = Analysis(['cli.py'],
              binaries=[],
-             datas=[],
+             datas=datas,
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],

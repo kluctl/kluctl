@@ -1,0 +1,112 @@
+title: .kluctl.yml schema
+type: object
+definitions:
+  git_url:
+    type: string
+    # See https://stackoverflow.com/questions/2514859/regular-expression-for-git-repository
+    pattern:
+      (\w+:\/\/)(.+@)*([\w\d\.]+)(:[\d]+){0,1}\/*(.*)
+  git_ref:
+    oneOf:
+      - type: string
+        # See https://stackoverflow.com/questions/12093748/how-do-i-check-for-valid-git-branch-names
+        pattern:
+          ^(?!.*/\.)(?!.*\.\.)(?!/)(?!.*//)(?!.*@\{)(?!.*\\)[^\000-\037\177 ~^:?*[]+/[^\000-\037\177 ~^:?*[]+(?<!\.lock)(?<!/)(?<!\.)$
+      - type: string
+        # Only last part of the above + / in the [] part
+        pattern:
+          ^[^\000-\037\177 ~^:?*[/]+(?<!\.lock)(?<!/)(?<!\.)$
+    default: master
+
+  git_project:
+    oneOf:
+      - $ref: "#/definitions/git_url"
+      - type: object
+        additionalProperties: false
+        required:
+          - url
+        properties:
+          url:
+            $ref: "#/definitions/git_url"
+          ref:
+            $ref: "#/definitions/git_ref"
+          subdir:
+            type: string
+            pattern: "[^/]*"
+
+  external_project:
+    type: object
+    additionalProperties: false
+    required: [ project ]
+    properties:
+      project:
+        $ref: "#/definitions/git_project"
+
+  target:
+    type: object
+    additionalProperties: false
+    required:
+      - name
+      - cluster
+    properties:
+      name:
+        type: string
+      cluster:
+        type: string
+      args:
+        type: object
+        additionalProperties:
+          type: string
+      dynamicArgs:
+        type: array
+        items:
+          type: object
+          additionalProperties: false
+          required:
+            - name
+          properties:
+            name:
+              type: string
+            pattern:
+              type: string
+      targetConfig:
+        type: object
+        additionalProperties: false
+        required:
+          - project
+        properties:
+          project:
+            $ref: "#/definitions/git_project"
+          ref:
+            type: string
+            description: Branch/Tag to be used. Can't be combined with 'refPattern'. If 'branch' and 'branchPattern' are not used, 'branch' defaults to the default branch of targetConfig.project
+          refPattern:
+            type: string
+            description: If set, multiple dynamic targets are created, each with 'ref' being set to the ref that matched the given pattern.
+          file:
+            type: string
+            description: defaults to 'target-config.yml'
+            default: target-config.yml
+
+additionalProperties: false
+required:
+  - targets
+properties:
+  deployment:
+    $ref: "#/definitions/external_project"
+  sealedSecrets:
+    $ref: "#/definitions/external_project"
+  clusters:
+    oneOf:
+      - $ref: "#/definitions/external_project"
+      - type: array
+        items:
+          $ref: "#/definitions/external_project"
+  sealArgs:
+    type: object
+    additionalProperties:
+      type: string
+  targets:
+    type: array
+    items:
+      $ref: "#/definitions/target"

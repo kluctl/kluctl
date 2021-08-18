@@ -55,6 +55,9 @@ setup(
         "PyJWT>=2.1.0",
         "python-dxf>=7.7.1",
         "gitpython>=3.1.18",
+        "jsonschema>=3.2.0",
+        "filelock==3.0.12",
+        "python-gitlab==2.10.0",
     ],
     entry_points={
         "console_scripts": [
