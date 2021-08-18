@@ -24,7 +24,7 @@ setup(
     description="Deploy and manage complex deployments on Kubernetes",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://kluctl.io",
+    url="https://github.com/codablock/kluctl",
     author="Alexander Block",
     author_email="ablock@codablock.de",
     license="Apache",
