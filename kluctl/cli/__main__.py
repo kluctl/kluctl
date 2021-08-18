@@ -7,20 +7,13 @@ from yaml import YAMLError
 
 from kluctl.cli.main_cli_group import cli_group
 from kluctl.command_error import CommandError
-from kluctl.utils.external_tools import get_external_tool_path
 
 logger = logging.getLogger(__name__)
 
 config = {}
 
-def check_external_tools_installed():
-    get_external_tool_path("kustomize")
-    get_external_tool_path("helm")
-    get_external_tool_path("kubeseal")
-
 def main():
     try:
-        check_external_tools_installed()
         cli_group(prog_name="kluctl")
     except (CommandError, YAMLError) as e:
         print(e, file=sys.stderr)

@@ -7,6 +7,7 @@ import click
 from click_option_group import optgroup
 
 from kluctl import _version
+from kluctl.utils.external_tools import get_external_tool_path
 from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
@@ -63,6 +64,11 @@ def check_new_version():
         logger.warning("You are using an outdated version (%s) of kluctl. You should update soon to version %s",
                        str(local_version), str(latest_version))
 
+def check_external_tools_installed():
+    get_external_tool_path("kustomize")
+    get_external_tool_path("helm")
+    get_external_tool_path("kubeseal")
+
 @click.group(context_settings={"auto_envvar_prefix": "kluctl"})
 @click.version_option(version=_version.__version__, package_name="kluctl")
 @optgroup.group("Common options")
@@ -81,6 +87,7 @@ def cli_group(ctx: click.Context, verbose, cluster_dir, cluster_name, no_update_
     setup_logging(verbose)
     if not no_update_check:
         check_new_version()
+    check_external_tools_installed()
 
 def wrapper_helper(options):
     def wrapper(func):
