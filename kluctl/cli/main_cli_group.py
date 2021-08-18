@@ -13,7 +13,7 @@ from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
 logger = logging.getLogger(__name__)
 
-VERSIONS_URL = os.environ.get("VERSIONS_URL", "https://agent-ralf.tools.hero-t1.hellmann.net/api/v1/versions/kluctl")
+LATEST_RELEASE_URL = "https://api.github.com/repos/codablock/kluctl/releases/latest"
 
 def setup_logging(verbose):
     level = logging.INFO
@@ -28,7 +28,7 @@ def setup_logging(verbose):
     logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
 
 def check_new_version():
-    if _version.__version__ == "0.0.0":
+    if _version.__version__ == "0.0.1":
         # local dev version
         return
 
@@ -50,15 +50,15 @@ def check_new_version():
     logger.debug("Checking for new kluctl version")
     try:
         import requests
-        r = requests.get(VERSIONS_URL, timeout=5)
+        r = requests.get(LATEST_RELEASE_URL, timeout=5)
         r.raise_for_status()
-        versions = r.json()
+        release = r.json()
+        latest_version = release["tag_name"]
+        if latest_version.startswith("v"):
+            latest_version = latest_version[1:]
     except Exception as e:
         logger.warning("Failed to query latest kluctl version. %s" % str(e))
         return
-    versions = [LooseVersion(v) for v in versions]
-    versions.sort()
-    latest_version = versions[-1]
     local_version = LooseVersion(_version.__version__)
     if local_version < latest_version:
         logger.warning("You are using an outdated version (%s) of kluctl. You should update soon to version %s",
