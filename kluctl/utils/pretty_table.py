@@ -1,4 +1,4 @@
-from kluctl.utils.utils import runHelper
+import shutil
 
 
 def pretty_table(table, limit_widths):
@@ -15,15 +15,8 @@ def pretty_table(table, limit_widths):
     widths = [max_width(i, limit_widths[i] if i < len(limit_widths) else -1) for i in range(cols)]
 
     if len(limit_widths) < cols:
+        term_columns, _ = shutil.get_terminal_size()
         # last column should use all remaining space
-        try:
-            # Try to figure out terminal width
-            _, stdout, _ = runHelper(['stty', 'size'], stderr_log_level=None)
-            _, term_columns = stdout.split()
-            term_columns = int(term_columns)
-        except:
-            # Probably not a terminal, so let's use some large default
-            term_columns = 200
         widths[len(limit_widths)] = term_columns - sum(widths[:-1]) - (cols - 1) * 3 - 4
 
     horizontal_separator = '+-'
