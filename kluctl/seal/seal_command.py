@@ -44,5 +44,9 @@ def seal_command(obj, kwargs):
 
             try:
                 seal_command_for_target(kwargs, kluctl_project, target, secrets_loader)
+            except TemplateError as e:
+                print_template_error(e)
+            except CommandError as e:
+                print(e, file=sys.stderr)
             except Exception as e:
-                logger.warning("Sealing for target %s failed. Error=%s" % (target["name"], str(e)))
+                logger.exception("Sealing for target %s failed. Error=%s" % (target["name"], str(e)))

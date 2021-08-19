@@ -3,6 +3,8 @@ import hashlib
 import json
 import logging
 import os
+import sys
+import traceback
 
 import jinja2
 from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound
@@ -140,3 +142,20 @@ def render_file(root_dir, path, jinja_vars):
     merge_dict(e.globals, jinja_vars, False)
     t = e.get_template(path.replace('\\', '/'))
     return t.render()
+
+def print_template_error(e):
+    try:
+        raise e
+    except:
+        etype, value, tb = sys.exc_info()
+    extracted_tb = traceback.extract_tb(tb)
+    found_template = None
+    for i, s in reversed(list(enumerate(extracted_tb))):
+        if not s.filename.endswith(".py"):
+            found_template = i
+            break
+    if found_template is not None:
+        traceback.print_list([extracted_tb[found_template]])
+        print("%s: %s" % (type(e).__name__, str(e)), file=sys.stderr)
+    else:
+        traceback.print_exception(etype, value, tb)
