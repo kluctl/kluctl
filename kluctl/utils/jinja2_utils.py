@@ -114,6 +114,8 @@ def add_jinja2_filters(jinja2_env):
     jinja2_env.globals['debug_print'] = debug_print
 
 def render_str(s, jinja_vars):
+    if "{" not in s:
+        return s
     e = RelEnvironment(undefined=StrictUndefined)
     add_jinja2_filters(e)
     merge_dict(e.globals, jinja_vars, False)
