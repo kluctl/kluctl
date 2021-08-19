@@ -23,28 +23,32 @@ def bootstrap_command(obj, kwargs):
 
     kwargs["local_deployment"] = bootstrap_path
     kwargs["full_diff_after_deploy"] = False
-    deploy_command(obj, kwargs)
-    purge_command(obj, kwargs)
+    with project_command_context(kwargs) as cmd_ctx:
+        deploy_command2(obj, kwargs, cmd_ctx)
+        purge_command2(obj, kwargs, cmd_ctx)
 
 def deploy_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
-        if not kwargs["yes"] and not kwargs["dry_run"]:
-            click.confirm("Do you really want to deploy to the context/cluster %s?" % cmd_ctx.k8s_cluster.context, err=True, abort=True)
+        deploy_command2(obj, kwargs, cmd_ctx)
 
-        parallel = kwargs["parallel"]
-        diff_result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, parallel, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["abort_on_error"])
-        deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
-        output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, diff_result, deleted_objects)
+def deploy_command2(obj, kwargs, cmd_ctx):
+    if not kwargs["yes"] and not kwargs["dry_run"]:
+        click.confirm("Do you really want to deploy to the context/cluster %s?" % cmd_ctx.k8s_cluster.context, err=True, abort=True)
+
+    parallel = kwargs["parallel"]
+    diff_result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, parallel, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["abort_on_error"])
+    deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
+    output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, diff_result, deleted_objects)
+    if diff_result.errors:
+        sys.exit(1)
+    if kwargs["full_diff_after_deploy"]:
+        logger.info("Running full diff after deploy")
+        cmd_ctx.deployment_collection.update_remote_objects_from_diff(diff_result)
+        cmd_ctx.deployment_collection.inclusion = Inclusion()
+        diff_result = cmd_ctx.deployment_collection.diff(cmd_ctx.k8s_cluster, kwargs["force_apply"], False, False, False, False)
+        output_diff_result([kwargs["full_diff_after_deploy"]], cmd_ctx.deployment_collection, diff_result, deleted_objects)
         if diff_result.errors:
             sys.exit(1)
-        if kwargs["full_diff_after_deploy"]:
-            logger.info("Running full diff after deploy")
-            cmd_ctx.deployment_collection.update_remote_objects_from_diff(diff_result)
-            cmd_ctx.deployment_collection.inclusion = Inclusion()
-            diff_result = cmd_ctx.deployment_collection.diff(cmd_ctx.k8s_cluster, kwargs["force_apply"], False, False, False, False)
-            output_diff_result([kwargs["full_diff_after_deploy"]], cmd_ctx.deployment_collection, diff_result, deleted_objects)
-            if diff_result.errors:
-                sys.exit(1)
 
 def diff_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
@@ -73,8 +77,11 @@ def delete_command(obj, kwargs):
 
 def purge_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
-        objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
-        confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
+        purge_command2(obj, kwargs, cmd_ctx)
+
+def purge_command2(obj, kwargs, cmd_ctx):
+    objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
+    confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
 
 def validate_command(obj, kwargs):
     wait_duration = duration(kwargs["wait"]) if kwargs["wait"] else None
