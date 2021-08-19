@@ -16,7 +16,8 @@ import jsonschema
 
 from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_project, target_config_schema
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig
-from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote
+from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
+    get_git_ref
 from kluctl.utils.jinja2_utils import render_str
 from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor, copy_dict
 from kluctl.utils.yaml_utils import yaml_load_file
@@ -121,13 +122,15 @@ class KluctlProject:
         target_dir = self.build_clone_dir(git_project.url)
 
         clone_project(git_project.url, git_project.ref, target_dir, git_cache_up_to_date=self.git_cache_up_to_date)
+        git_ref = get_git_ref(target_dir)
+
         self.git_cache_up_to_date[git_project.url] = True
 
         dir = target_dir
         if git_project.subdir is not None:
             dir = os.path.join(dir, git_project.subdir)
         commit = get_git_commit(target_dir)
-        info = GitProjectInfo(url=git_project.url, ref=git_project.ref, commit=commit, dir=dir)
+        info = GitProjectInfo(url=git_project.url, ref=git_ref, commit=commit, dir=dir)
         if do_add_involved_repo:
             self.add_involved_repo(info.url, info.ref, {info.ref: info.commit})
         return info

@@ -141,12 +141,23 @@ def clone_project(url, ref, target_dir, git_cache_up_to_date=None):
     with with_git_cache(url) as cache_dir:
         if git_cache_up_to_date is None or url not in git_cache_up_to_date:
             update_git_cache(url, do_lock=False)
-        Git().clone("file://%s" % cache_dir, "--branch", ref, "--single-branch", target_dir)
+        args = ["file://%s" % cache_dir, "--single-branch", target_dir]
+        if ref is not None:
+            args += ["--branch", ref]
+        Git().clone(*args)
 
 def get_git_commit(path):
     g = Git(path)
     commit = g.rev_parse("HEAD", stdout_as_string=True)
     return commit.strip()
+
+def get_git_ref(path):
+    g = Git(path)
+    branch = g.rev_parse("--abbrev-ref", "HEAD", stdout_as_string=True).strip()
+    if branch != "HEAD":
+        return branch
+    tag = g.describe("--tags", stdout_as_string=True).strip()
+    return tag
 
 def git_ls_remote(url, tags=False):
     ret = gitlab_fast_ls_remote(url, tags=tags)

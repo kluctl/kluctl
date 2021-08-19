@@ -16,7 +16,6 @@ definitions:
         # Only last part of the above + / in the [] part
         pattern:
           ^[^\000-\037\177 ~^:?*[/]+(?<!\.lock)(?<!/)(?<!\.)$
-    default: master
 
   git_project:
     oneOf:

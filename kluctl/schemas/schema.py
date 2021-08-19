@@ -36,10 +36,10 @@ class GitProject:
 def parse_git_project(project, default_git_subdir):
     if isinstance(project, str):
         git_url = project
-        git_ref = "master"
+        git_ref = None
         git_subdir = default_git_subdir
     else:
         git_url = project["url"]
-        git_ref = project.get("ref", "master")
+        git_ref = project.get("ref")
         git_subdir = project.get("subdir", default_git_subdir)
     return GitProject(git_url, git_ref, git_subdir)

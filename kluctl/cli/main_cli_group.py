@@ -139,7 +139,7 @@ def kluctl_project_args(with_d=True, with_a=True, with_t=True):
     options.append(optgroup.group("Project arguments"))
     if with_d:
         options.append(optgroup.option("--project-url", "-p", help="Git url of the kluctl project. If not specified, the current directory will be used instead of a remote Git project"))
-        options.append(optgroup.option("--project-ref", "-b", help="Git ref of the kluctl project. Only used when --project-url was given.", default="master"))
+        options.append(optgroup.option("--project-ref", "-b", help="Git ref of the kluctl project. Only used when --project-url was given."))
         options.append(optgroup.option("--config-file", "-c", help="Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml", type=click.Path(dir_okay=False)))
         options.append(optgroup.option("--local-clusters", help="Local clusters directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
         options.append(optgroup.option("--local-deployment", help="Local deployment directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
