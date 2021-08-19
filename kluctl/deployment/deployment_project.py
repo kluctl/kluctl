@@ -130,28 +130,9 @@ class DeploymentProject(object):
 
             self.includes.append(c)
 
-    def get_sealme_conf_path(self, subdir):
-        p = self.dir
-        if subdir:
-            p = os.path.join(p, subdir)
-        p = os.path.join(p, 'sealme-conf.yml')
-        if os.path.exists(p):
-            return p
-        if subdir is not None:
-            # Retry without subdir
-            return self.get_sealme_conf_path(None)
-        if self.parent_collection is None:
-            return None
-        return self.parent_collection.get_sealme_conf_path(None)
-
     def get_sealed_secrets_dir(self, subdir):
-        p = self.get_sealme_conf_path(subdir)
-        if p is None:
-            return None
-
-        sealme_conf = yaml_load_file(p)
-        output_pattern = sealme_conf['outputPattern']
-        output_pattern = render_str(output_pattern, self.jinja_vars)
+        root = self.get_root_deployment()
+        output_pattern = root.conf.get("secrets", {}).get("outputPattern")
         return output_pattern
 
     def get_root_deployment(self):

@@ -1,59 +1,48 @@
 import logging
-import os
 
-from kluctl.utils.exceptions import CommandError
-from kluctl.seal.seal_cluster import SealCluster
-from kluctl.utils.external_args import parse_args
-from kluctl.utils.k8s_cluster_base import load_cluster_config
-from kluctl.utils.yaml_utils import yaml_load_file
+from kluctl.cli.utils import project_target_command_context, CommandContext
+from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args
+from kluctl.kluctl_project.secrets import SecretsLoader
+from kluctl.seal.deployment_sealer import DeploymentSealer
+from kluctl.utils.exceptions import InvalidKluctlProjectConfig
+from kluctl.utils.utils import merge_dict
 
 logger = logging.getLogger(__name__)
 
+def find_secrets_entry(kluctl_project, name):
+    for e2 in kluctl_project.config.get("secrets", {}).get("secretSets", []):
+        if name == e2["name"]:
+            return e2
+    raise InvalidKluctlProjectConfig("Secret Set with name %s was not found" % e)
 
-def seal_command_for_cluster(cluster_dir, cluster_name, kwargs, load_cluster):
-    from kubernetes.dynamic.exceptions import UnauthorizedError
-    if load_cluster:
-        try:
-            load_cluster_config(cluster_dir, cluster_name)
-        except UnauthorizedError:
-            logger.warning("Failed to authenticate/authorize for kubernetes cluster %s" % cluster_name)
-            return
-        except Exception as e:
-            logger.warning("Failed to load kubernetes cluster %s. Error=%s" % (cluster_name, str(e)))
-            return
 
-    for dirpath, dirnames, filenames in os.walk(kwargs["deployment"]):
-        if 'sealme-conf.yml' in filenames:
-            seal_args = parse_args(kwargs["arg"])
-            seal_cluster = SealCluster(kwargs["deployment"], dirpath, kwargs["sealed_secrets_dir"], kwargs["secrets_dir"], seal_args, kwargs["force_reseal"])
-            seal_cluster.seal_matrix()
+def seal_command_for_target(kwargs, kluctl_project, target, secrets_loader):
+    secrets = {}
+    for e in target.get("secretSets", []):
+        secrets_entry = find_secrets_entry(kluctl_project, e)
+        s = secrets_loader.load_secrets(secrets_entry)
+        merge_dict(secrets, s, False)
+
+    # pass for_seal=True so that .sealme files are rendered as well
+    with project_target_command_context(kwargs, kluctl_project, target, for_seal=True, secrets=secrets) as cmd_ctx:
+        seal_command_for_target(kwargs, cmd_ctx)
+
+        s = DeploymentSealer(cmd_ctx.deployment, cmd_ctx.deployment_collection, cmd_ctx.cluster_vars,
+                             cmd_ctx.kluctl_project.sealed_secrets_dir, kwargs["force_reseal"])
+        s.seal_deployment()
 
 def seal_command(obj, kwargs):
-    from kubernetes import config
+    with load_kluctl_project_from_args(kwargs) as kluctl_project:
+        kluctl_project.load(True)
+        kluctl_project.load_targets()
 
-    cluster_name = obj["cluster_name"]
-    cluster_dir = obj["cluster_dir"]
-    if cluster_name is not None:
-        seal_command_for_cluster(cluster_dir, cluster_name, kwargs, True)
-    else:
-        cluster_names = []
+        secrets_loader = SecretsLoader(kluctl_project, kwargs["secrets_dir"])
 
-        contexts, _ = config.list_kube_config_contexts()
+        for target in kluctl_project.targets:
+            if kwargs["target"] is not None and kwargs["target"] != target["name"]:
+                continue
 
-        for fname in os.listdir(cluster_dir):
-            if fname.endswith('.yml'):
-                y = yaml_load_file(os.path.join(cluster_dir, fname))
-                for c in contexts:
-                    if "cluster" not in y:
-                        continue
-                    if "context" not in y["cluster"] or "name" not in y["cluster"]:
-                        continue
-                    if c["name"] == y["cluster"]["context"]:
-                        cluster_names.append(y["cluster"]["name"])
-
-        if len(cluster_names) == 0:
-            raise CommandError("No known clusters found in kubeconfig")
-
-        for c in cluster_names:
-            logger.info('Sealing for cluster \'%s\'' % c)
-            seal_command_for_cluster(cluster_dir, c, kwargs, True)
+            try:
+                seal_command_for_target(kwargs, kluctl_project, target, secrets_loader)
+            except Exception as e:
+                logger.warning("Sealing for target %s failed. Error=%s" % (target["name"], str(e)))

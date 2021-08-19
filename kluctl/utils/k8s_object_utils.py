@@ -4,7 +4,6 @@ from typing import Optional
 
 from kubernetes.dynamic.exceptions import ResourceNotFoundError
 
-from kluctl.utils.k8s_cluster_base import get_k8s_cluster
 from kluctl.utils.utils import MyThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -61,11 +60,11 @@ def remove_api_version_from_ref(ref):
     g, v = split_api_version(ref.api_version)
     return ObjectRef(api_version=g, kind=ref.kind, name=ref.name, namespace=ref.namespace)
 
-def remove_namespace_from_ref_if_needed(ref):
+def remove_namespace_from_ref_if_needed(k8s_cluster, ref):
     g, v = split_api_version(ref.api_version)
 
     try:
-        resource = get_k8s_cluster().get_preferred_resource(g, ref.kind)
+        resource = k8s_cluster.get_preferred_resource(g, ref.kind)
         if not resource.namespaced:
             return ObjectRef(api_version=ref.api_version, kind=ref.kind, name=ref.name)
         return ref
@@ -85,9 +84,9 @@ def get_object_stub(ref):
         o["metadata"]["namespace"] = ref.namespace
     return o
 
-def get_filtered_api_resources(filter):
+def get_filtered_api_resources(k8s_cluster, filter):
     api_resources = []
-    for r in get_k8s_cluster().get_preferred_resources(None, None, None):
+    for r in k8s_cluster.get_preferred_resources(None, None, None):
         if filter and r.name not in filter and r.group not in filter and r.kind not in filter:
             continue
         api_resources.append(r)

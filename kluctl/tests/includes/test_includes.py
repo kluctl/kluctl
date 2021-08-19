@@ -51,5 +51,5 @@ class TestIncludes(DeploymentTestBase):
         self.assertSetEqual(self.d.includes[0].includes[0].get_tags(), {'t1', 't2', 'd1', 'd1_sub'})
 
     def test_get_kustomize_dir_tags(self):
-        self.assertSetEqual(set(DeploymentCollection(self.d.includes[0], None, None, None).deployments[0].get_tags()), {'t1', 't2', 'd1', 'k1'})
-        self.assertSetEqual(set(DeploymentCollection(self.d.includes[1], None, None, None).deployments[0].get_tags()), {'t1', 't2', 'it1', 'it2', 'k1'})
+        self.assertSetEqual(set(DeploymentCollection(self.d.includes[0], None, None, None, False).deployments[0].get_tags()), {'t1', 't2', 'd1', 'k1'})
+        self.assertSetEqual(set(DeploymentCollection(self.d.includes[1], None, None, None, False).deployments[0].get_tags()), {'t1', 't2', 'it1', 'it2', 'k1'})

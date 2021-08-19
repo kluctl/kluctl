@@ -27,9 +27,10 @@ def setup_logging(verbose):
 
     logging.getLogger('urllib3').setLevel(logging.WARN)
     logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
+    logging.getLogger('filelock').setLevel(logging.WARN)
 
 def check_new_version():
-    if _version.__version__ == "0.0.1":
+    if _version.__version__ == "0.0.0":
         # local dev version
         return
 
@@ -82,16 +83,11 @@ def configure(ctx, param, filename):
 @optgroup.group("Common options")
 @optgroup.option("--verbose", "-v", help="Enable verbose logging", default=False, is_flag=True)
 @optgroup.option("--no-update-check", help="Disable update check on startup", default=False, is_flag=True)
-@optgroup.group("Cluster specific options")
-@optgroup.option("--cluster-dir", "-C", help="Directory that contains cluster configurations. Defaults to $PWD/clusters", default='clusters', type=click.Path(file_okay=False))
-@optgroup.option("--cluster-name", "-N", help="Name of the target cluster", required=False)
 @click.pass_context
-def cli_group(ctx: click.Context, verbose, cluster_dir, cluster_name, no_update_check):
+def cli_group(ctx: click.Context, verbose, no_update_check):
     ctx.ensure_object(dict)
     obj = ctx.obj
     obj["verbose"] = verbose
-    obj["cluster_dir"] = cluster_dir
-    obj["cluster_name"] = cluster_name
     setup_logging(verbose)
     if not no_update_check:
         check_new_version()
@@ -115,7 +111,7 @@ def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, 
     if dry_run:
         options.append(optgroup.option("--dry-run", help="Dry run", default=False, is_flag=True))
     if parallel:
-        options.append(optgroup.option("--parallel", help="Allow apply objects in parallel", default=True, is_flag=True))
+        options.append(optgroup.option("--parallel", help="Allow apply objects in parallel", default=False, is_flag=True))
     if force_apply:
         options.append(optgroup.option("--force-apply", help="Force conflict resolution when applying", default=False, is_flag=True))
     if replace_on_error:
@@ -138,15 +134,22 @@ def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, 
                                        multiple=True))
     return wrapper_helper(options)
 
-def project_args(with_d=True, with_a=True):
+def kluctl_project_args(with_d=True, with_a=True, with_t=True):
     options = []
     options.append(optgroup.group("Project arguments"))
     if with_d:
-        options.append(optgroup.option("-d", "--deployment", help="Deployment directory", required=False, default=".", type=click.Path(file_okay=False)))
-        options.append(optgroup.option("--deployment-name", help="Name of the deployment. Used when resolving sealed-secrets. Defaults to the base name of --deployment"))
+        options.append(optgroup.option("--project-url", "-p", help="Git url of the kluctl project. If not specified, the current directory will be used instead of a remote Git project"))
+        options.append(optgroup.option("--project-ref", "-b", help="Git ref of the kluctl project. Only used when --project-url was given.", default="master"))
+        options.append(optgroup.option("--config-file", "-c", help="Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml", type=click.Path(dir_okay=False)))
+        options.append(optgroup.option("--local-clusters", help="Local clusters directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
+        options.append(optgroup.option("--local-deployment", help="Local deployment directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
+        options.append(optgroup.option("--local-sealed-secrets", help="Local sealed-secrets directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
+        options.append(optgroup.option("--deployment-name", help="Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the base name of --local-deployment/--project-url"))
+        options.append(optgroup.option("--cluster", help="Override cluster for target"))
+    if with_t:
+        options.append(optgroup.option("-t", "--target", help="Target name to run command for"))
     if with_a:
         options.append(optgroup.option("-a", "--arg", help="Template argument", multiple=True))
-    options.append(optgroup.option("--sealed-secrets-dir", help="Sealed secrets directory (default is $PWD/.sealed-secrets)", default='.sealed-secrets', type=click.Path(file_okay=False)))
     return wrapper_helper(options)
 
 def include_exclude_args():

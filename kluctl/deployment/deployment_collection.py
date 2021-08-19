@@ -33,12 +33,13 @@ class DeployDiffResult:
     warnings: list
 
 class DeploymentCollection:
-    def __init__(self, project, images, inclusion, tmpdir):
+    def __init__(self, project, images, inclusion, tmpdir, for_seal):
         self.project = project
         self.images = images
         self.seen_images = SeenImages(images)
         self.inclusion = inclusion
         self.tmpdir = tmpdir
+        self.for_seal = for_seal
         self.deployments = self._collect_deployments(self.project)
 
         self.is_rendered = False
@@ -129,7 +130,7 @@ class DeploymentCollection:
         self.build_kustomize_objects()
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          False, not parallel, abort_on_error)
-        new_objects, changed_objects = self.do_diff(applied_objects, False, False, False)
+        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
@@ -139,7 +140,7 @@ class DeploymentCollection:
         self.build_kustomize_objects()
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          True, False, False)
-        new_objects, changed_objects = self.do_diff(applied_objects, ignore_tags, ignore_labels, ignore_order)
+        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_order)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
@@ -281,7 +282,7 @@ class DeploymentCollection:
 
         return self.do_patch(k8s_cluster, force_apply, replace_on_error, dry_run, ordered, abort_on_error)
 
-    def do_diff(self, applied_objects, ignore_tags, ignore_labels, ignore_order):
+    def do_diff(self, k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_order):
         diff_objects = {}
         normalized_diff_objects = {}
         normalized_remote_objects = {}
@@ -295,9 +296,9 @@ class DeploymentCollection:
                 if ref not in applied_objects:
                     continue
                 diff_objects[ref] = applied_objects.get(ref)
-                normalized_diff_objects[ref] = normalize_object(diff_objects[ref], ignore_for_diffs)
+                normalized_diff_objects[ref] = normalize_object(k8s_cluster, diff_objects[ref], ignore_for_diffs)
                 if ref in self.remote_objects:
-                    normalized_remote_objects[ref] = normalize_object(self.remote_objects[ref], ignore_for_diffs)
+                    normalized_remote_objects[ref] = normalize_object(k8s_cluster, self.remote_objects[ref], ignore_for_diffs)
 
         logger.info("Diffing remote/old objects against applied/new objects")
         new_objects = []

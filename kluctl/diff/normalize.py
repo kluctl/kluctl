@@ -1,6 +1,5 @@
 import fnmatch
 
-from kluctl.utils.k8s_cluster_base import get_k8s_cluster
 from kluctl.utils.k8s_object_utils import split_api_version
 from kluctl.utils.utils import is_iterable, copy_dict
 
@@ -106,9 +105,9 @@ def normalize_service_account(o):
         new_secrets.append(s)
     o["secrets"] = new_secrets
 
-def normalize_metadata(o):
+def normalize_metadata(k8s_cluster, o):
     group, version = split_api_version(o["apiVersion"])
-    api_resource = get_k8s_cluster().get_resource(group, version, o["kind"])
+    api_resource = k8s_cluster.get_resource(group, version, o["kind"])
 
     if 'metadata' not in o:
         return
@@ -143,13 +142,13 @@ def normalize_misc(o):
     del_if_exists(o, 'status')
 
 # Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-def normalize_object(o, ignore_for_diffs):
+def normalize_object(k8s_cluster, o, ignore_for_diffs):
     ns = o['metadata'].get('namespace')
     kind = o['kind']
     name = o['metadata']['name']
 
     o = copy_dict(o)
-    normalize_metadata(o)
+    normalize_metadata(k8s_cluster, o)
     normalize_misc(o)
     if o['kind'] in ['Deployment', 'StatefulSet', 'DaemonSet', 'Job']:
         normalize_containers(o['spec']['template']['spec']['containers'])
@@ -182,7 +181,4 @@ def normalize_object(o, ignore_for_diffs):
             del_matching_path(o, p)
 
     return o
-
-def normalize_objects(objects, ignore_for_diffs):
-    return [normalize_object(x, ignore_for_diffs) for x in objects]
 

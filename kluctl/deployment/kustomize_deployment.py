@@ -5,7 +5,7 @@ import shutil
 
 from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.helm_chart import HelmChart
-from kluctl.seal.seal_cluster import SEALME_EXT
+from kluctl.seal.deployment_sealer import SEALME_EXT
 from kluctl.utils.external_tools import get_external_tool_hash
 from kluctl.utils.kustomize import kustomize_build
 from kluctl.utils.templated_dir import TemplatedDir
@@ -97,10 +97,9 @@ class KustomizeDeployment(object):
         if os.path.exists(os.path.join(self.deployment_project.dir, path, 'helm-chart.yml')):
             # never try to render helm charts
             excluded_patterns.append(os.path.join(path, 'charts/*'))
-        # .sealme and sealme-conf.yml files are rendered while sealing and not while deploying
-        excluded_patterns.append('*.sealme')
-        excluded_patterns.append('sealme-conf.yml')
-        excluded_patterns.append('*/sealme-conf.yml')
+        if not self.deployment_collection.for_seal:
+            # .sealme files are rendered while sealing and not while deploying
+            excluded_patterns.append('*.sealme')
 
         d = TemplatedDir(self.deployment_project.dir, jinja_env, executor, excluded_patterns)
         return d.async_render_subdir(path, rendered_dir)
@@ -140,7 +139,7 @@ class KustomizeDeployment(object):
 
             base_error = 'Failed to resolve SealedSecret %s' % os.path.normpath(os.path.join(self.deployment_project.dir, resource))
             if sealed_secrets_dir is None:
-                raise CommandError('%s\nsealme-conf.yml not present in deployment or any of it\'s parents.' % base_error)
+                raise CommandError('%s\nSealed secrets dir could not be determined.' % base_error)
             source_path = os.path.normpath(os.path.join(base_source_path, self.config["path"], rel_dir, sealed_secrets_dir, fname))
             target_path = os.path.join(rendered_dir, rel_dir, fname)
             if not os.path.exists(source_path):

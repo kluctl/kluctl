@@ -59,10 +59,6 @@ class k8s_cluster_base(object):
                 ret.append((o, warnings))
         return ret
 
-
-k8s_cluster_instance: k8s_cluster_base = None
-cluster = None
-
 def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
     if cluster_name is None:
         raise CommandError("Cluster name must be specified!")
@@ -72,12 +68,10 @@ def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
         raise CommandError("Cluster %s not known" % cluster_name)
     y = yaml_load_file(path)
 
-    global cluster
-    global k8s_cluster_instance
     cluster = y['cluster']
 
     if offline:
-        return
+        return cluster, None
 
     contexts, _ = config.list_kube_config_contexts()
 
@@ -88,10 +82,5 @@ def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
         raise CommandError('Cluster name in %s does not match requested cluster name %s' % (cluster['name'], cluster_name))
 
     from kluctl.utils.k8s_cluster_real import k8s_cluster_real
-    k8s_cluster_instance = k8s_cluster_real(cluster['context'], dry_run)
-
-def get_cluster():
-    return cluster
-
-def get_k8s_cluster():
-    return k8s_cluster_instance
+    k8s_cluster = k8s_cluster_real(cluster['context'], dry_run)
+    return cluster, k8s_cluster

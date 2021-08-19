@@ -6,7 +6,7 @@ from jinja2 import TemplateError
 from yaml import YAMLError
 
 from kluctl.cli.main_cli_group import cli_group
-from kluctl.utils.exceptions import CommandError
+from kluctl.utils.exceptions import CommandError, InvalidKluctlProjectConfig
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,9 @@ def main():
         cli_group(prog_name="kluctl")
     except (CommandError, YAMLError) as e:
         print(e, file=sys.stderr)
+        sys.exit(1)
+    except InvalidKluctlProjectConfig as e:
+        print(e.message, file=sys.stderr)
         sys.exit(1)
     except TemplateError as e:
         etype, value, tb = sys.exc_info()

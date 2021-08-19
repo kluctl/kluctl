@@ -87,6 +87,65 @@ definitions:
             type: string
             description: defaults to 'target-config.yml'
             default: target-config.yml
+      secretSets:
+        type: array
+        items:
+          type: string
+
+  secret_set:
+    type: object
+    additionalProperties: false
+    required:
+      - name
+      - sources
+    properties:
+      name:
+        type: string
+        description: The name of the secret set
+      sources:
+        type: array
+        items:
+          oneOf:
+            - $ref: "#/definitions/secret_source_path"
+            - $ref: "#/definitions/secret_source_passwordstate"
+
+  secret_source_path:
+    type: object
+    additionalProperties: false
+    required:
+      - path
+    properties:
+      path:
+        type: string
+        description: Relative path to secret file
+
+  secret_source_passwordstate:
+    type: object
+    additionalProperties: false
+    required:
+      - passwordstate
+    properties:
+      passwordstate:
+        type: object
+        additionalProperties: false
+        required:
+          - host
+          - passwordList
+          - passwordTitle
+        properties:
+          host:
+            type: string
+            description: Host of the passwordstate instance
+          passwordList:
+            type: string
+            description: Path of the password list
+          passwordTitle:
+            type: string
+            description: Title of the password entry
+          passwordField:
+            type: string
+            description: Field name where to load secret file from
+            default: GenericField1
 
 additionalProperties: false
 required:
@@ -110,3 +169,11 @@ properties:
     type: array
     items:
       $ref: "#/definitions/target"
+  secrets:
+    type: object
+    additionalProperties: false
+    properties:
+      secretSets:
+        type: array
+        items:
+          $ref: "#/definitions/secret_set"

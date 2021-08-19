@@ -6,9 +6,11 @@ import os
 import re
 import shutil
 import tarfile
+from collections import Iterator
 from contextlib import contextmanager
 from io import BytesIO
 from tempfile import TemporaryDirectory
+from typing import ContextManager
 
 import jsonschema
 
@@ -32,6 +34,14 @@ def load_kluctl_project_config(path):
     if "clusters" in config and isinstance(config["clusters"], dict):
         config["clusters"] = [config["clusters"]]
 
+    secret_sets = set()
+    for s in config.get("secrets", {}).get("secretSets", []):
+        secret_sets.add(s["name"])
+    for target in config.get("targets", []):
+        for s in target.get("secretSets", []):
+            if s not in secret_sets:
+                raise InvalidKluctlProjectConfig("secretSet %s from target %s does not exist" % (s, target["name"]))
+
     return config
 
 @dataclasses.dataclass
@@ -41,22 +51,8 @@ class GitProjectInfo:
     commit: str
     dir: str
 
-@contextmanager
-def load_kluctl_project(project_name, project_url, project_ref, config_file,
-                            local_clusters=None, local_deployment=None, local_sealed_secrets=None):
-    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
-        project = KluctlProject(project_name, None, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir)
-        yield project
-
-@contextmanager
-def load_kluctl_project_from_tgz(project_name, tgz_buf):
-    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
-        project = KluctlProject.from_tgz(project_name, tgz_buf, tmp_dir)
-        yield project
-
 class KluctlProject:
-    def __init__(self, project_name, deployment_name, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir):
-        self.project_name = project_name
+    def __init__(self, deployment_name, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir):
         self.deployment_name = deployment_name
         self.project_url = project_url
         self.project_ref = project_ref
@@ -93,13 +89,13 @@ class KluctlProject:
         return buf.getvalue()
 
     @staticmethod
-    def from_tgz(project_name, tgz_buf, tmp_dir):
+    def from_tgz(tgz_buf, tmp_dir):
         with tarfile.open(mode="r:gz", fileobj=BytesIO(tgz_buf)) as tgz:
             tgz.extractall(tmp_dir)
         deployment_dir = os.path.join(tmp_dir, "deployment")
         deployment_name = os.listdir(deployment_dir)[0]
         deployment_dir = os.path.join(deployment_dir, deployment_name)
-        return KluctlProject(project_name, deployment_name, None, None,
+        return KluctlProject(deployment_name, None, None,
                              os.path.join(tmp_dir, ".kluctl.yml"),
                              os.path.join(tmp_dir, "clusters"),
                              deployment_dir,
@@ -162,8 +158,13 @@ class KluctlProject:
     def load(self, allow_git):
         kluctl_project_info = self.clone_kluctl_project()
         if self.config_file is None:
-            self.config_file = os.path.join(kluctl_project_info.dir, ".kluctl.yml")
-        self.config = load_kluctl_project_config(self.config_file)
+            c = os.path.join(kluctl_project_info.dir, ".kluctl.yml")
+            if os.path.exists(c):
+                self.config_file = c
+        if self.config_file is not None:
+            self.config = load_kluctl_project_config(self.config_file)
+        else:
+            self.config = {}
 
         if allow_git:
             self.update_git_caches()
@@ -222,7 +223,7 @@ class KluctlProject:
             do_update("clusters")
             do_update("sealedSecrets")
 
-            for target in self.config["targets"]:
+            for target in self.config.get("targets", []):
                 target_config = target.get("targetConfig")
                 if target_config is None:
                     continue
@@ -241,7 +242,7 @@ class KluctlProject:
         target_names = set()
         self.targets = []
 
-        for base_target in self.config["targets"]:
+        for base_target in self.config.get("targets", []):
             if "targetConfig" not in base_target:
                 dynamic_targets = [copy_dict(base_target)]
             else:
@@ -344,6 +345,9 @@ class KluctlProject:
     def merge_clusters_dirs(self, merged_clusters_dir, clusters_infos):
         os.makedirs(merged_clusters_dir)
         for c in clusters_infos:
+            if not os.path.exists(c.dir):
+                logger.warning("Cluster dir '%s' does not exist" % c.dir)
+                continue
             for f in os.listdir(c.dir):
                 af = os.path.join(c.dir, f)
                 if os.path.isfile(af):
@@ -367,3 +371,32 @@ class KluctlProject:
         arg_pattern = dyn_arg.get("pattern", ".*")
         if not re.match(arg_pattern, arg_value):
             raise Exception(f"Dynamic argument {arg_name} does not match required pattern '{arg_pattern}'")
+
+
+@contextmanager
+def load_kluctl_project(project_url, project_ref, config_file,
+                        local_clusters=None, local_deployment=None, local_sealed_secrets=None) -> ContextManager[KluctlProject]:
+    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
+        project = KluctlProject(None, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir)
+        yield project
+
+@contextmanager
+def load_kluctl_project_from_args(kwargs) -> ContextManager[KluctlProject]:
+    deployment_name = kwargs["deployment_name"]
+    if deployment_name is None:
+        if kwargs["project_url"]:
+            url = parse_git_url(kwargs["project_url"])
+            deployment_name = url.path.split("/")[-1]
+        elif kwargs["local_deployment"]:
+            deployment_name = os.path.basename(kwargs["local_deployment"])
+        else:
+            deployment_name = os.path.basename(os.getcwd())
+    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
+        project = KluctlProject(deployment_name, kwargs["project_url"], kwargs["project_ref"], kwargs["config_file"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
+        yield project
+
+@contextmanager
+def load_kluctl_project_from_tgz(tgz_buf) -> ContextManager[KluctlProject]:
+    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
+        project = KluctlProject.from_tgz(tgz_buf, tmp_dir)
+        yield project

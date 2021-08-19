@@ -17,13 +17,13 @@ high_level_resources_for_delete = [
     "acid.zalan.do",
 ]
 
-def filter_objects_for_delete(objects, api_filter, inclusion, excluded_objects):
-    filtered_resources = get_filtered_api_resources(api_filter)
+def filter_objects_for_delete(k8s_cluster, objects, api_filter, inclusion, excluded_objects):
+    filtered_resources = get_filtered_api_resources(k8s_cluster, api_filter)
     filtered_resources = set((x.group, x.kind) for x in filtered_resources)
 
     # we must ignore api versions when checking excluded objects as k8s might have changed the version after an object
     # was applied
-    excluded_objects = [remove_namespace_from_ref_if_needed(x) for x in excluded_objects]
+    excluded_objects = [remove_namespace_from_ref_if_needed(k8s_cluster, x) for x in excluded_objects]
     excluded_objects = [remove_api_version_from_ref(x) for x in excluded_objects]
 
     inclusion_has_tags = inclusion.has_type("tags")
@@ -74,10 +74,10 @@ def find_objects_for_delete(k8s_cluster, labels, inclusion, excluded_objects):
     all_cluster_objects = [x for x, warnings in all_cluster_objects]
 
     ret = []
-    ret += filter_objects_for_delete(all_cluster_objects, ["Namespace"], inclusion, excluded_objects + ret)
-    ret += filter_objects_for_delete(all_cluster_objects, high_level_resources_for_delete, inclusion, excluded_objects + ret)
-    ret += filter_objects_for_delete(all_cluster_objects, ['Deployment', 'StatefulSet', 'DaemonSet', 'Service', 'Ingress'], inclusion, excluded_objects + ret)
-    ret += filter_objects_for_delete(all_cluster_objects, None, inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(k8s_cluster, all_cluster_objects, ["Namespace"], inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(k8s_cluster, all_cluster_objects, high_level_resources_for_delete, inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(k8s_cluster, all_cluster_objects, ['Deployment', 'StatefulSet', 'DaemonSet', 'Service', 'Ingress'], inclusion, excluded_objects + ret)
+    ret += filter_objects_for_delete(k8s_cluster, all_cluster_objects, None, inclusion, excluded_objects + ret)
     return ret
 
 def delete_objects(k8s_cluster, object_refs, do_wait):

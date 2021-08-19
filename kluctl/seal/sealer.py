@@ -14,10 +14,10 @@ OLD_HASH_ANNOTATION_PREFIX = "kluctl.io/sealedsecret-hashes-"
 HASH_ANNOTATION = "kluctl.io/sealedsecret-hashes"
 
 class Sealer:
-    def __init__(self, cluster, sealed_secrets_namespace, sealed_secrets_controller_name, force_reseal):
-        self.cluster = cluster
+    def __init__(self, cluster_vars, sealed_secrets_namespace, sealed_secrets_controller_name, force_reseal):
+        self.cluster_vars = cluster_vars
         self.force_reseal = force_reseal
-        self.cert = kubeseal_fetch_cert(cluster['context'],
+        self.cert = kubeseal_fetch_cert(cluster_vars['context'],
                                         controller_ns=sealed_secrets_namespace,
                                         controller_name=sealed_secrets_controller_name)
 
@@ -28,7 +28,7 @@ class Sealer:
             f.write(self.cert)
 
     def do_hash(self, key, secret, secret_name, secret_namespace, scope):
-        salt = f"{self.cluster['name']}-{secret_name}-{secret_namespace or '*'}-{key}"
+        salt = f"{self.cluster_vars['name']}-{secret_name}-{secret_namespace or '*'}-{key}"
         if scope != "strict":
             salt += f"-{scope}"
         h = hashlib.scrypt(password=secret, salt=salt.encode("utf-8"), n=16384, r=8, p=1)

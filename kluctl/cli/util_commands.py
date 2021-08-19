@@ -7,10 +7,10 @@ import sys
 import click
 from git import Git
 
-from kluctl.cli.commands import output_yaml_result, load_deployment_collection
+from kluctl.cli.commands import output_yaml_result
+from kluctl.cli.utils import project_command_context
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.image_registries import init_image_registries
-from kluctl.utils.k8s_cluster_base import load_cluster_config
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
 from kluctl.utils.pretty_table import pretty_table
 from kluctl.utils.utils import MyThreadPoolExecutor
@@ -103,19 +103,15 @@ def helm_update_command(upgrade, commit, kwargs):
                         g.commit("-m", msg, os.path.join(dirpath, "charts"), path)
 
 def check_image_updates(obj, kwargs):
-    cluster_dir = obj["cluster_dir"]
-    cluster_name = obj["cluster_name"]
-    load_cluster_config(cluster_dir, cluster_name, offline=True)
-
-    with load_deployment_collection(kwargs) as (d, c, images):
-        images.no_kubernetes = True
-        images.raise_on_error = False
-        c.render_deployments()
-        c.build_kustomize_objects()
+    with project_command_context(kwargs) as cmd_ctx:
+        cmd_ctx.images.no_kubernetes = True
+        cmd_ctx.images.raise_on_error = False
+        cmd_ctx.deployment_collection.render_deployments()
+        cmd_ctx.deployment_collection.build_kustomize_objects()
+        rendered_images = cmd_ctx.deployment_collection.find_rendered_images()
 
     prefix_pattern = re.compile(r"^([a-zA-Z]+[a-zA-Z-_.]*)")
     suffix_pattern = re.compile(r"([-][a-zA-Z]+[a-zA-Z-_.]*)$")
-    rendered_images = c.find_rendered_images()
 
     all_repos = set(itertools.chain.from_iterable(rendered_images.values()))
     all_repos = set(x.split(":", 1)[0] for x in all_repos if ":" in x)

@@ -13,8 +13,8 @@ class Images(object):
         self.k8s_cluster = k8s_cluster
         self.image_registries = image_registries
         self.update_images = False
-        self.no_registries = False
-        self.no_kubernetes = False
+        self.no_registries = image_registries is None
+        self.no_kubernetes = k8s_cluster is None
         self.raise_on_error = False
         self.image_tags_cache = ThreadSafeMultiCache()
         self.k8s_object_cache = ThreadSafeMultiCache()

@@ -2,9 +2,11 @@ import contextlib
 import dataclasses
 import os
 import tempfile
+from typing import ContextManager
 
 import click
 
+from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args, KluctlProject
 from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.deployment_collection import DeploymentCollection
 from kluctl.deployment.deployment_project import DeploymentProject
@@ -14,24 +16,26 @@ from kluctl.image_registries import init_image_registries
 from kluctl.deployment.images import Images
 from kluctl.utils.external_args import parse_args
 from kluctl.utils.inclusion import Inclusion
-from kluctl.utils.k8s_cluster_base import get_cluster, get_k8s_cluster
+from kluctl.utils.k8s_cluster_base import load_cluster_config, k8s_cluster_base
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
-from kluctl.utils.utils import get_tmp_base_dir
+from kluctl.utils.utils import get_tmp_base_dir, copy_dict, merge_dict
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump
 
 
-def build_jinja_vars():
+def build_jinja_vars(cluster_vars, secrets):
     jinja_vars = {
-        'cluster': get_cluster(),
+        'cluster': cluster_vars,
     }
+    if secrets is not None:
+        jinja_vars["secrets"] = secrets
 
     return jinja_vars
 
-def build_deploy_images(force_offline, kwargs):
+def build_deploy_images(k8s_cluster, force_offline, kwargs):
     image_registries = None
     if not kwargs.get("no_registries", False):
         image_registries = init_image_registries()
-    images = Images(get_k8s_cluster(), image_registries)
+    images = Images(k8s_cluster, image_registries)
     offline = force_offline or kwargs.get("offline", False)
     images.update_images = kwargs.get("update_images", False) and not offline
     images.no_registries = kwargs.get("no_registries", False) or offline
@@ -84,24 +88,74 @@ def parse_inclusion(kwargs):
         inclusion.add_exclude("kustomize_dir", dir)
     return inclusion
 
+@dataclasses.dataclass
+class CommandContext:
+    kluctl_project: KluctlProject
+    target: dict
+    cluster_vars: dict
+    k8s_cluster: k8s_cluster_base
+    deployment: DeploymentProject
+    deployment_collection: DeploymentCollection
+    images: Images
+
 @contextlib.contextmanager
-def load_deployment_collection(kwargs, output_dir=None, force_offline_images=False):
-    jinja_vars = build_jinja_vars()
-    images = build_deploy_images(force_offline_images, kwargs)
-    deploy_args = parse_args(kwargs.get("arg", []))
-    sealed_secrets_dir = kwargs.get("sealed_secrets_dir")
+def project_command_context(kwargs,
+                            output_dir=None,
+                            force_offline_images=False,
+                            force_offline_kubernetes=False) -> ContextManager[CommandContext]:
+    with load_kluctl_project_from_args(kwargs) as kluctl_project:
+        kluctl_project.load(True)
+        kluctl_project.load_targets()
+
+        target = None
+        if kwargs["target"]:
+            target = kluctl_project.find_target(kwargs["target"])
+
+        with project_target_command_context(kwargs, kluctl_project, target, output_dir=output_dir,
+                                            force_offline_images=force_offline_images,
+                                            force_offline_kubernetes=force_offline_kubernetes) as cmd_ctx:
+            yield cmd_ctx
+
+@contextlib.contextmanager
+def project_target_command_context(kwargs, kluctl_project, target,
+                                   output_dir=None,
+                                   force_offline_images=False,
+                                   force_offline_kubernetes=False,
+                                   for_seal=False,
+                                   secrets=None) -> ContextManager[CommandContext]:
+
+    cluster_name = kwargs["cluster"]
+    if not cluster_name:
+        if not target:
+            raise CommandError("You must specify an existing --cluster when not providing a --target")
+        cluster_name = target["cluster"]
+
+    cluster_vars, k8s_cluster = load_cluster_config(kluctl_project.clusters_dir, cluster_name,
+                                                    dry_run=kwargs.get("dry_run", True),
+                                                    offline=force_offline_kubernetes)
+
+    jinja_vars = build_jinja_vars(cluster_vars, secrets)
+    images = build_deploy_images(k8s_cluster, force_offline_images, kwargs)
     inclusion = parse_inclusion(kwargs)
+
+    option_args = parse_args(kwargs.get("arg", []))
+    target_args = target.get("args", {}) if target else {}
+    deploy_args = merge_dict(target_args, option_args)
+
     with tempfile.TemporaryDirectory(dir=get_tmp_base_dir()) as tmpdir:
         if output_dir is None:
             output_dir = tmpdir
-        d = DeploymentProject(kwargs["deployment"], kwargs["deployment_name"], jinja_vars, deploy_args, sealed_secrets_dir)
-        c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=output_dir)
+        d = DeploymentProject(kluctl_project.deployment_dir, kluctl_project.deployment_name, jinja_vars, deploy_args, kluctl_project.sealed_secrets_dir)
+        c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=output_dir, for_seal=for_seal)
 
         fixed_images = load_fixed_images(kwargs)
         for fi in fixed_images:
             c.seen_images.add_fixed_image(fi)
 
-        yield d, c, images
+        ctx = CommandContext(kluctl_project=kluctl_project, target=target,
+                             cluster_vars=cluster_vars, k8s_cluster=k8s_cluster,
+                             deployment=d, deployment_collection=c, images=images)
+        yield ctx
 
 def build_diff_result(c, deploy_diff_result, deleted_objects, format):
     if format == "diff":
