@@ -137,7 +137,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
 
     option_args = parse_args(kwargs.get("arg", []))
     target_args = target.get("args", {}) if target else {}
-    seal_args = target.get("sealingConfig", {}).get("args", {})
+    seal_args = target.get("sealingConfig", {}).get("args", {}) if target else {}
     deploy_args = merge_dict(target_args, option_args)
     if for_seal:
         merge_dict(deploy_args, seal_args, False)

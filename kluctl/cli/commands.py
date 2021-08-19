@@ -1,11 +1,13 @@
 import logging
 import logging
+import os
 import sys
 import tempfile
 import time
 
 import click
 
+from kluctl import get_kluctl_package_dir
 from kluctl.cli.utils import output_diff_result, build_seen_images, output_yaml_result, \
     output_validate_result, project_command_context
 from kluctl.utils.exceptions import CommandError
@@ -14,6 +16,15 @@ from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
 from kluctl.utils.utils import get_tmp_base_dir, duration
 
 logger = logging.getLogger(__name__)
+
+
+def bootstrap_command(obj, kwargs):
+    bootstrap_path = os.path.join(get_kluctl_package_dir(), "bootstrap")
+
+    kwargs["local_deployment"] = bootstrap_path
+    kwargs["full_diff_after_deploy"] = False
+    deploy_command(obj, kwargs)
+    purge_command(obj, kwargs)
 
 def deploy_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
@@ -34,7 +45,6 @@ def deploy_command(obj, kwargs):
             output_diff_result([kwargs["full_diff_after_deploy"]], cmd_ctx.deployment_collection, diff_result, deleted_objects)
             if diff_result.errors:
                 sys.exit(1)
-    sys.exit(0)
 
 def diff_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:

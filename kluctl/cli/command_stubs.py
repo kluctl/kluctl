@@ -3,6 +3,14 @@ from click_option_group import optgroup
 
 from kluctl.cli.main_cli_group import cli_group, kluctl_project_args, misc_arguments, image_args, include_exclude_args
 
+@cli_group.command("bootstrap", help="Bootstrap a target cluster. This will install the sealed-secrets operator into the specified cluster if not already installed.")
+@kluctl_project_args(with_a=False)
+@misc_arguments(yes=True, dry_run=True, parallel=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
+@click.pass_obj
+def bootstrap_command_stub(obj, **kwargs):
+    from kluctl.cli.commands import bootstrap_command
+    bootstrap_command(obj, kwargs)
+
 @cli_group.command("deploy", help="Perform a deployment")
 @kluctl_project_args()
 @image_args()

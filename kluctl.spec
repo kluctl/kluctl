@@ -5,10 +5,9 @@ import os
 block_cipher = None
 
 datas = []
-data_extensions = [".yml", ".jinja2"]
-for dirpath, dirnames, filenames in os.walk("."):
+for dirpath, dirnames, filenames in os.walk("./kluctl"):
     for f in filenames:
-        if not any(f.lower().endswith(e) for e in data_extensions):
+        if f.endswith(".py") or f.endswith(".pyc"):
             continue
         p = os.path.join(dirpath, f)
         datas.append((p, dirpath))
