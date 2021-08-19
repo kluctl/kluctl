@@ -15,15 +15,15 @@ class SecretsLoader:
         self.secrets_dir = secrets_dir
         self.passwordstate = Passwordstate()
 
-    def load_secrets(self, secrets_entry):
-        if "path" in secrets_entry:
-            return self.load_secrets_file(secrets_entry)
-        if "passwordstate" in secrets_entry:
-            return self.load_secrets_passwordstate(secrets_entry)
+    def load_secrets(self, secrets_source):
+        if "path" in secrets_source:
+            return self.load_secrets_file(secrets_source)
+        if "passwordstate" in secrets_source:
+            return self.load_secrets_passwordstate(secrets_source)
         raise InvalidKluctlProjectConfig("Invalid secrets entry")
 
-    def load_secrets_file(self, secrets_entry):
-        secrets_path = secrets_entry["path"]
+    def load_secrets_file(self, secrets_source):
+        secrets_path = secrets_source["path"]
         path = None
         if os.path.exists(os.path.join(self.kluctl_project.deployment_dir, secrets_path)):
             path = os.path.join(self.kluctl_project.deployment_dir, secrets_path)
@@ -36,8 +36,8 @@ class SecretsLoader:
         secrets = yaml_load_file(path)
         return secrets.get('secrets', {})
 
-    def load_secrets_passwordstate(self, secrets_entry):
-        ps = secrets_entry["passwordstate"]
+    def load_secrets_passwordstate(self, secrets_source):
+        ps = secrets_source["passwordstate"]
         host = ps["host"]
         if "documentId" in ps:
             document_id = ps["documentId"]
