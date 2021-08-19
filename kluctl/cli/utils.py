@@ -22,12 +22,10 @@ from kluctl.utils.utils import get_tmp_base_dir, copy_dict, merge_dict
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump
 
 
-def build_jinja_vars(cluster_vars, secrets):
+def build_jinja_vars(cluster_vars):
     jinja_vars = {
         'cluster': cluster_vars,
     }
-    if secrets is not None:
-        jinja_vars["secrets"] = secrets
 
     return jinja_vars
 
@@ -121,8 +119,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
                                    output_dir=None,
                                    force_offline_images=False,
                                    force_offline_kubernetes=False,
-                                   for_seal=False,
-                                   secrets=None) -> ContextManager[CommandContext]:
+                                   for_seal=False) -> ContextManager[CommandContext]:
 
     cluster_name = kwargs["cluster"]
     if not cluster_name:
@@ -134,13 +131,16 @@ def project_target_command_context(kwargs, kluctl_project, target,
                                                     dry_run=kwargs.get("dry_run", True),
                                                     offline=force_offline_kubernetes)
 
-    jinja_vars = build_jinja_vars(cluster_vars, secrets)
+    jinja_vars = build_jinja_vars(cluster_vars)
     images = build_deploy_images(k8s_cluster, force_offline_images, kwargs)
     inclusion = parse_inclusion(kwargs)
 
     option_args = parse_args(kwargs.get("arg", []))
     target_args = target.get("args", {}) if target else {}
+    seal_args = target.get("sealingConfig", {}).get("args", {})
     deploy_args = merge_dict(target_args, option_args)
+    if for_seal:
+        merge_dict(deploy_args, seal_args, False)
 
     with tempfile.TemporaryDirectory(dir=get_tmp_base_dir()) as tmpdir:
         if output_dir is None:

@@ -44,10 +44,8 @@ class DeploymentProject(object):
 
     def build_jinja2_env(self, jinja_vars):
         dirs = []
-        d = self
-        while d is not None:
+        for d, _ in self.get_parents():
             dirs.append(d.dir)
-            d = d.parent_collection
         cache = FileSystemBytecodeCache()
         environment = RelEnvironment(loader=FileSystemLoader(dirs), undefined=StrictUndefined,
                                      cache_size=10000,
@@ -159,6 +157,16 @@ class DeploymentProject(object):
             inc = d.parent_collection_include
             d = d.parent_collection
         return parents
+
+    def get_children(self, recursive, include_self):
+        children = []
+        if include_self:
+            children.append(self)
+        for d in self.includes:
+            children.append(d)
+            if recursive:
+                children += d.get_children(True, False)
+        return children
 
     def get_common_labels(self):
         ret = {}

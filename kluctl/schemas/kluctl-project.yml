@@ -87,10 +87,22 @@ definitions:
             type: string
             description: defaults to 'target-config.yml'
             default: target-config.yml
-      secretSets:
-        type: array
-        items:
-          type: string
+      sealingConfig:
+        type: object
+        additionalProperties: false
+        properties:
+          dynamicSealing:
+            type: boolean
+            description: Set this to false if you want to disable sealing for every dynamic target
+            default: true
+          args:
+            type: object
+            additionalProperties:
+              type: string
+          secretSets:
+            type: array
+            items:
+              type: string
 
   secret_set:
     type: object
@@ -161,15 +173,11 @@ properties:
       - type: array
         items:
           $ref: "#/definitions/external_project"
-  sealArgs:
-    type: object
-    additionalProperties:
-      type: string
   targets:
     type: array
     items:
       $ref: "#/definitions/target"
-  secrets:
+  secretsConfig:
     type: object
     additionalProperties: false
     properties:

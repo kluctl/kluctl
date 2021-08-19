@@ -316,6 +316,7 @@ class KluctlProject:
             try:
                 target_config_file = self.load_target_config(config_path)
                 target = copy_dict(base_target)
+                target["baseTarget"] = base_target
                 target["targetConfig"]["ref"] = ref
                 target["targetConfig"]["defaultBranch"] = default_branch
 
