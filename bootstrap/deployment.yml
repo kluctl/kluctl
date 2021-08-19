@@ -3,8 +3,8 @@ kustomizeDirs:
 - path: sealed-secrets
 
 commonLabels:
-  kluctl/component: bootstrap
-  kluctl/cluster-name: {{ cluster.name }}
+  kluctl.io/component: bootstrap
+  kluctl.io/cluster-name: {{ cluster.name }}
 
 deleteByLabels:
-  kluctl/component: bootstrap
+  kluctl.io/component: bootstrap
