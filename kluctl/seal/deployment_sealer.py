@@ -35,9 +35,10 @@ class DeploymentSealer:
             target_dir = os.path.join(self.sealed_secrets_dir, self.deployment_project.deployment_name, rel_dir)
             for f in filenames:
                 if f.endswith(SEALME_EXT):
+                    source_file = os.path.join(dirpath, f)
                     target_file = os.path.join(target_dir, output_suffix, f)
                     target_file = target_file[:-len(SEALME_EXT)]
-                    self.seal_file(os.path.join(rel_dir, f), target_file)
+                    self.seal_file(source_file, target_file)
 
     def seal_file(self, source_file, target_file):
         try:
