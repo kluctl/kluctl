@@ -18,7 +18,8 @@ from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_proj
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig
 from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
     get_git_ref
-from kluctl.utils.jinja2_utils import render_str
+from kluctl.utils.jinja2_utils import render_str, render_dict_strs
+from kluctl.utils.k8s_cluster_base import load_cluster_config
 from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor, copy_dict
 from kluctl.utils.yaml_utils import yaml_load_file
 
@@ -252,18 +253,36 @@ class KluctlProject:
                 dynamic_targets = self.build_dynamic_targets(base_target)
 
             for dt in dynamic_targets:
-                jinja2_vars = {
-                    "target": dt
-                }
-                dt["name"] = render_str(dt["name"], jinja2_vars)
-                for arg_name in dt.get("args", {}).keys():
-                    dt["args"][arg_name] = render_str(dt["args"][arg_name], jinja2_vars)
+                dt2 = self.render_target(dt)
 
-                if dt["name"] in target_names:
-                    logger.warning("Duplicate target %s" % dt["name"])
+                if dt2["name"] in target_names:
+                    logger.warning("Duplicate target %s" % dt2["name"])
                 else:
-                    target_names.add(dt["name"])
-                    self.targets.append(dt)
+                    target_names.add(dt2["name"])
+                    self.targets.append(dt2)
+
+    def render_target(self, target):
+        errors = []
+        # Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
+        # to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
+        for i in range(10):
+            jinja2_vars = {
+                "target": target
+            }
+            try:
+                # Try to load cluster vars. This might fail in case jinja templating is used in the cluster name
+                # of the target. We assume that this will then succeed in a later iteration
+                cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"], offline=True)
+                jinja2_vars["cluster"] = cluster_vars
+            except:
+                pass
+            target2, errors = render_dict_strs(target, jinja2_vars, do_raise=False)
+            if not errors and target == target2:
+                break
+            target = target2
+        if errors:
+            raise errors[0]
+        return target
 
     def build_dynamic_targets(self, base_target):
         target_config = base_target["targetConfig"]

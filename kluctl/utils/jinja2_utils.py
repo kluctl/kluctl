@@ -7,7 +7,7 @@ import sys
 import traceback
 
 import jinja2
-from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound
+from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound, TemplateError
 
 from kluctl.utils.utils import merge_dict, is_iterable
 from kluctl.utils.yaml_utils import yaml_dump, yaml_load
@@ -120,20 +120,34 @@ def render_str(s, jinja_vars):
     t = e.from_string(s)
     return t.render()
 
-def render_dict_strs(d, jinja_vars):
+def render_dict_strs2(d, jinja_vars, errors):
     if isinstance(d, dict):
         ret = {}
         for n, v in d.items():
-            ret[n] = render_dict_strs(v, jinja_vars)
+            ret[n] = render_dict_strs2(v, jinja_vars, errors)
         return ret
-    if isinstance(d, list):
+    elif isinstance(d, list):
         ret = []
         for v in d:
-            ret.append(render_dict_strs(v, jinja_vars))
+            ret.append(render_dict_strs2(v, jinja_vars, errors))
         return ret
-    if isinstance(d, str):
-        return render_str(d, jinja_vars)
-    return d
+    elif isinstance(d, str):
+        try:
+            return render_str(d, jinja_vars)
+        except TemplateError as e:
+            errors.append(e)
+            return d
+    else:
+        return d
+
+def render_dict_strs(d, jinja_vars, do_raise=True):
+    errors = []
+    ret = render_dict_strs2(d, jinja_vars, errors)
+    if do_raise:
+        if errors:
+            raise errors[0]
+        return ret
+    return ret, errors
 
 def render_file(root_dir, path, jinja_vars):
     e = RelEnvironment(loader=FileSystemLoader(root_dir), undefined=StrictUndefined)
