@@ -10,7 +10,6 @@ from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump, yaml_load
 
 logger = logging.getLogger(__name__)
 
-OLD_HASH_ANNOTATION_PREFIX = "kluctl.io/sealedsecret-hashes-"
 HASH_ANNOTATION = "kluctl.io/sealedsecret-hashes"
 
 class Sealer:
@@ -61,11 +60,6 @@ class Sealer:
             existing_annotations = existing_content.get("metadata", {}).get("annotations", {})
             if HASH_ANNOTATION in existing_annotations:
                 existing_hashes = yaml_load(existing_annotations[HASH_ANNOTATION])
-            else:
-                # TODO remove this after some time
-                for k, v in existing_annotations.items():
-                    if k.startswith(OLD_HASH_ANNOTATION_PREFIX):
-                        existing_hashes[k[len(OLD_HASH_ANNOTATION_PREFIX):]] = v
 
         secrets = {}
         for k, v in content.get("data", {}).items():
