@@ -7,20 +7,19 @@ import re
 import shutil
 import tarfile
 from contextlib import contextmanager
-from io import BytesIO
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 from typing import ContextManager
 
 import jsonschema
 
 from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_project, target_config_schema
-from kluctl.utils.exceptions import InvalidKluctlProjectConfig
+from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
 from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
     get_git_ref
 from kluctl.utils.jinja2_utils import render_dict_strs
 from kluctl.utils.k8s_cluster_base import load_cluster_config
 from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor, copy_dict
-from kluctl.utils.yaml_utils import yaml_load_file
+from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
 logger = logging.getLogger(__name__)
 
@@ -69,39 +68,51 @@ class KluctlProject:
         self.git_cache_up_to_date = {}
         self.refs_for_urls = {}
 
-    def create_tgz(self):
-        buf = BytesIO()
-        with gzip.GzipFile(mode="wb", compresslevel=9, fileobj=buf, mtime=0) as gz:
-            with tarfile.TarFile.taropen("", mode="w", fileobj=gz) as tar:
-                def mf_filter(ti: tarfile.TarInfo):
-                    if ".git" in os.path.split(ti.name):
-                        return None
-                    # make the tar reproducible (always same hash)
-                    ti.uid = 0
-                    ti.gid = 0
-                    ti.mtime = 0
-                    return ti
+    def create_tgz(self, path, reproducible):
+        with open(path, mode="wb") as f:
+            with gzip.GzipFile(mode="wb", compresslevel=9, fileobj=f, mtime=0) as gz:
+                with tarfile.TarFile.taropen("", mode="w", fileobj=gz) as tar:
+                    def mf_filter(ti: tarfile.TarInfo):
+                        if ".git" in os.path.split(ti.name):
+                            return None
+                        if reproducible:
+                            # make the tar reproducible (always same hash)
+                            ti.uid = 0
+                            ti.gid = 0
+                            ti.mtime = 0
+                        return ti
 
-                tar.add(self.config_file, ".kluctl.yml", filter=mf_filter)
-                tar.add(self.deployment_dir, "deployment/%s" % os.path.basename(self.deployment_dir), True, filter=mf_filter)
-                tar.add(self.clusters_dir, "clusters", True, filter=mf_filter)
-                tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
-
-        return buf.getvalue()
+                    metadata_yaml = {
+                        "involved_repos": self.involved_repos,
+                        "targets": self.targets,
+                    }
+                    with NamedTemporaryFile(dir=get_tmp_base_dir()) as tmp:
+                        yaml_save_file(metadata_yaml, tmp.name)
+                        tar.add(tmp.name, "metadata.yml", filter=mf_filter)
+                    tar.add(self.config_file, ".kluctl.yml", filter=mf_filter)
+                    tar.add(self.deployment_dir, "deployment/%s" % os.path.basename(self.deployment_dir), True, filter=mf_filter)
+                    tar.add(self.clusters_dir, "clusters", True, filter=mf_filter)
+                    tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
 
     @staticmethod
-    def from_tgz(tgz_buf, tmp_dir):
-        with tarfile.open(mode="r:gz", fileobj=BytesIO(tgz_buf)) as tgz:
-            tgz.extractall(tmp_dir)
+    def from_tgz(path, tmp_dir):
+        with open(path, mode="rb") as f:
+            with tarfile.open(mode="r:gz", fileobj=f) as tgz:
+                tgz.extractall(tmp_dir)
         deployment_dir = os.path.join(tmp_dir, "deployment")
         deployment_name = os.listdir(deployment_dir)[0]
         deployment_dir = os.path.join(deployment_dir, deployment_name)
-        return KluctlProject(deployment_name, None, None,
-                             os.path.join(tmp_dir, ".kluctl.yml"),
-                             os.path.join(tmp_dir, "clusters"),
-                             deployment_dir,
-                             os.path.join(tmp_dir, "sealed-secrets"),
-                             tmp_dir)
+        project = KluctlProject(deployment_name, None, None,
+                                os.path.join(tmp_dir, ".kluctl.yml"),
+                                os.path.join(tmp_dir, "clusters"),
+                                deployment_dir,
+                                os.path.join(tmp_dir, "sealed-secrets"),
+                                tmp_dir)
+
+        metadata = yaml_load_file(os.path.join(tmp_dir, "metadata.yml"))
+        project.involved_repos = metadata["involved_repos"]
+        project.targets = metadata["targets"]
+        return project
 
     def build_clone_dir(self, url):
         url = parse_git_url(url)
@@ -404,21 +415,23 @@ def load_kluctl_project(project_url, project_ref, config_file,
 
 @contextmanager
 def load_kluctl_project_from_args(kwargs) -> ContextManager[KluctlProject]:
-    deployment_name = kwargs["deployment_name"]
-    if deployment_name is None:
-        if kwargs["project_url"]:
-            url = parse_git_url(kwargs["project_url"])
-            deployment_name = url.path.split("/")[-1]
-        elif kwargs["local_deployment"]:
-            deployment_name = os.path.basename(kwargs["local_deployment"])
+    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
+        if kwargs["from_archive"]:
+            if any(kwargs[x] for x in ["project_url", "project_ref", "project_config", "local_clusters", "local_deployment", "local_sealed_secrets"]):
+                raise CommandError("--from-archive can not be combined with any other project related option")
+            project = KluctlProject.from_tgz(kwargs["from_archive"], tmp_dir)
+            project.load(False)
         else:
-            deployment_name = os.path.basename(os.getcwd())
-    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
-        project = KluctlProject(deployment_name, kwargs["project_url"], kwargs["project_ref"], kwargs["project_config"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
-        yield project
-
-@contextmanager
-def load_kluctl_project_from_tgz(tgz_buf) -> ContextManager[KluctlProject]:
-    with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
-        project = KluctlProject.from_tgz(tgz_buf, tmp_dir)
+            deployment_name = kwargs["deployment_name"]
+            if deployment_name is None:
+                if kwargs["project_url"]:
+                    url = parse_git_url(kwargs["project_url"])
+                    deployment_name = url.path.split("/")[-1]
+                elif kwargs["local_deployment"]:
+                    deployment_name = os.path.basename(kwargs["local_deployment"])
+                else:
+                    deployment_name = os.path.basename(os.getcwd())
+            project = KluctlProject(deployment_name, kwargs["project_url"], kwargs["project_ref"], kwargs["project_config"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
+            project.load(True)
+            project.load_targets()
         yield project

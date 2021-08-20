@@ -140,3 +140,19 @@ def list_images_command_stub(obj, **kwargs):
 def list_targets_stub(obj, **kwargs):
     from kluctl.cli.commands import list_targets_command
     list_targets_command(obj, kwargs)
+
+@cli_group.command("archive",
+                   help="Write project and all related components into single tgz.\n\n"
+                        "This archive can then be used with `--from-archive`.")
+@kluctl_project_args()
+@optgroup.group("Misc arguments")
+@optgroup.option("--output",
+                 help="Path to .tgz to write project to.",
+                 type=click.Path(file_okay=True))
+@optgroup.option("--reproducible",
+                 help="Make .tgz reproducible.",
+                 is_flag=True)
+@click.pass_obj
+def archive_command_stub(obj, **kwargs):
+    from kluctl.cli.commands import archive_command
+    archive_command(obj, kwargs)

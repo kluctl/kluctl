@@ -48,9 +48,6 @@ def seal_command_for_target(kwargs, kluctl_project, target, sealing_config, secr
 
 def seal_command(obj, kwargs):
     with load_kluctl_project_from_args(kwargs) as kluctl_project:
-        kluctl_project.load(True)
-        kluctl_project.load_targets()
-
         secrets_loader = SecretsLoader(kluctl_project, kwargs["secrets_dir"])
 
         base_targets = []

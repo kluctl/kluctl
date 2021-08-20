@@ -102,9 +102,6 @@ def project_command_context(kwargs,
                             force_offline_images=False,
                             force_offline_kubernetes=False) -> ContextManager[CommandContext]:
     with load_kluctl_project_from_args(kwargs) as kluctl_project:
-        kluctl_project.load(True)
-        kluctl_project.load_targets()
-
         target = None
         if kwargs["target"]:
             target = kluctl_project.find_target(kwargs["target"])

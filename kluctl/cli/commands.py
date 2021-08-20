@@ -15,7 +15,6 @@ from kluctl.utils.exceptions import CommandError
 from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref, ObjectRef
 from kluctl.utils.utils import get_tmp_base_dir, duration
-from kluctl.utils.yaml_utils import yaml_dump
 
 logger = logging.getLogger(__name__)
 
@@ -149,12 +148,13 @@ def list_images_command(obj, kwargs):
 
 def list_targets_command(obj, kwargs):
     with load_kluctl_project_from_args(kwargs) as kluctl_project:
-        kluctl_project.load(True)
-        kluctl_project.load_targets()
-
         result = {
             "involved_repos": kluctl_project.involved_repos,
             "targets": kluctl_project.targets,
         }
 
         output_yaml_result(kwargs["output"], result)
+
+def archive_command(obj, kwargs):
+    with load_kluctl_project_from_args(kwargs) as kluctl_project:
+        kluctl_project.create_tgz(kwargs["output"], kwargs["reproducible"])

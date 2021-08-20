@@ -23,6 +23,7 @@ The following sets of common arguments are available:
     --local-deployment DIRECTORY  Local deployment directory. Overrides the project from .kluctl.yml
     --local-sealed-secrets DIRECTORY
                                   Local sealed-secrets directory. Overrides the project from .kluctl.yml
+    --from-archive FILE           Load project (.kluctl.yml, cluster, ...) from archive.
     --deployment-name TEXT        Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the
                                   base name of --local-deployment/--project-url
     --cluster TEXT                Specify/Override cluster
@@ -448,5 +449,24 @@ The following arguments are available:
 ```
   Misc arguments: 
     -o, --output TEXT             Specify output target file. Can be specified multiple times
+```
+<!-- END SECTION -->
+
+## archive
+<!-- BEGIN SECTION "archive" "Usage" false -->
+Usage: kluctl archive [OPTIONS]
+
+  Write project and all related components into single tgz.
+
+  This archive can then be used with `--from-archive`.
+
+<!-- END SECTION -->
+
+The following arguments are available:
+<!-- BEGIN SECTION "archive" "Misc arguments" true -->
+```
+  Misc arguments: 
+    --output PATH                 Path to .tgz to write project to.
+    --reproducible                Make .tgz reproducible.
 ```
 <!-- END SECTION -->
