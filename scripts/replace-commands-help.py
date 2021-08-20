@@ -48,7 +48,7 @@ def count_indent(str):
     return indent
 
 def get_help_section(command, section):
-    logger.info("Getting section '%s' from command '%s" % (section, command))
+    logger.info("Getting section '%s' from command '%s'" % (section, command))
 
     args = ["kluctl"]
     if command:
