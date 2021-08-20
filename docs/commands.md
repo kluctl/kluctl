@@ -434,3 +434,19 @@ The following arguments are available:
     --image TEXT       Name of the image. Can be specified multiple times  [required]
 ```
 <!-- END SECTION -->
+
+## list-targets
+<!-- BEGIN SECTION "list-targets" "Usage" false -->
+Usage: kluctl list-targets [OPTIONS]
+
+  Outputs a yaml list with all target, including dynamic targets
+
+<!-- END SECTION -->
+
+The following arguments are available:
+<!-- BEGIN SECTION "list-targets" "Misc arguments" true -->
+```
+  Misc arguments: 
+    -o, --output TEXT             Specify output target file. Can be specified multiple times
+```
+<!-- END SECTION -->

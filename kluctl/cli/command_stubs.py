@@ -131,3 +131,12 @@ def render_command_stub(obj, **kwargs):
 def list_images_command_stub(obj, **kwargs):
     from kluctl.cli.commands import list_images_command
     list_images_command(obj, kwargs)
+
+@cli_group.command("list-targets",
+                   help="Outputs a yaml list with all target, including dynamic targets")
+@kluctl_project_args()
+@misc_arguments(output=True)
+@click.pass_obj
+def list_targets_stub(obj, **kwargs):
+    from kluctl.cli.commands import list_targets_command
+    list_targets_command(obj, kwargs)

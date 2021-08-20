@@ -10,10 +10,12 @@ import click
 from kluctl import get_kluctl_package_dir
 from kluctl.cli.utils import output_diff_result, build_seen_images, output_yaml_result, \
     output_validate_result, project_command_context
+from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref, ObjectRef
 from kluctl.utils.utils import get_tmp_base_dir, duration
+from kluctl.utils.yaml_utils import yaml_dump
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +146,10 @@ def list_images_command(obj, kwargs):
         }
 
         output_yaml_result(kwargs["output"], result)
+
+def list_targets_command(obj, kwargs):
+    with load_kluctl_project_from_args(kwargs) as kluctl_project:
+        kluctl_project.load(True)
+        kluctl_project.load_targets()
+
+        output_yaml_result(kwargs["output"], kluctl_project.targets)
