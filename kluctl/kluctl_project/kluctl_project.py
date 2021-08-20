@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import tarfile
-from collections import Iterator
 from contextlib import contextmanager
 from io import BytesIO
 from tempfile import TemporaryDirectory
@@ -18,7 +17,7 @@ from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_proj
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig
 from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
     get_git_ref
-from kluctl.utils.jinja2_utils import render_str, render_dict_strs
+from kluctl.utils.jinja2_utils import render_dict_strs
 from kluctl.utils.k8s_cluster_base import load_cluster_config
 from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor, copy_dict
 from kluctl.utils.yaml_utils import yaml_load_file
