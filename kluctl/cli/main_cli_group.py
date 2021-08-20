@@ -154,6 +154,9 @@ def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, 
         options.append(optgroup.option("--ignore-labels",
                                        help="Ignores changes in labels when diffing",
                                        default=False, is_flag=True))
+        options.append(optgroup.option("--ignore-annotations",
+                                       help="Ignores changes in annotations when diffing",
+                                       default=False, is_flag=True))
     if ignore_order:
         options.append(optgroup.option("--ignore-order",
                                        help="Ignores changes in order when diffing",

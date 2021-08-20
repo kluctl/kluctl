@@ -131,17 +131,17 @@ class DeploymentCollection:
         self.build_kustomize_objects()
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          False, not parallel, abort_on_error)
-        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False)
+        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
-    def diff(self, k8s_cluster, force_apply, replace_on_error, ignore_tags, ignore_labels, ignore_order):
+    def diff(self, k8s_cluster, force_apply, replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
         self.render_deployments()
         self.build_kustomize_objects()
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          True, False, False)
-        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_order)
+        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
@@ -283,7 +283,7 @@ class DeploymentCollection:
 
         return self.do_patch(k8s_cluster, force_apply, replace_on_error, dry_run, ordered, abort_on_error)
 
-    def do_diff(self, k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_order):
+    def do_diff(self, k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         diff_objects = {}
         normalized_diff_objects = {}
         normalized_remote_objects = {}
@@ -291,7 +291,7 @@ class DeploymentCollection:
             if not d.check_inclusion_for_deploy():
                 continue
 
-            ignore_for_diffs = d.deployment_project.get_ignore_for_diffs(ignore_tags, ignore_labels)
+            ignore_for_diffs = d.deployment_project.get_ignore_for_diffs(ignore_tags, ignore_labels, ignore_annotations)
             for x in d.objects:
                 ref = get_object_ref(x)
                 if ref not in applied_objects:

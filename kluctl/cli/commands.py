@@ -60,7 +60,9 @@ def deploy_command2(obj, kwargs, cmd_ctx):
 
 def diff_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
-        result = cmd_ctx.deployment_collection.diff(cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["ignore_tags"], kwargs["ignore_labels"], kwargs["ignore_order"])
+        result = cmd_ctx.deployment_collection.diff(
+            cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"],
+            kwargs["ignore_tags"], kwargs["ignore_labels"], kwargs["ignore_annotations"], kwargs["ignore_order"])
         deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
         output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)
     sys.exit(1 if result.errors else 0)

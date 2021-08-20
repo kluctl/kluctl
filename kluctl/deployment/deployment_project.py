@@ -197,7 +197,7 @@ class DeploymentProject(object):
                 tags.add(t)
         return tags
 
-    def get_ignore_for_diffs(self, ignore_tags, ignore_labels):
+    def get_ignore_for_diffs(self, ignore_tags, ignore_labels, ignore_annotations):
         ret = []
         for d, inc in self.get_parents():
             ret += d.conf.get("ignoreForDiff", [])
@@ -208,6 +208,10 @@ class DeploymentProject(object):
         if ignore_labels:
             ret.append({
                 'fieldPath': 'metadata.labels.*',
+            })
+        if ignore_annotations:
+            ret.append({
+                'fieldPath': 'metadata.annotations.*',
             })
         return ret
 

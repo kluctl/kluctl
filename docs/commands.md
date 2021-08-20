@@ -200,6 +200,7 @@ In addition, the following arguments are available:
                                   for more details.
     --ignore-tags                 Ignores changes in tags when diffing
     --ignore-labels               Ignores changes in labels when diffing
+    --ignore-annotations          Ignores changes in annotations when diffing
     --ignore-order                Ignores changes in order when diffing
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
