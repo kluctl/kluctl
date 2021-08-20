@@ -258,18 +258,20 @@ class KluctlProject:
 
         for base_target in self.config.get("targets", []):
             if "targetConfig" not in base_target:
-                dynamic_targets = [copy_dict(base_target)]
+                target = self.render_target(base_target)
+                dynamic_targets = [target]
             else:
                 dynamic_targets = self.build_dynamic_targets(base_target)
+                for i in range(len(dynamic_targets)):
+                    dynamic_targets[i] = self.render_target(dynamic_targets[i])
+                    dynamic_targets[i]["baseTarget"] = base_target
 
             for dt in dynamic_targets:
-                dt2 = self.render_target(dt)
-
-                if dt2["name"] in target_names:
-                    logger.warning("Duplicate target %s" % dt2["name"])
+                if dt["name"] in target_names:
+                    logger.warning("Duplicate target %s" % dt["name"])
                 else:
-                    target_names.add(dt2["name"])
-                    self.targets.append(dt2)
+                    target_names.add(dt["name"])
+                    self.targets.append(dt)
 
     def render_target(self, target):
         errors = []
@@ -348,7 +350,6 @@ class KluctlProject:
             try:
                 target_config_file = self.load_target_config(config_path)
                 target = copy_dict(base_target)
-                target["baseTarget"] = base_target
                 target["targetConfig"]["ref"] = ref
                 target["targetConfig"]["defaultBranch"] = default_branch
 
