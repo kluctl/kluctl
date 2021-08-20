@@ -81,8 +81,9 @@ class DeploymentCollection:
             for job in jobs:
                 job.result()
 
-            for d in self.deployments:
-                d.resolve_sealed_secrets()
+            if not self.for_seal:
+                for d in self.deployments:
+                    d.resolve_sealed_secrets()
         self.is_rendered = True
 
     def build_kustomize_objects(self):
