@@ -42,6 +42,6 @@ jobs:
         run: |
           python scripts/replace-commands-help.py
           if [ "$(git status --porcelain)" != "" ]; then
-            echo "commands.md" is not up-to-date. Run ./scripts/replace-commands-help.py to fix this!"
+            echo "commands.md is not up-to-date. Run ./scripts/replace-commands-help.py to fix this!"
             exit 1
           fi
