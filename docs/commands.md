@@ -14,30 +14,20 @@ The following sets of common arguments are available:
 ## project arguments
 <!-- BEGIN SECTION "deploy" "Project arguments" true -->
 ```
-  Project arguments:              Define where and how to load the kluctl
-                                  project and its components from.
-    -p, --project-url TEXT        Git url of the kluctl project. If not
-                                  specified, the current directory will be
-                                  used instead of a remote Git project
-    -b, --project-ref TEXT        Git ref of the kluctl project. Only used
-                                  when --project-url was given.
-    -c, --project-config FILE     Location of the .kluctl.yml config file.
-                                  Defaults to $PROJECT/.kluctl.yml
-    --local-clusters DIRECTORY    Local clusters directory. Overrides the
-                                  project from .kluctl.yml
-    --local-deployment DIRECTORY  Local deployment directory. Overrides the
-                                  project from .kluctl.yml
+  Project arguments:              Define where and how to load the kluctl project and its components from.
+    -p, --project-url TEXT        Git url of the kluctl project. If not specified, the current directory will be used
+                                  instead of a remote Git project
+    -b, --project-ref TEXT        Git ref of the kluctl project. Only used when --project-url was given.
+    -c, --project-config FILE     Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml
+    --local-clusters DIRECTORY    Local clusters directory. Overrides the project from .kluctl.yml
+    --local-deployment DIRECTORY  Local deployment directory. Overrides the project from .kluctl.yml
     --local-sealed-secrets DIRECTORY
-                                  Local sealed-secrets directory. Overrides
-                                  the project from .kluctl.yml
-    --deployment-name TEXT        Name of the kluctl deployment. Used when
-                                  resolving sealed-secrets. Defaults to the
-                                  base name of --local-deployment/--project-
-                                  url
+                                  Local sealed-secrets directory. Overrides the project from .kluctl.yml
+    --deployment-name TEXT        Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the
+                                  base name of --local-deployment/--project-url
     --cluster TEXT                Specify/Override cluster
     -a, --arg TEXT                Template argument in the form name=value
-    -t, --target TEXT             Target name to run command for. Target must
-                                  exist in .kluctl.yml.
+    -t, --target TEXT             Target name to run command for. Target must exist in .kluctl.yml.
 ```
 <!-- END SECTION -->
 
@@ -47,23 +37,15 @@ These arguments control where and how to load the kluctl project and deployment 
 <!-- BEGIN SECTION "deploy" "Image arguments" true -->
 ```
   Image arguments: 
-    -F, --fixed-image TEXT        Pin an image to a given version. Expects '--
-                                  fixed-image=image<:namespace:deployment:cont
-                                  ainer>=result'
-    --fixed-images-file FILE      Use .yml file to pin image versions. See
-                                  output of list-images sub-command or read
-                                  the documentation for details about the
-                                  output format
-    -u, --update-images           This causes kluctl to prefer the latest
-                                  image found in registries, based on the
-                                  `latest_image` filters provided to
-                                  'images.get_image(...)' calls. Use this flag
-                                  if you want to update to the latest
-                                  versions/tags of all images. '-u' takes
-                                  precedence over `--fixed-image/--fixed-
-                                  images-file`, meaning that the latest images
-                                  are used even if an older image is given via
-                                  fixed images.
+    -F, --fixed-image TEXT        Pin an image to a given version. Expects '--fixed-
+                                  image=image<:namespace:deployment:container>=result'
+    --fixed-images-file FILE      Use .yml file to pin image versions. See output of list-images sub-command or read
+                                  the documentation for details about the output format
+    -u, --update-images           This causes kluctl to prefer the latest image found in registries, based on the
+                                  `latest_image` filters provided to 'images.get_image(...)' calls. Use this flag if
+                                  you want to update to the latest versions/tags of all images. '-u' takes precedence
+                                  over `--fixed-image/--fixed-images-file`, meaning that the latest images are used
+                                  even if an older image is given via fixed images.
 ```
 <!-- END SECTION -->
 
@@ -75,17 +57,12 @@ These arguments control image versions requested by `images.get_image(...)` [cal
   Inclusion/Exclusion arguments: 
                                   Control inclusion/exclusion.
     -I, --include-tag TEXT        Include deployments with given tag.
-    -E, --exclude-tag TEXT        Exclude deployments with given tag.
-                                  Exclusion has precedence over inclusion,
-                                  meaning that explicitly excluded deployments
-                                  will always be excluded even if an inclusion
+    -E, --exclude-tag TEXT        Exclude deployments with given tag. Exclusion has precedence over inclusion, meaning
+                                  that explicitly excluded deployments will always be excluded even if an inclusion
                                   rule would match the same deployment.
-    --include-kustomize-dir TEXT  Include kustomize dir. The path must be
-                                  relative to the root deployment project.
-    --exclude-kustomize-dir TEXT  Exclude kustomize dir. The path must be
-                                  relative to the root deployment project.
-                                  Exclusion has precedence over inclusion,
-                                  same as in --exclude-tag
+    --include-kustomize-dir TEXT  Include kustomize dir. The path must be relative to the root deployment project.
+    --exclude-kustomize-dir TEXT  Exclude kustomize dir. The path must be relative to the root deployment project.
+                                  Exclusion has precedence over inclusion, same as in --exclude-tag
 ```
 <!-- END SECTION -->
 
@@ -100,8 +77,7 @@ Usage: kluctl bootstrap [OPTIONS]
 
   Bootstrap a target cluster.
 
-  This will install the sealed-secrets operator into the specified cluster if
-  not already installed.
+  This will install the sealed-secrets operator into the specified cluster if not already installed.
 
   Either --target or --cluster must be specified.
 
@@ -114,26 +90,17 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "bootstrap" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and
-                                  proceeds as if you would answer 'yes'.
-    --dry-run                     Performs all kubernetes API calls in dry-run
-                                  mode.
-    --parallel                    Run deployment in parallel instead of
-                                  sequentially. See documentation for more
+    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    --parallel                    Run deployment in parallel instead of sequentially. See documentation for more
                                   details.
-    --force-apply                 Force conflict resolution when applying. See
-                                  documentation for details
-    --replace-on-error            When patching an object fails, try to delete
-                                  it and then retry. See documentation for
-                                  more details.
-    --abort-on-error              Abort deploying when an error occurs instead
-                                  of trying the remaining deployments
-    -o, --output TEXT             Specify output format and target file, in
-                                  the format 'format=path'. Format can either
-                                  be 'diff' or 'yaml'. Can be specified
-                                  multiple times. The actual format for yaml
-                                  is currently not documented and subject to
-                                  change.
+    --force-apply                 Force conflict resolution when applying. See documentation for details
+    --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
+                                  for more details.
+    --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
 
@@ -143,9 +110,8 @@ Usage: kluctl deploy [OPTIONS]
 
   Deploys a target to the corresponding cluster.
 
-  This command will also output a diff between the initial state and the state
-  after deployment. The format of this diff is the same as for the `diff`
-  command. It will also output a list of purgable objects (without actually
+  This command will also output a diff between the initial state and the state after deployment. The format of this
+  diff is the same as for the `diff` command. It will also output a list of purgable objects (without actually
   deleting them).
 
 <!-- END SECTION -->
@@ -159,30 +125,20 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "deploy" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and
-                                  proceeds as if you would answer 'yes'.
-    --dry-run                     Performs all kubernetes API calls in dry-run
-                                  mode.
-    --parallel                    Run deployment in parallel instead of
-                                  sequentially. See documentation for more
+    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    --parallel                    Run deployment in parallel instead of sequentially. See documentation for more
                                   details.
-    --force-apply                 Force conflict resolution when applying. See
-                                  documentation for details
-    --replace-on-error            When patching an object fails, try to delete
-                                  it and then retry. See documentation for
-                                  more details.
-    --abort-on-error              Abort deploying when an error occurs instead
-                                  of trying the remaining deployments
-    -o, --output TEXT             Specify output format and target file, in
-                                  the format 'format=path'. Format can either
-                                  be 'diff' or 'yaml'. Can be specified
-                                  multiple times. The actual format for yaml
-                                  is currently not documented and subject to
-                                  change.
+    --force-apply                 Force conflict resolution when applying. See documentation for details
+    --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
+                                  for more details.
+    --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
     --full-diff-after-deploy TEXT
-                                  Perform a full diff (no inclusion/exclusion)
-                                  directly after the deployent has finished.
-                                  The argument has the same meaning as in `-o`
+                                  Perform a full diff (no inclusion/exclusion) directly after the deployent has
+                                  finished. The argument has the same meaning as in `-o`
 ```
 <!-- END SECTION -->
 
@@ -220,16 +176,12 @@ and outputs them instead. This option modifies the behaviour to immediately abor
 <!-- BEGIN SECTION "diff" "Usage" false -->
 Usage: kluctl diff [OPTIONS]
 
-  Perform a diff between the locally rendered target and the already deployed
-  target.
+  Perform a diff between the locally rendered target and the already deployed target.
 
-  The output is by default in human readable form (a table combined with
-  unified diffs). The output can also be changed to output yaml file. Please
-  note however that the format is currently not documented and prone to
-  changes.
+  The output is by default in human readable form (a table combined with unified diffs). The output can also be
+  changed to output yaml file. Please note however that the format is currently not documented and prone to changes.
 
-  After the diff is performed, the command will also search for purgable
-  objects and list them.
+  After the diff is performed, the command will also search for purgable objects and list them.
 
 <!-- END SECTION -->
 
@@ -242,20 +194,15 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "diff" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --force-apply                 Force conflict resolution when applying. See
-                                  documentation for details
-    --replace-on-error            When patching an object fails, try to delete
-                                  it and then retry. See documentation for
-                                  more details.
+    --force-apply                 Force conflict resolution when applying. See documentation for details
+    --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
+                                  for more details.
     --ignore-tags                 Ignores changes in tags when diffing
     --ignore-labels               Ignores changes in labels when diffing
     --ignore-order                Ignores changes in order when diffing
-    -o, --output TEXT             Specify output format and target file, in
-                                  the format 'format=path'. Format can either
-                                  be 'diff' or 'yaml'. Can be specified
-                                  multiple times. The actual format for yaml
-                                  is currently not documented and subject to
-                                  change.
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
 
@@ -267,13 +214,10 @@ Usage: kluctl delete [OPTIONS]
 
   Delete the a target (or parts of it) from the corresponding cluster.
 
-  Objects are located based on `deleteByLabels`, configured in
-  `deployment.yml`
+  Objects are located based on `deleteByLabels`, configured in `deployment.yml`
 
-  WARNING: This command will also delete objects which are not part of your
-  deployment project (anymore). It really only decides based on the
-  `deleteByLabel` labels and does NOT take the local target/state into
-  account!
+  WARNING: This command will also delete objects which are not part of your deployment project (anymore). It really
+  only decides based on the `deleteByLabel` labels and does NOT take the local target/state into account!
 
 <!-- END SECTION -->
 
@@ -286,10 +230,8 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "delete" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and
-                                  proceeds as if you would answer 'yes'.
-    --dry-run                     Performs all kubernetes API calls in dry-run
-                                  mode.
+    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    --dry-run                     Performs all kubernetes API calls in dry-run mode.
 ```
 <!-- END SECTION -->
 
@@ -318,10 +260,8 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "purge" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and
-                                  proceeds as if you would answer 'yes'.
-    --dry-run                     Performs all kubernetes API calls in dry-run
-                                  mode.
+    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    --dry-run                     Performs all kubernetes API calls in dry-run mode.
 ```
 <!-- END SECTION -->
 
@@ -335,8 +275,8 @@ Usage: kluctl list-images [OPTIONS]
 
   The result is a compatible with yaml files expected by --fixed-images-file.
 
-  If fixed images (`-f/--fixed-image`) are provided, these are also taken into
-  account, as described in for the deploy command.
+  If fixed images (`-f/--fixed-image`) are provided, these are also taken into account, as described in for the deploy
+  command.
 
 <!-- END SECTION -->
 
@@ -349,14 +289,10 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "list-images" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -o, --output TEXT             Specify output target file. Can be specified
-                                  multiple times
-    --no-kubernetes               Don't check kubernetes for current image
-                                  versions
-    --no-registries               Don't check registries for new image
-                                  versions
-    --simple                      Output a simplified version of the images
-                                  list
+    -o, --output TEXT             Specify output target file. Can be specified multiple times
+    --no-kubernetes               Don't check kubernetes for current image versions
+    --no-registries               Don't check registries for new image versions
+    --simple                      Output a simplified version of the images list
 ```
 <!-- END SECTION -->
 
@@ -364,8 +300,8 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "render" "Usage" false -->
 Usage: kluctl render [OPTIONS]
 
-  Renders all resources and configuration files and stores the result in
-  either a temporary directory or a specified directory.
+  Renders all resources and configuration files and stores the result in either a temporary directory or a specified
+  directory.
 
 <!-- END SECTION -->
 
@@ -377,14 +313,11 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "render" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --output-dir DIRECTORY        Specified the target directory to render the
-                                  project into. If omitted, a random temporary
-                                  directory is created and printed to stdout.
-    --output-images FILE          Also output images list to given FILE. This
-                                  output the same result as from the list-
+    --output-dir DIRECTORY        Specified the target directory to render the project into. If omitted, a random
+                                  temporary directory is created and printed to stdout.
+    --output-images FILE          Also output images list to given FILE. This output the same result as from the list-
                                   images command.
-    --offline                     Go offline, meaning that kubernetes and
-                                  registries are not asked for image versions
+    --offline                     Go offline, meaning that kubernetes and registries are not asked for image versions
 ```
 <!-- END SECTION -->
 
@@ -394,8 +327,7 @@ Usage: kluctl validate [OPTIONS]
 
   Validates the already deployed deployment.
 
-  This means that all objects are retrieved from the cluster and checked for
-  readiness.
+  This means that all objects are retrieved from the cluster and checked for readiness.
 
   TODO: This needs to be better documented!
 
@@ -409,10 +341,8 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "validate" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -o, --output TEXT             Specify output target file. Can be specified
-                                  multiple times
-    --wait TEXT                   Wait for the given amount of time until the
-                                  deployment validates
+    -o, --output TEXT             Specify output target file. Can be specified multiple times
+    --wait TEXT                   Wait for the given amount of time until the deployment validates
     --sleep TEXT                  Sleep duration between validation attempts
     --warnings-as-errors          Consider warnings as failures
 ```
@@ -424,11 +354,9 @@ Usage: kluctl seal [OPTIONS]
 
   Seal secrets based on target's sealingConfig.
 
-  Loads all secrets from the specified secrets sets from the target's
-  sealingConfig and then renders the target, including all files with the
-  `.sealme` extension. Then runs kubeseal on each `.sealme` file and stores
-  secrets in the directory specified by `--local-sealed-secrets`, using the
-  outputPattern from your deployment project.
+  Loads all secrets from the specified secrets sets from the target's sealingConfig and then renders the target,
+  including all files with the `.sealme` extension. Then runs kubeseal on each `.sealme` file and stores secrets in
+  the directory specified by `--local-sealed-secrets`, using the outputPattern from your deployment project.
 
   If no `--target` is specified, sealing is performed for all targets.
 
@@ -443,14 +371,10 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "seal" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --secrets-dir DIRECTORY       Specifies where to find unencrypted secret
-                                  files. The given directory is NOT meant to
-                                  be part of your source repository! The given
-                                  path only matters for secrets of type
-                                  'path'. Defaults to the current working
-                                  directory.
-    --force-reseal                Lets kluctl ignore secret hashes found in
-                                  already sealed secrets and thus forces
+    --secrets-dir DIRECTORY       Specifies where to find unencrypted secret files. The given directory is NOT meant
+                                  to be part of your source repository! The given path only matters for secrets of
+                                  type 'path'. Defaults to the current working directory.
+    --force-reseal                Lets kluctl ignore secret hashes found in already sealed secrets and thus forces
                                   resealing of those.
 ```
 <!-- END SECTION -->
@@ -459,13 +383,11 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "helm-pull" "Usage" false -->
 Usage: kluctl helm-pull [OPTIONS]
 
-  Recursively searches for `helm-chart.yml` files and pulls the specified Helm
-  charts.
+  Recursively searches for `helm-chart.yml` files and pulls the specified Helm charts.
 
-  The Helm charts are stored under the sub-directory `charts/<chart-name>`
-  next to the `helm-chart.yml`. These Helm charts are meant to be added to
-  version control so that pulling is only needed when really required (e.g.
-  when the chart version changes).
+  The Helm charts are stored under the sub-directory `charts/<chart-name>` next to the `helm-chart.yml`. These Helm
+  charts are meant to be added to version control so that pulling is only needed when really required (e.g. when the
+  chart version changes).
 
 <!-- END SECTION -->
 
@@ -478,11 +400,9 @@ The following sets of arguments are available:
 <!-- BEGIN SECTION "helm-update" "Usage" false -->
 Usage: kluctl helm-update [OPTIONS]
 
-  Recursively searches for `helm-chart.yml` files and checks for new available
-  versions.
+  Recursively searches for `helm-chart.yml` files and checks for new available versions.
 
-  Optionally performs the actual upgrade and/or add a commit to version
-  control.
+  Optionally performs the actual upgrade and/or add a commit to version control.
 
 <!-- END SECTION -->
 
@@ -493,8 +413,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "helm-update" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --upgrade                     Write new versions into helm-chart.yml and
-                                  perform helm-pull afterwards
+    --upgrade                     Write new versions into helm-chart.yml and perform helm-pull afterwards
     --commit                      Create a git commit for every updated chart
 ```
 <!-- END SECTION -->
@@ -511,9 +430,7 @@ The following arguments are available:
 <!-- BEGIN SECTION "list-image-tags" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -o, --output TEXT  Specify output target file. Can be specified multiple
-                       times
-    --image TEXT       Name of the image. Can be specified multiple times
-                       [required]
+    -o, --output TEXT  Specify output target file. Can be specified multiple times
+    --image TEXT       Name of the image. Can be specified multiple times  [required]
 ```
 <!-- END SECTION -->
