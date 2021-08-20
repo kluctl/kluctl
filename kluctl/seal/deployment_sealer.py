@@ -26,9 +26,9 @@ class DeploymentSealer:
         self.sealed_secrets_controller_name = "sealed-secrets"
 
     def seal_deployment(self):
-        output_suffix = self.deployment_project.conf.get("secrets", {}).get("outputPattern")
+        output_suffix = self.deployment_project.conf.get("sealedSecrets", {}).get("outputPattern")
         if output_suffix is None:
-            raise InvalidKluctlProjectConfig("secrets.outputPattern is not defined")
+            raise InvalidKluctlProjectConfig("sealedSecrets.outputPattern is not defined")
 
         for dirpath, dirnames, filenames in os.walk(self.deployment_collection.tmpdir):
             rel_dir = os.path.relpath(dirpath, self.deployment_collection.tmpdir)
