@@ -152,4 +152,9 @@ def list_targets_command(obj, kwargs):
         kluctl_project.load(True)
         kluctl_project.load_targets()
 
-        output_yaml_result(kwargs["output"], kluctl_project.targets)
+        result = {
+            "involved_repos": kluctl_project.involved_repos,
+            "targets": kluctl_project.targets,
+        }
+
+        output_yaml_result(kwargs["output"], result)
