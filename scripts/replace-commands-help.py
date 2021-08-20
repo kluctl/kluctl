@@ -55,7 +55,13 @@ def get_help_section(command, section):
         args += [command]
     args += ["--help"]
 
-    r = subprocess.run(args, capture_output=True, text=True, check=False)
+    env = {
+        # This is a good value to be rendered into markdown
+        "COLUMNS": "120",
+        **os.environ,
+    }
+
+    r = subprocess.run(args, env=env, capture_output=True, text=True, check=False)
     if r.returncode != 0:
         logger.error("kluctl call failed with exit code %d\nstdout=%s\nstderr=%s" % (r.returncode, r.stdout, r.stderr))
         raise Exception("kluctl call failed with exit code %d" % r.returncode)
