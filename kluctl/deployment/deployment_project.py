@@ -130,7 +130,7 @@ class DeploymentProject(object):
 
     def get_sealed_secrets_dir(self, subdir):
         root = self.get_root_deployment()
-        output_pattern = root.conf.get("secrets", {}).get("outputPattern")
+        output_pattern = root.conf.get("sealedSecrets", {}).get("outputPattern")
         return output_pattern
 
     def get_root_deployment(self):
