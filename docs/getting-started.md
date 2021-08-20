@@ -39,16 +39,15 @@ you used, you might also be able to directly export the context into your local 
 [kops](https://github.com/kubernetes/kops/blob/master/docs/cli/kops_export.md) is able to export and merge the kubeconfig
 for a given cluster.
 
-## Bootstrap deployment
+## Bootstrap the cluster
 
 A cluster that is managed by kluctl needs a bootstrap deployment first. This bootstrap deployment installs mandatory
 things into the cluster (e.g. the sealed-secrets controller). The bootstrap deployment is located under the kluctl
-Git repository in the `bootstrap` directory. You can easily deploy it with this kluctl invocation:
+Git repository in the `kluctl/bootstrap` directory. You can easily deploy it with this kluctl invocation:
 
 ```shell
-$ kluctl -C /location/to/clusters -N test.example.com deploy -d /location/to/kluctl/bootstrap 
+$ kluctl bootstrap --cluster test.example.com
 ```
 
 The bootstrap deployment might need to be updated from time to time. Simply re-do the above command whenever a new
-kluctl release is available. You can also use all other kluctl commands (diff, purge, delete, ...) with the
-bootstrap deployment.
+kluctl release is available.

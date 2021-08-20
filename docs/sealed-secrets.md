@@ -5,19 +5,16 @@ securely store secrets for multiple target clusters and/or environments inside v
 
 The integration consists of two parts:
 1. Sealing of secrets
-1. Automatically choosing and deploying the correct secrets for a target environment/cluster
+1. Automatically choosing and deploying the correct secrets for a target
 
 # Requirements
 
-The [bootstrap](../bootstrap) deployment has to be deployed to your cluster, as it includes the sealed secrets
-controller. If the controller is not deployed, kluctl won't know which public keys to use for sealing.
-
-You can also provide your own version of the sealed-secrets operator, it however must be located in the kube-system
-namespace for now.
+The cluster must have the [sealed-secrets operator](https://github.com/bitnami-labs/sealed-secrets) installed. This
+can either be done through the [bootstrap command](./commands.md#bootstrap) or through some other/custom means.
 
 # Sealing of .sealme files
 
-Sealing is done via the `seal` command. It must be done before the actual deployment is performed.
+Sealing is done via the [seal command](./commands.md#seal). It must be done before the actual deployment is performed.
 The `seal` command recursively searches for files that end with `.sealme`, renders them with the
 [Jinja2 templating](./jinja2-templating.md) engine and then seals them by invoking `kubeseal` (part of 
 [sealed secrets](https://github.com/bitnami-labs/sealed-secrets)).
@@ -40,21 +37,21 @@ stringData:
   DB_PASSWORD: {{ secrets.database.password }}
 ```
 
-While sealing, only a very small set of variables is available while template rendering happens. To be specific, only
-the variables and arguments found in `sealme-conf.yml` are available. Additionally, the `secrets` object/variable is
-available which contains the sensitive secrets.
+While sealing, the full Jinja2 Context (same as in [Jinja2 Templating](./jinja2-templating.md)) is available.
+Additionally, the global `secrets` object/variable is available which contains the sensitive secrets.
 
-Variables defines in `sealme-conf.yml` must to some degree mirror what is defined in the actual deployment. Especially
-when it comes to namespace names, which must match with what is deployed later. To accomplish this, it might make sense
-to have some commonly used variable yamls which is used in the [deployment](./jinja2-templating.md#vars-from-deploymentyml)
-and [while sealing](#vars).
+## Secret Sources
+
+Secrets are only loaded while sealing. Available secret sets and sources are configured via
+[.kluctl.yml](./kluctl_project.md#supported-sources). The secrets used per target are configured via the
+[secrets config](./kluctl_project.md#secretsconfig) of the targets.
 
 # Using sealed secrets
 
 After sealing a secret, it can be used inside kustomize deployments. While deploying, kluctl will look for resources
 included from `kustomization.yml` which are not existent but for which a file with a `.sealme` extension exists. If such
 a file is found, the appropriate sealed secrets is located based on the
-[outputPattern](#outputpattern-and-location-of-stored-sealed-secrets) of the `sealme-conf.yml` configuration.
+[outputPattern](#outputpattern-and-location-of-stored-sealed-secrets).
 
 An example `kustomization.yml`:
 ```yaml
@@ -67,166 +64,30 @@ resources:
 - my-deployments.yml
 ```
 
-# sealme-conf.yml
-
-The Sealed Secrets integration is configured via a `sealme-conf.yml`, which can be present at any directory level in your
-deployment project. It is always the one active that has the shortest distance to the `.sealme` file that is being
-sealed.
-
-The `sealme-conf.yml` is NOT fully rendered via the templating engine. See [Jinja2 Templating](#jinja2-templating) for
-details on what and how it is rendered.
-
-Sealing is performed per cluster (or only for a single cluster if the `-N` argument is given). For each cluster that is
-processed, the `secretsMatrix` is evaluated. Then, each matrix entry where all [rules](#rules) result in `True` will
-result in an independent run of sealing.
-
-The `sealme-conf.yml` offers the following fields:
-
-### outputPattern
-See [below](#outputpattern-and-location-of-stored-sealed-secrets)
-
-### vars
-This field can be used to provide variables while rendering `.sealme` files. The format of `vars` the same as
-in [deployment vars](./deployments.md#vars). You can also reuse the same variable yaml as in `deployment.yml`, the
-requirement is however that the included variables yaml only references Jinja2 variables which exists in the sealing
-context. This means for example, that [-a](./commands.md#-a---arg-text) based arguments are not available, but values
-from `argsMatrix` are available instead.
-
-Rendering of variables is performed the same way as in `deployment.yml`, meaning that the second entry can also use
-values from the first and so on.
-
-See [Jinja2 Templating](#jinja2-templating) for more details.
-
-Example vars:
-```yaml
-vars:
-- file: vars1.yml
-- values:
-    var1: value1
-    var2:
-      var3: value3
-```
-
-### secretsMatrix
-A list of secret matrix entries. Each entry defines where secrets are loaded from and for which set of `args` to perform
-sealing runs.
-
-The combination of available clusters (as defined by the [cluster config](./cluster-config.md)), `secretsMatrix` entries
-and `argsMatrix` entries defines the sealing runs to be tried.
-
-Consider the following example matrix and assume there are 4 clusters (devops, test, staging, prod):
-
-```yaml
-secretsMatrix:
-- rules:
-  - "{{ cluster.name == cluster_name }}"
-  secrets:
-    - path: .secrets-non-prod.yml
-  argsMatrix:
-    - cluster_name: test.example.com
-      environment: test
-    - cluster_name: test.example.com
-      environment: dev
-- rules:
-  - "{{ cluster.name == cluster_name }}"
-  secrets:
-    - path: .secrets-prod.yml
-  argsMatrix:
-    - cluster_name: staging.example.com
-      environment: staging
-    - cluster_name: prod.example.com
-      environment: prod
-```
-
-This example will result in 16 runs (4 clusters * 2 `secretsMatrix` * `argsMatrix`). For each run, rules are evaluated,
-which results in 4 runs being actually executed, each with different combinations of cluster and environment config.
-
-Each `secretsMatrx` entry offers the following fields:
-
-### rules
-A list of strings which are rendered via Jinja2 templating. The same variables described in [Jinja2 Templates](#jinja2-templating) are
-available while rendering these rules. Only if all rules result in rendering of `True`, the sealing run is executed for
-the current cluster and `argsMatrix` entry.
-
-### secrets
-A list of sources to read from when filling the global `secrets` object described in [Jinja2 Templating](#jinja2-templating).
-Different source types are supported, and more are going to be implemented in the future (feel free to create a pull request).
-
-#### path
-A simple local file based source. The path must be relative and multiple places are tried to find the file:
-1. Relative to the `sealme-conf.yml`
-2. The path provided via [--secrets-dir](./commands.md#--secrets-dir-directory)
-3. The deployment root directory
-
-Example:
-```yaml
-secretsMatrix:
-- rules:
-  - "{{ cluster.name == cluster_name }}"
-  secrets:
-    - path: .secrets-non-prod.yml
-  argsMatrix:
-    - cluster_name: test.example.com
-      environment: test
-```
-
-### argsMatrix
-
-#### passwordstate
-[Passwordstate](https://www.clickstudios.com.au/passwordstate.aspx) integration. It requires API access rights and will
-prompt for login information while sealing. The password entry must have a field with the name given in `passwordField`
-(defaults to `GenericField1`) which contains the yaml file with the actual secrets.
-
-Example:
-```yaml
-secretsMatrix:
-- rules:
-  - "{{ cluster.name == cluster_name }}"
-  secrets:
-    - passwordstate:
-        host: passwordstate.example.com
-        passwordList: /My/Path/To/The/List/name-of-the-list
-        passwordTitle: title-of-the-password
-        passwordField: field-name # This is optional and defaults to GenericField1
-  argsMatrix:
-    - cluster_name: test.example.com
-      environment: test
-```
-
-# Jinja2 Templating
-
-Sealing uses Jinja2 Templating in the same way as described in [Jinja2 Templating](./jinja2-templating.md). The main
-difference is that the global `args` variable is not filled with values from `-a`, but with the values found in
-[argsMatrix](#argsmatrix) corresponding to the current sealing run. Handling and rendering of [vars](#vars) is
-equivalent to how it's done in [deployment.yml](./deployments.md#vars).
-
-Additionally, the global variable `secrets` is available while rendering `.sealme` files. It contains all merged secrets
-loaded from [secrets](#secrets).
-
-The `sealme-conf.yml` is not fully rendered. Instead, many individual fields are rendered on their own. These include:
-1. All values found in [secrets](#secrets) (not the content of the secret files, but the source definitions). This means
-that you can also parametrize loading of secrets (e.g. by putting the environment name into the file to load).
-
 # outputPattern and location of stored sealed secrets
-The `sealme-conf.yml` configuration must specify the `outputPattern` used to store and find sealed secrets. The output
-pattern is a Jinja2 template that is rendered in two different places:
+The root [deployment project](./deployments.md) must specify the outputPattern to use when storing/loading
+sealed secrets. The output pattern must be a Jinja2 Template that is rendered with the full
+[Jinja2 Context](./jinja2-templating.md) available for the deployment.yml.
 
-1. It is rendered each time a `.sealme` file is sealed. The result is then used to build the path where to store
-   the resulting sealed secret.
-1. While processing a `deploy`, `diff`, `list-images` or `render` command. kluctl will render the `outputPattern`
-   of the corresponding `sealme-conf.yml` and use it to find the correct sealed secret, which can then be used via
-   kustomize.
-   
-Please note that in both cases, the source of the available Jinja2 variables is different. In the first case, the
-variables available are the ones described in [Jinja2 Templating](#jinja2-templating). In the second case, all variables
-are available that are also available when [normal rendering](./jinja2-templating.md) for deployments happens. However,
-you must ensure that even though these are different in theory, the result should match and be compatible between both. 
-This means, that you must only use variables in `outputPattern` that are available in both scenarios and also give the
-same results. Failing to do so will result in undefined behaviour.
+This template usually at least contains the cluster name. If your deployment can be deployed multiple times to the
+same cluster (via different targets), you should also add something to differentiate the targets.
 
-The base directory for sealed secrets is by default `.sealed-secrets` and is below the deployment project root. The
-output path that is rendered from `outputPattern` is then used in combination with the relative base path of the
-`.sealme` file. All three elements combined give the full path of the storing location of the sealed secret.
+As an example, `{{ cluster.name }}/{{ args.environment }}` works well, assuming that you differentiate targets via
+`args.environment`.
+
+The final storage location for the sealed secret is:
+
+`<base_dir>/<deployment_name>/<rendered_output_pattern>/<relative_sealme_file_dir>/<file_name>`
+
+with:
+* `base_dir`: The base directory for sealed secrets is configured in the [.kluctl.yml](./kluctl_project.md#sealedsecrets) config
+file. If not specified, the base directory defaults to the subdirectory `.sealed-secrets` in the kluctl project root
+diretory.
+* `deployment_name`: The deployment name, which defaults to the kluctl project directories base name. It can also be
+overridden with [--deployment-name](./commands.md#--deployment-name-text).
+* `rendered_output_pattern`: The rendered outputPattern as described above.
+* `relative_sealme_file_dir`: The relative path from the deployment root directory.
+* `file_name`: The filename of the sealed secret, excluding the `.sealme` extension.
 
 # Content Hashes and re-sealing
 Sealed secrets are stored together with hashes of all individual secret entries. These hashes are then used to avoid

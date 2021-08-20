@@ -3,7 +3,11 @@ from click_option_group import optgroup
 
 from kluctl.cli.main_cli_group import cli_group, kluctl_project_args, misc_arguments, image_args, include_exclude_args
 
-@cli_group.command("bootstrap", help="Bootstrap a target cluster. This will install the sealed-secrets operator into the specified cluster if not already installed.")
+@cli_group.command("bootstrap",
+                   help="Bootstrap a target cluster.\n\n"
+                        "This will install the sealed-secrets operator into the specified cluster if not already "
+                        "installed.\n\n"
+                        "Either --target or --cluster must be specified.")
 @kluctl_project_args(with_a=False)
 @misc_arguments(yes=True, dry_run=True, parallel=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
 @click.pass_obj
@@ -11,18 +15,29 @@ def bootstrap_command_stub(obj, **kwargs):
     from kluctl.cli.commands import bootstrap_command
     bootstrap_command(obj, kwargs)
 
-@cli_group.command("deploy", help="Perform a deployment")
+@cli_group.command("deploy",
+                   help="Deploys a target to the corresponding cluster.\n\n"
+                        "This command will also output a diff between the initial state and the state after "
+                        "deployment. The format of this diff is the same as for the `diff` command. "
+                        "It will also output a list of purgable objects (without actually deleting them).")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
 @misc_arguments(yes=True, dry_run=True, parallel=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
-@optgroup.option("--full-diff-after-deploy", help="Perform a full diff (no inclusion/exclusion) directly after the deploy")
+@optgroup.option("--full-diff-after-deploy",
+                 help="Perform a full diff (no inclusion/exclusion) directly after the deployent has finished. "
+                      "The argument has the same meaning as in `-o`")
 @click.pass_obj
 def deploy_command_stub(obj, **kwargs):
     from kluctl.cli.commands import deploy_command
     deploy_command(obj, kwargs)
 
-@cli_group.command("diff", help="Perform a diff against the already deployed state")
+@cli_group.command("diff",
+                   help="Perform a diff between the locally rendered target and the already deployed target.\n\n"
+                        "The output is by default in human readable form (a table combined with unified diffs). "
+                        "The output can also be changed to output yaml file. Please note however that the format "
+                        "is currently not documented and prone to changes.\n\n"
+                        "After the diff is performed, the command will also search for purgable objects and list them.")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
@@ -32,7 +47,12 @@ def diff_command_stub(obj, **kwargs):
     from kluctl.cli.commands import diff_command
     diff_command(obj, kwargs)
 
-@cli_group.command("delete", help="Delete the deployment, based on deleteByLabels")
+@cli_group.command("delete",
+                   help="Delete the a target (or parts of it) from the corresponding cluster.\n\n"
+                        "Objects are located based on `deleteByLabels`, configured in `deployment.yml`\n\n"
+                        "WARNING: This command will also delete objects which are not part of your deployment "
+                        "project (anymore). It really only decides based on the `deleteByLabel` labels and does NOT "
+                        "take the local target/state into account!")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
@@ -42,7 +62,13 @@ def delete_command_stub(obj, **kwargs):
     from kluctl.cli.commands import delete_command
     delete_command(obj, kwargs)
 
-@cli_group.command("purge", help="Purges/Cleans the deployment, based on deleteByLabels")
+@cli_group.command("purge",
+                   help="Searches the target cluster for purgable objects and deletes them.\n\n"
+                        "Searching works by:\n\n"
+                        "\b\n"
+                        "  1. Search the cluster for all objects match `deleteByLabels`, as configured in `deployment.yml`\n"
+                        "  2. Render the local target and list all objects.\n"
+                        "  3. Remove all objects from the list of 1. that are part of the list in 2.\n")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
@@ -52,7 +78,10 @@ def purge_command_stub(obj, **kwargs):
     from kluctl.cli.commands import purge_command
     purge_command(obj, kwargs)
 
-@cli_group.command("validate", help="Validates the deployment, based on validationRules")
+@cli_group.command("validate",
+                   help="Validates the already deployed deployment.\n\n"
+                        "This means that all objects are retrieved from the cluster and checked for readiness.\n\n"
+                        "TODO: This needs to be better documented!")
 @kluctl_project_args()
 @include_exclude_args()
 @misc_arguments(output=True)
@@ -64,26 +93,40 @@ def validate_command_stub(obj, **kwargs):
     from kluctl.cli.commands import validate_command
     validate_command(obj, kwargs)
 
-@cli_group.command("render", help="Render deployment into directory")
+@cli_group.command("render",
+                   help="Renders all resources and configuration files and stores the result in either "
+                        "a temporary directory or a specified directory.")
 @kluctl_project_args()
 @image_args()
 @optgroup.group("Misc arguments")
-@optgroup.option("--output-dir", help="Write rendered output to specified directory", type=click.Path(file_okay=False))
-@optgroup.option("--output-images", help="Write images list to output file", type=click.Path(dir_okay=False))
-@optgroup.option("--offline", help="Go offline, meaning that kubernetes and registries are not asked for image versions", is_flag=True)
+@optgroup.option("--output-dir",
+                 help="Specified the target directory to render the project into. If omitted, a random temporary "
+                      "directory is created and printed to stdout.",
+                 type=click.Path(file_okay=False))
+@optgroup.option("--output-images",
+                 help="Also output images list to given FILE. This output the same result as from the "
+                      "list-images command.",
+                 type=click.Path(dir_okay=False))
+@optgroup.option("--offline",
+                 help="Go offline, meaning that kubernetes and registries are not asked for image versions",
+                 is_flag=True)
 @click.pass_obj
 def render_command_stub(obj, **kwargs):
     from kluctl.cli.commands import render_command
     render_command(obj, kwargs)
 
-@cli_group.command("list-images", help="List all images queries by 'images.get_image(...)'")
+@cli_group.command("list-images",
+                   help="Renders the target and outputs all images used via `images.get_image(...)`\n\n"
+                        "The result is a compatible with yaml files expected by --fixed-images-file.\n\n"
+                        "If fixed images (`-f/--fixed-image`) are provided, these are also taken into account, "
+                        "as described in for the deploy command.")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
 @misc_arguments(output=True)
 @optgroup.option("--no-kubernetes", help="Don't check kubernetes for current image versions", default=False, is_flag=True)
 @optgroup.option("--no-registries", help="Don't check registries for new image versions", default=False, is_flag=True)
-@optgroup.option("--simple", help="Return simple list", is_flag=True)
+@optgroup.option("--simple", help="Output a simplified version of the images list", is_flag=True)
 @click.pass_obj
 def list_images_command_stub(obj, **kwargs):
     from kluctl.cli.commands import list_images_command

@@ -22,7 +22,6 @@ Some visualized files/directories have links attached, follow them to get more i
 -- project-dir/
    |-- <a href="#deploymentyml">deploymentyml</a>
    |-- <a href="./jinja2-templating.md">jinja2-vars.yml</a>
-   |-- <a href="sealed-secrets.md">sealme-conf.yml</a>
    |-- .gitignore
    |-- kustomize-deployment1/
    |   |-- kustomization.yml
@@ -78,6 +77,9 @@ The `deployment.yml` file is the entrypoint for the deployment project. Included
 
 An example `deployment.yml` looks like this:
 ```yaml
+sealedSecrets:
+  outputPattern: "{{ cluster.name }}/{{ args.environment }}"
+
 kustomizeDirs:
 - path: nginx
 - path: my-app
@@ -98,6 +100,10 @@ args:
 ```
 
 The following sub-chapters describe the available properties/fields in the `deployment.yml`
+
+### sealedSecrets
+`sealedSecrets` configures how sealed secrets are stored while sealing and located while rendering.
+See [Sealed Secrets](./sealed-secrets.md#outputpattern-and-location-of-stored-sealed-secrets) for details.
 
 ### kustomizeDirs
 

@@ -15,6 +15,13 @@ from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 logger = logging.getLogger(__name__)
 
 LATEST_RELEASE_URL = "https://api.github.com/repos/codablock/kluctl/releases/latest"
+HELP_BASE_URL = "https://github.com/codablock/kluctl/blob/%s/docs" % (("v%s" % _version.__version__) if _version.__version__ != "0.0.0" else "main")
+
+def build_help_link(md, section=None):
+    s = "%s/%s" % (HELP_BASE_URL, md)
+    if section:
+        s = "%s#%s" % (s, section)
+    return s
 
 def setup_logging(verbose):
     level = logging.INFO
@@ -78,11 +85,10 @@ def configure(ctx, param, filename):
     config = config["config"]
     ctx.default_map = config
 
-@click.group(context_settings={"auto_envvar_prefix": "kluctl"})
+@click.group(context_settings={"auto_envvar_prefix": "kluctl", "max_content_width": 200})
 @click.version_option(version=_version.__version__, package_name="kluctl")
-@optgroup.group("Common options")
-@optgroup.option("--verbose", "-v", help="Enable verbose logging", default=False, is_flag=True)
-@optgroup.option("--no-update-check", help="Disable update check on startup", default=False, is_flag=True)
+@click.option("--verbose", "-v", help="Enable verbose logging", default=False, is_flag=True)
+@click.option("--no-update-check", help="Disable update check on startup", default=False, is_flag=True)
 @click.option(
     '--config',
     type=click.Path(dir_okay=False),
@@ -117,26 +123,50 @@ def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, 
 
     options.append(optgroup.group("Misc arguments"))
     if yes:
-        options.append(optgroup.option("-y", "--yes", help="Answer yes on questions", default=False, is_flag=True))
+        options.append(optgroup.option("-y", "--yes",
+                                       help="Supresses 'Are you sure?' questions and proceeds as if you would "
+                                            "answer 'yes'.",
+                                       default=False, is_flag=True))
     if dry_run:
-        options.append(optgroup.option("--dry-run", help="Dry run", default=False, is_flag=True))
+        options.append(optgroup.option("--dry-run",
+                                       help="Performs all kubernetes API calls in dry-run mode.",
+                                       default=False, is_flag=True))
     if parallel:
-        options.append(optgroup.option("--parallel", help="Allow apply objects in parallel", default=False, is_flag=True))
+        options.append(optgroup.option("--parallel",
+                                       help="Run deployment in parallel instead of sequentially. See documentation "
+                                            "for more details.",
+                                       default=False, is_flag=True))
     if force_apply:
-        options.append(optgroup.option("--force-apply", help="Force conflict resolution when applying", default=False, is_flag=True))
+        options.append(optgroup.option("--force-apply",
+                                       help="Force conflict resolution when applying. See documentation for details",
+                                       default=False, is_flag=True))
     if replace_on_error:
-        options.append(optgroup.option("--replace-on-error", help="When patching an object fails, try to delete it and then retry", default=False, is_flag=True))
+        options.append(optgroup.option("--replace-on-error",
+                                       help="When patching an object fails, try to delete it and then retry. "
+                                            "See documentation for more details.",
+                                       default=False, is_flag=True))
     if ignore_labels:
-        options.append(optgroup.option("--ignore-tags", help="Ignores changes in tags when diffing", default=False, is_flag=True))
-        options.append(optgroup.option("--ignore-labels", help="Ignores changes in labels when diffing", default=False, is_flag=True))
+        options.append(optgroup.option("--ignore-tags",
+                                       help="Ignores changes in tags when diffing",
+                                       default=False, is_flag=True))
+        options.append(optgroup.option("--ignore-labels",
+                                       help="Ignores changes in labels when diffing",
+                                       default=False, is_flag=True))
     if ignore_order:
-        options.append(optgroup.option("--ignore-order", help="Ignores changes in order when diffing", default=False, is_flag=True))
+        options.append(optgroup.option("--ignore-order",
+                                       help="Ignores changes in order when diffing",
+                                       default=False, is_flag=True))
     if abort_on_error:
-        options.append(optgroup.option("--abort-on-error", help="Abort deploying when an error occurs instead of trying the remaining deployments", default=False, is_flag=True))
+        options.append(optgroup.option("--abort-on-error",
+                                       help="Abort deploying when an error occurs instead of trying the remaining "
+                                            "deployments",
+                                       default=False, is_flag=True))
     if output_format:
         options.append(optgroup.option("-o", "--output",
                                        help="Specify output format and target file, in the format 'format=path'. "
-                                            "Format can either be 'diff' or 'yaml'. Can be specified multiple times",
+                                            "Format can either be 'diff' or 'yaml'. Can be specified multiple times. "
+                                            "The actual format for yaml is currently not documented and subject to "
+                                            "change.",
                                        multiple=True))
     if output:
         options.append(optgroup.option("-o", "--output",
@@ -146,35 +176,79 @@ def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, 
 
 def kluctl_project_args(with_d=True, with_a=True, with_t=True):
     options = []
-    options.append(optgroup.group("Project arguments"))
+    options.append(optgroup.group("Project arguments",
+                                  help="Define where and how to load the kluctl project and its components from."))
     if with_d:
-        options.append(optgroup.option("--project-url", "-p", help="Git url of the kluctl project. If not specified, the current directory will be used instead of a remote Git project"))
-        options.append(optgroup.option("--project-ref", "-b", help="Git ref of the kluctl project. Only used when --project-url was given."))
-        options.append(optgroup.option("--project-config", "-c", help="Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml", type=click.Path(dir_okay=False)))
-        options.append(optgroup.option("--local-clusters", help="Local clusters directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
-        options.append(optgroup.option("--local-deployment", help="Local deployment directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
-        options.append(optgroup.option("--local-sealed-secrets", help="Local sealed-secrets directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
-        options.append(optgroup.option("--deployment-name", help="Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the base name of --local-deployment/--project-url"))
-        options.append(optgroup.option("--cluster", help="Override cluster for target"))
-    if with_t:
-        options.append(optgroup.option("-t", "--target", help="Target name to run command for"))
+        options.append(optgroup.option("--project-url", "-p",
+                                       help="Git url of the kluctl project. If not specified, the current directory "
+                                            "will be used instead of a remote Git project"))
+        options.append(optgroup.option("--project-ref", "-b",
+                                       help="Git ref of the kluctl project. Only used when --project-url was given."))
+        options.append(optgroup.option("--project-config", "-c",
+                                       help="Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml",
+                                       type=click.Path(dir_okay=False)))
+        options.append(optgroup.option("--local-clusters",
+                                       help="Local clusters directory. Overrides the project from .kluctl.yml",
+                                       type=click.Path(file_okay=False)))
+        options.append(optgroup.option("--local-deployment",
+                                       help="Local deployment directory. Overrides the project from .kluctl.yml",
+                                       type=click.Path(file_okay=False)))
+        options.append(optgroup.option("--local-sealed-secrets",
+                                       help="Local sealed-secrets directory. Overrides the project from .kluctl.yml",
+                                       type=click.Path(file_okay=False)))
+        options.append(optgroup.option("--deployment-name",
+                                       help="Name of the kluctl deployment. Used when resolving sealed-secrets. "
+                                            "Defaults to the base name of --local-deployment/--project-url"))
+        options.append(optgroup.option("--cluster",
+                                       help="Specify/Override cluster"))
     if with_a:
-        options.append(optgroup.option("-a", "--arg", help="Template argument", multiple=True))
+        options.append(optgroup.option("-a", "--arg",
+                                       help="Template argument in the form name=value",
+                                       multiple=True))
+    if with_t:
+        options.append(optgroup.option("-t", "--target",
+                                       help="Target name to run command for. Target must exist in .kluctl.yml."))
     return wrapper_helper(options)
 
 def include_exclude_args():
     options = []
-    options.append(optgroup.group("Inclusion/Exclusion arguments"))
-    options.append(optgroup.option("-I", "--include-tag", help="Include deployments with given tag", multiple=True))
-    options.append(optgroup.option("-E", "--exclude-tag", help="Exclude deployments with given tag", multiple=True))
-    options.append(optgroup.option("--include-kustomize-dir", help="Include kustomize dir", multiple=True))
-    options.append(optgroup.option("--exclude-kustomize-dir", help="Exclude kustomize dir", multiple=True))
+    options.append(optgroup.group("Inclusion/Exclusion arguments", help="Control inclusion/exclusion."))
+    options.append(optgroup.option("-I", "--include-tag",
+                                   help="Include deployments with given tag.",
+                                   multiple=True))
+    options.append(optgroup.option("-E", "--exclude-tag",
+                                   help="Exclude deployments with given tag. Exclusion has precedence over inclusion, "
+                                        "meaning that explicitly excluded deployments will always be excluded even if "
+                                        "an inclusion rule would match the same deployment.",
+                                   multiple=True))
+    options.append(optgroup.option("--include-kustomize-dir",
+                                   help="Include kustomize dir. The path must be relative to the root deployment "
+                                        "project.",
+                                   multiple=True))
+    options.append(optgroup.option("--exclude-kustomize-dir",
+                                   help="Exclude kustomize dir. The path must be relative to the root deployment "
+                                        "project. Exclusion has precedence over inclusion, same as in "
+                                        "--exclude-tag",
+                                   multiple=True))
     return wrapper_helper(options)
 
 def image_args():
     options = []
     options.append(optgroup.group("Image arguments"))
-    options.append(optgroup.option("-F", "--fixed-image", help="Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'", multiple=True))
-    options.append(optgroup.option("--fixed-images-file", help="Use .yml file to pin image versions. See output of list-images sub-command", required=False, type=click.Path(dir_okay=False)))
-    options.append(optgroup.option("-u", "--update-images", help="Update images to latest version found in the image registries", default=False, is_flag=True))
+    options.append(optgroup.option("-F", "--fixed-image",
+                                   help="Pin an image to a given version. "
+                                        "Expects '--fixed-image=image<:namespace:deployment:container>=result'",
+                                   multiple=True))
+    options.append(optgroup.option("--fixed-images-file",
+                                   help="Use .yml file to pin image versions. "
+                                        "See output of list-images sub-command or read the "
+                                        "documentation for details about the output format",
+                                   required=False, type=click.Path(dir_okay=False)))
+    options.append(optgroup.option("-u", "--update-images",
+                                   help="This causes kluctl to prefer the latest image found in registries, "
+                                        "based on the `latest_image` filters provided to 'images.get_image(...)' calls. "
+                                        "Use this flag if you want to update to the latest versions/tags of all images. "
+                                        "'-u' takes precedence over `--fixed-image/--fixed-images-file`, meaning that "
+                                        "the latest images are used even if an older image is given via fixed images.",
+                                   default=False, is_flag=True))
     return wrapper_helper(options)

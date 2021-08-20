@@ -51,13 +51,18 @@ kluctl can be installed in 3 different ways.
 
 ### Getting started
 
-You can find a basic Getting Started documentation [here](./docs/getting-started.md). After you've got your first ready,
-you can start deploying your own applications and infrastructure.
+You can find a basic Getting Started documentation [here](./docs/getting-started.md).
+
+### kluctl project config (.kluctl.yml)
+
+The [.kluctl.yml](./docs/kluctl_project.md) file is the central configuration file that defines your kluctl project.
+It declares what (clusters, secrets, deployment projects, ...) is need for your deployment, where to find it and what
+targets are available to invoke commands against.
 
 ### Deployment projects
 
-A deployment project is a collection of actual deployments. Documentation about the project structure and individual
-features can be found [here](./docs/deployments.md)
+A deployment project is a collection of actual (kustomize) deployments. Documentation about the project structure and
+individual features can be found [here](./docs/deployments.md).
 
 ### Command line interface
 

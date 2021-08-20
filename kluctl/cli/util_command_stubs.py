@@ -4,20 +4,27 @@ from click_option_group import optgroup
 from kluctl.cli.main_cli_group import cli_group, misc_arguments, kluctl_project_args
 
 
-@cli_group.command("list-image-tags", help="Utility command to list tags of specified images")
+@cli_group.command("list-image-tags",
+                   help="Queries the tags for the given images.")
 @misc_arguments(output=True)
-@optgroup.option("--image", required=True, help="Name of the image", multiple=True)
+@optgroup.option("--image", required=True, help="Name of the image. Can be specified multiple times", multiple=True)
 def list_image_tags_command_stub(image, output):
     from kluctl.cli.util_commands import list_image_tags_command
     list_image_tags_command(image, output)
 
-@cli_group.command("helm-pull", help="Recursively search for 'helm-chart.yml' files and pull specified Helm Charts")
+@cli_group.command("helm-pull",
+                   help="Recursively searches for `helm-chart.yml` files and pulls the specified Helm charts.\n\n"
+                        "The Helm charts are stored under the sub-directory `charts/<chart-name>` next to the "
+                        "`helm-chart.yml`. These Helm charts are meant to be added to version control so that "
+                        "pulling is only needed when really required (e.g. when the chart version changes).")
 @kluctl_project_args(with_a=False)
 def helm_pull_command_stub(**kwargs):
     from kluctl.cli.util_commands import helm_pull_command
     helm_pull_command(kwargs)
 
-@cli_group.command("helm-update", help="Recursively search for 'helm-chart.yml' files and check for new versions")
+@cli_group.command("helm-update",
+                   help="Recursively searches for `helm-chart.yml` files and checks for new available versions.\n\n"
+                        "Optionally performs the actual upgrade and/or add a commit to version control.")
 @kluctl_project_args(with_a=False)
 @optgroup.group("Misc arguments")
 @optgroup.option("--upgrade", help="Write new versions into helm-chart.yml and perform helm-pull afterwards", is_flag=True)
@@ -27,7 +34,7 @@ def helm_update_command_stub(upgrade, commit, **kwargs):
     helm_update_command(upgrade, commit, kwargs)
 
 @cli_group.command("check-image-updates",
-                   help="Render deployment and check if any images have new tags available. "
+                   help="Render deployment and check if any images have new tags available.\n\n"
                         "This is based on a best effort approach and might give many false-positives.")
 @kluctl_project_args()
 @click.pass_obj
