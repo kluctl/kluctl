@@ -50,7 +50,8 @@ def count_indent(str):
 def get_help_section(command, section):
     logger.info("Getting section '%s' from command '%s" % (section, command))
 
-    args = ["kluctl"]
+    kluctl_path = os.path.join(os.path.dirname(__file__), "..", "cli.py")
+    args = [kluctl_path]
     if command:
         args += [command]
     args += ["--help"]
