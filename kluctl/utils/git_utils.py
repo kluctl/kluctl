@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import filelock
 from git import Git
 
+from kluctl.utils.env_config_sets import parse_env_config_sets
 from kluctl.utils.gitlab.fast_ls_remote import gitlab_fast_ls_remote
 from kluctl.utils.utils import get_tmp_base_dir
 
@@ -24,7 +25,14 @@ class GitCredentialsStore:
     def get_credentials(self, host):
         return None, None
 
-credentials_store = GitCredentialsStore()
+class GitCredentialStoreEnv(GitCredentialsStore):
+    def get_credentials(self, host):
+        for idx, s in parse_env_config_sets("KLUCTL_GIT").items():
+            if s.get("HOST") == host:
+                return s.get("USERNAME"), s.get("PASSWORD")
+        return None, None
+
+credentials_store = GitCredentialStoreEnv()
 
 def set_git_credentials_store(store):
     global credentials_store
