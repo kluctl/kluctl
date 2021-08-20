@@ -70,7 +70,7 @@ class KluctlProject:
 
     def create_tgz(self, path, reproducible):
         with open(path, mode="wb") as f:
-            with gzip.GzipFile(mode="wb", compresslevel=9, fileobj=f, mtime=0) as gz:
+            with gzip.GzipFile(filename="reproducible" if reproducible else None, mode="wb", compresslevel=9, fileobj=f, mtime=0 if reproducible else None) as gz:
                 with tarfile.TarFile.taropen("", mode="w", fileobj=gz) as tar:
                     def mf_filter(ti: tarfile.TarInfo):
                         if ".git" in os.path.split(ti.name):
@@ -85,12 +85,13 @@ class KluctlProject:
                     metadata_yaml = {
                         "involved_repos": self.involved_repos,
                         "targets": self.targets,
+                        "deployment_name": self.deployment_name,
                     }
                     with NamedTemporaryFile(dir=get_tmp_base_dir()) as tmp:
                         yaml_save_file(metadata_yaml, tmp.name)
                         tar.add(tmp.name, "metadata.yml", filter=mf_filter)
                     tar.add(self.config_file, ".kluctl.yml", filter=mf_filter)
-                    tar.add(self.deployment_dir, "deployment/%s" % os.path.basename(self.deployment_dir), True, filter=mf_filter)
+                    tar.add(self.deployment_dir, "deployment/%s" % self.deployment_name, True, filter=mf_filter)
                     tar.add(self.clusters_dir, "clusters", True, filter=mf_filter)
                     tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
 
@@ -99,8 +100,9 @@ class KluctlProject:
         with open(path, mode="rb") as f:
             with tarfile.open(mode="r:gz", fileobj=f) as tgz:
                 tgz.extractall(tmp_dir)
+        metadata = yaml_load_file(os.path.join(tmp_dir, "metadata.yml"))
         deployment_dir = os.path.join(tmp_dir, "deployment")
-        deployment_name = os.listdir(deployment_dir)[0]
+        deployment_name = metadata["deployment_name"]
         deployment_dir = os.path.join(deployment_dir, deployment_name)
         project = KluctlProject(deployment_name, None, None,
                                 os.path.join(tmp_dir, ".kluctl.yml"),
@@ -108,8 +110,6 @@ class KluctlProject:
                                 deployment_dir,
                                 os.path.join(tmp_dir, "sealed-secrets"),
                                 tmp_dir)
-
-        metadata = yaml_load_file(os.path.join(tmp_dir, "metadata.yml"))
         project.involved_repos = metadata["involved_repos"]
         project.targets = metadata["targets"]
         return project
