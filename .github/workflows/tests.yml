@@ -11,20 +11,30 @@ on:
 jobs:
   unittests:
     runs-on: ubuntu-latest
-    container: python:3.8.10
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8.10
       - name: unittests
         run: |
           pip install .
           python -munittest
   check-code:
     runs-on: ubuntu-latest
-    container: python:3.8.10
     steps:
+      - name: Install packages
+        run: |
+          sudo apt update
+          sudo apt install -y git
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8.10
       - name: pip install
         run: |
           pip install .
