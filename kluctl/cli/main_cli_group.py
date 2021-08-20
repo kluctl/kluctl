@@ -83,6 +83,16 @@ def configure(ctx, param, filename):
 @optgroup.group("Common options")
 @optgroup.option("--verbose", "-v", help="Enable verbose logging", default=False, is_flag=True)
 @optgroup.option("--no-update-check", help="Disable update check on startup", default=False, is_flag=True)
+@click.option(
+    '--config',
+    type=click.Path(dir_okay=False),
+    default=os.path.join(click.get_app_dir("kluctl", force_posix=True), "config.yml"),
+    callback=configure,
+    is_eager=True,
+    expose_value=False,
+    help='Read option defaults from the specified config file',
+    show_default=True
+)
 @click.pass_context
 def cli_group(ctx: click.Context, verbose, no_update_check):
     ctx.ensure_object(dict)
@@ -140,7 +150,7 @@ def kluctl_project_args(with_d=True, with_a=True, with_t=True):
     if with_d:
         options.append(optgroup.option("--project-url", "-p", help="Git url of the kluctl project. If not specified, the current directory will be used instead of a remote Git project"))
         options.append(optgroup.option("--project-ref", "-b", help="Git ref of the kluctl project. Only used when --project-url was given."))
-        options.append(optgroup.option("--config-file", "-c", help="Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml", type=click.Path(dir_okay=False)))
+        options.append(optgroup.option("--project-config", "-c", help="Location of the .kluctl.yml config file. Defaults to $PROJECT/.kluctl.yml", type=click.Path(dir_okay=False)))
         options.append(optgroup.option("--local-clusters", help="Local clusters directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
         options.append(optgroup.option("--local-deployment", help="Local deployment directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))
         options.append(optgroup.option("--local-sealed-secrets", help="Local sealed-secrets directory. Overrides the project from .kluctl.yml", type=click.Path(file_okay=False)))

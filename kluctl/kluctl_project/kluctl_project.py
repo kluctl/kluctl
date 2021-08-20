@@ -415,7 +415,7 @@ def load_kluctl_project_from_args(kwargs) -> ContextManager[KluctlProject]:
         else:
             deployment_name = os.path.basename(os.getcwd())
     with TemporaryDirectory(dir=get_tmp_base_dir()) as tmp_dir:
-        project = KluctlProject(deployment_name, kwargs["project_url"], kwargs["project_ref"], kwargs["config_file"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
+        project = KluctlProject(deployment_name, kwargs["project_url"], kwargs["project_ref"], kwargs["project_config"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
         yield project
 
 @contextmanager
