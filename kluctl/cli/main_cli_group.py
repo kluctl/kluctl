@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os.path
+import sys
 from distutils.version import LooseVersion
 
 import click
@@ -107,8 +108,9 @@ def cli_group(ctx: click.Context, verbose, no_update_check):
     setup_logging(verbose)
     if not no_update_check:
         check_new_version()
-    check_external_tools_installed()
-    init_gitlab_util_from_glab()
+    if "--help" not in sys.argv:
+        check_external_tools_installed()
+        init_gitlab_util_from_glab()
 
 def wrapper_helper(options):
     def wrapper(func):
