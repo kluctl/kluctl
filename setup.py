@@ -17,6 +17,15 @@ version = _locals['__version__']
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+datas = []
+for dirpath, dirnames, filenames in os.walk("./kluctl"):
+    for f in filenames:
+        if f.endswith(".py") or f.endswith(".pyc"):
+            continue
+        p = os.path.join("..", dirpath, f)
+        datas.append(p)
+print("datas=%s" % datas)
+
 # This call to setup() does all the work
 setup(
     name=name,
@@ -41,6 +50,10 @@ setup(
     ],
     packages=find_packages(),
     include_package_data=True,
+    package_data={
+       "": datas,
+       "kluctl": ["bootstrap/**"],
+    },
     install_requires=[
         "click>=8.0.1",
         "click-option-group>=0.5.3",
