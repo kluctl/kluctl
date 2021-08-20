@@ -92,8 +92,8 @@ base infrastructure.
 ### Jinja2 based templating engine
 
 Kubernetes resources and all other involved configuration is based on [Jinja2](https://palletsprojects.com/p/jinja/)
-templates. Templates can easily be configured via CLI arguments (`-a var_name=value`) or via `jinja2-vars.yml` files
-declare a custom set of variables.
+templates. Templates can easily be configured via CLI arguments (`-a var_name=value`) or via
+the [deployment project](./docs/deployments.md#vars) declare a custom set of variables.
 
 Jinja2 macros allow unifying of heavily repeated deployments (e.g. you 100 microservices) in a convenient way. 
 

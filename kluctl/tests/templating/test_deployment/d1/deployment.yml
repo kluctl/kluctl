@@ -1,8 +1,5 @@
 kustomizeDirs:
 - path: k1
 
-commonLabels:
-  c: {{ var_from_subdir_jinja2_vars_yaml }}
-
 templateExcludes:
   - k1/not-*.yml

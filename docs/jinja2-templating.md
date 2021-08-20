@@ -139,7 +139,7 @@ The filename given to `load_template` is treated as relative to the template tha
 
 ### get_var(field_path, default)
 Convenience method to navigate through the current context variables via a field path. Let's assume you currently have
-these variables defines (e.g. via `jinja2-vars.yml`):
+these variables defines (e.g. via [vars](./deployments.md#vars)):
 ```yaml
 my:
   deep:

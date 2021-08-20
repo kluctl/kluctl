@@ -1,2 +1,5 @@
+vars:
+  - file: ./vars.yml
+
 kustomizeDirs:
 - path: k1

@@ -1,6 +1,2 @@
 kustomizeDirs:
 - path: k1
-
-commonLabels:
-  d: {{ indirect_var_from_subdir_jinja2_vars_yaml }}
-  overridden: {{ overridden }}

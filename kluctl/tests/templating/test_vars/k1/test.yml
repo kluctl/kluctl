@@ -2,3 +2,4 @@
 test1: {{ v1 }}
 test2: {{ f1 }}
 test3: {{ f2 }}
+test4: {{ override }}

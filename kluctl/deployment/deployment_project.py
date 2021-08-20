@@ -31,7 +31,6 @@ class DeploymentProject(object):
         self.includes = []
         self.parent_collection = parent_collection
         self.parent_collection_include = None
-        self.jinja_vars = self.load_jinja_vars('./jinja2-vars.yml')
         self.check_required_args()
         self.jinja_vars['args'] = self.deploy_args # need to update 'args' after applying default values in check_required_args
         self.load_base_conf()
@@ -89,6 +88,8 @@ class DeploymentProject(object):
                 merge_dict(self.jinja_vars, v['values'], False)
             elif 'file' in v:
                 self.jinja_vars = self.load_jinja_vars(v['file'])
+            else:
+                raise CommandError("Invalid vars entry in deployment.yml")
 
         for c in self.conf['kustomizeDirs'] + self.conf['includes']:
             if 'tags' not in c and 'path' in c:

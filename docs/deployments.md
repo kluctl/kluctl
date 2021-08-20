@@ -21,7 +21,6 @@ Some visualized files/directories have links attached, follow them to get more i
 <pre>
 -- project-dir/
    |-- <a href="#deploymentyml">deploymentyml</a>
-   |-- <a href="./jinja2-templating.md">jinja2-vars.yml</a>
    |-- .gitignore
    |-- kustomize-deployment1/
    |   |-- kustomization.yml
@@ -46,7 +45,6 @@ Some visualized files/directories have links attached, follow them to get more i
    |   |   `-- helm-values.yml
    |   `-- subsub-deployment/
    |       |-- deployment.yml
-   |       |-- jinja2-vars.yml
    |       |-- ... kustomize deployments
    |       `-- ... subsubsub deployments
    `-- sub-deployment/

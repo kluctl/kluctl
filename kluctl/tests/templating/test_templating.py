@@ -22,25 +22,6 @@ class TestTemplating(DeploymentTestBase):
         with self.build_deployment('templating/test_deployment', self.get_jinja2_vars(), {'a': 'a2'}) as (d, c):
             self.assertEqual(d.includes[0].dir, os.path.join(cur_dir, 'test_deployment', 'd1'))
 
-    def test_jinja2_vars_yaml(self):
-        with self.build_deployment('templating/test_deployment', self.get_jinja2_vars(), {'a': 'a2'}) as (d, c):
-            self.assertTrue('a' in d.conf['commonLabels'])
-            self.assertEqual(d.conf['commonLabels']['a'], 'test1')
-
-    def test_subdir_jinja2_vars_yaml(self):
-        with self.build_deployment('templating/test_deployment', self.get_jinja2_vars(), {'a': 'a2'}) as (d, c):
-            self.assertEqual(d.conf['commonLabels']['b'], 'not-defined')
-            self.assertEqual(d.includes[0].conf['commonLabels']['c'], 'test2')
-
-    def test_indirect_jinja2_vars_yaml(self):
-        with self.build_deployment('templating/test_deployment', self.get_jinja2_vars(), {'a': 'a2'}) as (d, c):
-            self.assertEqual(d.includes[1].conf['commonLabels']['d'], 'test1')
-
-    def test_override_jinja2_vars_yaml(self):
-        with self.build_deployment('templating/test_deployment', self.get_jinja2_vars(), {'a': 'a2'}) as (d, c):
-            self.assertEqual(d.conf['commonLabels']['overridden'], 'o1')
-            self.assertEqual(d.includes[1].conf['commonLabels']['overridden'], 'o2')
-
     def test_not_rendered_kustomize_resource(self):
         with self.render_deployment('templating/test_deployment', self.get_jinja2_vars(), {'a': 'a2'}) as c:
             y = yaml_load_file(os.path.join(c.tmpdir, 'd1/k1/not-rendered.yml'))
@@ -80,3 +61,4 @@ class TestTemplating(DeploymentTestBase):
             self.assertEqual(y['test1'], 'v1')
             self.assertEqual(y['test2'], 'f1')
             self.assertEqual(y['test3'], 'v1')
+            self.assertEqual(y['test4'], 'b')
