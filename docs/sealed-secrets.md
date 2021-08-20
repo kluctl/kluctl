@@ -84,7 +84,7 @@ with:
 file. If not specified, the base directory defaults to the subdirectory `.sealed-secrets` in the kluctl project root
 diretory.
 * `deployment_name`: The deployment name, which defaults to the kluctl project directories base name. It can also be
-overridden with [--deployment-name](./commands.md#--deployment-name-text).
+overridden with [--deployment-name](./commands.md#project-arguments).
 * `rendered_output_pattern`: The rendered outputPattern as described above.
 * `relative_sealme_file_dir`: The relative path from the deployment root directory.
 * `file_name`: The filename of the sealed secret, excluding the `.sealme` extension.
@@ -92,7 +92,7 @@ overridden with [--deployment-name](./commands.md#--deployment-name-text).
 # Content Hashes and re-sealing
 Sealed secrets are stored together with hashes of all individual secret entries. These hashes are then used to avoid
 unnecessary re-sealing in future [seal](./commands.md#seal) invocations. If you want to force re-sealing, use the
-[--force-reseal](./commands.md#--force-reseal) option.
+[--force-reseal](./commands.md#seal) option.
 
 # Clusters and namespaces
 Sealed secrets are usually only decryptable by one cluster, simply because each cluster has its own set of randomly

@@ -34,7 +34,7 @@ This is solved via a Jinja2 function that is available in all templates/resource
 * container
     * The name of the container inside the affected resource.
 * image
-    * The image location, excluding the tag. Please see [supported image registries](#supported-image-registries) to
+    * The image location, excluding the tag. Please see [supported image registries](#supported-image-registries-and-authentication) to
       understand which registries are supported.`
 * latest_version
     * configures how tags/versions are sorted and thus how the latest image is determined. Can be:
@@ -79,7 +79,7 @@ The described `images.get_image` logic however leads to a loosely defined state 
 might be fine in a CI/CD environment, but might be undesired when deploying to production. In that case, it might be
 desirable to explicitly define which versions need to be deployed.
 
-To achieve this, you can use the `-F FIXED_IMAGE` [argument](./commands.md#-f---fixed-image-text).
+To achieve this, you can use the `-F FIXED_IMAGE` [argument](./commands.md#image-arguments).
 `FIXED_IMAGE` must be in the form of `-F image<:namespace:deployment:container>=result`. For example, to pin the image
 `registry.gitlab.com/my-group/my-project` to the tag `1.1.2` you'd have to specify
 `-F registry.gitlab.com/my-group/my-project=registry.gitlab.com/my-group/my-project:1.1.2`.

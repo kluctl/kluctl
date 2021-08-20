@@ -129,7 +129,7 @@ targets:
 ```
 
 * `name` specifies the name of the target. The name must be unique. It is referred in all commands via the 
-  [-t](./commands.md#-t---target-text) option.
+  [-t](./commands.md#project-arguments) option.
 * `cluster` specifies the name of the target cluster. The cluster must exist in the [cluster configuration](./cluster-config.md)
   specified via [clusters](#clusters).
 * `args` specifies a map of arguments to be passed to the deployment project when it is rendered. Allowed argument names
@@ -174,7 +174,7 @@ secretsConfig:
 #### path
 A simple local file based source. The path must be relative and multiple places are tried to find the file:
 1. Relative to the deployment project root
-2. The path provided via [--secrets-dir](./commands.md#--secrets-dir-directory)
+2. The path provided via [--secrets-dir](./commands.md#seal)
 
 Example:
 ```yaml
