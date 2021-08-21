@@ -53,7 +53,7 @@ def deploy_command2(obj, kwargs, cmd_ctx):
         logger.info("Running full diff after deploy")
         cmd_ctx.deployment_collection.update_remote_objects_from_diff(diff_result)
         cmd_ctx.deployment_collection.inclusion = Inclusion()
-        diff_result = cmd_ctx.deployment_collection.diff(cmd_ctx.k8s_cluster, kwargs["force_apply"], False, False, False, False)
+        diff_result = cmd_ctx.deployment_collection.diff(cmd_ctx.k8s_cluster, kwargs["force_apply"], False, False, False, False, False)
         output_diff_result([kwargs["full_diff_after_deploy"]], cmd_ctx.deployment_collection, diff_result, deleted_objects)
         if diff_result.errors:
             sys.exit(1)
