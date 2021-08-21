@@ -90,7 +90,7 @@ class HelmChart(object):
         r, rendered, stderr = self.do_helm(args)
         rendered = rendered.decode('utf-8')
 
-        parsed = list(yaml_load_all(rendered))
+        parsed = yaml_load_all(rendered)
         for o in parsed:
             if o is None:
                 continue

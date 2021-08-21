@@ -14,5 +14,5 @@ def kustomize(args, pathToYaml, ignoreErrors=False):
     return r, str(out.decode("utf-8")), err
 
 def kustomize_build(pathToYaml):
-    r, out, err = kustomize(["build"], pathToYaml)
+    r, out, err = kustomize(["build", "--reorder", "none"], pathToYaml)
     return out

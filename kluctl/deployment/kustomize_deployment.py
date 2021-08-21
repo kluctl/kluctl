@@ -180,6 +180,61 @@ class KustomizeDeployment(object):
         values = self.build_inclusion_values()
         return inclusion.check_included(values, skip_delete_if_tags)
 
+    def is_simple_kustomize_project(self, kustomize_yaml):
+        rendered_dir = self.get_rendered_dir()
+        allowed = {"apiVersion", "kind", "resources", "namespace"}
+        for k in kustomize_yaml.keys():
+            if k not in allowed:
+                return False
+        for r in kustomize_yaml.get("resources", []):
+            p = r.split("/")
+            if "." in p or ".." in p:
+                return False
+            if not os.path.isfile(os.path.join(rendered_dir, r)):
+                return False
+        return True
+
+    def build_objects_kustomize(self):
+        tmp_files = []
+
+        try:
+            need_build = True
+            if allow_cache:
+                hash = self.calc_hash()
+                hash_path = os.path.join(get_kustomize_cache_dir(), hash[:16])
+                if os.path.exists(hash_path):
+                    need_build = False
+                    # Load from cache
+                    with open(hash_path) as f:
+                        yamls = f.read()
+            if need_build:
+                # Run 'kustomize build'
+                yamls = kustomize_build(self.get_rendered_dir())
+                if allow_cache:
+                    with open(hash_path, "w") as f:
+                        f.write(yamls)
+        finally:
+            for x in tmp_files:
+                x.close()
+
+        yamls = yaml_load_all(yamls)
+        return yamls
+
+    def build_objects_simple_kustomize(self, kustomize_yaml):
+        rendered_dir = self.get_rendered_dir()
+        namespace = kustomize_yaml.get("namespace")
+
+        yamls = []
+        for r in kustomize_yaml.get("resources", []):
+            y = yaml_load_file(os.path.join(rendered_dir, r), all=True)
+            for x in y:
+                if x is None:
+                    continue
+                if namespace is not None:
+                    x.setdefault("metadata", {})["namespace"] = namespace
+                yamls.append(x)
+        return yamls
+
     def build_objects(self):
         if self.config.get("onlyRender", False):
             self.objects = []
@@ -192,39 +247,21 @@ class KustomizeDeployment(object):
         kustomize_yaml_path = os.path.join(rendered_dir, 'kustomization.yml')
         kustomize_yaml = yaml_load_file(kustomize_yaml_path)
 
-        tmp_files = []
-
         override_namespace = self.deployment_project.get_override_namespace()
         if override_namespace is not None:
             kustomize_yaml.setdefault("namespace", override_namespace)
 
-        try:
-            # Save modified kustomize.yml
-            yaml_save_file(kustomize_yaml, kustomize_yaml_path)
+        # Save modified kustomize.yml
+        yaml_save_file(kustomize_yaml, kustomize_yaml_path)
 
-            need_build = True
-            if allow_cache:
-                hash = self.calc_hash()
-                hash_path = os.path.join(get_kustomize_cache_dir(), hash[:16])
-                if os.path.exists(hash_path):
-                    need_build = False
-                    # Load from cache
-                    with open(hash_path) as f:
-                        yamls = f.read()
-            if need_build:
-                # Run 'kustomize build'
-                yamls = kustomize_build(rendered_dir)
-                if allow_cache:
-                    with open(hash_path, "w") as f:
-                        f.write(yamls)
-        finally:
-            for x in tmp_files:
-                x.close()
+        if self.is_simple_kustomize_project(kustomize_yaml):
+            yamls = self.build_objects_simple_kustomize(kustomize_yaml)
+        else:
+            yamls = self.build_objects_kustomize()
 
+        self.objects = []
         # Add commonLabels to all resources. We can't use kustomize's "commonLabels" feature as it erroneously
         # sets matchLabels as well.
-        yamls = yaml_load_all(yamls)
-        self.objects = []
         for y in yamls:
             labels = y.setdefault("metadata", {}).setdefault("labels") or {}
             annotations = y["metadata"].setdefault("annotations") or {}

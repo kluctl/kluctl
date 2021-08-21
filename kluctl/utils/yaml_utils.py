@@ -22,11 +22,14 @@ def yaml_load(s):
     return yaml.load(s, Loader=SafeLoader)
 
 def yaml_load_all(s):
-    return yaml.load_all(s, Loader=SafeLoader)
+    return list(yaml.load_all(s, Loader=SafeLoader))
 
-def yaml_load_file(path):
+def yaml_load_file(path, all=False):
     with open(path) as f:
-        y = yaml_load(f)
+        if all:
+            y = yaml_load_all(f)
+        else:
+            y = yaml_load(f)
     return y
 
 def yaml_dump(y, stream=None):
