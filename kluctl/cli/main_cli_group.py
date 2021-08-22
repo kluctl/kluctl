@@ -202,8 +202,9 @@ def kluctl_project_args(with_d=True, with_a=True, with_t=True):
                                        help="Local sealed-secrets directory. Overrides the project from .kluctl.yml",
                                        type=click.Path(file_okay=False)))
         options.append(optgroup.option("--from-archive",
-                                       help="Load project (.kluctl.yml, cluster, ...) from archive.",
-                                       type=click.Path(dir_okay=False)))
+                                       help="Load project (.kluctl.yml, cluster, ...) from archive. Given path can "
+                                            "either be an archive file or a directory with the extracted contents.",
+                                       type=click.Path(dir_okay=True, file_okay=True)))
         options.append(optgroup.option("--deployment-name",
                                        help="Name of the kluctl deployment. Used when resolving sealed-secrets. "
                                             "Defaults to the base name of --local-deployment/--project-url"))

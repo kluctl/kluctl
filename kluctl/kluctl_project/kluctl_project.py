@@ -96,20 +96,24 @@ class KluctlProject:
                     tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
 
     @staticmethod
-    def from_tgz(path, tmp_dir):
-        with open(path, mode="rb") as f:
-            with tarfile.open(mode="r:gz", fileobj=f) as tgz:
-                tgz.extractall(tmp_dir)
-        metadata = yaml_load_file(os.path.join(tmp_dir, "metadata.yml"))
-        deployment_dir = os.path.join(tmp_dir, "deployment")
+    def from_archive(path, tmp_dir):
+        if os.path.isfile(path):
+            with open(path, mode="rb") as f:
+                with tarfile.open(mode="r:gz", fileobj=f) as tgz:
+                    tgz.extractall(tmp_dir)
+            dir = tmp_dir
+        else:
+            dir = path
+        metadata = yaml_load_file(os.path.join(dir, "metadata.yml"))
+        deployment_dir = os.path.join(dir, "deployment")
         deployment_name = metadata["deployment_name"]
         deployment_dir = os.path.join(deployment_dir, deployment_name)
         project = KluctlProject(deployment_name, None, None,
-                                os.path.join(tmp_dir, ".kluctl.yml"),
-                                os.path.join(tmp_dir, "clusters"),
+                                os.path.join(dir, ".kluctl.yml"),
+                                os.path.join(dir, "clusters"),
                                 deployment_dir,
-                                os.path.join(tmp_dir, "sealed-secrets"),
-                                tmp_dir)
+                                os.path.join(dir, "sealed-secrets"),
+                                dir)
         project.involved_repos = metadata["involved_repos"]
         project.targets = metadata["targets"]
         return project
@@ -420,7 +424,7 @@ def load_kluctl_project_from_args(kwargs) -> ContextManager[KluctlProject]:
         if kwargs["from_archive"]:
             if any(kwargs[x] for x in ["project_url", "project_ref", "project_config", "local_clusters", "local_deployment", "local_sealed_secrets"]):
                 raise CommandError("--from-archive can not be combined with any other project related option")
-            project = KluctlProject.from_tgz(kwargs["from_archive"], tmp_dir)
+            project = KluctlProject.from_archive(kwargs["from_archive"], tmp_dir)
             project.load(False)
         else:
             deployment_name = kwargs["deployment_name"]
