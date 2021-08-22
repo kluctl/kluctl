@@ -91,6 +91,7 @@ class KluctlProject:
                         yaml_save_file(metadata_yaml, tmp.name)
                         tar.add(tmp.name, "metadata.yml", filter=mf_filter)
                     tar.add(self.config_file, ".kluctl.yml", filter=mf_filter)
+                    tar.add(self.kluctl_project_dir, "kluctl-project", True, filter=mf_filter)
                     tar.add(self.deployment_dir, "deployment/%s" % self.deployment_name, True, filter=mf_filter)
                     tar.add(self.clusters_dir, "clusters", True, filter=mf_filter)
                     tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
