@@ -146,6 +146,8 @@ def project_target_command_context(kwargs, kluctl_project, target,
         c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=output_dir, for_seal=for_seal)
 
         fixed_images = load_fixed_images(kwargs)
+        for fi in target.get("images", []):
+            c.seen_images.add_fixed_image(fi)
         for fi in fixed_images:
             c.seen_images.add_fixed_image(fi)
 
