@@ -85,7 +85,6 @@ class HelmChart(object):
             args += ['--include-crds']
 
         args.append("--skip-tests")
-        args.append("--debug")
 
         r, rendered, stderr = self.do_helm(args)
         rendered = rendered.decode('utf-8')
