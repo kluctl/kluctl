@@ -43,21 +43,7 @@ class k8s_cluster_base(object):
     def get_objects_metadata(self, group=None, version=None, kind=None, name=None, namespace=None, labels=None):
         if group is None or kind is None:
             raise ApiException("group/kind must be supplied")
-        tables = self.get_objects(group=group, version=version, kind=kind, name=name, namespace=namespace, labels=labels, as_table=True)
-        ret = []
-        for table, warnings in tables:
-            if not table.get("rows", []):
-                continue
-            for r in table["rows"]:
-                o = r["object"]
-                o["kind"] = kind
-                o["apiVersion"] = group or ""
-                if version:
-                    if group:
-                        o["apiVersion"] += "/"
-                    o["apiVersion"] += version
-                ret.append((o, warnings))
-        return ret
+        return self.get_objects(group=group, version=version, kind=kind, name=name, namespace=namespace, labels=labels, as_table=True)
 
 def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
     if cluster_name is None:

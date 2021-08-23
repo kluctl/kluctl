@@ -72,18 +72,6 @@ def remove_namespace_from_ref_if_needed(k8s_cluster, ref):
         # resource might be unknown by now as we might be in the middle of deploying CRDs
         return ref
 
-def get_object_stub(ref):
-    o = {
-        "apiVersion": ref.api_version,
-        "kind": ref.kind,
-        "metadata": {
-            "name": ref.name,
-        }
-    }
-    if ref.namespace is not None:
-        o["metadata"]["namespace"] = ref.namespace
-    return o
-
 def get_filtered_api_resources(k8s_cluster, filter):
     api_resources = []
     for r in k8s_cluster.get_preferred_resources(None, None, None):

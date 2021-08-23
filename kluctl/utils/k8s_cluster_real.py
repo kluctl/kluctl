@@ -13,6 +13,7 @@ from kubernetes.dynamic.exceptions import NotFoundError, ResourceNotFoundError
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_cluster_base import k8s_cluster_base
 from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.k8s_object_utils import split_api_version
 from kluctl.utils.versions import LooseVersionComparator
 
 logger = logging.getLogger(__name__)
@@ -164,7 +165,16 @@ class k8s_cluster_real(k8s_cluster_base):
                 return []
             if name is not None:
                 return [(r, warnings)]
-            r = r['items']
+
+            ret_group, ret_version = split_api_version(r.get("apiVersion"))
+            if as_table and ret_group == "meta.k8s.io" and r["kind"] == "Table":
+                r = r["rows"] or []
+                r = [x["object"] for x in r]
+            else:
+                r = r["items"]
+            if not r:
+                return []
+
             for x in r:
                 x['kind'] = resource.kind
                 x['apiVersion'] = resource.group_version
@@ -177,16 +187,13 @@ class k8s_cluster_real(k8s_cluster_base):
             if r is None:
                 continue
             objects, warnings = r
-            if not as_table:
-                ret += fix_kind(resource, objects, warnings)
-            else:
-                ret.append((objects, warnings))
+            ret += fix_kind(resource, objects, warnings)
 
         return ret
 
     def patch_object(self, body, namespace=None, force_dry_run=False, force_apply=False):
         namespace = namespace or body.get('metadata', {}).get('namespace')
-        group, version = self._fix_api_version(None, body.get('apiVersion'))
+        group, version = split_api_version(body.get("apiVersion"))
         kind = body['kind']
         name = body['metadata']['name']
         query_params = self._get_dry_run_params(force_dry_run)
@@ -215,7 +222,7 @@ class k8s_cluster_real(k8s_cluster_base):
     def replace_object(self, body, namespace=None, force_dry_run=False, resource_version=None):
         namespace = namespace or body.get('metadata', {}).get('namespace')
         resource_version = resource_version or body.get("metadata", {}).get("resourceVersion")
-        group, version = self._fix_api_version(None, body.get('apiVersion'))
+        group, version = split_api_version(body.get("apiVersion"))
         kind = body['kind']
         name = body['metadata']['name']
         query_params = self._get_dry_run_params(force_dry_run)
