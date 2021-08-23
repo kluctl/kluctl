@@ -1,7 +1,7 @@
 import json
 
-from kluctl.utils.k8s_object_utils import get_object_ref
-from kluctl.utils.utils import copy_dict
+from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name
+from kluctl.utils.dict_utils import copy_dict
 
 
 def _fields_iterator(mf, path):
@@ -47,7 +47,7 @@ def nav_managed_field(o, p):
                 return o, j, True
             o = o[j]
         else:
-            raise ValueError('Unsupported managed field %s in object %s' % ('.'.join(p), get_long_object_name2(o_in)))
+            raise ValueError('Unsupported managed field %s in object %s' % ('.'.join(p), get_long_object_name(o_in)))
 
 ignored_fields = {
     ("f:metadata",)

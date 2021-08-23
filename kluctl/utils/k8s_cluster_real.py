@@ -12,7 +12,7 @@ from kubernetes.dynamic.exceptions import NotFoundError, ResourceNotFoundError
 
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_cluster_base import k8s_cluster_base
-from kluctl.utils.utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.versions import LooseVersionComparator
 
 logger = logging.getLogger(__name__)

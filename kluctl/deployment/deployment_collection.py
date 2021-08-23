@@ -10,12 +10,13 @@ from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.managed_fields import remove_non_managed_fields2
 from kluctl.diff.normalize import normalize_object
 from kluctl.deployment.images import SeenImages
+from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
     ObjectRef
 from kluctl.utils.status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
-from kluctl.utils.utils import MyThreadPoolExecutor, copy_dict
+from kluctl.utils.utils import MyThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 

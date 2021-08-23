@@ -13,12 +13,13 @@ from typing import ContextManager
 import jsonschema
 
 from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_project, target_config_schema
+from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
 from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
     get_git_ref
 from kluctl.utils.jinja2_utils import render_dict_strs
 from kluctl.utils.k8s_cluster_base import load_cluster_config
-from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor, copy_dict
+from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
 logger = logging.getLogger(__name__)

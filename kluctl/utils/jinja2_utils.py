@@ -9,7 +9,7 @@ import traceback
 import jinja2
 from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound, TemplateError
 
-from kluctl.utils.utils import merge_dict, is_iterable
+from kluctl.utils.dict_utils import merge_dict
 from kluctl.utils.yaml_utils import yaml_dump, yaml_load
 
 logger = logging.getLogger(__name__)

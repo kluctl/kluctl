@@ -6,7 +6,7 @@ from deepdiff import DeepDiff
 from deepdiff.helper import NotPresent
 
 from kluctl.utils.k8s_object_utils import get_object_stub, get_object_ref
-from kluctl.utils.utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.yaml_utils import yaml_dump
 
 

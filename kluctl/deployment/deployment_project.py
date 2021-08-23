@@ -7,7 +7,7 @@ from ordered_set import OrderedSet
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, render_str
-from kluctl.utils.utils import merge_dict, copy_dict, \
+from kluctl.utils.dict_utils import merge_dict, copy_dict, \
     set_default_value
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 

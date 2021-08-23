@@ -9,7 +9,7 @@ from kluctl.kluctl_project.secrets import SecretsLoader
 from kluctl.seal.deployment_sealer import DeploymentSealer
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
 from kluctl.utils.jinja2_utils import render_dict_strs, print_template_error
-from kluctl.utils.utils import merge_dict
+from kluctl.utils.dict_utils import merge_dict
 
 logger = logging.getLogger(__name__)
 

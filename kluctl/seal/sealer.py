@@ -4,8 +4,9 @@ import logging
 import os
 import tempfile
 
+from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.kubeseal import kubeseal_fetch_cert, kubeseal_raw
-from kluctl.utils.utils import copy_dict, get_tmp_base_dir
+from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump, yaml_load
 
 logger = logging.getLogger(__name__)

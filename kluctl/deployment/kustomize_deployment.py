@@ -3,13 +3,14 @@ import logging
 import os
 import shutil
 
+from kluctl.utils.dict_utils import merge_dict
 from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.seal.deployment_sealer import SEALME_EXT
 from kluctl.utils.external_tools import get_external_tool_hash
 from kluctl.utils.kustomize import kustomize_build
 from kluctl.utils.templated_dir import TemplatedDir
-from kluctl.utils.utils import merge_dict, get_tmp_base_dir
+from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.versions import LooseSemVerLatestVersion, PrefixLatestVersion, NumberLatestVersion, \
     RegexLatestVersion
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_load_all, yaml_save_file

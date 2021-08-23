@@ -1,7 +1,7 @@
 import re
 
 from kluctl.utils.exceptions import CommandError
-from kluctl.utils.utils import merge_dict
+from kluctl.utils.dict_utils import merge_dict
 
 
 def parse_args(args_list):

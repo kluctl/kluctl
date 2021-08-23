@@ -1,7 +1,7 @@
 import fnmatch
 
 from kluctl.utils.k8s_object_utils import split_api_version
-from kluctl.utils.utils import is_iterable, copy_dict
+from kluctl.utils.dict_utils import is_iterable, copy_dict
 
 
 def nav_dict(d, k):

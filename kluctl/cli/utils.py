@@ -7,6 +7,7 @@ from typing import ContextManager
 import click
 
 from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args, KluctlProject
+from kluctl.utils.dict_utils import merge_dict
 from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.deployment_collection import DeploymentCollection
 from kluctl.deployment.deployment_project import DeploymentProject
@@ -18,7 +19,7 @@ from kluctl.utils.external_args import parse_args
 from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_cluster_base import load_cluster_config, k8s_cluster_base
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
-from kluctl.utils.utils import get_tmp_base_dir, copy_dict, merge_dict
+from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump
 
 
