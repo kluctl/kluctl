@@ -178,14 +178,11 @@ A simple local file based source. The path must be relative and multiple places 
 
 Example:
 ```yaml
-secretsMatrix:
-- rules:
-  - "{{ cluster.name == cluster_name }}"
-  secrets:
-    - path: .secrets-non-prod.yml
-  argsMatrix:
-    - cluster_name: test.example.com
-      environment: test
+secretsConfig:
+  secretSets:
+    - name: prod
+      sources:
+        - path: .secrets-non-prod.yml
 ```
 
 #### passwordstate
@@ -195,18 +192,15 @@ prompt for login information while sealing. The password entry must have a field
 
 Example:
 ```yaml
-secretsMatrix:
-- rules:
-  - "{{ cluster.name == cluster_name }}"
-  secrets:
-    - passwordstate:
-        host: passwordstate.example.com
-        passwordList: /My/Path/To/The/List/name-of-the-list
-        passwordTitle: title-of-the-password
-        passwordField: field-name # This is optional and defaults to GenericField1
-  argsMatrix:
-    - cluster_name: test.example.com
-      environment: test
+secretsConfig:
+  secretSets:
+    - name: prod
+      sources:
+        - passwordstate:
+            host: passwordstate.example.com
+            passwordList: /My/Path/To/The/List/name-of-the-list
+            passwordTitle: title-of-the-password
+            passwordField: field-name # This is optional and defaults to GenericField1
 ```
 
 
