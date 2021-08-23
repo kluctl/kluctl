@@ -17,68 +17,6 @@ def get_tmp_base_dir():
     os.makedirs(dir, exist_ok=True)
     return dir
 
-def stdin_write_thread(s, input):
-    pos = 0
-    try:
-        while pos < len(input):
-            n = s.write(input[pos:])
-            pos += n
-        s.close()
-    except:
-        pass
-
-def std_read_thread(s, b, logger, log_level):
-    try:
-        while True:
-            line = s.readline()
-            if line is None or len(line) == 0:
-                break
-
-            b.write(line)
-            if logger is not None and log_level is not None:
-                if line.endswith(b'\n'):
-                    line = line[:-1]
-                logger.log(log_level, line.decode('utf-8'))
-    except:
-        pass
-
-def runHelper(args, cwd=None, input=None, logger=None, stdout_log_level=logging.DEBUG, stderr_log_level=logging.WARN):
-    if logger is not None:
-        logger.debug("runHelper: '%s'. inputLen=%d" % (" ".join(args), len(input) if input is not None else 0))
-
-    stdin = None
-    if input is not None:
-        stdin = subprocess.PIPE
-        if isinstance(input, str):
-            input = input.encode('utf-8')
-    process = subprocess.Popen(args=args, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-
-    stdin_thread = None
-    if input is not None:
-        stdin_thread = threading.Thread(target=stdin_write_thread, args=(process.stdin, input))
-        stdin_thread.start()
-
-    stdout = BytesIO()
-    stderr = BytesIO()
-
-    stdout_thread = threading.Thread(target=std_read_thread, args=(process.stdout, stdout, logger, stdout_log_level))
-    stderr_thread = threading.Thread(target=std_read_thread, args=(process.stderr, stderr, logger, stderr_log_level))
-    stdout_thread.start()
-    stderr_thread.start()
-
-    process.wait()
-    stdout_thread.join()
-    stderr_thread.join()
-    if stdin_thread is not None:
-        stdin_thread.join()
-
-    stdout.seek(0)
-    stderr.seek(0)
-    stdout = stdout.read()
-    stderr = stderr.read()
-
-    return process.returncode, stdout, stderr
-
 def copytree(src, dst, symlinks=False, ignore=None):
     for item in os.listdir(src):
         s = os.path.join(src, item)

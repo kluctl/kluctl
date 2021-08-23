@@ -16,8 +16,9 @@ from dxf import DXF
 from jwt import InvalidTokenError
 
 from kluctl.image_registries.images_registry import ImagesRegistry
+from kluctl.utils.run_helper import run_helper
 from kluctl.utils.thread_safe_cache import ThreadSafeCache, ThreadSafeMultiCache
-from kluctl.utils.utils import runHelper, get_tmp_base_dir
+from kluctl.utils.utils import get_tmp_base_dir
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class GenericRegistry(ImagesRegistry):
             if cred_store is not None:
                 cred_exe = f"docker-credential-{cred_store}"
                 logger.debug(f"trying credStore {cred_exe}")
-                rc, stdout, stderr = runHelper([cred_exe, "get"], input=auth_entry)
+                rc, stdout, stderr = run_helper([cred_exe, "get"], input=auth_entry, return_std=True)
                 if rc != 0:
                     logger.debug(f"{cred_exe} exited with status {rc}")
                     return None
