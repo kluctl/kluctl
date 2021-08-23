@@ -13,7 +13,7 @@ from kluctl.deployment.images import SeenImages
 from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
-    ObjectRef
+    ObjectRef, remove_namespace_from_ref_if_needed
 from kluctl.utils.status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import MyThreadPoolExecutor
@@ -194,20 +194,25 @@ class DeploymentCollection:
 
         def finish_futures():
             for o, f in futures:
-                ref = get_object_ref(o)
                 try:
                     r, patch_warnings = f.result()
+                    # We must use the ref from the applied object as k8s might remove the namespace field
+                    ref = get_object_ref(r)
                     applied_objects[ref] = r
                     self.add_api_warnings(ref, patch_warnings)
                 except ResourceNotFoundError as e:
+                    ref = get_object_ref(o)
                     self.add_api_error(ref, k8s_cluster.get_status_message(e))
                 except ApiException as e:
+                    ref = get_object_ref(o)
                     if replace_on_error:
                         logger.info("Patching %s failed, retrying by deleting and re-applying" % get_long_object_name_from_ref(ref))
                         try:
                             k8s_cluster.delete_single_object(ref, force_dry_run=dry_run, ignore_not_found=True)
                             if not dry_run and not k8s_cluster.dry_run:
                                 r, patch_warnings = k8s_cluster.patch_object(o, force_apply=True)
+                                # We must use the ref from the applied object as k8s might remove the namespace field
+                                ref = get_object_ref(r)
                                 applied_objects[ref] = r
                                 self.add_api_warnings(ref, patch_warnings)
                             else:
@@ -295,6 +300,7 @@ class DeploymentCollection:
             ignore_for_diffs = d.deployment_project.get_ignore_for_diffs(ignore_tags, ignore_labels, ignore_annotations)
             for x in d.objects:
                 ref = get_object_ref(x)
+                ref = remove_namespace_from_ref_if_needed(k8s_cluster, ref)
                 if ref not in applied_objects:
                     continue
                 diff_objects[ref] = applied_objects.get(ref)
