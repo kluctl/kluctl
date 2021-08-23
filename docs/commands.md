@@ -23,7 +23,8 @@ The following sets of common arguments are available:
     --local-deployment DIRECTORY  Local deployment directory. Overrides the project from .kluctl.yml
     --local-sealed-secrets DIRECTORY
                                   Local sealed-secrets directory. Overrides the project from .kluctl.yml
-    --from-archive FILE           Load project (.kluctl.yml, cluster, ...) from archive.
+    --from-archive PATH           Load project (.kluctl.yml, cluster, ...) from archive. Given path can either be an
+                                  archive file or a directory with the extracted contents.
     --deployment-name TEXT        Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the
                                   base name of --local-deployment/--project-url
     --cluster TEXT                Specify/Override cluster
