@@ -146,11 +146,14 @@ def list_targets_stub(obj, **kwargs):
                         "This archive can then be used with `--from-archive`.")
 @kluctl_project_args()
 @optgroup.group("Misc arguments")
-@optgroup.option("--output",
+@optgroup.option("--output-archive",
                  help="Path to .tgz to write project to.",
                  type=click.Path(file_okay=True))
+@optgroup.option("--output-metadata",
+                 help="Path to .yml to write metadata to. If not specified, metadata is written into the archive.",
+                 type=click.Path(file_okay=True))
 @optgroup.option("--reproducible",
-                 help="Make .tgz reproducible.",
+                 help="Make archive reproducible.",
                  is_flag=True)
 @click.pass_obj
 def archive_command_stub(obj, **kwargs):

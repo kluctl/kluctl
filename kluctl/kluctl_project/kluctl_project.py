@@ -69,7 +69,7 @@ class KluctlProject:
         self.git_cache_up_to_date = {}
         self.refs_for_urls = {}
 
-    def create_tgz(self, path, reproducible):
+    def create_tgz(self, path, metadata_path, reproducible):
         with open(path, mode="wb") as f:
             with gzip.GzipFile(filename="reproducible" if reproducible else None, mode="wb", compresslevel=9, fileobj=f, mtime=0 if reproducible else None) as gz:
                 with tarfile.TarFile.taropen("", mode="w", fileobj=gz) as tar:
@@ -88,9 +88,14 @@ class KluctlProject:
                         "targets": self.targets,
                         "deployment_name": self.deployment_name,
                     }
-                    with NamedTemporaryFile(dir=get_tmp_base_dir()) as tmp:
-                        yaml_save_file(metadata_yaml, tmp.name)
-                        tar.add(tmp.name, "metadata.yml", filter=mf_filter)
+                    if metadata_path is not None:
+                        # metadata.yml outside of archive
+                        yaml_save_file(metadata_yaml, metadata_path)
+                    else:
+                        # metadata.yml as part of the archive
+                        with NamedTemporaryFile(dir=get_tmp_base_dir()) as tmp:
+                            yaml_save_file(metadata_yaml, tmp.name)
+                            tar.add(tmp.name, "metadata.yml", filter=mf_filter)
                     tar.add(self.config_file, ".kluctl.yml", filter=mf_filter)
                     tar.add(self.kluctl_project_dir, "kluctl-project", True, filter=mf_filter)
                     tar.add(self.deployment_dir, "deployment/%s" % self.deployment_name, True, filter=mf_filter)
@@ -98,7 +103,7 @@ class KluctlProject:
                     tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
 
     @staticmethod
-    def from_archive(path, tmp_dir):
+    def from_archive(path, metadata_path, tmp_dir):
         if os.path.isfile(path):
             with open(path, mode="rb") as f:
                 with tarfile.open(mode="r:gz", fileobj=f) as tgz:
@@ -106,7 +111,10 @@ class KluctlProject:
             dir = tmp_dir
         else:
             dir = path
-        metadata = yaml_load_file(os.path.join(dir, "metadata.yml"))
+        if metadata_path is not None:
+            metadata = yaml_load_file(metadata_path)
+        else:
+            metadata = yaml_load_file(os.path.join(dir, "metadata.yml"))
         deployment_dir = os.path.join(dir, "deployment")
         deployment_name = metadata["deployment_name"]
         deployment_dir = os.path.join(deployment_dir, deployment_name)
@@ -426,7 +434,7 @@ def load_kluctl_project_from_args(kwargs) -> ContextManager[KluctlProject]:
         if kwargs["from_archive"]:
             if any(kwargs[x] for x in ["project_url", "project_ref", "project_config", "local_clusters", "local_deployment", "local_sealed_secrets"]):
                 raise CommandError("--from-archive can not be combined with any other project related option")
-            project = KluctlProject.from_archive(kwargs["from_archive"], tmp_dir)
+            project = KluctlProject.from_archive(kwargs["from_archive"], kwargs["from_archive_metadata"], tmp_dir)
             project.load(False)
         else:
             deployment_name = kwargs["deployment_name"]

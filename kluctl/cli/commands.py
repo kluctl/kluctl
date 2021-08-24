@@ -160,4 +160,4 @@ def list_targets_command(obj, kwargs):
 
 def archive_command(obj, kwargs):
     with load_kluctl_project_from_args(kwargs) as kluctl_project:
-        kluctl_project.create_tgz(kwargs["output"], kwargs["reproducible"])
+        kluctl_project.create_tgz(kwargs["output_archive"], kwargs["output_metadata"], kwargs["reproducible"])

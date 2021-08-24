@@ -25,6 +25,8 @@ The following sets of common arguments are available:
                                   Local sealed-secrets directory. Overrides the project from .kluctl.yml
     --from-archive PATH           Load project (.kluctl.yml, cluster, ...) from archive. Given path can either be an
                                   archive file or a directory with the extracted contents.
+    --from-archive-metadata PATH  Specify where to load metadata (targets, ...) from. If not specified, metadata is
+                                  assumed to be part of the archive.
     --deployment-name TEXT        Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the
                                   base name of --local-deployment/--project-url
     --cluster TEXT                Specify/Override cluster
@@ -468,7 +470,9 @@ The following arguments are available:
 <!-- BEGIN SECTION "archive" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --output PATH                 Path to .tgz to write project to.
-    --reproducible                Make .tgz reproducible.
+    --output-archive PATH         Path to .tgz to write project to.
+    --output-metadata PATH        Path to .yml to write metadata to. If not specified, metadata is written into the
+                                  archive.
+    --reproducible                Make archive reproducible.
 ```
 <!-- END SECTION -->
