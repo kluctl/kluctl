@@ -9,12 +9,12 @@ from kluctl.kluctl_project.secrets import SecretsLoader
 from kluctl.seal.deployment_sealer import DeploymentSealer
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
 from kluctl.utils.jinja2_utils import render_dict_strs, print_template_error
-from kluctl.utils.dict_utils import merge_dict
+from kluctl.utils.dict_utils import merge_dict, get_dict_value
 
 logger = logging.getLogger(__name__)
 
 def find_secrets_entry(kluctl_project, name):
-    for e2 in kluctl_project.config.get("secretsConfig", {}).get("secretSets", []):
+    for e2 in get_dict_value(kluctl_project.config, "secretsConfig.secretSets", []):
         if name == e2["name"]:
             return e2
     raise InvalidKluctlProjectConfig("Secret Set with name %s was not found" % name)
@@ -25,7 +25,7 @@ def merge_deployment_vars(deployment, jinja_var):
 
 def load_secrets(kluctl_project, target, secrets_loader, deployment):
     secrets = {}
-    for e in target["sealingConfig"].get("secretSets", []):
+    for e in get_dict_value(target, "sealingConfig.secretSets", []):
         secrets_entry = find_secrets_entry(kluctl_project, e)
         for source in secrets_entry.get("sources", []):
             rendered_source = render_dict_strs(source, deployment.jinja_vars)

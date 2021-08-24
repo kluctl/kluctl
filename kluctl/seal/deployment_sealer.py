@@ -26,7 +26,7 @@ class DeploymentSealer:
         self.sealed_secrets_controller_name = "sealed-secrets"
 
     def seal_deployment(self):
-        output_suffix = self.deployment_project.conf.get("sealedSecrets", {}).get("outputPattern")
+        output_suffix = get_dict_value(self.deployment_project.conf, "sealedSecrets.outputPattern")
         if output_suffix is None:
             raise InvalidKluctlProjectConfig("sealedSecrets.outputPattern is not defined")
 

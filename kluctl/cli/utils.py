@@ -7,7 +7,7 @@ from typing import ContextManager
 import click
 
 from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args, KluctlProject
-from kluctl.utils.dict_utils import merge_dict
+from kluctl.utils.dict_utils import merge_dict, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.deployment_collection import DeploymentCollection
 from kluctl.deployment.deployment_project import DeploymentProject
@@ -135,7 +135,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
 
     option_args = parse_args(kwargs.get("arg", []))
     target_args = target.get("args", {}) if target else {}
-    seal_args = target.get("sealingConfig", {}).get("args", {}) if target else {}
+    seal_args = get_dict_value(target, "sealingConfig.args", {}) if target else {}
     deploy_args = merge_dict(target_args, option_args)
     if for_seal:
         merge_dict(deploy_args, seal_args, False)

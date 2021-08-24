@@ -13,7 +13,7 @@ from typing import ContextManager
 import jsonschema
 
 from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_project, target_config_schema
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
 from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
     get_git_ref
@@ -36,7 +36,7 @@ def load_kluctl_project_config(path):
         config["clusters"] = [config["clusters"]]
 
     secret_sets = set()
-    for s in config.get("secrets", {}).get("secretSets", []):
+    for s in get_dict_value(config, "secrets.secretSets", []):
         secret_sets.add(s["name"])
     for target in config.get("targets", []):
         for s in target.get("secretSets", []):

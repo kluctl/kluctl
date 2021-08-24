@@ -10,7 +10,7 @@ from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.managed_fields import remove_non_managed_fields2
 from kluctl.diff.normalize import normalize_object
 from kluctl.deployment.images import SeenImages
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
     ObjectRef, remove_namespace_from_ref_if_needed
@@ -335,8 +335,7 @@ class DeploymentCollection:
         return new_objects, changed_objects
 
     def is_replace_needed(self, o):
-        annotations = o.get("metadata", {}).get("annotations", {})
-        hook = annotations.get("helm.sh/hook")
+        hook = get_dict_value(o, "metadata.annotations.helm\\.sh/hook")
         if not hook:
             return False
         if all(h in ["pre-install", "post-install", "pre-delete", "post-delete", "pre-upgrade", "post-upgrade", "pre-rollback", "post-rollback", "test"] for h in hook.split(",")):
@@ -390,7 +389,7 @@ class DeploymentCollection:
             while True:
                 o2 = copy_dict(o)
                 need_replace = False
-                for mf in o2["metadata"].get("managedFields", []):
+                for mf in get_dict_value(o2, "metadata.managedFields", []):
                     if mf["manager"] == "deployctl":
                         mf["manager"] = "kluctl"
                         need_replace = True

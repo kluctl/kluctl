@@ -8,7 +8,7 @@ from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, render_str
 from kluctl.utils.dict_utils import merge_dict, copy_dict, \
-    set_default_value
+    set_default_value, get_dict_value
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class DeploymentProject(object):
 
     def get_sealed_secrets_dir(self, subdir):
         root = self.get_root_deployment()
-        output_pattern = root.conf.get("sealedSecrets", {}).get("outputPattern")
+        output_pattern = get_dict_value(root.conf, "sealedSecrets.outputPattern")
         return output_pattern
 
     def get_root_deployment(self):

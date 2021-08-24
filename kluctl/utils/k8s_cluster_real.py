@@ -12,7 +12,7 @@ from kubernetes.dynamic.exceptions import NotFoundError, ResourceNotFoundError
 
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_cluster_base import k8s_cluster_base
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_object_utils import split_api_version
 from kluctl.utils.versions import LooseVersionComparator
 
@@ -221,7 +221,7 @@ class k8s_cluster_real(k8s_cluster_base):
 
     def replace_object(self, body, namespace=None, force_dry_run=False, resource_version=None):
         namespace = namespace or body.get('metadata', {}).get('namespace')
-        resource_version = resource_version or body.get("metadata", {}).get("resourceVersion")
+        resource_version = resource_version or get_dict_value(body, "metadata.resourceVersion")
         group, version = split_api_version(body.get("apiVersion"))
         kind = body['kind']
         name = body['metadata']['name']

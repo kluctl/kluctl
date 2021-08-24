@@ -4,6 +4,7 @@ from typing import Optional
 
 from kubernetes.dynamic.exceptions import ResourceNotFoundError
 
+from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.utils import MyThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def get_included_objects(k8s_cluster, verbs, labels, inclusion, exclude_if_not_i
         inclusion_values = get_tags_from_object(r)
         inclusion_values = [("tag", tag) for tag in inclusion_values]
 
-        kustomize_dir = r.get("metadata", {}).get("annotations", {}).get("kluctl.io/kustomize_dir", None)
+        kustomize_dir = get_dict_value(r, "metadata.annotations.kluctl\\.io/kustomize_dir", None)
         if kustomize_dir is not None:
             inclusion_values.append(("kustomize_dir", kustomize_dir))
 

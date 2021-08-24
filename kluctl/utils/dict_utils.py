@@ -1,3 +1,6 @@
+from uuid import uuid4
+
+
 def is_iterable(obj):
     try:
         iter(obj)
@@ -41,3 +44,21 @@ def merge_dict(a, b, clone=True):
 def set_default_value(d, n, default):
     if n not in d or d[n] is None:
         d[n] = default
+
+_dummy = str(uuid4())
+
+def get_dict_value(y, path, default=None):
+    if "\\." in path:
+        path = path.replace("\\.", _dummy)
+        s = path.split(".")
+        s = [x.replace(_dummy, ".") for x in s]
+    else:
+        s = path.split(".")
+
+    for x in s:
+        if y is None:
+            return default
+        if x not in y:
+            return default
+        y = y[x]
+    return y

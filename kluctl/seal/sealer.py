@@ -4,7 +4,7 @@ import logging
 import os
 import tempfile
 
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.kubeseal import kubeseal_fetch_cert, kubeseal_raw
 from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump, yaml_load
@@ -42,10 +42,10 @@ class Sealer:
         os.makedirs(os.path.dirname(target_file), exist_ok=True)
 
         content = yaml_load_file(path)
-        annotations = content.get("metadata", {}).get("annotations", {})
-        secret_name = content.get("metadata", {}).get("name")
-        secret_namespace = content.get("metadata", {}).get("namespace", "default")
-        secret_type = content.get("type", "Opaque")
+        annotations = get_dict_value(content, "metadata.annotations", {})
+        secret_name = get_dict_value(content, "metadata.name")
+        secret_namespace = get_dict_value(content, "metadata.namespace", "default")
+        secret_type = get_dict_value(content, "type", "Opaque")
         scope = "strict"
         if annotations.get("sealedsecrets.bitnami.com/namespace-wide") == "true":
             scope = "namespace-wide"
@@ -58,14 +58,14 @@ class Sealer:
         existing_hashes = {}
         if os.path.exists(target_file):
             existing_content = yaml_load_file(target_file)
-            existing_annotations = existing_content.get("metadata", {}).get("annotations", {})
+            existing_annotations = get_dict_value(existing_content, "metadata.annotations", {})
             if HASH_ANNOTATION in existing_annotations:
                 existing_hashes = yaml_load(existing_annotations[HASH_ANNOTATION])
 
         secrets = {}
-        for k, v in content.get("data", {}).items():
+        for k, v in get_dict_value(content, "data", {}).items():
             secrets[k] = base64.b64decode(v)
-        for k, v in content.get("stringData", {}).items():
+        for k, v in get_dict_value(content, "stringData", {}).items():
             secrets[k] = v.encode("utf-8")
 
         result_secret_hashes = {}
@@ -100,7 +100,7 @@ class Sealer:
             existing_hash = existing_hashes.get(k, "")
             if hash == existing_hash and not self.force_reseal:
                 logger.debug(f"Secret {secret_name} and key {k} is unchanged, skipping encryption")
-                result_encrypted_secrets[k] = existing_content.get("spec", {}).get("encryptedData", {}).get(k)
+                result_encrypted_secrets[k] = get_dict_value(existing_content, "spec.encryptedData", {}).get(k)
             else:
                 logger.debug(f"Secret {secret_name} and key {k} has changed, encrypting it")
                 result_encrypted_secrets[k] = self.encrypt_secret(v, secret_name, secret_namespace, scope)
