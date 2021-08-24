@@ -17,6 +17,16 @@ from kluctl.utils.utils import get_tmp_base_dir
 
 logger = logging.getLogger(__name__)
 
+NO_CREDENTIALS_PROMPT = """#!/usr/bin/env sh
+echo >&2
+echo 'Interactive password prompts for git are disabled when running kluctl.' >&2
+echo 'Please ensure credentials for %s are somehow setup.' >&2
+echo 'This can for example be achieved by running a manual git clone operation' >&2
+echo 'with a configured credential helper beforehand.' >&2
+echo >&2
+exit 1
+"""
+
 def get_cache_base_dir():
     dir = os.path.join(get_tmp_base_dir(), "git-cache")
     return dir
@@ -74,20 +84,21 @@ def build_git_object(url, working_dir):
 
     @contextmanager
     def create_password_files():
-        if username is None:
-            yield None
-            return
         # Must handle closing/deletion manually as otherwise git will complain about busy files
         password_script = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
         password_file = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
 
-        password_file.write(password)
-        password_script.write(f"#!/usr/bin/env sh\ncat {password_file.name}")
+        if username is not None:
+            password_file.write(password)
+            password_script.write(f"#!/usr/bin/env sh\ncat {password_file.name}")
+        else:
+            password_script.write(NO_CREDENTIALS_PROMPT % url)
+
         password_file.close()
         password_script.close()
         os.chmod(password_script.name, 0o700)
 
-        g.update_environment(GIT_ASKPASS=password_script.name)
+        g.update_environment(GIT_ASKPASS=password_script.name, GIT_TERMINAL_PROMPT="0")
         try:
             yield None
         finally:

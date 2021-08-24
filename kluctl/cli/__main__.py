@@ -1,6 +1,7 @@
 import logging
 import sys
 
+from git import GitCommandError
 from jinja2 import TemplateError
 from yaml import YAMLError
 
@@ -23,6 +24,9 @@ def main():
         sys.exit(1)
     except TemplateError as e:
         print_template_error(e)
+        sys.exit(1)
+    except GitCommandError as e:
+        print(e.stderr)
         sys.exit(1)
     except Exception as e:
         from kubernetes.dynamic.exceptions import UnauthorizedError
