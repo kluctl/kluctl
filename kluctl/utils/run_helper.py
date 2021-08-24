@@ -75,7 +75,7 @@ class StdReader(threading.Thread):
             traceback.print_exc()
 
 def set_non_blocking(f):
-    if sys.platform == "linux":
+    if sys.platform == "linux" or sys.platform == "darwin":
         fd = f.fileno()
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
