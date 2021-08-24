@@ -24,9 +24,6 @@ def bootstrap_command_stub(obj, **kwargs):
 @image_args()
 @include_exclude_args()
 @misc_arguments(yes=True, dry_run=True, parallel=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
-@optgroup.option("--full-diff-after-deploy",
-                 help="Perform a full diff (no inclusion/exclusion) directly after the deployent has finished. "
-                      "The argument has the same meaning as in `-o`")
 @click.pass_obj
 def deploy_command_stub(obj, **kwargs):
     from kluctl.cli.commands import deploy_command

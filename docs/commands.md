@@ -140,9 +140,6 @@ In addition, the following arguments are available:
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
-    --full-diff-after-deploy TEXT
-                                  Perform a full diff (no inclusion/exclusion) directly after the deployent has
-                                  finished. The argument has the same meaning as in `-o`
 ```
 <!-- END SECTION -->
 

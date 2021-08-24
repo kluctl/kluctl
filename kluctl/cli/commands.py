@@ -13,7 +13,6 @@ from kluctl.cli.utils import output_diff_result, build_seen_images, output_yaml_
 from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.exceptions import CommandError
-from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref, ObjectRef
 from kluctl.utils.utils import get_tmp_base_dir, duration
 
@@ -24,7 +23,6 @@ def bootstrap_command(obj, kwargs):
     bootstrap_path = os.path.join(get_kluctl_package_dir(), "bootstrap")
 
     kwargs["local_deployment"] = bootstrap_path
-    kwargs["full_diff_after_deploy"] = False
     with project_command_context(kwargs) as cmd_ctx:
         existing, warnings = cmd_ctx.k8s_cluster.get_single_object(ObjectRef("apiextensions.k8s.io/v1", "CustomResourceDefinition", "sealedsecrets.bitnami.com"))
         if existing:
@@ -50,14 +48,6 @@ def deploy_command2(obj, kwargs, cmd_ctx):
     output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, diff_result, deleted_objects)
     if diff_result.errors:
         sys.exit(1)
-    if kwargs["full_diff_after_deploy"]:
-        logger.info("Running full diff after deploy")
-        cmd_ctx.deployment_collection.update_remote_objects_from_diff(diff_result)
-        cmd_ctx.deployment_collection.inclusion = Inclusion()
-        diff_result = cmd_ctx.deployment_collection.diff(cmd_ctx.k8s_cluster, kwargs["force_apply"], False, False, False, False, False)
-        output_diff_result([kwargs["full_diff_after_deploy"]], cmd_ctx.deployment_collection, diff_result, deleted_objects)
-        if diff_result.errors:
-            sys.exit(1)
 
 def diff_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:

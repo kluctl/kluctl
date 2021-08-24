@@ -111,12 +111,6 @@ class DeploymentCollection:
             self.remote_objects[get_object_ref(o)] = o
             self.add_api_warnings(get_object_ref(o), w)
 
-    def update_remote_objects_from_diff(self, diff_result: DeployDiffResult):
-        for o in diff_result.new_objects:
-            self.remote_objects[get_object_ref(o)] = o
-        for co in diff_result.changed_objects:
-            self.remote_objects[get_object_ref(co["new_object"])] = co["new_object"]
-
     def forget_remote_objects(self, refs):
         for ref in refs:
             self.remote_objects.pop(ref, None)
