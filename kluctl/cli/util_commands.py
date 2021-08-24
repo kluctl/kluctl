@@ -64,7 +64,7 @@ def list_image_tags_command(image, output):
     output_yaml_result(output, result)
 
 def helm_pull_command(kwargs):
-    for dirpath, dirnames, filenames in os.walk(kwargs["deployment"]):
+    for dirpath, dirnames, filenames in os.walk(kwargs["local_deployment"]):
         for fname in filenames:
             if fname == 'helm-chart.yml':
                 path = os.path.join(dirpath, fname)
@@ -73,7 +73,7 @@ def helm_pull_command(kwargs):
                 chart.pull()
 
 def helm_update_command(upgrade, commit, kwargs):
-    for dirpath, dirnames, filenames in os.walk(kwargs["deployment"]):
+    for dirpath, dirnames, filenames in os.walk(kwargs["local_deployment"]):
         for fname in filenames:
             if fname == 'helm-chart.yml':
                 path = os.path.join(dirpath, fname)

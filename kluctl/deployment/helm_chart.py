@@ -3,6 +3,7 @@ import hashlib
 import os
 import shutil
 
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.run_helper import run_helper
 from kluctl.utils.versions import LooseVersionComparator
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_load_all, yaml_dump_all, yaml_load, yaml_save_file
@@ -105,5 +106,5 @@ class HelmChart(object):
 
         r, stdout, stderr = run_helper(args=args, input=input, print_stdout=False, print_stderr=not ignoreStderr, return_std=True)
         if r != 0 and not ignoreErrors:
-            raise Exception("helm failed: r=%d\nout=%s\nerr=%s" % (r, stdout.decode("utf-8"), stderr.decode("utf-8")))
+            raise CommandError("helm failed")
         return r, stdout, stderr

@@ -17,7 +17,11 @@ def list_image_tags_command_stub(image, output):
                         "The Helm charts are stored under the sub-directory `charts/<chart-name>` next to the "
                         "`helm-chart.yml`. These Helm charts are meant to be added to version control so that "
                         "pulling is only needed when really required (e.g. when the chart version changes).")
-@kluctl_project_args(with_a=False)
+@optgroup.group("Project arguments")
+@optgroup.option("--local-deployment",
+                 help="Local deployment directory. Defaults to current directory",
+                 default=".",
+                 type=click.Path(file_okay=False))
 def helm_pull_command_stub(**kwargs):
     from kluctl.cli.util_commands import helm_pull_command
     helm_pull_command(kwargs)
@@ -25,7 +29,11 @@ def helm_pull_command_stub(**kwargs):
 @cli_group.command("helm-update",
                    help="Recursively searches for `helm-chart.yml` files and checks for new available versions.\n\n"
                         "Optionally performs the actual upgrade and/or add a commit to version control.")
-@kluctl_project_args(with_a=False)
+@optgroup.group("Project arguments")
+@optgroup.option("--local-deployment",
+                 help="Local deployment directory. Defaults to current directory",
+                 default=".",
+                 type=click.Path(file_okay=False))
 @optgroup.group("Misc arguments")
 @optgroup.option("--upgrade", help="Write new versions into helm-chart.yml and perform helm-pull afterwards", is_flag=True)
 @optgroup.option("--commit", help="Create a git commit for every updated chart", is_flag=True)
