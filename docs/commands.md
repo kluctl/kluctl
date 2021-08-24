@@ -96,8 +96,6 @@ In addition, the following arguments are available:
   Misc arguments: 
     -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
-    --parallel                    Run deployment in parallel instead of sequentially. See documentation for more
-                                  details.
     --force-apply                 Force conflict resolution when applying. See documentation for details
     --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
                                   for more details.
@@ -131,8 +129,6 @@ In addition, the following arguments are available:
   Misc arguments: 
     -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
-    --parallel                    Run deployment in parallel instead of sequentially. See documentation for more
-                                  details.
     --force-apply                 Force conflict resolution when applying. See documentation for details
     --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
                                   for more details.

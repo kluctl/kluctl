@@ -42,8 +42,7 @@ def deploy_command2(obj, kwargs, cmd_ctx):
     if not kwargs["yes"] and not kwargs["dry_run"]:
         click.confirm("Do you really want to deploy to the context/cluster %s?" % cmd_ctx.k8s_cluster.context, err=True, abort=True)
 
-    parallel = kwargs["parallel"]
-    diff_result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, parallel, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["abort_on_error"])
+    diff_result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["abort_on_error"])
     deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
     output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, diff_result, deleted_objects)
     if diff_result.errors:

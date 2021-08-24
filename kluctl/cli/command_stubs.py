@@ -9,7 +9,7 @@ from kluctl.cli.main_cli_group import cli_group, kluctl_project_args, misc_argum
                         "installed.\n\n"
                         "Either --target or --cluster must be specified.")
 @kluctl_project_args(with_a=False)
-@misc_arguments(yes=True, dry_run=True, parallel=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
+@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
 @click.pass_obj
 def bootstrap_command_stub(obj, **kwargs):
     from kluctl.cli.commands import bootstrap_command
@@ -23,7 +23,7 @@ def bootstrap_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True, parallel=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
+@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
 @click.pass_obj
 def deploy_command_stub(obj, **kwargs):
     from kluctl.cli.commands import deploy_command

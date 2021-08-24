@@ -119,7 +119,7 @@ def wrapper_helper(options):
         return func
     return wrapper
 
-def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, replace_on_error=False,
+def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error=False,
                    ignore_labels=False, ignore_order=False, abort_on_error=False, output_format=False, output=False):
     options = []
 
@@ -132,11 +132,6 @@ def misc_arguments(yes=False, dry_run=False, parallel=False, force_apply=False, 
     if dry_run:
         options.append(optgroup.option("--dry-run",
                                        help="Performs all kubernetes API calls in dry-run mode.",
-                                       default=False, is_flag=True))
-    if parallel:
-        options.append(optgroup.option("--parallel",
-                                       help="Run deployment in parallel instead of sequentially. See documentation "
-                                            "for more details.",
                                        default=False, is_flag=True))
     if force_apply:
         options.append(optgroup.option("--force-apply",
