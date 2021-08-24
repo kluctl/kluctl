@@ -52,7 +52,7 @@ def validate_object(o):
             elif c["type"] == "Warning":
                 result.warnings.append(ValidateResultItem(ref, reason=c.get("reason", "not-ready"), message=c.get("message", "N/A")))
         if not ready_found:
-            result.errors.append(ValidateResultItem(ref, reason="not-readdy", message="Ready condition not found"))
+            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="Ready condition not found"))
     elif o["kind"] == "Elasticsearch":
         if "phase" not in status:
             result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="phase not in status yet"))
