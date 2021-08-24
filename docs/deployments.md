@@ -116,6 +116,10 @@ The relative path of the kustomize deployment. It must contain a valid `kustomiz
 #### tags
 A list of tags the kustomize deployment should have. See [tags](./tags.md) for more details.
 
+#### barrier
+Causes kluctl to wait until the current and all previous kustomize deployments have been applied. This is useful when
+upcoming deployments need the current or previous deployments to be finished beforehand.
+
 #### alwaysDeploy
 Forces a kustomize Deployment to be included everytime, ignoring inclusion/exclusion sets from the command line.
 See [Deploying with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
@@ -153,6 +157,9 @@ The relative path of the sub-deployment project. It must contain a valid `deploy
 #### tags
 A list of tags the include and all of its sub-includes and kustomize deployments should have.
 See [tags](./tags.md) for more details.
+
+#### barrier
+Same as `barrier` in `kustomizeDirs`.
 
 ### commonLabels
 A dictionary of [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and values to be
@@ -249,6 +256,6 @@ that includes Go templates, which will in most cases make Jinja2 templating fail
 ### ignoreForDiff
 
 # Order of deployment
-When deploying a project, the order of kustomize deployments is well-defined. Deployment will always start with
-kustomize deployments found in the current deployment.yml and only after that continue with kustomize deployments
-from included sub-deployment projects.
+Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control
+order, is by placing [barriers](#barrier) between kustomize deployments. You should however not overuse barriers, as
+they negatively impact the speed of kluctl.

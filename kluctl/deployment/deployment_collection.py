@@ -60,6 +60,10 @@ class DeploymentCollection:
             ret.append(deployment)
 
         for inc in project.conf['includes']:
+            if get_dict_value(inc, "barrier", False):
+                deployment = KustomizeDeployment(project, self, {"barrier": True})
+                ret.append(deployment)
+
             d = inc.get('_included_deployment_collection')
             if d is not None:
                 ret += self._collect_deployments(d)
@@ -212,9 +216,16 @@ class DeploymentCollection:
                 job.done = True
 
         with MyThreadPoolExecutor(max_workers=16) as executor:
+            previous_was_barrier = False
             for d in self.deployments:
                 if self.api_errors and abort_on_error:
                     break
+
+                if previous_was_barrier:
+                    logger.info("Waiting on barrier...")
+                    finish_jobs()
+                previous_was_barrier = get_dict_value(d.config, "barrier", False)
+
                 include = d.check_inclusion_for_deploy()
                 if "path" not in d.config:
                     continue
