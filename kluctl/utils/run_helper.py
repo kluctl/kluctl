@@ -90,26 +90,26 @@ def run_helper(args, cwd=None, env=None, input=None,
         if isinstance(input, str):
             input = input.encode('utf-8')
     process = subprocess.Popen(args=args, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
+    with process:
+        stdin_thread = None
+        if input is not None:
+            stdin_thread = threading.Thread(target=stdin_write_thread, args=(process.stdin, input))
+            stdin_thread.start()
 
-    stdin_thread = None
-    if input is not None:
-        stdin_thread = threading.Thread(target=stdin_write_thread, args=(process.stdin, input))
-        stdin_thread.start()
+        set_non_blocking(process.stdout)
+        set_non_blocking(process.stderr)
 
-    set_non_blocking(process.stdout)
-    set_non_blocking(process.stderr)
+        stdout_reader = StdReader(process.stdout, sys.stdout if print_stdout else None, line_mode, stdout_func, return_std)
+        stderr_reader = StdReader(process.stderr, sys.stderr if print_stderr else None, line_mode, stderr_func, return_std)
+        stdout_reader.start()
+        stderr_reader.start()
 
-    stdout_reader = StdReader(process.stdout, sys.stdout if print_stdout else None, line_mode, stdout_func, return_std)
-    stderr_reader = StdReader(process.stderr, sys.stderr if print_stderr else None, line_mode, stderr_func, return_std)
-    stdout_reader.start()
-    stderr_reader.start()
+        process.wait()
+        stdout_reader.join()
+        stderr_reader.join()
+        if stdin_thread is not None:
+            stdin_thread.join()
 
-    process.wait()
-    stdout_reader.join()
-    stderr_reader.join()
-    if stdin_thread is not None:
-        stdin_thread.join()
-
-    if return_std:
-        return process.returncode, stdout_reader.capture_buf.getvalue(), stderr_reader.capture_buf.getvalue()
-    return process.returncode
+        if return_std:
+            return process.returncode, stdout_reader.capture_buf.getvalue(), stderr_reader.capture_buf.getvalue()
+        return process.returncode
