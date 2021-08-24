@@ -2,6 +2,7 @@ import logging
 import os
 
 from kluctl.seal.sealer import Sealer
+from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig
 
 logger = logging.getLogger(__name__)
