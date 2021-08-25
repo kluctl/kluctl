@@ -7,15 +7,15 @@ from typing import Optional
 from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError, ConflictError
 
+from kluctl.deployment.images import SeenImages
 from kluctl.deployment.kustomize_deployment import KustomizeDeployment
 from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.managed_fields import remove_non_managed_fields2
 from kluctl.diff.normalize import normalize_object
-from kluctl.deployment.images import SeenImages
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
-    ObjectRef, remove_namespace_from_ref_if_needed
+    ObjectRef
 from kluctl.utils.status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import MyThreadPoolExecutor
@@ -93,7 +93,7 @@ class DeploymentCollection:
                     d.resolve_sealed_secrets()
         self.is_rendered = True
 
-    def build_kustomize_objects(self):
+    def build_kustomize_objects(self, k8s_cluster):
         if self.is_built:
             return
         logger.info("Building kustomize objects")
@@ -101,7 +101,7 @@ class DeploymentCollection:
         with MyThreadPoolExecutor() as executor:
             jobs = []
             for d in self.deployments:
-                jobs.append(executor.submit(d.build_objects))
+                jobs.append(executor.submit(d.build_objects, k8s_cluster))
             for job in jobs:
                 job.result()
         self.is_built = True
@@ -129,7 +129,7 @@ class DeploymentCollection:
     def deploy(self, k8s_cluster, force_apply, replace_on_error, abort_on_error):
         self.clear_errors_and_warnings()
         self.render_deployments()
-        self.build_kustomize_objects()
+        self.build_kustomize_objects(k8s_cluster)
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
@@ -139,7 +139,7 @@ class DeploymentCollection:
     def diff(self, k8s_cluster, force_apply, replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
         self.render_deployments()
-        self.build_kustomize_objects()
+        self.build_kustomize_objects(k8s_cluster)
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
@@ -149,7 +149,7 @@ class DeploymentCollection:
     def validate(self, k8s_cluster):
         self.clear_errors_and_warnings()
         self.render_deployments()
-        self.build_kustomize_objects()
+        self.build_kustomize_objects(k8s_cluster)
         self.update_remote_objects(k8s_cluster)
         result = ValidateResult()
 
@@ -181,7 +181,7 @@ class DeploymentCollection:
     def find_purge_objects(self, k8s_cluster):
         self.clear_errors_and_warnings()
         self.render_deployments()
-        self.build_kustomize_objects()
+        self.build_kustomize_objects(k8s_cluster)
         logger.info("Searching objects not found in local objects")
         labels = self.project.get_delete_by_labels()
         excluded_objects = list(self.local_objects_by_ref().keys())
@@ -298,7 +298,7 @@ class DeploymentCollection:
     def do_deploy(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
         self.update_remote_objects(k8s_cluster)
 
-        replaced_objects = self.find_replaced_objects()
+        replaced_objects = self.find_replaced_objects(k8s_cluster)
         if replaced_objects:
             futures = []
             with MyThreadPoolExecutor(max_workers=16) as executor:
@@ -332,7 +332,6 @@ class DeploymentCollection:
             ignore_for_diffs = d.deployment_project.get_ignore_for_diffs(ignore_tags, ignore_labels, ignore_annotations)
             for x in d.objects:
                 ref = get_object_ref(x)
-                ref = remove_namespace_from_ref_if_needed(k8s_cluster, ref)
                 if ref not in applied_objects:
                     continue
                 diff_objects[ref] = applied_objects.get(ref)
@@ -374,9 +373,9 @@ class DeploymentCollection:
             return True
         return False
 
-    def find_replaced_objects(self):
+    def find_replaced_objects(self, k8s_cluster):
         self.render_deployments()
-        self.build_kustomize_objects()
+        self.build_kustomize_objects(k8s_cluster)
         ret = []
         for d in self.deployments:
             for o in d.objects:

@@ -8,6 +8,7 @@ from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.seal.deployment_sealer import SEALME_EXT
 from kluctl.utils.external_tools import get_external_tool_hash
+from kluctl.utils.k8s_object_utils import should_remove_namespace, get_object_ref
 from kluctl.utils.kustomize import kustomize_build
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import get_tmp_base_dir
@@ -181,6 +182,8 @@ class KustomizeDeployment(object):
         return inclusion.check_included(values, skip_delete_if_tags)
 
     def is_simple_kustomize_project(self, kustomize_yaml):
+        return False
+
         rendered_dir = self.get_rendered_dir()
         allowed = {"apiVersion", "kind", "resources", "namespace"}
         for k in kustomize_yaml.keys():
@@ -235,7 +238,7 @@ class KustomizeDeployment(object):
                 yamls.append(x)
         return yamls
 
-    def build_objects(self):
+    def build_objects(self, k8s_cluster):
         if self.config.get("onlyRender", False):
             self.objects = []
             return
@@ -269,6 +272,9 @@ class KustomizeDeployment(object):
             annotations.update(self.get_common_annotations())
             y["metadata"]["labels"] = labels
             y["metadata"]["annotations"] = annotations
+
+            if should_remove_namespace(k8s_cluster, get_object_ref(y)):
+                del y["metadata"]["namespace"]
 
             self.objects.append(y)
 

@@ -107,7 +107,7 @@ def check_image_updates(obj, kwargs):
         cmd_ctx.images.no_kubernetes = True
         cmd_ctx.images.raise_on_error = False
         cmd_ctx.deployment_collection.render_deployments()
-        cmd_ctx.deployment_collection.build_kustomize_objects()
+        cmd_ctx.deployment_collection.build_kustomize_objects(cmd_ctx.k8s_cluster)
         rendered_images = cmd_ctx.deployment_collection.find_rendered_images()
 
     prefix_pattern = re.compile(r"^([a-zA-Z]+[a-zA-Z-_.]*)")

@@ -61,17 +61,25 @@ def remove_api_version_from_ref(ref):
     g, v = split_api_version(ref.api_version)
     return ObjectRef(api_version=g, kind=ref.kind, name=ref.name, namespace=ref.namespace)
 
-def remove_namespace_from_ref_if_needed(k8s_cluster, ref):
+def should_remove_namespace(k8s_cluster, ref):
+    if ref.namespace is None:
+        return False
+
     g, v = split_api_version(ref.api_version)
 
     try:
         resource = k8s_cluster.get_preferred_resource(g, ref.kind)
         if not resource.namespaced:
-            return ObjectRef(api_version=ref.api_version, kind=ref.kind, name=ref.name)
-        return ref
+            return True
+        return False
     except ResourceNotFoundError:
         # resource might be unknown by now as we might be in the middle of deploying CRDs
-        return ref
+        return False
+
+def remove_namespace_from_ref_if_needed(k8s_cluster, ref):
+    if should_remove_namespace(k8s_cluster, ref):
+        return ObjectRef(api_version=ref.api_version, kind=ref.kind, name=ref.name)
+    return ref
 
 def get_filtered_api_resources(k8s_cluster, filter):
     api_resources = []
