@@ -77,14 +77,12 @@ As an example, `{{ cluster.name }}/{{ args.environment }}` works well, assuming 
 
 The final storage location for the sealed secret is:
 
-`<base_dir>/<deployment_name>/<rendered_output_pattern>/<relative_sealme_file_dir>/<file_name>`
+`<base_dir>/<rendered_output_pattern>/<relative_sealme_file_dir>/<file_name>`
 
 with:
 * `base_dir`: The base directory for sealed secrets is configured in the [.kluctl.yml](./kluctl_project.md#sealedsecrets) config
 file. If not specified, the base directory defaults to the subdirectory `.sealed-secrets` in the kluctl project root
 diretory.
-* `deployment_name`: The deployment name, which defaults to the kluctl project directories base name. It can also be
-overridden with [--deployment-name](./commands.md#project-arguments).
 * `rendered_output_pattern`: The rendered outputPattern as described above.
 * `relative_sealme_file_dir`: The relative path from the deployment root directory.
 * `file_name`: The filename of the sealed secret, excluding the `.sealme` extension.

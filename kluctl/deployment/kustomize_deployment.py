@@ -125,10 +125,9 @@ class KustomizeDeployment(object):
             return
 
         sealed_secrets_dir = self.deployment_project.get_sealed_secrets_dir(self.config["path"])
-        root_deployment_name = os.path.basename(os.path.abspath(self.deployment_project.get_root_deployment().deployment_name))
         rel_dir_to_root = self.deployment_project.get_rel_dir_to_root()
         rendered_dir = self.get_rendered_dir()
-        base_source_path = os.path.join(self.deployment_project.sealed_secrets_dir, root_deployment_name, rel_dir_to_root)
+        base_source_path = os.path.join(self.deployment_project.sealed_secrets_dir, rel_dir_to_root)
 
         y = yaml_load_file(os.path.join(rendered_dir, "kustomization.yml")) or {}
         for resource in y.get("resources", []):

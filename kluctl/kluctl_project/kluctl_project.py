@@ -53,8 +53,7 @@ class GitProjectInfo:
     dir: str
 
 class KluctlProject:
-    def __init__(self, deployment_name, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir):
-        self.deployment_name = deployment_name
+    def __init__(self, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir):
         self.project_url = project_url
         self.project_ref = project_ref
         self.config_file = config_file
@@ -86,7 +85,6 @@ class KluctlProject:
                     metadata_yaml = {
                         "involved_repos": self.involved_repos,
                         "targets": self.targets,
-                        "deployment_name": self.deployment_name,
                     }
                     if metadata_path is not None:
                         # metadata.yml outside of archive
@@ -98,7 +96,7 @@ class KluctlProject:
                             tar.add(tmp.name, "metadata.yml", filter=mf_filter)
                     tar.add(self.config_file, ".kluctl.yml", filter=mf_filter)
                     tar.add(self.kluctl_project_dir, "kluctl-project", True, filter=mf_filter)
-                    tar.add(self.deployment_dir, "deployment/%s" % self.deployment_name, True, filter=mf_filter)
+                    tar.add(self.deployment_dir, "deployment", True, filter=mf_filter)
                     tar.add(self.clusters_dir, "clusters", True, filter=mf_filter)
                     tar.add(self.sealed_secrets_dir, "sealed-secrets", True, filter=mf_filter)
 
@@ -116,9 +114,7 @@ class KluctlProject:
         else:
             metadata = yaml_load_file(os.path.join(dir, "metadata.yml"))
         deployment_dir = os.path.join(dir, "deployment")
-        deployment_name = metadata["deployment_name"]
-        deployment_dir = os.path.join(deployment_dir, deployment_name)
-        project = KluctlProject(deployment_name, None, None,
+        project = KluctlProject(None, None,
                                 os.path.join(dir, ".kluctl.yml"),
                                 os.path.join(dir, "clusters"),
                                 deployment_dir,
@@ -437,16 +433,7 @@ def load_kluctl_project_from_args(kwargs) -> ContextManager[KluctlProject]:
             project = KluctlProject.from_archive(kwargs["from_archive"], kwargs["from_archive_metadata"], tmp_dir)
             project.load(False)
         else:
-            deployment_name = kwargs["deployment_name"]
-            if deployment_name is None:
-                if kwargs["project_url"]:
-                    url = parse_git_url(kwargs["project_url"])
-                    deployment_name = url.path.split("/")[-1]
-                elif kwargs["local_deployment"]:
-                    deployment_name = os.path.basename(kwargs["local_deployment"])
-                else:
-                    deployment_name = os.path.basename(os.getcwd())
-            project = KluctlProject(deployment_name, kwargs["project_url"], kwargs["project_ref"], kwargs["project_config"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
+            project = KluctlProject(kwargs["project_url"], kwargs["project_ref"], kwargs["project_config"], kwargs["local_clusters"], kwargs["local_deployment"], kwargs["local_sealed_secrets"], tmp_dir)
             project.load(True)
             project.load_targets()
         yield project

@@ -143,7 +143,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
     with tempfile.TemporaryDirectory(dir=get_tmp_base_dir()) as tmpdir:
         if output_dir is None:
             output_dir = tmpdir
-        d = DeploymentProject(kluctl_project.deployment_dir, kluctl_project.deployment_name, jinja_vars, deploy_args, kluctl_project.sealed_secrets_dir)
+        d = DeploymentProject(kluctl_project.deployment_dir, jinja_vars, deploy_args, kluctl_project.sealed_secrets_dir)
         c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=output_dir, for_seal=for_seal)
 
         fixed_images = load_fixed_images(kwargs)

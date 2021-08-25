@@ -33,7 +33,7 @@ class DeploymentSealer:
 
         for dirpath, dirnames, filenames in os.walk(self.deployment_collection.tmpdir):
             rel_dir = os.path.relpath(dirpath, self.deployment_collection.tmpdir)
-            target_dir = os.path.join(self.sealed_secrets_dir, self.deployment_project.deployment_name, rel_dir)
+            target_dir = os.path.join(self.sealed_secrets_dir, rel_dir)
             for f in filenames:
                 if f.endswith(SEALME_EXT):
                     source_file = os.path.join(dirpath, f)

@@ -15,15 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 class DeploymentProject(object):
-    def __init__(self, dir, deployment_name, jinja_vars, deploy_args, sealed_secrets_dir,
+    def __init__(self, dir, jinja_vars, deploy_args, sealed_secrets_dir,
                  parent_collection=None):
         if not os.path.exists(dir):
             raise CommandError("%s does not exist" % dir)
 
         self.dir = dir
-        self.deployment_name = deployment_name
-        if self.deployment_name is None:
-            self.deployment_name = os.path.basename(self.dir)
         self.jinja_vars = copy_dict(jinja_vars)
         self.deploy_args = deploy_args
         self.sealed_secrets_dir = sealed_secrets_dir
@@ -122,7 +119,7 @@ class DeploymentProject(object):
             if 'path' not in inc:
                 continue
             inc_dir = os.path.join(self.dir, inc["path"])
-            c = DeploymentProject(inc_dir, None, self.jinja_vars, self.deploy_args, self.sealed_secrets_dir, parent_collection=self)
+            c = DeploymentProject(inc_dir, self.jinja_vars, self.deploy_args, self.sealed_secrets_dir, parent_collection=self)
             c.parent_collection_include = inc
 
             inc['_included_deployment_collection'] = c

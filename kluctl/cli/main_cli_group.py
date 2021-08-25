@@ -204,9 +204,6 @@ def kluctl_project_args(with_d=True, with_a=True, with_t=True):
                                        help="Specify where to load metadata (targets, ...) from. If not specified, "
                                             "metadata is assumed to be part of the archive.",
                                        type=click.Path(dir_okay=True, file_okay=True)))
-        options.append(optgroup.option("--deployment-name",
-                                       help="Name of the kluctl deployment. Used when resolving sealed-secrets. "
-                                            "Defaults to the base name of --local-deployment/--project-url"))
         options.append(optgroup.option("--cluster",
                                        help="Specify/Override cluster"))
     if with_a:

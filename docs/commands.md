@@ -27,8 +27,6 @@ The following sets of common arguments are available:
                                   archive file or a directory with the extracted contents.
     --from-archive-metadata PATH  Specify where to load metadata (targets, ...) from. If not specified, metadata is
                                   assumed to be part of the archive.
-    --deployment-name TEXT        Name of the kluctl deployment. Used when resolving sealed-secrets. Defaults to the
-                                  base name of --local-deployment/--project-url
     --cluster TEXT                Specify/Override cluster
     -a, --arg TEXT                Template argument in the form name=value
     -t, --target TEXT             Target name to run command for. Target must exist in .kluctl.yml.
