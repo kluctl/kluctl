@@ -135,8 +135,11 @@ class k8s_cluster_real(k8s_cluster_base):
     def get_preferred_resource(self, group, kind):
         resources = self.get_preferred_resources(group, None, kind)
         for r in resources:
-            if (r.group or None) == group and r.kind == kind:
-                return r
+            if group is not None and group != (r.group or None):
+                continue
+            if kind is not None and kind != (r.kind or None):
+                continue
+            return r
         raise ResourceNotFoundError(f"{group}/{kind} not found")
 
     def _get_objects_for_resource(self, resource, name, namespace, labels, as_table):

@@ -146,6 +146,91 @@ class DeploymentCollection:
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
+    def poke_images(self, k8s_cluster):
+        self.clear_errors_and_warnings()
+        self.render_deployments()
+        self.build_kustomize_objects(k8s_cluster)
+        self.update_remote_objects(k8s_cluster)
+
+        def do_poke_image(ref, containers_and_images):
+            o = self.remote_objects.get(ref)
+            if o is None:
+                return None
+
+            while True:
+                o, warnings = k8s_cluster.get_single_object(ref)
+                if o is None:
+                    return None
+
+                o2 = copy_dict(o)
+
+                containers = get_dict_value(o2, "spec.template.spec.containers", [])
+                for container_name, image in containers_and_images:
+                    for c in containers:
+                        if c["name"] == container_name:
+                            c["image"] = image
+
+                if o == o2:
+                    return o
+
+                try:
+                    result, warnings = k8s_cluster.replace_object(o2)
+                    return result
+                except ConflictError:
+                    logger.info("Conflict while poking images in %s. Retrying..." % get_long_object_name(o2))
+                    continue
+
+        all_objects = {}
+        for d in self.deployments:
+            if not d.check_inclusion_for_deploy():
+                continue
+            for o in d.objects:
+                all_objects[get_object_ref(o)] = o
+
+        containers_and_images = {}
+        for fi in self.seen_images.seen_images:
+            deployment_name = fi["deployment"]
+            if "/" not in deployment_name:
+                deployment_name = "Deployment/%s" % deployment_name
+
+            kind, name = tuple(deployment_name.split("/", 1))
+            try:
+                r = k8s_cluster.get_preferred_resource(None, kind)
+            except ResourceNotFoundError as e:
+                self.add_api_error(None, k8s_cluster.get_status_message(e))
+                continue
+
+            ref = ObjectRef(r.group_version, kind=r.kind, name=name, namespace=fi.get("namespace"))
+            local_object = all_objects.get(ref)
+            if local_object is None:
+                continue
+
+            containers_and_images.setdefault(ref, []).append((fi["container"], fi["resultImage"]))
+
+        with MyThreadPoolExecutor(max_workers=8) as executor:
+            futures = []
+
+            for ref, c in containers_and_images.items():
+                f = executor.submit(do_poke_image, ref, c)
+                futures.append((ref, f))
+
+        applied_objects = {}
+        for ref, f in futures:
+            e = f.exception()
+            if e is not None:
+                self.add_api_error(ref, str(e))
+                continue
+
+            o = f.result()
+            if o is None:
+                continue
+            ref = get_object_ref(o)
+            applied_objects[ref] = o
+
+        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
+        return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
+                                errors=list(self.api_errors), warnings=list(self.api_warnings))
+
     def validate(self, k8s_cluster):
         self.clear_errors_and_warnings()
         self.render_deployments()
@@ -406,7 +491,10 @@ class DeploymentCollection:
             self.api_warnings.add(DeployErrorItem(ref=ref, reason="api", message=w))
 
     def add_api_error(self, ref, error):
-        logger.error("%s: Error while performing api call. message=%s" % (get_long_object_name_from_ref(ref), error))
+        ref_str = ""
+        if ref is not None:
+            ref_str = "%s: " % get_long_object_name_from_ref(ref)
+        logger.error("%sError while performing api call. message=%s" % (ref_str, error))
         self.api_errors.add(DeployErrorItem(ref=ref, reason="api", message=error))
 
     def clear_errors_and_warnings(self):

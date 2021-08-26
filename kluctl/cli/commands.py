@@ -83,6 +83,17 @@ def purge_command2(obj, kwargs, cmd_ctx):
     objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
     confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
 
+def poke_images_command(obj, kwargs):
+    with project_command_context(kwargs) as cmd_ctx:
+        if not kwargs["yes"] and not kwargs["dry_run"]:
+            click.confirm("Do you really want to poke images to the context/cluster %s?" % cmd_ctx.k8s_cluster.context,
+                          err=True, abort=True)
+        diff_result = cmd_ctx.deployment_collection.poke_images(cmd_ctx.k8s_cluster)
+        deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
+        output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, diff_result, deleted_objects)
+        if diff_result.errors:
+            sys.exit(1)
+
 def validate_command(obj, kwargs):
     wait_duration = duration(kwargs["wait"]) if kwargs["wait"] else None
     sleep_duration = duration(kwargs["sleep"]) if kwargs["sleep"] else None

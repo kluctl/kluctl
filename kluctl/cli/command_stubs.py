@@ -75,6 +75,20 @@ def purge_command_stub(obj, **kwargs):
     from kluctl.cli.commands import purge_command
     purge_command(obj, kwargs)
 
+@cli_group.command("poke-images",
+                   help="Replace all images in target.\n\n"
+                        "This command will fully render the target and then only replace images instead of fully "
+                        "deploying the target. Only images used in combination with `images.get_image(...)` are "
+                        "replaced.")
+@kluctl_project_args()
+@image_args()
+@include_exclude_args()
+@misc_arguments(yes=True, dry_run=True, output_format=True)
+@click.pass_obj
+def poke_images_command_stub(obj, **kwargs):
+    from kluctl.cli.commands import poke_images_command
+    poke_images_command(obj, kwargs)
+
 @cli_group.command("validate",
                    help="Validates the already deployed deployment.\n\n"
                         "This means that all objects are retrieved from the cluster and checked for readiness.\n\n"
