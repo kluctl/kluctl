@@ -11,7 +11,7 @@ from kluctl.utils.external_tools import get_external_tool_hash
 from kluctl.utils.k8s_object_utils import should_remove_namespace, get_object_ref
 from kluctl.utils.kustomize import kustomize_build
 from kluctl.utils.templated_dir import TemplatedDir
-from kluctl.utils.utils import get_tmp_base_dir
+from kluctl.utils.utils import get_tmp_base_dir, calc_dir_hash
 from kluctl.utils.versions import LooseSemVerLatestVersion, PrefixLatestVersion, NumberLatestVersion, \
     RegexLatestVersion
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_load_all, yaml_save_file
@@ -247,19 +247,6 @@ class KustomizeDeployment(object):
 
     def calc_hash(self):
         h = hashlib.sha256()
-        rendered_dir = self.get_rendered_dir()
-
         h.update(get_external_tool_hash("kustomize").encode("utf-8"))
-
-        for dirpath, dirnames, filenames in os.walk(rendered_dir, topdown=True):
-            dirnames.sort()  # ensure iteration order is stable (thanks to topdown, we can do this here at this time)
-            filenames.sort()
-            rel_dirpath = os.path.relpath(dirpath, rendered_dir)
-            h.update(rel_dirpath.encode("utf-8"))
-            for f in filenames:
-                h.update(os.path.join(rel_dirpath, f).encode("utf-8"))
-                with open(os.path.join(dirpath, f), mode="rb") as file:
-                    buf = file.read()
-                    h.update(buf)
-
+        h.update(calc_dir_hash(self.get_rendered_dir()).encode("utf-8"))
         return h.hexdigest()

@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import shutil
@@ -46,6 +47,22 @@ def duration(duration_string):  # example: '5d3h2m1s'
         elif character.isnumeric() or character == '.':
             prev_num.append(character)
     return timedelta(seconds=float(total_seconds))
+
+def calc_dir_hash(dir):
+    h = hashlib.sha256()
+
+    for dirpath, dirnames, filenames in os.walk(dir, topdown=True):
+        dirnames.sort()  # ensure iteration order is stable (thanks to topdown, we can do this here at this time)
+        filenames.sort()
+        rel_dirpath = os.path.relpath(dirpath, dir)
+        h.update(rel_dirpath.encode("utf-8"))
+        for f in filenames:
+            h.update(os.path.join(rel_dirpath, f).encode("utf-8"))
+            with open(os.path.join(dirpath, f), mode="rb") as file:
+                buf = file.read()
+                h.update(buf)
+
+    return h.hexdigest()
 
 class DummyExecutor:
     def __init__(self, *args, **kwargs):
