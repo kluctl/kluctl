@@ -120,7 +120,8 @@ def wrapper_helper(options):
     return wrapper
 
 def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error=False,
-                   ignore_labels=False, ignore_order=False, abort_on_error=False, output_format=False, output=False):
+                   ignore_labels=False, ignore_order=False, abort_on_error=False, output_format=False, output=False,
+                   render_output_dir=False):
     options = []
 
     options.append(optgroup.group("Misc arguments"))
@@ -172,6 +173,12 @@ def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error
         options.append(optgroup.option("-o", "--output",
                                        help="Specify output target file. Can be specified multiple times",
                                        multiple=True))
+    if render_output_dir:
+        options.append(optgroup.option("--render-output-dir",
+                                       help="Specifies the target directory to render the project into. If omitted, a"
+                                            "temporary directory is used.",
+                                       type=click.Path(file_okay=False)))
+
     return wrapper_helper(options)
 
 def kluctl_project_args(with_d=True, with_a=True, with_t=True):

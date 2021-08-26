@@ -99,7 +99,6 @@ class CommandContext:
 
 @contextlib.contextmanager
 def project_command_context(kwargs,
-                            output_dir=None,
                             force_offline_images=False,
                             force_offline_kubernetes=False) -> ContextManager[CommandContext]:
     with load_kluctl_project_from_args(kwargs) as kluctl_project:
@@ -107,14 +106,13 @@ def project_command_context(kwargs,
         if kwargs["target"]:
             target = kluctl_project.find_target(kwargs["target"])
 
-        with project_target_command_context(kwargs, kluctl_project, target, output_dir=output_dir,
+        with project_target_command_context(kwargs, kluctl_project, target,
                                             force_offline_images=force_offline_images,
                                             force_offline_kubernetes=force_offline_kubernetes) as cmd_ctx:
             yield cmd_ctx
 
 @contextlib.contextmanager
 def project_target_command_context(kwargs, kluctl_project, target,
-                                   output_dir=None,
                                    force_offline_images=False,
                                    force_offline_kubernetes=False,
                                    for_seal=False) -> ContextManager[CommandContext]:
@@ -141,10 +139,11 @@ def project_target_command_context(kwargs, kluctl_project, target,
         merge_dict(deploy_args, seal_args, False)
 
     with tempfile.TemporaryDirectory(dir=get_tmp_base_dir()) as tmpdir:
-        if output_dir is None:
-            output_dir = tmpdir
+        render_output_dir = kwargs.get("render_output_dir")
+        if render_output_dir is None:
+            render_output_dir = tmpdir
         d = DeploymentProject(kluctl_project.deployment_dir, jinja_vars, deploy_args, kluctl_project.sealed_secrets_dir)
-        c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=output_dir, for_seal=for_seal)
+        c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=render_output_dir, for_seal=for_seal)
 
         fixed_images = load_fixed_images(kwargs)
         for fi in target.get("images", []):

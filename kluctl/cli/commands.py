@@ -123,13 +123,12 @@ def validate_command(obj, kwargs):
 def render_command(obj, kwargs):
     logger = logging.getLogger('build')
 
-    output_dir = kwargs["output_dir"]
-    if output_dir is None:
-        output_dir = tempfile.mkdtemp(dir=get_tmp_base_dir(), prefix="render-")
+    if kwargs["render_output_dir"] is None:
+        kwargs["render_output_dir"] = tempfile.mkdtemp(dir=get_tmp_base_dir(), prefix="render-")
 
-    with project_command_context(kwargs, output_dir=output_dir) as cmd_ctx:
+    with project_command_context(kwargs) as cmd_ctx:
         cmd_ctx.deployment_collection.render_deployments()
-        logger.info('Rendered into: %s' % output_dir)
+        logger.info('Rendered into: %s' % cmd_ctx.deployment_collection.tmpdir)
 
         if kwargs["output_images"]:
             result = {

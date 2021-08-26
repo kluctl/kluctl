@@ -23,7 +23,7 @@ def bootstrap_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
+@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True, render_output_dir=True)
 @click.pass_obj
 def deploy_command_stub(obj, **kwargs):
     from kluctl.cli.commands import deploy_command
@@ -109,11 +109,7 @@ def validate_command_stub(obj, **kwargs):
                         "a temporary directory or a specified directory.")
 @kluctl_project_args()
 @image_args()
-@optgroup.group("Misc arguments")
-@optgroup.option("--output-dir",
-                 help="Specified the target directory to render the project into. If omitted, a random temporary "
-                      "directory is created and printed to stdout.",
-                 type=click.Path(file_okay=False))
+@misc_arguments(render_output_dir=True)
 @optgroup.option("--output-images",
                  help="Also output images list to given FILE. This output the same result as from the "
                       "list-images command.",
