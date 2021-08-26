@@ -332,7 +332,7 @@ class DeploymentCollection:
                     else:
                         x2 = x
 
-                    if dry_run and is_replaced:
+                    if (dry_run or k8s_cluster.dry_run) and is_replaced:
                         # The necessary delete was not really performed in case we are in dry_run mode
                         def dummy(x3):
                             # let's pretend that we applied it
