@@ -181,22 +181,6 @@ class KustomizeDeployment(object):
         values = self.build_inclusion_values()
         return inclusion.check_included(values, skip_delete_if_tags)
 
-    def is_simple_kustomize_project(self, kustomize_yaml):
-        return False
-
-        rendered_dir = self.get_rendered_dir()
-        allowed = {"apiVersion", "kind", "resources", "namespace"}
-        for k in kustomize_yaml.keys():
-            if k not in allowed:
-                return False
-        for r in kustomize_yaml.get("resources", []):
-            p = r.split("/")
-            if "." in p or ".." in p:
-                return False
-            if not os.path.isfile(os.path.join(rendered_dir, r)):
-                return False
-        return True
-
     def build_objects_kustomize(self):
         tmp_files = []
 
@@ -223,21 +207,6 @@ class KustomizeDeployment(object):
         yamls = yaml_load_all(yamls)
         return yamls
 
-    def build_objects_simple_kustomize(self, kustomize_yaml):
-        rendered_dir = self.get_rendered_dir()
-        namespace = kustomize_yaml.get("namespace")
-
-        yamls = []
-        for r in kustomize_yaml.get("resources", []):
-            y = yaml_load_file(os.path.join(rendered_dir, r), all=True)
-            for x in y:
-                if x is None:
-                    continue
-                if namespace is not None:
-                    x.setdefault("metadata", {})["namespace"] = namespace
-                yamls.append(x)
-        return yamls
-
     def build_objects(self, k8s_cluster):
         if self.config.get("onlyRender", False):
             self.objects = []
@@ -257,10 +226,7 @@ class KustomizeDeployment(object):
         # Save modified kustomize.yml
         yaml_save_file(kustomize_yaml, kustomize_yaml_path)
 
-        if self.is_simple_kustomize_project(kustomize_yaml):
-            yamls = self.build_objects_simple_kustomize(kustomize_yaml)
-        else:
-            yamls = self.build_objects_kustomize()
+        yamls = self.build_objects_kustomize()
 
         self.objects = []
         # Add commonLabels to all resources. We can't use kustomize's "commonLabels" feature as it erroneously
