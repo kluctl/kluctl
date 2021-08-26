@@ -198,8 +198,9 @@ class KustomizeDeployment(object):
                 # Run 'kustomize build'
                 yamls = kustomize_build(self.get_rendered_dir())
                 if allow_cache:
-                    with open(hash_path, "w") as f:
+                    with open(hash_path + "~", "w") as f:
                         f.write(yamls)
+                    os.rename(hash_path + "~", hash_path)
         finally:
             for x in tmp_files:
                 x.close()
