@@ -85,7 +85,10 @@ class k8s_cluster_real(k8s_cluster_base):
 
     def get_status_message(self, status):
         if isinstance(status, ApiException):
-            status = json.loads(status.body)
+            if status.headers.get("Content-Type") == "application/json":
+                status = json.loads(status.body)
+            else:
+                return status.body.decode("utf-8")
         if isinstance(status, Exception):
             return 'Exception: %s' % str(status)
 
