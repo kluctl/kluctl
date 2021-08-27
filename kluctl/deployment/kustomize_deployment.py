@@ -208,16 +208,14 @@ class KustomizeDeployment(object):
         yamls = yaml_load_all(yamls)
         return yamls
 
-    def build_objects(self, k8s_cluster):
-        if self.config.get("onlyRender", False):
-            self.objects = []
-            return
+    def prepare_kustomization_yaml(self):
         if "path" not in self.config:
-            self.objects = []
             return
 
         rendered_dir = self.get_rendered_dir()
         kustomize_yaml_path = os.path.join(rendered_dir, 'kustomization.yml')
+        if not os.path.exists(kustomize_yaml_path):
+            return
         kustomize_yaml = yaml_load_file(kustomize_yaml_path)
 
         override_namespace = self.deployment_project.get_override_namespace()
@@ -226,6 +224,14 @@ class KustomizeDeployment(object):
 
         # Save modified kustomize.yml
         yaml_save_file(kustomize_yaml, kustomize_yaml_path)
+
+    def build_objects(self, k8s_cluster):
+        if self.config.get("onlyRender", False):
+            self.objects = []
+            return
+        if "path" not in self.config:
+            self.objects = []
+            return
 
         yamls = self.build_objects_kustomize()
 

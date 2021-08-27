@@ -90,6 +90,7 @@ class DeploymentCollection:
 
             if not self.for_seal:
                 for d in self.deployments:
+                    d.prepare_kustomization_yaml()
                     d.resolve_sealed_secrets()
         self.is_rendered = True
 
