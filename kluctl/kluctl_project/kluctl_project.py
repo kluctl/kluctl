@@ -229,6 +229,7 @@ class KluctlProject:
 
     def update_git_caches(self):
         with MyThreadPoolExecutor() as executor:
+            futures = []
             def do_update(key):
                 if key not in self.config:
                     return
@@ -241,7 +242,8 @@ class KluctlProject:
                     if url in self.git_cache_up_to_date:
                         return
                     self.git_cache_up_to_date[url] = True
-                    executor.submit(update_git_cache, url)
+                    f = executor.submit(update_git_cache, url)
+                    futures.append(f)
 
             do_update("deployment")
             do_update("clusters")
@@ -255,10 +257,13 @@ class KluctlProject:
                 url = parse_git_project(target_config["project"], None).url
                 if url not in self.git_cache_up_to_date:
                     self.git_cache_up_to_date[url] = True
-                    executor.submit(update_git_cache, url)
+                    f = executor.submit(update_git_cache, url)
+                    futures.append(f)
                 if url not in self.refs_for_urls:
                     self.refs_for_urls[url] = executor.submit(git_ls_remote, url)
 
+        for f in futures:
+            f.result()
         for url in list(self.refs_for_urls.keys()):
             self.refs_for_urls[url] = self.refs_for_urls[url].result()
 

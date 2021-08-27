@@ -28,6 +28,7 @@ exit 1
 
 def get_cache_base_dir():
     dir = os.path.join(get_tmp_base_dir(), "git-cache")
+    logger.debug("cache base dir: %s" % dir)
     return dir
 
 class GitCredentialsStore:
