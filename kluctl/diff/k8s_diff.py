@@ -6,30 +6,9 @@ from deepdiff import DeepDiff
 from deepdiff.helper import NotPresent
 
 from kluctl.utils.k8s_object_utils import get_object_ref
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, remove_empty
 from kluctl.utils.yaml_utils import yaml_dump
 
-
-def is_empty(o):
-    if isinstance(o, dict) or isinstance(o, list):
-        return len(o) == 0
-    return False
-
-def remove_empty(o):
-    if isinstance(o, dict):
-        for k in list(o.keys()):
-            remove_empty(o[k])
-            if is_empty(o[k]):
-                del(o[k])
-    elif isinstance(o, list):
-        i = 0
-        while i < len(o):
-            v = o[i]
-            remove_empty(v)
-            if is_empty(v):
-                o.pop(i)
-            else:
-                i += 1
 
 def object_to_diffable_lines(o):
     if o is None:

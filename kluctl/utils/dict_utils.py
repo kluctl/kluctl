@@ -62,3 +62,24 @@ def get_dict_value(y, path, default=None):
             return default
         y = y[x]
     return y
+
+def is_empty(o):
+    if isinstance(o, dict) or isinstance(o, list):
+        return len(o) == 0
+    return False
+
+def remove_empty(o):
+    if isinstance(o, dict):
+        for k in list(o.keys()):
+            remove_empty(o[k])
+            if is_empty(o[k]):
+                del(o[k])
+    elif isinstance(o, list):
+        i = 0
+        while i < len(o):
+            v = o[i]
+            remove_empty(v)
+            if is_empty(v):
+                o.pop(i)
+            else:
+                i += 1
