@@ -12,7 +12,6 @@ import filelock
 from git import Git
 
 from kluctl.utils.env_config_sets import parse_env_config_sets
-from kluctl.utils.gitlab.fast_ls_remote import gitlab_fast_ls_remote
 from kluctl.utils.utils import get_tmp_base_dir
 
 logger = logging.getLogger(__name__)
@@ -145,12 +144,6 @@ def with_git_cache(url, do_lock=True):
 def update_git_cache(url, do_lock=True):
     with with_git_cache(url, do_lock=do_lock) as cache_dir:
         with build_git_object(url, cache_dir) as (g, url):
-            remote_refs = gitlab_fast_ls_remote(url)
-            if remote_refs is not None:
-                local_refs = git_ls_remote(cache_dir)
-                if remote_refs == local_refs:
-                    return
-
             logger.info(f"Fetching into cache: url='{url}'")
             g.fetch("origin", "-f")
 
@@ -179,10 +172,6 @@ def get_git_ref(path):
     return tag
 
 def git_ls_remote(url, tags=False):
-    ret = gitlab_fast_ls_remote(url, tags=tags)
-    if ret is not None:
-        return ret
-
     args = []
     if tags:
         args.append("--tags")
