@@ -7,6 +7,7 @@ from distutils.version import StrictVersion
 
 from kubernetes import config
 from kubernetes.client import ApiClient, Configuration, ApiException
+from kubernetes.config import ConfigException
 from kubernetes.dynamic import EagerDiscoverer, DynamicClient, Resource
 from kubernetes.dynamic.exceptions import NotFoundError, ResourceNotFoundError
 
@@ -50,7 +51,10 @@ class k8s_cluster_real(k8s_cluster_base):
         self.dry_run = dry_run
 
         self.config = Configuration()
-        config.load_kube_config(context=context, client_configuration=self.config, persist_config=True)
+        try:
+            config.load_kube_config(context=context, client_configuration=self.config, persist_config=True)
+        except ConfigException as e:
+            raise CommandError(str(e))
 
         if self.context != "docker-desktop" and not self.config.api_key and not self.config.key_file:
             raise CommandError("No authentication available. You might need to invoke kubectl first to perform a login")

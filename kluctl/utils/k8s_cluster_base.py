@@ -2,7 +2,6 @@
 import logging
 import os
 
-from kubernetes import config
 from kubernetes.client import ApiException
 
 from kluctl.utils.exceptions import CommandError
@@ -58,11 +57,6 @@ def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
 
     if offline:
         return cluster, None
-
-    contexts, _ = config.list_kube_config_contexts()
-
-    if not any(x['name'] == cluster['context'] for x in contexts):
-        raise CommandError('Context %s for cluster %s not found in kubeconfig' % (cluster['context'], cluster_name))
 
     if cluster['name'] != cluster_name:
         raise CommandError('Cluster name in %s does not match requested cluster name %s' % (cluster['name'], cluster_name))
