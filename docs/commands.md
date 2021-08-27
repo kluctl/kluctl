@@ -202,6 +202,9 @@ In addition, the following arguments are available:
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
+    --render-output-dir DIRECTORY
+                                  Specifies the target directory to render the project into. If omitted, atemporary
+                                  directory is used.
 ```
 <!-- END SECTION -->
 
@@ -370,6 +373,9 @@ In addition, the following arguments are available:
 ```
   Misc arguments: 
     -o, --output TEXT             Specify output target file. Can be specified multiple times
+    --render-output-dir DIRECTORY
+                                  Specifies the target directory to render the project into. If omitted, atemporary
+                                  directory is used.
     --wait TEXT                   Wait for the given amount of time until the deployment validates
     --sleep TEXT                  Sleep duration between validation attempts
     --warnings-as-errors          Consider warnings as failures

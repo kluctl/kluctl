@@ -38,7 +38,7 @@ def deploy_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(force_apply=True, replace_on_error=True, ignore_labels=True, ignore_order=True, output_format=True)
+@misc_arguments(force_apply=True, replace_on_error=True, ignore_labels=True, ignore_order=True, output_format=True, render_output_dir=True)
 @click.pass_obj
 def diff_command_stub(obj, **kwargs):
     from kluctl.cli.commands import diff_command
@@ -95,7 +95,7 @@ def poke_images_command_stub(obj, **kwargs):
                         "TODO: This needs to be better documented!")
 @kluctl_project_args()
 @include_exclude_args()
-@misc_arguments(output=True)
+@misc_arguments(output=True, render_output_dir=True)
 @optgroup.option("--wait", help="Wait for the given amount of time until the deployment validates")
 @optgroup.option("--sleep", help="Sleep duration between validation attempts", default="5s")
 @optgroup.option("--warnings-as-errors", help="Consider warnings as failures", is_flag=True)
