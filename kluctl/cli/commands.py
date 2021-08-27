@@ -101,7 +101,7 @@ def validate_command(obj, kwargs):
 
     start_time = time.time()
 
-    with project_command_context(kwargs, force_offline_images=True) as cmd_ctx:
+    with project_command_context(kwargs) as cmd_ctx:
         while True:
             result = cmd_ctx.deployment_collection.validate(cmd_ctx.k8s_cluster)
             failed = len(result.errors) != 0 or (warnings_as_errors and len(result.warnings) != 0)
