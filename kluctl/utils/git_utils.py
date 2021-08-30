@@ -31,16 +31,48 @@ def get_cache_base_dir():
     logger.debug("cache base dir: %s" % dir)
     return dir
 
+@dataclasses.dataclass()
+class GitCredentials:
+    host: str
+    username: str
+    password: str
+    ssh_key: str
+    path_prefix: str
+
 class GitCredentialsStore:
-    def get_credentials(self, host):
-        return None, None
+    def get_credentials(self, host, path):
+        return None, None, None
+
+    def check_credentials(self, c, test_host, test_path):
+        if c.host != test_host:
+            return False
+        if not test_path.startswith(c.path_prefix or ""):
+            return False
+        return True
+
+    def find_matching_credentials(self, credentials, test_host, test_path):
+        c = [x for x in credentials if self.check_credentials(x, test_host, test_path)]
+        if not c:
+            return None
+        c.sort(key=lambda x: len(x.path_prefix))
+        # return credentials with longest matching path
+        return c[-1]
 
 class GitCredentialStoreEnv(GitCredentialsStore):
-    def get_credentials(self, host):
+    def get_credentials(self, host, path):
+        credentials = []
         for idx, s in parse_env_config_sets("KLUCTL_GIT").items():
-            if s.get("HOST") == host:
-                return s.get("USERNAME"), s.get("PASSWORD")
-        return None, None
+            credentials.append(GitCredentials(host=s.get("HOST"),
+                                              username=s.get("USERNAME"),
+                                              password=s.get("PASSWORD"),
+                                              ssh_key=s.get("SSH_KEY"),
+                                              path_prefix=s.get("PATH_PREFIX", "")))
+        c = self.find_matching_credentials(credentials, host, path)
+        if c is not None and c.ssh_key is not None:
+            path = os.path.expanduser(c.ssh_key)
+            with open(path, "rt") as f:
+                c.ssh_key = f.read()
+        return c
 
 credentials_store = GitCredentialStoreEnv()
 
@@ -62,57 +94,65 @@ def add_username_to_url(url, username):
     if username is None:
         return url
     u = parse_git_url(url)
-    return f"{u.schema}://{username}@{u.host}/{u.path}"
+    return f"{u.schema}://{username}@{u.host}:{u.port}{u.path}"
+
+@contextmanager
+def create_password_files(g, ssh_command, url, credentials):
+    # Must handle closing/deletion manually as otherwise git will complain about busy files
+    password_script = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
+    password_file = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
+    ssh_key_file = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
+
+    if credentials is not None and credentials.password is not None:
+        password_file.write(credentials.password)
+        password_script.write(f"#!/usr/bin/env sh\ncat {password_file.name}")
+    else:
+        password_script.write(NO_CREDENTIALS_PROMPT % url)
+
+    if credentials is not None and credentials.ssh_key is not None:
+        ssh_key_file.write(credentials.ssh_key)
+        ssh_command += " -i '%s'" % ssh_key_file.name
+
+    for x in [password_script, password_file, ssh_key_file]:
+        x.close()
+    os.chmod(password_script.name, 0o700)
+
+    g.update_environment(GIT_ASKPASS=password_script.name, GIT_TERMINAL_PROMPT="0")
+    try:
+        yield ssh_command
+    finally:
+        for x in [password_script, password_file, ssh_key_file]:
+            try:
+                os.unlink(x.name)
+            except Exception:
+                pass
 
 @contextmanager
 def build_git_object(url, working_dir):
-    username = None
-    password = None
-    try:
-        u = parse_git_url(url)
-        username, password = get_git_credentials_store().get_credentials(u.host)
-    except:
-        pass
+    u = parse_git_url(url)
+    credentials = get_git_credentials_store().get_credentials(u.host, u.path)
+    if u.username is not None and u.username != credentials.username:
+        raise Exception("username from url does not match username from credentials store")
 
     g = Git(working_dir)
-    g.update_environment(
-        GIT_SSH_COMMAND="ssh -o 'ControlMaster=auto' -o 'ControlPath=/tmp/agent_ralf_control_master-%r@%h-%p' -o 'ControlPersist=5m'"
-    )
 
-    if username is not None:
-        url = add_username_to_url(url, username)
+    ssh_command = "ssh"
+    ssh_command += " -o 'ControlMaster=auto'"
+    ssh_command += " -o 'ControlPath=/tmp/kluctl_control_master-%r@%h-%p'"
+    ssh_command += " -o 'ControlPersist=5m'"
+    ssh_command += " -o 'StrictHostKeyChecking=no'"
 
-    @contextmanager
-    def create_password_files():
-        # Must handle closing/deletion manually as otherwise git will complain about busy files
-        password_script = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
-        password_file = NamedTemporaryFile("w+t", dir=get_tmp_base_dir(), delete=False)
+    if credentials is not None and credentials.username is not None:
+        url = add_username_to_url(url, credentials.username)
 
-        if username is not None:
-            password_file.write(password)
-            password_script.write(f"#!/usr/bin/env sh\ncat {password_file.name}")
-        else:
-            password_script.write(NO_CREDENTIALS_PROMPT % url)
-
-        password_file.close()
-        password_script.close()
-        os.chmod(password_script.name, 0o700)
-
-        g.update_environment(GIT_ASKPASS=password_script.name, GIT_TERMINAL_PROMPT="0")
+    with create_password_files(g, ssh_command, url, credentials) as ssh_command:
+        g.update_environment(
+            GIT_SSH_COMMAND=ssh_command
+        )
         try:
-            yield None
+            yield g, url
         finally:
-            try:
-                os.unlink(password_file.name)
-            except:
-                pass
-            try:
-                os.unlink(password_script.name)
-            except:
-                pass
-
-    with create_password_files():
-        yield g, url
+            pass
 
 @contextmanager
 def with_git_cache(url, do_lock=True):
