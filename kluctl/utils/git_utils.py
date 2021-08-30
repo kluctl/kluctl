@@ -197,45 +197,51 @@ def filter_remote_refs(refs, pattern, trim):
             matching_refs[r2] = commit
     return matching_refs
 
-@dataclasses.dataclass
+@dataclasses.dataclass(eq=True)
 class GitUrl:
     schema: str
     host: str
+    port: int
     path: str
+    username: str
 
-def parse_git_url(p, allow_gitlab_fallback=False):
-    dummy = "wildcard" * 10
-    replaced = p.replace("*", dummy)
-    def replace_back(s):
-        return s.replace(dummy, "*")
+def parse_git_url(p):
     def trim_git_suffix(s):
         if s.endswith(".git"):
             return s[:-len(".git")]
         return s
-    def trim_username(host):
-        at_idx = host.find('@')
-        if at_idx != -1:
-            host = host[at_idx + 1:]
-        return host
+    def normalize_port(schema, port):
+        if port is not None:
+            return port
+        if schema == "http":
+            return 80
+        if schema == "https":
+            return 443
+        if schema == "ssh":
+            return 22
+        raise Exception("Unknown schema %s" % schema)
 
-    if replaced.startswith("http://") or replaced.startswith("https://") or replaced.startswith("ssh://"):
-        schema = replaced.split(":", 1)[0]
-        url = urlparse(replaced)
-        host = url.hostname
-        path = url.path[1:]  # trim /
-    elif ":" in replaced:
-        schema = "ssh"
-        s = replaced.split(":", 1)
-        host = trim_username(s[0])
-        path = s[1]
-    elif allow_gitlab_fallback:
-        return parse_git_url("https://gitlab.com/%s" % p, False)
-    else:
-        raise Exception("Invalid git url: %s" % p)
-    path = trim_git_suffix(path)
-    return GitUrl(schema, replace_back(host), replace_back(path))
+    schema_pattern = re.compile("^([a-z]*)://.*")
+    m = schema_pattern.match(p)
+    if m:
+        url = urlparse(p)
+        path = trim_git_suffix(url.path)
+        port = normalize_port(url.scheme, url.port)
+        return GitUrl(url.scheme, url.hostname, port, path, url.username)
 
-def check_git_url_match(a, b, allow_gitlab_fallback):
-    a = parse_git_url(a, allow_gitlab_fallback)
-    b = parse_git_url(b, allow_gitlab_fallback)
-    return fnmatch.fnmatch(a.host, b.host) and fnmatch.fnmatch(a.path, b.path)
+    pattern = re.compile("(.+@)?([\w\d\.]+):(,*)")
+    m = pattern.match(p)
+    if not m:
+        raise Exception("Invalid git url %s" % p)
+
+    username = m.group(1)
+    if username is not None:
+        username = username[:-1]
+    host = m.group(2)
+    path = m.group(3)
+    return GitUrl("ssh", host, 22, path, username)
+
+def check_git_url_match(a, b):
+    a = parse_git_url(a)
+    b = parse_git_url(b)
+    return a == b
