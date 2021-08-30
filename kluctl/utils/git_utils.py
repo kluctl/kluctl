@@ -239,26 +239,3 @@ def check_git_url_match(a, b, allow_gitlab_fallback):
     a = parse_git_url(a, allow_gitlab_fallback)
     b = parse_git_url(b, allow_gitlab_fallback)
     return fnmatch.fnmatch(a.host, b.host) and fnmatch.fnmatch(a.path, b.path)
-
-def guess_git_web_url(git_url):
-    a = parse_git_url(git_url)
-    if a.host.find("gitlab") != -1:
-        return f"https://{a.host}/{a.path}"
-    if a.host.find("bitbucket") != -1:
-        if a.schema in ("http", "https"):
-            s = a.path.split("/")
-            if len(s) < 3:
-                return git_url
-
-            group = s[1]
-            project = s[2]
-            return f"{a.schema}://{a.host}/scm/{group}/{project}.git"
-        elif a.schema == "ssh":
-            s = a.path.split("/")
-            if len(s) < 2:
-                return git_url
-            group = s[0]
-            project = s[1]
-            host = a.host.split(":", 1)[0]
-            return f"https://{host}/scm/{group}/{project}"
-    return git_url
