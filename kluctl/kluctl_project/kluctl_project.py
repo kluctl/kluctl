@@ -415,11 +415,11 @@ class KluctlProject:
                 dyn_arg = x
                 break
         if not dyn_arg:
-            raise Exception(f"Dynamic argument {arg_name} is not allowed for target {target['name']}")
+            raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} is not allowed for target {target['name']}")
 
         arg_pattern = dyn_arg.get("pattern", ".*")
         if not re.match(arg_pattern, arg_value):
-            raise Exception(f"Dynamic argument {arg_name} does not match required pattern '{arg_pattern}'")
+            raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} does not match required pattern '{arg_pattern}'")
 
 
 @contextmanager

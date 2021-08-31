@@ -132,6 +132,10 @@ def project_target_command_context(kwargs, kluctl_project, target,
     inclusion = parse_inclusion(kwargs)
 
     option_args = parse_args(kwargs.get("arg", []))
+    if target is not None:
+        for arg_name, arg_value in option_args.items():
+            kluctl_project.check_dynamic_arg(target, arg_name, arg_value)
+
     target_args = target.get("args", {}) if target else {}
     seal_args = get_dict_value(target, "sealingConfig.args", {}) if target else {}
     deploy_args = merge_dict(target_args, option_args)
