@@ -2,10 +2,14 @@ title: .kluctl.yml schema
 type: object
 definitions:
   git_url:
-    type: string
     # See https://stackoverflow.com/questions/2514859/regular-expression-for-git-repository
-    pattern:
-      (\w+:\/\/)(.+@)*([\w\d\.]+)(:[\d]+){0,1}\/*(.*)
+    oneOf:
+      - type: string
+        pattern:
+          (\w+:\/\/)(.+@)*([\w\d\.]+)(:[\d]+){0,1}\/*(.*)
+      - type: string
+        pattern:
+          (.+@)?([\w\d\.]+):(.*)
   git_ref:
     oneOf:
       - type: string
