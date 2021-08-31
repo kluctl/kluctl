@@ -380,7 +380,10 @@ class KluctlProject:
 
                 dynamic_targets.append(target)
             except Exception as e:
-                logger.warning("Failed to load target config for project %s. Error=%s" % (self.project_url, str(e)))
+                # Only fail if non-dynamic targets fail to load
+                if target_config_ref is not None:
+                    raise e
+                logger.warning("Failed to load dynamic target config for project. Error=%s" % (str(e)))
         self.add_involved_repo(git_project.url, ref_pattern, involved_repo_refs)
         return dynamic_targets
 
@@ -415,7 +418,7 @@ class KluctlProject:
                 dyn_arg = x
                 break
         if not dyn_arg:
-            raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} is not allowed for target {target['name']}")
+            raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} is not allowed for target")
 
         arg_pattern = dyn_arg.get("pattern", ".*")
         if not re.match(arg_pattern, arg_value):
