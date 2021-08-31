@@ -94,7 +94,7 @@ def add_username_to_url(url, username):
     if username is None:
         return url
     u = parse_git_url(url)
-    return f"{u.schema}://{username}@{u.host}:{u.port}{u.path}"
+    return f"{u.schema}://{username}@{u.host}:{u.port}/{u.path}"
 
 @contextmanager
 def create_password_files(g, ssh_command, url, credentials):
