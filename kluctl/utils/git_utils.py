@@ -246,9 +246,11 @@ class GitUrl:
     username: str
 
 def parse_git_url(p):
-    def trim_git_suffix(s):
+    def trim_path(s):
+        if s.startswith("/"):
+            s = s[1:]
         if s.endswith(".git"):
-            return s[:-len(".git")]
+            s = s[:-len(".git")]
         return s
     def normalize_port(schema, port):
         if port is not None:
@@ -265,7 +267,7 @@ def parse_git_url(p):
     m = schema_pattern.match(p)
     if m:
         url = urlparse(p)
-        path = trim_git_suffix(url.path)
+        path = trim_path(url.path)
         port = normalize_port(url.scheme, url.port)
         return GitUrl(url.scheme, url.hostname, port, path, url.username)
 
@@ -278,7 +280,7 @@ def parse_git_url(p):
     if username is not None:
         username = username[:-1]
     host = m.group(2)
-    path = m.group(3)
+    path = trim_path(m.group(3))
     return GitUrl("ssh", host, 22, path, username)
 
 def check_git_url_match(a, b):
