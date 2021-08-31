@@ -2,7 +2,7 @@ title: .kluctl.yml schema
 type: object
 definitions:
   git_url:
-    oneOf:
+    anyOf:
       - type: string
         pattern:
           ^(\w+:\/\/)(.+@)?([\w\d\.]+)(:[\d]+)?\/*(.*)$
@@ -10,7 +10,7 @@ definitions:
         pattern:
           ^(.+@)?([\w\d\.]+):(.*)$
   git_ref:
-    oneOf:
+    anyOf:
       - type: string
         # See https://stackoverflow.com/questions/12093748/how-do-i-check-for-valid-git-branch-names
         pattern:
