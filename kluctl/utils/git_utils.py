@@ -271,7 +271,7 @@ def parse_git_url(p):
         port = normalize_port(url.scheme, url.port)
         return GitUrl(url.scheme, url.hostname, port, path, url.username)
 
-    pattern = re.compile("(.+@)?([\w\d\.]+):(,*)")
+    pattern = re.compile("(.+@)?([\w\d\.]+):(.*)")
     m = pattern.match(p)
     if not m:
         raise Exception("Invalid git url %s" % p)
