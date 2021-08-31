@@ -83,7 +83,7 @@ def purge_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True, output_format=True)
+@misc_arguments(yes=True, dry_run=True, output_format=True, render_output_dir=True)
 @click.pass_obj
 def poke_images_command_stub(obj, **kwargs):
     from kluctl.cli.commands import poke_images_command
