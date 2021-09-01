@@ -131,7 +131,7 @@ def create_password_files(g, ssh_command, url, credentials):
 def build_git_object(url, working_dir):
     u = parse_git_url(url)
     credentials = get_git_credentials_store().get_credentials(u.host, u.path)
-    if u.username is not None and u.username != credentials.username:
+    if credentials is not None and u.username is not None and u.username != credentials.username:
         raise Exception("username from url does not match username from credentials store")
 
     g = Git(working_dir)
