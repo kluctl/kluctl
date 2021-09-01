@@ -21,7 +21,7 @@ class k8s_cluster_base(object):
         l = self.get_objects(version=ref.api_version, kind=ref.kind, name=ref.name, namespace=ref.namespace)
 
         if not l:
-            return None
+            return None, []
         if len(l) != 1:
             raise Exception("expected single object, got %d" % len(l))
         return l[0]
@@ -34,9 +34,9 @@ class k8s_cluster_base(object):
                 futures.append(f)
             ret = []
             for f in futures:
-                r = f.result()
-                if r:
-                    ret.append(r)
+                o, w = f.result()
+                if o:
+                    ret.append((o, w))
             return ret
 
     def get_objects_metadata(self, group=None, version=None, kind=None, name=None, namespace=None, labels=None):
