@@ -70,6 +70,20 @@ These arguments control image versions requested by `images.get_image(...)` [cal
 
 These arguments control inclusion/exclusion based on tags and kustomize depoyment pathes.
 
+# Environment variables
+All options/arguments accepted by kluctl can also be specified via environment variables. The name of the environment
+variables always start with `KLUCTL_` and end witht the option/argument in uppercase and dashes replaced with
+underscores. As an example, `--project=my-project` can also be specified with the environment variable
+`KLUCTL_PROJECT=my-project`.
+
+## Additional environment variables
+A few additional environment variables are supported which do not belong to an option/argument. These are:
+
+1. `KLUCTL_REGISTRY_<idx>_HOST`, `KLUCTL_REGISTRY_<idx>_USERNAME`, and so on. See [registries](./images.md#supported-image-registries-and-authentication) for details.
+2. `KLUCTL_GIT_TIMEOUT`. Specifies how long to wait on git subprocesses to finish until they are killed.
+3. `KLUCTL_NO_THREADS`. Do not use multithreading while performing work. This is only useful for debugging purposes.
+4. `KLUCTL_IGNORE_DEBUGGER`. Pretend that there is no debugger attached when automatically deciding if multi-threading should be enabled or not.
+
 # Commands
 The following commands are available:
 
