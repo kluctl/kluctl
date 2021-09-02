@@ -50,11 +50,22 @@ class DeploymentProject(object):
         add_jinja2_filters(environment)
         return environment
 
-    def load_jinja_vars(self, rel_file):
+    def load_jinja_vars_list(self, vars_list, cur_jinja_vars):
+        jinja_vars = copy_dict(cur_jinja_vars)
+        for v in vars_list:
+            if "values" in v:
+                merge_dict(jinja_vars, v["values"], False)
+            elif "file" in v:
+                jinja_vars = self.load_jinja_vars_file(v["file"], jinja_vars)
+            else:
+                raise CommandError("Invalid vars entry")
+        return jinja_vars
+
+    def load_jinja_vars_file(self, rel_file, cur_jinja_vars):
         if not os.path.exists(os.path.join(self.dir, rel_file)):
-            return self.jinja_vars
-        new_vars = self.load_rendered_yaml(rel_file, self.jinja_vars)
-        jinja_vars = merge_dict(self.jinja_vars, new_vars)
+            raise CommandError("%s not found" % rel_file)
+        new_vars = self.load_rendered_yaml(rel_file, cur_jinja_vars)
+        jinja_vars = merge_dict(cur_jinja_vars, new_vars)
         return jinja_vars
 
     def load_rendered_yaml(self, rel_path, jinja_vars):
@@ -80,13 +91,7 @@ class DeploymentProject(object):
         set_default_value(self.conf, 'tags', [])
         set_default_value(self.conf, 'templateExcludes', [])
 
-        for v in self.conf['vars']:
-            if 'values' in v:
-                merge_dict(self.jinja_vars, v['values'], False)
-            elif 'file' in v:
-                self.jinja_vars = self.load_jinja_vars(v['file'])
-            else:
-                raise CommandError("Invalid vars entry in deployment.yml")
+        self.jinja_vars = self.load_jinja_vars_list(self.conf['vars'], self.jinja_vars)
 
         for c in self.conf['kustomizeDirs'] + self.conf['includes']:
             if 'tags' not in c and 'path' in c:
