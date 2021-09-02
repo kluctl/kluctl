@@ -3,12 +3,13 @@ import hashlib
 import logging
 import os
 import re
+import shutil
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
 import filelock
-from git import Git
+from git import Git, GitCommandError
 
 from kluctl.utils.env_config_sets import parse_env_config_sets
 from kluctl.utils.utils import get_tmp_base_dir
@@ -192,7 +193,17 @@ def update_git_cache(url, do_lock=True):
     with with_git_cache(url, do_lock=do_lock) as cache_dir:
         with build_git_object(url, cache_dir) as (g, url):
             logger.info(f"Fetching into cache: url='{url}'")
-            g.fetch("origin", "-f")
+            try:
+                g.fetch("origin", "-f")
+            except GitCommandError as e:
+                if "did not complete in " in e.stderr:
+                    logger.info("Git command timed out, deleting cache (%s) to ensure that we don't get into an "
+                                "inconsistent state" % cache_dir)
+                    try:
+                        shutil.rmtree(cache_dir)
+                    except:
+                        pass
+                raise
 
 def clone_project(url, ref, target_dir, git_cache_up_to_date=None):
     logger.info(f"Cloning git project: url='{url}', ref='{ref}'")
