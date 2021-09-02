@@ -1,5 +1,4 @@
 import dataclasses
-import fnmatch
 import hashlib
 import logging
 import os
@@ -134,7 +133,14 @@ def build_git_object(url, working_dir):
     if credentials is not None and u.username is not None and u.username != credentials.username:
         raise Exception("username from url does not match username from credentials store")
 
-    g = Git(working_dir)
+    class MyGit(Git):
+        def execute(self, command, **kwargs):
+            kwargs2 = kwargs.copy()
+            if "KLUCTL_GIT_TIMEOUT" in os.environ:
+                kwargs2["kill_after_timeout"] = int(os.environ["KLUCTL_GIT_TIMEOUT"])
+            return super().execute(command, **kwargs2)
+
+    g = MyGit(working_dir)
 
     ssh_command = "ssh"
     ssh_command += " -o 'ControlMaster=auto'"
