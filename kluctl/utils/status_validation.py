@@ -1,5 +1,6 @@
 import dataclasses
 
+from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.k8s_object_utils import ObjectRef, get_object_ref
 
 RESULT_ANNOTATION = "validate-result.kluctl.io/"
@@ -22,60 +23,152 @@ def validate_object(o):
         return result
     ref = get_object_ref(o)
     status = o["status"]
-    if o["kind"] in ["Deployment", "StatefulSet", "ZookeeperCluster"]:
-        if "readyReplicas" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="readyReplicas not in status yet"))
-        elif "replicas" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="replicas not in status yet"))
-        elif status["readyReplicas"] < status["replicas"]:
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="readyReplicas (%d) is less then replicas (%d)" % (status["readyReplicas"], status["replicas"])))
-    elif o["kind"] == "DaemonSet":
-        if "numberReady" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="numberReady not in status yet"))
-        elif "desiredNumberScheduled" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="desiredNumberScheduled not in status yet"))
-        elif status["numberReady"] < status["desiredNumberScheduled"]:
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="numberReady (%d) is less then desiredNumberScheduled (%d)" % (status["numberReady"], status["desiredNumberScheduled"])))
-    elif o["kind"] == "Job":
+
+    class ValidateFailed(Exception):
+        pass
+
+    def add_error(reason, message):
+        result.errors.append(ValidateResultItem(ref, reason=reason, message=message))
+
+    def add_warning(reason, message):
+        result.warnings.append(ValidateResultItem(ref, reason=reason, message=message))
+
+    def find_conditions(type, do_error, do_raise):
+        ret = []
         for c in status.get("conditions", []):
-            if c["type"] == "Failed" and c["status"] == "True":
-                result.errors.append(ValidateResultItem(ref, reason=c.get("reason", "failed"), message=c.get("message", "N/A")))
-        if status.get("active", 0) != 0:
-            result.errors.append(ValidateResultItem(ref, reason=status.get("reason", "not-completed"), message="Job not finished yet. active=%d" % status["active"]))
-    elif o["kind"] == "Kafka":
-        ready_found = False
-        for c in status.get("conditions", []):
-            if c["type"] == "Ready":
-                ready_found = True
-                if c["status"] != "True":
-                    result.errors.append(ValidateResultItem(ref, reason=c.get("reason", "not-ready"), message=c.get("message", "N/A")))
-            elif c["type"] == "Warning":
-                result.warnings.append(ValidateResultItem(ref, reason=c.get("reason", "not-ready"), message=c.get("message", "N/A")))
-        if not ready_found:
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="Ready condition not found"))
-    elif o["kind"] == "Elasticsearch":
-        if "phase" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="phase not in status yet"))
-        elif status["phase"] != "Ready":
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="phase is %s" % status["phase"]))
-        elif "health" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="health not in status yet"))
-        elif status["health"] == "yellow":
-            result.warnings.append(ValidateResultItem(ref, reason="health-yellow", message="health is yellow"))
-        elif status["health"] != "green":
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="health is %s" % status["health"]))
-    elif o["kind"] == "Kibana":
-        if "health" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="health not in status yet"))
-        elif status["health"] == "yellow":
-            result.warnings.append(ValidateResultItem(ref, reason="health-yellow", message="health is yellow"))
-        elif status["health"] != "green":
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="health is %s" % status["health"]))
-    elif o["kind"] == "postgresql":
-        if "PostgresClusterStatus" not in status:
-            result.errors.append(ValidateResultItem(ref, reason="field-not-found", message="PostgresClusterStatus not in status yet"))
-        elif status["PostgresClusterStatus"] != "Running":
-            result.errors.append(ValidateResultItem(ref, reason="not-ready", message="PostgresClusterStatus is %s" % status["PostgresClusterStatus"]))
+            if c["type"] == type:
+                ret.append((c.get("status"), c.get("reason"), c.get("message")))
+        if not ret and do_error:
+            add_error("condition-not-found", "%s condition not in status" % type)
+            if do_raise:
+                raise ValidateFailed()
+        return ret
+
+    def get_condition(type, do_error, do_raise):
+        c = find_conditions(type, do_error, do_raise)
+        if not c:
+            return None, None, None
+        if len(c) != 1:
+            add_error("condition-not-one", "%s condition found more then once" % type)
+            if do_raise:
+                raise ValidateFailed()
+        return c[0]
+
+    def get_field(field, do_error, do_raise, default=None):
+        v = get_dict_value(status, field)
+        if v is None and do_error:
+            add_error("field-not-found", "%s field not in status or empty" % field)
+            if do_raise:
+                raise ValidateFailed()
+        if v is None:
+            return default
+        return v
+
+    def parse_int_or_percent(v):
+        if isinstance(v, int):
+            return v, False
+        return int(v.replace("%", "")), True
+
+    def value_from_int_or_percent(v, total):
+        v, is_percent = parse_int_or_percent(v)
+        if is_percent:
+            v = v * total / 100
+        return int(v)
+
+    try:
+        if o["kind"] == "Pod":
+            s, r, m = get_condition("Ready", True, True)
+            if s != "True":
+                add_error(r or "not-ready", m or "Not ready")
+        elif o["kind"] == "Job":
+            s, r, m = get_condition("Failed", False, False)
+            if s == "True":
+                add_error(r or "failed", m or "N/A")
+            else:
+                s, r, m = get_condition("Complete", True, True)
+                if s != "True":
+                    add_error(r or "not-completed", m or "Not completed")
+        elif o["kind"] in ["Deployment", "ZookeeperCluster"]:
+            ready_replicas = get_field("readyReplicas", True, True)
+            replicas = get_field("replicas", True, True)
+            if ready_replicas < replicas:
+                add_error("not-ready", "readyReplicas (%d) is less then replicas (%d)" % (ready_replicas, replicas))
+        elif o["kind"] == "PersistentVolumeClaim":
+            phase = get_field("phase", True, True)
+            if phase != "Bound":
+                add_error("not-bound", "Volume is not bound")
+        elif o["kind"] == "Service":
+            svc_type = get_dict_value(o, "spec.type")
+            if svc_type != "ExternalName":
+                if get_dict_value(o, "spec.clusterIP", "") == "":
+                    add_error("no-cluster-ip", "Service does not have a cluster IP")
+                elif svc_type == "LoadBalancer":
+                    if len(get_dict_value(o, "spec.externalIPs", [])) == 0:
+                        get_field("loadBalancer.ingress", True, True)
+        elif o["kind"] == "DaemonSet":
+            if get_dict_value(o, "spec.updateStrategy.type") == "RollingUpdate":
+                updated_number_scheduled = get_field("updatedNumberScheduled", True, True)
+                desired_number_scheduled = get_field("desiredNumberScheduled", True, True)
+                if updated_number_scheduled != desired_number_scheduled:
+                    add_error("not-ready", "DaemonSet is not ready. %d out of %d expected pods have been scheduled" % (updated_number_scheduled, desired_number_scheduled))
+                else:
+                    max_unavailable = get_dict_value(o, "spec.updateStrategy.maxUnavailable", 1)
+                    try:
+                        max_unavailable = value_from_int_or_percent(max_unavailable, desired_number_scheduled)
+                    except:
+                        max_unavailable = desired_number_scheduled
+                    expected_ready = desired_number_scheduled - max_unavailable
+                    number_ready = get_field("numberReady", True, True)
+                    if number_ready < expected_ready:
+                        add_error("not-ready", "DaemonSet is not ready. %d out of %d expected pods are ready" % (number_ready, expected_ready))
+        elif o["kind"] == "CustomResourceDefinition":
+            # This is based on how Helm check for ready CRDs.
+            # See https://github.com/helm/helm/blob/249d1b5fb98541f5fb89ab11019b6060d6b169f1/pkg/kube/ready.go#L342
+            s, r, m = get_condition("Established", False, False)
+            if s != "True":
+                s, r, m = get_condition("NamesAccepted", True, True)
+                if s != "False":
+                    add_error("not-ready", "CRD is not ready")
+        elif o["kind"] == "StatefulSet":
+            if get_dict_value(o, "spec.updateStrategy.type") == "RollingUpdate":
+                partition = get_dict_value(o, "spec.updateStrategy.rollingUpdate.partition", 0)
+                replicas = get_dict_value(o, "spec.replicas", 1)
+                updated_replicas = get_field("updatedReplicas", True, True)
+                expected_replicas = replicas - partition
+                if updated_replicas != expected_replicas:
+                    add_error("not-ready", "StatefulSet is not ready. %d out of %d expected pods have been scheduled" % (updated_replicas, expected_replicas))
+                else:
+                    ready_replicas = get_field("readyReplicas", True, True)
+                    if ready_replicas != replicas:
+                        add_error("not-ready", "StatefulSet is not ready. %d out of %d expected pods are ready" % (ready_replicas, replicas))
+        elif o["kind"] == "Kafka":
+            for s, r, m in find_conditions("Warning", False, False):
+                add_warning(r or "warning", m or "N/A")
+            s, r, m = get_condition("Ready", True, True)
+            if s != "True":
+                add_error(r or "not-ready", m or "N/A")
+        elif o["kind"] == "Elasticsearch":
+            phase = get_field("phase", True, True)
+            if phase != "Ready":
+                add_error("not-ready", "phase is %s" % phase)
+            else:
+                health = get_field("health", True, True)
+                if health == "yellow":
+                    add_warning("health-yellow", "health is yellow")
+                elif health != "green":
+                    add_error("not-ready", "health is %s" % health)
+        elif o["kind"] == "Kibana":
+            health = get_field("health", True, True)
+            if health == "yellow":
+                add_warning("health-yellow", "health is yellow")
+            elif health != "green":
+                add_error("not-ready", "health is %s" % health)
+        elif o["kind"] == "postgresql":
+            pstatus = get_field("PostgresClusterStatus", True, True)
+            if pstatus != "Running":
+                add_error("not-ready", "PostgresClusterStatus is %s" % pstatus)
+    except ValidateFailed:
+        pass
 
     for k, v in o["metadata"].get("annotations", {}).items():
         if not k.startswith(RESULT_ANNOTATION):
