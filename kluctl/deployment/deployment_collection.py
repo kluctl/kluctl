@@ -55,13 +55,19 @@ class DeploymentCollection:
     def _collect_deployments(self, project):
         ret = []
 
+        indexes = {}
         for c in project.conf['kustomizeDirs']:
-            deployment = KustomizeDeployment(project, self, c)
+            index = 0
+            if "path" in c:
+                p = os.path.normpath(c["path"])
+                index = indexes.setdefault(p, 0)
+                indexes[p] += 1
+            deployment = KustomizeDeployment(project, self, c, index)
             ret.append(deployment)
 
         for inc in project.conf['includes']:
             if get_dict_value(inc, "barrier", False):
-                deployment = KustomizeDeployment(project, self, {"barrier": True})
+                deployment = KustomizeDeployment(project, self, {"barrier": True}, 0)
                 ret.append(deployment)
 
             d = inc.get('_included_deployment_collection')

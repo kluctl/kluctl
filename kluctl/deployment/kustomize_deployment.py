@@ -26,17 +26,24 @@ def get_kustomize_cache_dir():
 allow_cache = True
 
 class KustomizeDeployment(object):
-    def __init__(self, deployment_project, deployment_collection, config):
+    def __init__(self, deployment_project, deployment_collection, config, index):
         self.deployment_project = deployment_project
         self.deployment_collection = deployment_collection
         self.config = config
+        self.index = index
         self.objects = None
 
     def get_rel_kustomize_dir(self):
         return self.deployment_project.get_rel_dir_to_root(self.config["path"])
 
-    def get_rendered_dir(self):
+    def get_rel_rendered_dir(self):
         path = self.get_rel_kustomize_dir()
+        if self.index != 0:
+            path = "%s-%d" % (path, self.index)
+        return path
+
+    def get_rendered_dir(self):
+        path = self.get_rel_rendered_dir()
         rendered_dir = os.path.join(self.deployment_collection.tmpdir, path)
         return rendered_dir
 
@@ -126,9 +133,9 @@ class KustomizeDeployment(object):
             return
 
         sealed_secrets_dir = self.deployment_project.get_sealed_secrets_dir(self.config["path"])
-        rel_dir_to_root = self.deployment_project.get_rel_dir_to_root()
+        rel_rendered_dir = self.get_rel_rendered_dir()
         rendered_dir = self.get_rendered_dir()
-        base_source_path = os.path.join(self.deployment_project.sealed_secrets_dir, rel_dir_to_root)
+        base_source_path = self.deployment_project.sealed_secrets_dir
 
         y = yaml_load_file(os.path.join(rendered_dir, "kustomization.yml")) or {}
         for resource in y.get("resources", []):
@@ -141,7 +148,7 @@ class KustomizeDeployment(object):
             base_error = 'Failed to resolve SealedSecret %s' % os.path.normpath(os.path.join(self.deployment_project.dir, resource))
             if sealed_secrets_dir is None:
                 raise CommandError('%s\nSealed secrets dir could not be determined.' % base_error)
-            source_path = os.path.normpath(os.path.join(base_source_path, self.config["path"], rel_dir, sealed_secrets_dir, fname))
+            source_path = os.path.normpath(os.path.join(base_source_path, rel_rendered_dir, rel_dir, sealed_secrets_dir, fname))
             target_path = os.path.join(rendered_dir, rel_dir, fname)
             if not os.path.exists(source_path):
                 raise CommandError('%s\n%s not found.\nYou might need to seal it first.' % (base_error, source_path))
