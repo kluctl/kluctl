@@ -100,6 +100,9 @@ class KustomizeDeployment(object):
         os.makedirs(rendered_dir, exist_ok=True)
 
         jinja_vars = self.deployment_project.jinja_vars
+        if "vars" in self.config:
+            jinja_vars = self.deployment_project.load_jinja_vars_list(self.config["vars"], jinja_vars)
+
         jinja_env = self.build_jinja2_env(jinja_vars)
 
         excluded_patterns = self.deployment_project.conf['templateExcludes'].copy()
