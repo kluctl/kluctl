@@ -1,16 +1,14 @@
 import dataclasses
 import itertools
 import logging
-from concurrent.futures import Future
-from typing import Optional
+import os
 
-from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError, ConflictError
 
+from kluctl.deployment.apply_util import ApplyUtil
 from kluctl.deployment.images import SeenImages
 from kluctl.deployment.kustomize_deployment import KustomizeDeployment
 from kluctl.diff.k8s_diff import deep_diff_object
-from kluctl.diff.managed_fields import remove_non_managed_fields2
 from kluctl.diff.normalize import normalize_object
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
@@ -279,139 +277,18 @@ class DeploymentCollection:
         excluded_objects = list(self.local_objects_by_ref().keys())
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, excluded_objects)
 
-    def do_patch(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
-        logger.info("Running server-side apply for all objects%s", k8s_cluster.get_dry_run_suffix(dry_run))
-
-        jobs = []
-
-        @dataclasses.dataclass(init=False)
-        class Job:
-            object: dict
-            future: Future
-            result_object: Optional[dict]
-            result_exception: Optional[Exception]
-            done: bool = False
-
-        def add_job(o, f):
-            job = Job()
-            job.object = o
-            job.future = f
-            jobs.append(job)
-
-        def finish_jobs():
-            for job in jobs:
-                if job.done:
-                    continue
-                job.result_exception = job.future.exception()
-                if job.result_exception is None:
-                    job.result = job.future.result()
-                job.done = True
-
-        with MyThreadPoolExecutor(max_workers=16) as executor:
-            previous_was_barrier = False
-            for d in self.deployments:
-                if self.api_errors and abort_on_error:
-                    break
-
-                if previous_was_barrier:
-                    logger.info("Waiting on barrier...")
-                    finish_jobs()
-                previous_was_barrier = get_dict_value(d.config, "barrier", False)
-
-                include = d.check_inclusion_for_deploy()
-                if "path" not in d.config:
-                    continue
-                if not include:
-                    logger.info("Skipping kustomizeDir %s" % d.get_rel_kustomize_dir())
-                    continue
-                logger.info("Applying kustomizeDir '%s' with %d objects" % (d.get_rel_kustomize_dir(), len(d.objects)))
-
-                for x in d.objects:
-                    if self.api_errors and abort_on_error:
-                        break
-                    logger.debug(f"  {get_long_object_name(x)}")
-
-                    # replaced means it is deleted and then re-created
-                    is_replaced = self.is_replace_needed(x)
-
-                    if not force_apply and not is_replaced:
-                        x2 = remove_non_managed_fields2(x, self.remote_objects)
-                    else:
-                        x2 = x
-
-                    if (dry_run or k8s_cluster.dry_run) and is_replaced:
-                        # The necessary delete was not really performed in case we are in dry_run mode
-                        def dummy(x3):
-                            # let's pretend that we applied it
-                            return x3, []
-                        f = executor.submit(dummy, x2)
-                    else:
-                        f = executor.submit(k8s_cluster.patch_object, x2, force_dry_run=dry_run, force_apply=True)
-                    add_job(x2, f)
-            finish_jobs()
-
-        applied_objects = {}
-        for job in jobs:
-            if job.result_exception is not None:
-                try:
-                    raise job.result_exception
-                except ResourceNotFoundError as e:
-                    ref = get_object_ref(job.object)
-                    self.add_api_error(ref, k8s_cluster.get_status_message(e))
-                except ApiException as e:
-                    ref = get_object_ref(job.object)
-                    if not replace_on_error:
-                        self.add_api_error(ref, k8s_cluster.get_status_message(e))
-                        continue
-                    logger.info("Patching %s failed, retrying by deleting and re-applying" %
-                                get_long_object_name_from_ref(ref))
-                    try:
-                        k8s_cluster.delete_single_object(ref, force_dry_run=dry_run, ignore_not_found=True)
-                        if not dry_run and not k8s_cluster.dry_run:
-                            r, patch_warnings = k8s_cluster.patch_object(job.object, force_apply=True)
-                            # We must use the ref from the applied object as k8s might remove the namespace field
-                            ref = get_object_ref(r)
-                            applied_objects[ref] = r
-                            self.add_api_warnings(ref, patch_warnings)
-                        else:
-                            applied_objects[ref] = job.object
-                    except ApiException as e2:
-                        self.add_api_error(ref, k8s_cluster.get_status_message(e2))
-                continue
-
-            r, patch_warnings = job.result
-            # We must use the ref from the applied object as k8s might remove the namespace field
-            ref = get_object_ref(r)
-            applied_objects[ref] = r
-            self.add_api_warnings(ref, patch_warnings)
-
-        return applied_objects
+    def do_apply(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
+        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error)
+        apply_util.apply_deployments()
+        return apply_util.applied_objects
 
     def do_deploy(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
         self.update_remote_objects(k8s_cluster)
 
-        replaced_objects = self.find_replaced_objects(k8s_cluster)
-        if replaced_objects:
-            futures = []
-            with MyThreadPoolExecutor(max_workers=16) as executor:
-                logger.info("Deleting %d objects which need replacement (delete+create)" % len(replaced_objects))
-                for o in replaced_objects:
-                    ref = get_object_ref(o)
-                    f = executor.submit(k8s_cluster.delete_single_object, ref, force_dry_run=dry_run, ignore_not_found=True)
-                    futures.append((ref, f))
-                for ref, f in futures:
-                    try:
-                        f.result()
-                    except Exception as e:
-                        self.add_api_error(ref, str(e))
-                        logger.error("Failed to delete %s. %s" % (get_long_object_name_from_ref(ref), e))
-        if abort_on_error and self.api_errors:
-            return {}
-
         # TODO remove this
         self.migrate_to_new_manager(k8s_cluster)
 
-        return self.do_patch(k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error)
+        return self.do_apply(k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error)
 
     def do_diff(self, k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         diff_objects = {}
@@ -456,29 +333,6 @@ class DeploymentCollection:
                 })
 
         return new_objects, changed_objects
-
-    def is_replace_needed(self, o):
-        hook = get_dict_value(o, "metadata.annotations.helm\\.sh/hook")
-        if not hook:
-            return False
-        if all(h in ["pre-install", "post-install", "pre-delete", "post-delete", "pre-upgrade", "post-upgrade", "pre-rollback", "post-rollback", "test"] for h in hook.split(",")):
-            return True
-        return False
-
-    def find_replaced_objects(self, k8s_cluster):
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
-        ret = []
-        for d in self.deployments:
-            for o in d.objects:
-                ref = get_object_ref(o)
-                if ref not in self.remote_objects:
-                    continue
-                if not d.check_inclusion_for_deploy():
-                    continue
-                if self.is_replace_needed(o):
-                    ret.append(o)
-        return ret
 
     def find_rendered_images(self):
         ret = {}
