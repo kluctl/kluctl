@@ -1,0 +1,3 @@
+cluster:
+  name: kind
+  context: kind-kind

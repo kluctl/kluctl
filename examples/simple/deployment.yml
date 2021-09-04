@@ -1,0 +1,14 @@
+includes:
+- path: deployment
+
+commonLabels:
+  my.prefix/environment: "{{ args.environment }}"
+  my.prefix/deployment-project: k8s-deployment-nginx
+
+deleteByLabels:
+  my.prefix/environment: "{{ args.environment }}"
+  my.prefix/deployment-project: k8s-deployment-nginx
+
+args:
+- name: environment
+
