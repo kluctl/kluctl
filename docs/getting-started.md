@@ -51,3 +51,13 @@ $ kluctl bootstrap --cluster test.example.com
 
 The bootstrap deployment might need to be updated from time to time. Simply re-do the above command whenever a new
 kluctl release is available.
+
+## Example projects
+
+Now you can play around with the projects within the `examples` folder. In order to have fun with a very simple example, just install [kind](https://kind.sigs.k8s.io/), create a [cluster](https://kind.sigs.k8s.io/docs/user/quick-start/#creating-a-cluster) and run the following commands:
+```
+cd examples/simple
+kluctl bootstrap --cluster kind
+kluctl diff --target dev
+kluctl deploy --target dev
+```
