@@ -214,7 +214,8 @@ class ApplyUtil:
         if weight is None:
             weight = get_dict_value(o, "metadata.annotations.helm\\.sh/hook-weight")
         if weight is None:
-            weight = 0
+            weight = "0"
+        weight = int(weight)
 
         delete_policy = get_list("metadata.annotations.kluctl\\.io/hook-delete-policy")
         delete_policy += get_list("metadata.annotations.helm\\.sh/hook-delete-policy")
