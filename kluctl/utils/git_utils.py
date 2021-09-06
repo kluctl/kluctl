@@ -214,7 +214,12 @@ def clone_project(url, ref, target_dir, git_cache_up_to_date=None):
         args = ["file://%s" % cache_dir, "--single-branch", target_dir]
         if ref is not None:
             args += ["--branch", ref]
-        Git().clone(*args)
+        try:
+            Git().clone(*args)
+        except GitCommandError as e:
+            if e.status == 255:
+                logger.error("It seems that your primary branch is different from master and your ref is not set explicitly. Please set your ref for %s" % url)
+            raise
 
 def get_git_commit(path):
     g = Git(path)
