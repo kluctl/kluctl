@@ -144,7 +144,7 @@ def build_git_object(url, working_dir):
 
     g = MyGit(working_dir)
 
-    ssh_command = "ssh"
+    ssh_command = os.environ.get("GIT_SSH", "ssh")
     ssh_command += " -o 'StrictHostKeyChecking=no'"
 
     if sys.platform != "win32":
