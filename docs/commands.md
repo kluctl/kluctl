@@ -83,6 +83,7 @@ A few additional environment variables are supported which do not belong to an o
 2. `KLUCTL_GIT_TIMEOUT`. Specifies how long to wait on git subprocesses to finish until they are killed.
 3. `KLUCTL_NO_THREADS`. Do not use multithreading while performing work. This is only useful for debugging purposes.
 4. `KLUCTL_IGNORE_DEBUGGER`. Pretend that there is no debugger attached when automatically deciding if multi-threading should be enabled or not.
+5. `TMPDIR, TEMP or TMP`. Because kluctl uses [tempfile](https://docs.python.org/3/library/tempfile.html), you can set the output directory for temporary files (e.g. git-cache, repositories, rendered files) with the aforementioned envs. 
 
 # Commands
 The following commands are available:
