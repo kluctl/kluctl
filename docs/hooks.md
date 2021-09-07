@@ -10,15 +10,16 @@ a comma separated list of hook names. Possible value are described in the next c
 
 | Hook Type | Description |
 |---|---|
-| pre-deploy-initial | Executed right before the initial deployment is performed.<br>See below for a description on what "initial" means |
-| post-deploy-initial | Executed right after the initial deployment is performed.<br>See below for a description on what "initial" means |
-| pre-deploy | Executed right before a deployment is performed.<br>This also includes the initial deployment |
-| post-deploy | Executed right after a deployment is performed.<br>This also includes the initial deployment |
+| pre-deploy-initial | Executed right before the initial deployment is performed. |
+| post-deploy-initial | Executed right after the initial deployment is performed. |
+| pre-deploy | Executed right before a non-initial deployment is performed.|
+| post-deploy | Executed right after a non-initial deployment is performed. |
 
 A deployment is considered to be an "initial" deployment if none of the resources related to the current kustomize
 deployment are found on the cluster at the time of deployment.
 
-pre-deploy and post-deploy are ALWAYS executed, not considering the "initial" state of the deployment.
+If you need to execute hooks for every deployment, independent of its "initial" state, use
+`pre-deploy-initial,pre-deploy` to indicate that it should be executed all the time.
 
 ## Hook deletion
 
