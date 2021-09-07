@@ -80,7 +80,7 @@ class ApplyUtil:
 
     def wait_object(self, ref):
         if self.dry_run or self.k8s_cluster.dry_run:
-            return
+            return True
 
         start_time = time.time()
         did_log = False
