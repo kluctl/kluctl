@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import itertools
 import logging
 import os
@@ -155,35 +156,15 @@ class DeploymentCollection:
         self.clear_errors_and_warnings()
         self.render_deployments()
         self.build_kustomize_objects(k8s_cluster)
-        self.update_remote_objects(k8s_cluster)
 
-        def do_poke_image(ref, containers_and_images):
-            o = self.remote_objects.get(ref)
-            if o is None:
-                return None
-
-            while True:
-                o, warnings = k8s_cluster.get_single_object(ref)
-                if o is None:
-                    return None
-
-                o2 = copy_dict(o)
-
-                containers = get_dict_value(o2, "spec.template.spec.containers", [])
-                for container_name, image in containers_and_images:
-                    for c in containers:
-                        if c["name"] == container_name:
-                            c["image"] = image
-
-                if o == o2:
-                    return o
-
-                try:
-                    result, warnings = k8s_cluster.replace_object(o2)
-                    return result
-                except ConflictError:
-                    logger.info("Conflict while poking images in %s. Retrying..." % get_long_object_name(o2))
-                    continue
+        def do_poke_image(containers_and_images, o):
+            o = copy_dict(o)
+            containers = get_dict_value(o, "spec.template.spec.containers", [])
+            for container_name, image in containers_and_images:
+                for c in containers:
+                    if c["name"] == container_name:
+                        c["image"] = image
+            return o
 
         all_objects = {}
         for d in self.deployments:
@@ -216,21 +197,10 @@ class DeploymentCollection:
             futures = []
 
             for ref, c in containers_and_images.items():
-                f = executor.submit(do_poke_image, ref, c)
+                f = executor.submit(self.do_patch_object, k8s_cluster, ref, functools.partial(do_poke_image, c))
                 futures.append((ref, f))
 
-        applied_objects = {}
-        for ref, f in futures:
-            e = f.exception()
-            if e is not None:
-                self.add_api_error(ref, str(e))
-                continue
-
-            o = f.result()
-            if o is None:
-                continue
-            ref = get_object_ref(o)
-            applied_objects[ref] = o
+            applied_objects = self.do_finish_futures(futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
@@ -333,6 +303,38 @@ class DeploymentCollection:
                 })
 
         return new_objects, changed_objects
+
+    def do_patch_object(self, k8s_cluster, ref, callback):
+        while True:
+            o, warnings = k8s_cluster.get_single_object(ref)
+            if o is None:
+                return None
+
+            o2 = callback(o)
+            if o == o2:
+                return o
+
+            try:
+                result, warnings = k8s_cluster.replace_object(o2)
+                return result
+            except ConflictError:
+                logger.info("Conflict while patching %s. Retrying..." % get_long_object_name(o2))
+                continue
+
+    def do_finish_futures(self, futures):
+        ret = {}
+        for ref, f in futures:
+            e = f.exception()
+            if e is not None:
+                self.add_api_error(ref, str(e))
+                continue
+
+            o = f.result()
+            if o is None:
+                continue
+            ref = get_object_ref(o)
+            ret[ref] = o
+        return ret
 
     def find_rendered_images(self):
         ret = {}
