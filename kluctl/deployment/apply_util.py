@@ -8,7 +8,7 @@ from kubernetes.dynamic.exceptions import ResourceNotFoundError
 from kluctl.diff.managed_fields import remove_non_managed_fields2
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref
-from kluctl.utils.status_validation import validate_object
+from kluctl.utils.k8s_status_validation import validate_object
 from kluctl.utils.utils import MyThreadPoolExecutor
 
 logger = logging.getLogger(__name__)

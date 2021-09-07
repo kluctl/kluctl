@@ -14,7 +14,7 @@ from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
     ObjectRef
-from kluctl.utils.status_validation import validate_object, ValidateResult, ValidateResultItem
+from kluctl.utils.k8s_status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import MyThreadPoolExecutor
 
