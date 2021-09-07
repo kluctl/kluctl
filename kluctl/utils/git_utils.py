@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
@@ -144,10 +145,12 @@ def build_git_object(url, working_dir):
     g = MyGit(working_dir)
 
     ssh_command = "ssh"
-    ssh_command += " -o 'ControlMaster=auto'"
-    ssh_command += " -o 'ControlPath=/tmp/kluctl_control_master-%r@%h-%p'"
-    ssh_command += " -o 'ControlPersist=5m'"
     ssh_command += " -o 'StrictHostKeyChecking=no'"
+
+    if sys.platform != "win32":
+        ssh_command += " -o 'ControlMaster=auto'"
+        ssh_command += " -o 'ControlPath=/tmp/kluctl_control_master-%r@%h-%p'"
+        ssh_command += " -o 'ControlPersist=5m'"
 
     if credentials is not None and credentials.username is not None:
         url = add_username_to_url(url, credentials.username)
