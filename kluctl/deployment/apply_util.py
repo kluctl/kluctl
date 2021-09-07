@@ -90,9 +90,12 @@ class ApplyUtil:
             if o is None:
                 self.handle_error(ref, "Object disappeared while waiting for it to become ready")
                 return False
-            v = validate_object(o)
-            if not v.errors:
+            v = validate_object(o, False)
+            if v.ready:
                 return True
+            if v.errors:
+                return False
+
             time.sleep(1)
             if time.time() - start_time > 5 and not did_log:
                 logger.info("Waiting for for hook %s to get ready..." % get_long_object_name_from_ref(ref))

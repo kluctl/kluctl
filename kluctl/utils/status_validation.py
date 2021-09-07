@@ -13,11 +13,12 @@ class ValidateResultItem:
 
 @dataclasses.dataclass
 class ValidateResult:
+    ready: bool = True
     warnings: list = dataclasses.field(default_factory=list)
     errors: list = dataclasses.field(default_factory=list)
     results: list = dataclasses.field(default_factory=list)
 
-def validate_object(o):
+def validate_object(o, not_ready_is_error):
     result = ValidateResult()
     if "status" not in o:
         return result
@@ -32,6 +33,13 @@ def validate_object(o):
 
     def add_warning(reason, message):
         result.warnings.append(ValidateResultItem(ref, reason=reason, message=message))
+
+    def add_not_ready(reason, message):
+        if not_ready_is_error:
+            add_error(reason, message)
+        else:
+            add_warning(reason, message)
+        result.ready = False
 
     def find_conditions(type, do_error, do_raise):
         ret = []
@@ -79,7 +87,7 @@ def validate_object(o):
         if o["kind"] == "Pod":
             s, r, m = get_condition("Ready", True, True)
             if s != "True":
-                add_error(r or "not-ready", m or "Not ready")
+                add_not_ready(r or "not-ready", m or "Not ready")
         elif o["kind"] == "Job":
             s, r, m = get_condition("Failed", False, False)
             if s == "True":
@@ -87,16 +95,16 @@ def validate_object(o):
             else:
                 s, r, m = get_condition("Complete", True, True)
                 if s != "True":
-                    add_error(r or "not-completed", m or "Not completed")
+                    add_not_ready(r or "not-completed", m or "Not completed")
         elif o["kind"] in ["Deployment", "ZookeeperCluster"]:
             ready_replicas = get_field("readyReplicas", True, True)
             replicas = get_field("replicas", True, True)
             if ready_replicas < replicas:
-                add_error("not-ready", "readyReplicas (%d) is less then replicas (%d)" % (ready_replicas, replicas))
+                add_not_ready("not-ready", "readyReplicas (%d) is less then replicas (%d)" % (ready_replicas, replicas))
         elif o["kind"] == "PersistentVolumeClaim":
             phase = get_field("phase", True, True)
             if phase != "Bound":
-                add_error("not-bound", "Volume is not bound")
+                add_not_ready("not-bound", "Volume is not bound")
         elif o["kind"] == "Service":
             svc_type = get_dict_value(o, "spec.type")
             if svc_type != "ExternalName":
@@ -104,13 +112,13 @@ def validate_object(o):
                     add_error("no-cluster-ip", "Service does not have a cluster IP")
                 elif svc_type == "LoadBalancer":
                     if len(get_dict_value(o, "spec.externalIPs", [])) == 0:
-                        get_field("loadBalancer.ingress", True, True)
+                        add_not_ready("loadBalancer.ingress", True, True)
         elif o["kind"] == "DaemonSet":
             if get_dict_value(o, "spec.updateStrategy.type") == "RollingUpdate":
                 updated_number_scheduled = get_field("updatedNumberScheduled", True, True)
                 desired_number_scheduled = get_field("desiredNumberScheduled", True, True)
                 if updated_number_scheduled != desired_number_scheduled:
-                    add_error("not-ready", "DaemonSet is not ready. %d out of %d expected pods have been scheduled" % (updated_number_scheduled, desired_number_scheduled))
+                    add_not_ready("not-ready", "DaemonSet is not ready. %d out of %d expected pods have been scheduled" % (updated_number_scheduled, desired_number_scheduled))
                 else:
                     max_unavailable = get_dict_value(o, "spec.updateStrategy.maxUnavailable", 1)
                     try:
@@ -120,7 +128,7 @@ def validate_object(o):
                     expected_ready = desired_number_scheduled - max_unavailable
                     number_ready = get_field("numberReady", True, True)
                     if number_ready < expected_ready:
-                        add_error("not-ready", "DaemonSet is not ready. %d out of %d expected pods are ready" % (number_ready, expected_ready))
+                        add_not_ready("not-ready", "DaemonSet is not ready. %d out of %d expected pods are ready" % (number_ready, expected_ready))
         elif o["kind"] == "CustomResourceDefinition":
             # This is based on how Helm check for ready CRDs.
             # See https://github.com/helm/helm/blob/249d1b5fb98541f5fb89ab11019b6060d6b169f1/pkg/kube/ready.go#L342
@@ -136,37 +144,37 @@ def validate_object(o):
                 updated_replicas = get_field("updatedReplicas", True, True)
                 expected_replicas = replicas - partition
                 if updated_replicas != expected_replicas:
-                    add_error("not-ready", "StatefulSet is not ready. %d out of %d expected pods have been scheduled" % (updated_replicas, expected_replicas))
+                    add_not_ready("not-ready", "StatefulSet is not ready. %d out of %d expected pods have been scheduled" % (updated_replicas, expected_replicas))
                 else:
                     ready_replicas = get_field("readyReplicas", True, True)
                     if ready_replicas != replicas:
-                        add_error("not-ready", "StatefulSet is not ready. %d out of %d expected pods are ready" % (ready_replicas, replicas))
+                        add_not_ready("not-ready", "StatefulSet is not ready. %d out of %d expected pods are ready" % (ready_replicas, replicas))
         elif o["kind"] == "Kafka":
             for s, r, m in find_conditions("Warning", False, False):
                 add_warning(r or "warning", m or "N/A")
             s, r, m = get_condition("Ready", True, True)
             if s != "True":
-                add_error(r or "not-ready", m or "N/A")
+                add_not_ready(r or "not-ready", m or "N/A")
         elif o["kind"] == "Elasticsearch":
             phase = get_field("phase", True, True)
             if phase != "Ready":
-                add_error("not-ready", "phase is %s" % phase)
+                add_not_ready("not-ready", "phase is %s" % phase)
             else:
                 health = get_field("health", True, True)
                 if health == "yellow":
                     add_warning("health-yellow", "health is yellow")
                 elif health != "green":
-                    add_error("not-ready", "health is %s" % health)
+                    add_not_ready("not-ready", "health is %s" % health)
         elif o["kind"] == "Kibana":
             health = get_field("health", True, True)
             if health == "yellow":
                 add_warning("health-yellow", "health is yellow")
             elif health != "green":
-                add_error("not-ready", "health is %s" % health)
+                add_not_ready("not-ready", "health is %s" % health)
         elif o["kind"] == "postgresql":
             pstatus = get_field("PostgresClusterStatus", True, True)
             if pstatus != "Running":
-                add_error("not-ready", "PostgresClusterStatus is %s" % pstatus)
+                add_not_ready("not-ready", "PostgresClusterStatus is %s" % pstatus)
     except ValidateFailed:
         pass
 

@@ -257,7 +257,7 @@ class DeploymentCollection:
                 if not remote_object:
                     result.errors.append(ValidateResultItem(ref=ref, reason="not-found", message="Object not found"))
                     continue
-                r = validate_object(remote_object)
+                r = validate_object(remote_object, True)
                 result.errors += r.errors
                 result.warnings += r.warnings
                 result.results += r.results
