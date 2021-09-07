@@ -306,10 +306,15 @@ class DeploymentCollection:
         return new_objects, changed_objects
 
     def do_patch_object(self, k8s_cluster, ref, callback):
+        first_call = True
         while True:
-            o, warnings = k8s_cluster.get_single_object(ref)
+            if first_call:
+                o = self.remote_objects.get(ref)
+            else:
+                o, warnings = k8s_cluster.get_single_object(ref)
             if o is None:
                 return None
+            first_call = False
 
             o2 = callback(o)
             if o == o2:
