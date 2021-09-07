@@ -156,6 +156,7 @@ class DeploymentCollection:
         self.clear_errors_and_warnings()
         self.render_deployments()
         self.build_kustomize_objects(k8s_cluster)
+        self.update_remote_objects(k8s_cluster)
 
         def do_poke_image(containers_and_images, o):
             o = copy_dict(o)
