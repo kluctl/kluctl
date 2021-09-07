@@ -13,6 +13,7 @@ from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.normalize import normalize_object
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
+from kluctl.utils.k8s_downscale_utils import downscale_object
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
     ObjectRef
 from kluctl.utils.k8s_status_validation import validate_object, ValidateResult, ValidateResultItem
@@ -200,6 +201,28 @@ class DeploymentCollection:
             for ref, c in containers_and_images.items():
                 f = executor.submit(self.do_patch_object, k8s_cluster, ref, functools.partial(do_poke_image, c))
                 futures.append((ref, f))
+
+            applied_objects = self.do_finish_futures(futures)
+
+        new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
+        return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
+                                errors=list(self.api_errors), warnings=list(self.api_warnings))
+
+    def downscale(self, k8s_cluster):
+        self.clear_errors_and_warnings()
+        self.render_deployments()
+        self.build_kustomize_objects(k8s_cluster)
+        self.update_remote_objects(k8s_cluster)
+
+        with MyThreadPoolExecutor(max_workers=8) as executor:
+            futures = []
+            for d in self.deployments:
+                if not d.check_inclusion_for_deploy():
+                    continue
+                for o in d.objects:
+                    ref = get_object_ref(o)
+                    f = executor.submit(self.do_patch_object, k8s_cluster, ref, downscale_object)
+                    futures.append((ref, f))
 
             applied_objects = self.do_finish_futures(futures)
 

@@ -47,13 +47,16 @@ def set_default_value(d, n, default):
 
 _dummy = str(uuid4())
 
-def get_dict_value(y, path, default=None):
+def _split_path(path):
     if "\\." in path:
         path = path.replace("\\.", _dummy)
         s = path.split(".")
-        s = [x.replace(_dummy, ".") for x in s]
+        return [x.replace(_dummy, ".") for x in s]
     else:
-        s = path.split(".")
+        return path.split(".")
+
+def get_dict_value(y, path, default=None):
+    s = _split_path(path)
 
     for x in s:
         if y is None:
@@ -62,6 +65,16 @@ def get_dict_value(y, path, default=None):
             return default
         y = y[x]
     return y
+
+def set_dict_value(y, path, value, do_clone=False):
+    s = _split_path(path)
+    d = {}
+    d2 = d
+    for x in s[:-1]:
+        d2[x] = {}
+        d2 = d2[x]
+    d2[s[-1]] = value
+    return merge_dict(y, d, do_clone)
 
 def is_empty(o):
     if isinstance(o, dict) or isinstance(o, list):

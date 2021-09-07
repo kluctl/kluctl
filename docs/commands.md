@@ -313,7 +313,7 @@ In addition, the following arguments are available:
 ```
 <!-- END SECTION -->
 
-## list-images
+## poke-images
 <!-- BEGIN SECTION "poke-images" "Usage" false -->
 Usage: kluctl poke-images [OPTIONS]
 
@@ -331,6 +331,36 @@ The following sets of arguments are available:
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "poke-images" "Misc arguments" true -->
+```
+  Misc arguments: 
+    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
+    --render-output-dir DIRECTORY
+                                  Specifies the target directory to render the project into. If omitted, atemporary
+                                  directory is used.
+```
+<!-- END SECTION -->
+
+## downscale
+<!-- BEGIN SECTION "downscale" "Usage" false -->
+Usage: kluctl downscale [OPTIONS]
+
+  Downscale all deployments.
+
+  This command will downscale all Deployments, StatefulSets and CronJobs.
+
+<!-- END SECTION -->
+
+The following sets of arguments are available:
+1. [project arguments](#project-arguments)
+1. [image arguments](#image-arguments)
+1. [inclusion/exclusion arguments](#inclusionexclusion-arguments)
+
+In addition, the following arguments are available:
+<!-- BEGIN SECTION "downscale" "Misc arguments" true -->
 ```
   Misc arguments: 
     -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.

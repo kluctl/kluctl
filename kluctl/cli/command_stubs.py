@@ -89,6 +89,19 @@ def poke_images_command_stub(obj, **kwargs):
     from kluctl.cli.commands import poke_images_command
     poke_images_command(obj, kwargs)
 
+@cli_group.command("downscale",
+                   help="Downscale all deployments.\n\n"
+                        "This command will downscale all Deployments, StatefulSets "
+                        "and CronJobs.")
+@kluctl_project_args()
+@image_args()
+@include_exclude_args()
+@misc_arguments(yes=True, dry_run=True, output_format=True, render_output_dir=True)
+@click.pass_obj
+def downscale_command_stub(obj, **kwargs):
+    from kluctl.cli.commands import downscale_command
+    downscale_command(obj, kwargs)
+
 @cli_group.command("validate",
                    help="Validates the already deployed deployment.\n\n"
                         "This means that all objects are retrieved from the cluster and checked for readiness.\n\n"
