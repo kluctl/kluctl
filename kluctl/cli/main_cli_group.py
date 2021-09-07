@@ -127,7 +127,7 @@ def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error
     options.append(optgroup.group("Misc arguments"))
     if yes:
         options.append(optgroup.option("-y", "--yes",
-                                       help="Supresses 'Are you sure?' questions and proceeds as if you would "
+                                       help="Suppresses 'Are you sure?' questions and proceeds as if you would "
                                             "answer 'yes'.",
                                        default=False, is_flag=True))
     if dry_run:

@@ -107,7 +107,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "bootstrap" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     --force-apply                 Force conflict resolution when applying. See documentation for details
     --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
@@ -140,7 +140,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "deploy" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     --force-apply                 Force conflict resolution when applying. See documentation for details
     --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
@@ -247,7 +247,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "delete" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
 ```
 <!-- END SECTION -->
@@ -277,7 +277,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "purge" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
 ```
 <!-- END SECTION -->
@@ -333,7 +333,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "poke-images" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
@@ -363,7 +363,7 @@ In addition, the following arguments are available:
 <!-- BEGIN SECTION "downscale" "Misc arguments" true -->
 ```
   Misc arguments: 
-    -y, --yes                     Supresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+    -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
