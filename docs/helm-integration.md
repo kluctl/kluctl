@@ -15,11 +15,24 @@ The resulting rendered yaml is then referred by your `kustomization.yml`, from w
 [kustomize integration](kustomize-integration.md) takes over. This means, that you can perform all desired
 customization (patches, namespace override, ...) as if you provided your own resources via yaml files.
 
-### Limitations
+### Helm hooks
 
-The way the Helm integration is implemented might result in incompatibilities in behaviour between Helm and kluctl,
-especially when it comes to [Helm Hooks](https://helm.sh/docs/topics/charts_hooks/). These are currently implemented in
-a very naive way, meaning that hooks are simply recreated on each deployment.
+[Helm Hooks](https://helm.sh/docs/topics/charts_hooks/) are implemented by mapping them to [kluctl hooks](./hooks.md),
+based on the following mapping table:
+
+| Helm hook     | kluctl hook         |
+|---------------|---------------------|
+| pre-install   | pre-deploy-initial  |
+| post-install  | post-deploy-initial |
+| pre-delete    | Not supported       |
+| post-delete   | Not supported       |
+| pre-upgrade   | pre-deploy          |
+| post-upgrade  | post-deploy         |
+| pre-rollback  | Not supported       |
+| post-rollback | Not supported       |
+| test          | Not supported       |
+
+Please note that this is a best effort approach and not 100% compatible to how Helm would run hooks. 
 
 ## helm-chart.yml
 
