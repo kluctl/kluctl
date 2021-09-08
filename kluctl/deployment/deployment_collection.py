@@ -199,7 +199,7 @@ class DeploymentCollection:
             futures = []
 
             for ref, c in containers_and_images.items():
-                f = executor.submit(self.do_patch_object, k8s_cluster, ref, functools.partial(do_poke_image, c))
+                f = executor.submit(self.do_replace_object, k8s_cluster, ref, functools.partial(do_poke_image, c))
                 futures.append((ref, f))
 
             applied_objects = self.do_finish_futures(futures)
@@ -221,7 +221,7 @@ class DeploymentCollection:
                     continue
                 for o in d.objects:
                     ref = get_object_ref(o)
-                    f = executor.submit(self.do_patch_object, k8s_cluster, ref, downscale_object)
+                    f = executor.submit(self.do_replace_object, k8s_cluster, ref, downscale_object)
                     futures.append((ref, f))
 
             applied_objects = self.do_finish_futures(futures)
@@ -328,7 +328,7 @@ class DeploymentCollection:
 
         return new_objects, changed_objects
 
-    def do_patch_object(self, k8s_cluster, ref, callback):
+    def do_replace_object(self, k8s_cluster, ref, callback):
         first_call = True
         while True:
             if first_call:
