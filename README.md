@@ -1,6 +1,6 @@
 # kluctl
 
-![kluctl](logo/kluctl.png)
+![kluctl](logo/kluctl.png) ![kluctl-mascot](logo/kluctl-mascot-200px.png)
 
 kluctl is the missing glue that puts together your (and any third-party) deployments into one large declarative
 Kubernetes deployment, while making it fully manageable (deploy, diff, purge, delete, ...) via one unified command
