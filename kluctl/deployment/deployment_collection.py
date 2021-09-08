@@ -191,6 +191,7 @@ class DeploymentCollection:
             ref = ObjectRef(r.group_version, kind=r.kind, name=name, namespace=fi.get("namespace"))
             local_object = all_objects.get(ref)
             if local_object is None:
+                self.add_api_error(ref, "object not found while trying to associate image with deployed object")
                 continue
 
             containers_and_images.setdefault(ref, []).append((fi["container"], fi["resultImage"]))
