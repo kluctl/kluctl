@@ -1,13 +1,5 @@
-from uuid import uuid4
+from kluctl.utils.dict_nav_utils import nav_dict, is_iterable
 
-
-def is_iterable(obj):
-    try:
-        iter(obj)
-    except Exception:
-        return False
-    else:
-        return True
 
 def copy_primitive_value(v):
     if isinstance(v, dict):
@@ -45,36 +37,18 @@ def set_default_value(d, n, default):
     if n not in d or d[n] is None:
         d[n] = default
 
-_dummy = str(uuid4())
-
-def _split_path(path):
-    if "\\." in path:
-        path = path.replace("\\.", _dummy)
-        s = path.split(".")
-        return [x.replace(_dummy, ".") for x in s]
-    else:
-        return path.split(".")
-
 def get_dict_value(y, path, default=None):
-    s = _split_path(path)
-
-    for x in s:
-        if y is None:
-            return default
-        if x not in y:
-            return default
-        y = y[x]
-    return y
+    d, k, found = nav_dict(y, path)
+    if not found:
+        return default
+    return d[k]
 
 def set_dict_value(y, path, value, do_clone=False):
-    s = _split_path(path)
-    d = {}
-    d2 = d
-    for x in s[:-1]:
-        d2[x] = {}
-        d2 = d2[x]
-    d2[s[-1]] = value
-    return merge_dict(y, d, do_clone)
+    if do_clone:
+        y = copy_dict(y)
+    d, k, found = nav_dict(y, path)
+    d[k] = value
+    return y
 
 def is_empty(o):
     if isinstance(o, dict) or isinstance(o, list):

@@ -1,13 +1,18 @@
 import fnmatch
+from uuid import uuid4
 
-from kluctl.utils.dict_utils import is_iterable
-
+_dummy = str(uuid4())
 
 def nav_dict(d, k):
-    dummy = 'dummy-placeholder-for-dot'
-    k = k.replace('\\.', dummy)
-    k = k.split('.')
-    k = [x.replace(dummy, '.') for x in k]
+    if isinstance(k, str):
+        if "\\." in k:
+            k = k.replace("\\.", _dummy)
+            k = k.split(".")
+            k = [x.replace(_dummy, ".") for x in k]
+        else:
+            k = k.split(".")
+    elif not isinstance(k, list):
+        raise ValueError("k must be a list and not %s" % type(k).__name__)
 
     for i in range(len(k)):
         if d is None:
@@ -51,6 +56,14 @@ def del_if_falsy(d, k):
         return
     if not d[k]:
         del d[k]
+
+def is_iterable(obj):
+    try:
+        iter(obj)
+    except Exception:
+        return False
+    else:
+        return True
 
 def _object_iterator(o, path):
     yield o, path
