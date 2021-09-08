@@ -52,22 +52,22 @@ def del_if_falsy(d, k):
     if not d[k]:
         del d[k]
 
-def _object_path_iterator(o, path):
-    yield path
+def _object_iterator(o, path):
+    yield o, path
     if isinstance(o, dict):
         for k, v in o.items():
-            for p in _object_path_iterator(v, path + [k]):
-                yield p
+            for o2, p in _object_iterator(v, path + [k]):
+                yield o2, p
     elif not isinstance(o, str) and is_iterable(o):
         for i, v in enumerate(o):
-            for p in _object_path_iterator(v, path + [str(i)]):
-                yield p
+            for o2, p in _object_iterator(v, path + [str(i)]):
+                yield o2, p
 
-def object_path_iterator(o):
-    return _object_path_iterator(o, [])
+def object_iterator(o):
+    return _object_iterator(o, [])
 
 def del_matching_path(o, path):
-    for p in list(object_path_iterator(o)):
+    for _, p in list(object_iterator(o)):
         if fnmatch.fnmatch(".".join(p), path):
             p2 = [x.replace(".", "\\.") for x in p]
             del_if_exists(o, ".".join(p2))
