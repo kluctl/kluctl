@@ -133,10 +133,15 @@ class DeploymentCollection:
         by_ref = dict((get_object_ref(x), x) for x in flat)
         return by_ref
 
+    def prepare(self, k8s_cluster, only_render):
+        self.render_deployments()
+        if only_render:
+            return
+        self.build_kustomize_objects(k8s_cluster)
+        self.update_remote_objects(k8s_cluster)
+
     def deploy(self, k8s_cluster, force_apply, replace_on_error, abort_on_error):
         self.clear_errors_and_warnings()
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
@@ -145,8 +150,6 @@ class DeploymentCollection:
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
         applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
                                          True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
@@ -155,10 +158,6 @@ class DeploymentCollection:
 
     def poke_images(self, k8s_cluster):
         self.clear_errors_and_warnings()
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
-        self.update_remote_objects(k8s_cluster)
-
         def do_poke_image(containers_and_images, o):
             o = copy_dict(o)
             containers = get_dict_value(o, "spec.template.spec.containers", [])
@@ -211,10 +210,6 @@ class DeploymentCollection:
 
     def downscale(self, k8s_cluster):
         self.clear_errors_and_warnings()
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
-        self.update_remote_objects(k8s_cluster)
-
         with MyThreadPoolExecutor(max_workers=8) as executor:
             futures = []
             for d in self.deployments:
@@ -231,11 +226,8 @@ class DeploymentCollection:
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
-    def validate(self, k8s_cluster):
+    def validate(self):
         self.clear_errors_and_warnings()
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
-        self.update_remote_objects(k8s_cluster)
         result = ValidateResult()
 
         for w in self.api_warnings:
@@ -265,8 +257,6 @@ class DeploymentCollection:
 
     def find_purge_objects(self, k8s_cluster):
         self.clear_errors_and_warnings()
-        self.render_deployments()
-        self.build_kustomize_objects(k8s_cluster)
         logger.info("Searching objects not found in local objects")
         labels = self.project.get_delete_by_labels()
         excluded_objects = list(self.local_objects_by_ref().keys())
@@ -278,8 +268,6 @@ class DeploymentCollection:
         return apply_util.applied_objects
 
     def do_deploy(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
-        self.update_remote_objects(k8s_cluster)
-
         # TODO remove this
         self.migrate_to_new_manager(k8s_cluster)
 

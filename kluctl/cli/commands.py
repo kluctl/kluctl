@@ -137,7 +137,7 @@ def render_command(obj, kwargs):
         kwargs["render_output_dir"] = tempfile.mkdtemp(dir=get_tmp_base_dir(), prefix="render-")
 
     with project_command_context(kwargs) as cmd_ctx:
-        cmd_ctx.deployment_collection.render_deployments()
+        cmd_ctx.deployment_collection.prepare(cmd_ctx.k8s_cluster, False)
         logger.info('Rendered into: %s' % cmd_ctx.deployment_collection.tmpdir)
 
         if kwargs["output_images"]:
@@ -150,7 +150,7 @@ def render_command(obj, kwargs):
 def list_images_command(obj, kwargs):
     with project_command_context(kwargs, force_offline_kubernetes=kwargs["no_kubernetes"]) as cmd_ctx:
         cmd_ctx.images.raise_on_error = False
-        cmd_ctx.deployment_collection.render_deployments()
+        cmd_ctx.deployment_collection.prepare(cmd_ctx.k8s_cluster, False)
 
         result = {
             "images": build_seen_images(cmd_ctx.deployment_collection, not kwargs["simple"])
