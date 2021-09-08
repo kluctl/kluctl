@@ -237,6 +237,8 @@ class k8s_cluster_real(k8s_cluster_base):
         name = body['metadata']['name']
         query_params = self._get_dry_run_params(force_dry_run)
 
+        query_params.append(('fieldManager', 'kluctl'))
+
         resource = self.dynamic_client.resources.get(group=group, api_version=version, kind=kind)
         if resource.namespaced:
             self.dynamic_client.ensure_namespace(resource, namespace, body)
