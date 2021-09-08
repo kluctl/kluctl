@@ -30,15 +30,14 @@ def build_jinja_vars(cluster_vars):
 
     return jinja_vars
 
-def build_deploy_images(k8s_cluster, force_offline, kwargs):
+def build_deploy_images(force_offline, kwargs):
     image_registries = None
     if not kwargs.get("no_registries", False):
         image_registries = init_image_registries()
-    images = Images(k8s_cluster, image_registries)
+    images = Images(image_registries)
     offline = force_offline or kwargs.get("offline", False)
     images.update_images = kwargs.get("update_images", False) and not offline
     images.no_registries = kwargs.get("no_registries", False) or offline
-    images.no_kubernetes = kwargs.get("no_kubernetes", False) or offline
     return images
 
 def build_fixed_image_entry_from_arg(arg):
@@ -128,7 +127,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
                                                     offline=force_offline_kubernetes)
 
     jinja_vars = build_jinja_vars(cluster_vars)
-    images = build_deploy_images(k8s_cluster, force_offline_images, kwargs)
+    images = build_deploy_images(force_offline_images, kwargs)
     inclusion = parse_inclusion(kwargs)
 
     option_args = parse_args(kwargs.get("arg", []))
@@ -152,9 +151,11 @@ def project_target_command_context(kwargs, kluctl_project, target,
         fixed_images = load_fixed_images(kwargs)
         if target is not None:
             for fi in target.get("images", []):
-                c.seen_images.add_fixed_image(fi)
+                c.images.add_fixed_image(fi)
         for fi in fixed_images:
-            c.seen_images.add_fixed_image(fi)
+            c.images.add_fixed_image(fi)
+
+        c.prepare(k8s_cluster, for_seal)
 
         ctx = CommandContext(kluctl_project=kluctl_project, target=target,
                              cluster_vars=cluster_vars, k8s_cluster=k8s_cluster,
@@ -243,7 +244,7 @@ def output_result(output_file, result):
 
 def build_seen_images(c, detailed):
     ret = []
-    for e in c.seen_images.seen_images:
+    for e in c.images.seen_images:
         if detailed:
             a = e
         else:

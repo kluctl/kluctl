@@ -2,7 +2,7 @@
 
 There are usually 2 different scenarios where Container Images need to be specified:
 1. When deploying third party applications like nginx, redis, ... (e.g. via the [Helm integration](./helm-integration.md)). <br>
-   * In this case, image versions/tags change rarely, and if they do, this is an explicit change to the deployment.
+   * In this case, image versions/tags rarely change, and if they do, this is an explicit change to the deployment.
 1. When deploying your own applications. <br>
    * In this case, image versions/tags might change very rapidly, sometimes multiple times per hour. It would be too much
      effort and overhead when this would be managed explicitly via your deployment. Even with Jinja2 templating, this
@@ -24,27 +24,20 @@ otherwise unchanged resources.
 This is solved via a Jinja2 function that is available in all templates/resources. The function is part of the global
 `images` object and expects the following arguments:
 
-`images.get_image(namespace, deployment_name, container, image, latest_version)`
+`images.get_image(image, latest_version)`
 
-* namespace
-    * The namespace where the affected resource is deployed to.
-* deployment_name
-    * The name of the affected resource. This will by default refer to a Kubernetes `Deployment`, but can also refer
-      to other resource types by prefixing the kind, for example `StatefulSet/name`.
-* container
-    * The name of the container inside the affected resource.
 * image
     * The image location, excluding the tag. Please see [supported image registries](#supported-image-registries-and-authentication) to
       understand which registries are supported.`
 * latest_version
-    * configures how tags/versions are sorted and thus how the latest image is determined. Can be:
+    * Configures how tags/versions are sorted and thus how the latest image is determined. Can be:
         * `version.semver()` <br>
           Filters and sorts by loose semantic versioning. Versions must start with a number. It allows unlimited
           `.` inside the version. It treats versions with a suffix as less then versions without a suffix
           (e.g. 1.0-rc1 < 1.0). Two versions which only differ by suffix are sorted semantically.
         * `version.prefix(prefix)` <br>
           Only allows tags with the given prefix and then applies the same logic as images.semver() to whatever
-          follows right after the prefix. You can override the handling of right part by providing `suffix=xxx`,
+          follows right after the prefix. You can override the handling of the right part by providing `suffix=xxx`,
           while `xxx` is another version filter, e.g. `version.prefix("master-", suffix=version.number())
         * `version.number()` <br>
           Only allows plain numbers as version numbers sorts them accordingly.
@@ -64,7 +57,7 @@ spec:
     spec:
       containers:
       - name: c1
-        image: "{{ images.get_image('my-namespace', 'my-deployment', 'c1', 'registry.gitlab.com/my-group/my-project') }}"
+        image: "{{ images.get_image('registry.gitlab.com/my-group/my-project') }}"
 ```
 
 ## Always using the latest images

@@ -3,12 +3,11 @@ import logging
 import os
 import shutil
 
-from kluctl.utils.dict_utils import merge_dict
-from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.seal.deployment_sealer import SEALME_EXT
+from kluctl.utils.dict_utils import merge_dict
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_tools import get_external_tool_hash
-from kluctl.utils.k8s_object_utils import should_remove_namespace, get_object_ref
 from kluctl.utils.kustomize import kustomize_build
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import get_tmp_base_dir, calc_dir_hash
@@ -62,15 +61,21 @@ class KustomizeDeployment(object):
             a["kluctl.io/skip-delete-if-tags"] = "true"
         return a
 
+    def get_image_wrapper(self, image, namespace=None, deployment_name=None, container=None, latest_version=LooseSemVerLatestVersion()):
+        # TODO remove this
+        if namespace is not None or deployment_name is not None or container is not None:
+            logger.warning("images.get_image called with obsolete parameters (namespace/deployment_name/container). These are not needed anymore.")
+
+        tags = list(sorted(self.get_tags()))
+        return self.deployment_collection.images.gen_image_placeholder(image, latest_version, self.get_rel_kustomize_dir(), tags)
+
     def build_images_jinja_vars(self):
         if self.deployment_collection.images is None:
             return {}
 
-        tags = list(sorted(self.get_tags()))
-
         return {
             'images': {
-                'get_image': self.deployment_collection.seen_images.get_image_wrapper(self.get_rel_kustomize_dir(), tags),
+                'get_image': self.get_image_wrapper,
             },
             'version': {
                 'semver': LooseSemVerLatestVersion,
@@ -235,7 +240,7 @@ class KustomizeDeployment(object):
         # Save modified kustomize.yml
         yaml_save_file(kustomize_yaml, kustomize_yaml_path)
 
-    def build_objects(self, k8s_cluster):
+    def build_objects(self):
         if self.config.get("onlyRender", False):
             self.objects = []
             return
@@ -255,9 +260,6 @@ class KustomizeDeployment(object):
             annotations.update(self.get_common_annotations())
             y["metadata"]["labels"] = labels
             y["metadata"]["annotations"] = annotations
-
-            if should_remove_namespace(k8s_cluster, get_object_ref(y)):
-                del y["metadata"]["namespace"]
 
             self.objects.append(y)
 

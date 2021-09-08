@@ -1,19 +1,14 @@
 import unittest
 
-from kluctl.image_registries.images_registry import ImagesRegistry
 from kluctl.deployment.images import Images
-from kluctl.utils.k8s_cluster_mocked import k8s_cluster_mocked
+from kluctl.image_registries.images_registry import ImagesRegistry
 from kluctl.utils.versions import PrefixLatestVersion, NumberLatestVersion, LooseSemVerLatestVersion
 
 
 class TestImages(unittest.TestCase):
-    def mocked_k8s_cluster(self):
-        k = k8s_cluster_mocked()
-        return k
-
     def build_images_object(self):
         self.registry = MockedImagesRegistry()
-        images = Images(self.mocked_k8s_cluster(), [self.registry])
+        images = Images([self.registry])
         self.add_images(self.registry)
         return images
 

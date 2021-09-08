@@ -1,23 +1,28 @@
+import hashlib
 import logging
 import threading
 
+from kluctl.utils.dict_nav_utils import object_iterator
+from kluctl.utils.dict_utils import copy_dict, set_dict_value, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.thread_safe_cache import ThreadSafeMultiCache
-from kluctl.utils.versions import LooseSemVerLatestVersion
+from kluctl.utils.yaml_utils import yaml_dump
 
 logger = logging.getLogger(__name__)
 
 
 class Images(object):
-    def __init__(self, k8s_cluster, image_registries):
-        self.k8s_cluster = k8s_cluster
+    def __init__(self, image_registries):
         self.image_registries = image_registries
         self.update_images = False
         self.no_registries = image_registries is None
-        self.no_kubernetes = k8s_cluster is None
         self.raise_on_error = False
         self.image_tags_cache = ThreadSafeMultiCache()
-        self.k8s_object_cache = ThreadSafeMultiCache()
+
+        self.placeholders = {}
+        self.seen_images = []
+        self.seen_images_lock = threading.Lock()
+        self.fixed_images = []
 
     def get_registry_for_image(self, image):
         for r in self.image_registries:
@@ -48,63 +53,14 @@ class Images(object):
 
         return f'{image}:{latest_tag}'
 
-    def get_image_from_k8s_object(self, namespace, name_with_kind, container):
-        if self.no_kubernetes:
-            return None
-
-        kind = 'Deployment'
-        name = name_with_kind
-        a = name_with_kind.split('/')
-        if len(a) != 1:
-            kind = a[0]
-            name = a[1]
-
-        def get_object():
-            l = self.k8s_cluster.get_objects(kind=kind, name=name, namespace=namespace)
-            if not l:
-                return None
-            if len(l) != 1:
-                raise Exception("expected single object, got %d" % len(l))
-            return l[0]
-
-        ret = None
-
-        r = self.k8s_object_cache.get((kind, name, namespace), "object", get_object)
-        if r is not None:
-            deployment = r[0]
-            for c in deployment['spec']['template']['spec']['containers']:
-                if c['name'] == container:
-                    ret = c['image']
-                    break
-
-        logger.debug(f"get_image_from_k8s_object({namespace}, {name_with_kind}, {container}): returned {ret}")
-        return ret
-
-    def get_image(self, image, namespace=None, deployment_name=None, container=None, latest_version=LooseSemVerLatestVersion()):
-        registry_image = self.get_latest_image_from_registry(image, latest_version)
-        deployed_image = None
-        if namespace is not None and deployment_name is not None and container is not None:
-            deployed_image = self.get_image_from_k8s_object(namespace, deployment_name, container)
-
-        result_image = deployed_image
-        if result_image is None or self.update_images:
-            result_image = registry_image
-
-        if result_image is None and self.raise_on_error:
-            raise Exception("Failed to determine image for %s" % image)
-        return result_image, deployed_image, registry_image
-
-class SeenImages:
-    def __init__(self, images):
-        self.images = images
-        self.seen_images = []
-        self.seen_images_lock = threading.Lock()
-        self.fixed_images = []
-
-    def build_seen_entry(self, image, result_image, deployed_image, registry_image, kwargs):
+    def build_seen_entry(self, image, latest_version,
+                         result_image, deployed_image, registry_image,
+                         namespace, deployment, container):
         new_entry = {
             "image": image,
         }
+        if latest_version is not None:
+            new_entry["versionFilter"] = latest_version
         if result_image is not None:
             new_entry["resultImage"] = result_image
         if deployed_image is not None:
@@ -112,19 +68,21 @@ class SeenImages:
         if registry_image is not None:
             new_entry["registryImage"] = registry_image
 
-        def set_value(kw_name, entry_name):
-            v = kwargs.get(kw_name)
-            if v is not None:
-                new_entry[entry_name] = str(v)
+        if namespace is not None:
+            new_entry["namespace"] = namespace
+        if deployment is not None:
+            new_entry["deployment"] = deployment
+        if container is not None:
+            new_entry["container"] = container
 
-        set_value("namespace", "namespace")
-        set_value("deployment_name", "deployment")
-        set_value("container", "container")
-        set_value("latest_version", "versionFilter")
         return new_entry
 
-    def add_seen_image(self, image, result_image, deployed_image, registry_image, kustomize_dir, tags, kwargs):
-        new_entry = self.build_seen_entry(image, result_image, deployed_image, registry_image, kwargs)
+    def add_seen_image(self, image, latest_version,
+                       result_image, deployed_image, registry_image,
+                       kustomize_dir, tags,
+                       namespace, deployment, container):
+        new_entry = self.build_seen_entry(image, latest_version, result_image, deployed_image, registry_image,
+                                          namespace, deployment, container)
         new_entry["deployTags"] = tags
         new_entry["kustomizeDir"] = kustomize_dir
 
@@ -152,8 +110,8 @@ class SeenImages:
         # put it to the front so that newest entries are preferred
         self.fixed_images.insert(0, e)
 
-    def get_fixed_image(self, image, kwargs):
-        e = self.build_seen_entry(image, None, None, None, kwargs)
+    def get_fixed_image(self, image, namespace, deployment, container):
+        e = self.build_seen_entry(image, None, None, None, None, namespace, deployment, container)
         for fi in self.fixed_images:
             if fi["image"] != image:
                 continue
@@ -168,15 +126,44 @@ class SeenImages:
                 return fi["resultImage"]
         return None
 
-    def get_image_wrapper(self, kustomize_dir, tags):
-        def wrapper(image, **kwargs):
-            return self.do_get_image(kustomize_dir, tags, image, kwargs)
-        return wrapper
+    def gen_image_placeholder(self, image, latest_version, kustomize_dir, tags):
+        placeholder = {
+            "image": image,
+            "latest_version": str(latest_version),
+            "kustomize_dir": kustomize_dir,
+            "tags": tags,
+        }
+        h = hashlib.sha256(yaml_dump(placeholder).encode("utf-8")).hexdigest()
+        with self.seen_images_lock:
+            self.placeholders[h] = placeholder
+        return h
 
-    def do_get_image(self, kustomize_dir, tags, image, kwargs):
-        fixed = self.get_fixed_image(image, kwargs)
-        result, deployed, registry = self.images.get_image(image, **kwargs)
-        if not self.images.update_images and fixed is not None:
-            result = fixed
-        self.add_seen_image(image, result, deployed, registry, kustomize_dir, tags, kwargs)
-        return result
+    def resolve_placeholders(self, local_object, remote_object):
+        for v, p in object_iterator(copy_dict(local_object)):
+            if not isinstance(v, str):
+                continue
+            placeholder = self.placeholders.get(v)
+            if placeholder is None:
+                continue
+
+            namespace = get_dict_value(local_object, "metadata.namespace")
+            deployment = "%s/%s" % (local_object["kind"], get_dict_value(local_object, "metadata.name"))
+            container = get_dict_value(local_object, p[:-1] + ["name"])
+
+            fixed = self.get_fixed_image(placeholder["image"], namespace, deployment, container)
+            deployed = None
+            if remote_object is not None:
+                deployed = get_dict_value(remote_object, p)
+            registry = self.get_latest_image_from_registry(placeholder["image"], placeholder["latest_version"])
+
+            result = deployed
+            if result is None or self.update_images:
+                result = registry
+            if not self.update_images and fixed is not None:
+                result = fixed
+
+            self.add_seen_image(placeholder["image"], placeholder["latest_version"], result, deployed, registry,
+                                placeholder["kustomize_dir"], placeholder["tags"],
+                                namespace, deployment, container)
+
+            set_dict_value(local_object, p, result)
