@@ -79,19 +79,19 @@ def is_iterable(obj):
     else:
         return True
 
-def _object_iterator(o, path):
-    yield o, path
-    if isinstance(o, dict):
-        for k, v in o.items():
-            for o2, p in _object_iterator(v, path + [k]):
-                yield o2, p
-    elif not isinstance(o, str) and is_iterable(o):
-        for i, v in enumerate(o):
-            for o2, p in _object_iterator(v, path + [str(i)]):
-                yield o2, p
-
 def object_iterator(o):
-    return _object_iterator(o, [])
+    stack = [(o, [])]
+
+    while len(stack) != 0:
+        o2, p = stack.pop()
+        yield o2, p
+
+        if isinstance(o2, dict):
+            for k, v in o2.items():
+                stack.append((v, p + [k]))
+        elif not isinstance(o2, str) and is_iterable(o2):
+            for i, v in enumerate(o2):
+                stack.append((v, p + [str(i)]))
 
 def del_matching_path(o, path):
     for _, p in list(object_iterator(o)):
