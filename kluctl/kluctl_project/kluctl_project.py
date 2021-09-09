@@ -36,10 +36,10 @@ def load_kluctl_project_config(path):
         config["clusters"] = [config["clusters"]]
 
     secret_sets = set()
-    for s in get_dict_value(config, "secrets.secretSets", []):
+    for s in get_dict_value(config, "secretsConfig.secretSets", []):
         secret_sets.add(s["name"])
     for target in config.get("targets", []):
-        for s in target.get("secretSets", []):
+        for s in get_dict_value(target, "sealingConfig.secretSets", []):
             if s not in secret_sets:
                 raise InvalidKluctlProjectConfig("secretSet %s from target %s does not exist" % (s, target["name"]))
 
