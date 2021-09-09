@@ -58,6 +58,20 @@ def del_if_falsy(d, k):
         del d[k]
 
 def is_iterable(obj):
+    if isinstance(obj, list):
+        return True
+    if isinstance(obj, tuple):
+        return True
+    if isinstance(obj, dict):
+        return True
+    if isinstance(obj, str):
+        return True
+    if isinstance(obj, bytes):
+        return True
+    if isinstance(obj, int) or isinstance(obj, bool):
+        return False
+    if isinstance(obj, type):
+        return False
     try:
         iter(obj)
     except Exception:
