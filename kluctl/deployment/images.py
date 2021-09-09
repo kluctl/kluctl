@@ -6,6 +6,7 @@ from kluctl.utils.dict_nav_utils import object_iterator
 from kluctl.utils.dict_utils import copy_dict, set_dict_value, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.thread_safe_cache import ThreadSafeMultiCache
+from kluctl.utils.versions import build_latest_version_from_str
 from kluctl.utils.yaml_utils import yaml_dump
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,9 @@ class Images(object):
     def get_latest_image_from_registry(self, image, latest_version):
         if self.no_registries:
             return None
+
+        if isinstance(latest_version, str):
+            latest_version = build_latest_version_from_str(latest_version)
 
         tags = self.get_image_tags_from_registry(image)
         filtered_tags = latest_version.filter(tags)

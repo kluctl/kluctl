@@ -44,7 +44,18 @@ This is solved via a Jinja2 function that is available in all templates/resource
         * `version.regex(regex)` <br>
           Only allows versions/tags that match the given regex. Sorting is done the same way as in version.semver(),
           except that versions do not necessarily need to start with a number.
-          
+
+The mentioned version filters can be specified either via native Python objects (Jinja is mostly using python for
+expressions) or via strings. For example, 
+
+`images.get_version("my-image", version.prefix("master-", suffix=version.number()))`
+
+is the same as 
+
+`images.get_version("my-image", "prefix('master-', suffix=number())")`.
+
+If no version_filter is specified, then it defaults to `version.semver()`.
+
 Example deployment:
 
 ```yaml

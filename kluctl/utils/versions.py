@@ -1,3 +1,4 @@
+import ast
 import re
 
 LOOSE_SEMVER_REGEX=r"^(([0-9]+)(\.[0-9]+)*)?(.*)$"
@@ -100,9 +101,9 @@ class LatestVersion(object):
         raise NotImplementedError()
 
 class RegexLatestVersion(LatestVersion):
-    def __init__(self, p):
-        self.pattern_str = p
-        self.pattern = re.compile(p)
+    def __init__(self, pattern):
+        self.pattern_str = pattern
+        self.pattern = re.compile(pattern)
 
     def match(self, version):
         return self.pattern.match(version)
@@ -172,3 +173,50 @@ class NumberLatestVersion(RegexLatestVersion):
 
     def __str__(self):
         return f"number()"
+
+def build_latest_version_from_str(s):
+    def do_raise():
+        raise ValueError("invalid latest_version filter: %s" % s)
+
+    def parse_ast(a):
+        if not isinstance(a, ast.Call):
+            do_raise()
+
+        args = []
+        kwargs = {}
+
+        def parse_arg(arg):
+            if isinstance(arg, ast.Constant):
+                return arg.value
+            elif isinstance(arg, ast.Call):
+                return parse_ast(arg)
+            else:
+                do_raise()
+
+        for arg in a.args:
+            args.append(parse_arg(arg))
+        for arg in a.keywords:
+            kwargs[arg.arg] = parse_arg(arg.value)
+
+        name = a.func.id
+        if name == "regex":
+            cls = RegexLatestVersion
+        elif name == "semver":
+            cls = LooseSemVerLatestVersion
+        elif name == "prefix":
+            cls = PrefixLatestVersion
+        elif name == "number":
+            cls = NumberLatestVersion
+        else:
+            do_raise()
+        return cls(*args, **kwargs)
+
+    try:
+        a = ast.parse(s, mode="eval")
+        if not isinstance(a, ast.Expression):
+            do_raise()
+        return parse_ast(a.body)
+    except ValueError:
+        raise
+    except Exception as e:
+        raise do_raise()
