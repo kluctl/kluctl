@@ -2,6 +2,7 @@ import unittest
 
 from kluctl.deployment.images import Images
 from kluctl.image_registries.images_registry import ImagesRegistry
+from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.versions import PrefixLatestVersion, NumberLatestVersion, LooseSemVerLatestVersion
 
 
@@ -28,22 +29,21 @@ class TestImages(unittest.TestCase):
         registry.add_tags('g', 'p3', '', ['1.1-abc'])
 
     def test_gitlab_latest_prefix(self):
-        self.assertEqual(self.build_images_object().get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='d', container='c', latest_version=PrefixLatestVersion('z'))[0], 'registry.gitlab.com/g/p:z-10')
+        self.assertEqual(self.build_images_object().get_latest_image_from_registry('registry.gitlab.com/g/p', latest_version=PrefixLatestVersion('z')), 'registry.gitlab.com/g/p:z-10')
 
     def test_gitlab_latest_number(self):
-        self.assertEqual(self.build_images_object().get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='d', container='c', latest_version=NumberLatestVersion())[0], 'registry.gitlab.com/g/p:2')
+        self.assertEqual(self.build_images_object().get_latest_image_from_registry('registry.gitlab.com/g/p', latest_version=NumberLatestVersion()), 'registry.gitlab.com/g/p:2')
 
     def test_gitlab_latest_semver_simple(self):
-        self.assertEqual(self.build_images_object().get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='d', container='c', latest_version=LooseSemVerLatestVersion())[0], 'registry.gitlab.com/g/p:3.3')
+        self.assertEqual(self.build_images_object().get_latest_image_from_registry('registry.gitlab.com/g/p', latest_version=LooseSemVerLatestVersion()), 'registry.gitlab.com/g/p:3.3')
 
     def test_gitlab_latest_semver_suffix(self):
-        self.assertEqual(self.build_images_object().get_image('registry.gitlab.com/g/p2', namespace='ns', deployment_name='d', container='c', latest_version=LooseSemVerLatestVersion())[0], 'registry.gitlab.com/g/p2:1.1.1')
-        self.assertEqual(self.build_images_object().get_image('registry.gitlab.com/g/p3', namespace='ns', deployment_name='d', container='c', latest_version=LooseSemVerLatestVersion())[0], 'registry.gitlab.com/g/p3:1.1')
+        self.assertEqual(self.build_images_object().get_latest_image_from_registry('registry.gitlab.com/g/p2', latest_version=LooseSemVerLatestVersion()), 'registry.gitlab.com/g/p2:1.1.1')
+        self.assertEqual(self.build_images_object().get_latest_image_from_registry('registry.gitlab.com/g/p3', latest_version=LooseSemVerLatestVersion()), 'registry.gitlab.com/g/p3:1.1')
 
-    def build_images_object_with_deploymet(self, kind):
-        images = self.build_images_object()
-        images.k8s_cluster.add_object({
-            'kind': kind,
+    def build_object(self, image1, image2):
+        o = {
+            'kind': 'Deployment',
             'metadata': {
                 'namespace': 'ns',
                 'name': 'dep',
@@ -51,27 +51,40 @@ class TestImages(unittest.TestCase):
             'spec': {
                 'template': {
                     'spec': {
-                        'containers': [{
-                            'name': 'c',
-                            'image': 'image-from-deployment:123'
-                        }]
+                        'containers': []
                     },
                 },
             },
-        })
-        return images
+        }
+        if image1 is not None:
+            o["spec"]["template"]["spec"]["containers"].append({
+                "name": "c1",
+                "image": image1
+            })
+        if image2 is not None:
+            o["spec"]["template"]["spec"]["containers"].append({
+                "name": "c2",
+                "image": image2
+            })
+        return o
 
-    def test_deployment(self):
-        kind = 'Deployment'
-        self.assertEqual(self.build_images_object_with_deploymet(kind).get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='dep', container='c')[0], 'image-from-deployment:123')
-        self.assertEqual(self.build_images_object_with_deploymet(kind).get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='dep', container='c2')[0], 'registry.gitlab.com/g/p:3.3')
-        self.assertEqual(self.build_images_object_with_deploymet(kind).get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='dep2', container='c')[0], 'registry.gitlab.com/g/p:3.3')
+    def do_test_placeholder_resolve(self, image, deployed_object, result_image1, result_image2):
+        images = self.build_images_object()
+        latest_version = LooseSemVerLatestVersion()
+        placeholder = images.gen_image_placeholder(image, latest_version, None, [])
+        rendered_object = self.build_object(placeholder, placeholder)
+        images.resolve_placeholders(rendered_object, deployed_object)
+        self.assertEqual(get_dict_value(rendered_object, "spec.template.spec.containers.0.image"), result_image1)
+        self.assertEqual(get_dict_value(rendered_object, "spec.template.spec.containers.1.image"), result_image2)
 
-    def test_statefulset(self):
-        kind = "StatefulSet"
-        self.assertEqual(self.build_images_object_with_deploymet(kind).get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='StatefulSet/dep', container='c')[0], 'image-from-deployment:123')
-        self.assertEqual(self.build_images_object_with_deploymet(kind).get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='StatefulSet/dep', container='c2')[0], 'registry.gitlab.com/g/p:3.3')
-        self.assertEqual(self.build_images_object_with_deploymet(kind).get_image('registry.gitlab.com/g/p', namespace='ns', deployment_name='StatefulSet/dep2', container='c')[0], 'registry.gitlab.com/g/p:3.3')
+    def test_deployed(self):
+        self.do_test_placeholder_resolve('registry.gitlab.com/g/p', self.build_object("di1", "di2"), "di1", "di2")
+
+    def test_not_deployed(self):
+        self.do_test_placeholder_resolve('registry.gitlab.com/g/p', None, "registry.gitlab.com/g/p:3.3", "registry.gitlab.com/g/p:3.3")
+
+    def test_container_missing(self):
+        self.do_test_placeholder_resolve('registry.gitlab.com/g/p', self.build_object("di1", None), "di1", "registry.gitlab.com/g/p:3.3")
 
 
 class MockedImagesRegistry(ImagesRegistry):
