@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 def bootstrap_command(obj, kwargs):
     bootstrap_path = os.path.join(get_kluctl_package_dir(), "bootstrap")
 
-    kwargs["local_deployment"] = bootstrap_path
+    if not kwargs.get("local_deployment"):
+        kwargs["local_deployment"] = bootstrap_path
     with project_command_context(kwargs) as cmd_ctx:
         existing, warnings = cmd_ctx.k8s_cluster.get_single_object(ObjectRef("apiextensions.k8s.io/v1", "CustomResourceDefinition", "sealedsecrets.bitnami.com"))
         if existing:
