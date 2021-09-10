@@ -15,8 +15,8 @@ import jsonschema
 from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_project, target_config_schema
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
-from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, update_git_cache, git_ls_remote, \
-    get_git_ref
+from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, git_ls_remote, \
+    get_git_ref, ensure_git_cache_updated
 from kluctl.utils.jinja2_utils import render_dict_strs
 from kluctl.utils.k8s_cluster_base import load_cluster_config
 from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor
@@ -242,7 +242,7 @@ class KluctlProject:
                     if url in self.git_cache_up_to_date:
                         return
                     self.git_cache_up_to_date[url] = True
-                    f = executor.submit(update_git_cache, url)
+                    f = executor.submit(ensure_git_cache_updated, url)
                     futures.append(f)
 
             do_update("deployment")
@@ -257,7 +257,7 @@ class KluctlProject:
                 url = parse_git_project(target_config["project"], None).url
                 if url not in self.git_cache_up_to_date:
                     self.git_cache_up_to_date[url] = True
-                    f = executor.submit(update_git_cache, url)
+                    f = executor.submit(ensure_git_cache_updated, url)
                     futures.append(f)
                 if url not in self.refs_for_urls:
                     self.refs_for_urls[url] = executor.submit(git_ls_remote, url)

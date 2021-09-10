@@ -171,74 +171,74 @@ def _is_mirror_remote(path):
             return True
         return False
 
+def _clone_or_update_cache(url, cache_dir, do_update):
+    init_marker = os.path.join(cache_dir, ".cache.init")
+
+    if os.path.exists(init_marker):
+        # TODO remove this check after some time
+        if _is_mirror_remote(cache_dir):
+            if do_update:
+                logger.info(f"Updating cache repo: url='{url}'")
+                g = Git(cache_dir)
+                g.remote("update")
+            return
+
+        # remove old cache repo (it was a --bare repo in the past, but we want to use --mirror repos now)
+        logger.info("Cleaning up obsolete --bare cache repo at %s" % cache_dir)
+        for n in os.listdir(cache_dir):
+            if n == ".cache.lock":
+                continue
+            p = os.path.join(cache_dir, n)
+            if os.path.isdir(p):
+                shutil.rmtree(os.path.join(cache_dir, n))
+            else:
+                os.unlink(p)
+
+    logger.info(f"Cloning mirror repo at {cache_dir}")
+    with build_git_object(url, cache_dir) as (g, url):
+        g.clone("--mirror", url, "mirror")
+        for n in os.listdir(os.path.join(cache_dir, "mirror")):
+            shutil.move(os.path.join(cache_dir, "mirror", n), cache_dir)
+        shutil.rmtree(os.path.join(cache_dir, "mirror"))
+    with open(init_marker, "w"):
+        # only touch it
+        pass
+
 @contextmanager
-def with_git_cache(url, do_lock=True):
+def with_git_cache(url, do_update=True):
     remote_name = build_remote_name(url)
     cache_dir = os.path.join(get_cache_base_dir(), remote_name)
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir, exist_ok=True)
     lock_file = os.path.join(cache_dir, ".cache.lock")
-    init_marker = os.path.join(cache_dir, ".cache.init")
 
     lock = filelock.FileLock(lock_file)
-    if do_lock:
-        lock.acquire()
+    lock.acquire()
 
     try:
-        if os.path.exists(init_marker):
-            # TODO remove this check after some time
-            if _is_mirror_remote(cache_dir):
-                yield cache_dir, True
-                return
-
-            # remove old cache repo (it was a --bare repo in the past, but we want to use --mirror repos now)
-            logger.info("Cleaning up obsolete --bare cache repo at %s" % cache_dir)
-            for n in os.listdir(cache_dir):
-                if n == ".cache.lock":
-                    continue
-                p = os.path.join(cache_dir, n)
-                if os.path.isdir(p):
-                    shutil.rmtree(os.path.join(cache_dir, n))
-                else:
-                    os.unlink(p)
-
-        logger.info(f"Cloning mirror repo at {cache_dir}")
-        with build_git_object(url, cache_dir) as (g, url):
-            g.clone("--mirror", url, "mirror")
-            for n in os.listdir(os.path.join(cache_dir, "mirror")):
-                shutil.move(os.path.join(cache_dir, "mirror", n), cache_dir)
-            shutil.rmtree(os.path.join(cache_dir, "mirror"))
-        with open(init_marker, "w"):
-            # only touch it
-            pass
-        yield cache_dir, False
-    finally:
-        if do_lock:
-            lock.release()
-
-def update_git_cache(url, do_lock=True):
-    with with_git_cache(url, do_lock=do_lock) as (cache_dir, need_update):
-        with build_git_object(url, cache_dir) as (g, url):
-            logger.info(f"Updating cache repo: url='{url}'")
+        _clone_or_update_cache(url, cache_dir, do_update)
+        yield cache_dir
+    except GitCommandError as e:
+        if "did not complete in " in e.stderr:
+            logger.info("Git command timed out, deleting cache (%s) to ensure that we don't get into an "
+                        "inconsistent state" % cache_dir)
             try:
-                if need_update:
-                    g.remote("update")
-            except GitCommandError as e:
-                if "did not complete in " in e.stderr:
-                    logger.info("Git command timed out, deleting cache (%s) to ensure that we don't get into an "
-                                "inconsistent state" % cache_dir)
-                    try:
-                        shutil.rmtree(cache_dir)
-                    except:
-                        pass
-                raise
+                shutil.rmtree(cache_dir)
+            except:
+                pass
+        raise
+    finally:
+        lock.release()
+
+def ensure_git_cache_updated(url):
+    with with_git_cache(url, do_update=True):
+        pass
 
 def clone_project(url, ref, target_dir, git_cache_up_to_date=None):
     logger.info(f"Cloning git project: url='{url}', ref='{ref}'")
 
-    with with_git_cache(url) as (cache_dir, need_update):
-        if need_update and (git_cache_up_to_date is None or url not in git_cache_up_to_date):
-            update_git_cache(url, do_lock=False)
+    need_update = (git_cache_up_to_date is None or url not in git_cache_up_to_date)
+    with with_git_cache(url, do_update=need_update) as cache_dir:
         args = ["file://%s" % cache_dir, "--single-branch", target_dir]
         if ref is not None:
             args += ["--branch", ref]
