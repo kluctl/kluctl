@@ -22,6 +22,22 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.8.10
+      - name: Download required tools
+        run: |
+          KUSTOMIZE_VERSION=v4.2.0
+          HELM_VERSION=v3.6.3
+          KUBESEAL_VERSION=v0.16.0
+          wget -O kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
+              tar xzf kustomize.tar.gz && \
+              mv kustomize /usr/bin && \
+              rm kustomize.tar.gz
+          wget -O helm.tar.gz https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz && \
+              tar xzf helm.tar.gz && \
+              mv linux-amd64/helm /usr/bin && \
+              rm helm.tar.gz
+          wget -O kubeseal https://github.com/bitnami-labs/sealed-secrets/releases/download/$KUBESEAL_VERSION/kubeseal-linux-amd64 && \
+              chmod +x kubeseal && \
+              mv kubeseal /usr/bin
       - name: Cache dot-kube
         id: cache-dot-kube
         uses: actions/cache@v2
