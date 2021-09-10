@@ -9,19 +9,30 @@ on:
       - 'main'
 
 jobs:
-  unittests:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.8.10
-      - name: unittests
+      - name: Cache dot-kube
+        id: cache-dot-kube
+        uses: actions/cache@v2
+        with:
+          path: .kube
+          key: ${{ runner.os }}-dot-kube
+      - name: tests
         run: |
           pip install .
-          python -munittest
+          pip install -r requirements-dev.txt
+          pytest
   check-code:
     runs-on: ubuntu-latest
     steps:
