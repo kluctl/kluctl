@@ -1,13 +1,11 @@
 clusters:
   project:
     url: https://github.com/AljoschaP/kluctl-external-clusters
-    ref: main
     subdir: clusters
 
 deployment:
   project:
     url: https://github.com/AljoschaP/kluctl-external-deployments
-    ref: main
 
 targets:
   - name: dev-external
