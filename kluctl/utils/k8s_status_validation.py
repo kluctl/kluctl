@@ -85,7 +85,7 @@ def validate_object(o, not_ready_is_error):
 
     try:
         if o["kind"] == "Pod":
-            s, r, m = get_condition("Ready", True, True)
+            s, r, m = get_condition("Ready", False, False)
             if s != "True":
                 add_not_ready(r or "not-ready", m or "Not ready")
         elif o["kind"] == "Job":
@@ -93,7 +93,7 @@ def validate_object(o, not_ready_is_error):
             if s == "True":
                 add_error(r or "failed", m or "N/A")
             else:
-                s, r, m = get_condition("Complete", True, True)
+                s, r, m = get_condition("Complete", False, False)
                 if s != "True":
                     add_not_ready(r or "not-completed", m or "Not completed")
         elif o["kind"] in ["Deployment", "ZookeeperCluster"]:
@@ -112,7 +112,9 @@ def validate_object(o, not_ready_is_error):
                     add_error("no-cluster-ip", "Service does not have a cluster IP")
                 elif svc_type == "LoadBalancer":
                     if len(get_dict_value(o, "spec.externalIPs", [])) == 0:
-                        add_not_ready("loadBalancer.ingress", True, True)
+                        ingress = get_field("loadBalancer.ingress", False, False)
+                        if ingress is None:
+                            add_not_ready("not-ready", "Not ready")
         elif o["kind"] == "DaemonSet":
             if get_dict_value(o, "spec.updateStrategy.type") == "RollingUpdate":
                 updated_number_scheduled = get_field("updatedNumberScheduled", True, True)
@@ -152,7 +154,7 @@ def validate_object(o, not_ready_is_error):
         elif o["kind"] == "Kafka":
             for s, r, m in find_conditions("Warning", False, False):
                 add_warning(r or "warning", m or "N/A")
-            s, r, m = get_condition("Ready", True, True)
+            s, r, m = get_condition("Ready", False, False)
             if s != "True":
                 add_not_ready(r or "not-ready", m or "N/A")
         elif o["kind"] == "Elasticsearch":
