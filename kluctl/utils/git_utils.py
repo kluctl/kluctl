@@ -185,14 +185,15 @@ def _clone_or_update_cache(url, cache_dir, do_update):
 
         # remove old cache repo (it was a --bare repo in the past, but we want to use --mirror repos now)
         logger.info("Cleaning up obsolete --bare cache repo at %s" % cache_dir)
-        for n in os.listdir(cache_dir):
-            if n == ".cache.lock":
-                continue
-            p = os.path.join(cache_dir, n)
-            if os.path.isdir(p):
-                shutil.rmtree(os.path.join(cache_dir, n))
-            else:
-                os.unlink(p)
+
+    for n in os.listdir(cache_dir):
+        if n == ".cache.lock":
+            continue
+        p = os.path.join(cache_dir, n)
+        if os.path.isdir(p):
+            shutil.rmtree(os.path.join(cache_dir, n))
+        else:
+            os.unlink(p)
 
     logger.info(f"Cloning mirror repo at {cache_dir}")
     with build_git_object(url, cache_dir) as (g, url):
@@ -306,6 +307,8 @@ def parse_git_url(p):
             return 443
         if schema == "ssh":
             return 22
+        if schema == "file":
+            return None
         raise Exception("Unknown schema %s" % schema)
 
     schema_pattern = re.compile("^([a-z]*)://.*")
