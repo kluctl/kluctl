@@ -120,7 +120,7 @@ class KluctlTestProject:
         shutil.copytree(source, p)
         self._commit(p, all=True, message="copy kustomize dir from %s to %s" % (source, target))
 
-    def add_cluster(self, name, context, vars):
+    def update_cluster(self, name, context, vars):
         y = {
             "cluster": {
                 "name": name,
@@ -128,17 +128,19 @@ class KluctlTestProject:
                 **vars,
             }
         }
-        self._commit_yaml(y, os.path.join(self.get_clusters_dir(), "clusters", "%s.yml" % name), message="add cluster")
+        self._commit_yaml(y, os.path.join(self.get_clusters_dir(), "clusters", "%s.yml" % name), message="add/update cluster")
 
-    def add_kind_cluster(self, kind_cluster: KindCluster, vars={}):
+    def update_kind_cluster(self, kind_cluster: KindCluster, vars={}):
         if kind_cluster.kubeconfig_path not in self.kubeconfigs:
             self.kubeconfigs.append(kind_cluster.kubeconfig_path)
         context = kind_cluster.kubectl("config", "current-context").strip()
-        self.add_cluster(kind_cluster.name, context, vars)
+        self.update_cluster(kind_cluster.name, context, vars)
 
-    def add_target(self, name, cluster, args={}):
+    def update_target(self, name, cluster, args={}):
         def do_update(y):
-            targets = y.setdefault("targets", [])
+            targets = y.get("targets", [])
+            targets = [x for x in targets if x["name"] != name]
+            y["targets"] = targets
             targets.append({
                 "name": name,
                 "cluster": cluster,

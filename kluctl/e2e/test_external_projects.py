@@ -17,9 +17,10 @@ def do_test_project(kind_cluster, namespace, **kwargs):
         pass
 
     with KluctlTestProject(**kwargs) as p:
-        p.add_kind_cluster(kind_cluster)
-        p.add_target("test", kind_cluster.name, {})
+        p.update_kind_cluster(kind_cluster)
+        p.update_target("test", kind_cluster.name, {})
         add_busybox_deployment(p, "busybox", "busybox", namespace=namespace)
+
         p.kluctl("deploy", "--yes", "-t", "test")
         assert_readiness(kind_cluster, namespace, "Deployment/busybox", 5 * 60)
 
@@ -35,7 +36,7 @@ def test_external_deployment_project(module_kind_cluster: KindCluster):
 def test_external_sealed_secrets_project(module_kind_cluster: KindCluster):
     do_test_project(module_kind_cluster, "d", sealed_secrets_external=True)
 
-def test_all_prok(module_kind_cluster: KindCluster):
+def test_all_projects_external(module_kind_cluster: KindCluster):
     do_test_project(module_kind_cluster, "e",
                     kluctl_project_external=True,
                     clusters_external=True,
