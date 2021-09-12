@@ -48,10 +48,12 @@ jobs:
         with:
           path: .kube
           key: ${{ runner.os }}-dot-kube
-      - name: tests
+      - name: Install dependencies
         run: |
           pip install .
           pip install -r requirements-dev.txt
+      - name: Run tests
+        run: |
           pytest
   check-code:
     runs-on: ubuntu-latest
