@@ -24,7 +24,8 @@ data:
 def test_command_bootstrap(module_kind_cluster: KindCluster):
     with KluctlTestProject() as p:
         p.add_kind_cluster(module_kind_cluster)
-        p.kluctl("bootstrap", "--yes", "--cluster", "kind-module")
+        p.add_target("test", "module")
+        p.kluctl("bootstrap", "--yes", "--cluster", "module")
         assert_readiness(module_kind_cluster, "kube-system", "Deployment/sealed-secrets", 60 * 5)
 
 @pytest.mark.dependency(depends=["test_command_bootstrap"])
@@ -41,12 +42,14 @@ def test_command_bootstrap_upgrade(module_kind_cluster):
 
         with KluctlTestProject(local_deployment=tmpdir) as p:
             p.add_kind_cluster(module_kind_cluster)
-            p.kluctl("bootstrap", "--yes", "--cluster", "kind-module")
+            p.add_target("test", "module")
+            p.kluctl("bootstrap", "--yes", "--cluster", "module")
             assert_resource_exists(module_kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
 
 @pytest.mark.dependency(depends=["test_command_bootstrap_upgrade"])
 def test_command_bootstrap_purge(module_kind_cluster):
     with KluctlTestProject() as p:
         p.add_kind_cluster(module_kind_cluster)
-        p.kluctl("bootstrap", "--yes", "--cluster", "kind-module")
+        p.add_target("test", "module")
+        p.kluctl("bootstrap", "--yes", "--cluster", "module")
         assert_resource_not_exists(module_kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
