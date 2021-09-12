@@ -5,7 +5,7 @@ from kluctl.utils.dict_utils import merge_dict
 
 
 def parse_args(args_list):
-    r = re.compile('^[a-zA-Z0-9\-_./]*=.*$')
+    r = re.compile('^[a-zA-Z0-9_./-]*=.*$')
     args = {}
     for arg in args_list:
         if not r.match(arg):
