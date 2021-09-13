@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from git import Git
 from pytest_kind import KindCluster
 
+from kluctl.utils.dict_utils import copy_dict
 from kluctl.utils.yaml_utils import yaml_save_file, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -96,9 +97,14 @@ class KluctlTestProject:
         assert self.base_dir.name in path
         try:
             y = yaml_load_file(path)
+            orig_y = copy_dict(y)
         except:
             y = {}
+            orig_y = None
         y = update(y)
+        if y == orig_y:
+            return
+
         yaml_save_file(y, path)
 
         if message is None:
