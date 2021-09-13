@@ -38,6 +38,15 @@ def module_kind_cluster(request):
     with kind_cluster_fixture("module") as c:
         yield c
 
+def recreate_namespace(kind_cluster: KindCluster, namespace):
+    try:
+        kind_cluster.kubectl("delete", "ns", namespace)
+    except:
+        pass
+    try:
+        kind_cluster.kubectl("create", "ns", namespace)
+    except:
+        pass
 
 def wait_for_readiness(kind_cluster: KindCluster, namespace, resource, timeout):
     logger.info("Waiting for readiness: %s/%s" % (namespace, resource))

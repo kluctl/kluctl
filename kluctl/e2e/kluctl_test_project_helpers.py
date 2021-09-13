@@ -18,6 +18,7 @@ spec:
       labels:
         app: {name}
     spec:
+      terminationGracePeriodSeconds: 0
       containers:
       - name: busybox
         image: busybox

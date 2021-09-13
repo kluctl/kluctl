@@ -5,16 +5,13 @@ from kluctl.e2e.kluctl_test_project import KluctlTestProject
 from kluctl.e2e.kluctl_test_project_helpers import add_busybox_deployment
 from pytest_kind import KindCluster
 
-from kluctl.e2e.conftest import assert_readiness
+from kluctl.e2e.conftest import assert_readiness, recreate_namespace
 from kluctl.e2e.kluctl_test_project import KluctlTestProject
 from kluctl.e2e.kluctl_test_project_helpers import add_busybox_deployment
 
 
 def do_test_project(kind_cluster, namespace, **kwargs):
-    try:
-        kind_cluster.kubectl("create", "ns", namespace)
-    except:
-        pass
+    recreate_namespace(kind_cluster, namespace)
 
     with KluctlTestProject(**kwargs) as p:
         p.update_kind_cluster(kind_cluster)
