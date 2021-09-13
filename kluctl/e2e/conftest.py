@@ -11,18 +11,22 @@ from kluctl.utils.yaml_utils import yaml_load
 
 logger = logging.getLogger(__name__)
 
+delete_clusters = True
+
 @contextlib.contextmanager
 def kind_cluster_fixture(name):
     cluster = KindCluster(name)
     try:
-        cluster.delete()
+        if delete_clusters:
+            cluster.delete()
     except:
         pass
     cluster.create()
     try:
         yield cluster
     finally:
-        cluster.delete()
+        if delete_clusters:
+            cluster.delete()
 
 @pytest.fixture(scope="function")
 def function_kind_cluster(request):
