@@ -127,14 +127,17 @@ class KluctlTestProject:
         self._commit(p, all=True, message="copy kustomize dir from %s to %s" % (source, target))
 
     def update_cluster(self, name, context, vars):
-        y = {
-            "cluster": {
-                "name": name,
-                "context": context,
-                **vars,
+        path = os.path.join(self.get_clusters_dir(), "clusters", "%s.yml" % name)
+        def do_update(y):
+            y = {
+                "cluster": {
+                    "name": name,
+                    "context": context,
+                    **vars,
+                }
             }
-        }
-        self._commit_yaml(y, os.path.join(self.get_clusters_dir(), "clusters", "%s.yml" % name), message="add/update cluster")
+            return y
+        self.update_yaml(path, do_update, message="add/update cluster %s" % name)
 
     def update_kind_cluster(self, kind_cluster: KindCluster, vars={}):
         if kind_cluster.kubeconfig_path not in self.kubeconfigs:
