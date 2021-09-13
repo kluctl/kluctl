@@ -115,7 +115,7 @@ def validate_command(obj, kwargs):
 
     with project_command_context(kwargs) as cmd_ctx:
         while True:
-            result = cmd_ctx.deployment_collection.validate(cmd_ctx.k8s_cluster)
+            result = cmd_ctx.deployment_collection.validate()
             failed = len(result.errors) != 0 or (warnings_as_errors and len(result.warnings) != 0)
 
             output_validate_result(kwargs["output"], result)
