@@ -6,7 +6,7 @@ from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError
 
 from kluctl.diff.managed_fields import remove_non_managed_fields2
-from kluctl.utils.dict_utils import get_dict_value
+from kluctl.utils.dict_utils import get_dict_value, copy_dict, set_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref
 from kluctl.utils.k8s_status_validation import validate_object
 from kluctl.utils.utils import MyThreadPoolExecutor
@@ -14,11 +14,12 @@ from kluctl.utils.utils import MyThreadPoolExecutor
 logger = logging.getLogger(__name__)
 
 class ApplyUtil:
-    def __init__(self, deployment_collection, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
+    def __init__(self, deployment_collection, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error):
         self.deployment_collection = deployment_collection
         self.k8s_cluster = k8s_cluster
         self.force_apply = force_apply
-        self.replace_on_error = replace_on_error
+        self.replace_on_error = replace_on_error or force_replace_on_error
+        self.force_replace_on_error = force_replace_on_error
         self.dry_run = dry_run
         self.abort_on_error = abort_on_error
 
@@ -66,17 +67,35 @@ class ApplyUtil:
             if not self.replace_on_error:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e))
                 return
-            logger.info("Patching %s failed, retrying by deleting and re-applying" %
+            logger.info("Patching %s failed, retrying with replace instead of patch" %
                         get_long_object_name_from_ref(ref))
             try:
-                self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
-                if not self.dry_run and not self.k8s_cluster.dry_run:
-                    r, patch_warnings = self.k8s_cluster.patch_object(x, force_apply=True)
-                    self.handle_result(r, patch_warnings)
-                else:
-                    self.handle_result(x, [])
+                remote_object = self.deployment_collection.remote_objects.get(ref)
+                if remote_object is None:
+                    self.handle_error(ref, self.k8s_cluster.get_status_message(e))
+                    return
+                resource_version = get_dict_value(remote_object, "metadata.resourceVersion")
+                x2 = set_dict_value(x, "metadata.resourceVersion", get_dict_value(remote_object, "metadata.resourceVersion"), do_clone=True)
+                r, patch_warnings = self.k8s_cluster.replace_object(x2, force_dry_run=self.dry_run, resource_version=resource_version)
+                self.handle_result(r, patch_warnings)
             except ApiException as e2:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
+
+                if not self.force_replace_on_error:
+                    self.handle_error(ref, self.k8s_cluster.get_status_message(e))
+                    return
+
+                logger.info("Patching %s failed, retrying by deleting and re-applying" %
+                            get_long_object_name_from_ref(ref))
+                try:
+                    self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
+                    if not self.dry_run and not self.k8s_cluster.dry_run:
+                        r, patch_warnings = self.k8s_cluster.patch_object(x, force_apply=True)
+                        self.handle_result(r, patch_warnings)
+                    else:
+                        self.handle_result(x, [])
+                except ApiException as e2:
+                    self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
 
     def wait_object(self, ref):
         if self.dry_run or self.k8s_cluster.dry_run:

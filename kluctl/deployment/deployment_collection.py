@@ -165,17 +165,17 @@ class DeploymentCollection:
         self.update_remote_objects(k8s_cluster)
         self.resolve_image_placeholders(k8s_cluster)
 
-    def deploy(self, k8s_cluster, force_apply, replace_on_error, abort_on_error):
+    def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error):
         self.clear_errors_and_warnings()
-        applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
+        applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
                                          False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
                                 errors=list(self.api_errors), warnings=list(self.api_warnings))
 
-    def diff(self, k8s_cluster, force_apply, replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
+    def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
-        applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error,
+        applied_objects = self.do_deploy(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
                                          True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
@@ -287,16 +287,16 @@ class DeploymentCollection:
         excluded_objects = list(self.local_objects_by_ref().keys())
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, excluded_objects)
 
-    def do_apply(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
-        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error)
+    def do_apply(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error):
+        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error)
         apply_util.apply_deployments()
         return apply_util.applied_objects
 
-    def do_deploy(self, k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error):
+    def do_deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error):
         # TODO remove this
         self.migrate_to_new_manager(k8s_cluster)
 
-        return self.do_apply(k8s_cluster, force_apply, replace_on_error, dry_run, abort_on_error)
+        return self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error)
 
     def do_diff(self, k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         diff_objects = {}

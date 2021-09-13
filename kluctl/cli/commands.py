@@ -42,7 +42,8 @@ def deploy_command2(obj, kwargs, cmd_ctx):
     if not kwargs["yes"] and not kwargs["dry_run"]:
         click.confirm("Do you really want to deploy to the context/cluster %s?" % cmd_ctx.k8s_cluster.context, err=True, abort=True)
 
-    diff_result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["abort_on_error"])
+    diff_result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, kwargs["force_apply"],
+                                                       kwargs["replace_on_error"], kwargs["force_replace_on_error"], kwargs["abort_on_error"])
     deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
     output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, diff_result, deleted_objects)
     if diff_result.errors:
@@ -51,7 +52,7 @@ def deploy_command2(obj, kwargs, cmd_ctx):
 def diff_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
         result = cmd_ctx.deployment_collection.diff(
-            cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"],
+            cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["force_replace_on_error"],
             kwargs["ignore_tags"], kwargs["ignore_labels"], kwargs["ignore_annotations"], kwargs["ignore_order"])
         deleted_objects = cmd_ctx.deployment_collection.find_purge_objects(cmd_ctx.k8s_cluster)
         output_diff_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)

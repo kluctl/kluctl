@@ -140,7 +140,11 @@ def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error
                                        default=False, is_flag=True))
     if replace_on_error:
         options.append(optgroup.option("--replace-on-error",
-                                       help="When patching an object fails, try to delete it and then retry. "
+                                       help="When patching an object fails, try to replace. "
+                                            "See documentation for more details.",
+                                       default=False, is_flag=True))
+        options.append(optgroup.option("--force-replace-on-error",
+                                       help="Same as --replace-on-error, but also try to delete and re-create objects. "
                                             "See documentation for more details.",
                                        default=False, is_flag=True))
     if ignore_labels:

@@ -110,8 +110,9 @@ In addition, the following arguments are available:
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     --force-apply                 Force conflict resolution when applying. See documentation for details
-    --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
-                                  for more details.
+    --replace-on-error            When patching an object fails, try to replace. See documentation for more details.
+    --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
+                                  documentation for more details.
     --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
@@ -143,8 +144,9 @@ In addition, the following arguments are available:
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     --force-apply                 Force conflict resolution when applying. See documentation for details
-    --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
-                                  for more details.
+    --replace-on-error            When patching an object fails, try to replace. See documentation for more details.
+    --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
+                                  documentation for more details.
     --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
@@ -208,8 +210,9 @@ In addition, the following arguments are available:
 ```
   Misc arguments: 
     --force-apply                 Force conflict resolution when applying. See documentation for details
-    --replace-on-error            When patching an object fails, try to delete it and then retry. See documentation
-                                  for more details.
+    --replace-on-error            When patching an object fails, try to replace. See documentation for more details.
+    --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
+                                  documentation for more details.
     --ignore-tags                 Ignores changes in tags when diffing
     --ignore-labels               Ignores changes in labels when diffing
     --ignore-annotations          Ignores changes in annotations when diffing
