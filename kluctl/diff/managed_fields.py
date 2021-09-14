@@ -74,7 +74,7 @@ def remove_non_managed_fields(o, managed_fields):
         if mf['manager'] in ['kluctl', 'deployctl']:
             continue
         # force-overwrite these
-        if mf['manager'] in ['kubectl-edit']:
+        if mf['manager'] in ['kubectl-edit', 'kubectl-client-side-apply']:
             continue
         for p in _fields_iterator(mf['fieldsV1'], []):
             if not p or [-1] == '.':
