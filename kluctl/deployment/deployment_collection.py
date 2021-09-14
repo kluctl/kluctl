@@ -43,8 +43,6 @@ class DeploymentCollection:
         self.for_seal = for_seal
         self.deployments = self._collect_deployments(self.project)
 
-        self.is_rendered = False
-        self.is_built = False
         self.remote_objects = {}
 
         self.api_errors = set()
@@ -75,8 +73,6 @@ class DeploymentCollection:
         return ret
 
     def render_deployments(self):
-        if self.is_rendered:
-            return
         logger.info("Rendering templates and Helm charts")
         with MyThreadPoolExecutor(max_workers=16) as executor:
             jobs = []
@@ -96,11 +92,8 @@ class DeploymentCollection:
                 for d in self.deployments:
                     d.prepare_kustomization_yaml()
                     d.resolve_sealed_secrets()
-        self.is_rendered = True
 
     def build_kustomize_objects(self, k8s_cluster):
-        if self.is_built:
-            return
         logger.info("Building kustomize objects")
 
         with MyThreadPoolExecutor() as executor:
@@ -115,8 +108,6 @@ class DeploymentCollection:
                 for o in d.objects:
                     if should_remove_namespace(k8s_cluster, get_object_ref(o)):
                         del o["metadata"]["namespace"]
-
-        self.is_built = True
 
     def update_remote_objects(self, k8s_cluster):
         logger.info("Updating remote objects")
