@@ -156,7 +156,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
             c.images.add_fixed_image(fi)
 
         if not for_seal:
-            c.prepare(k8s_cluster, for_seal)
+            c.prepare(k8s_cluster)
 
         ctx = CommandContext(kluctl_project=kluctl_project, target=target,
                              cluster_vars=cluster_vars, k8s_cluster=k8s_cluster,

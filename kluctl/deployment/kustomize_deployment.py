@@ -8,12 +8,13 @@ from kluctl.seal.deployment_sealer import SEALME_EXT
 from kluctl.utils.dict_utils import merge_dict
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_tools import get_external_tool_hash
+from kluctl.utils.k8s_object_utils import get_object_ref, should_remove_namespace
 from kluctl.utils.kustomize import kustomize_build
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import get_tmp_base_dir, calc_dir_hash
 from kluctl.utils.versions import LooseSemVerLatestVersion, PrefixLatestVersion, NumberLatestVersion, \
     RegexLatestVersion
-from kluctl.utils.yaml_utils import yaml_load_file, yaml_load_all, yaml_save_file
+from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class KustomizeDeployment(object):
         self.deployment_collection = deployment_collection
         self.config = config
         self.index = index
-        self.objects = None
+        self.objects = []
 
     def get_rel_kustomize_dir(self):
         return self.deployment_project.get_rel_dir_to_root(self.config["path"])
@@ -45,6 +46,9 @@ class KustomizeDeployment(object):
         path = self.get_rel_rendered_dir()
         rendered_dir = os.path.join(self.deployment_collection.tmpdir, path)
         return rendered_dir
+
+    def get_rendered_yamls_path(self):
+        return os.path.join(self.get_rendered_dir(), ".rendered.yml")
 
     def get_common_labels(self):
         l = self.deployment_project.get_common_labels()
@@ -196,33 +200,6 @@ class KustomizeDeployment(object):
         values = self.build_inclusion_values()
         return inclusion.check_included(values, skip_delete_if_tags)
 
-    def build_objects_kustomize(self):
-        tmp_files = []
-
-        try:
-            need_build = True
-            if allow_cache:
-                hash = self.calc_hash()
-                hash_path = os.path.join(get_kustomize_cache_dir(), hash[:16])
-                if os.path.exists(hash_path):
-                    need_build = False
-                    # Load from cache
-                    with open(hash_path) as f:
-                        yamls = f.read()
-            if need_build:
-                # Run 'kustomize build'
-                yamls = kustomize_build(self.get_rendered_dir())
-                if allow_cache:
-                    with open(hash_path + "~", "w") as f:
-                        f.write(yamls)
-                    os.rename(hash_path + "~", hash_path)
-        finally:
-            for x in tmp_files:
-                x.close()
-
-        yamls = yaml_load_all(yamls)
-        return yamls
-
     def prepare_kustomization_yaml(self):
         if "path" not in self.config:
             return
@@ -240,20 +217,40 @@ class KustomizeDeployment(object):
         # Save modified kustomize.yml
         yaml_save_file(kustomize_yaml, kustomize_yaml_path)
 
-    def build_objects(self):
-        if self.config.get("onlyRender", False):
-            self.objects = []
-            return
+    def build_kustomize(self):
         if "path" not in self.config:
-            self.objects = []
             return
 
-        yamls = self.build_objects_kustomize()
+        self.prepare_kustomization_yaml()
 
-        self.objects = []
-        # Add commonLabels to all resources. We can't use kustomize's "commonLabels" feature as it erroneously
-        # sets matchLabels as well.
-        for y in yamls:
+        need_build = True
+        if allow_cache:
+            hash = self.calc_hash()
+            hash_path = os.path.join(get_kustomize_cache_dir(), hash[:16])
+            if os.path.exists(hash_path):
+                need_build = False
+                # Copy from cache
+                shutil.copy(hash_path, self.get_rendered_yamls_path())
+        if need_build:
+            # Run 'kustomize build'
+            yamls = kustomize_build(self.get_rendered_dir())
+            with open(self.get_rendered_yamls_path(), "wt") as f:
+                f.write(yamls)
+            if allow_cache:
+                shutil.copy(self.get_rendered_yamls_path(), hash_path)
+
+    def postprocess_and_load_objects(self, k8s_cluster):
+        if "path" not in self.config:
+            return
+
+        self.objects = yaml_load_file(self.get_rendered_yamls_path(), all=True)
+        for y in self.objects:
+            ref = get_object_ref(y)
+            if should_remove_namespace(k8s_cluster, ref):
+                ref = get_object_ref(y)
+                del y["metadata"]["namespace"]
+
+            # Set common labels/annotations
             labels = y.setdefault("metadata", {}).setdefault("labels") or {}
             annotations = y["metadata"].setdefault("annotations") or {}
             labels.update(self.get_common_labels())
@@ -261,7 +258,14 @@ class KustomizeDeployment(object):
             y["metadata"]["labels"] = labels
             y["metadata"]["annotations"] = annotations
 
-            self.objects.append(y)
+            # Resolve image placeholders
+            s = str(y)
+            if any(p in s for p in self.deployment_collection.images.placeholders.keys()):
+                remote_object, warnings = k8s_cluster.get_single_object(ref)
+                self.deployment_collection.images.resolve_placeholders(y, remote_object)
+
+        # Need to write it back to disk in case it is needed externally
+        yaml_save_file(self.objects, self.get_rendered_yamls_path())
 
     def calc_hash(self):
         h = hashlib.sha256()

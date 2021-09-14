@@ -14,7 +14,7 @@ from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_downscale_utils import downscale_object
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
-    ObjectRef, should_remove_namespace
+    ObjectRef
 from kluctl.utils.k8s_status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
 from kluctl.utils.utils import MyThreadPoolExecutor
@@ -88,10 +88,12 @@ class DeploymentCollection:
             for job in jobs:
                 job.result()
 
-            if not self.for_seal:
-                for d in self.deployments:
-                    d.prepare_kustomization_yaml()
-                    d.resolve_sealed_secrets()
+    def resolve_sealed_secrets(self):
+        if self.for_seal:
+            return
+
+        for d in self.deployments:
+            d.resolve_sealed_secrets()
 
     def build_kustomize_objects(self, k8s_cluster):
         logger.info("Building kustomize objects")
@@ -99,15 +101,15 @@ class DeploymentCollection:
         with MyThreadPoolExecutor() as executor:
             jobs = []
             for d in self.deployments:
-                jobs.append(executor.submit(d.build_objects))
+                jobs.append(executor.submit(d.build_kustomize))
             for job in jobs:
                 job.result()
+            jobs.clear()
 
-        if k8s_cluster:
             for d in self.deployments:
-                for o in d.objects:
-                    if should_remove_namespace(k8s_cluster, get_object_ref(o)):
-                        del o["metadata"]["namespace"]
+                jobs.append(executor.submit(d.postprocess_and_load_objects, k8s_cluster))
+            for job in jobs:
+                job.result()
 
     def update_remote_objects(self, k8s_cluster):
         logger.info("Updating remote objects")
@@ -120,25 +122,6 @@ class DeploymentCollection:
             self.remote_objects[get_object_ref(o)] = o
             self.add_api_warnings(get_object_ref(o), w)
 
-    def resolve_image_placeholders(self, k8s_cluster):
-        logger.info("Resolving image versions")
-
-        def do_resolve(o):
-            ref = get_object_ref(o)
-            remote_object = self.remote_objects.get(ref)
-            if remote_object is None and k8s_cluster is not None:
-                remote_object, warnings = k8s_cluster.get_single_object(ref)
-            self.images.resolve_placeholders(o, remote_object)
-
-        with MyThreadPoolExecutor(max_workers=8) as executor:
-            futures = []
-            for d in self.deployments:
-                for o in d.objects:
-                    f = executor.submit(do_resolve, o)
-                    futures.append(f)
-            for f in futures:
-                f.result()
-
     def forget_remote_objects(self, refs):
         for ref in refs:
             self.remote_objects.pop(ref, None)
@@ -148,13 +131,11 @@ class DeploymentCollection:
         by_ref = dict((get_object_ref(x), x) for x in flat)
         return by_ref
 
-    def prepare(self, k8s_cluster, only_render):
+    def prepare(self, k8s_cluster):
         self.render_deployments()
-        if only_render:
-            return
+        self.resolve_sealed_secrets()
         self.build_kustomize_objects(k8s_cluster)
         self.update_remote_objects(k8s_cluster)
-        self.resolve_image_placeholders(k8s_cluster)
 
     def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error):
         self.clear_errors_and_warnings()
