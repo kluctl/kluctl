@@ -179,8 +179,8 @@ def _clone_or_update_cache(url, cache_dir, do_update):
         if _is_mirror_remote(cache_dir):
             if do_update:
                 logger.info(f"Updating cache repo: url='{url}'")
-                g = Git(cache_dir)
-                g.remote("update")
+                with build_git_object(url, cache_dir) as (g, url):
+                    g.remote("update")
             return
 
         # remove old cache repo (it was a --bare repo in the past, but we want to use --mirror repos now)
