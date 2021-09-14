@@ -97,7 +97,7 @@ def helm_update_command(upgrade, commit, kwargs):
                     if commit:
                         msg = "Updated helm chart %s from %s to %s" % (dirpath, old_version, new_version)
                         logger.info("Committing: %s" % msg)
-                        g = Git(working_dir=kwargs["deployment"])
+                        g = Git(working_dir=kwargs["local_deployment"])
                         g.add(os.path.join(dirpath, "charts"))
                         g.add(path)
                         g.commit("-m", msg, os.path.join(dirpath, "charts"), path)
