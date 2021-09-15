@@ -37,3 +37,5 @@ changed by setting the `kluctl.io/hook-delete-policy` to a comma separated list 
 After each deployment/execution of the hooks that belong to a deployment stage (before/after deployment), kluctl
 waits for the hook resources to become "ready". Readiness depends on the resource kind, e.g. for a Job, kluctl would
 wait until it finishes successfully.
+
+It is possible to disable waiting for hook readiness by setting the annotation `kluctl.io/hook-wait` to "false".

@@ -4,6 +4,8 @@ from typing import List, Set, Optional
 
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref
+from kluctl.utils.utils import parse_bool
+
 
 @dataclasses.dataclass
 class Hook:
@@ -11,6 +13,7 @@ class Hook:
     hooks: Set[str]
     weight: int
     delete_policies: Set[str]
+    wait: bool
 
 class HooksUtil:
     def __init__(self, apply_util):
@@ -37,6 +40,8 @@ class HooksUtil:
                 return
             ref = get_object_ref(h.object)
             if self.apply_util.had_error(ref):
+                continue
+            if not h.wait:
                 continue
             wait_results[ref] = self.apply_util.wait_object(ref)
 
@@ -111,10 +116,16 @@ class HooksUtil:
             if p not in supported_kluctl_delete_policies:
                 self.apply_util.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % p)
 
+        try:
+            wait = parse_bool(get_dict_value(o, "metadata.annotations.kluctl\\.io/hook-wait", "true"), do_raise=True)
+        except ValueError as e:
+            self.apply_util.handle_error(get_object_ref(o), str(e))
+            wait = True
+
         if not hooks:
             return None
 
-        return Hook(object=o, hooks=hooks, weight=weight, delete_policies=delete_policy)
+        return Hook(object=o, hooks=hooks, weight=weight, delete_policies=delete_policy, wait=wait)
 
     def get_sorted_hooks_list(self, l) -> List[Hook]:
         ret = []
