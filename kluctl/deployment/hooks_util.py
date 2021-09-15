@@ -109,7 +109,7 @@ class HooksUtil:
 
         for p in delete_policy:
             if p not in supported_kluctl_delete_policies:
-                self.apply_util.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % h)
+                self.apply_util.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % p)
 
         if not hooks:
             return None
