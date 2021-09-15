@@ -217,10 +217,28 @@ class ApplyUtil:
             s = [x for x in s if x != ""]
             return s
 
+        supported_kluctl_hooks = {"pre-deploy", "post-deploy",
+                                  "pre-deploy-initial", "post-deploy-initial"}
+        supported_kluctl_delete_policies = {"before-hook-creation",
+                                            "hook-succeeded",
+                                            "hook-failed"}
+
+        # delete/rollback hooks are actually not supported, but we won't show warnings about that to not spam the user
+        supported_helm_hooks = {"pre-install", "post-install",
+                                "pre-upgrade", "post-upgrade",
+                                "pre-delete", "post-delete",
+                                "pre-rollback", "post-rollback"}
+
         hooks = get_list("metadata.annotations.kluctl\\.io/hook")
+        for h in hooks:
+            if h not in supported_kluctl_hooks:
+                self.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook '%s'" % h)
 
+        helm_hooks = get_list("metadata.annotations.helm\\.sh/hook")
+        for h in helm_hooks:
+            if h not in supported_helm_hooks:
+                self.deployment_collection.add_api_warnings("Unsupported helm.sh/hook '%s'" % h)
 
-        helm_hooks = get_dict_value(o, "metadata.annotations.helm\\.sh/hook", "").split(",")
         if "pre-install" in helm_hooks:
             hooks.append("pre-deploy-initial")
         if "pre-upgrade" in helm_hooks:
@@ -247,6 +265,10 @@ class ApplyUtil:
         if not delete_policy:
             delete_policy = ["before-hook-creation"]
         delete_policy = set(delete_policy)
+
+        for p in delete_policy:
+            if p not in supported_kluctl_delete_policies:
+                self.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % h)
 
         return hooks, weight, delete_policy
 
