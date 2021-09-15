@@ -136,7 +136,7 @@ class ApplyUtil:
             hook_util.run_hooks(d, "pre-deploy")
 
         for o in d.objects:
-            if hook_util.get_hooks(o)[0]:
+            if hook_util.get_hook(o) is not None:
                 continue
             self.apply_object(o)
 

@@ -1,5 +1,16 @@
+import dataclasses
+
+from typing import List, Set, Optional
+
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref
+
+@dataclasses.dataclass
+class Hook:
+    object: dict
+    hooks: Set[str]
+    weight: int
+    delete_policies: Set[str]
 
 class HooksUtil:
     def __init__(self, apply_util):
@@ -7,40 +18,40 @@ class HooksUtil:
 
     def run_hooks(self, d, hook):
         l = self.get_sorted_hooks_list(d.objects)
-        l = [x for x in l if hook in x[1]]
+        l = [x for x in l if hook in x.hooks]
 
-        for x, hooks, weight, delete_policy in l:
+        for h in l:
             if self.apply_util.abort_signal:
                 return
-            if "before-hook-creation" in delete_policy:
-                self.apply_util.delete_object(get_object_ref(x))
+            if "before-hook-creation" in h.delete_policies:
+                self.apply_util.delete_object(get_object_ref(h.object))
 
-        for x, hooks, weight, delete_policy in l:
+        for h in l:
             if self.apply_util.abort_signal:
                 return
-            self.apply_util.apply_object(x)
+            self.apply_util.apply_object(h.object)
 
         wait_results = {}
-        for x, hooks, weight, delete_policy in l:
+        for h in l:
             if self.apply_util.abort_signal:
                 return
-            ref = get_object_ref(x)
+            ref = get_object_ref(h.object)
             if self.apply_util.had_error(ref):
                 continue
             wait_results[ref] = self.apply_util.wait_object(ref)
 
-        for x, hooks, weight, delete_policy in reversed(l):
-            ref = get_object_ref(x)
+        for h in reversed(l):
+            ref = get_object_ref(h.object)
             if ref not in wait_results:
                 continue
             if wait_results[ref]:
-                if "hook-succeeded" in delete_policy:
+                if "hook-succeeded" in h.delete_policies:
                     self.apply_util.delete_object(ref)
             else:
-                if "hook-failed" in delete_policy:
+                if "hook-failed" in h.delete_policies:
                     self.apply_util.delete_object(ref)
 
-    def get_hooks(self, o):
+    def get_hook(self, o) -> Optional[Hook]:
         def get_list(path):
             s = get_dict_value(o, path, "")
             s = s.split(",")
@@ -100,12 +111,17 @@ class HooksUtil:
             if p not in supported_kluctl_delete_policies:
                 self.apply_util.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % h)
 
-        return hooks, weight, delete_policy
+        if not hooks:
+            return None
 
-    def get_sorted_hooks_list(self, l):
+        return Hook(object=o, hooks=hooks, weight=weight, delete_policies=delete_policy)
+
+    def get_sorted_hooks_list(self, l) -> List[Hook]:
         ret = []
         for x in l:
-            hooks, weight, delete_policy = self.get_hooks(x)
-            ret.append((x, hooks, weight, delete_policy))
-        ret.sort(key=lambda x: x[2])
+            h = self.get_hook(x)
+            if h is None:
+                continue
+            ret.append(h)
+        ret.sort(key=lambda x: x.weight)
         return ret
