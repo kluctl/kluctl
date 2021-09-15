@@ -365,15 +365,19 @@ class DeploymentCollection:
 
     def add_api_warnings(self, ref, warnings):
         for w in warnings:
-            logger.warning("%s: Warning while performing api call. message=%s" % (get_long_object_name_from_ref(ref), w))
-            self.api_warnings.add(DeployErrorItem(ref=ref, reason="api", message=w))
+            item = DeployErrorItem(ref=ref, reason="api", message=w)
+            if item not in self.api_warnings:
+                logger.warning("%s: Warning while performing api call. message=%s" % (get_long_object_name_from_ref(ref), w))
+                self.api_warnings.add(item)
 
     def add_api_error(self, ref, error):
         ref_str = ""
         if ref is not None:
             ref_str = "%s: " % get_long_object_name_from_ref(ref)
-        logger.error("%sError while performing api call. message=%s" % (ref_str, error))
-        self.api_errors.add(DeployErrorItem(ref=ref, reason="api", message=error))
+        item = DeployErrorItem(ref=ref, reason="api", message=error)
+        if item not in self.api_errors:
+            logger.error("%sError while performing api call. message=%s" % (ref_str, error))
+            self.api_errors.add(item)
 
     def clear_errors_and_warnings(self):
         self.api_errors = set()
