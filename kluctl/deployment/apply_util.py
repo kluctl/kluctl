@@ -5,8 +5,9 @@ import time
 from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError
 
+from kluctl.deployment.hooks_util import HooksUtil
 from kluctl.diff.managed_fields import remove_non_managed_fields2
-from kluctl.utils.dict_utils import get_dict_value, copy_dict, set_dict_value
+from kluctl.utils.dict_utils import get_dict_value, set_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref
 from kluctl.utils.k8s_status_validation import validate_object
 from kluctl.utils.utils import MyThreadPoolExecutor
@@ -120,41 +121,6 @@ class ApplyUtil:
                 logger.info("Waiting for for hook %s to get ready..." % get_long_object_name_from_ref(ref))
                 did_log = True
 
-    def run_hooks(self, d, hook):
-        l = self.get_sorted_hooks_list(d.objects)
-        l = [x for x in l if hook in x[1]]
-
-        for x, hooks, weight, delete_policy in l:
-            if self.abort_signal:
-                return
-            if "before-hook-creation" in delete_policy:
-                self.delete_object(get_object_ref(x))
-
-        for x, hooks, weight, delete_policy in l:
-            if self.abort_signal:
-                return
-            self.apply_object(x)
-
-        wait_results = {}
-        for x, hooks, weight, delete_policy in l:
-            if self.abort_signal:
-                return
-            ref = get_object_ref(x)
-            if self.had_error(ref):
-                continue
-            wait_results[ref] = self.wait_object(ref)
-
-        for x, hooks, weight, delete_policy in reversed(l):
-            ref = get_object_ref(x)
-            if ref not in wait_results:
-                continue
-            if wait_results[ref]:
-                if "hook-succeeded" in delete_policy:
-                    self.delete_object(ref)
-            else:
-                if "hook-failed" in delete_policy:
-                    self.delete_object(ref)
-
     def apply_kustomize_deployment(self, d):
         inital_deploy = True
         for o in d.objects:
@@ -162,20 +128,22 @@ class ApplyUtil:
                 inital_deploy = False
                 break
 
+        hook_util = HooksUtil(self)
+
         if inital_deploy:
-            self.run_hooks(d, "pre-deploy-initial")
+            hook_util.run_hooks(d, "pre-deploy-initial")
         else:
-            self.run_hooks(d, "pre-deploy")
+            hook_util.run_hooks(d, "pre-deploy")
 
         for o in d.objects:
-            if self.get_hooks(o)[0]:
+            if hook_util.get_hooks(o)[0]:
                 continue
             self.apply_object(o)
 
         if inital_deploy:
-            self.run_hooks(d, "post-deploy-initial")
+            hook_util.run_hooks(d, "post-deploy-initial")
         else:
-            self.run_hooks(d, "post-deploy")
+            hook_util.run_hooks(d, "post-deploy")
 
     def apply_deployments(self):
         logger.info("Running server-side apply for all objects%s", self.k8s_cluster.get_dry_run_suffix(self.dry_run))
@@ -209,73 +177,3 @@ class ApplyUtil:
                 futures.append(f)
 
             finish_futures()
-
-    def get_hooks(self, o):
-        def get_list(path):
-            s = get_dict_value(o, path, "")
-            s = s.split(",")
-            s = [x for x in s if x != ""]
-            return s
-
-        supported_kluctl_hooks = {"pre-deploy", "post-deploy",
-                                  "pre-deploy-initial", "post-deploy-initial"}
-        supported_kluctl_delete_policies = {"before-hook-creation",
-                                            "hook-succeeded",
-                                            "hook-failed"}
-
-        # delete/rollback hooks are actually not supported, but we won't show warnings about that to not spam the user
-        supported_helm_hooks = {"pre-install", "post-install",
-                                "pre-upgrade", "post-upgrade",
-                                "pre-delete", "post-delete",
-                                "pre-rollback", "post-rollback"}
-
-        hooks = get_list("metadata.annotations.kluctl\\.io/hook")
-        for h in hooks:
-            if h not in supported_kluctl_hooks:
-                self.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook '%s'" % h)
-
-        helm_hooks = get_list("metadata.annotations.helm\\.sh/hook")
-        for h in helm_hooks:
-            if h not in supported_helm_hooks:
-                self.deployment_collection.add_api_warnings("Unsupported helm.sh/hook '%s'" % h)
-
-        if "pre-install" in helm_hooks:
-            hooks.append("pre-deploy-initial")
-        if "pre-upgrade" in helm_hooks:
-            hooks.append("pre-deploy")
-        if "post-install" in helm_hooks:
-            hooks.append("post-deploy-initial")
-        if "post-upgrade" in helm_hooks:
-            hooks.append("post-deploy")
-        if "pre-delete" in helm_hooks:
-            hooks.append("pre-delete")
-        if "post-delete" in helm_hooks:
-            hooks.append("post-delete")
-        hooks = set(hooks)
-
-        weight = get_dict_value(o, "metadata.annotations.kluctl\\.io/hook-weight")
-        if weight is None:
-            weight = get_dict_value(o, "metadata.annotations.helm\\.sh/hook-weight")
-        if weight is None:
-            weight = "0"
-        weight = int(weight)
-
-        delete_policy = get_list("metadata.annotations.kluctl\\.io/hook-delete-policy")
-        delete_policy += get_list("metadata.annotations.helm\\.sh/hook-delete-policy")
-        if not delete_policy:
-            delete_policy = ["before-hook-creation"]
-        delete_policy = set(delete_policy)
-
-        for p in delete_policy:
-            if p not in supported_kluctl_delete_policies:
-                self.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % h)
-
-        return hooks, weight, delete_policy
-
-    def get_sorted_hooks_list(self, l):
-        ret = []
-        for x in l:
-            hooks, weight, delete_policy = self.get_hooks(x)
-            ret.append((x, hooks, weight, delete_policy))
-        ret.sort(key=lambda x: x[2])
-        return ret
