@@ -2,14 +2,11 @@ import hashlib
 import logging
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
-import threading
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
 from decimal import Decimal
-from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +44,13 @@ def duration(duration_string):  # example: '5d3h2m1s'
         elif character.isnumeric() or character == '.':
             prev_num.append(character)
     return timedelta(seconds=float(total_seconds))
+
+def parse_bool(s, do_raise=False):
+    if s.lower() in ["true", "1", "yes"]:
+        return True
+    if do_raise and s.lower() not in ["false", "0", "no"]:
+        raise ValueError("Invalid boolean value %s" % s)
+    return False
 
 def calc_dir_hash(dir):
     h = hashlib.sha256()

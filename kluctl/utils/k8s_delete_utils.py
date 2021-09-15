@@ -4,7 +4,7 @@ from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.k8s_object_utils import get_included_objects, get_label_from_object, get_object_ref, \
     get_long_object_name_from_ref, split_api_version, get_filtered_api_resources, \
     remove_api_version_from_ref, remove_namespace_from_ref_if_needed
-from kluctl.utils.utils import MyThreadPoolExecutor
+from kluctl.utils.utils import MyThreadPoolExecutor, parse_bool
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ def filter_objects_for_delete(k8s_cluster, objects, api_filter, inclusion, exclu
         if (group or "", x["kind"]) not in filtered_resources:
             return True
 
-        # exclude when explicitely requested
-        if get_dict_value(x, "metadata.annotations.kluctl\\.io/skip-delete", "false").lower() in ["true", "1", "yes"]:
+        # exclude when explicitly requested
+        if parse_bool(get_dict_value(x, "metadata.annotations.kluctl\\.io/skip-delete", "false")):
             return True
 
         # exclude objects which are owned by some other object
@@ -61,7 +61,7 @@ def filter_objects_for_delete(k8s_cluster, objects, api_filter, inclusion, exclu
             # TODO remove label based check
             if get_label_from_object(x, 'kluctl.io/skip_delete_if_tags', 'false') == 'true':
                 return True
-            if get_dict_value(x, "metadata.annotations.kluctl\\.io/skip-delete-if-tags", "false").lower() in ["true", "1", "yes"]:
+            if parse_bool(get_dict_value(x, "metadata.annotations.kluctl\\.io/skip-delete-if-tags", "false")):
                 return True
 
         return False
