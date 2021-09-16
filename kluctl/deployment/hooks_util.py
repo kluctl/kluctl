@@ -32,6 +32,9 @@ class HooksUtil:
         for h in l:
             if self.apply_util.abort_signal:
                 return
+            if (self.apply_util.dry_run or self.apply_util.k8s_cluster.dry_run) and "before-hook-creation" in h.delete_policies:
+                self.apply_util.handle_result(h.object, [])
+                continue
             self.apply_util.apply_object(h.object)
 
         wait_results = {}
