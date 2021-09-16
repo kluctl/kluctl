@@ -74,8 +74,6 @@ definitions:
       targetConfig:
         type: object
         additionalProperties: false
-        required:
-          - project
         properties:
           project:
             $ref: "#/definitions/git_project"

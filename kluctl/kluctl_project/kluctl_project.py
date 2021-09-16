@@ -254,13 +254,14 @@ class KluctlProject:
                 if target_config is None:
                     continue
 
-                url = parse_git_project(target_config["project"], None).url
-                if url not in self.git_cache_up_to_date:
-                    self.git_cache_up_to_date[url] = True
-                    f = executor.submit(ensure_git_cache_updated, url)
-                    futures.append(f)
-                if url not in self.refs_for_urls:
-                    self.refs_for_urls[url] = executor.submit(git_ls_remote, url)
+                if "project" in target_config:
+                    url = parse_git_project(target_config["project"], None).url
+                    if url not in self.git_cache_up_to_date:
+                        self.git_cache_up_to_date[url] = True
+                        f = executor.submit(ensure_git_cache_updated, url)
+                        futures.append(f)
+                    if url not in self.refs_for_urls:
+                        self.refs_for_urls[url] = executor.submit(git_ls_remote, url)
 
         for f in futures:
             f.result()
@@ -313,12 +314,26 @@ class KluctlProject:
 
     def build_dynamic_targets(self, base_target):
         target_config = base_target["targetConfig"]
+        if "project" in target_config:
+            return self.build_dynamic_targets_external(base_target)
+        else:
+            return self.build_dynamic_targets_simple(base_target)
+
+    def build_dynamic_targets_simple(self, base_target):
+        target_config = base_target["targetConfig"]
+        if "ref" in target_config or "refPattern" in target_config:
+            raise InvalidKluctlProjectConfig("'ref' and/or 'refPattern' are not allowed for non-external dynamic targets")
+
+        dynamic_targets = [self.build_dynamic_target(base_target, self.kluctl_project_dir)]
+        return dynamic_targets
+
+    def build_dynamic_targets_external(self, base_target):
+        target_config = base_target["targetConfig"]
         git_project = parse_git_project(target_config["project"], None)
         refs = self.refs_for_urls[git_project.url]
 
         target_config_ref = target_config.get("ref")
         ref_pattern = target_config.get("refPattern")
-        config_file = target_config.get("file", "target-config.yml")
 
         if target_config_ref is not None and ref_pattern is not None:
             raise InvalidKluctlProjectConfig("'refPattern' and 'ref' can't be specified together")
@@ -357,35 +372,41 @@ class KluctlProject:
             }, None, False)
             involved_repo_refs[ref] = info.commit
 
-            config_path = os.path.join(info.dir, config_file)
-            if not os.path.exists(config_path):
-                logger.info("Ref %s has no target config file with name %s" % (ref, config_file))
-                continue
-
             try:
-                target_config_file = self.load_target_config(config_path)
-                target = copy_dict(base_target)
+                target = self.build_dynamic_target(base_target, info.dir)
                 target["targetConfig"]["ref"] = ref
                 target["targetConfig"]["defaultBranch"] = default_branch
-
-                target.setdefault("args", {})
-                # merge args
-                for arg_name, value in target_config_file.get("args", {}).items():
-                    self.check_dynamic_arg(target, arg_name, value)
-                    target["args"][arg_name] = value
-
-                target.setdefault("images", [])
-                # We prepend the dynamic images to ensure they get higher priority later
-                target["images"] = target_config_file.get("images", []) + target["images"]
-
                 dynamic_targets.append(target)
             except Exception as e:
                 # Only fail if non-dynamic targets fail to load
                 if target_config_ref is not None:
                     raise e
                 logger.warning("Failed to load dynamic target config for project. Error=%s" % (str(e)))
-        self.add_involved_repo(git_project.url, ref_pattern, involved_repo_refs)
+        if git_project is not None:
+            self.add_involved_repo(git_project.url, ref_pattern, involved_repo_refs)
         return dynamic_targets
+
+    def build_dynamic_target(self, base_target, dir):
+        target_config = base_target["targetConfig"]
+        config_file = target_config.get("file", "target-config.yml")
+        config_path = os.path.join(dir, config_file)
+        if not os.path.exists(config_path):
+            raise InvalidKluctlProjectConfig("No target config file with name %s found in target" % config_file)
+
+        target_config_file = self.load_target_config(config_path)
+        target = copy_dict(base_target)
+
+        target.setdefault("args", {})
+        # merge args
+        for arg_name, value in target_config_file.get("args", {}).items():
+            self.check_dynamic_arg(target, arg_name, value)
+            target["args"][arg_name] = value
+
+        target.setdefault("images", [])
+        # We prepend the dynamic images to ensure they get higher priority later
+        target["images"] = target_config_file.get("images", []) + target["images"]
+
+        return target
 
     def load_target_config(self, path):
         target_config = yaml_load_file(path)

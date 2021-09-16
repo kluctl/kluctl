@@ -214,7 +214,7 @@ Please note that a single entry in `target` might end up with multiple dynamic t
 made unique between these dynamic targets. This can be achieved by using templating in the `name` field. As an example,
 `{{ target.targetConfig.ref }}` can be used to set the target name to the branch name of the dynamic target.
 
-Dynamic target have the following form:
+Dynamic targets have the following form:
 ```yaml
 targets:
 ...
@@ -229,6 +229,7 @@ targets:
         url: <git-url>
       ref: <ref-name>
       refPattern: <regex-pattern>
+      file: <config-file>
     sealingConfig:
       dynamicSealing: <false_or_true>
       secretSets:
@@ -254,9 +255,15 @@ targets:
   * `refPattern` specifies a regex pattern to use when looking for candidate branches and tags. If this is specified,
     using `ref` is forbidden. This will result in multiple dynamic targets. Each dynamic target will have `ref` set to
     the actual branch name it belong to. This allows using of `{{ target.targetConfig.ref }}` in all other target fields.
+  * `file` specifies the config file name to read externalized target config from.
 * `dynamicSealing` in `sealingConfig` allows to disable sealing per dynamic target and instead reverts to sealing only once.
   See [A note on sealing](#a-note-on-sealing) for details.
 * all other fields are the same as for normal targets
+
+### Simple dynamic targets
+
+A simplified form of dynamic targets is to store target config inside the same directory/project as the `.kluctl.yml`.
+This can be done by omitting `project`, `ref` and `refPattern` from `targetConfig` and only specify `file`.
 
 ### A note on sealing
 
