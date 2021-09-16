@@ -246,7 +246,7 @@ class KustomizeDeployment(object):
         self.objects = yaml_load_file(self.get_rendered_yamls_path(), all=True)
         for y in self.objects:
             ref = get_object_ref(y)
-            if should_remove_namespace(k8s_cluster, ref):
+            if k8s_cluster is not None and should_remove_namespace(k8s_cluster, ref):
                 del y["metadata"]["namespace"]
                 ref = get_object_ref(y)
 
@@ -261,7 +261,10 @@ class KustomizeDeployment(object):
             # Resolve image placeholders
             s = str(y)
             if any(p in s for p in self.deployment_collection.images.placeholders.keys()):
-                remote_object, warnings = k8s_cluster.get_single_object(ref)
+                if k8s_cluster is not None:
+                    remote_object, warnings = k8s_cluster.get_single_object(ref)
+                else:
+                    remote_object = None
                 self.deployment_collection.images.resolve_placeholders(y, remote_object)
 
         # Need to write it back to disk in case it is needed externally

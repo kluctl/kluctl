@@ -112,6 +112,9 @@ class DeploymentCollection:
                 job.result()
 
     def update_remote_objects(self, k8s_cluster):
+        if k8s_cluster is None:
+            return
+
         logger.info("Updating remote objects")
         refs = set()
         for ref in self.local_objects_by_ref().keys():
