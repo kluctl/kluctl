@@ -127,6 +127,9 @@ def validate_command_stub(obj, **kwargs):
                  help="Also output images list to given FILE. This output the same result as from the "
                       "list-images command.",
                  type=click.Path(dir_okay=False))
+@optgroup.option("--output-single-yaml",
+                 help="Also write all resources into a single yaml file.",
+                 type=click.Path(dir_okay=False))
 @optgroup.option("--offline",
                  help="Go offline, meaning that kubernetes and registries are not asked for image versions",
                  is_flag=True)

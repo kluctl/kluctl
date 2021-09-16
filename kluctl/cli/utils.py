@@ -20,7 +20,7 @@ from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_cluster_base import load_cluster_config, k8s_cluster_base
 from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
 from kluctl.utils.utils import get_tmp_base_dir
-from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump
+from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump, yaml_dump_all
 
 
 def build_jinja_vars(cluster_vars):
@@ -227,9 +227,12 @@ def output_validate_result(output, result):
         s = build_validate_result(result, format)
         output_result(path, s)
 
-def output_yaml_result(output, result):
+def output_yaml_result(output, result, all=False):
     output = output or [None]
-    s = yaml_dump(result)
+    if all:
+        s = yaml_dump_all(result)
+    else:
+        s = yaml_dump(result)
     for o in output:
         output_result(o, s)
 
