@@ -399,6 +399,7 @@ In addition, the following arguments are available:
                                   directory is used.
     --output-images FILE          Also output images list to given FILE. This output the same result as from the list-
                                   images command.
+    --output-single-yaml FILE     Also write all resources into a single yaml file.
     --offline                     Go offline, meaning that kubernetes and registries are not asked for image versions
 ```
 <!-- END SECTION -->
