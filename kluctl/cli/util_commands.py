@@ -105,7 +105,7 @@ def helm_update_command(upgrade, commit, kwargs):
 def check_image_updates(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
         cmd_ctx.images.raise_on_error = False
-        cmd_ctx.deployment_collection.prepare(cmd_ctx.k8s_cluster, False)
+        cmd_ctx.deployment_collection.prepare(cmd_ctx.k8s_cluster)
         rendered_images = cmd_ctx.deployment_collection.find_rendered_images()
 
     prefix_pattern = re.compile(r"^([a-zA-Z]+[a-zA-Z-_.]*)")
