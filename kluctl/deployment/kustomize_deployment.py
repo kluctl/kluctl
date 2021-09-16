@@ -247,8 +247,8 @@ class KustomizeDeployment(object):
         for y in self.objects:
             ref = get_object_ref(y)
             if should_remove_namespace(k8s_cluster, ref):
-                ref = get_object_ref(y)
                 del y["metadata"]["namespace"]
+                ref = get_object_ref(y)
 
             # Set common labels/annotations
             labels = y.setdefault("metadata", {}).setdefault("labels") or {}
