@@ -67,14 +67,22 @@ def assert_readiness(kind_cluster: KindCluster, namespace, resource, timeout):
 
 def assert_resource_exists(kind_cluster: KindCluster, namespace, resource):
     try:
-        y = kind_cluster.kubectl("-n", namespace, "get", resource, "-o", "yaml", stderr=subprocess.PIPE)
+        args = []
+        if namespace is not None:
+            args += ["-n", namespace]
+        args += ["get", resource, "-o", "yaml"]
+        y = kind_cluster.kubectl(*args, stderr=subprocess.PIPE)
         return yaml_load(y)
     except subprocess.CalledProcessError as e:
         assert False, e.stderr
 
 def assert_resource_not_exists(kind_cluster: KindCluster, namespace, resource):
     try:
-        kind_cluster.kubectl("-n", namespace, "get", resource, stderr=subprocess.PIPE)
+        args = []
+        if namespace is not None:
+            args += ["-n", namespace]
+        args += ["get", resource]
+        kind_cluster.kubectl(*args, stderr=subprocess.PIPE)
         assert False, "'kubectl get' should not have succeeded"
     except subprocess.CalledProcessError as e:
         assert "(NotFound)" in e.stderr, e.stderr
