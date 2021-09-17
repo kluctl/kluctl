@@ -1,4 +1,5 @@
 from kluctl.e2e.kluctl_test_project import KluctlTestProject
+from kluctl.utils.yaml_utils import yaml_dump
 
 busybox_pod = """
 apiVersion: apps/v1
@@ -32,4 +33,19 @@ def add_busybox_deployment(p: KluctlTestProject, dir, name, namespace="default")
         "busybox.yml": busybox_pod.format(namespace=namespace, name=name)
     }
 
+    p.add_kustomize_deployment(dir, resources)
+
+def add_configmap_deployment(p: KluctlTestProject, dir, name, namespace="default", data={}):
+    y = {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": name,
+            "namespace": namespace,
+        },
+        "data": data,
+    }
+    resources = {
+        "configmap.yml": yaml_dump(y),
+    }
     p.add_kustomize_deployment(dir, resources)

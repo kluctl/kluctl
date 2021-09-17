@@ -3,19 +3,8 @@ from pytest_kind import KindCluster
 from kluctl.e2e.conftest import assert_readiness, recreate_namespace
 from kluctl.e2e.conftest import assert_resource_not_exists, assert_resource_exists
 from kluctl.e2e.kluctl_test_project import KluctlTestProject
-from kluctl.e2e.kluctl_test_project_helpers import add_busybox_deployment
+from kluctl.e2e.kluctl_test_project_helpers import add_busybox_deployment, add_configmap_deployment
 from kluctl.utils.dict_utils import get_dict_value
-
-config_map = """
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: "cm"
-  namespace: {namespace}
-data:
-  cluster_var: {{{{ cluster.cluster_var }}}}
-  target_var: {{{{ args.target_var }}}}
-"""
 
 def do_test_project(kind_cluster, namespace, **kwargs):
     recreate_namespace(kind_cluster, namespace)
@@ -28,8 +17,13 @@ def do_test_project(kind_cluster, namespace, **kwargs):
         p.kluctl("deploy", "--yes", "-t", "test")
         assert_readiness(kind_cluster, namespace, "Deployment/busybox", 5 * 60)
 
+        cm_data = {
+            "cluster_var": "{{ cluster.cluster_var }}",
+            "target_var": "{{ args.target_var }}"
+        }
+
         assert_resource_not_exists(kind_cluster, namespace, "ConfigMap/cm")
-        p.add_kustomize_deployment("cm", resources={"cm.yml": config_map.format(namespace=namespace)})
+        add_configmap_deployment(p, "cm", "cm", namespace=namespace, data=cm_data)
         p.kluctl("deploy", "--yes", "-t", "test")
         y = assert_resource_exists(kind_cluster, namespace, "ConfigMap/cm")
         assert get_dict_value(y, "data.cluster_var") == "cluster_value1"
