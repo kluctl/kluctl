@@ -40,7 +40,7 @@ def test_command_bootstrap_upgrade(module_kind_cluster):
         k["resources"].append("dummy.yml")
         yaml_save_file(k, os.path.join(tmpdir, "sealed-secrets/kustomization.yml"))
 
-        with KluctlTestProject(local_deployment=tmpdir) as p:
+        with KluctlTestProject("bootstrap", local_deployment=tmpdir) as p:
             p.update_kind_cluster(module_kind_cluster)
             p.update_target("test", "module")
             p.kluctl("bootstrap", "--yes", "--cluster", "module")
@@ -48,7 +48,7 @@ def test_command_bootstrap_upgrade(module_kind_cluster):
 
 @pytest.mark.dependency(depends=["test_command_bootstrap_upgrade"])
 def test_command_bootstrap_purge(module_kind_cluster):
-    with KluctlTestProject() as p:
+    with KluctlTestProject("bootstrap") as p:
         p.update_kind_cluster(module_kind_cluster)
         p.update_target("test", "module")
         p.kluctl("bootstrap", "--yes", "--cluster", "module")

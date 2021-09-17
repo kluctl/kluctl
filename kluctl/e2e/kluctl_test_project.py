@@ -8,16 +8,17 @@ from tempfile import TemporaryDirectory
 from git import Git
 from pytest_kind import KindCluster
 
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, set_dict_value
 from kluctl.utils.yaml_utils import yaml_save_file, yaml_load_file
 
 logger = logging.getLogger(__name__)
 
 
 class KluctlTestProject:
-    def __init__(self, kluctl_project_external=False,
+    def __init__(self, project_name, kluctl_project_external=False,
                  clusters_external=False, deployment_external=False, sealed_secrets_external=False,
                  local_clusters=None, local_deployment=None, local_sealed_secrets=None):
+        self.project_name = project_name
         self.kluctl_project_external = kluctl_project_external
         self.clusters_external = clusters_external
         self.deployment_external = deployment_external
@@ -115,7 +116,12 @@ class KluctlTestProject:
         self.update_yaml(os.path.join(self.get_kluctl_project_dir(), ".kluctl.yml"), update)
 
     def update_deployment_yaml(self, dir, update):
-        self.update_yaml(os.path.join(self.get_deployment_dir(), dir, "deployment.yml"), update)
+        def do_update(y):
+            if dir == ".":
+                set_dict_value(y, "commonLabels.project_name", self.project_name)
+                set_dict_value(y, "deleteByLabels.project_name", self.project_name)
+            return y
+        self.update_yaml(os.path.join(self.get_deployment_dir(), dir, "deployment.yml"), do_update)
 
     def copy_deployment(self, source):
         shutil.copytree(source, self.get_deployment_dir())

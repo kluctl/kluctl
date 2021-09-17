@@ -9,7 +9,7 @@ from kluctl.utils.dict_utils import get_dict_value
 def do_test_project(kind_cluster, namespace, **kwargs):
     recreate_namespace(kind_cluster, namespace)
 
-    with KluctlTestProject(**kwargs) as p:
+    with KluctlTestProject("project-%s" % namespace, **kwargs) as p:
         p.update_kind_cluster(kind_cluster, {"cluster_var": "cluster_value1"})
         p.update_target("test", kind_cluster.name, {"target_var": "target_value1"})
         add_busybox_deployment(p, "busybox", "busybox", namespace=namespace)

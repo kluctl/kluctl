@@ -99,6 +99,9 @@ class DeploymentProject(object):
                 # enable/disable single deployments via included/excluded tags
                 c['tags'] = [os.path.basename(c['path'])]
 
+        if self.get_common_labels() == {} or self.get_common_labels() == {}:
+            raise CommandError("No commonLabels/deleteByLabels in root deployment. This is not allowed")
+
     def check_required_args(self):
         # First try to load the config without templating to avoid getting errors while rendering because required
         # args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
