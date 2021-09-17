@@ -9,6 +9,7 @@ from git import Git
 from pytest_kind import KindCluster
 
 from kluctl.utils.dict_utils import copy_dict, set_dict_value
+from kluctl.utils.run_helper import run_helper
 from kluctl.utils.yaml_utils import yaml_save_file, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -232,7 +233,7 @@ class KluctlTestProject:
         else:
             return self.get_kluctl_project_dir()
 
-    def kluctl(self, *args: str, **kwargs):
+    def kluctl(self, *args: str, check_rc=True, **kwargs):
         kluctl_path = os.path.join(os.path.dirname(__file__), "..", "..", "cli.py")
         args2 = [kluctl_path]
         args2 += args
@@ -258,10 +259,10 @@ class KluctlTestProject:
 
         logger.info("Running kluctl: %s" % " ".join(args2[1:]))
 
-        return subprocess.check_output(
-            args2,
-            cwd=cwd,
-            env=env,
-            encoding="utf-8",
-            **kwargs,
-        )
+        def do_log(lines):
+            for l in lines:
+                logger.info(l)
+
+        rc, stdout, stderr = run_helper(args2, cwd=cwd, env=env, stdout_func=do_log, stderr_func=do_log, line_mode=True, return_std=True)
+        assert not check_rc or rc == 0, "rc=%d" % rc
+        return rc, stdout, stderr
