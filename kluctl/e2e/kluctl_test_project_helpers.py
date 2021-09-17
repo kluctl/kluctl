@@ -29,11 +29,21 @@ spec:
 """
 
 def add_busybox_deployment(p: KluctlTestProject, dir, name, namespace="default"):
-    resources = {
+    p.add_kustomize_deployment(dir, {
         "busybox.yml": busybox_pod.format(namespace=namespace, name=name)
-    }
+    })
 
-    p.add_kustomize_deployment(dir, resources)
+def add_namespace_deployment(p: KluctlTestProject, dir, name):
+    y = {
+        "apiVersion": "v1",
+        "kind": "Namespace",
+        "metadata": {
+            "name": name,
+        },
+    }
+    p.add_kustomize_deployment(dir, {
+        "namespace.yml": yaml_dump(y),
+    })
 
 def add_configmap_deployment(p: KluctlTestProject, dir, name, namespace="default", data={}):
     y = {
@@ -45,7 +55,6 @@ def add_configmap_deployment(p: KluctlTestProject, dir, name, namespace="default
         },
         "data": data,
     }
-    resources = {
+    p.add_kustomize_deployment(dir, {
         "configmap.yml": yaml_dump(y),
-    }
-    p.add_kustomize_deployment(dir, resources)
+    })
