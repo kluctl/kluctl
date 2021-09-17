@@ -78,12 +78,12 @@ class HooksUtil:
                                 "pre-delete", "post-delete",
                                 "pre-rollback", "post-rollback"}
 
-        hooks = get_list("metadata.annotations.kluctl\\.io/hook")
+        hooks = get_list('metadata.annotations."kluctl.io/hook"')
         for h in hooks:
             if h not in supported_kluctl_hooks:
                 self.apply_util.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook '%s'" % h)
 
-        helm_hooks = get_list("metadata.annotations.helm\\.sh/hook")
+        helm_hooks = get_list('metadata.annotations."helm.sh/hook"')
         for h in helm_hooks:
             if h not in supported_helm_hooks:
                 self.apply_util.deployment_collection.add_api_warnings(get_object_ref(o), "Unsupported helm.sh/hook '%s'" % h)
@@ -102,15 +102,15 @@ class HooksUtil:
             hooks.append("post-delete")
         hooks = set(hooks)
 
-        weight = get_dict_value(o, "metadata.annotations.kluctl\\.io/hook-weight")
+        weight = get_dict_value(o, 'metadata.annotations."kluctl.io/hook-weight"')
         if weight is None:
-            weight = get_dict_value(o, "metadata.annotations.helm\\.sh/hook-weight")
+            weight = get_dict_value(o, 'metadata.annotations."helm.sh/hook-weight"')
         if weight is None:
             weight = "0"
         weight = int(weight)
 
-        delete_policy = get_list("metadata.annotations.kluctl\\.io/hook-delete-policy")
-        delete_policy += get_list("metadata.annotations.helm\\.sh/hook-delete-policy")
+        delete_policy = get_list('metadata.annotations."kluctl.io/hook-delete-policy"')
+        delete_policy += get_list('metadata.annotations."helm.sh/hook-delete-policy"')
         if not delete_policy:
             delete_policy = ["before-hook-creation"]
         delete_policy = set(delete_policy)
@@ -120,7 +120,7 @@ class HooksUtil:
                 self.apply_util.handle_error(get_object_ref(o), "Unsupported kluctl.io/hook-delete-policy '%s'" % p)
 
         try:
-            wait = parse_bool(get_dict_value(o, "metadata.annotations.kluctl\\.io/hook-wait", "true"), do_raise=True)
+            wait = parse_bool(get_dict_value(o, 'metadata.annotations."kluctl.io/hook-wait"', "true"), do_raise=True)
         except ValueError as e:
             self.apply_util.handle_error(get_object_ref(o), str(e))
             wait = True

@@ -1,7 +1,5 @@
-import fnmatch
-
 from kluctl.utils.dict_nav_utils import del_if_exists, set_if_not_exists, del_if_falsy, del_matching_path
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_object_utils import split_api_version
 
 
@@ -58,7 +56,7 @@ def normalize_metadata(k8s_cluster, o):
 
     # We don't care about managedFields when diffing (they just produce noise)
     del_if_exists(m, 'managedFields')
-    del_if_exists(m, 'annotations.kubectl\\.kubernetes\\.io/last-applied-configuration')
+    del_if_exists(m, 'annotations."kubectl.kubernetes.io/last-applied-configuration"')
 
     # We don't want to see this in diffs
     del_if_exists(m, 'creationTimestamp')

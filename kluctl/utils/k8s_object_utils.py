@@ -114,7 +114,7 @@ def get_included_objects(k8s_cluster, verbs, labels, inclusion, exclude_if_not_i
         inclusion_values = get_tags_from_object(r)
         inclusion_values = [("tag", tag) for tag in inclusion_values]
 
-        kustomize_dir = get_dict_value(r, "metadata.annotations.kluctl\\.io/kustomize_dir", None)
+        kustomize_dir = get_dict_value(r, 'metadata.annotations."kluctl.io/kustomize_dir"', None)
         if kustomize_dir is not None:
             inclusion_values.append(("kustomize_dir", kustomize_dir))
 

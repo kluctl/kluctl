@@ -1,61 +1,35 @@
 import fnmatch
+import threading
 from uuid import uuid4
+
+from jsonpath_ng import parse, JSONPath
 
 _dummy = str(uuid4())
 
-def nav_dict(d, k):
-    if isinstance(k, str):
-        if "\\." in k:
-            k = k.replace("\\.", _dummy)
-            k = k.split(".")
-            k = [x.replace(_dummy, ".") for x in k]
-        else:
-            k = k.split(".")
-    elif not isinstance(k, list):
-        raise ValueError("k must be a list and not %s" % type(k).__name__)
+json_path_cache = {}
+json_path_cache_mutex = threading.Lock()
 
-    for i in range(len(k)):
-        if d is None:
-            return None, k[i], False
-        if isinstance(d, dict):
-            if k[i] not in d:
-                return d, k[i], False
-            if i == len(k) - 1:
-                return d, k[i], True
-            else:
-                d = d[k[i]]
-        elif is_iterable(d):
-            j = int(k[i])
-            if j < 0 or j >= len(d):
-                return d, j, False
-            if i == len(k) - 1:
-                return d, j, True
-            else:
-                d = d[j]
-        else:
-            return d, None, False
-
+def parse_json_path(p) -> JSONPath:
+    with json_path_cache_mutex:
+        if p in json_path_cache:
+            return json_path_cache[p]
+        pp = parse(p)
+        json_path_cache[p] = pp
+        return pp
 
 def del_if_exists(d, k):
-    d, k, e = nav_dict(d, k)
-    if not e:
-        return
-    del d[k]
-
+    p = parse_json_path(k)
+    p.filter(lambda x: True, d)
 
 def set_if_not_exists(d, k, v):
-    d, k, e = nav_dict(d, k)
-    if e:
-        return
-    d[k] = v
-
+    p = parse_json_path(k)
+    f = p.find(d)
+    if not f:
+        p.update_or_create(d, v)
 
 def del_if_falsy(d, k):
-    d, k, e = nav_dict(d, k)
-    if not e:
-        return
-    if not d[k]:
-        del d[k]
+    p = parse_json_path(k)
+    p.filter(lambda x: not x, d)
 
 def is_iterable(obj):
     if isinstance(obj, list):
@@ -94,7 +68,5 @@ def object_iterator(o):
                 stack.append((v, p + [str(i)]))
 
 def del_matching_path(o, path):
-    for _, p in list(object_iterator(o)):
-        if fnmatch.fnmatch(".".join(p), path):
-            p2 = [x.replace(".", "\\.") for x in p]
-            del_if_exists(o, ".".join(p2))
+    p = parse_json_path(path)
+    p.filter(lambda x: True, o)

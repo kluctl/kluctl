@@ -8,7 +8,7 @@ from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, render_str
 from kluctl.utils.dict_utils import merge_dict, copy_dict, \
-    set_default_value, get_dict_value
+    set_dict_default_value, get_dict_value
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -82,14 +82,14 @@ class DeploymentProject(object):
         if self.conf is None:
             self.conf = {}
 
-        set_default_value(self.conf, 'vars', [])
-        set_default_value(self.conf, 'kustomizeDirs', [])
-        set_default_value(self.conf, 'includes', [])
-        set_default_value(self.conf, 'commonLabels', {})
-        set_default_value(self.conf, 'deleteByLabels', {})
-        set_default_value(self.conf, 'overrideNamespace', None)
-        set_default_value(self.conf, 'tags', [])
-        set_default_value(self.conf, 'templateExcludes', [])
+        set_dict_default_value(self.conf, 'vars', [])
+        set_dict_default_value(self.conf, 'kustomizeDirs', [])
+        set_dict_default_value(self.conf, 'includes', [])
+        set_dict_default_value(self.conf, 'commonLabels', {})
+        set_dict_default_value(self.conf, 'deleteByLabels', {})
+        set_dict_default_value(self.conf, 'overrideNamespace', None)
+        set_dict_default_value(self.conf, 'tags', [])
+        set_dict_default_value(self.conf, 'templateExcludes', [])
 
         self.jinja_vars = self.load_jinja_vars_list(self.conf['vars'], self.jinja_vars)
 
@@ -205,15 +205,15 @@ class DeploymentProject(object):
             ret += d.conf.get("ignoreForDiff", [])
         if ignore_tags:
             ret.append({
-                'fieldPath': 'metadata.labels.kluctl.io/tag-*',
+                'fieldPath': 'metadata.labels["kluctl.io/tag-*"]',
             })
         if ignore_labels:
             ret.append({
-                'fieldPath': 'metadata.labels.*',
+                'fieldPath': 'metadata.labels[*]',
             })
         if ignore_annotations:
             ret.append({
-                'fieldPath': 'metadata.annotations.*',
+                'fieldPath': 'metadata.annotations[*]',
             })
         return ret
 

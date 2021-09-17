@@ -26,7 +26,7 @@ def bootstrap_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
         existing, warnings = cmd_ctx.k8s_cluster.get_single_object(ObjectRef("apiextensions.k8s.io/v1", "CustomResourceDefinition", "sealedsecrets.bitnami.com"))
         if existing:
-            if not kwargs["yes"] and get_dict_value(existing, "metadata.labels.kluctl\\.io/component") != "bootstrap":
+            if not kwargs["yes"] and get_dict_value(existing, 'metadata.labels."kluctl.io/component"') != "bootstrap":
                 click.confirm("It looks like you're trying to bootstrap a cluster that already has the sealed-secrets "
                               "deployed but not managed by kluctl. Do you really want to continue bootrapping?",
                               err=True, abort=True)

@@ -76,8 +76,8 @@ class ApplyUtil:
                     self.handle_error(ref, self.k8s_cluster.get_status_message(e))
                     return
                 resource_version = get_dict_value(remote_object, "metadata.resourceVersion")
-                x2 = set_dict_value(x, "metadata.resourceVersion", get_dict_value(remote_object, "metadata.resourceVersion"), do_clone=True)
-                r, patch_warnings = self.k8s_cluster.replace_object(x2, force_dry_run=self.dry_run, resource_version=resource_version)
+                x2 = set_dict_value(x, "metadata.resourceVersion", resource_version, do_clone=True)
+                r, patch_warnings = self.k8s_cluster.replace_object(x2, force_dry_run=self.dry_run)
                 self.handle_result(r, patch_warnings)
             except ApiException as e2:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e2))

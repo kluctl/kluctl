@@ -1,4 +1,4 @@
-from kluctl.utils.dict_nav_utils import nav_dict, is_iterable
+from kluctl.utils.dict_nav_utils import is_iterable, parse_json_path
 
 
 def copy_primitive_value(v):
@@ -33,21 +33,29 @@ def merge_dict(a, b, clone=True):
             a[key] = b[key]
     return a
 
-def set_default_value(d, n, default):
-    if n not in d or d[n] is None:
-        d[n] = default
+def set_dict_default_value(d, path, default):
+    p = parse_json_path(path)
+    f = p.find(d)
+
+    if len(f) > 1:
+        raise Exception("Only simple jsonpath supported in set_dict_default_value")
+    if len(f) == 0 or f[0].value is None:
+        p.update_or_create(d, default)
 
 def get_dict_value(y, path, default=None):
-    d, k, found = nav_dict(y, path)
-    if not found:
+    p = parse_json_path(path)
+    f = p.find(y)
+    if len(f) > 1:
+        raise Exception("Only simple jsonpath supported in get_dict_value")
+    if len(f) == 0:
         return default
-    return d[k]
+    return f[0].value
 
 def set_dict_value(y, path, value, do_clone=False):
     if do_clone:
         y = copy_dict(y)
-    d, k, found = nav_dict(y, path)
-    d[k] = value
+    p = parse_json_path(path)
+    p.update_or_create(y, value)
     return y
 
 def is_empty(o):
