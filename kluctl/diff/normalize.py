@@ -78,9 +78,10 @@ def normalize_misc(o):
 
 # Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
 def normalize_object(k8s_cluster, o, ignore_for_diffs):
-    ns = o['metadata'].get('namespace')
+    group, version = split_api_version(o["apiVersion"])
     kind = o['kind']
-    name = o['metadata']['name']
+    ns = get_dict_value(o, "metadata.namespace")
+    name = get_dict_value(o, "metadata.name")
 
     o = copy_dict(o)
     normalize_metadata(k8s_cluster, o)
@@ -93,20 +94,21 @@ def normalize_object(k8s_cluster, o, ignore_for_diffs):
         normalize_service_account(o)
 
     def check_match(v, m):
-        if v is None:
+        if v is None or m is None:
             return True
-        if isinstance(m, list):
-            return any(fnmatch.fnmatch(v, x) for x in m)
-        return fnmatch.fnmatch(v, m)
+        return v == m
 
     for ifd in ignore_for_diffs:
-        ns2 = ifd.get('namespace', '*')
-        kind2 = ifd.get('kind', '*')
-        name2 = ifd.get('name', '*')
+        group2 = ifd.get('group')
+        kind2 = ifd.get('kind')
+        ns2 = ifd.get('namespace')
+        name2 = ifd.get('name')
         field_path = ifd.get('fieldPath')
-        if not check_match(ns, ns2):
+        if not check_match(group, group2):
             continue
         if not check_match(kind, kind2):
+            continue
+        if not check_match(ns, ns2):
             continue
         if not check_match(name, name2):
             continue

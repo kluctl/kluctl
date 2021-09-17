@@ -255,6 +255,24 @@ that includes Go templates, which will in most cases make Jinja2 templating fail
 
 ### ignoreForDiff
 
+A list of objects and fields to ignore while performing diffs. Consider the following example:
+
+```yaml
+kustomizeDirs:
+  - ...
+
+ignoreForDiff:
+  - group: apps
+    kind: Deployment
+    namespace: my-namespace
+    name: my-deployment
+    fieldPath: spec.replicas
+```
+
+This will remove the `spec.replicas` field from every resource that matches the object.
+`group`, `kind`, `namespace` and `name` can be omitted, which results in all objects matching. `fieldPath` must be a
+valid [JSON Path](https://goessner.net/articles/JsonPath/). `fieldPath` may also be a list of JSON paths.
+
 # Order of deployment
 Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control
 order, is by placing [barriers](#barrier) between kustomize deployments. You should however not overuse barriers, as
