@@ -121,6 +121,7 @@ class KluctlTestProject:
             if dir == ".":
                 set_dict_value(y, "commonLabels.project_name", self.project_name)
                 set_dict_value(y, "deleteByLabels.project_name", self.project_name)
+            y = update(y)
             return y
         self.update_yaml(os.path.join(self.get_deployment_dir(), dir, "deployment.yml"), do_update)
 
