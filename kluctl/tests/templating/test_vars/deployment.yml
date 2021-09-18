@@ -6,3 +6,8 @@ vars:
       v1: v1
   - file: vars-file.yml
   - file: vars-file2.yml
+
+commonLabels:
+  common_a: a
+deleteByLabels:
+  common_a: a

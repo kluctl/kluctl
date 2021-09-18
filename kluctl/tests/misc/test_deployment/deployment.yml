@@ -4,3 +4,8 @@ tags:
 - b
 - g
 - "1"
+
+commonLabels:
+  common_a: a
+deleteByLabels:
+  common_a: a

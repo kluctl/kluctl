@@ -5,3 +5,8 @@ tags:
 includes:
 - path: "{{ include_var }}"
 - path: d2
+
+commonLabels:
+  common_a: a
+deleteByLabels:
+  common_a: a

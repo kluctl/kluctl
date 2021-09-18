@@ -22,7 +22,7 @@ data:
 
 @pytest.mark.dependency()
 def test_command_bootstrap(module_kind_cluster: KindCluster):
-    with KluctlTestProject() as p:
+    with KluctlTestProject("bootstrap") as p:
         p.update_kind_cluster(module_kind_cluster)
         p.update_target("test", "module")
         p.kluctl("bootstrap", "--yes", "--cluster", "module")

@@ -74,8 +74,8 @@ class TestImages(unittest.TestCase):
         placeholder = images.gen_image_placeholder(image, latest_version, None, [])
         rendered_object = self.build_object(placeholder, placeholder)
         images.resolve_placeholders(rendered_object, deployed_object)
-        self.assertEqual(get_dict_value(rendered_object, "spec.template.spec.containers[0]image"), result_image1)
-        self.assertEqual(get_dict_value(rendered_object, "spec.template.spec.containers[1]image"), result_image2)
+        self.assertEqual(get_dict_value(rendered_object, "spec.template.spec.containers[0].image"), result_image1)
+        self.assertEqual(get_dict_value(rendered_object, "spec.template.spec.containers[1].image"), result_image2)
 
     def test_deployed(self):
         self.do_test_placeholder_resolve('registry.gitlab.com/g/p', self.build_object("di1", "di2"), "di1", "di2")
