@@ -26,7 +26,20 @@ def ext_reified_fields(self, datum):
             pass
     return tuple(result)
 jsonpath.Fields.reified_fields = ext_reified_fields
+
 def parse_json_path(p) -> JSONPath:
+    if isinstance(p, list):
+        p2 = "$"
+        for x in p:
+            if isinstance(x, str):
+                if '"' in x:
+                    p2 = "%s['%s']" % (p2, x)
+                else:
+                    p2 = '%s["%s"]' % (p2, x)
+            else:
+                p2 = "%s[%d]" % (p2, x)
+        p = p2
+
     with json_path_cache_mutex:
         if p in json_path_cache:
             return json_path_cache[p]
@@ -82,7 +95,7 @@ def object_iterator(o):
                 stack.append((v, p + [k]))
         elif not isinstance(o2, str) and is_iterable(o2):
             for i, v in enumerate(o2):
-                stack.append((v, p + [str(i)]))
+                stack.append((v, p + [i]))
 
 def del_matching_path(o, path):
     p = parse_json_path(path)
