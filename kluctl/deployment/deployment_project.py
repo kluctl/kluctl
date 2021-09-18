@@ -208,15 +208,15 @@ class DeploymentProject(object):
             ret += d.conf.get("ignoreForDiff", [])
         if ignore_tags:
             ret.append({
-                'fieldPath': 'metadata.labels["kluctl.io/tag-*"]',
+                'fieldPath': 'metadata.labels."kluctl.io/tag-*"',
             })
         if ignore_labels:
             ret.append({
-                'fieldPath': 'metadata.labels[*]',
+                'fieldPath': 'metadata.labels.*',
             })
         if ignore_annotations:
             ret.append({
-                'fieldPath': 'metadata.annotations[*]',
+                'fieldPath': 'metadata.annotations.*',
             })
         return ret
 

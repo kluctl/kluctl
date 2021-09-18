@@ -2,13 +2,30 @@ import fnmatch
 import threading
 from uuid import uuid4
 
-from jsonpath_ng import parse, JSONPath
+from jsonpath_ng import JSONPath, jsonpath, auto_id_field
+from jsonpath_ng.ext import parse
 
 _dummy = str(uuid4())
 
 json_path_cache = {}
 json_path_cache_mutex = threading.Lock()
 
+
+def ext_reified_fields(self, datum):
+    result = []
+    for field in self.fields:
+        if "*" not in field:
+            result.append(field)
+            continue
+        try:
+            fields = [f for f in datum.value.keys() if fnmatch.fnmatch(f, field)]
+            if auto_id_field is not None:
+                fields.append(auto_id_field)
+            result += fields
+        except AttributeError:
+            pass
+    return tuple(result)
+jsonpath.Fields.reified_fields = ext_reified_fields
 def parse_json_path(p) -> JSONPath:
     with json_path_cache_mutex:
         if p in json_path_cache:
