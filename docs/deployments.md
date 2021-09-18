@@ -273,6 +273,9 @@ This will remove the `spec.replicas` field from every resource that matches the 
 `group`, `kind`, `namespace` and `name` can be omitted, which results in all objects matching. `fieldPath` must be a
 valid [JSON Path](https://goessner.net/articles/JsonPath/). `fieldPath` may also be a list of JSON paths.
 
+The JSON Path implementation used in kluctl has extended support for wildcards in field
+names, allowing you to also specify paths like `metadata.labels.my-prefix-*`.
+
 # Order of deployment
 Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control
 order, is by placing [barriers](#barrier) between kustomize deployments. You should however not overuse barriers, as
