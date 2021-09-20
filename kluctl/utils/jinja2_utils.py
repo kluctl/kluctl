@@ -9,7 +9,7 @@ import traceback
 import jinja2
 from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound, TemplateError
 
-from kluctl.utils.dict_utils import merge_dict
+from kluctl.utils.dict_utils import merge_dict, get_dict_value
 from kluctl.utils.yaml_utils import yaml_dump, yaml_load
 
 logger = logging.getLogger(__name__)
@@ -66,25 +66,15 @@ def load_template(ctx, path, **kwargs):
 class VarNotFoundException(Exception):
     pass
 
-def get_var2(ctx, path):
-    path = path.split('.')
-    v = ctx.parent
-    for p in path:
-        if p not in v:
-            raise VarNotFoundException()
-        v = v.get(p)
-    return v
-
 @jinja2.pass_context
 def get_var(ctx, path, default):
     if not isinstance(path, list):
         path = [path]
     for p in path:
-        try:
-            r = get_var2(ctx, p)
-            return r
-        except VarNotFoundException:
-            pass
+        r = get_dict_value(ctx.parent, p, VarNotFoundException())
+        if isinstance(r, VarNotFoundException):
+            continue
+        return r
     return default
 
 def update_dict(a, b):

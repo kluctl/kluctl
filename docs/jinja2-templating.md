@@ -138,8 +138,9 @@ Loads the given file into memory, renders it with the current Jinja2 context and
 The filename given to `load_template` is treated as relative to the template that is currently rendered.
 
 ### get_var(field_path, default)
-Convenience method to navigate through the current context variables via a field path. Let's assume you currently have
-these variables defines (e.g. via [vars](./deployments.md#vars)):
+Convenience method to navigate through the current context variables via a
+[JSON Path](https://goessner.net/articles/JsonPath/). Let's assume you currently have these variables defines 
+(e.g. via [vars](./deployments.md#vars)):
 ```yaml
 my:
   deep:
