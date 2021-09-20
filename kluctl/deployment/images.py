@@ -2,8 +2,7 @@ import hashlib
 import logging
 import threading
 
-from kluctl.utils.dict_nav_utils import object_iterator
-from kluctl.utils.dict_utils import copy_dict, set_dict_value, get_dict_value
+from kluctl.utils.dict_utils import copy_dict, set_dict_value, get_dict_value, object_iterator
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.thread_safe_cache import ThreadSafeMultiCache
 from kluctl.utils.versions import build_latest_version_from_str
