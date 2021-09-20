@@ -166,14 +166,17 @@ class KluctlTestProject:
             return y
         self.update_kluctl_yaml(do_update)
 
-    def add_deployment_include(self, dir, include):
+    def add_deployment_include(self, dir, include, tags=None):
         def do_update(y):
             includes = y.setdefault("includes", [])
             if any(x["path" == include] for x in includes):
                 return
-            includes.append({
+            o = {
                 "path": include,
-            })
+            }
+            if tags is not None:
+                o["tags"] = tags
+            includes.append(o)
             return y
         self.update_deployment_yaml(dir, do_update)
 
@@ -183,7 +186,7 @@ class KluctlTestProject:
             self.add_deployment_include(os.path.join(*p), x)
             p.append(x)
 
-    def add_kustomize_deployment(self, dir, resources):
+    def add_kustomize_deployment(self, dir, resources, tags=None):
         deployment_dir = os.path.dirname(dir)
         if deployment_dir != "":
             self.add_deployment_includes(deployment_dir)
@@ -207,9 +210,12 @@ class KluctlTestProject:
 
         def do_update(y):
             kustomize_dirs = y.setdefault("kustomizeDirs", [])
-            kustomize_dirs.append({
+            o = {
                 "path": os.path.basename(dir)
-            })
+            }
+            if tags is not None:
+                o["tags"] = tags
+            kustomize_dirs.append(o)
             return y
         self.update_deployment_yaml(deployment_dir, do_update)
 

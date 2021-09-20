@@ -45,7 +45,7 @@ def add_namespace_deployment(p: KluctlTestProject, dir, name):
         "namespace.yml": yaml_dump(y),
     })
 
-def add_configmap_deployment(p: KluctlTestProject, dir, name, namespace="default", data={}):
+def add_configmap_deployment(p: KluctlTestProject, dir, name, namespace="default", data={}, tags=None):
     y = {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -57,4 +57,4 @@ def add_configmap_deployment(p: KluctlTestProject, dir, name, namespace="default
     }
     p.add_kustomize_deployment(dir, {
         "configmap.yml": yaml_dump(y),
-    })
+    }, tags=tags)
