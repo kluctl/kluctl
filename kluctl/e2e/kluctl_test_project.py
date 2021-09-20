@@ -125,6 +125,10 @@ class KluctlTestProject:
             return y
         self.update_yaml(os.path.join(self.get_deployment_dir(), dir, "deployment.yml"), do_update)
 
+    def get_deployment_yaml(self, dir):
+        path = os.path.join(self.get_deployment_dir(), dir, "deployment.yml")
+        return yaml_load_file(path)
+
     def copy_deployment(self, source):
         shutil.copytree(source, self.get_deployment_dir())
         self._commit(self.get_deployment_dir(), all=True, message="copy deployment from %s" % source)
