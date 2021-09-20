@@ -47,19 +47,15 @@ def parse_json_path(p) -> JSONPath:
         json_path_cache[p] = pp
         return pp
 
-def del_if_exists(d, k):
+def del_dict_value(d, k):
     p = parse_json_path(k)
     p.filter(lambda x: True, d)
 
-def set_if_not_exists(d, k, v):
+def set_default_dict_value(d, k, v):
     p = parse_json_path(k)
     f = p.find(d)
     if not f:
         p.update_or_create(d, v)
-
-def del_if_falsy(d, k):
-    p = parse_json_path(k)
-    p.filter(lambda x: not x, d)
 
 def is_iterable(obj):
     if isinstance(obj, list):

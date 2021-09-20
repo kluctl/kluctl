@@ -1,4 +1,4 @@
-from kluctl.utils.dict_nav_utils import del_if_exists, set_if_not_exists, del_if_falsy, del_matching_path
+from kluctl.utils.dict_nav_utils import del_dict_value, set_default_dict_value, del_matching_path
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_object_utils import split_api_version
 
@@ -30,7 +30,8 @@ def normalize_containers(containers):
         normalize_env(c)
 
 def normalize_secret_and_configmap(o):
-    del_if_falsy(o, 'data')
+    if not get_dict_value(o, "data"):
+        del_dict_value(o, "data")
 
 def normalize_service_account(o):
     new_secrets = []
@@ -55,26 +56,26 @@ def normalize_metadata(k8s_cluster, o):
             del(m['namespace'])
 
     # We don't care about managedFields when diffing (they just produce noise)
-    del_if_exists(m, 'managedFields')
-    del_if_exists(m, 'annotations."kubectl.kubernetes.io/last-applied-configuration"')
+    del_dict_value(m, 'managedFields')
+    del_dict_value(m, 'annotations."kubectl.kubernetes.io/last-applied-configuration"')
 
     # We don't want to see this in diffs
-    del_if_exists(m, 'creationTimestamp')
-    del_if_exists(m, 'generation')
-    del_if_exists(m, 'resourceVersion')
-    del_if_exists(m, 'selfLink')
-    del_if_exists(m, 'uid')
+    del_dict_value(m, 'creationTimestamp')
+    del_dict_value(m, 'generation')
+    del_dict_value(m, 'resourceVersion')
+    del_dict_value(m, 'selfLink')
+    del_dict_value(m, 'uid')
 
     # Ensure empty labels/metadata exist
-    set_if_not_exists(m, 'labels', {})
-    set_if_not_exists(m, 'annotations', {})
+    set_default_dict_value(m, 'labels', {})
+    set_default_dict_value(m, 'annotations', {})
 
 def normalize_misc(o):
     # These are random values found in Jobs
-    del_if_exists(o, 'spec.template.metadata.labels.controller-uid')
-    del_if_exists(o, 'spec.selector.matchLabels.controller-uid')
+    del_dict_value(o, 'spec.template.metadata.labels.controller-uid')
+    del_dict_value(o, 'spec.selector.matchLabels.controller-uid')
 
-    del_if_exists(o, 'status')
+    del_dict_value(o, 'status')
 
 # Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
 def normalize_object(k8s_cluster, o, ignore_for_diffs):
