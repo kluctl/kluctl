@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from git import Git
@@ -186,7 +187,7 @@ class KluctlTestProject:
 
     def add_deployment_includes(self, dir):
         p = ["."]
-        for x in os.path.split(dir):
+        for x in Path(dir).parts:
             self.add_deployment_include(os.path.join(*p), x)
             p.append(x)
 

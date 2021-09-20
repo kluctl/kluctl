@@ -7,6 +7,7 @@ import re
 import shutil
 import tarfile
 from contextlib import contextmanager
+from pathlib import Path
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 from typing import ContextManager
 
@@ -73,7 +74,7 @@ class KluctlProject:
             with gzip.GzipFile(filename="reproducible" if reproducible else None, mode="wb", compresslevel=9, fileobj=f, mtime=0 if reproducible else None) as gz:
                 with tarfile.TarFile.taropen("", mode="w", fileobj=gz) as tar:
                     def mf_filter(ti: tarfile.TarInfo):
-                        if ".git" in os.path.split(ti.name):
+                        if ".git" in Path(ti.name).parts:
                             return None
                         if reproducible:
                             # make the tar reproducible (always same hash)
