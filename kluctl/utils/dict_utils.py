@@ -58,6 +58,10 @@ def set_dict_value(y, path, value, do_clone=False):
     p.update_or_create(y, value)
     return y
 
+def del_dict_value(d, k):
+    p = parse_json_path(k)
+    p.filter(lambda x: True, d)
+
 def is_empty(o):
     if isinstance(o, dict) or isinstance(o, list):
         return len(o) == 0

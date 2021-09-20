@@ -1,5 +1,5 @@
-from kluctl.utils.dict_nav_utils import del_dict_value, set_default_dict_value
-from kluctl.utils.dict_utils import copy_dict, get_dict_value
+from kluctl.utils.dict_utils import copy_dict, get_dict_value, del_dict_value, \
+    set_dict_default_value
 from kluctl.utils.k8s_object_utils import split_api_version
 
 
@@ -67,8 +67,8 @@ def normalize_metadata(k8s_cluster, o):
     del_dict_value(m, 'uid')
 
     # Ensure empty labels/metadata exist
-    set_default_dict_value(m, 'labels', {})
-    set_default_dict_value(m, 'annotations', {})
+    set_dict_default_value(m, 'labels', {})
+    set_dict_default_value(m, 'annotations', {})
 
 def normalize_misc(o):
     # These are random values found in Jobs
