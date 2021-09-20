@@ -1,4 +1,4 @@
-from kluctl.utils.dict_nav_utils import del_dict_value, set_default_dict_value, del_matching_path
+from kluctl.utils.dict_nav_utils import del_dict_value, set_default_dict_value
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_object_utils import split_api_version
 
@@ -116,7 +116,7 @@ def normalize_object(k8s_cluster, o, ignore_for_diffs):
         if not isinstance(field_path, list):
             field_path = [field_path]
         for p in field_path:
-            del_matching_path(o, p)
+            del_dict_value(o, p)
 
     return o
 

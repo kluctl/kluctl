@@ -92,7 +92,3 @@ def object_iterator(o):
         elif not isinstance(o2, str) and is_iterable(o2):
             for i, v in enumerate(o2):
                 stack.append((v, p + [i]))
-
-def del_matching_path(o, path):
-    p = parse_json_path(path)
-    p.filter(lambda x: True, o)
