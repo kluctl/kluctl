@@ -130,6 +130,15 @@ class KluctlTestProject:
         path = os.path.join(self.get_deployment_dir(), dir, "deployment.yml")
         return yaml_load_file(path)
 
+    def list_kustomize_deployments(self, dir="."):
+        ret = []
+        y = self.get_deployment_yaml(dir)
+        for inc in y.get("includes", []):
+            ret += self.list_kustomize_deployments(os.path.join(dir, inc["path"]))
+
+        ret += self.get_deployment_yaml(dir).get("kustomizeDirs", [])
+        return ret
+
     def copy_deployment(self, source):
         shutil.copytree(source, self.get_deployment_dir())
         self._commit(self.get_deployment_dir(), all=True, message="copy deployment from %s" % source)
@@ -174,8 +183,8 @@ class KluctlTestProject:
     def add_deployment_include(self, dir, include, tags=None):
         def do_update(y):
             includes = y.setdefault("includes", [])
-            if any(x["path" == include] for x in includes):
-                return
+            if any(x["path"] == include for x in includes):
+                return y
             o = {
                 "path": include,
             }

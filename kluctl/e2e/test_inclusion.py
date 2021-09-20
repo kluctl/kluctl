@@ -4,7 +4,7 @@ from kluctl.e2e.conftest import assert_resource_exists, recreate_namespace, asse
 from kluctl.e2e.kluctl_test_project import KluctlTestProject
 from kluctl.e2e.kluctl_test_project_helpers import add_configmap_deployment
 
-def prepare_project(module_kind_cluster: KindCluster, p: KluctlTestProject, namespace):
+def prepare_project(module_kind_cluster: KindCluster, p: KluctlTestProject, namespace, with_includes):
     recreate_namespace(module_kind_cluster, namespace)
 
     p.update_kind_cluster(module_kind_cluster)
@@ -17,19 +17,34 @@ def prepare_project(module_kind_cluster: KindCluster, p: KluctlTestProject, name
     add_configmap_deployment(p, "cm6", "cm6", namespace=namespace, tags=["tag1", "tag5"])
     add_configmap_deployment(p, "cm7", "cm7", namespace=namespace, tags=["tag1", "tag6"])
 
+    if with_includes:
+        p.add_deployment_include(".", "include1")
+        add_configmap_deployment(p, "include1/icm1", "icm1", namespace=namespace, tags=["itag1", "itag2"])
+
+        p.add_deployment_include(".", "include2")
+        add_configmap_deployment(p, "include2/icm2", "icm2", namespace=namespace)
+        add_configmap_deployment(p, "include2/icm3", "icm3", namespace=namespace, tags=["itag3", "itag4"])
+
+        p.add_deployment_include(".", "include3", tags=["itag5"])
+        add_configmap_deployment(p, "include3/icm4", "icm4", namespace=namespace)
+        add_configmap_deployment(p, "include3/icm5", "icm5", namespace=namespace, tags=["itag5", "itag6"])
+
 def assert_exists_helper(kind_cluster, p, namespace, should_exists, add=None):
     if add is not None:
         for x in add:
             should_exists.add(x)
-    for x in p.get_deployment_yaml(".")["kustomizeDirs"]:
+    found = set()
+    for x in p.list_kustomize_deployments():
         if x["path"] in should_exists:
             assert_resource_exists(kind_cluster, namespace, "ConfigMap/%s" % x["path"])
+            found.add(x["path"])
         else:
             assert_resource_not_exists(kind_cluster, namespace, "ConfigMap/%s" % x["path"])
+    assert found == should_exists
 
-def test_inclusion_exclusion(module_kind_cluster: KindCluster):
+def test_inclusion_tags(module_kind_cluster: KindCluster):
     with KluctlTestProject("inclusion") as p:
-        prepare_project(module_kind_cluster, p, "inclusion")
+        prepare_project(module_kind_cluster, p, "inclusion", False)
 
         should_exists = set()
         def do_assert_exists(add=None):
@@ -59,9 +74,9 @@ def test_inclusion_exclusion(module_kind_cluster: KindCluster):
         p.kluctl("deploy", "--yes", "-t", "test", "-I", "tag1")
         do_assert_exists({"cm6", "cm7"})
 
-def test_exclusion_exclusion(module_kind_cluster: KindCluster):
+def test_exclusion_tags(module_kind_cluster: KindCluster):
     with KluctlTestProject("exclusion") as p:
-        prepare_project(module_kind_cluster, p, "exclusion")
+        prepare_project(module_kind_cluster, p, "exclusion", False)
 
         should_exists = set()
         def do_assert_exists(add=None):
@@ -80,3 +95,41 @@ def test_exclusion_exclusion(module_kind_cluster: KindCluster):
         # Test that exclusion has precedence over inclusion
         p.kluctl("deploy", "--yes", "-t", "test", "-I", "tag1", "-E", "tag6")
         do_assert_exists({"cm3", "cm4", "cm5", "cm6"})
+
+def test_inclusion_include_dirs(module_kind_cluster: KindCluster):
+    with KluctlTestProject("include-dirs") as p:
+        prepare_project(module_kind_cluster, p, "include-dirs", True)
+
+        should_exists = set()
+        def do_assert_exists(add=None):
+            assert_exists_helper(module_kind_cluster, p, "include-dirs", should_exists, add)
+
+        do_assert_exists()
+
+        p.kluctl("deploy", "--yes", "-t", "test", "-I", "itag1")
+        do_assert_exists({"icm1"})
+
+        p.kluctl("deploy", "--yes", "-t", "test", "-I", "include2")
+        do_assert_exists({"icm2", "icm3"})
+
+        p.kluctl("deploy", "--yes", "-t", "test", "-I", "itag5")
+        do_assert_exists({"icm4", "icm5"})
+
+def test_inclusion_kustomize_dirs(module_kind_cluster: KindCluster):
+    with KluctlTestProject("include-dirs") as p:
+        prepare_project(module_kind_cluster, p, "include-dirs", True)
+
+        should_exists = set()
+        def do_assert_exists(add=None):
+            assert_exists_helper(module_kind_cluster, p, "include-dirs", should_exists, add)
+
+        do_assert_exists()
+
+        p.kluctl("deploy", "--yes", "-t", "test", "--include-kustomize-dir", "include1/icm1")
+        do_assert_exists({"icm1"})
+
+        p.kluctl("deploy", "--yes", "-t", "test", "--include-kustomize-dir", "include2/icm3")
+        do_assert_exists({"icm3"})
+
+        p.kluctl("deploy", "--yes", "-t", "test", "--exclude-kustomize-dir", "include3/icm5")
+        do_assert_exists(set(x["path"] for x in p.list_kustomize_deployments()) - {"icm5"})
