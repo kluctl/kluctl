@@ -204,7 +204,7 @@ kustomize which causes `commonLabels` to also be applied to label selectors, whi
 read-only when it comes to `commonLabels`.
 
 ### deleteByLabels
-A dictionary of labels used to filter resources when performing `kluctl delete` or `kluctl purge` operations.
+A dictionary of labels used to filter resources when performing `kluctl delete` or `kluctl prune` operations.
 It should usually match `commonLabels`, but can also omit parts of `commonLabels` (DANGEROUS!!!). It should however
 never add labels that are not present in `commonLabels`.
 

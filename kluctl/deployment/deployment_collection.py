@@ -255,7 +255,7 @@ class DeploymentCollection:
         labels = self.project.get_delete_by_labels()
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, [])
 
-    def find_purge_objects(self, k8s_cluster):
+    def find_prune_objects(self, k8s_cluster):
         self.clear_errors_and_warnings()
         logger.info("Searching objects not found in local objects")
         labels = self.project.get_delete_by_labels()

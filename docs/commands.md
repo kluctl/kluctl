@@ -127,7 +127,7 @@ Usage: kluctl deploy [OPTIONS]
   Deploys a target to the corresponding cluster.
 
   This command will also output a diff between the initial state and the state after deployment. The format of this
-  diff is the same as for the `diff` command. It will also output a list of purgable objects (without actually
+  diff is the same as for the `diff` command. It will also output a list of prunable objects (without actually
   deleting them).
 
 <!-- END SECTION -->
@@ -196,7 +196,7 @@ Usage: kluctl diff [OPTIONS]
   The output is by default in human readable form (a table combined with unified diffs). The output can also be
   changed to output yaml file. Please note however that the format is currently not documented and prone to changes.
 
-  After the diff is performed, the command will also search for purgable objects and list them.
+  After the diff is performed, the command will also search for prunable objects and list them.
 
 <!-- END SECTION -->
 
@@ -257,11 +257,11 @@ In addition, the following arguments are available:
 
 They have the same meaning as described in [deploy](#deploy).
 
-## purge
-<!-- BEGIN SECTION "purge" "Usage" false -->
-Usage: kluctl purge [OPTIONS]
+## prune
+<!-- BEGIN SECTION "prune" "Usage" false -->
+Usage: kluctl prune [OPTIONS]
 
-  Searches the target cluster for purgable objects and deletes them.
+  Searches the target cluster for prunable objects and deletes them.
 
   Searching works by:
 
@@ -277,7 +277,7 @@ The following sets of arguments are available:
 1. [inclusion/exclusion arguments](#inclusionexclusion-arguments)
 
 In addition, the following arguments are available:
-<!-- BEGIN SECTION "purge" "Misc arguments" true -->
+<!-- BEGIN SECTION "prune" "Misc arguments" true -->
 ```
   Misc arguments: 
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.

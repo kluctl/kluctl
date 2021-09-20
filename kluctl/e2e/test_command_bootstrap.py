@@ -47,7 +47,7 @@ def test_command_bootstrap_upgrade(module_kind_cluster):
             assert_resource_exists(module_kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
 
 @pytest.mark.dependency(depends=["test_command_bootstrap_upgrade"])
-def test_command_bootstrap_purge(module_kind_cluster):
+def test_command_bootstrap_prune(module_kind_cluster):
     with KluctlTestProject("bootstrap") as p:
         p.update_kind_cluster(module_kind_cluster)
         p.update_target("test", "module")

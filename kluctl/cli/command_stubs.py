@@ -19,7 +19,7 @@ def bootstrap_command_stub(obj, **kwargs):
                    help="Deploys a target to the corresponding cluster.\n\n"
                         "This command will also output a diff between the initial state and the state after "
                         "deployment. The format of this diff is the same as for the `diff` command. "
-                        "It will also output a list of purgable objects (without actually deleting them).")
+                        "It will also output a list of prunable objects (without actually deleting them).")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
@@ -34,7 +34,7 @@ def deploy_command_stub(obj, **kwargs):
                         "The output is by default in human readable form (a table combined with unified diffs). "
                         "The output can also be changed to output yaml file. Please note however that the format "
                         "is currently not documented and prone to changes.\n\n"
-                        "After the diff is performed, the command will also search for purgable objects and list them.")
+                        "After the diff is performed, the command will also search for prunable objects and list them.")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
@@ -59,8 +59,8 @@ def delete_command_stub(obj, **kwargs):
     from kluctl.cli.commands import delete_command
     delete_command(obj, kwargs)
 
-@cli_group.command("purge",
-                   help="Searches the target cluster for purgable objects and deletes them.\n\n"
+@cli_group.command("prune",
+                   help="Searches the target cluster for prunable objects and deletes them.\n\n"
                         "Searching works by:\n\n"
                         "\b\n"
                         "  1. Search the cluster for all objects match `deleteByLabels`, as configured in `deployment.yml`\n"
@@ -71,9 +71,9 @@ def delete_command_stub(obj, **kwargs):
 @include_exclude_args()
 @misc_arguments(yes=True, dry_run=True)
 @click.pass_obj
-def purge_command_stub(obj, **kwargs):
-    from kluctl.cli.commands import purge_command
-    purge_command(obj, kwargs)
+def prune_command_stub(obj, **kwargs):
+    from kluctl.cli.commands import prune_command
+    prune_command(obj, kwargs)
 
 @cli_group.command("poke-images",
                    help="Replace all images in target.\n\n"

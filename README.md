@@ -3,7 +3,7 @@
 ![kluctl](logo/kluctl.png)
 
 kluctl is the missing glue that puts together your (and any third-party) deployments into one large declarative
-Kubernetes deployment, while making it fully manageable (deploy, diff, purge, delete, ...) via one unified command
+Kubernetes deployment, while making it fully manageable (deploy, diff, prune, delete, ...) via one unified command
 line interface.
 
 Use kluctl to:
@@ -11,7 +11,7 @@ Use kluctl to:
 * Do the same for small and simple deployments, as the overhead is small
 * Always know what the state of your deployments is by being able to run diffs on the whole deployment
 * Always know what you actually changed after performing a deployment
-* Keep your clusters clean by issuing regular purge calls
+* Keep your clusters clean by issuing regular prune calls
 * Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration
 * Manage multiple target clusters (in multiple clouds or bare-metal if you want)
 * Manage encrypted secrets for multiple target environments and clusters (based on [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets))
