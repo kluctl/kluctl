@@ -1,6 +1,6 @@
 from pytest_kind import KindCluster
 
-from kluctl.e2e.conftest import assert_resource_exists, recreate_namespace, assert_resource_not_exists
+from kluctl.e2e.conftest import recreate_namespace
 from kluctl.e2e.kluctl_test_project import KluctlTestProject
 from kluctl.e2e.kluctl_test_project_helpers import add_configmap_deployment
 from kluctl.utils.dict_utils import get_dict_value
@@ -38,7 +38,8 @@ def assert_exists_helper(kind_cluster, p, namespace, should_exists, add=None, re
             should_exists.add(x)
     if remove is not None:
         for x in remove:
-            should_exists.remove(x)
+            if x in should_exists:
+                should_exists.remove(x)
     exists = kind_cluster.kubectl("-n", namespace, "get", "configmaps", "-l", "project_name=%s" % p.project_name, "-o", "yaml")
     exists = yaml_load(exists)["items"]
     found = set(get_dict_value(x, "metadata.name") for x in exists)
@@ -164,3 +165,23 @@ def test_inclusion_prune(module_kind_cluster: KindCluster):
 
         p.kluctl("prune", "--yes", "-t", "test")
         do_assert_exists(remove={"cm3"})
+
+def test_inclusion_delete(module_kind_cluster: KindCluster):
+    with KluctlTestProject("inclusion-delete") as p:
+        prepare_project(module_kind_cluster, p, "inclusion-delete", False)
+
+        should_exists = set()
+        def do_assert_exists(add=None, remove=None):
+            assert_exists_helper(module_kind_cluster, p, "inclusion-delete", should_exists, add, remove)
+
+        p.kluctl("deploy", "--yes", "-t", "test")
+        do_assert_exists(p.list_kustomize_deployment_pathes())
+
+        p.kluctl("delete", "--yes", "-t", "test", "-I", "non-existent-tag")
+        do_assert_exists()
+
+        p.kluctl("delete", "--yes", "-t", "test", "-I", "cm1")
+        do_assert_exists(remove={"cm1"})
+
+        p.kluctl("delete", "--yes", "-t", "test", "-E", "cm2")
+        do_assert_exists(remove=set(p.list_kustomize_deployment_pathes()) - {"cm1", "cm2"})

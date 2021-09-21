@@ -31,7 +31,7 @@ class KluctlTestProject:
         self.kubeconfigs = []
 
     def __enter__(self):
-        self.base_dir = TemporaryDirectory()
+        self.base_dir = TemporaryDirectory(prefix="kluctl-e2e-")
 
         os.makedirs(self.get_kluctl_project_dir(), exist_ok=True)
         os.makedirs(os.path.join(self.get_clusters_dir(), "clusters"), exist_ok=True)
