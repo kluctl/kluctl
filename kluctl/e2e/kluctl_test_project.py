@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from git import Git
 from pytest_kind import KindCluster
 
-from kluctl.utils.dict_utils import copy_dict, set_dict_value
+from kluctl.utils.dict_utils import copy_dict, set_dict_value, del_dict_value
 from kluctl.utils.run_helper import run_helper
 from kluctl.utils.yaml_utils import yaml_save_file, yaml_load_file
 
@@ -139,6 +139,9 @@ class KluctlTestProject:
         ret += self.get_deployment_yaml(dir).get("kustomizeDirs", [])
         return ret
 
+    def list_kustomize_deployment_pathes(self, dir="."):
+        return [x["path"] for x in self.list_kustomize_deployments(dir)]
+
     def copy_deployment(self, source):
         shutil.copytree(source, self.get_deployment_dir())
         self._commit(self.get_deployment_dir(), all=True, message="copy deployment from %s" % source)
@@ -230,6 +233,17 @@ class KluctlTestProject:
             if tags is not None:
                 o["tags"] = tags
             kustomize_dirs.append(o)
+            return y
+        self.update_deployment_yaml(deployment_dir, do_update)
+
+    def delete_kustomize_deployment(self, dir):
+        deployment_dir = os.path.dirname(dir)
+
+        def do_update(y):
+            for i in range(len(y.get("kustomizeDirs", []))):
+                if y["kustomizeDirs"][i]["path"] == os.path.basename(dir):
+                    del y["kustomizeDirs"][i]
+                    break
             return y
         self.update_deployment_yaml(deployment_dir, do_update)
 
