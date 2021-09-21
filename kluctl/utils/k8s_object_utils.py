@@ -106,7 +106,7 @@ def get_objects_metadata(k8s_cluster, verbs, labels):
 
     return ret
 
-def get_included_objects(k8s_cluster, verbs, labels, inclusion, exclude_if_not_included=False):
+def get_included_objects(k8s_cluster, verbs, labels, inclusion):
     resources = get_objects_metadata(k8s_cluster, verbs, labels)
 
     ret = []
@@ -118,7 +118,7 @@ def get_included_objects(k8s_cluster, verbs, labels, inclusion, exclude_if_not_i
         if kustomize_dir is not None:
             inclusion_values.append(("kustomize_dir", kustomize_dir))
 
-        if inclusion.check_included(inclusion_values, exclude_if_not_included):
+        if inclusion.check_included(inclusion_values):
             ret.append((r, warnings))
 
     return ret

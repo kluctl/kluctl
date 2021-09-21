@@ -72,7 +72,7 @@ def filter_objects_for_delete(k8s_cluster, objects, api_filter, inclusion, exclu
 
 def find_objects_for_delete(k8s_cluster, labels, inclusion, excluded_objects):
     logger.info("Getting all cluster objects matching deleteByLabels")
-    all_cluster_objects = get_included_objects(k8s_cluster, ["delete"], labels, inclusion, True)
+    all_cluster_objects = get_included_objects(k8s_cluster, ["delete"], labels, inclusion)
     all_cluster_objects = [x for x, warnings in all_cluster_objects]
 
     ret = []
