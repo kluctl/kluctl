@@ -142,6 +142,11 @@ class KluctlTestProject:
     def list_kustomize_deployment_pathes(self, dir="."):
         return [x["path"] for x in self.list_kustomize_deployments(dir)]
 
+
+    def update_kustomize_deployment(self, dir, update):
+        path = os.path.join(self.get_deployment_dir(), dir, "kustomization.yml")
+        self.update_yaml(path, update, message="Update kustomization.yml for %s" % dir)
+
     def copy_deployment(self, source):
         shutil.copytree(source, self.get_deployment_dir())
         self._commit(self.get_deployment_dir(), all=True, message="copy deployment from %s" % source)
@@ -213,17 +218,14 @@ class KluctlTestProject:
 
         os.makedirs(abs_kustomize_dir, exist_ok=True)
 
-        for name, content in resources.items():
-            with open(os.path.join(abs_kustomize_dir, name), "wt") as f:
-                f.write(content)
-
         y = {
             "apiVersion": "kustomize.config.k8s.io/v1beta1",
             "kind": "Kustomization",
-            "resources": list(resources.keys()),
         }
         yaml_save_file(y, os.path.join(abs_kustomize_dir, "kustomization.yml"))
         self._commit(abs_deployment_dir, all=True, message="add kustomize deployment %s" % dir)
+
+        self.add_kustomize_resources(dir, resources)
 
         def do_update(y):
             kustomize_dirs = y.setdefault("kustomizeDirs", [])
@@ -235,6 +237,16 @@ class KluctlTestProject:
             kustomize_dirs.append(o)
             return y
         self.update_deployment_yaml(deployment_dir, do_update)
+
+    def add_kustomize_resources(self, dir, resources):
+        def do_update(y):
+            y.setdefault("resources", [])
+            y["resources"] += list(resources.keys())
+            for name, content in resources.items():
+                with open(os.path.join(self.get_deployment_dir(), dir, name), "wt") as f:
+                    f.write(content)
+            return y
+        self.update_kustomize_deployment(dir, do_update)
 
     def delete_kustomize_deployment(self, dir):
         deployment_dir = os.path.dirname(dir)
