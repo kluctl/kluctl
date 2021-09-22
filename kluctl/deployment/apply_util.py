@@ -129,9 +129,9 @@ class ApplyUtil:
         hook_util = HooksUtil(self)
 
         if inital_deploy:
-            hook_util.run_hooks(d, "pre-deploy-initial")
+            hook_util.run_hooks(d, ["pre-deploy-initial", "pre-deploy"])
         else:
-            hook_util.run_hooks(d, "pre-deploy")
+            hook_util.run_hooks(d, ["pre-deploy-upgrade", "pre-deploy"])
 
         for o in d.objects:
             if hook_util.get_hook(o) is not None:
@@ -139,9 +139,9 @@ class ApplyUtil:
             self.apply_object(o)
 
         if inital_deploy:
-            hook_util.run_hooks(d, "post-deploy-initial")
+            hook_util.run_hooks(d, ["post-deploy-initial", "post-deploy"])
         else:
-            hook_util.run_hooks(d, "post-deploy")
+            hook_util.run_hooks(d, ["post-deploy-upgrade", "post-deploy"])
 
     def apply_deployments(self):
         logger.info("Running server-side apply for all objects%s", self.k8s_cluster.get_dry_run_suffix(self.dry_run))

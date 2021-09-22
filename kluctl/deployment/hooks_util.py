@@ -21,9 +21,9 @@ class HooksUtil:
     def __init__(self, apply_util):
         self.apply_util = apply_util
 
-    def run_hooks(self, d, hook):
+    def run_hooks(self, d, hooks):
         l = self.get_sorted_hooks_list(d.objects)
-        l = [x for x in l if hook in x.hooks]
+        l = [x for x in l if any(h in hooks for h in x.hooks)]
 
         for h in l:
             if self.apply_util.abort_signal:
@@ -73,7 +73,8 @@ class HooksUtil:
             return s
 
         supported_kluctl_hooks = {"pre-deploy", "post-deploy",
-                                  "pre-deploy-initial", "post-deploy-initial"}
+                                  "pre-deploy-initial", "post-deploy-initial",
+                                  "pre-deploy-upgrade", "post-deploy-upgrade"}
         supported_kluctl_delete_policies = {"before-hook-creation",
                                             "hook-succeeded",
                                             "hook-failed"}
@@ -97,11 +98,11 @@ class HooksUtil:
         if "pre-install" in helm_hooks:
             hooks.append("pre-deploy-initial")
         if "pre-upgrade" in helm_hooks:
-            hooks.append("pre-deploy")
+            hooks.append("pre-deploy-upgrade")
         if "post-install" in helm_hooks:
             hooks.append("post-deploy-initial")
         if "post-upgrade" in helm_hooks:
-            hooks.append("post-deploy")
+            hooks.append("post-deploy-upgrade")
         if "pre-delete" in helm_hooks:
             hooks.append("pre-delete")
         if "post-delete" in helm_hooks:

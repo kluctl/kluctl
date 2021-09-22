@@ -26,8 +26,8 @@ based on the following mapping table:
 | post-install  | post-deploy-initial |
 | pre-delete    | Not supported       |
 | post-delete   | Not supported       |
-| pre-upgrade   | pre-deploy          |
-| post-upgrade  | post-deploy         |
+| pre-upgrade   | pre-deploy-upgrade  |
+| post-upgrade  | post-deploy-upgrade |
 | pre-rollback  | Not supported       |
 | post-rollback | Not supported       |
 | test          | Not supported       |

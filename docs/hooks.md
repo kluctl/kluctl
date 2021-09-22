@@ -12,8 +12,10 @@ a comma separated list of hook names. Possible value are described in the next c
 |---|---|
 | pre-deploy-initial | Executed right before the initial deployment is performed. |
 | post-deploy-initial | Executed right after the initial deployment is performed. |
-| pre-deploy | Executed right before a non-initial deployment is performed.|
-| post-deploy | Executed right after a non-initial deployment is performed. |
+| pre-deploy-upgrade | Executed right before a non-initial deployment is performed. |
+| post-deploy-upgrade | Executed right after a non-initial deployment is performed. |
+| pre-deploy | Executed right before any (initial and non-initial) deployment is performed.|
+| post-deploy | Executed right after any (initial and non-initial) deployment is performed. |
 
 A deployment is considered to be an "initial" deployment if none of the resources related to the current kustomize
 deployment are found on the cluster at the time of deployment.
