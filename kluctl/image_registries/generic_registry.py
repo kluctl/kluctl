@@ -1,6 +1,7 @@
 import base64
 import contextlib
 import hashlib
+import http
 import json
 import logging
 import os
@@ -13,9 +14,12 @@ from datetime import datetime
 import jwt
 import requests
 from dxf import DXF
+from dxf.exceptions import DXFUnauthorizedError
 from jwt import InvalidTokenError
+from requests import HTTPError
 
 from kluctl.image_registries.images_registry import ImagesRegistry
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.run_helper import run_helper
 from kluctl.utils.thread_safe_cache import ThreadSafeCache, ThreadSafeMultiCache
 from kluctl.utils.utils import get_tmp_base_dir
@@ -225,7 +229,18 @@ class GenericRegistry(ImagesRegistry):
                 return token
             with first_auth_context():
                 logger.debug(f"calling dxf.authenticate with username={username}")
-                token = dxf.authenticate(username=username, password=password, response=response, actions=["pull"])
+                base_auth_error = f"Got 401 Unauthorized from registry. Please ensure you provided correct registry " \
+                                  f"credentials for '{host}', either by logging in with 'docker login {host}' or by " \
+                                  f"providing environment variables as described in the documentation."
+                try:
+                    token = dxf.authenticate(username=username, password=password, response=response, actions=["pull"])
+                except DXFUnauthorizedError:
+                    raise CommandError(f"Got 401 Unauthorized from registry. {base_auth_error}")
+                except HTTPError as e:
+                    if e.response.status_code == http.HTTPStatus.FORBIDDEN:
+                        raise CommandError(f"Got 403 Forbidden from registry. {base_auth_error}")
+                    else:
+                        raise
             if token is not None:
                 self.set_cached_token(image, username, password, token)
 
@@ -243,6 +258,7 @@ class GenericRegistry(ImagesRegistry):
         return True
 
     def list_tags_for_image(self, image):
+        # TODO error message
         dxf = self.get_client(image)
         tags = dxf.list_aliases(batch_size=100)
         return tags
