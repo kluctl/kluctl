@@ -58,7 +58,7 @@ jobs:
           git config --global user.name "Test User"
       - name: Run tests
         run: |
-          pytest
+          pytest -n4
   check-code:
     runs-on: ubuntu-latest
     steps:
