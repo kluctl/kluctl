@@ -242,9 +242,11 @@ class KluctlTestProject:
         def do_update(y):
             y.setdefault("resources", [])
             y["resources"] += list(resources.keys())
+            g = Git(os.path.join(self.get_deployment_dir(), dir))
             for name, content in resources.items():
                 with open(os.path.join(self.get_deployment_dir(), dir, name), "wt") as f:
                     f.write(content)
+                g.add(name)
             return y
         self.update_kustomize_deployment(dir, do_update)
 
