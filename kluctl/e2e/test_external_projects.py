@@ -42,19 +42,19 @@ def do_test_project(kind_cluster, namespace, **kwargs):
         assert get_dict_value(y, "data.target_var") == "target_value2"
 
 def test_external_kluctl_project(module_kind_cluster: KindCluster):
-    do_test_project(module_kind_cluster, "a", kluctl_project_external=True)
+    do_test_project(module_kind_cluster, "external-kluctl-project", kluctl_project_external=True)
 
 def test_external_clusters_project(module_kind_cluster: KindCluster):
-    do_test_project(module_kind_cluster, "b", clusters_external=True)
+    do_test_project(module_kind_cluster, "external-clusters-project", clusters_external=True)
 
 def test_external_deployment_project(module_kind_cluster: KindCluster):
-    do_test_project(module_kind_cluster, "c", deployment_external=True)
+    do_test_project(module_kind_cluster, "external-deployment-project", deployment_external=True)
 
 def test_external_sealed_secrets_project(module_kind_cluster: KindCluster):
-    do_test_project(module_kind_cluster, "d", sealed_secrets_external=True)
+    do_test_project(module_kind_cluster, "external-sealed-secrets-project", sealed_secrets_external=True)
 
 def test_all_projects_external(module_kind_cluster: KindCluster):
-    do_test_project(module_kind_cluster, "e",
+    do_test_project(module_kind_cluster, "external-all-projects",
                     kluctl_project_external=True,
                     clusters_external=True,
                     deployment_external=True,

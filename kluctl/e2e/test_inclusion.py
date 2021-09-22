@@ -46,7 +46,7 @@ def assert_exists_helper(kind_cluster, p, namespace, should_exists, add=None, re
     assert found == should_exists
 
 def test_inclusion_tags(module_kind_cluster: KindCluster):
-    with KluctlTestProject("inclusion") as p:
+    with KluctlTestProject("inclusion-tags") as p:
         prepare_project(module_kind_cluster, p, "inclusion", False)
 
         should_exists = set()
@@ -78,7 +78,7 @@ def test_inclusion_tags(module_kind_cluster: KindCluster):
         do_assert_exists({"cm6", "cm7"})
 
 def test_exclusion_tags(module_kind_cluster: KindCluster):
-    with KluctlTestProject("exclusion") as p:
+    with KluctlTestProject("inclusion-exclusion") as p:
         prepare_project(module_kind_cluster, p, "exclusion", False)
 
         should_exists = set()
@@ -100,7 +100,7 @@ def test_exclusion_tags(module_kind_cluster: KindCluster):
         do_assert_exists({"cm3", "cm4", "cm5", "cm6"})
 
 def test_inclusion_include_dirs(module_kind_cluster: KindCluster):
-    with KluctlTestProject("include-dirs") as p:
+    with KluctlTestProject("inclusion-dirs") as p:
         prepare_project(module_kind_cluster, p, "include-dirs", True)
 
         should_exists = set()
@@ -119,7 +119,7 @@ def test_inclusion_include_dirs(module_kind_cluster: KindCluster):
         do_assert_exists({"icm4", "icm5"})
 
 def test_inclusion_kustomize_dirs(module_kind_cluster: KindCluster):
-    with KluctlTestProject("include-dirs") as p:
+    with KluctlTestProject("inclusion-kustomize-dirs") as p:
         prepare_project(module_kind_cluster, p, "include-dirs", True)
 
         should_exists = set()
