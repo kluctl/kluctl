@@ -1,11 +1,13 @@
 import dataclasses
+import logging
 
 from typing import List, Set, Optional
 
 from kluctl.utils.dict_utils import get_dict_value
-from kluctl.utils.k8s_object_utils import get_object_ref
+from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name
 from kluctl.utils.utils import parse_bool
 
+logger = logging.getLogger(__name__)
 
 @dataclasses.dataclass
 class Hook:
@@ -27,11 +29,13 @@ class HooksUtil:
             if self.apply_util.abort_signal:
                 return
             if "before-hook-creation" in h.delete_policies:
+                logger.info("Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
                 self.apply_util.delete_object(get_object_ref(h.object))
 
         for h in l:
             if self.apply_util.abort_signal:
                 return
+            logger.info("Deploying hook %s" % get_long_object_name(h.object))
             if (self.apply_util.dry_run or self.apply_util.k8s_cluster.dry_run) and "before-hook-creation" in h.delete_policies:
                 self.apply_util.handle_result(h.object, [])
                 continue
@@ -52,12 +56,14 @@ class HooksUtil:
             ref = get_object_ref(h.object)
             if ref not in wait_results:
                 continue
-            if wait_results[ref]:
-                if "hook-succeeded" in h.delete_policies:
-                    self.apply_util.delete_object(ref)
-            else:
-                if "hook-failed" in h.delete_policies:
-                    self.apply_util.delete_object(ref)
+            do_delete = False
+            if wait_results[ref] and "hook-succeeded" in h.delete_policies:
+                do_delete = True
+            elif not wait_results[ref] and "hook-failed" in h.delete_policies:
+                do_delete = True
+            if do_delete:
+                logger.info("Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
+                self.apply_util.delete_object(ref)
 
     def get_hook(self, o) -> Optional[Hook]:
         def get_list(path):

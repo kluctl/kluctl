@@ -102,7 +102,6 @@ class ApplyUtil:
         if self.dry_run or self.k8s_cluster.dry_run:
             return True
 
-        start_time = time.time()
         did_log = False
         logger.debug("Starting wait for hook %s" % get_long_object_name_from_ref(ref))
         while True:
@@ -116,8 +115,7 @@ class ApplyUtil:
             if v.errors:
                 return False
 
-            time.sleep(1)
-            if time.time() - start_time > 5 and not did_log:
+            if not did_log:
                 logger.info("Waiting for for hook %s to get ready..." % get_long_object_name_from_ref(ref))
                 did_log = True
 
