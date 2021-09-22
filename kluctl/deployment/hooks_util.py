@@ -86,7 +86,7 @@ class HooksUtil:
         helm_hooks = get_list('metadata.annotations."helm.sh/hook"')
         for h in helm_hooks:
             if h not in supported_helm_hooks:
-                self.apply_util.deployment_collection.add_api_warnings(get_object_ref(o), "Unsupported helm.sh/hook '%s'" % h)
+                self.apply_util.deployment_collection.add_api_warnings(get_object_ref(o), ["Unsupported helm.sh/hook '%s'" % h])
 
         if "pre-install" in helm_hooks:
             hooks.append("pre-deploy-initial")
