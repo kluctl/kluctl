@@ -36,7 +36,7 @@ def add_hook_deployment(p: KluctlTestProject, name, namespace, is_helm, hook, ho
 
     add_job_deployment(p, name, name, "bitnami/kubectl:1.21",
                        command=["sh"], args=["-c", script],
-                       with_rbac=True, namespace=namespace, annotations=a)
+                       namespace=namespace, annotations=a)
 
 def add_configmap(p: KluctlTestProject, dir, name, namespace):
     y = {

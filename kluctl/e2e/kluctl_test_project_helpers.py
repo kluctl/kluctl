@@ -39,20 +39,30 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 """
 
-pod="""
-apiVersion: v1
-kind: Pod
+deployment="""
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: {name}
   namespace: {namespace}
+  labels:
+    app.kubernetes.io/name: {name}
 spec:
-  terminationGracePeriodSeconds: 0
-  restartPolicy: OnFailure
-  serviceAccountName: {name}
-  containers:
-    - image: {image}
-      imagePullPolicy: IfNotPresent
-      name: container
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {name}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {name}
+    spec:
+      terminationGracePeriodSeconds: 0
+      serviceAccountName: {name}
+      containers:
+        - image: {image}
+          imagePullPolicy: IfNotPresent
+          name: container
 """
 
 job="""
@@ -74,45 +84,43 @@ spec:
 """
 
 
-def add_deployment_helper(p: KluctlTestProject, dir, name,
-                          r, with_rbac,
+def add_deployment_helper(p: KluctlTestProject, dir, name, r,
                           namespace="default", tags=None,
                           labels=None, annotations=None):
     resources = {}
 
-    if with_rbac:
-        y = pod_rbac.format(name=name, namespace=namespace)
-        y = yaml_load_all(y)
-        for x in y:
-            merge_metadata(x, labels, annotations)
-        resources["rbac.yml"] = yaml_dump_all(y)
+    y = pod_rbac.format(name=name, namespace=namespace)
+    y = yaml_load_all(y)
+    for x in y:
+        merge_metadata(x, labels, annotations)
+    resources["rbac.yml"] = yaml_dump_all(y)
 
     merge_metadata(r, labels, annotations)
     resources["deploy.yml"] = yaml_dump(r)
 
     p.add_kustomize_deployment(dir, resources, tags=tags)
 
-def add_pod_deployment(p: KluctlTestProject, dir, name,
-                       image, command, args, with_rbac,
+def add_deployment_deployment(p: KluctlTestProject, dir, name,
+                       image, command, args,
                        namespace="default", **kwargs):
-    y = pod.format(name=name, namespace=namespace, image=image)
+    y = deployment.format(name=name, namespace=namespace, image=image)
     y = yaml_load(y)
-    set_dict_value(y, "spec.containers[0].command", command)
-    set_dict_value(y, "spec.containers[0].args", args)
-    add_deployment_helper(p, dir, name, y, with_rbac, namespace=namespace, **kwargs)
+    set_dict_value(y, "spec.template.spec.containers[0].command", command)
+    set_dict_value(y, "spec.template.spec.containers[0].args", args)
+    add_deployment_helper(p, dir, name, y, namespace=namespace, **kwargs)
 
 def add_job_deployment(p: KluctlTestProject, dir, name,
-                       image, command, args, with_rbac,
+                       image, command, args,
                        namespace="default", **kwargs):
     y = job.format(name=name, namespace=namespace, image=image)
     y = yaml_load(y)
     set_dict_value(y, "spec.template.spec.containers[0].command", command)
     set_dict_value(y, "spec.template.spec.containers[0].args", args)
-    add_deployment_helper(p, dir, name, y, with_rbac, namespace=namespace, **kwargs)
+    add_deployment_helper(p, dir, name, y, namespace=namespace, **kwargs)
 
 def add_busybox_deployment(p: KluctlTestProject, dir, name,
                            namespace="default"):
-    add_pod_deployment(p, dir, name, "busybox", "sleep", ["1000"], False, namespace=namespace)
+    add_deployment_deployment(p, dir, name, "busybox", ["sleep"], ["1000"], namespace=namespace)
 
 def add_namespace_deployment(p: KluctlTestProject, dir, name):
     y = {
