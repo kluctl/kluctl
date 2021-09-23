@@ -53,6 +53,15 @@ ignored_fields = {
     ("f:metadata",)
 }
 
+# We automatically force overwrite these fields as we assume these are human-edited
+overwrite_allowed_managers = {
+    "kluctl",
+    "kubectl",
+    "kubectl-edit",
+    "kubectl-client-side-apply",
+    "rancher",
+}
+
 def remove_non_managed_fields(o, managed_fields):
     v1_fields = [mf for mf in managed_fields if mf['fieldsType'] == 'FieldsV1']
 
@@ -69,10 +78,7 @@ def remove_non_managed_fields(o, managed_fields):
 
     did_copy = False
     for mf in v1_fields:
-        if mf['manager'] in ['kluctl']:
-            continue
-        # force-overwrite these
-        if mf['manager'] in ['kubectl-edit', 'kubectl-client-side-apply']:
+        if mf['manager'] in overwrite_allowed_managers:
             continue
         for p in _fields_iterator(mf['fieldsV1'], []):
             if not p or [-1] == '.':
