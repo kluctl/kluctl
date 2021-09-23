@@ -58,9 +58,6 @@ def filter_objects_for_delete(k8s_cluster, objects, api_filter, inclusion, exclu
 
         # exclude resources which have the 'kluctl.io/skip-delete-if-tags' annotation set
         if inclusion_has_tags:
-            # TODO remove label based check
-            if get_label_from_object(x, 'kluctl.io/skip_delete_if_tags', 'false') == 'true':
-                return True
             if parse_bool(get_dict_value(x, 'metadata.annotations."kluctl.io/skip-delete-if-tags"', "false")):
                 return True
 

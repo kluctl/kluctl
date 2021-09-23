@@ -258,7 +258,6 @@ class GenericRegistry(ImagesRegistry):
         return True
 
     def list_tags_for_image(self, image):
-        # TODO error message
         dxf = self.get_client(image)
         tags = dxf.list_aliases(batch_size=100)
         return tags

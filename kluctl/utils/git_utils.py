@@ -164,27 +164,15 @@ def build_git_object(url, working_dir):
         finally:
             pass
 
-def _is_mirror_remote(path):
-    with open(os.path.join(path, "config"), "rt") as f:
-        config = f.read()
-        if "mirror = true" in config:
-            return True
-        return False
-
 def _clone_or_update_cache(url, cache_dir, do_update):
     init_marker = os.path.join(cache_dir, ".cache.init")
 
     if os.path.exists(init_marker):
-        # TODO remove this check after some time
-        if _is_mirror_remote(cache_dir):
-            if do_update:
-                logger.info(f"Updating cache repo: url='{url}'")
-                with build_git_object(url, cache_dir) as (g, url):
-                    g.remote("update")
-            return
-
-        # remove old cache repo (it was a --bare repo in the past, but we want to use --mirror repos now)
-        logger.info("Cleaning up obsolete --bare cache repo at %s" % cache_dir)
+        if do_update:
+            logger.info(f"Updating cache repo: url='{url}'")
+            with build_git_object(url, cache_dir) as (g, url):
+                g.remote("update")
+        return
 
     for n in os.listdir(cache_dir):
         if n == ".cache.lock":
