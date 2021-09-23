@@ -65,23 +65,23 @@ overwrite_allowed_managers = {
 def remove_non_managed_fields(o, managed_fields):
     v1_fields = [mf for mf in managed_fields if mf['fieldsType'] == 'FieldsV1']
 
-    kluctl_fields = None
+    kluctl_fields = set()
+    kluctl_manager_found = False
     for mf in v1_fields:
-        if mf['manager'] in ['kluctl'] and mf['operation'] == 'Apply':
-            kluctl_fields = mf
-            break
-    if kluctl_fields is None:
+        if mf["manager"] == "kluctl":
+            kluctl_manager_found = True
+            for p in _fields_iterator(mf["fieldsV1"], []):
+                kluctl_fields.add(tuple(p))
+    if not kluctl_manager_found:
         # Can't do anything with this object...let's hope it will not conflict
         return o
-
-    kluctl_fields = set(tuple(p) for p in _fields_iterator(kluctl_fields['fieldsV1'], []))
 
     did_copy = False
     for mf in v1_fields:
         if mf['manager'] in overwrite_allowed_managers:
             continue
         for p in _fields_iterator(mf['fieldsV1'], []):
-            if not p or [-1] == '.':
+            if not p:
                 continue
             if tuple(p) in ignored_fields:
                 continue
