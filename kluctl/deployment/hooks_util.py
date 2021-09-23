@@ -36,7 +36,7 @@ class HooksUtil:
             if self.apply_util.abort_signal:
                 return
             logger.info("Deploying hook %s" % get_long_object_name(h.object))
-            if (self.apply_util.dry_run or self.apply_util.k8s_cluster.dry_run) and "before-hook-creation" in h.delete_policies:
+            if self.apply_util.dry_run and "before-hook-creation" in h.delete_policies:
                 self.apply_util.handle_result(h.object, [])
                 continue
             self.apply_util.apply_object(h.object)

@@ -90,7 +90,7 @@ class ApplyUtil:
                             get_long_object_name_from_ref(ref))
                 try:
                     self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
-                    if not self.dry_run and not self.k8s_cluster.dry_run:
+                    if not self.dry_run:
                         r, patch_warnings = self.k8s_cluster.patch_object(x, force_apply=True)
                         self.handle_result(r, patch_warnings)
                     else:
@@ -99,7 +99,7 @@ class ApplyUtil:
                     self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
 
     def wait_object(self, ref):
-        if self.dry_run or self.k8s_cluster.dry_run:
+        if self.dry_run:
             return True
 
         did_log = False
