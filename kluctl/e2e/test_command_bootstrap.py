@@ -19,14 +19,14 @@ data:
   dummy: value
 """
 
-def test_command_bootstrap(module_kind_cluster: KindCluster):
+def test_command_bootstrap(kind_cluster: KindCluster):
     bootstrap_path = os.path.join(get_kluctl_package_dir(), "bootstrap")
 
     with KluctlTestProject("bootstrap") as p:
-        p.update_kind_cluster(module_kind_cluster)
-        p.update_target("test", "module")
-        p.kluctl("bootstrap", "--yes", "--cluster", "module")
-        assert_readiness(module_kind_cluster, "kube-system", "Deployment/sealed-secrets", 60 * 5)
+        p.update_kind_cluster(kind_cluster)
+        p.update_target("test", kind_cluster.name)
+        p.kluctl("bootstrap", "--yes", "--cluster", "pytest-kind")
+        assert_readiness(kind_cluster, "kube-system", "Deployment/sealed-secrets", 60 * 5)
 
     # test upgrades
     with TemporaryDirectory() as tmpdir:
@@ -39,14 +39,14 @@ def test_command_bootstrap(module_kind_cluster: KindCluster):
         yaml_save_file(k, os.path.join(tmpdir, "sealed-secrets/kustomization.yml"))
 
         with KluctlTestProject("bootstrap", local_deployment=tmpdir) as p:
-            p.update_kind_cluster(module_kind_cluster)
-            p.update_target("test", "module")
-            p.kluctl("bootstrap", "--yes", "--cluster", "module")
-            assert_resource_exists(module_kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
+            p.update_kind_cluster(kind_cluster)
+            p.update_target("test", kind_cluster.name)
+            p.kluctl("bootstrap", "--yes", "--cluster", "pytest-kind")
+            assert_resource_exists(kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
 
     # test pruning
     with KluctlTestProject("bootstrap") as p:
-        p.update_kind_cluster(module_kind_cluster)
-        p.update_target("test", "module")
-        p.kluctl("bootstrap", "--yes", "--cluster", "module")
-        assert_resource_not_exists(module_kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
+        p.update_kind_cluster(kind_cluster)
+        p.update_target("test", kind_cluster.name)
+        p.kluctl("bootstrap", "--yes", "--cluster", "pytest-kind")
+        assert_resource_not_exists(kind_cluster, "kube-system", "ConfigMap/dummy-configmap")

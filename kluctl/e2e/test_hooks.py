@@ -53,16 +53,16 @@ def add_configmap(p: KluctlTestProject, dir, name, namespace):
         "%s.yml" % name: yaml_dump(y)
     })
 
-def get_hook_result(module_kind_cluster: KindCluster, p: KluctlTestProject, secret_name):
-    y = module_kind_cluster.kubectl("-n", p.project_name, "get", "secret", secret_name, "-o", "yaml")
+def get_hook_result(kind_cluster: KindCluster, p: KluctlTestProject, secret_name):
+    y = kind_cluster.kubectl("-n", p.project_name, "get", "secret", secret_name, "-o", "yaml")
     y = yaml_load(y)
     y = get_dict_value(y, "data.result")
     y = base64.b64decode(y).decode("utf-8")
     y = yaml_load(y)
     return y
 
-def get_hook_result_cm_names(module_kind_cluster: KindCluster, p: KluctlTestProject, second=False):
-    y = get_hook_result(module_kind_cluster, p, "hook-result" if not second else "hook-result2")
+def get_hook_result_cm_names(kind_cluster: KindCluster, p: KluctlTestProject, second=False):
+    y = get_hook_result(kind_cluster, p, "hook-result" if not second else "hook-result2")
     return [get_dict_value(x, "metadata.name") for x in y["items"]]
 
 @contextlib.contextmanager
@@ -72,7 +72,7 @@ def prepare_project(kind_cluster: KindCluster, name, hook, hook_deletion_policy)
         recreate_namespace(kind_cluster, namespace)
 
         p.update_kind_cluster(kind_cluster)
-        p.update_target("test", "module")
+        p.update_target("test", kind_cluster.name)
 
         add_hook_deployment(p, "hook", namespace, is_helm=False, hook=hook, hook_deletion_policy=hook_deletion_policy)
         add_configmap(p, "hook", "cm1", namespace)
@@ -97,86 +97,86 @@ def ensure_hook_not_executed(kind_cluster, p: KluctlTestProject):
     p.kluctl("deploy", "--yes", "-t", "test")
     assert_resource_not_exists(kind_cluster, p.project_name, "Secret/hook-result")
 
-def test_hooks_pre_deploy_initial(module_kind_cluster: KindCluster):
-    with prepare_project(module_kind_cluster, "pre-deploy-initial", "pre-deploy-initial", None) as p:
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" not in get_hook_result_cm_names(module_kind_cluster, p)
-        ensure_hook_not_executed(module_kind_cluster, p)
+def test_hooks_pre_deploy_initial(kind_cluster: KindCluster):
+    with prepare_project(kind_cluster, "pre-deploy-initial", "pre-deploy-initial", None) as p:
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" not in get_hook_result_cm_names(kind_cluster, p)
+        ensure_hook_not_executed(kind_cluster, p)
 
-def test_hooks_post_deploy_initial(module_kind_cluster: KindCluster):
-    with prepare_project(module_kind_cluster, "post-deploy-initial", "post-deploy-initial", None) as p:
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p)
-        ensure_hook_not_executed(module_kind_cluster, p)
+def test_hooks_post_deploy_initial(kind_cluster: KindCluster):
+    with prepare_project(kind_cluster, "post-deploy-initial", "post-deploy-initial", None) as p:
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p)
+        ensure_hook_not_executed(kind_cluster, p)
 
-def test_hooks_pre_deploy_upgrade(module_kind_cluster: KindCluster):
-    with prepare_project(module_kind_cluster, "pre-deploy-upgrade", "pre-deploy-upgrade", None) as p:
+def test_hooks_pre_deploy_upgrade(kind_cluster: KindCluster):
+    with prepare_project(kind_cluster, "pre-deploy-upgrade", "pre-deploy-upgrade", None) as p:
         add_configmap(p, "hook", "cm2", p.project_name)
-        ensure_hook_not_executed(module_kind_cluster, p)
-        module_kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" not in get_hook_result_cm_names(module_kind_cluster, p)
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p)
+        ensure_hook_not_executed(kind_cluster, p)
+        kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" not in get_hook_result_cm_names(kind_cluster, p)
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p)
 
 
-def test_hooks_post_deploy_upgrade(module_kind_cluster: KindCluster):
-    with prepare_project(module_kind_cluster, "post-deploy-upgrade", "post-deploy-upgrade", None) as p:
+def test_hooks_post_deploy_upgrade(kind_cluster: KindCluster):
+    with prepare_project(kind_cluster, "post-deploy-upgrade", "post-deploy-upgrade", None) as p:
         add_configmap(p, "hook", "cm2", p.project_name)
-        ensure_hook_not_executed(module_kind_cluster, p)
-        module_kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p)
+        ensure_hook_not_executed(kind_cluster, p)
+        kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p)
 
-def do_test_hooks_pre_deploy(module_kind_cluster: KindCluster, name, hooks):
-    with prepare_project(module_kind_cluster, name, hooks, None) as p:
+def do_test_hooks_pre_deploy(kind_cluster: KindCluster, name, hooks):
+    with prepare_project(kind_cluster, name, hooks, None) as p:
         add_configmap(p, "hook", "cm2", p.project_name)
-        ensure_hook_executed(module_kind_cluster, p)
-        module_kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" not in get_hook_result_cm_names(module_kind_cluster, p)
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p)
+        ensure_hook_executed(kind_cluster, p)
+        kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" not in get_hook_result_cm_names(kind_cluster, p)
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p)
 
-def do_test_hooks_post_deploy(module_kind_cluster: KindCluster, name, hooks):
-    with prepare_project(module_kind_cluster, name, hooks, None) as p:
+def do_test_hooks_post_deploy(kind_cluster: KindCluster, name, hooks):
+    with prepare_project(kind_cluster, name, hooks, None) as p:
         add_configmap(p, "hook", "cm2", p.project_name)
-        ensure_hook_executed(module_kind_cluster, p)
-        module_kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p)
+        ensure_hook_executed(kind_cluster, p)
+        kind_cluster.kubectl("delete", "-n", p.project_name, "configmap", "cm1")
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p)
 
-def do_test_hooks_pre_post_deploy(module_kind_cluster: KindCluster, name, hooks):
-    with prepare_project(module_kind_cluster, name, hooks, None) as p:
+def do_test_hooks_pre_post_deploy(kind_cluster: KindCluster, name, hooks):
+    with prepare_project(kind_cluster, name, hooks, None) as p:
         add_configmap(p, "hook", "cm2", p.project_name)
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" not in get_hook_result_cm_names(module_kind_cluster, p)
-        assert "cm2" not in get_hook_result_cm_names(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p, True)
-        assert "cm2" in get_hook_result_cm_names(module_kind_cluster, p, True)
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" not in get_hook_result_cm_names(kind_cluster, p)
+        assert "cm2" not in get_hook_result_cm_names(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p, True)
+        assert "cm2" in get_hook_result_cm_names(kind_cluster, p, True)
 
-        ensure_hook_executed(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p)
-        assert "cm2" not in get_hook_result_cm_names(module_kind_cluster, p)
-        assert "cm1" in get_hook_result_cm_names(module_kind_cluster, p, True)
-        assert "cm2" in get_hook_result_cm_names(module_kind_cluster, p, True)
+        ensure_hook_executed(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p)
+        assert "cm2" not in get_hook_result_cm_names(kind_cluster, p)
+        assert "cm1" in get_hook_result_cm_names(kind_cluster, p, True)
+        assert "cm2" in get_hook_result_cm_names(kind_cluster, p, True)
 
-def test_hooks_pre_deploy(module_kind_cluster: KindCluster):
-    do_test_hooks_pre_deploy(module_kind_cluster, "pre-deploy", "pre-deploy")
+def test_hooks_pre_deploy(kind_cluster: KindCluster):
+    do_test_hooks_pre_deploy(kind_cluster, "pre-deploy", "pre-deploy")
 
-def test_hooks_pre_deploy2(module_kind_cluster: KindCluster):
+def test_hooks_pre_deploy2(kind_cluster: KindCluster):
     # same as pre-deploy
-    do_test_hooks_pre_deploy(module_kind_cluster, "pre-deploy2", "pre-deploy-initial,pre-deploy-upgrade")
+    do_test_hooks_pre_deploy(kind_cluster, "pre-deploy2", "pre-deploy-initial,pre-deploy-upgrade")
 
-def test_hooks_post_deploy(module_kind_cluster: KindCluster):
-    do_test_hooks_post_deploy(module_kind_cluster, "post-deploy", "post-deploy")
+def test_hooks_post_deploy(kind_cluster: KindCluster):
+    do_test_hooks_post_deploy(kind_cluster, "post-deploy", "post-deploy")
 
-def test_hooks_post_deploy2(module_kind_cluster: KindCluster):
+def test_hooks_post_deploy2(kind_cluster: KindCluster):
     # same as post-deploy
-    do_test_hooks_post_deploy(module_kind_cluster, "post-deploy2", "post-deploy-initial,post-deploy-upgrade")
+    do_test_hooks_post_deploy(kind_cluster, "post-deploy2", "post-deploy-initial,post-deploy-upgrade")
 
-def test_hooks_pre_post_deploy(module_kind_cluster: KindCluster):
-    do_test_hooks_pre_post_deploy(module_kind_cluster, "pre-post-deploy", "pre-deploy,post-deploy")
+def test_hooks_pre_post_deploy(kind_cluster: KindCluster):
+    do_test_hooks_pre_post_deploy(kind_cluster, "pre-post-deploy", "pre-deploy,post-deploy")
 
-def test_hooks_pre_post_deploy2(module_kind_cluster: KindCluster):
-    do_test_hooks_pre_post_deploy(module_kind_cluster, "pre-post-deploy2", "pre-deploy-initial,pre-deploy-upgrade,post-deploy-initial,post-deploy-upgrade")
+def test_hooks_pre_post_deploy2(kind_cluster: KindCluster):
+    do_test_hooks_pre_post_deploy(kind_cluster, "pre-post-deploy2", "pre-deploy-initial,pre-deploy-upgrade,post-deploy-initial,post-deploy-upgrade")

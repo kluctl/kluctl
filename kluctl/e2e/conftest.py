@@ -1,42 +1,13 @@
-import contextlib
 import logging
 import subprocess
 import time
 
-import pytest
 from pytest_kind import KindCluster
 
 from kluctl.utils.k8s_status_validation import validate_object
 from kluctl.utils.yaml_utils import yaml_load
 
 logger = logging.getLogger(__name__)
-
-delete_clusters = True
-
-@contextlib.contextmanager
-def kind_cluster_fixture(name):
-    cluster = KindCluster(name)
-    try:
-        if delete_clusters:
-            cluster.delete()
-    except:
-        pass
-    cluster.create()
-    try:
-        yield cluster
-    finally:
-        if delete_clusters:
-            cluster.delete()
-
-@pytest.fixture(scope="function")
-def function_kind_cluster(request):
-    with kind_cluster_fixture("function") as c:
-        yield c
-
-@pytest.fixture(scope="module")
-def module_kind_cluster(request):
-    with kind_cluster_fixture("module") as c:
-        yield c
 
 def recreate_namespace(kind_cluster: KindCluster, namespace):
     try:
