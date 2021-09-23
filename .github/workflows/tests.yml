@@ -61,7 +61,7 @@ jobs:
           git config --global user.name "Test User"
       - name: Run tests
         env:
-          PYTEST_SPLITS: 3
+          PYTEST_SPLITS: 4
           PYTEST_GROUP: ${{ matrix.pytest-group }}
         run: |
           pytest --splits $PYTEST_SPLITS --group $PYTEST_GROUP
