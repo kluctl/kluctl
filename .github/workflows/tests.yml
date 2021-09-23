@@ -55,6 +55,8 @@ jobs:
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
+        with:
+          limit-access-to-actor: true
       - name: Cache dot-kube
         id: cache-dot-kube
         uses: actions/cache@v2
