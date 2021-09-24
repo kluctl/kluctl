@@ -25,7 +25,7 @@ def test_command_bootstrap(kind_cluster: KindCluster):
     with KluctlTestProject("bootstrap") as p:
         p.update_kind_cluster(kind_cluster)
         p.update_target("test", kind_cluster.name)
-        p.kluctl("bootstrap", "--yes", "--cluster", "pytest-kind")
+        p.kluctl("bootstrap", "--yes", "--cluster", kind_cluster.name)
         assert_readiness(kind_cluster, "kube-system", "Deployment/sealed-secrets", 60 * 5)
 
     # test upgrades
@@ -41,12 +41,12 @@ def test_command_bootstrap(kind_cluster: KindCluster):
         with KluctlTestProject("bootstrap", local_deployment=tmpdir) as p:
             p.update_kind_cluster(kind_cluster)
             p.update_target("test", kind_cluster.name)
-            p.kluctl("bootstrap", "--yes", "--cluster", "pytest-kind")
+            p.kluctl("bootstrap", "--yes", "--cluster", kind_cluster.name)
             assert_resource_exists(kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
 
     # test pruning
     with KluctlTestProject("bootstrap") as p:
         p.update_kind_cluster(kind_cluster)
         p.update_target("test", kind_cluster.name)
-        p.kluctl("bootstrap", "--yes", "--cluster", "pytest-kind")
+        p.kluctl("bootstrap", "--yes", "--cluster", kind_cluster.name)
         assert_resource_not_exists(kind_cluster, "kube-system", "ConfigMap/dummy-configmap")
