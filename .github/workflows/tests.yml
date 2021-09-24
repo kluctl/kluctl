@@ -20,6 +20,7 @@ jobs:
     strategy:
       matrix:
         pytest-group: [ 1, 2, 3, 4 ]
+      fail-fast: false
     steps:
       - name: Install packages
         run: |
