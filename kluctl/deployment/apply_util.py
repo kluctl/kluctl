@@ -120,6 +120,14 @@ class ApplyUtil:
                 did_log = True
 
     def apply_kustomize_deployment(self, d):
+        if "path" not in d.config:
+            return
+        include = d.check_inclusion_for_deploy()
+        if not include:
+            logger.info("Skipping kustomizeDir %s" % d.get_rel_kustomize_dir())
+            return
+        logger.info("%s: Applying %d objects" % (d.get_rel_kustomize_dir(), len(d.objects)))
+
         inital_deploy = True
         for o in d.objects:
             if get_object_ref(o) in self.deployment_collection.remote_objects:
@@ -162,14 +170,6 @@ class ApplyUtil:
                     logger.info("Waiting on barrier...")
                     finish_futures()
                 previous_was_barrier = get_dict_value(d.config, "barrier", False)
-
-                include = d.check_inclusion_for_deploy()
-                if "path" not in d.config:
-                    continue
-                if not include:
-                    logger.info("Skipping kustomizeDir %s" % d.get_rel_kustomize_dir())
-                    continue
-                logger.info("Applying kustomizeDir '%s' with %d objects" % (d.get_rel_kustomize_dir(), len(d.objects)))
 
                 f = executor.submit(self.apply_kustomize_deployment, d)
                 futures.append(f)
