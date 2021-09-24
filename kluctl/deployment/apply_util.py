@@ -1,6 +1,5 @@
 import logging
 import threading
-import time
 
 from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError
@@ -124,9 +123,8 @@ class ApplyUtil:
             return
         include = d.check_inclusion_for_deploy()
         if not include:
-            logger.info("Skipping kustomizeDir %s" % d.get_rel_kustomize_dir())
+            self.do_log(d, logging.INFO, "Skipping")
             return
-        logger.info("%s: Applying %d objects" % (d.get_rel_kustomize_dir(), len(d.objects)))
 
         inital_deploy = True
         for o in d.objects:
@@ -141,9 +139,13 @@ class ApplyUtil:
         else:
             hook_util.run_hooks(d, ["pre-deploy-upgrade", "pre-deploy"])
 
+        apply_objects = []
         for o in d.objects:
             if hook_util.get_hook(o) is not None:
                 continue
+            apply_objects.append(o)
+        self.do_log(d, logging.INFO, "Applying %d objects" % len(d.objects))
+        for o in apply_objects:
             self.apply_object(o)
 
         if inital_deploy:
@@ -175,3 +177,6 @@ class ApplyUtil:
                 futures.append(f)
 
             finish_futures()
+
+    def do_log(self, d, level, str):
+        logger.log(level, "%s: %s" % (d.get_rel_kustomize_dir(), str))

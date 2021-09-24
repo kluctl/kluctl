@@ -22,23 +22,35 @@ class HooksUtil:
         self.apply_util = apply_util
 
     def run_hooks(self, d, hooks):
+        def do_log(level, str):
+            self.apply_util.do_log(d, level, str)
+
         l = self.get_sorted_hooks_list(d.objects)
         l = [x for x in l if any(h in hooks for h in x.hooks)]
+
+        delete_before_objects = []
+        apply_objects = []
 
         for h in l:
             if self.apply_util.abort_signal:
                 return
             if "before-hook-creation" in h.delete_policies:
-                logger.info("Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
-                self.apply_util.delete_object(get_object_ref(h.object))
+                delete_before_objects.append(h)
+            apply_objects.append(h)
 
-        for h in l:
-            if self.apply_util.abort_signal:
-                return
-            logger.info("Deploying hook %s" % get_long_object_name(h.object))
+        if len(delete_before_objects) != 0:
+            do_log(logging.INFO, "Deleting %d hooks before hook execution" % len(delete_before_objects))
+        for h in delete_before_objects:
+            do_log(logging.DEBUG, "Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
+            self.apply_util.delete_object(get_object_ref(h.object))
+
+        if len(apply_objects) != 0:
+            do_log(logging.INFO, "Applying %d hooks" % len(delete_before_objects))
+        for h in apply_objects:
             if self.apply_util.dry_run and "before-hook-creation" in h.delete_policies:
                 self.apply_util.handle_result(h.object, [])
                 continue
+            do_log(logging.DEBUG, "Applying hook %s" % get_long_object_name(h.object))
             self.apply_util.apply_object(h.object)
 
         wait_results = {}
@@ -52,6 +64,7 @@ class HooksUtil:
                 continue
             wait_results[ref] = self.apply_util.wait_object(ref)
 
+        delete_after_objects = []
         for h in reversed(l):
             ref = get_object_ref(h.object)
             if ref not in wait_results:
@@ -62,8 +75,13 @@ class HooksUtil:
             elif not wait_results[ref] and "hook-failed" in h.delete_policies:
                 do_delete = True
             if do_delete:
-                logger.info("Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
-                self.apply_util.delete_object(ref)
+                delete_after_objects.append(h)
+
+        if len(delete_after_objects) != 0:
+            do_log(logging.INFO, "Deleting %d hooks after hook execution" % len(delete_after_objects))
+        for h in delete_after_objects:
+            do_log(logging.DEBUG, "Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
+            self.apply_util.delete_object(get_object_ref(h.object))
 
     def get_hook(self, o) -> Optional[Hook]:
         def get_list(path):

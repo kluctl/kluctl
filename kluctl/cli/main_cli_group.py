@@ -28,8 +28,9 @@ def setup_logging(verbose):
     level = logging.INFO
     if verbose:
         level = logging.DEBUG
-
-    format = '%(asctime)s %(name)-30s %(levelname)-8s %(message)s'
+        format = '%(asctime)s %(name)-30s %(levelname)-6s %(message)s'
+    else:
+        format = '%(asctime)s %(levelname)-6s %(message)s'
 
     logging.basicConfig(level=level, format=format)
 
