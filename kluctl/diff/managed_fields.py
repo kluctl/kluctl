@@ -1,14 +1,8 @@
 import json
 
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name
-from kluctl.utils.dict_utils import copy_dict
+from kluctl.utils.dict_utils import copy_dict, object_iterator
 
-
-def _fields_iterator(mf, path):
-    yield path
-    for k, v in mf.items():
-        for p in _fields_iterator(v, path + [k]):
-            yield p
 
 def nav_managed_field(o, p):
     def find_array_value(a, k):
@@ -65,27 +59,21 @@ overwrite_allowed_managers = {
 def remove_non_managed_fields(o, managed_fields):
     v1_fields = [mf for mf in managed_fields if mf['fieldsType'] == 'FieldsV1']
 
-    kluctl_fields = set()
-    kluctl_manager_found = False
+    owned_fields = set()
     for mf in v1_fields:
-        if mf["manager"] == "kluctl":
-            kluctl_manager_found = True
-            for p in _fields_iterator(mf["fieldsV1"], []):
-                kluctl_fields.add(tuple(p))
-    if not kluctl_manager_found:
+        if mf["manager"] in overwrite_allowed_managers:
+            for v, p in object_iterator(mf["fieldsV1"]):
+                owned_fields.add(tuple(p))
+    if not owned_fields:
         # Can't do anything with this object...let's hope it will not conflict
         return o
 
+    owned_fields.update(ignored_fields)
+
     did_copy = False
     for mf in v1_fields:
-        if mf['manager'] in overwrite_allowed_managers:
-            continue
-        for p in _fields_iterator(mf['fieldsV1'], []):
-            if not p:
-                continue
-            if tuple(p) in ignored_fields:
-                continue
-            if tuple(p) in kluctl_fields:
+        for v, p in object_iterator(mf['fieldsV1']):
+            if tuple(p) in owned_fields:
                 continue
 
             d, k, found = nav_managed_field(o, p)
@@ -98,7 +86,6 @@ def remove_non_managed_fields(o, managed_fields):
                 del d[k]
 
     return o
-
 
 def remove_non_managed_fields2(o, remote_objects):
     r = remote_objects.get(get_object_ref(o))

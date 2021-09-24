@@ -153,7 +153,8 @@ def object_iterator(o):
 
     while len(stack) != 0:
         o2, p = stack.pop()
-        yield o2, p
+        if len(p) != 0:
+            yield o2, p
 
         if isinstance(o2, dict):
             for k, v in o2.items():
