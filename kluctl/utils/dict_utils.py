@@ -24,18 +24,30 @@ def ext_reified_fields(self, datum):
     return tuple(result)
 jsonpath.Fields.reified_fields = ext_reified_fields
 
-def parse_json_path(p) -> JSONPath:
-    if isinstance(p, list):
-        p2 = "$"
-        for x in p:
-            if isinstance(x, str):
+def convert_list_to_json_path(p):
+    p2 = ""
+    for x in p:
+        if isinstance(x, str):
+            if x.isalnum():
+                if p2 != "":
+                    p2 += "."
+                p2 += "%s" % x
+            else:
+                if p2 == "":
+                    p2 = "$"
                 if '"' in x:
                     p2 = "%s['%s']" % (p2, x)
                 else:
                     p2 = '%s["%s"]' % (p2, x)
-            else:
-                p2 = "%s[%d]" % (p2, x)
-        p = p2
+        else:
+            if p2 == "":
+                p2 = "$"
+            p2 = "%s[%d]" % (p2, x)
+    return p2
+
+def parse_json_path(p) -> JSONPath:
+    if isinstance(p, list):
+        p = convert_list_to_json_path(p)
 
     with json_path_cache_mutex:
         if p in json_path_cache:
