@@ -258,7 +258,7 @@ class k8s_cluster_real(k8s_cluster_base):
         # default values. We need to fix these resources.
         # UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the
         # issue is still present.
-        needs_defaults_fix = StrictVersion(self.server_version) < StrictVersion('1.100')
+        needs_defaults_fix = StrictVersion(self.server_version) < StrictVersion('1.21')
         # TODO check when this is actually fixed (see https://github.com/kubernetes/kubernetes/issues/94275)
         needs_type_conversion_fix = StrictVersion(self.server_version) < StrictVersion('1.100')
         if not needs_defaults_fix and not needs_type_conversion_fix:
