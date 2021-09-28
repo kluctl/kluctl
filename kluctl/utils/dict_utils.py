@@ -59,9 +59,7 @@ def parse_json_path(p) -> JSONPath:
 def copy_primitive_value(v):
     if isinstance(v, dict):
         return copy_dict(v)
-    if isinstance(v, str) or isinstance(v, bytes):
-        return v
-    if is_iterable(v):
+    if is_iterable(v, False):
         return [copy_primitive_value(x) for x in v]
     return v
 
@@ -138,7 +136,7 @@ def remove_empty(o):
             else:
                 i += 1
 
-def is_iterable(obj):
+def is_iterable(obj, str_and_bytes=True):
     if isinstance(obj, list):
         return True
     if isinstance(obj, tuple):
@@ -146,9 +144,9 @@ def is_iterable(obj):
     if isinstance(obj, dict):
         return True
     if isinstance(obj, str):
-        return True
+        return str_and_bytes
     if isinstance(obj, bytes):
-        return True
+        return str_and_bytes
     if isinstance(obj, int) or isinstance(obj, bool):
         return False
     if isinstance(obj, type):
@@ -171,6 +169,6 @@ def object_iterator(o):
         if isinstance(o2, dict):
             for k, v in o2.items():
                 stack.append((v, p + [k]))
-        elif not isinstance(o2, str) and is_iterable(o2):
+        elif is_iterable(o2, False):
             for i, v in enumerate(o2):
                 stack.append((v, p + [i]))
