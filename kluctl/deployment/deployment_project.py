@@ -75,8 +75,13 @@ class DeploymentProject(object):
         return yaml_load(rendered)
 
     def load_base_conf(self):
-        if not os.path.exists(os.path.join(self.dir, 'deployment.yml')):
-            raise CommandError("deployment.yml not found")
+        base_conf_path = os.path.join(self.dir, 'deployment.yml')
+        if not os.path.exists(base_conf_path):
+            if os.path.exists(os.path.join(self.dir, 'kustomization.yml')):
+                error_text = "deployment.yml not found but folder %s contains kustomization.yml. Is it a kustomizeDir?" % self.dir
+            else:
+                error_text = "%s not found" % base_conf_path
+            raise CommandError(error_text)
 
         self.conf = self.load_rendered_yaml('deployment.yml', self.jinja_vars)
         if self.conf is None:
