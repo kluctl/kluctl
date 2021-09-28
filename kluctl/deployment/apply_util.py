@@ -48,13 +48,19 @@ class ApplyUtil:
     def delete_object(self, ref):
         self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
 
-    def apply_object(self, x):
+    def apply_object(self, x, replaced):
         logger.debug(f"  {get_long_object_name(x)}")
 
         if not self.force_apply:
             x2 = remove_non_managed_fields2(x, self.deployment_collection.remote_objects)
         else:
             x2 = x
+
+        if self.dry_run and replaced and get_object_ref(x) in self.deployment_collection.remote_objects:
+            # Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
+            # this object, it might fail as it is expected to not exist.
+            self.handle_result(x2, [])
+            return
 
         try:
             r, patch_warnings = self.k8s_cluster.patch_object(x2, force_dry_run=self.dry_run, force_apply=True)
@@ -146,7 +152,7 @@ class ApplyUtil:
             apply_objects.append(o)
         self.do_log(d, logging.INFO, "Applying %d objects" % len(d.objects))
         for o in apply_objects:
-            self.apply_object(o)
+            self.apply_object(o, False)
 
         if inital_deploy:
             hook_util.run_hooks(d, ["post-deploy-initial", "post-deploy"])

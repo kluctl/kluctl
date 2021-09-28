@@ -47,11 +47,9 @@ class HooksUtil:
         if len(apply_objects) != 0:
             do_log(logging.INFO, "Applying %d hooks" % len(delete_before_objects))
         for h in apply_objects:
-            if self.apply_util.dry_run and "before-hook-creation" in h.delete_policies:
-                self.apply_util.handle_result(h.object, [])
-                continue
+            replaced = "before-hook-creation" in h.delete_policies
             do_log(logging.DEBUG, "Applying hook %s" % get_long_object_name(h.object))
-            self.apply_util.apply_object(h.object)
+            self.apply_util.apply_object(h.object, replaced)
 
         wait_results = {}
         for h in l:
