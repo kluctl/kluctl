@@ -208,8 +208,6 @@ class k8s_cluster_real(k8s_cluster_base):
         name = body['metadata']['name']
         query_params = self._get_dry_run_params(force_dry_run)
 
-        body = self._fix_object_for_patch(body)
-
         query_params.append(('fieldManager', 'kluctl'))
         if force_apply:
             query_params.append(('force', 'true'))
@@ -255,7 +253,7 @@ class k8s_cluster_real(k8s_cluster_base):
             self.dynamic_client.resources.force_invalidate_cache()
         return r, warnings
 
-    def _fix_object_for_patch(self, o):
+    def fix_object_for_patch(self, o):
         # A bug in versions < 1.20 cause errors when applying resources that have some fields omitted which have
         # default values. We need to fix these resources.
         # UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the

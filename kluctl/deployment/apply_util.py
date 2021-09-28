@@ -51,6 +51,7 @@ class ApplyUtil:
     def apply_object(self, x, replaced):
         logger.debug(f"  {get_long_object_name(x)}")
 
+        x2 = self.k8s_cluster.fix_object_for_patch(x)
         if not self.force_apply:
             x2 = remove_non_managed_fields2(x, self.deployment_collection.remote_objects)
         else:
