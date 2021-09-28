@@ -3,8 +3,8 @@ FROM python:3.8.10-slim-buster
 RUN apt update && apt install wget libyaml-dev git -y && rm -rf /var/lib/apt/lists/*
 
 # Install tools
-ENV KUSTOMIZE_VERSION=v4.2.0
-ENV HELM_VERSION=v3.6.3
+ENV KUSTOMIZE_VERSION=v4.4.0
+ENV HELM_VERSION=v3.7.0
 ENV KUBESEAL_VERSION=v0.16.0
 RUN wget -O kustomize.tar.gz https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz && \
     tar xzf kustomize.tar.gz && \
