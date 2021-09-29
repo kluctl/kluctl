@@ -15,6 +15,15 @@ overwrite_allowed_managers = {
     "rancher",
 }
 
+ignore_managers = {
+    # If kube-apiserver claimed a field, then this was for a good reason, so lets not complain about it
+    "kube-apiserver",
+}
+
+ignore_fields = {
+    ("metadata", "creationTimestamp"),
+}
+
 def check_item_match(o, kv, index):
     if kv[0:2] == "k:":
         k = kv[2:]
@@ -74,7 +83,6 @@ class OverwrittenField:
     path: str
     local_value: Any
     remote_value: Any
-    value: Any
     field_manager: str
 
 def resolve_field_manager_conflicts(local_object, remote_object):
@@ -110,6 +118,7 @@ def resolve_field_manager_conflicts(local_object, remote_object):
 
         fm, tp = find_owner(local_field_owners, p)
 
+        did_overwrite = False
         if fm is None:
             # No manager found that claimed this field. If it's not existing in the remote object, it means it's a
             # new field so we can safely claim it. If it's present in the remote object AND has changed, it's a system
@@ -117,17 +126,17 @@ def resolve_field_manager_conflicts(local_object, remote_object):
             if remote_value is not not_found:
                 if v != remote_value:
                     set_dict_value(ret, p, remote_value)
-                    overwritten.append(OverwrittenField(path=convert_list_to_json_path(p),
-                                                        local_value=v if v is not not_found else None,
-                                                        remote_value=remote_value,
-                                                        value=remote_value, field_manager="<none>"))
+                    did_overwrite = True
         elif fm["manager"] not in overwrite_allowed_managers:
             to_delete.add(tp)
-            if v != remote_value:
-                overwritten.append(OverwrittenField(path=convert_list_to_json_path(p),
-                                                    local_value=v if v is not not_found else None,
-                                                    remote_value=remote_value if remote_value is not not_found else None,
-                                                    value=None, field_manager=fm["manager"]))
+            did_overwrite = True
+
+        ignore = (fm and fm["manager"] in ignore_managers) or tuple(p) in ignore_fields
+        if did_overwrite and v != remote_value and not ignore:
+            overwritten.append(OverwrittenField(path=convert_list_to_json_path(p),
+                                                local_value=v if v is not not_found else None,
+                                                remote_value=remote_value if remote_value is not not_found else None,
+                                                field_manager=fm["manager"] if fm else "<none>"))
 
     for p in to_delete:
         # We do not own this field, so we should also not set it (not even to the same value to ensure we don't
