@@ -7,8 +7,10 @@ import pickle
 import threading
 
 from jsonpath_ng import auto_id_field, jsonpath, JSONPath
+from jsonpath_ng.exceptions import JsonPathParserError
 from jsonpath_ng.ext import parse
 
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.utils import get_tmp_base_dir
 
 logger = logging.getLogger(__name__)
@@ -96,7 +98,10 @@ def parse_json_path(p) -> JSONPath:
     if p in json_path_cache:
         return json_path_cache[p]
 
-    pp = parse(p)
+    try:
+        pp = parse(p)
+    except JsonPathParserError as e:
+        raise CommandError("Invalid json path '%s'. Error=%s" % (p, str(e)))
     pp = json_path_cache.setdefault(p, pp)
 
     global json_path_cache_modified
