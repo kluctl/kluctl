@@ -103,17 +103,21 @@ def is_iterable(obj, str_and_bytes=True):
     else:
         return True
 
-def object_iterator(o):
+def object_iterator(o, only_leafs=False):
     stack = [(o, [])]
 
     while len(stack) != 0:
         o2, p = stack.pop()
-        if len(p) != 0:
-            yield o2, p
 
+        is_leaf = True
         if isinstance(o2, dict):
             for k, v in o2.items():
+                is_leaf = False
                 stack.append((v, p + [k]))
         elif is_iterable(o2, False):
             for i, v in enumerate(o2):
+                is_leaf = False
                 stack.append((v, p + [i]))
+
+        if len(p) != 0 and (is_leaf or not only_leafs):
+            yield o2, p

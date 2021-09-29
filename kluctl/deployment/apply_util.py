@@ -5,7 +5,7 @@ from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError
 
 from kluctl.deployment.hooks_util import HooksUtil
-from kluctl.diff.managed_fields import remove_non_managed_fields2
+from kluctl.diff.managed_fields import resolve_field_manager_conflicts
 from kluctl.utils.dict_utils import get_dict_value, set_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref
 from kluctl.utils.k8s_status_validation import validate_object
@@ -53,9 +53,14 @@ class ApplyUtil:
 
         x2 = self.k8s_cluster.fix_object_for_patch(x)
         if not self.force_apply:
-            x2 = remove_non_managed_fields2(x, self.deployment_collection.remote_objects)
-        else:
-            x2 = x
+            ref = get_object_ref(x)
+            remote_object = self.deployment_collection.remote_objects.get(ref)
+            x2, overwritten = resolve_field_manager_conflicts(x2, remote_object)
+            warnings = []
+            for ow in overwritten:
+                warnings.append("Field '%s' is now owned by field manager '%s'. "
+                                "It is NOT updated to the desired value '%s'!" % (ow.path, ow.field_manager, ow.local_value))
+            self.deployment_collection.add_api_warnings(ref, warnings)
 
         if self.dry_run and replaced and get_object_ref(x) in self.deployment_collection.remote_objects:
             # Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with

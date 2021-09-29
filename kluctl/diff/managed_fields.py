@@ -1,51 +1,10 @@
+import dataclasses
 import json
+from typing import Any
 
-from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name
-from kluctl.utils.dict_utils import copy_dict, object_iterator
-
-
-def nav_managed_field(o, p):
-    def find_array_value(a, k):
-        k = json.loads(k)
-        for i in range(len(a)):
-            o = a[i]
-            match = True
-            for n, v in k.items():
-                if n not in o or o[n] != v:
-                    match = False
-                    break
-            if match:
-                return i
-        return -1
-
-    o_in = o
-
-    for i in range(len(p)):
-        if p[i] == '.':
-            return o, None, False
-
-        k = p[i]
-        t = k[0]
-        k = k[2:]
-        if t == 'f':
-            if k not in o:
-                return o, k, False
-            if i == len(p) - 1:
-                return o, k, True
-            o = o[k]
-        elif t == 'k':
-            j = find_array_value(o, k)
-            if j == -1:
-                return o, -1, False
-            if i == len(p) - 1:
-                return o, j, True
-            o = o[j]
-        else:
-            raise ValueError('Unsupported managed field %s in object %s' % ('.'.join(p), get_long_object_name(o_in)))
-
-ignored_fields = {
-    ("f:metadata",)
-}
+from kluctl.utils.dict_utils import copy_dict, object_iterator, del_dict_value, get_dict_value, is_iterable, \
+    set_dict_value
+from kluctl.utils.jsonpath_utils import convert_list_to_json_path
 
 # We automatically force overwrite these fields as we assume these are human-edited
 overwrite_allowed_managers = {
@@ -56,44 +15,123 @@ overwrite_allowed_managers = {
     "rancher",
 }
 
-def remove_non_managed_fields(o, managed_fields):
+def check_item_match(o, kv, index):
+    if kv[0:2] == "k:":
+        k = kv[2:]
+        j = json.loads(k)
+        for k2 in j.keys():
+            if k2 not in o:
+                return False
+            if j[k2] != o[k2]:
+                return False
+        return True
+    elif kv[0:2] == "v:":
+        k = kv[2:]
+        j = json.loads(k)
+        return j == o
+    elif kv[0:2] == "i:":
+        index2 = int(kv[2:])
+        return index == index2
+    else:
+        raise ValueError("Invalid managedFields entry '%s'" % kv)
+
+def convert_to_json_path(o, mf_path):
+    ret = []
+    for i in range(len(mf_path)):
+        k = mf_path[i]
+        if k == "{}":
+            raise Exception()
+        if k == ".":
+            if i != len(mf_path) - 1:
+                raise ValueError("Unexpected . element at %s" % convert_list_to_json_path(ret))
+            return ret, True
+        if k[:2] == 'f:':
+            k = k[2:]
+            if not isinstance(o, dict):
+                raise ValueError("%s is not a dict" % convert_list_to_json_path(ret))
+            if k not in o:
+                return ret, False
+            ret.append(k)
+            o = o[k]
+        else:
+            if not is_iterable(o, False):
+                raise ValueError("%s is not a list" % convert_list_to_json_path(ret))
+            found = False
+            for j, v in enumerate(o):
+                if check_item_match(v, k, j):
+                    found = True
+                    ret.append(j)
+                    o = o[j]
+                    break
+            if not found:
+                return ret, False
+    return ret, True
+
+not_found = object()
+
+@dataclasses.dataclass
+class OverwrittenField:
+    path: str
+    local_value: Any
+    remote_value: Any
+    value: Any
+    field_manager: str
+
+def resolve_field_manager_conflicts(local_object, remote_object):
+    overwritten = []
+
+    managed_fields = get_dict_value(remote_object, "metadata.managedFields")
+    if managed_fields is None:
+        return local_object, overwritten
     v1_fields = [mf for mf in managed_fields if mf['fieldsType'] == 'FieldsV1']
 
-    owned_fields = set()
+    local_field_owners = {}
     for mf in v1_fields:
-        if mf["manager"] in overwrite_allowed_managers:
-            for v, p in object_iterator(mf["fieldsV1"]):
-                owned_fields.add(tuple(p))
-    if not owned_fields:
-        # Can't do anything with this object...let's hope it will not conflict
-        return o
+        for v, p in object_iterator(mf["fieldsV1"], only_leafs=True):
+            local_json_path, local_found = convert_to_json_path(local_object, p)
 
-    owned_fields.update(ignored_fields)
+            if local_found:
+                local_field_owners[tuple(local_json_path)] = mf
 
-    did_copy = False
-    for mf in v1_fields:
-        for v, p in object_iterator(mf['fieldsV1']):
-            if tuple(p) in owned_fields:
-                continue
+    def find_owner(owners, p):
+        tp = tuple(p)
+        fm = None
+        while len(tp) > 0:
+            fm = owners.get(tp)
+            if fm is not None:
+                break
+            tp = tp[:-1]
+        return fm, tp
 
-            d, k, found = nav_managed_field(o, p)
-            if found:
-                if not did_copy:
-                    did_copy = True
-                    o = copy_dict(o)
-                    d, k, found = nav_managed_field(o, p)
-                    assert found
-                del d[k]
+    ret = copy_dict(local_object)
+    to_delete = set()
+    for v, p in object_iterator(local_object, only_leafs=True):
+        remote_value = get_dict_value(remote_object, p, not_found)
 
-    return o
+        fm, tp = find_owner(local_field_owners, p)
 
-def remove_non_managed_fields2(o, remote_objects):
-    r = remote_objects.get(get_object_ref(o))
-    if r is not None:
-        mf = r['metadata'].get('managedFields')
-        if mf is None:
-            return o
-        else:
-            return remove_non_managed_fields(o, mf)
-    else:
-        return o
+        if fm is None:
+            # No manager found that claimed this field. If it's not existing in the remote object, it means it's a
+            # new field so we can safely claim it. If it's present in the remote object AND has changed, it's a system
+            # field that we have no control over!
+            if remote_value is not not_found:
+                if v != remote_value:
+                    set_dict_value(ret, p, remote_value)
+                    overwritten.append(OverwrittenField(path=convert_list_to_json_path(p),
+                                                        local_value=v if v is not not_found else None,
+                                                        remote_value=remote_value,
+                                                        value=remote_value, field_manager="<none>"))
+        elif fm["manager"] not in overwrite_allowed_managers:
+            to_delete.add(tp)
+            if v != remote_value:
+                overwritten.append(OverwrittenField(path=convert_list_to_json_path(p),
+                                                    local_value=v if v is not not_found else None,
+                                                    remote_value=remote_value if remote_value is not not_found else None,
+                                                    value=None, field_manager=fm["manager"]))
+
+    for p in to_delete:
+        # We do not own this field, so we should also not set it (not even to the same value to ensure we don't
+        # claim shared ownership)
+        del_dict_value(ret, p)
+
+    return ret, overwritten
