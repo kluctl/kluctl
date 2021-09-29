@@ -68,8 +68,14 @@ class GenericRegistry(ImagesRegistry):
         try:
             with open(os.path.expanduser("~/.docker/config.json")) as f:
                 config = json.load(f)
+        except Exception as e:
+            logger.warning("Failed to load docker config. Error=%s" % str(e))
+            return None
+
+        try:
             auth = config.get("auths", {}).get(auth_entry)
             if auth is None:
+                logger.debug("No 'auths.%s' entry in docker config" % auth_entry)
                 return None
             if "username" in auth and "password" in auth:
                 logger.debug(f"found docker config entry with username {auth['username']}")
@@ -83,7 +89,9 @@ class GenericRegistry(ImagesRegistry):
                 logger.debug(f"found docker config entry with username {a[0]}")
                 return DockerCreds(username=a[0], password=a[1], tlsverify=None)
             cred_store = config.get("credsStore")
-            if cred_store is not None:
+            if cred_store is None:
+                logger.warning("No 'credsStore' found in docker config")
+            else:
                 cred_exe = f"docker-credential-{cred_store}"
                 logger.debug(f"trying credStore {cred_exe}")
                 rc, stdout, stderr = run_helper([cred_exe, "get"], input=auth_entry, return_std=True)
@@ -93,8 +101,8 @@ class GenericRegistry(ImagesRegistry):
                 j = json.loads(stdout)
                 logger.debug(f"{cred_exe} returned auth entry with username {j['Username']}")
                 return DockerCreds(username=j["Username"], password=j["Secret"], tlsverify=None)
-        except:
-            pass
+        except Exception as e:
+            logger.warning("Exception while loading docker config/creds. Error=%s" % str(e))
         return None
 
     def get_creds(self, host):
