@@ -90,9 +90,8 @@ class HelmChart(object):
         rendered = rendered.decode('utf-8')
 
         parsed = yaml_load_all(rendered)
+        parsed = [o for o in parsed if o is not None]
         for o in parsed:
-            if o is None:
-                continue
             # "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
             # add the necessary namespace in the rendered resources
             o.setdefault("metadata", {}).setdefault("namespace", namespace)
