@@ -1,24 +1,20 @@
 import base64
-import fnmatch
 import hashlib
 import json
 import logging
 import os
 import sys
 import traceback
-from datetime import datetime
 
 import jinja2
-from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound, TemplateError, \
-    FileSystemBytecodeCache
-from jinja2.bccache import Bucket
+from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound, TemplateError
 
 from kluctl.utils.dict_utils import merge_dict, get_dict_value
 from kluctl.utils.yaml_utils import yaml_dump, yaml_load
 
 logger = logging.getLogger(__name__)
 
-# This Jinja2 environment allows to load templaces relative to the parent template. This means that for example
+# This Jinja2 environment allows to load templates relative to the parent template. This means that for example
 # '{% include "file.yml" %}' will try to include the template from a ./file.yml
 class RelEnvironment(Environment):
     def __init__(self, *args, **kwargs):
@@ -30,62 +26,6 @@ class RelEnvironment(Environment):
         p = os.path.join(os.path.dirname(parent), template)
         p = os.path.normpath(p)
         return p.replace('\\', '/')
-
-class LimittedFileSystemBytecodeCache(FileSystemBytecodeCache):
-    def __init__(self, *args, max_cache_files, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.max_cache_files = max_cache_files
-        self.clear_old_entries()
-        self.did_touch = set()
-
-    def touch_loaded_marker(self, bucket):
-        filename = super()._get_cache_filename(bucket) + ".loaded"
-        if filename in self.did_touch:
-            return
-        with open(filename + ".tmp", mode="wt") as f:
-            f.write(str(datetime.utcnow()))
-        try:
-            os.rename(filename + ".tmp", filename)
-        except:
-            pass
-        self.did_touch.add(filename)
-
-    def load_bytecode(self, bucket: Bucket) -> None:
-        ret = super().load_bytecode(bucket)
-        if ret is not None:
-            self.touch_loaded_marker(bucket)
-        return ret
-
-    def dump_bytecode(self, bucket: Bucket) -> None:
-        # thread/multi-process safe version of super().dump_bytecode()
-
-        filename = self._get_cache_filename(bucket)
-        with open(filename + ".tmp", "wb") as f:
-            bucket.write_bytecode(f)
-        try:
-            os.rename(filename + ".tmp", filename)
-        except:
-            pass
-        self.touch_loaded_marker(bucket)
-
-    def clear_old_entries(self):
-        files = fnmatch.filter(os.listdir(self.directory), self.pattern % ("*",))
-        if len(files) <= self.max_cache_files:
-            return
-        times = {}
-        for f in files:
-            try:
-                with open(os.path.join(self.directory, f + ".loaded"), mode="rt") as f2:
-                    times[f] = datetime.fromisoformat(f2.read())
-            except:
-                times[f] = datetime.min
-        files.sort(key=lambda f: times[f], reverse=True)
-        for f in files[self.max_cache_files:]:
-            try:
-                os.remove(os.path.join(self.directory, f))
-                os.remove(os.path.join(self.directory, f + ".loaded"))
-            except:
-                pass
 
 def b64encode(string):
     return base64.b64encode(string.encode()).decode()

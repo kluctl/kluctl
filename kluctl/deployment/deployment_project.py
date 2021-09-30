@@ -1,14 +1,15 @@
 import logging
 import os
 
-from jinja2 import FileSystemLoader, StrictUndefined
+from jinja2 import StrictUndefined, FileSystemLoader
 from ordered_set import OrderedSet
 
 from kluctl.utils.dict_utils import merge_dict, copy_dict, \
     set_dict_default_value, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
-from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, LimittedFileSystemBytecodeCache
+from kluctl.utils.jinja2_cache import KluctlBytecodeCache
+from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class DeploymentProject(object):
         if not os.path.exists(dir):
             raise CommandError("%s does not exist" % dir)
 
-        self.jinja2_cache = LimittedFileSystemBytecodeCache(max_cache_files=10000)
+        self.jinja2_cache = KluctlBytecodeCache(max_cache_files=10000)
 
         self.dir = dir
         self.jinja_vars = copy_dict(jinja_vars)
