@@ -1,14 +1,14 @@
 import logging
 import os
 
-from jinja2 import FileSystemLoader, StrictUndefined, FileSystemBytecodeCache
+from jinja2 import FileSystemLoader, StrictUndefined
 from ordered_set import OrderedSet
 
-from kluctl.utils.exceptions import CommandError
-from kluctl.utils.external_args import check_required_args
-from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, render_str
 from kluctl.utils.dict_utils import merge_dict, copy_dict, \
     set_dict_default_value, get_dict_value
+from kluctl.utils.exceptions import CommandError
+from kluctl.utils.external_args import check_required_args
+from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment, LimittedFileSystemBytecodeCache
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,8 @@ class DeploymentProject(object):
                  parent_collection=None):
         if not os.path.exists(dir):
             raise CommandError("%s does not exist" % dir)
+
+        self.jinja2_cache = LimittedFileSystemBytecodeCache(max_cache_files=10000)
 
         self.dir = dir
         self.jinja_vars = copy_dict(jinja_vars)
@@ -42,10 +44,9 @@ class DeploymentProject(object):
         dirs = []
         for d, _ in self.get_parents():
             dirs.append(d.dir)
-        cache = FileSystemBytecodeCache()
         environment = RelEnvironment(loader=FileSystemLoader(dirs), undefined=StrictUndefined,
                                      cache_size=10000,
-                                     bytecode_cache=cache, auto_reload=False)
+                                     bytecode_cache=self.jinja2_cache, auto_reload=False)
         merge_dict(environment.globals, jinja_vars, clone=False)
         add_jinja2_filters(environment)
         return environment
