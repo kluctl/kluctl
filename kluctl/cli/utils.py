@@ -163,14 +163,14 @@ def project_target_command_context(kwargs, kluctl_project, target,
                              deployment=d, deployment_collection=c, images=images)
         yield ctx
 
-def build_diff_result(c, deploy_diff_result, deleted_objects, format):
+def build_command_result(c, command_result, deleted_objects, format):
     if format == "diff":
-        return format_diff(deploy_diff_result.new_objects, deploy_diff_result.changed_objects, deleted_objects)
+        return format_diff(command_result.new_objects, command_result.changed_objects, deleted_objects)
     elif format != "yaml":
         raise CommandError(f"Invalid format: {format}")
 
     result = {
-        "diff": changes_to_yaml(deploy_diff_result.new_objects, deploy_diff_result.changed_objects, deploy_diff_result.errors, deploy_diff_result.warnings),
+        "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects, command_result.errors, command_result.warnings),
         "images": build_seen_images(c, True),
     }
     if deleted_objects is not None:
@@ -203,7 +203,7 @@ def build_validate_result(result, format):
     else:
         raise CommandError(f"Invalid format: {format}")
 
-def output_diff_result(output, c, deploy_diff_result, deleted_objects):
+def output_command_result(output, c, command_result, deleted_objects):
     if not output:
         output = ["diff"]
     for o in output:
@@ -212,7 +212,7 @@ def output_diff_result(output, c, deploy_diff_result, deleted_objects):
         path = None
         if len(s) > 1:
             path = s[1]
-        s = build_diff_result(c, deploy_diff_result, deleted_objects, format)
+        s = build_command_result(c, command_result, deleted_objects, format)
         output_result(path, s)
 
 def output_validate_result(output, result):

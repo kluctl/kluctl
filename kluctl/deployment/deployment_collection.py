@@ -27,7 +27,7 @@ class DeployErrorItem:
     message: str
 
 @dataclasses.dataclass
-class DeployDiffResult:
+class CommandResult:
     new_objects: list
     changed_objects: list
     errors: list
@@ -144,16 +144,16 @@ class DeploymentCollection:
         applied_objects = self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
                                         False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
-        return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.errors), warnings=list(self.warnings))
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             errors=list(self.errors), warnings=list(self.warnings))
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
         applied_objects = self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
                                         True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
-        return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.errors), warnings=list(self.warnings))
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             errors=list(self.errors), warnings=list(self.warnings))
 
     def poke_images(self, k8s_cluster):
         self.clear_errors_and_warnings()
@@ -204,8 +204,8 @@ class DeploymentCollection:
             applied_objects = self.do_finish_futures(futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
-        return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.errors), warnings=list(self.warnings))
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             errors=list(self.errors), warnings=list(self.warnings))
 
     def downscale(self, k8s_cluster):
         self.clear_errors_and_warnings()
@@ -222,8 +222,8 @@ class DeploymentCollection:
             applied_objects = self.do_finish_futures(futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
-        return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.errors), warnings=list(self.warnings))
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             errors=list(self.errors), warnings=list(self.warnings))
 
     def validate(self):
         self.clear_errors_and_warnings()
@@ -365,16 +365,11 @@ class DeploymentCollection:
         for w in warnings:
             item = DeployErrorItem(ref=ref, message=w)
             if item not in self.warnings:
-                logger.warning("%s: Warning while performing api call. message=%s" % (get_long_object_name_from_ref(ref), w))
                 self.warnings.add(item)
 
     def add_error(self, ref, error):
-        ref_str = ""
-        if ref is not None:
-            ref_str = "%s: " % get_long_object_name_from_ref(ref)
         item = DeployErrorItem(ref=ref, message=error)
         if item not in self.errors:
-            logger.error("%sError while performing api call. message=%s" % (ref_str, error))
             self.errors.add(item)
 
     def clear_errors_and_warnings(self):
