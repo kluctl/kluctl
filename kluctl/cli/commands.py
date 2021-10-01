@@ -44,7 +44,7 @@ def deploy_command2(obj, kwargs, cmd_ctx):
 
     result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, kwargs["force_apply"],
                                                        kwargs["replace_on_error"], kwargs["force_replace_on_error"], kwargs["abort_on_error"])
-    deleted_objects = cmd_ctx.deployment_collection.find_prune_objects(cmd_ctx.k8s_cluster)
+    deleted_objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
     output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)
     if result.errors:
         sys.exit(1)
@@ -54,7 +54,7 @@ def diff_command(obj, kwargs):
         result = cmd_ctx.deployment_collection.diff(
             cmd_ctx.k8s_cluster, kwargs["force_apply"], kwargs["replace_on_error"], kwargs["force_replace_on_error"],
             kwargs["ignore_tags"], kwargs["ignore_labels"], kwargs["ignore_annotations"], kwargs["ignore_order"])
-        deleted_objects = cmd_ctx.deployment_collection.find_prune_objects(cmd_ctx.k8s_cluster)
+        deleted_objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
         output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)
     sys.exit(1 if result.errors else 0)
 
@@ -81,7 +81,7 @@ def prune_command(obj, kwargs):
         prune_command2(obj, kwargs, cmd_ctx)
 
 def prune_command2(obj, kwargs, cmd_ctx):
-    objects = cmd_ctx.deployment_collection.find_prune_objects(cmd_ctx.k8s_cluster)
+    objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
     confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
 
 def poke_images_command(obj, kwargs):
@@ -90,7 +90,7 @@ def poke_images_command(obj, kwargs):
             click.confirm("Do you really want to poke images to the context/cluster %s?" % cmd_ctx.k8s_cluster.context,
                           err=True, abort=True)
         result = cmd_ctx.deployment_collection.poke_images(cmd_ctx.k8s_cluster)
-        deleted_objects = cmd_ctx.deployment_collection.find_prune_objects(cmd_ctx.k8s_cluster)
+        deleted_objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
         output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)
         if result.errors:
             sys.exit(1)
@@ -101,7 +101,7 @@ def downscale_command(obj, kwargs):
             click.confirm("Do you really want to downscale on context/cluster %s?" % cmd_ctx.k8s_cluster.context,
                           err=True, abort=True)
         result = cmd_ctx.deployment_collection.downscale(cmd_ctx.k8s_cluster)
-        deleted_objects = cmd_ctx.deployment_collection.find_prune_objects(cmd_ctx.k8s_cluster)
+        deleted_objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
         output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)
         if result.errors:
             sys.exit(1)

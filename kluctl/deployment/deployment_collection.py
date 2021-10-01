@@ -254,9 +254,9 @@ class DeploymentCollection:
         labels = self.project.get_delete_by_labels()
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, [])
 
-    def find_prune_objects(self, k8s_cluster):
+    def find_orphan_objects(self, k8s_cluster):
         self.clear_errors_and_warnings()
-        logger.info("Searching objects not found in local objects")
+        logger.info("Searching for orphan objects")
         labels = self.project.get_delete_by_labels()
         excluded_objects = list(self.local_objects_by_ref().keys())
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, excluded_objects)
