@@ -45,8 +45,8 @@ class DeploymentCollection:
 
         self.remote_objects = {}
 
-        self.api_errors = set()
-        self.api_warnings = set()
+        self.errors = set()
+        self.warnings = set()
 
     def _collect_deployments(self, project):
         ret = []
@@ -123,7 +123,7 @@ class DeploymentCollection:
         r = k8s_cluster.get_objects_by_object_refs(refs)
         for o, w in r:
             self.remote_objects[get_object_ref(o)] = o
-            self.add_api_warnings(get_object_ref(o), w)
+            self.add_warnings(get_object_ref(o), w)
 
     def forget_remote_objects(self, refs):
         for ref in refs:
@@ -146,7 +146,7 @@ class DeploymentCollection:
                                         False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.api_errors), warnings=list(self.api_warnings))
+                                errors=list(self.errors), warnings=list(self.warnings))
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
@@ -154,7 +154,7 @@ class DeploymentCollection:
                                         True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.api_errors), warnings=list(self.api_warnings))
+                                errors=list(self.errors), warnings=list(self.warnings))
 
     def poke_images(self, k8s_cluster):
         self.clear_errors_and_warnings()
@@ -184,13 +184,13 @@ class DeploymentCollection:
             try:
                 r = k8s_cluster.get_preferred_resource(None, kind)
             except ResourceNotFoundError as e:
-                self.add_api_error(None, k8s_cluster.get_status_message(e))
+                self.add_error(None, k8s_cluster.get_status_message(e))
                 continue
 
             ref = ObjectRef(r.group_version, kind=r.kind, name=name, namespace=fi.get("namespace"))
             local_object = all_objects.get(ref)
             if local_object is None:
-                self.add_api_error(ref, "object not found while trying to associate image with deployed object")
+                self.add_error(ref, "object not found while trying to associate image with deployed object")
                 continue
 
             containers_and_images.setdefault(ref, []).append((fi["container"], fi["resultImage"]))
@@ -206,7 +206,7 @@ class DeploymentCollection:
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.api_errors), warnings=list(self.api_warnings))
+                                errors=list(self.errors), warnings=list(self.warnings))
 
     def downscale(self, k8s_cluster):
         self.clear_errors_and_warnings()
@@ -224,15 +224,15 @@ class DeploymentCollection:
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         return DeployDiffResult(new_objects=new_objects, changed_objects=changed_objects,
-                                errors=list(self.api_errors), warnings=list(self.api_warnings))
+                                errors=list(self.errors), warnings=list(self.warnings))
 
     def validate(self):
         self.clear_errors_and_warnings()
         result = ValidateResult()
 
-        for w in self.api_warnings:
+        for w in self.warnings:
             result.warnings.append(ValidateResultItem(ref=w.ref, reason=w.reason, message=w.message))
-        for e in self.api_errors:
+        for e in self.errors:
             result.errors.append(ValidateResultItem(ref=e.ref, reason=e.reason, message=e.message))
 
         for d in self.deployments:
@@ -340,7 +340,7 @@ class DeploymentCollection:
         for ref, f in futures:
             e = f.exception()
             if e is not None:
-                self.add_api_error(ref, str(e))
+                self.add_error(ref, str(e))
                 continue
 
             o = f.result()
@@ -362,25 +362,25 @@ class DeploymentCollection:
                     ret.setdefault(get_object_ref(o), []).append(image)
         return ret
 
-    def add_api_warnings(self, ref, warnings):
+    def add_warnings(self, ref, warnings):
         for w in warnings:
             item = DeployErrorItem(ref=ref, reason="api", message=w)
-            if item not in self.api_warnings:
+            if item not in self.warnings:
                 logger.warning("%s: Warning while performing api call. message=%s" % (get_long_object_name_from_ref(ref), w))
-                self.api_warnings.add(item)
+                self.warnings.add(item)
 
-    def add_api_error(self, ref, error):
+    def add_error(self, ref, error):
         ref_str = ""
         if ref is not None:
             ref_str = "%s: " % get_long_object_name_from_ref(ref)
         item = DeployErrorItem(ref=ref, reason="api", message=error)
-        if item not in self.api_errors:
+        if item not in self.errors:
             logger.error("%sError while performing api call. message=%s" % (ref_str, error))
-            self.api_errors.add(item)
+            self.errors.add(item)
 
     def clear_errors_and_warnings(self):
-        self.api_errors = set()
-        self.api_warnings = set()
+        self.errors = set()
+        self.warnings = set()
 
 def do_diff_object(old_object, new_object, ignore_order):
     if old_object == new_object:

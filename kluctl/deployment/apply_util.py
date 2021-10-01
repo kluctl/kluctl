@@ -32,14 +32,14 @@ class ApplyUtil:
         with self.mutex:
             ref = get_object_ref(applied_object)
             self.applied_objects[ref] = applied_object
-            self.deployment_collection.add_api_warnings(ref, patch_warnings)
+            self.deployment_collection.add_warnings(ref, patch_warnings)
 
     def handle_error(self, ref, error):
         with self.mutex:
             self.error_refs[ref] = error
             if self.abort_on_error:
                 self.abort_signal = True
-            self.deployment_collection.add_api_error(ref, error)
+            self.deployment_collection.add_error(ref, error)
 
     def had_error(self, ref):
         with self.mutex:
@@ -60,7 +60,7 @@ class ApplyUtil:
             for ow in overwritten:
                 warnings.append("Field '%s' is now owned by field manager '%s'. "
                                 "It is NOT updated to the desired value '%s'!" % (ow.path, ow.field_manager, ow.local_value))
-            self.deployment_collection.add_api_warnings(ref, warnings)
+            self.deployment_collection.add_warnings(ref, warnings)
 
         if self.dry_run and replaced and get_object_ref(x) in self.deployment_collection.remote_objects:
             # Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
