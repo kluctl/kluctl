@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 @dataclasses.dataclass(frozen=True, eq=True)
 class DeployErrorItem:
     ref: ObjectRef
-    reason: str
     message: str
 
 @dataclasses.dataclass
@@ -231,9 +230,9 @@ class DeploymentCollection:
         result = ValidateResult()
 
         for w in self.warnings:
-            result.warnings.append(ValidateResultItem(ref=w.ref, reason=w.reason, message=w.message))
+            result.warnings.append(ValidateResultItem(ref=w.ref, reason="api", message=w.message))
         for e in self.errors:
-            result.errors.append(ValidateResultItem(ref=e.ref, reason=e.reason, message=e.message))
+            result.errors.append(ValidateResultItem(ref=e.ref, reason="api", message=e.message))
 
         for d in self.deployments:
             if not d.check_inclusion_for_deploy():
@@ -364,7 +363,7 @@ class DeploymentCollection:
 
     def add_warnings(self, ref, warnings):
         for w in warnings:
-            item = DeployErrorItem(ref=ref, reason="api", message=w)
+            item = DeployErrorItem(ref=ref, message=w)
             if item not in self.warnings:
                 logger.warning("%s: Warning while performing api call. message=%s" % (get_long_object_name_from_ref(ref), w))
                 self.warnings.add(item)
@@ -373,7 +372,7 @@ class DeploymentCollection:
         ref_str = ""
         if ref is not None:
             ref_str = "%s: " % get_long_object_name_from_ref(ref)
-        item = DeployErrorItem(ref=ref, reason="api", message=error)
+        item = DeployErrorItem(ref=ref, message=error)
         if item not in self.errors:
             logger.error("%sError while performing api call. message=%s" % (ref_str, error))
             self.errors.add(item)
