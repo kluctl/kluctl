@@ -5,7 +5,7 @@ from kluctl.utils.k8s_object_utils import get_long_object_name, get_long_object_
 from kluctl.utils.pretty_table import pretty_table
 
 
-def format_diff(new_objects, changed_objects, orphan_objects):
+def format_command_result_tables(new_objects, changed_objects, orphan_objects):
     result = ''
 
     if new_objects:

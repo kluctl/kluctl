@@ -12,7 +12,7 @@ from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.deployment_collection import DeploymentCollection
 from kluctl.deployment.deployment_project import DeploymentProject
 from kluctl.diff.k8s_diff import changes_to_yaml
-from kluctl.diff.k8s_pretty_diff import format_diff
+from kluctl.diff.k8s_pretty_diff import format_command_result_tables
 from kluctl.image_registries import init_image_registries
 from kluctl.deployment.images import Images
 from kluctl.utils.external_args import parse_args
@@ -163,9 +163,9 @@ def project_target_command_context(kwargs, kluctl_project, target,
                              deployment=d, deployment_collection=c, images=images)
         yield ctx
 
-def build_command_result(c, command_result, format):
+def format_command_result(c, command_result, format):
     if format == "diff":
-        return format_diff(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
+        return format_command_result_tables(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
     elif format != "yaml":
         raise CommandError(f"Invalid format: {format}")
 
@@ -213,7 +213,7 @@ def output_command_result(output, c, command_result):
         path = None
         if len(s) > 1:
             path = s[1]
-        s = build_command_result(c, command_result, format)
+        s = format_command_result(c, command_result, format)
         output_result(path, s)
 
 def output_validate_result(output, result):
