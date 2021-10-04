@@ -70,7 +70,7 @@ def format_command_result(c, command_result, format):
     return yaml_dump(result)
 
 
-def build_validate_result(result, format):
+def format_validate_result(result, format):
     if format == "text":
         str = ""
         if result.warnings:
@@ -119,7 +119,7 @@ def output_validate_result(output, result):
         path = None
         if len(s) > 1:
             path = s[1]
-        s = build_validate_result(result, format)
+        s = format_validate_result(result, format)
         output_result(path, s)
 
 
