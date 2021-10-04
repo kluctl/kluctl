@@ -1,26 +1,20 @@
 import contextlib
 import dataclasses
-import os
 import tempfile
 from typing import ContextManager
-
-import click
 
 from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args, KluctlProject
 from kluctl.utils.dict_utils import merge_dict, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.deployment.deployment_collection import DeploymentCollection
 from kluctl.deployment.deployment_project import DeploymentProject
-from kluctl.diff.k8s_diff import changes_to_yaml
-from kluctl.diff.k8s_pretty_diff import format_command_result_tables
 from kluctl.image_registries import init_image_registries
 from kluctl.deployment.images import Images
 from kluctl.utils.external_args import parse_args
 from kluctl.utils.inclusion import Inclusion
 from kluctl.utils.k8s_cluster_base import load_cluster_config, k8s_cluster_base
-from kluctl.utils.k8s_object_utils import get_long_object_name_from_ref
 from kluctl.utils.utils import get_tmp_base_dir
-from kluctl.utils.yaml_utils import yaml_load_file, yaml_dump, yaml_dump_all
+from kluctl.utils.yaml_utils import yaml_load_file
 
 
 def build_jinja_vars(cluster_vars):
@@ -163,89 +157,6 @@ def project_target_command_context(kwargs, kluctl_project, target,
                              deployment=d, deployment_collection=c, images=images)
         yield ctx
 
-def format_command_result(c, command_result, format):
-    if format == "diff":
-        return format_command_result_tables(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
-    elif format != "yaml":
-        raise CommandError(f"Invalid format: {format}")
-
-    result = {
-        "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects),
-        "orphan_objects": [{"ref": dataclasses.asdict(ref)} for ref in command_result.orphan_objects],
-        "errors": [dataclasses.asdict(x) for x in command_result.errors],
-        "warnings": [dataclasses.asdict(x) for x in command_result.warnings],
-        "images": build_seen_images(c, True),
-    }
-    return yaml_dump(result)
-
-def build_validate_result(result, format):
-    if format == "text":
-        str = ""
-        if result.warnings:
-            str += "Validation Warnings:\n"
-            for item in result.warnings:
-                str += "  %s: reason=%s, message=%s\n" % (get_long_object_name_from_ref(item.ref), item.reason, item.message)
-        if result.errors:
-            if str:
-                str += "\n"
-            str += "Validation Errors:\n"
-            for item in result.errors:
-                str += "  %s: reason=%s, message=%s\n" % (get_long_object_name_from_ref(item.ref), item.reason, item.message)
-        if result.results:
-            if str:
-                str += "\n"
-            str += "Results:\n"
-            for item in result.results:
-                str += "  %s: reason=%s, message=%s\n" % (get_long_object_name_from_ref(item.ref), item.reason, item.message)
-        return str
-    if format == "yaml":
-        y = yaml_dump(dataclasses.asdict(result))
-        return y
-    else:
-        raise CommandError(f"Invalid format: {format}")
-
-def output_command_result(output, c, command_result):
-    if not output:
-        output = ["diff"]
-    for o in output:
-        s = o.split("=", 1)
-        format = s[0]
-        path = None
-        if len(s) > 1:
-            path = s[1]
-        s = format_command_result(c, command_result, format)
-        output_result(path, s)
-
-def output_validate_result(output, result):
-    if not output:
-        output = ["text"]
-    for o in output:
-        s = o.split("=", 1)
-        format = s[0]
-        path = None
-        if len(s) > 1:
-            path = s[1]
-        s = build_validate_result(result, format)
-        output_result(path, s)
-
-def output_yaml_result(output, result, all=False):
-    output = output or [None]
-    if all:
-        s = yaml_dump_all(result)
-    else:
-        s = yaml_dump(result)
-    for o in output:
-        output_result(o, s)
-
-def output_result(output_file, result):
-    path = None
-    if output_file and output_file != "-":
-        path = os.path.expanduser(output_file)
-    if path is None:
-        click.echo(result)
-    else:
-        with open(path, "wt") as f:
-            f.write(result)
 
 def build_seen_images(c, detailed):
     ret = []

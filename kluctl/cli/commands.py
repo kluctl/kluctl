@@ -7,8 +7,8 @@ import time
 import click
 
 from kluctl import get_kluctl_package_dir
-from kluctl.cli.utils import output_command_result, build_seen_images, output_yaml_result, \
-    output_validate_result, project_command_context
+from kluctl.cli.utils import build_seen_images, project_command_context
+from kluctl.cli.command_result import output_command_result, output_validate_result, output_yaml_result
 from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.exceptions import CommandError

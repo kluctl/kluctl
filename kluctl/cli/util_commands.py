@@ -7,7 +7,7 @@ import sys
 import click
 from git import Git
 
-from kluctl.cli.commands import output_yaml_result
+from kluctl.cli.command_result import output_yaml_result
 from kluctl.cli.utils import project_command_context
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.image_registries import init_image_registries
