@@ -53,13 +53,7 @@ def pretty_changes(ref, changes):
 
     return ret
 
-
-def format_command_result(c, command_result, format):
-    if format == "diff":
-        return format_command_result_tables(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
-    elif format != "yaml":
-        raise CommandError(f"Invalid format: {format}")
-
+def format_command_result_yaml(c, command_result):
     result = {
         "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects),
         "orphan_objects": [{"ref": dataclasses.asdict(ref)} for ref in command_result.orphan_objects],
@@ -69,6 +63,13 @@ def format_command_result(c, command_result, format):
     }
     return yaml_dump(result)
 
+def format_command_result(c, command_result, format):
+    if format == "diff":
+        return format_command_result_tables(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
+    elif format == "yaml":
+        return format_command_result_yaml(c, command_result)
+    else:
+        raise CommandError(f"Invalid format: {format}")
 
 def format_validate_result(result, format):
     if format == "text":
