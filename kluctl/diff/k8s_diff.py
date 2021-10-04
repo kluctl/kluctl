@@ -101,7 +101,7 @@ def deep_diff_to_changes(diff, old_object, new_object):
 
     return changes
 
-def changes_to_yaml(new_objects, changed_objects, errors, warnings):
+def changes_to_yaml(new_objects, changed_objects):
     new_objects = [{
         "ref": dataclasses.asdict(get_object_ref(x)),
         "object": x
@@ -110,12 +110,8 @@ def changes_to_yaml(new_objects, changed_objects, errors, warnings):
         "ref": dataclasses.asdict(get_object_ref(c["old_object"])),
         "changes": c["changes"],
     } for c in changed_objects]
-    errors = [dataclasses.asdict(x) for x in errors]
-    warnings = [dataclasses.asdict(x) for x in warnings]
 
     return {
         "new": new_objects,
         "changed": changed_objects,
-        "errors": errors,
-        "warnings": warnings,
     }

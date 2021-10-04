@@ -30,6 +30,7 @@ class DeployErrorItem:
 class CommandResult:
     new_objects: list
     changed_objects: list
+    orphan_objects: list
     errors: list
     warnings: list
 
@@ -144,7 +145,9 @@ class DeploymentCollection:
         applied_objects = self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
                                         False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
+        orphan_objects = self.find_orphan_objects(k8s_cluster)
         return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
@@ -152,7 +155,9 @@ class DeploymentCollection:
         applied_objects = self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
                                         True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
+        orphan_objects = self.find_orphan_objects(k8s_cluster)
         return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def poke_images(self, k8s_cluster):
@@ -204,7 +209,9 @@ class DeploymentCollection:
             applied_objects = self.do_finish_futures(futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
+        orphan_objects = self.find_orphan_objects(k8s_cluster)
         return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def downscale(self, k8s_cluster):
@@ -222,7 +229,9 @@ class DeploymentCollection:
             applied_objects = self.do_finish_futures(futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
+        orphan_objects = self.find_orphan_objects(k8s_cluster)
         return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+                             orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def validate(self):
@@ -250,12 +259,10 @@ class DeploymentCollection:
         return result
 
     def find_delete_objects(self, k8s_cluster):
-        self.clear_errors_and_warnings()
         labels = self.project.get_delete_by_labels()
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, [])
 
     def find_orphan_objects(self, k8s_cluster):
-        self.clear_errors_and_warnings()
         logger.info("Searching for orphan objects")
         labels = self.project.get_delete_by_labels()
         excluded_objects = list(self.local_objects_by_ref().keys())

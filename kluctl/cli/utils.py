@@ -163,18 +163,19 @@ def project_target_command_context(kwargs, kluctl_project, target,
                              deployment=d, deployment_collection=c, images=images)
         yield ctx
 
-def build_command_result(c, command_result, deleted_objects, format):
+def build_command_result(c, command_result, format):
     if format == "diff":
-        return format_diff(command_result.new_objects, command_result.changed_objects, deleted_objects)
+        return format_diff(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
     elif format != "yaml":
         raise CommandError(f"Invalid format: {format}")
 
     result = {
-        "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects, command_result.errors, command_result.warnings),
+        "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects),
+        "orphan_objects": [{"ref": dataclasses.asdict(ref)} for ref in command_result.orphan_objects],
+        "errors": [dataclasses.asdict(x) for x in command_result.errors],
+        "warnings": [dataclasses.asdict(x) for x in command_result.warnings],
         "images": build_seen_images(c, True),
     }
-    if deleted_objects is not None:
-        result["deleted"] = [{"ref": dataclasses.asdict(ref)} for ref in deleted_objects]
     return yaml_dump(result)
 
 def build_validate_result(result, format):
@@ -203,7 +204,7 @@ def build_validate_result(result, format):
     else:
         raise CommandError(f"Invalid format: {format}")
 
-def output_command_result(output, c, command_result, deleted_objects):
+def output_command_result(output, c, command_result):
     if not output:
         output = ["diff"]
     for o in output:
@@ -212,7 +213,7 @@ def output_command_result(output, c, command_result, deleted_objects):
         path = None
         if len(s) > 1:
             path = s[1]
-        s = build_command_result(c, command_result, deleted_objects, format)
+        s = build_command_result(c, command_result, format)
         output_result(path, s)
 
 def output_validate_result(output, result):

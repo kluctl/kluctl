@@ -5,7 +5,7 @@ from kluctl.utils.k8s_object_utils import get_long_object_name, get_long_object_
 from kluctl.utils.pretty_table import pretty_table
 
 
-def format_diff(new_objects, changed_objects, deleted_objects):
+def format_diff(new_objects, changed_objects, orphan_objects):
     result = ''
 
     if new_objects:
@@ -24,9 +24,9 @@ def format_diff(new_objects, changed_objects, deleted_objects):
             changes = x["changes"]
             result += "%s\n" % pretty_changes(get_object_ref(object), changes)
 
-    if deleted_objects:
-        result += "Locally deleted/old objects:\n"
-        for ref in deleted_objects:
+    if orphan_objects:
+        result += "Orphan objects:\n"
+        for ref in orphan_objects:
             result += "  %s\n" % get_long_object_name_from_ref(ref)
 
     return result
