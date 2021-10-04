@@ -12,7 +12,7 @@ from kluctl.utils.pretty_table import pretty_table
 from kluctl.utils.yaml_utils import yaml_dump, yaml_dump_all
 
 
-def format_command_result_tables(new_objects, changed_objects, orphan_objects):
+def format_command_result_text(new_objects, changed_objects, orphan_objects):
     result = ''
 
     if new_objects:
@@ -64,8 +64,8 @@ def format_command_result_yaml(c, command_result):
     return yaml_dump(result)
 
 def format_command_result(c, command_result, format):
-    if format == "diff":
-        return format_command_result_tables(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
+    if format == "text":
+        return format_command_result_text(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
     elif format == "yaml":
         return format_command_result_yaml(c, command_result)
     else:
@@ -100,7 +100,7 @@ def format_validate_result(result, format):
 
 def output_command_result(output, c, command_result):
     if not output:
-        output = ["diff"]
+        output = ["text"]
     for o in output:
         s = o.split("=", 1)
         format = s[0]

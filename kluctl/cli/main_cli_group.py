@@ -170,7 +170,7 @@ def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error
     if output_format:
         options.append(optgroup.option("-o", "--output",
                                        help="Specify output format and target file, in the format 'format=path'. "
-                                            "Format can either be 'diff' or 'yaml'. Can be specified multiple times. "
+                                            "Format can either be 'text' or 'yaml'. Can be specified multiple times. "
                                             "The actual format for yaml is currently not documented and subject to "
                                             "change.",
                                        multiple=True))
