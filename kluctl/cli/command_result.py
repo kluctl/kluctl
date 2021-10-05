@@ -17,16 +17,16 @@ def format_command_result_text(command_result: CommandResult):
     result = ''
 
     if command_result.warnings:
-        result += "Warnings:\n"
+        result += "\nWarnings:\n"
         result += pretty_errors(command_result.warnings)
 
     if command_result.new_objects:
-        result += "New objects:\n"
+        result += "\nNew objects:\n"
         for x in command_result.new_objects:
             result += "  %s\n" % get_long_object_name(x, include_api_version=False)
 
     if command_result.changed_objects:
-        result += "Changed objects:\n"
+        result += "\nChanged objects:\n"
         for x in command_result.changed_objects:
             result += "  %s\n" % get_long_object_name(x["new_object"], include_api_version=False)
 
@@ -34,20 +34,20 @@ def format_command_result_text(command_result: CommandResult):
         for x in command_result.changed_objects:
             object = x["new_object"]
             changes = x["changes"]
-            result += "%s\n" % pretty_changes(get_object_ref(object), changes)
+            result += "%s" % pretty_changes(get_object_ref(object), changes)
 
     if command_result.hook_objects:
-        result += "Applied hooks:\n"
+        result += "\nApplied hooks:\n"
         for x in command_result.hook_objects:
             result += "  %s\n" % get_long_object_name(x)
 
     if command_result.orphan_objects:
-        result += "Orphan objects:\n"
+        result += "\nOrphan objects:\n"
         for ref in command_result.orphan_objects:
             result += "  %s\n" % get_long_object_name_from_ref(ref)
 
     if command_result.errors:
-        result += "Errors:\n"
+        result += "\nErrors:\n"
         result += pretty_errors(command_result.errors)
 
     return result
