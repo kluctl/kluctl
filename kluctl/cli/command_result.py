@@ -36,6 +36,11 @@ def format_command_result_text(command_result: CommandResult):
             changes = x["changes"]
             result += "%s\n" % pretty_changes(get_object_ref(object), changes)
 
+    if command_result.hook_objects:
+        result += "Applied hooks:\n"
+        for x in command_result.hook_objects:
+            result += "  %s\n" % get_long_object_name(x)
+
     if command_result.orphan_objects:
         result += "Orphan objects:\n"
         for ref in command_result.orphan_objects:

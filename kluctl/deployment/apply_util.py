@@ -24,14 +24,18 @@ class ApplyUtil:
         self.abort_on_error = abort_on_error
 
         self.applied_objects = {}
+        self.applied_hook_objects = {}
         self.abort_signal = False
         self.error_refs = {}
         self.mutex = threading.Lock()
 
-    def handle_result(self, applied_object, patch_warnings):
+    def handle_result(self, applied_object, patch_warnings, hook):
         with self.mutex:
             ref = get_object_ref(applied_object)
-            self.applied_objects[ref] = applied_object
+            if hook:
+                self.applied_hook_objects[ref] = applied_object
+            else:
+                self.applied_objects[ref] = applied_object
             self.deployment_collection.add_warnings(ref, patch_warnings)
 
     def handle_error(self, ref, error):
@@ -48,7 +52,7 @@ class ApplyUtil:
     def delete_object(self, ref):
         self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
 
-    def apply_object(self, x, replaced):
+    def apply_object(self, x, replaced, hook):
         logger.debug(f"  {get_long_object_name(x)}")
 
         x2 = self.k8s_cluster.fix_object_for_patch(x)
@@ -65,12 +69,12 @@ class ApplyUtil:
         if self.dry_run and replaced and get_object_ref(x) in self.deployment_collection.remote_objects:
             # Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
             # this object, it might fail as it is expected to not exist.
-            self.handle_result(x2, [])
+            self.handle_result(x2, [], hook)
             return
 
         try:
             r, patch_warnings = self.k8s_cluster.patch_object(x2, force_dry_run=self.dry_run, force_apply=True)
-            self.handle_result(r, patch_warnings)
+            self.handle_result(r, patch_warnings, hook)
         except ResourceNotFoundError as e:
             ref = get_object_ref(x)
             self.handle_error(ref, self.k8s_cluster.get_status_message(e))
@@ -89,7 +93,7 @@ class ApplyUtil:
                 resource_version = get_dict_value(remote_object, "metadata.resourceVersion")
                 x2 = set_dict_value(x, "metadata.resourceVersion", resource_version, do_clone=True)
                 r, patch_warnings = self.k8s_cluster.replace_object(x2, force_dry_run=self.dry_run)
-                self.handle_result(r, patch_warnings)
+                self.handle_result(r, patch_warnings, hook)
             except ApiException as e2:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
 
@@ -103,9 +107,9 @@ class ApplyUtil:
                     self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
                     if not self.dry_run:
                         r, patch_warnings = self.k8s_cluster.patch_object(x, force_apply=True)
-                        self.handle_result(r, patch_warnings)
+                        self.handle_result(r, patch_warnings, hook)
                     else:
-                        self.handle_result(x, [])
+                        self.handle_result(x, [], hook)
                 except ApiException as e2:
                     self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
 
@@ -158,7 +162,7 @@ class ApplyUtil:
             apply_objects.append(o)
         self.do_log(d, logging.INFO, "Applying %d objects" % len(d.objects))
         for o in apply_objects:
-            self.apply_object(o, False)
+            self.apply_object(o, False, False)
 
         if inital_deploy:
             hook_util.run_hooks(d, ["post-deploy-initial", "post-deploy"])

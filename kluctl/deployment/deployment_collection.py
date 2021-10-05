@@ -30,6 +30,7 @@ class DeployErrorItem:
 class CommandResult:
     new_objects: list
     changed_objects: list
+    hook_objects: list
     orphan_objects: list
     errors: list
     warnings: list
@@ -142,21 +143,25 @@ class DeploymentCollection:
 
     def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error):
         self.clear_errors_and_warnings()
-        applied_objects = self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
-                                        False, abort_on_error)
+        applied_objects, applied_hook_objects = self.do_apply(k8s_cluster,
+                                                              force_apply, replace_on_error, force_replace_on_error,
+                                                              False, abort_on_error)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+        applied_hook_objects = list(applied_hook_objects.values())
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=applied_hook_objects,
                              orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
-        applied_objects = self.do_apply(k8s_cluster, force_apply, replace_on_error, force_replace_on_error,
-                                        True, False)
+        applied_objects, applied_hook_objects = self.do_apply(k8s_cluster,
+                                                              force_apply, replace_on_error, force_replace_on_error,
+                                                              True, False)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+        applied_hook_objects = list(applied_hook_objects.values())
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=applied_hook_objects,
                              orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
@@ -273,7 +278,7 @@ class DeploymentCollection:
             dry_run = dry_run
         apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error)
         apply_util.apply_deployments()
-        return apply_util.applied_objects
+        return apply_util.applied_objects, apply_util.applied_hook_objects
 
     def do_diff(self, k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         diff_objects = {}

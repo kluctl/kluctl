@@ -49,7 +49,7 @@ class HooksUtil:
         for h in apply_objects:
             replaced = "before-hook-creation" in h.delete_policies
             do_log(logging.DEBUG, "Applying hook %s" % get_long_object_name(h.object))
-            self.apply_util.apply_object(h.object, replaced)
+            self.apply_util.apply_object(h.object, replaced, True)
 
         wait_results = {}
         for h in l:
