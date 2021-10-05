@@ -73,9 +73,10 @@ def pretty_changes(ref, changes):
 
     return ret
 
-def format_command_result_yaml(c, command_result):
+def format_command_result_yaml(c, command_result: CommandResult):
     result = {
         "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects),
+        "applied_hooks": command_result.hook_objects,
         "orphan_objects": [{"ref": dataclasses.asdict(ref)} for ref in command_result.orphan_objects],
         "errors": [dataclasses.asdict(x) for x in command_result.errors],
         "warnings": [dataclasses.asdict(x) for x in command_result.warnings],
