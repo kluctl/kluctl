@@ -44,8 +44,7 @@ def deploy_command2(obj, kwargs, cmd_ctx):
 
     result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, kwargs["force_apply"],
                                                        kwargs["replace_on_error"], kwargs["force_replace_on_error"], kwargs["abort_on_error"])
-    deleted_objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
-    output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result, deleted_objects)
+    output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result)
     if result.errors:
         sys.exit(1)
 
