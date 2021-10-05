@@ -13,6 +13,7 @@ overwrite_allowed_managers = {
     "kubectl-edit",
     "kubectl-client-side-apply",
     "rancher",
+    "k9s",
 }
 
 ignore_managers = {
