@@ -5,6 +5,7 @@ import click
 from deepdiff.helper import NotPresent
 
 from kluctl.cli.utils import build_seen_images
+from kluctl.deployment.deployment_collection import CommandResult
 from kluctl.diff.k8s_diff import unified_diff_object, changes_to_yaml
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_object_utils import get_long_object_name, get_long_object_name_from_ref, get_object_ref
@@ -12,31 +13,45 @@ from kluctl.utils.pretty_table import pretty_table
 from kluctl.utils.yaml_utils import yaml_dump, yaml_dump_all
 
 
-def format_command_result_text(new_objects, changed_objects, orphan_objects):
+def format_command_result_text(command_result: CommandResult):
     result = ''
 
-    if new_objects:
+    if command_result.warnings:
+        result += "Warnings:\n"
+        result += pretty_errors(command_result.warnings)
+
+    if command_result.new_objects:
         result += "New objects:\n"
-        for x in new_objects:
+        for x in command_result.new_objects:
             result += "  %s\n" % get_long_object_name(x, include_api_version=False)
 
-    if changed_objects:
+    if command_result.changed_objects:
         result += "Changed objects:\n"
-        for x in changed_objects:
+        for x in command_result.changed_objects:
             result += "  %s\n" % get_long_object_name(x["new_object"], include_api_version=False)
 
         result += "\n"
-        for x in changed_objects:
+        for x in command_result.changed_objects:
             object = x["new_object"]
             changes = x["changes"]
             result += "%s\n" % pretty_changes(get_object_ref(object), changes)
 
-    if orphan_objects:
+    if command_result.orphan_objects:
         result += "Orphan objects:\n"
-        for ref in orphan_objects:
+        for ref in command_result.orphan_objects:
             result += "  %s\n" % get_long_object_name_from_ref(ref)
 
+    if command_result.errors:
+        result += "Errors:\n"
+        result += pretty_errors(command_result.errors)
+
     return result
+
+def pretty_errors(errors):
+    table = [("Object", "Message")]
+    for e in errors:
+        table.append((get_long_object_name_from_ref(e.ref), e.message))
+    return pretty_table(table, [60])
 
 def pretty_changes(ref, changes):
     ret = 'Diff for object %s\n' % get_long_object_name_from_ref(ref)
@@ -65,7 +80,7 @@ def format_command_result_yaml(c, command_result):
 
 def format_command_result(c, command_result, format):
     if format == "text":
-        return format_command_result_text(command_result.new_objects, command_result.changed_objects, command_result.orphan_objects)
+        return format_command_result_text(command_result)
     elif format == "yaml":
         return format_command_result_yaml(c, command_result)
     else:
