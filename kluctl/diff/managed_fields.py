@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import re
 from typing import Any
 
 from kluctl.utils.dict_utils import copy_dict, object_iterator, del_dict_value, get_dict_value, is_iterable, \
@@ -7,14 +8,13 @@ from kluctl.utils.dict_utils import copy_dict, object_iterator, del_dict_value, 
 from kluctl.utils.jsonpath_utils import convert_list_to_json_path
 
 # We automatically force overwrite these fields as we assume these are human-edited
-overwrite_allowed_managers = {
+overwrite_allowed_managers = [
     "kluctl",
     "kubectl",
-    "kubectl-edit",
-    "kubectl-client-side-apply",
+    "kubectl-.*",
     "rancher",
     "k9s",
-}
+]
 
 ignore_managers = {
     # If kube-apiserver claimed a field, then this was for a good reason, so lets not complain about it
@@ -128,7 +128,7 @@ def resolve_field_manager_conflicts(local_object, remote_object):
                 if v != remote_value:
                     set_dict_value(ret, p, remote_value)
                     did_overwrite = True
-        elif fm["manager"] not in overwrite_allowed_managers:
+        elif not any(re.fullmatch(x, fm["manager"]) for x in overwrite_allowed_managers):
             to_delete.add(tp)
             did_overwrite = True
 
