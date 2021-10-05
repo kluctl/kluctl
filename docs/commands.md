@@ -115,7 +115,7 @@ In addition, the following arguments are available:
                                   documentation for more details.
     --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
-                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
@@ -149,7 +149,7 @@ In addition, the following arguments are available:
                                   documentation for more details.
     --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
-                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
     --render-output-dir DIRECTORY
                                   Specifies the target directory to render the project into. If omitted, atemporary
@@ -218,7 +218,7 @@ In addition, the following arguments are available:
     --ignore-annotations          Ignores changes in annotations when diffing
     --ignore-order                Ignores changes in order when diffing
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
-                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
     --render-output-dir DIRECTORY
                                   Specifies the target directory to render the project into. If omitted, atemporary
@@ -339,7 +339,7 @@ In addition, the following arguments are available:
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
-                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
     --render-output-dir DIRECTORY
                                   Specifies the target directory to render the project into. If omitted, atemporary
@@ -369,7 +369,7 @@ In addition, the following arguments are available:
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
-                                  either be 'diff' or 'yaml'. Can be specified multiple times. The actual format for
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
                                   yaml is currently not documented and subject to change.
     --render-output-dir DIRECTORY
                                   Specifies the target directory to render the project into. If omitted, atemporary
