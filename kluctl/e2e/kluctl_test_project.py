@@ -73,6 +73,8 @@ class KluctlTestProject:
         os.makedirs(dir, exist_ok=True)
         g = Git(dir)
         g.init()
+        g.config("user.email", "no@mail.com")
+        g.config("user.name", "Your Name")
         with open(os.path.join(dir, ".dummy"), "wt") as f:
             f.write("dummy")
         g.add(".dummy")
