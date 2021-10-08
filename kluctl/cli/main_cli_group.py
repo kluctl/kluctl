@@ -38,6 +38,12 @@ def setup_logging(verbose):
     logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
     logging.getLogger('filelock').setLevel(logging.WARN)
 
+    # Import filelock to force the bad setLevel call performed internally so that we can then later override the level
+    # with what we actually want. TODO remove this when https://github.com/tox-dev/py-filelock/issues/104 is resolved.
+    import filelock
+    logging.getLogger("filelock").setLevel(logging.WARN)
+
+
 def check_new_version():
     if _version.__version__ == "0.0.0":
         # local dev version
