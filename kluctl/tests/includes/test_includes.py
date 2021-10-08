@@ -7,7 +7,7 @@ cur_dir = os.path.dirname(__file__)
 
 class TestIncludes(DeploymentTestBase):
     def build_fixed_deployment(self):
-        return self.build_deployment("includes/test_deployment")
+        return self.build_deployment(os.path.join("includes", "test_deployment"))
 
     def test_simple(self):
         self.assertEqual(len(self.d.includes), 2)
