@@ -285,8 +285,9 @@ class KluctlTestProject:
             return self.get_kluctl_project_dir()
 
     def kluctl(self, *args: str, check_rc=True, **kwargs):
+        python_exe = shutil.which("python")
         kluctl_path = os.path.join(os.path.dirname(__file__), "..", "..", "cli.py")
-        args2 = [kluctl_path]
+        args2 = [python_exe, kluctl_path]
         args2 += args
 
         cwd = None
@@ -308,7 +309,7 @@ class KluctlTestProject:
             "KUBECONFIG": sep.join(os.path.abspath(str(x)) for x in self.kubeconfigs),
         })
 
-        logger.info("Running kluctl: %s" % " ".join(args2[1:]))
+        logger.info("Running kluctl: %s" % " ".join(args2[2:]))
 
         def do_log(lines):
             for l in lines:
