@@ -1,7 +1,6 @@
 import logging
 import os
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,7 +8,7 @@ from tempfile import TemporaryDirectory
 from git import Git
 from pytest_kind import KindCluster
 
-from kluctl.utils.dict_utils import copy_dict, set_dict_value, del_dict_value
+from kluctl.utils.dict_utils import copy_dict, set_dict_value
 from kluctl.utils.run_helper import run_helper
 from kluctl.utils.yaml_utils import yaml_save_file, yaml_load_file
 
@@ -49,15 +48,15 @@ class KluctlTestProject:
         def do_update_kluctl(y):
             if self.clusters_external:
                 y["clusters"] = {
-                    "project": "file://%s" % self.get_clusters_dir(),
+                    "project": self.build_file_url(self.get_clusters_dir()),
                 }
             if self.deployment_external:
                 y["deployment"] = {
-                    "project": "file://%s" % self.get_deployment_dir(),
+                    "project": self.build_file_url(self.get_deployment_dir()),
                 }
             if self.sealed_secrets_external:
                 y["sealedSecrets"] = {
-                    "project": "file://%s" % self.get_sealed_secrets_dir(),
+                    "project": self.build_file_url(self.get_sealed_secrets_dir()),
                 }
             return y
 
@@ -292,7 +291,7 @@ class KluctlTestProject:
 
         cwd = None
         if self.kluctl_project_external:
-            args2 += ["--project-url", "file://%s" % self.get_kluctl_project_dir()]
+            args2 += ["--project-url", self.build_file_url(self.get_kluctl_project_dir())]
         else:
             cwd = self.get_kluctl_project_dir()
 
@@ -318,3 +317,9 @@ class KluctlTestProject:
         rc, stdout, stderr = run_helper(args2, cwd=cwd, env=env, stdout_func=do_log, stderr_func=do_log, line_mode=True, return_std=True)
         assert not check_rc or rc == 0, "rc=%d" % rc
         return rc, stdout, stderr
+
+    def build_file_url(self, path):
+        if sys.platform == "win32":
+            return "file:///%s" % path
+        else:
+            return "file://%s" % path
