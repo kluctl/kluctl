@@ -96,8 +96,6 @@ class KluctlBytecodeCache(BytecodeCache):
         co_consts = []
         if co_filename == old:
             co_filename = new
-        else:
-            asd = 123
 
         for c in code.co_consts:
             if isinstance(c, CodeType):
@@ -120,19 +118,20 @@ class KluctlBytecodeCache(BytecodeCache):
     def dump_bytecode(self, bucket: Bucket) -> None:
         # thread/multi-process safe version of super().dump_bytecode()
 
-        filename = self._get_cache_filename(bucket)
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-
-        with open(filename + ".tmp", "wb") as f:
-            orig_code = bucket.code
-            bucket.code = self.replace_code_filenames(bucket.code, bucket.key[1], "<dummy>")
-            bucket.write_bytecode(f)
-            bucket.code = orig_code
         try:
+            filename = self._get_cache_filename(bucket)
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+            with open(filename + ".tmp", "wb") as f:
+                orig_code = bucket.code
+                bucket.code = self.replace_code_filenames(bucket.code, bucket.key[1], "<dummy>")
+                bucket.write_bytecode(f)
+                bucket.code = orig_code
             os.rename(filename + ".tmp", filename)
+            self.touch_loaded_marker(bucket)
         except:
+            # Failure here it "ok" and is mostly happening on Windows here (permission denied for opened files...ugh..)
             pass
-        self.touch_loaded_marker(bucket)
 
     def clear_old_entries(self):
         files = []
