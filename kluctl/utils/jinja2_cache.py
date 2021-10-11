@@ -82,11 +82,12 @@ class KluctlBytecodeCache(BytecodeCache):
         filename = self._get_cache_filename(bucket) + ".loaded"
         if filename in self.did_touch:
             return
-        with open(filename + ".tmp", mode="wt") as f:
-            f.write(str(datetime.utcnow()))
         try:
+            with open(filename + ".tmp", mode="wt") as f:
+                f.write(str(datetime.utcnow()))
             os.rename(filename + ".tmp", filename)
         except:
+            # Failure here it "ok" and is mostly happening on Windows here (permission denied for opened files...ugh..)
             pass
         self.did_touch.add(filename)
 
