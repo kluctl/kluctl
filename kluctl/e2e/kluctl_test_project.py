@@ -312,7 +312,7 @@ class KluctlTestProject:
 
         def do_log(lines):
             for l in lines:
-                logger.info(l)
+                logger.info(l.rstrip())
 
         rc, stdout, stderr = run_helper(args2, cwd=cwd, env=env, stdout_func=do_log, stderr_func=do_log, line_mode=True, return_std=True)
         assert not check_rc or rc == 0, "rc=%d" % rc
