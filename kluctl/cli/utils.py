@@ -1,5 +1,6 @@
 import contextlib
 import dataclasses
+import os
 import tempfile
 from typing import ContextManager
 
@@ -75,9 +76,13 @@ def parse_inclusion(kwargs):
     for tag in kwargs.get("exclude_tag", []):
         inclusion.add_exclude("tag", tag)
     for dir in kwargs.get("include_kustomize_dir", []):
-        inclusion.add_include("kustomize_dir", dir)
+        if os.path.isabs(dir):
+            raise CommandError("--include-kustomize-dir path must be relative")
+        inclusion.add_include("kustomize_dir", dir.replace(os.path.sep, "/"))
     for dir in kwargs.get("exclude_kustomize_dir", []):
-        inclusion.add_exclude("kustomize_dir", dir)
+        if os.path.isabs(dir):
+            raise CommandError("--exclude-kustomize-dir path must be relative")
+        inclusion.add_exclude("kustomize_dir", dir.replace(os.path.sep, "/"))
     return inclusion
 
 @dataclasses.dataclass

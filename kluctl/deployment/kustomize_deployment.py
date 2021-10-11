@@ -59,7 +59,7 @@ class KustomizeDeployment(object):
     def get_common_annotations(self):
         a = {
             # Must use annotations instead of labels due to limitations on value (max 63 chars, no slash)
-            "kluctl.io/kustomize_dir": self.get_rel_kustomize_dir().replace("\\", "/")
+            "kluctl.io/kustomize_dir": self.get_rel_kustomize_dir().replace(os.path.sep, "/")
         }
         if self.config.get("skipDeleteIfTags", False):
             a["kluctl.io/skip-delete-if-tags"] = "true"
@@ -177,7 +177,7 @@ class KustomizeDeployment(object):
     def build_inclusion_values(self):
         values = [("tag", tag) for tag in self.get_tags()]
         if "path" in self.config:
-            kustomize_dir = self.get_rel_kustomize_dir()
+            kustomize_dir = self.get_rel_kustomize_dir().replace(os.path.sep, "/")
             values.append(("kustomize_dir", kustomize_dir))
         return values
 
