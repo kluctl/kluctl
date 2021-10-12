@@ -8,6 +8,7 @@ import traceback
 
 import jinja2
 from jinja2 import Environment, StrictUndefined, FileSystemLoader, TemplateNotFound, TemplateError
+from jinja2.runtime import Context
 
 from kluctl.utils.dict_utils import merge_dict, get_dict_value
 from kluctl.utils.yaml_utils import yaml_dump, yaml_load
@@ -88,6 +89,17 @@ def debug_print(msg):
     logger.info("debug_print: %s" % str(msg))
     return ""
 
+@jinja2.pass_context
+def load_sha256(ctx: Context, path, digest_len=None):
+    if "__calc_sha256__" in ctx:
+        return "__self_sha256__"
+    rendered = load_template(ctx, path, __calc_sha256__=True)
+    hash = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+    if digest_len is not None:
+        hash = hash[:digest_len]
+    return hash
+
+
 def add_jinja2_filters(jinja2_env):
     jinja2_env.filters['b64encode'] = b64encode
     jinja2_env.filters['b64decode'] = b64decode
@@ -102,6 +114,7 @@ def add_jinja2_filters(jinja2_env):
     jinja2_env.globals['update_dict'] = update_dict
     jinja2_env.globals['raise'] = raise_helper
     jinja2_env.globals['debug_print'] = debug_print
+    jinja2_env.globals['load_sha256'] = load_sha256
 
 def render_str(s, jinja_vars):
     if "{" not in s:

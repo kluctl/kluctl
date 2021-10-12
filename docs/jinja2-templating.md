@@ -137,6 +137,23 @@ Loads the given file into memory, renders it with the current Jinja2 context and
 
 The filename given to `load_template` is treated as relative to the template that is currently rendered.
 
+### load_sha256(file, digest_len)
+Loads the given file into memory, renders it and calculates the sha256 hash of the result.
+
+The filename given to `load_sha256` is treated the same as in `load_template`. Recursive loading/calculating of hashes
+is allowed and is solved by replacing `load_sha256` invocations with currently loaded templates with dummy strings.
+This also allows to calculate the hash of the currently rendered template, for example:
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config-{{ load_sha256("configmap.yml") }}
+data:
+```
+
+`digest_len` is an optional parameter that allows to limit the length of the returned hex digest.
+
 ### get_var(field_path, default)
 Convenience method to navigate through the current context variables via a
 [JSON Path](https://goessner.net/articles/JsonPath/). Let's assume you currently have these variables defines 
