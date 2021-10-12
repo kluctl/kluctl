@@ -59,7 +59,11 @@ class ApplyUtil:
         if not self.force_apply:
             ref = get_object_ref(x)
             remote_object = self.deployment_collection.remote_objects.get(ref)
-            x2, overwritten = resolve_field_manager_conflicts(x2, remote_object)
+            try:
+                x2, overwritten = resolve_field_manager_conflicts(x2, remote_object)
+            except Exception as e:
+                self.handle_error(ref, str(e))
+                return
             warnings = []
             for ow in overwritten:
                 warnings.append("Field '%s' is now owned by field manager '%s'. "
@@ -83,8 +87,8 @@ class ApplyUtil:
             if not self.replace_on_error:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e))
                 return
-            logger.info("Patching %s failed, retrying with replace instead of patch" %
-                        get_long_object_name_from_ref(ref))
+            logger.warning("Patching %s failed, retrying with replace instead of patch" %
+                           get_long_object_name_from_ref(ref))
             try:
                 remote_object = self.deployment_collection.remote_objects.get(ref)
                 if remote_object is None:
@@ -101,7 +105,7 @@ class ApplyUtil:
                     self.handle_error(ref, self.k8s_cluster.get_status_message(e))
                     return
 
-                logger.info("Patching %s failed, retrying by deleting and re-applying" %
+                logger.warning("Patching %s failed, retrying by deleting and re-applying" %
                             get_long_object_name_from_ref(ref))
                 try:
                     self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)

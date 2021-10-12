@@ -57,6 +57,8 @@ def convert_to_json_path(o, mf_path):
             return ret, True
         if k[:2] == 'f:':
             k = k[2:]
+            if o is None:
+                return ret, False
             if not isinstance(o, dict):
                 raise ValueError("%s is not a dict" % convert_list_to_json_path(ret))
             if k not in o:
@@ -64,6 +66,8 @@ def convert_to_json_path(o, mf_path):
             ret.append(k)
             o = o[k]
         else:
+            if o is None:
+                return ret, False
             if not is_iterable(o, False):
                 raise ValueError("%s is not a list" % convert_list_to_json_path(ret))
             found = False
