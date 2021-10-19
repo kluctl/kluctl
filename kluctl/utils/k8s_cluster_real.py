@@ -3,7 +3,7 @@ import json
 import logging
 import threading
 import time
-from distutils.version import StrictVersion
+from distutils.version import LooseVersion
 
 from kubernetes import config
 from kubernetes.client import ApiClient, Configuration, ApiException
@@ -11,9 +11,9 @@ from kubernetes.config import ConfigException
 from kubernetes.dynamic import EagerDiscoverer, DynamicClient, Resource
 from kubernetes.dynamic.exceptions import NotFoundError, ResourceNotFoundError
 
+from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_cluster_base import k8s_cluster_base
-from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.k8s_object_utils import split_api_version
 from kluctl.utils.versions import LooseVersionComparator
 
@@ -258,9 +258,9 @@ class k8s_cluster_real(k8s_cluster_base):
         # default values. We need to fix these resources.
         # UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the
         # issue is still present.
-        needs_defaults_fix = StrictVersion(self.server_version) < StrictVersion('1.21')
+        needs_defaults_fix = LooseVersion(self.server_version) < LooseVersion('1.21')
         # TODO check when this is actually fixed (see https://github.com/kubernetes/kubernetes/issues/94275)
-        needs_type_conversion_fix = StrictVersion(self.server_version) < StrictVersion('1.100')
+        needs_type_conversion_fix = LooseVersion(self.server_version) < LooseVersion('1.100')
         if not needs_defaults_fix and not needs_type_conversion_fix:
             return o
 
