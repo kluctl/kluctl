@@ -64,8 +64,6 @@ class DeploymentProject(object):
         return jinja_vars
 
     def load_jinja_vars_file(self, rel_file, cur_jinja_vars):
-        if not os.path.exists(os.path.join(self.dir, rel_file)):
-            raise CommandError("%s not found" % rel_file)
         new_vars = self.load_rendered_yaml(rel_file, cur_jinja_vars)
         jinja_vars = merge_dict(cur_jinja_vars, new_vars)
         return jinja_vars

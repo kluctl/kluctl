@@ -2,7 +2,7 @@ import logging
 import sys
 
 from git import GitCommandError
-from jinja2 import TemplateError
+from jinja2 import TemplateError, TemplateNotFound
 from yaml import YAMLError
 
 from kluctl.cli.main_cli_group import cli_group
@@ -21,6 +21,9 @@ def main():
         sys.exit(1)
     except InvalidKluctlProjectConfig as e:
         print(e.message, file=sys.stderr)
+        sys.exit(1)
+    except TemplateNotFound as e:
+        print("Template not found: %s" % e.name, file=sys.stderr)
         sys.exit(1)
     except TemplateError as e:
         print_template_error(e)
