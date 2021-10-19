@@ -10,6 +10,7 @@ import threading
 from calendar import timegm
 from collections import namedtuple
 from datetime import datetime
+from urllib.parse import urlparse
 
 import jwt
 import requests
@@ -52,17 +53,52 @@ class GenericRegistry(ImagesRegistry):
             host = DOCKER_HUB_REGISTRY
         self.creds[host] = DockerCreds(username=username, password=password, tlsverify=tlsverify)
 
+    def split_host_and_port(self, h):
+        if h.startswith("http://") or h.startswith("https://"):
+            url = urlparse(h)
+            host = url.hostname
+            port = url.port
+            if port is None:
+                if url.scheme == "http":
+                    port = 80
+                else:
+                    port = 443
+        else:
+            if ":" in h:
+                s = h.split(":")
+                port = s[-1]
+                host = h[:-len(port) - 1]
+                port = int(port)
+            else:
+                host = h
+                port = 443
+        return host, port
+
+    def parse_docker_auths(self, config):
+        ret = []
+        auths = config.get("auths", {})
+        for k, v in auths.items():
+            try:
+                host, port = self.split_host_and_port(k)
+                ret.append({
+                    "key": k,
+                    "auth": v,
+                    "host": host,
+                    "port": port,
+                })
+            except Exception as e:
+                logger.debug("Failed to parse auth entry: %s. Errors=%s" % (k, str(e)))
+        return ret
+
     def do_get_creds(self, host):
+        host, port = self.split_host_and_port(host)
+
         logger.debug(f"looking up {host} in creds")
         if host in self.creds:
             logger.debug(f"found entry with username {self.creds[host].username} in creds")
             return self.creds[host]
 
         logger.debug("entry not found in creds, looking into docker config")
-
-        auth_entry = host
-        if host == DOCKER_HUB_REGISTRY:
-            auth_entry = DOCKER_HUB_AUTH_ENTRY
 
         # try from docker creds
         try:
@@ -73,9 +109,20 @@ class GenericRegistry(ImagesRegistry):
             return None
 
         try:
-            auth = config.get("auths", {}).get(auth_entry)
+            auths = self.parse_docker_auths(config)
+
+            auth_entry = None
+            if host == DOCKER_HUB_REGISTRY:
+                auth_entry = DOCKER_HUB_AUTH_ENTRY
+            else:
+                for a in auths:
+                    if a["host"] == host and a["port"] == port:
+                        auth_entry = a["key"]
+                        break
+            auth = config.get("auths", {}).get(auth_entry) if auth_entry else None
+
             if auth is None:
-                logger.debug("No 'auths.%s' entry in docker config" % auth_entry)
+                logger.debug("No auth entry in docker config")
                 return None
             if "username" in auth and "password" in auth:
                 logger.debug(f"found docker config entry with username {auth['username']}")
@@ -193,6 +240,12 @@ class GenericRegistry(ImagesRegistry):
             os.chmod(path, 0o600)
             f.write(token)
 
+    def build_auth_error(self, host, title):
+        error = f"{title}. Please ensure you provided correct registry " \
+                f"credentials for '{host}', either by logging in with 'docker login {host}' or by " \
+                f"providing environment variables as described in the documentation."
+        return error
+
     def get_client(self, image):
         host, repo = self.parse_image(image)
         if host == DOCKER_HUB_REGISTRY:
@@ -237,16 +290,13 @@ class GenericRegistry(ImagesRegistry):
                 return token
             with first_auth_context():
                 logger.debug(f"calling dxf.authenticate with username={username}")
-                base_auth_error = f"Got 401 Unauthorized from registry. Please ensure you provided correct registry " \
-                                  f"credentials for '{host}', either by logging in with 'docker login {host}' or by " \
-                                  f"providing environment variables as described in the documentation."
                 try:
                     token = dxf.authenticate(username=username, password=password, response=response, actions=["pull"])
                 except DXFUnauthorizedError:
-                    raise CommandError(f"Got 401 Unauthorized from registry. {base_auth_error}")
+                    raise CommandError(self.build_auth_error(host, f"Got 401 Unauthorized from registry"))
                 except HTTPError as e:
                     if e.response.status_code == http.HTTPStatus.FORBIDDEN:
-                        raise CommandError(f"Got 403 Forbidden from registry. {base_auth_error}")
+                        raise CommandError(self.build_auth_error(host, f"Got 403 Forbidden from registry"))
                     else:
                         raise
             if token is not None:
@@ -267,5 +317,8 @@ class GenericRegistry(ImagesRegistry):
 
     def list_tags_for_image(self, image):
         dxf = self.get_client(image)
-        tags = dxf.list_aliases(batch_size=100)
+        try:
+            tags = dxf.list_aliases(batch_size=100)
+        except DXFUnauthorizedError as e:
+            raise CommandError(self.build_auth_error(dxf._host, f"Got 401 Unauthorized from registry"))
         return tags
