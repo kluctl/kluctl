@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 # This Jinja2 environment allows to load templates relative to the parent template. This means that for example
 # '{% include "file.yml" %}' will try to include the template from a ./file.yml
-class RelEnvironment(Environment):
+class KluctlJinja2Environment(Environment):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.add_extension("jinja2.ext.loopcontrols")
 
     """Override join_path() to enable relative template paths."""
     """See https://stackoverflow.com/a/3655911/7132642"""
@@ -119,7 +120,7 @@ def add_jinja2_filters(jinja2_env):
 def render_str(s, jinja_vars):
     if "{" not in s:
         return s
-    e = RelEnvironment(undefined=StrictUndefined)
+    e = KluctlJinja2Environment(undefined=StrictUndefined)
     add_jinja2_filters(e)
     merge_dict(e.globals, jinja_vars, False)
     t = e.from_string(s)
@@ -155,7 +156,7 @@ def render_dict_strs(d, jinja_vars, do_raise=True):
     return ret, errors
 
 def render_file(root_dir, path, jinja_vars):
-    e = RelEnvironment(loader=FileSystemLoader(root_dir), undefined=StrictUndefined)
+    e = KluctlJinja2Environment(loader=FileSystemLoader(root_dir), undefined=StrictUndefined)
     path = os.path.normpath(path)
     add_jinja2_filters(e)
     merge_dict(e.globals, jinja_vars, False)

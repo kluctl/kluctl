@@ -9,7 +9,7 @@ from kluctl.utils.dict_utils import merge_dict, copy_dict, \
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_cache import KluctlBytecodeCache
-from kluctl.utils.jinja2_utils import add_jinja2_filters, RelEnvironment
+from kluctl.utils.jinja2_utils import add_jinja2_filters, KluctlJinja2Environment
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,9 @@ class DeploymentProject(object):
         dirs = []
         for d, _ in self.get_parents():
             dirs.append(d.dir)
-        environment = RelEnvironment(loader=FileSystemLoader(dirs), undefined=StrictUndefined,
-                                     cache_size=10000,
-                                     bytecode_cache=self.jinja2_cache, auto_reload=False)
+        environment = KluctlJinja2Environment(loader=FileSystemLoader(dirs), undefined=StrictUndefined,
+                                              cache_size=10000,
+                                              bytecode_cache=self.jinja2_cache, auto_reload=False)
         merge_dict(environment.globals, jinja_vars, clone=False)
         add_jinja2_filters(environment)
         return environment
