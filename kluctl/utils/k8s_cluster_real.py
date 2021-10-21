@@ -284,17 +284,17 @@ class k8s_cluster_real(k8s_cluster_base):
                 d[k] = str(d[k])
 
         def fix_container(c):
-            fix_ports(c.get('ports', []))
-            fix_string_type((c.get('resources') or {}).get('limits', None), 'cpu')
-            fix_string_type((c.get('resources') or {}).get('requests', None), 'cpu')
+            fix_ports(get_dict_value(c, "ports", []))
+            fix_string_type(get_dict_value(c, "resources.limits"), "cpu")
+            fix_string_type(get_dict_value(c, "resources.requests"), "cpu")
 
         def fix_containers(containers):
             for c in containers:
                 fix_container(c)
 
-        fix_containers(o.get('spec', {}).get('template', {}).get('spec', {}).get('containers', []))
-        fix_ports(o.get('spec', {}).get('ports', []))
-        for x in o.get('spec', {}).get('limits', []):
+        fix_containers(get_dict_value(o, "spec.template.spec.containers", []))
+        fix_ports(get_dict_value(o, "spec.ports", []))
+        for x in get_dict_value(o, "spec.limits", []):
             fix_string_type(x.get('default'), 'cpu')
             fix_string_type(x.get('defaultRequest'), 'cpu')
         return o
