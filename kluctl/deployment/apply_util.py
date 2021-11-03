@@ -135,7 +135,7 @@ class ApplyUtil:
                 return False
 
             if not did_log:
-                logger.info("Waiting for for hook %s to get ready..." % get_long_object_name_from_ref(ref))
+                logger.info("Waiting for hook %s to get ready..." % get_long_object_name_from_ref(ref))
                 did_log = True
 
     def apply_kustomize_deployment(self, d):
