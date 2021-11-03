@@ -101,7 +101,7 @@ class KustomizeDeployment(object):
         }, clone=False)
         return self.deployment_project.build_jinja2_env(jinja_vars)
 
-    def render(self, executor):
+    def render(self, k8s_cluster, executor):
         if self.dir is None:
             return []
 
@@ -113,7 +113,7 @@ class KustomizeDeployment(object):
 
         jinja_vars = self.deployment_project.jinja_vars
         if "vars" in self.config:
-            jinja_vars = self.deployment_project.load_jinja_vars_list(self.config["vars"], jinja_vars)
+            jinja_vars = self.deployment_project.load_jinja_vars_list(k8s_cluster, self.config["vars"], jinja_vars)
 
         jinja_env = self.build_jinja2_env(jinja_vars)
 

@@ -77,13 +77,13 @@ class DeploymentCollection:
 
         return ret
 
-    def render_deployments(self):
+    def render_deployments(self, k8s_cluster):
         logger.info("Rendering templates and Helm charts")
         with MyThreadPoolExecutor(max_workers=16) as executor:
             jobs = []
 
             for d in self.deployments:
-                jobs += d.render(executor)
+                jobs += d.render(k8s_cluster, executor)
 
             TemplatedDir.finish_jobs(jobs)
 
@@ -140,7 +140,7 @@ class DeploymentCollection:
         return by_ref
 
     def prepare(self, k8s_cluster):
-        self.render_deployments()
+        self.render_deployments(k8s_cluster)
         self.resolve_sealed_secrets()
         self.build_kustomize_objects(k8s_cluster)
         self.update_remote_objects(k8s_cluster)

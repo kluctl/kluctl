@@ -10,13 +10,14 @@ from kluctl.utils.exceptions import CommandError
 from kluctl.utils.external_args import check_required_args
 from kluctl.utils.jinja2_cache import KluctlBytecodeCache
 from kluctl.utils.jinja2_utils import add_jinja2_filters, KluctlJinja2Environment
+from kluctl.utils.k8s_object_utils import ObjectRef, get_long_object_name_from_ref
 from kluctl.utils.yaml_utils import yaml_load, yaml_load_file
 
 logger = logging.getLogger(__name__)
 
 
 class DeploymentProject(object):
-    def __init__(self, dir, jinja_vars, deploy_args, sealed_secrets_dir,
+    def __init__(self, k8s_cluster, dir, jinja_vars, deploy_args, sealed_secrets_dir,
                  parent_collection=None):
         if not os.path.exists(dir):
             raise CommandError("%s does not exist" % dir)
@@ -33,8 +34,8 @@ class DeploymentProject(object):
         self.parent_collection_include = None
         self.check_required_args()
         self.jinja_vars['args'] = self.deploy_args # need to update 'args' after applying default values in check_required_args
-        self.load_base_conf()
-        self.load_includes()
+        self.load_base_conf(k8s_cluster)
+        self.load_includes(k8s_cluster)
 
     def fix_relative_paths(self, y, key, abs_path):
         for x in y:
@@ -52,13 +53,19 @@ class DeploymentProject(object):
         add_jinja2_filters(environment)
         return environment
 
-    def load_jinja_vars_list(self, vars_list, cur_jinja_vars):
+    def load_jinja_vars_list(self, k8s_cluster, vars_list, cur_jinja_vars):
         jinja_vars = copy_dict(cur_jinja_vars)
         for v in vars_list:
             if "values" in v:
                 merge_dict(jinja_vars, v["values"], False)
             elif "file" in v:
                 jinja_vars = self.load_jinja_vars_file(v["file"], jinja_vars)
+            elif "clusterConfigMap" in v:
+                ref = ObjectRef(api_version="v1", kind="ConfigMap", name=v["clusterConfigMap"]["name"], namespace=v["clusterConfigMap"]["namespace"])
+                jinja_vars = self.load_jinja_vars_k8s_object(k8s_cluster, ref, v["clusterConfigMap"]["key"], jinja_vars)
+            elif "clusterSecret" in v:
+                ref = ObjectRef(api_version="v1", kind="Secret", name=v["clusterSecret"]["name"], namespace=v["clusterSecret"]["namespace"])
+                jinja_vars = self.load_jinja_vars_k8s_object(k8s_cluster, ref, v["clusterSecret"]["key"], jinja_vars)
             else:
                 raise CommandError("Invalid vars entry")
         return jinja_vars
@@ -68,13 +75,26 @@ class DeploymentProject(object):
         jinja_vars = merge_dict(cur_jinja_vars, new_vars)
         return jinja_vars
 
+    def load_jinja_vars_k8s_object(self, k8s_cluster, ref, key, cur_jinja_vars):
+        o, _ = k8s_cluster.get_single_object(ref)
+        if o is None:
+            raise CommandError("%s not found on cluster %s" % (get_long_object_name_from_ref(ref), k8s_cluster.context))
+        value = get_dict_value(o, "data.%s" % key)
+        if value is None:
+            raise CommandError("Key %s not found in %s on cluster %s" % (key, get_long_object_name_from_ref(ref), k8s_cluster.context))
+        jinja_env = self.build_jinja2_env(cur_jinja_vars)
+        template = jinja_env.from_string(value)
+        new_vars = yaml_load(template.render())
+        jinja_vars = merge_dict(cur_jinja_vars, new_vars)
+        return jinja_vars
+
     def load_rendered_yaml(self, rel_path, jinja_vars):
         jinja_env = self.build_jinja2_env(jinja_vars)
         template = jinja_env.get_template(rel_path.replace('\\', '/'))
         rendered = template.render()
         return yaml_load(rendered)
 
-    def load_base_conf(self):
+    def load_base_conf(self, k8s_cluster):
         base_conf_path = os.path.join(self.dir, 'deployment.yml')
         if not os.path.exists(base_conf_path):
             if os.path.exists(os.path.join(self.dir, 'kustomization.yml')):
@@ -96,7 +116,7 @@ class DeploymentProject(object):
         set_dict_default_value(self.conf, 'tags', [])
         set_dict_default_value(self.conf, 'templateExcludes', [])
 
-        self.jinja_vars = self.load_jinja_vars_list(self.conf['vars'], self.jinja_vars)
+        self.jinja_vars = self.load_jinja_vars_list(k8s_cluster, self.conf['vars'], self.jinja_vars)
 
         for c in self.conf['kustomizeDirs'] + self.conf['includes']:
             if 'tags' not in c and 'path' in c:
@@ -127,7 +147,7 @@ class DeploymentProject(object):
 
         self.deploy_args = check_required_args(conf["args"], self.deploy_args)
 
-    def load_includes(self):
+    def load_includes(self, k8s_cluster):
         for inc in self.conf['includes']:
             if 'path' not in inc:
                 continue
@@ -138,7 +158,7 @@ class DeploymentProject(object):
             if not inc_dir.startswith(root_project.dir):
                 raise CommandError("Include path is not part of root deployment project: %s" % inc["path"])
 
-            c = DeploymentProject(inc_dir, self.jinja_vars, self.deploy_args, self.sealed_secrets_dir, parent_collection=self)
+            c = DeploymentProject(k8s_cluster, inc_dir, self.jinja_vars, self.deploy_args, self.sealed_secrets_dir, parent_collection=self)
             c.parent_collection_include = inc
 
             inc['_included_deployment_collection'] = c

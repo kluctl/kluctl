@@ -145,7 +145,7 @@ def project_target_command_context(kwargs, kluctl_project, target,
         if render_output_dir is None:
             render_output_dir = tmpdir
         project_dir = os.path.realpath(kluctl_project.deployment_dir)
-        d = DeploymentProject(project_dir, jinja_vars, deploy_args, kluctl_project.sealed_secrets_dir)
+        d = DeploymentProject(k8s_cluster, project_dir, jinja_vars, deploy_args, kluctl_project.sealed_secrets_dir)
         c = DeploymentCollection(d, images=images, inclusion=inclusion, tmpdir=render_output_dir, for_seal=for_seal)
 
         fixed_images = load_fixed_images(kwargs)
