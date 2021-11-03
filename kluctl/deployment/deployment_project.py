@@ -131,7 +131,13 @@ class DeploymentProject(object):
         for inc in self.conf['includes']:
             if 'path' not in inc:
                 continue
+            root_project = self.get_root_deployment()
+
             inc_dir = os.path.join(self.dir, inc["path"])
+            inc_dir = os.path.realpath(inc_dir)
+            if not inc_dir.startswith(root_project.dir):
+                raise CommandError("Include path is not part of root deployment project: %s" % inc["path"])
+
             c = DeploymentProject(inc_dir, self.jinja_vars, self.deploy_args, self.sealed_secrets_dir, parent_collection=self)
             c.parent_collection_include = inc
 
@@ -139,7 +145,7 @@ class DeploymentProject(object):
 
             self.includes.append(c)
 
-    def get_sealed_secrets_dir(self, subdir):
+    def get_sealed_secrets_dir(self):
         root = self.get_root_deployment()
         output_pattern = get_dict_value(root.conf, "sealedSecrets.outputPattern")
         return output_pattern
@@ -154,6 +160,8 @@ class DeploymentProject(object):
         root_dir = os.path.abspath(root.dir)
         dir = self.dir
         if subdir is not None:
+            if os.path.isabs(subdir):
+                raise CommandError("Path can't be absolute: %s" % subdir)
             dir = os.path.join(dir, subdir)
         dir = os.path.abspath(dir)
         rel_dir = os.path.relpath(dir, root_dir)

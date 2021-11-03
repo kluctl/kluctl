@@ -11,6 +11,7 @@ from kluctl.deployment.kustomize_deployment import KustomizeDeployment
 from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.normalize import normalize_object
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
 from kluctl.utils.k8s_downscale_utils import downscale_object
 from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
@@ -42,34 +43,37 @@ class DeploymentCollection:
         self.inclusion = inclusion
         self.tmpdir = tmpdir
         self.for_seal = for_seal
-        self.deployments = self._collect_deployments(self.project)
+        self.deployments = self._collect_deployments(self.project, {})
 
         self.remote_objects = {}
 
         self.errors = set()
         self.warnings = set()
 
-    def _collect_deployments(self, project):
+    def _collect_deployments(self, project, indexes):
         ret = []
 
-        indexes = {}
         for c in project.conf['kustomizeDirs']:
+            dir = None
             index = 0
             if "path" in c:
-                p = os.path.normpath(c["path"])
-                index = indexes.setdefault(p, 0)
-                indexes[p] += 1
-            deployment = KustomizeDeployment(project, self, c, index)
+                dir = os.path.join(project.dir, c["path"])
+                dir = os.path.realpath(dir)
+                if not dir.startswith(project.get_root_deployment().dir):
+                    raise CommandError("kustomizeDir path is not part of root deployment project: %s" % c["path"])
+                index = indexes.setdefault(dir, 0)
+                indexes[dir] += 1
+            deployment = KustomizeDeployment(project, self, c, dir, index)
             ret.append(deployment)
 
         for inc in project.conf['includes']:
             if get_dict_value(inc, "barrier", False):
-                deployment = KustomizeDeployment(project, self, {"barrier": True}, 0)
+                deployment = KustomizeDeployment(project, self, {"barrier": True}, None, 0)
                 ret.append(deployment)
 
             d = inc.get('_included_deployment_collection')
             if d is not None:
-                ret += self._collect_deployments(d)
+                ret += self._collect_deployments(d, indexes)
 
         return ret
 
