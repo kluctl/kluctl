@@ -1,6 +1,7 @@
 import contextlib
 import hashlib
 import os
+import re
 import shutil
 
 from kluctl.utils.exceptions import CommandError
@@ -38,28 +39,45 @@ class HelmChart(object):
             if need_repo:
                 self.do_helm(['repo', 'remove', repo_name], ignoreErrors=True, ignoreStderr=True)
 
+    def get_chart_name(self):
+        if self.conf.get("repo", "").startswith("oci://"):
+            chart_name = self.conf["repo"].split("/")[-1]
+            if not re.fullmatch(r"[a-zA-Z_-]+", chart_name):
+                raise CommandError("Invalid oci chart url: %s" % self.conf["repo"])
+            return chart_name
+        else:
+            return self.conf["chartName"]
+
     def pull(self):
         target_dir = os.path.join(self.dir, 'charts')
 
-        with self.repo_context() as repo_name:
-            rm_dir = os.path.join(target_dir, self.conf['chartName'])
-            shutil.rmtree(rm_dir, ignore_errors=True)
+        rm_dir = os.path.join(target_dir, self.get_chart_name())
+        shutil.rmtree(rm_dir, ignore_errors=True)
 
-            args = ['pull', '%s/%s' % (repo_name, self.conf['chartName']), '--destination', target_dir, '--untar']
+        if self.conf.get("repo", "").startswith("oci://"):
+            args = ['pull', self.conf["repo"], '--destination', target_dir, '--untar']
             if 'chartVersion' in self.conf:
                 args += ['--version', self.conf['chartVersion']]
             self.do_helm(args)
+        else:
+            with self.repo_context() as repo_name:
+                args = ['pull', '%s/%s' % (repo_name, self.get_chart_name()), '--destination', target_dir, '--untar']
+                if 'chartVersion' in self.conf:
+                    args += ['--version', self.conf['chartVersion']]
+                self.do_helm(args)
 
     def check_update(self):
+        if self.conf.get("repo", "").startswith("oci://"):
+            return None
         with self.repo_context() as repo_name:
-            chart_name = '%s/%s' % (repo_name, self.conf['chartName'])
+            chart_name = '%s/%s' % (repo_name, self.get_chart_name())
             args = ['search', 'repo', chart_name, '-oyaml', '-l']
             r, stdout, stderr = self.do_helm(args)
             l = yaml_load(stdout)
             # ensure we didn't get partial matches
             l = [x for x in l if x["name"] == chart_name]
             if len(l) == 0:
-                raise Exception("Helm chart %s not found in repository" % self.conf['chartName'])
+                raise Exception("Helm chart %s not found in repository" % self.get_chart_name())
             l.sort(key=lambda x: LooseVersionComparator(x["version"]))
             latest_chart = l[-1]
             latest_version = latest_chart["version"]
@@ -68,7 +86,7 @@ class HelmChart(object):
             return latest_version
 
     def render(self):
-        chart_dir = os.path.join(self.dir, 'charts', self.conf['chartName'])
+        chart_dir = os.path.join(self.dir, 'charts', self.get_chart_name())
         values_path = os.path.join(self.dir, 'helm-values.yml')
         output_path = os.path.join(self.dir, self.conf['output'])
 
@@ -102,8 +120,12 @@ class HelmChart(object):
 
     def do_helm(self, args, input=None, ignoreErrors=False, ignoreStderr=False):
         args = ['helm'] + args
+        env = {
+            "HELM_EXPERIMENTAL_OCI": "true",
+            **os.environ,
+        }
 
-        r, stdout, stderr = run_helper(args=args, input=input, print_stdout=False, print_stderr=not ignoreStderr, return_std=True)
+        r, stdout, stderr = run_helper(args=args, env=env, input=input, print_stdout=False, print_stderr=not ignoreStderr, return_std=True)
         if r != 0 and not ignoreErrors:
             raise CommandError("helm failed")
         return r, stdout, stderr
