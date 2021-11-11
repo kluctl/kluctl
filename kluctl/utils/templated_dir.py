@@ -30,7 +30,7 @@ class TemplatedDir(object):
                 target_path = os.path.join(target_dir, rel_dirpath, n)
                 os.mkdir(target_path)
             for n in filenames:
-                source_path = os.path.join(subdir, rel_dirpath, n)
+                source_path = os.path.normpath(os.path.join(subdir, rel_dirpath, n))
                 target_path = os.path.join(target_dir, rel_dirpath, n)
                 if self.needs_render(source_path):
                     f = self.executor.submit(self.do_render_file, os.path.join(self.rel_source_dir, source_path), target_path)
