@@ -175,18 +175,6 @@ class DeploymentProject(object):
             return self
         return self.parent_collection.get_root_deployment()
 
-    def get_rel_dir_to_root(self, subdir=None):
-        root = self.get_root_deployment()
-        root_dir = os.path.abspath(root.dir)
-        dir = self.dir
-        if subdir is not None:
-            if os.path.isabs(subdir):
-                raise CommandError("Path can't be absolute: %s" % subdir)
-            dir = os.path.join(dir, subdir)
-        dir = os.path.abspath(dir)
-        rel_dir = os.path.relpath(dir, root_dir)
-        return rel_dir
-
     def get_parents(self):
         parents = []
         d = self

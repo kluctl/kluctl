@@ -105,8 +105,9 @@ class KustomizeDeployment(object):
         if self.dir is None:
             return []
 
-        rel_kustomize_dir = self.get_rel_kustomize_dir()
-        abs_kustomize_dir = os.path.join(self.deployment_project.get_root_deployment().dir, rel_kustomize_dir)
+        root_dir = self.deployment_project.get_root_deployment().dir
+        rel_deployment_dir = os.path.relpath(self.deployment_project.dir, root_dir)
+        rel_kustomize_dir = os.path.relpath(self.get_rel_kustomize_dir(), rel_deployment_dir)
         abs_rendered_dir = self.get_rendered_dir()
 
         os.makedirs(abs_rendered_dir, exist_ok=True)
@@ -118,14 +119,14 @@ class KustomizeDeployment(object):
         jinja_env = self.build_jinja2_env(jinja_vars)
 
         excluded_patterns = self.deployment_project.conf['templateExcludes'].copy()
-        if os.path.exists(os.path.join(abs_kustomize_dir, 'helm-chart.yml')):
+        if os.path.exists(os.path.join(self.dir, 'helm-chart.yml')):
             # never try to render helm charts
             excluded_patterns.append(os.path.join(rel_kustomize_dir, 'charts/*'))
         if not self.deployment_collection.for_seal:
             # .sealme files are rendered while sealing and not while deploying
             excluded_patterns.append('*.sealme')
 
-        d = TemplatedDir(self.deployment_project.get_root_deployment().dir, jinja_env, executor, excluded_patterns)
+        d = TemplatedDir(root_dir, rel_deployment_dir, jinja_env, executor, excluded_patterns)
         return d.async_render_subdir(rel_kustomize_dir, abs_rendered_dir)
 
     def render_helm_charts(self, executor):
