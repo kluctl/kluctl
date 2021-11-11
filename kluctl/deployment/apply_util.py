@@ -1,8 +1,9 @@
+import json
 import logging
 import threading
 
 from kubernetes.client import ApiException
-from kubernetes.dynamic.exceptions import ResourceNotFoundError
+from kubernetes.dynamic.exceptions import ResourceNotFoundError, ConflictError
 
 from kluctl.deployment.hooks_util import HooksUtil
 from kluctl.diff.managed_fields import resolve_field_manager_conflicts
@@ -55,67 +56,86 @@ class ApplyUtil:
     def apply_object(self, x, replaced, hook):
         logger.debug(f"  {get_long_object_name(x)}")
 
-        x2 = self.k8s_cluster.fix_object_for_patch(x)
-        if not self.force_apply:
-            ref = get_object_ref(x)
-            remote_object = self.deployment_collection.remote_objects.get(ref)
-            try:
-                x2, overwritten = resolve_field_manager_conflicts(x2, remote_object)
-            except Exception as e:
-                self.handle_error(ref, str(e))
-                return
-            warnings = []
-            for ow in overwritten:
-                warnings.append("Field '%s' is now owned by field manager '%s'. "
-                                "It is NOT updated to the desired value '%s'!" % (ow.path, ow.field_manager, ow.local_value))
-            self.deployment_collection.add_warnings(ref, warnings)
+        x = self.k8s_cluster.fix_object_for_patch(x)
+
+        ref = get_object_ref(x)
+        remote_object = self.deployment_collection.remote_objects.get(ref)
 
         if self.dry_run and replaced and get_object_ref(x) in self.deployment_collection.remote_objects:
             # Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
             # this object, it might fail as it is expected to not exist.
-            self.handle_result(x2, [], hook)
+            self.handle_result(x, [], hook)
             return
 
-        try:
-            r, patch_warnings = self.k8s_cluster.patch_object(x2, force_dry_run=self.dry_run, force_apply=True)
-            self.handle_result(r, patch_warnings, hook)
-        except ResourceNotFoundError as e:
-            ref = get_object_ref(x)
-            self.handle_error(ref, self.k8s_cluster.get_status_message(e))
-        except ApiException as e:
-            ref = get_object_ref(x)
-            if not self.replace_on_error:
+        def retry_with_force_replace(e):
+            if not self.force_replace_on_error:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e))
                 return
-            logger.warning("Patching %s failed, retrying with replace instead of patch" %
+
+            logger.warning("Patching %s failed, retrying by deleting and re-applying" %
                            get_long_object_name_from_ref(ref))
             try:
-                remote_object = self.deployment_collection.remote_objects.get(ref)
-                if remote_object is None:
-                    self.handle_error(ref, self.k8s_cluster.get_status_message(e))
-                    return
-                resource_version = get_dict_value(remote_object, "metadata.resourceVersion")
-                x2 = set_dict_value(x, "metadata.resourceVersion", resource_version, do_clone=True)
-                r, patch_warnings = self.k8s_cluster.replace_object(x2, force_dry_run=self.dry_run)
-                self.handle_result(r, patch_warnings, hook)
+                self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
+                if not self.dry_run:
+                    r, patch_warnings = self.k8s_cluster.patch_object(x, force_apply=True)
+                    self.handle_result(r, patch_warnings, hook)
+                else:
+                    self.handle_result(x, [], hook)
             except ApiException as e2:
                 self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
 
-                if not self.force_replace_on_error:
-                    self.handle_error(ref, self.k8s_cluster.get_status_message(e))
-                    return
+        def retry_with_replace(e):
+            if not self.replace_on_error or remote_object is None:
+                self.handle_error(ref, self.k8s_cluster.get_status_message(e))
+                return
 
-                logger.warning("Patching %s failed, retrying by deleting and re-applying" %
-                            get_long_object_name_from_ref(ref))
+            logger.warning("Patching %s failed, retrying with replace instead of patch" %
+                           get_long_object_name_from_ref(ref))
+
+            resource_version = get_dict_value(remote_object, "metadata.resourceVersion")
+            x2 = set_dict_value(x, "metadata.resourceVersion", resource_version, do_clone=True)
+
+            try:
+                r, patch_warnings = self.k8s_cluster.replace_object(x2, force_dry_run=self.dry_run)
+                self.handle_result(r, patch_warnings, hook)
+            except ApiException as e2:
+                retry_with_force_replace(e2)
+
+        def retry_with_conflicts(e):
+            if remote_object is None:
+                self.handle_error(ref, self.k8s_cluster.get_status_message(e))
+                return
+
+            resolve_warnings = []
+            if not self.force_apply:
+                status = json.loads(e.body)
+
                 try:
-                    self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
-                    if not self.dry_run:
-                        r, patch_warnings = self.k8s_cluster.patch_object(x, force_apply=True)
-                        self.handle_result(r, patch_warnings, hook)
-                    else:
-                        self.handle_result(x, [], hook)
-                except ApiException as e2:
+                    x2, lost_ownership = resolve_field_manager_conflicts(x, remote_object, status)
+                    for cause in lost_ownership:
+                        resolve_warnings.append("%s. Not updating field '%s' as we lost field ownership." % (cause["message"], cause["field"]))
+                except Exception as e2:
                     self.handle_error(ref, self.k8s_cluster.get_status_message(e2))
+                    return
+            else:
+                x2 = x
+
+            try:
+                r, patch_warnings = self.k8s_cluster.patch_object(x2, force_dry_run=self.dry_run, force_apply=True)
+                self.handle_result(r, patch_warnings + resolve_warnings, hook)
+            except ApiException as e:
+                # We didn't manage to solve it, better to abort (and not retry with replace!)
+                self.handle_error(ref, e)
+
+        try:
+            r, patch_warnings = self.k8s_cluster.patch_object(x, force_dry_run=self.dry_run)
+            self.handle_result(r, patch_warnings, hook)
+        except ResourceNotFoundError as e:
+            self.handle_error(ref, self.k8s_cluster.get_status_message(e))
+        except ConflictError as e:
+            retry_with_conflicts(e)
+        except ApiException as e:
+            retry_with_replace(e)
 
     def wait_object(self, ref):
         if self.dry_run:
