@@ -41,7 +41,10 @@ class TemplatedDir(object):
         return jobs
 
     def do_render_file(self, source_path, target_path):
-        template = self.jinja_env.get_template(source_path.replace("\\", "/"))
+        source_path = os.path.normpath(source_path)
+        # jinja2 templates are using / even on windows
+        source_path = source_path.replace("\\", "/")
+        template = self.jinja_env.get_template(source_path)
         rendered = template.render()
         with open(target_path, "wt") as f:
             f.write(rendered)
