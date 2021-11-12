@@ -169,7 +169,7 @@ def _clone_or_update_cache(url, cache_dir, do_update):
 
     if os.path.exists(init_marker):
         if do_update:
-            logger.info(f"Updating cache repo: url='{url}'")
+            logger.info(f"Updating mirror repo: url='{url}'")
             with build_git_object(url, cache_dir) as (g, url):
                 g.remote("update")
         return
