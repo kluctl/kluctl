@@ -106,7 +106,7 @@ jobs:
         run: |
           echo "KUBECTL_VERSION=1.21.5" >> $GITHUB_ENV
           echo "KIND_VERSION=0.11.1" >> $GITHUB_ENV
-          echo "KUSTOMIZE_VERSION=4.1.3" >> $GITHUB_ENV
+          echo "KUSTOMIZE_VERSION=4.4.1" >> $GITHUB_ENV
           echo "HELM_VERSION=3.6.3" >> $GITHUB_ENV
           echo "KUBESEAL_VERSION=0.16.0" >> $GITHUB_ENV
           echo "DOCKER_VERSION=20.10.9" >> $GITHUB_ENV
