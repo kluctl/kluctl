@@ -219,7 +219,7 @@ class DeploymentCollection:
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=[],
                              orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
@@ -239,7 +239,7 @@ class DeploymentCollection:
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=[],
                              orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
