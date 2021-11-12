@@ -16,7 +16,7 @@ for every kustomize deployment of the current deployment project and also inside
 These are however not available while the `deployment.yml` is rendered that defines these vars. This file is
 rendered and interpreted before the `vars` are processed and added to the Jinja2 context.
 
-However, each file in `vars` can use all variables defined before that specific file is processed. Consider the
+However, each entry in `vars` can use all variables defined before that specific file is processed. Consider the
 following example.
 
 ```yaml
@@ -27,6 +27,76 @@ vars:
 
 `vars2.yml` can now use variables that are defined in `vars1.yml`. At all times, variables defined by
 parents of the current sub-deployment project can be used in the current vars file.
+
+Different types of vars entries are possible:
+
+### file
+This loads variables from a yaml file. Assume the following yaml file with the name `vars1.yml`:
+```yaml
+my_vars:
+  a: 1
+  b: "b"
+  c:
+    - l1
+    - l2
+```
+
+This file can be loaded via:
+
+```yaml
+vars:
+  - file: vars1.yml
+```
+
+After which all included kustomizeDirs and sub-deployments can use the jinja2 variables from `vars1.yml`.
+
+### values
+An inline definition of variables. Example:
+
+```yaml
+vars:
+  - values:
+      a: 1
+      b: c
+```
+
+These variables can then be used in all kustomizeDirs and sub-deployments.
+
+### clusterConfigMap
+Loads a configmap from the target's cluster and loads the specified key's value as a yaml file into the jinja2 variables
+context.
+
+Assume the following configmap to be deployed to the target cluster:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-vars
+  namespace: my-namespace
+data:
+  vars: |
+    a: 1
+    b: "b"
+    c:
+      - l1
+      - l2
+```
+
+This configmap can be loaded via:
+
+```yaml
+vars:
+  - clusterConfigMap:
+      name: my-vars
+      namespace: my-namespace
+      key: vars
+```
+
+It assumes that the configmap is already deployed before the kluctl deployment happens. This might for example be
+useful to store meta information about the cluster itself and then make it available to kluctl deployments.
+
+### clusterSecret
+Same as clusterConfigMap, but for secrets.
 
 ## Global variables
 There are multiple variables available which are pre-defined by kluctl. These are:

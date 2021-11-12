@@ -67,6 +67,17 @@ resource.
 The url to the Helm repository where the Helm Chart is located. You can use hub.helm.sh to search for repositories and
 charts and then use the repos found there.
 
+oci based repositories are also supported, for example:
+```yaml
+helmChart:
+  repo: oci://r.myreg.io/mycharts/pepper
+  chartName: pepper
+  chartVersion: 1.2.3
+  releaseName: pepper
+  namespace: pepper
+  output: deploy.yml
+```
+
 ### chartName
 The name of the chart that can be found in the repository.
 
