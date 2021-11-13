@@ -353,7 +353,8 @@ Usage: kluctl downscale [OPTIONS]
 
   Downscale all deployments.
 
-  This command will downscale all Deployments, StatefulSets and CronJobs.
+  This command will downscale all Deployments, StatefulSets and CronJobs. It is also possible to influence the
+  behaviour with the help of annotations, as described in the documentation.
 
 <!-- END SECTION -->
 

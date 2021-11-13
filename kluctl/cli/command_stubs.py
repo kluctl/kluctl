@@ -91,8 +91,9 @@ def poke_images_command_stub(obj, **kwargs):
 
 @cli_group.command("downscale",
                    help="Downscale all deployments.\n\n"
-                        "This command will downscale all Deployments, StatefulSets "
-                        "and CronJobs.")
+                        "This command will downscale all Deployments, StatefulSets and CronJobs. "
+                        "It is also possible to influence the behaviour with the help of annotations, as described in "
+                        "the documentation.")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()

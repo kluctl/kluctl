@@ -232,7 +232,7 @@ class DeploymentCollection:
                     continue
                 for o in d.objects:
                     ref = get_object_ref(o)
-                    f = executor.submit(self.do_replace_object, k8s_cluster, ref, downscale_object)
+                    f = executor.submit(self.do_replace_object, k8s_cluster, ref, lambda x, o=o: downscale_object(x, o))
                     futures.append((ref, f))
 
             applied_objects = self.do_finish_futures(futures)

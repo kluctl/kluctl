@@ -72,6 +72,7 @@ setup(
         "filelock>=3.3.0",
         "python-gitlab>=2.10.1",
         "jsonpath-ng>=1.5.3",
+        "jsonpatch>=1.32",
     ],
     entry_points={
         "console_scripts": [

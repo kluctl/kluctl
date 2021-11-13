@@ -28,7 +28,7 @@ def bootstrap_command(obj, kwargs):
         if existing:
             if not kwargs["yes"] and get_dict_value(existing, 'metadata.labels."kluctl.io/component"') != "bootstrap":
                 click.confirm("It looks like you're trying to bootstrap a cluster that already has the sealed-secrets "
-                              "deployed but not managed by kluctl. Do you really want to continue bootrapping?",
+                              "deployed but not managed by kluctl. Do you really want to continue bootstrapping?",
                               err=True, abort=True)
 
         deploy_command2(obj, kwargs, cmd_ctx)
