@@ -83,9 +83,20 @@ class DummyExecutor:
 
     def submit(self, f, *args, **kwargs):
         class Future:
+            def __init__(self, result, exc):
+                self._result = result
+                self._exc = exc
+            def exception(self):
+                return self._exc
             def result(self):
-                return f(*args, **kwargs)
-        return Future()
+                if self._exc is not None:
+                    raise self._exc
+                return self._result
+        try:
+            result = f(*args, **kwargs)
+            return Future(result, None)
+        except Exception as e:
+            return Future(None, e)
 
 if os.environ.get("KLUCTL_NO_THREADS", "false").lower() in ["1", "true"] or (sys.gettrace() is not None and os.environ.get("KLUCTL_IGNORE_DEBUGGER", "false").lower() not in ["1", "true"]):
     print("Detected a debugger, using DummyExecutor for ThreadPool", file=sys.stderr)
