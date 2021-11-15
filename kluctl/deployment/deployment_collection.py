@@ -286,7 +286,7 @@ class DeploymentCollection:
 
     def do_apply(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout):
         if k8s_cluster.dry_run:
-            dry_run = dry_run
+            dry_run = True
         apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout)
         apply_util.apply_deployments()
         return apply_util.applied_objects, apply_util.applied_hook_objects
