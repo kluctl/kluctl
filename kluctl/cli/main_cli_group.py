@@ -159,7 +159,7 @@ def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error
                                        help="Maximum time to wait for hook readiness. The timeout is meant per-hook. "
                                             "Timeouts are in the duration format (1s, 1m, 1h, ...). If not specified, "
                                             "a default timeout of 5m is used.",
-                                       default="5s", type=duration))
+                                       default="5m", type=duration))
     if ignore_labels:
         options.append(optgroup.option("--ignore-tags",
                                        help="Ignores changes in tags when diffing",
