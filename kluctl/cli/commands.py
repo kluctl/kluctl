@@ -58,14 +58,12 @@ def diff_command(obj, kwargs):
 
 def confirmed_delete_objects(k8s_cluster, objects, kwargs):
     from kluctl.utils.k8s_delete_utils import delete_objects
-    if len(objects) == 0:
-        return
-
-    click.echo("The following objects will be deleted:", err=True)
-    for ref in objects:
-        click.echo("  %s" % get_long_object_name_from_ref(ref), err=True)
-    if not kwargs["yes"] and not kwargs["dry_run"]:
-        click.confirm("Do you really want to delete %d objects?" % len(objects), abort=True, err=True)
+    if len(objects) != 0:
+        click.echo("The following objects will be deleted:", err=True)
+        for ref in objects:
+            click.echo("  %s" % get_long_object_name_from_ref(ref), err=True)
+        if not kwargs["yes"] and not kwargs["dry_run"]:
+            click.confirm("Do you really want to delete %d objects?" % len(objects), abort=True, err=True)
 
     result = delete_objects(k8s_cluster, objects, False)
     return result
