@@ -13,8 +13,8 @@ from kluctl.diff.normalize import normalize_object
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
 from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
-from kluctl.utils.k8s_downscale_utils import downscale_object
-from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
+from kluctl.utils.k8s_downscale_utils import downscale_object, downsclae_is_delete
+from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, \
     ObjectRef
 from kluctl.utils.k8s_status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
@@ -31,6 +31,7 @@ class DeployErrorItem:
 class CommandResult:
     new_objects: list
     changed_objects: list
+    deleted_objects: list
     hook_objects: list
     orphan_objects: list
     errors: list
@@ -226,21 +227,27 @@ class DeploymentCollection:
     def downscale(self, k8s_cluster):
         self.clear_errors_and_warnings()
         with MyThreadPoolExecutor(max_workers=8) as executor:
-            futures = []
+            replace_futures = []
+            delete_futures = []
             for d in self.deployments:
                 if not d.check_inclusion_for_deploy():
                     continue
                 for o in d.objects:
                     ref = get_object_ref(o)
-                    f = executor.submit(self.do_replace_object, k8s_cluster, ref, lambda x, o=o: downscale_object(x, o))
-                    futures.append((ref, f))
+                    if downsclae_is_delete(o):
+                        f = executor.submit(k8s_cluster.delete_single_object, ref, ignore_not_found=True)
+                        delete_futures.append((ref, f))
+                    else:
+                        f = executor.submit(self.do_replace_object, k8s_cluster, ref, lambda x, o=o: downscale_object(x, o))
+                        replace_futures.append((ref, f))
 
-            applied_objects = self.do_finish_futures(futures)
+            applied_objects = self.do_finish_futures(replace_futures)
+            deleted_objects = self.do_finish_futures(delete_futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=[],
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=list(deleted_objects.keys()),
+                             hook_objects=[], orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def validate(self):

@@ -2,13 +2,19 @@ import re
 
 import jsonpatch
 
-from kluctl.utils.dict_utils import set_dict_value, get_dict_value, copy_dict
+from kluctl.utils.dict_utils import set_dict_value, get_dict_value
 from kluctl.utils.k8s_object_utils import get_object_ref, remove_api_version_from_ref
 from kluctl.utils.utils import parse_bool
 from kluctl.utils.yaml_utils import yaml_load
 
 DOWNSCALE_ANNOTATION_PATCH_REGEX = re.compile(r"^kluctl.io/downscale-patch(-\d*)?$")
+DOWNSCALE_ANNOTATION_DELETE = "kluctl.io/downscale-delete"
 DOWNSCALE_ANNOTATION_IGNORE = "kluctl.io/downscale-ignore"
+
+def downsclae_is_delete(local_object):
+    if parse_bool(get_dict_value(local_object, "metadata.annotations[\"%s\"]" % DOWNSCALE_ANNOTATION_DELETE, "false")):
+        return True
+    return False
 
 def downscale_object(remote_object, local_object):
     if parse_bool(get_dict_value(local_object, "metadata.annotations[\"%s\"]" % DOWNSCALE_ANNOTATION_IGNORE, "false")):

@@ -42,6 +42,9 @@ If more than one patch needs to be specified, add `-xxx` to the annoation key, w
 ### kluctl.io/downscale-ignore
 If set to "true", the resource will be ignored while [downscale](./commands.md#downscale) is executed.
 
+### kluctl.io/downscale-delete
+If set to "true", the resource will be deleted while [downscale](./commands.md#downscale) is executed.
+
 ## Hooks related
 See [hooks](./hooks.md) for more details.
 
