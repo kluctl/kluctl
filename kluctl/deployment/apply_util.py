@@ -142,16 +142,24 @@ class ApplyUtil:
             return True
 
         did_log = False
-        logger.debug("Starting wait for hook %s" % get_long_object_name_from_ref(ref))
+        logger.debug("Waiting for hook %s to get ready" % get_long_object_name_from_ref(ref))
         while True:
             o, _ = self.k8s_cluster.get_single_object(ref)
             if o is None:
+                if did_log:
+                    logger.warning("Cancelled waiting for hook %s as it disappeared while waiting for it" % get_long_object_name_from_ref(ref))
                 self.handle_error(ref, "Object disappeared while waiting for it to become ready")
                 return False
             v = validate_object(o, False)
             if v.ready:
+                if did_log:
+                    logger.info("Finished waiting for hook %s" % get_long_object_name_from_ref(ref))
                 return True
             if v.errors:
+                if did_log:
+                    logger.warning("Cancelled waiting for hook %s due to errors" % get_long_object_name_from_ref(ref))
+                for e in v.errors:
+                    self.handle_error(ref, e.message)
                 return False
 
             if not did_log:
