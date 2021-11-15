@@ -174,15 +174,6 @@ def _clone_or_update_cache(url, cache_dir, do_update):
                 g.remote("update")
         return
 
-    for n in os.listdir(cache_dir):
-        if n == ".cache.lock":
-            continue
-        p = os.path.join(cache_dir, n)
-        if os.path.isdir(p):
-            shutil.rmtree(os.path.join(cache_dir, n))
-        else:
-            os.unlink(p)
-
     logger.info(f"Cloning mirror repo at {cache_dir}")
     with build_git_object(url, cache_dir) as (g, url):
         g.clone("--mirror", url, "mirror")
