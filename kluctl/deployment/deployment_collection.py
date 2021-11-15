@@ -154,8 +154,8 @@ class DeploymentCollection:
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
         applied_hook_objects = list(applied_hook_objects.values())
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=applied_hook_objects,
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=[],
+                             hook_objects=applied_hook_objects, orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
@@ -166,8 +166,8 @@ class DeploymentCollection:
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
         applied_hook_objects = list(applied_hook_objects.values())
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=applied_hook_objects,
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=[],
+                             hook_objects=applied_hook_objects, orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def poke_images(self, k8s_cluster):
@@ -220,8 +220,8 @@ class DeploymentCollection:
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=[],
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=[],
+                             hook_objects=[], orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def downscale(self, k8s_cluster):

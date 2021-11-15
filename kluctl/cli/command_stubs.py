@@ -53,7 +53,7 @@ def diff_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True)
+@misc_arguments(yes=True, dry_run=True, output_format=True)
 @click.pass_obj
 def delete_command_stub(obj, **kwargs):
     from kluctl.cli.commands import delete_command
@@ -69,7 +69,7 @@ def delete_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True)
+@misc_arguments(yes=True, dry_run=True, output_format=True)
 @click.pass_obj
 def prune_command_stub(obj, **kwargs):
     from kluctl.cli.commands import prune_command

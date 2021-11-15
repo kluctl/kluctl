@@ -252,6 +252,9 @@ In addition, the following arguments are available:
   Misc arguments: 
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
 
@@ -282,6 +285,9 @@ In addition, the following arguments are available:
   Misc arguments: 
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
 

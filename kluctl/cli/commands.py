@@ -7,8 +7,8 @@ import time
 import click
 
 from kluctl import get_kluctl_package_dir
-from kluctl.cli.utils import build_seen_images, project_command_context
 from kluctl.cli.command_result import output_command_result, output_validate_result, output_yaml_result
+from kluctl.cli.utils import build_seen_images, project_command_context
 from kluctl.kluctl_project.kluctl_project import load_kluctl_project_from_args
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.exceptions import CommandError
@@ -67,12 +67,14 @@ def confirmed_delete_objects(k8s_cluster, objects, kwargs):
     if not kwargs["yes"] and not kwargs["dry_run"]:
         click.confirm("Do you really want to delete %d objects?" % len(objects), abort=True, err=True)
 
-    delete_objects(k8s_cluster, objects, False)
+    result = delete_objects(k8s_cluster, objects, False)
+    return result
 
 def delete_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
         objects = cmd_ctx.deployment_collection.find_delete_objects(cmd_ctx.k8s_cluster)
-        confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
+        result = confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
+        output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result)
 
 def prune_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:
@@ -80,7 +82,8 @@ def prune_command(obj, kwargs):
 
 def prune_command2(obj, kwargs, cmd_ctx):
     objects = cmd_ctx.deployment_collection.find_orphan_objects(cmd_ctx.k8s_cluster)
-    confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
+    result = confirmed_delete_objects(cmd_ctx.k8s_cluster, objects, kwargs)
+    output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result)
 
 def poke_images_command(obj, kwargs):
     with project_command_context(kwargs) as cmd_ctx:

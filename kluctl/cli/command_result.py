@@ -36,6 +36,11 @@ def format_command_result_text(command_result: CommandResult):
             changes = x["changes"]
             result += "%s" % pretty_changes(get_object_ref(object), changes)
 
+    if command_result.deleted_objects:
+        result += "\nDeleted objects:\n"
+        for x in command_result.deleted_objects:
+            result += "  %s\n" % get_long_object_name_from_ref(x)
+
     if command_result.hook_objects:
         result += "\nApplied hooks:\n"
         for x in command_result.hook_objects:
@@ -76,6 +81,7 @@ def pretty_changes(ref, changes):
 def format_command_result_yaml(c, command_result: CommandResult):
     result = {
         "diff": changes_to_yaml(command_result.new_objects, command_result.changed_objects),
+        "deleted_objects": command_result.deleted_objects,
         "applied_hooks": command_result.hook_objects,
         "orphan_objects": [{"ref": dataclasses.asdict(ref)} for ref in command_result.orphan_objects],
         "errors": [dataclasses.asdict(x) for x in command_result.errors],
