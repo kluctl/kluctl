@@ -125,23 +125,20 @@ class KluctlProject:
         project.targets = metadata["targets"]
         return project
 
-    def build_clone_dir(self, url):
+    def build_clone_dir(self, url, ref):
+        if ref is None:
+            ref = "HEAD"
+        ref = ref.replace("/", "-").replace("\\", "-")
         url = parse_git_url(url)
         base_name = os.path.basename(url.path)
         url_hash = hashlib.sha256(("%s:%s" % (url.host, url.path)).encode("utf-8")).hexdigest()
-        for i in range(len(url_hash)):
-            dir = os.path.join(self.tmp_dir, "git", base_name)
-            if i != 0:
-                dir += "-%s" % url_hash[0:i]
-            if not os.path.exists(dir):
-                return dir
-        raise Exception("Unexpected!")
+        return os.path.join(self.tmp_dir, "%s-%s" % (base_name, url_hash), ref)
 
     def clone_git_project(self, git_project_config, default_git_subdir, do_add_involved_repo):
         os.makedirs(os.path.join(self.tmp_dir, "git"), exist_ok=True)
 
         git_project = parse_git_project(git_project_config["project"], default_git_subdir)
-        target_dir = self.build_clone_dir(git_project.url)
+        target_dir = self.build_clone_dir(git_project.url, git_project.ref)
 
         clone_project(git_project.url, git_project.ref, target_dir, git_cache_up_to_date=self.git_cache_up_to_date)
         git_ref = get_git_ref(target_dir)
