@@ -43,7 +43,8 @@ def deploy_command2(obj, kwargs, cmd_ctx):
         click.confirm("Do you really want to deploy to the context/cluster %s?" % cmd_ctx.k8s_cluster.context, err=True, abort=True)
 
     result = cmd_ctx.deployment_collection.deploy(cmd_ctx.k8s_cluster, kwargs["force_apply"],
-                                                       kwargs["replace_on_error"], kwargs["force_replace_on_error"], kwargs["abort_on_error"])
+                                                  kwargs["replace_on_error"], kwargs["force_replace_on_error"], kwargs["abort_on_error"],
+                                                  kwargs["hook_timeout"])
     output_command_result(kwargs["output"], cmd_ctx.deployment_collection, result)
     if result.errors:
         sys.exit(1)

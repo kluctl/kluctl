@@ -60,7 +60,7 @@ class HooksUtil:
                 continue
             if not h.wait:
                 continue
-            wait_results[ref] = self.apply_util.wait_object(ref)
+            wait_results[ref] = self.apply_util.wait_hook(ref)
 
         delete_after_objects = []
         for h in reversed(l):

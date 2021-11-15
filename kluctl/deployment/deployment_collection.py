@@ -146,11 +146,11 @@ class DeploymentCollection:
         self.build_kustomize_objects(k8s_cluster)
         self.update_remote_objects(k8s_cluster)
 
-    def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error):
+    def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error, hook_timeout):
         self.clear_errors_and_warnings()
         applied_objects, applied_hook_objects = self.do_apply(k8s_cluster,
                                                               force_apply, replace_on_error, force_replace_on_error,
-                                                              False, abort_on_error)
+                                                              False, abort_on_error, hook_timeout)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
         applied_hook_objects = list(applied_hook_objects.values())
@@ -162,7 +162,7 @@ class DeploymentCollection:
         self.clear_errors_and_warnings()
         applied_objects, applied_hook_objects = self.do_apply(k8s_cluster,
                                                               force_apply, replace_on_error, force_replace_on_error,
-                                                              True, False)
+                                                              True, False, None)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
         applied_hook_objects = list(applied_hook_objects.values())
@@ -284,10 +284,10 @@ class DeploymentCollection:
         excluded_objects = list(self.local_objects_by_ref().keys())
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, excluded_objects)
 
-    def do_apply(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error):
+    def do_apply(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout):
         if k8s_cluster.dry_run:
             dry_run = dry_run
-        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error)
+        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout)
         apply_util.apply_deployments()
         return apply_util.applied_objects, apply_util.applied_hook_objects
 

@@ -25,6 +25,8 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copy2(s, d)
 
 def duration(duration_string):  # example: '5d3h2m1s'
+    if isinstance(duration_string, timedelta):
+        return duration_string
     duration_string = duration_string.lower()
     total_seconds = Decimal('0')
     prev_num = []

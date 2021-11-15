@@ -23,7 +23,7 @@ def bootstrap_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True, render_output_dir=True)
+@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, hook_timeout=True, output_format=True, render_output_dir=True)
 @click.pass_obj
 def deploy_command_stub(obj, **kwargs):
     from kluctl.cli.commands import deploy_command

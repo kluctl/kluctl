@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+from datetime import datetime
 
 from kubernetes.client import ApiException
 from kubernetes.dynamic.exceptions import ResourceNotFoundError, ConflictError
@@ -15,7 +16,7 @@ from kluctl.utils.utils import MyThreadPoolExecutor
 logger = logging.getLogger(__name__)
 
 class ApplyUtil:
-    def __init__(self, deployment_collection, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error):
+    def __init__(self, deployment_collection, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout):
         self.deployment_collection = deployment_collection
         self.k8s_cluster = k8s_cluster
         self.force_apply = force_apply
@@ -23,6 +24,7 @@ class ApplyUtil:
         self.force_replace_on_error = force_replace_on_error
         self.dry_run = dry_run
         self.abort_on_error = abort_on_error
+        self.hook_timeout = hook_timeout
 
         self.applied_objects = {}
         self.applied_hook_objects = {}
@@ -137,12 +139,13 @@ class ApplyUtil:
         except ApiException as e:
             retry_with_replace(e)
 
-    def wait_object(self, ref):
+    def wait_hook(self, ref):
         if self.dry_run:
             return True
 
         did_log = False
         logger.debug("Waiting for hook %s to get ready" % get_long_object_name_from_ref(ref))
+        start_time = datetime.now()
         while True:
             o, _ = self.k8s_cluster.get_single_object(ref)
             if o is None:
@@ -160,6 +163,12 @@ class ApplyUtil:
                     logger.warning("Cancelled waiting for hook %s due to errors" % get_long_object_name_from_ref(ref))
                 for e in v.errors:
                     self.handle_error(ref, e.message)
+                return False
+
+            if self.hook_timeout is not None and datetime.now() - start_time >= self.hook_timeout:
+                err = "Timed out while waiting for hook %s" % get_long_object_name_from_ref(ref)
+                logger.warning(err)
+                self.handle_error(ref, err)
                 return False
 
             if not did_log:
