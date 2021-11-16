@@ -145,9 +145,12 @@ def build_git_object(url, working_dir):
     g = MyGit(working_dir)
 
     ssh_command = os.environ.get("GIT_SSH", "ssh")
-    ssh_command += " -o 'StrictHostKeyChecking=no'"
 
-    if sys.platform != "win32":
+    if sys.platform == "win32":
+        if "plink.exe" not in ssh_command.lower():
+            ssh_command += " -o 'StrictHostKeyChecking=no'"
+    else:
+        ssh_command += " -o 'StrictHostKeyChecking=no'"
         ssh_command += " -o 'ControlMaster=auto'"
         ssh_command += " -o 'ControlPath=/tmp/kluctl_control_master-%r@%h-%p'"
         ssh_command += " -o 'ControlPersist=5m'"
