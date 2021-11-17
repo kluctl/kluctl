@@ -96,11 +96,16 @@ jobs:
           else
             echo "$GITHUB_WORKSPACE/.venv/bin" >> $GITHUB_PATH
           fi
-      - name: Install dependencies
+      - name: Install kluctl and dependencies
         shell: bash
         run: |
           python ./setup.py develop
           pip install -r requirements-dev.txt
+      - name: Create pyinstaller executable
+        shell: bash
+        run: |
+          pyinstaller kluctl.spec
+          cp dist/* $TOOLS_TARGET_DIR
       - name: Provide required tools versions
         shell: bash
         run: |
