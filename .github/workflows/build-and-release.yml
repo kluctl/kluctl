@@ -124,7 +124,7 @@ jobs:
           pip install .
       - name: Run Pyinstaller
         run: |
-          pip install pyinstaller==4.2
+          pip install pyinstaller==4.7
           pyinstaller kluctl.spec
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
