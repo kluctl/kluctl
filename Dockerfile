@@ -1,4 +1,4 @@
-FROM python:3.8.10-slim-buster
+FROM python:3.10.0-slim-buster
 
 RUN apt update && apt install wget libyaml-dev git -y && rm -rf /var/lib/apt/lists/*
 

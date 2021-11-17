@@ -68,7 +68,7 @@ setup(
         "PyJWT>=2.2.0",
         "python-dxf>=7.7.1",
         "gitpython>=3.1.24",
-        "jsonschema>=4.0.1",
+        "jsonschema>=4.2.1",
         "filelock>=3.3.0",
         "python-gitlab>=2.10.1",
         "jsonpath-ng>=1.5.3",
