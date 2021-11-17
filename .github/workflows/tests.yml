@@ -105,7 +105,12 @@ jobs:
         shell: bash
         run: |
           pyinstaller kluctl.spec
+          OLD_KLUCTL=$(which kluctl)
+          echo OLD_KLUCTL=$OLD_KLUCTL
           cp dist/* $TOOLS_TARGET_DIR
+          which kluctl
+          rm $OLD_KLUCTL
+          which kluctl
       - name: Provide required tools versions
         shell: bash
         run: |
