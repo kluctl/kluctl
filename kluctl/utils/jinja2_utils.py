@@ -84,7 +84,7 @@ def update_dict(a, b):
     return ""
 
 def raise_helper(msg):
-    raise Exception(msg)
+    raise TemplateError(msg)
 
 def debug_print(msg):
     logger.info("debug_print: %s" % str(msg))
