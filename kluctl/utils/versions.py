@@ -106,7 +106,7 @@ class RegexLatestVersion(LatestVersion):
         self.pattern = re.compile(pattern)
 
     def match(self, version):
-        return self.pattern.match(version)
+        return self.pattern.fullmatch(version)
 
     def latest(self, versions):
         versions = sorted(versions, key=LooseVersionComparator)

@@ -507,7 +507,7 @@ class KluctlProject:
             raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} is not allowed for target")
 
         arg_pattern = dyn_arg.get("pattern", ".*")
-        if not re.match(arg_pattern, arg_value):
+        if not re.fullmatch(arg_pattern, arg_value):
             raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} does not match required pattern '{arg_pattern}'")
 
 

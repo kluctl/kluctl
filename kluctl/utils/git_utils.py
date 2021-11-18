@@ -278,7 +278,7 @@ def filter_remote_refs(refs, pattern, trim):
     pattern = re.compile(r"refs/heads/%s" % pattern)
     matching_refs = {}
     for r, commit in refs.items():
-        if pattern.match(r):
+        if pattern.fullmatch(r):
             r2 = r
             if trim:
                 r2 = r[len("refs/heads/"):]
@@ -322,7 +322,7 @@ def parse_git_url(p):
         return GitUrl(url.scheme, url.hostname, port, path, url.username)
 
     pattern = re.compile("(.+@)?([\w\d\.]+):(.*)")
-    m = pattern.match(p)
+    m = pattern.fullmatch(p)
     if not m:
         raise Exception("Invalid git url %s" % p)
 
