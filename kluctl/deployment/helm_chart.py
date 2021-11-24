@@ -85,7 +85,7 @@ class HelmChart(object):
                 return None
             return latest_version
 
-    def render(self):
+    def render(self, k8s_cluster):
         chart_dir = os.path.join(self.dir, 'charts', self.get_chart_name())
         values_path = os.path.join(self.dir, 'helm-values.yml')
         output_path = os.path.join(self.dir, self.conf['output'])
@@ -103,6 +103,10 @@ class HelmChart(object):
             args += ['--include-crds']
 
         args.append("--skip-tests")
+
+        for api_version in k8s_cluster.get_all_api_versions():
+            args.append("--api-versions=%s" % api_version)
+        args.append("--kube-version=%s" % k8s_cluster.server_version)
 
         r, rendered, stderr = self.do_helm(args)
         rendered = rendered.decode('utf-8')

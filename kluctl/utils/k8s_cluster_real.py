@@ -149,6 +149,15 @@ class k8s_cluster_real(k8s_cluster_base):
             return r
         raise ResourceNotFoundError(f"{group}/{kind} not found")
 
+    def get_all_resources(self):
+        return list(self.dynamic_client.resources.search())
+
+    def get_all_api_versions(self):
+        ret = set()
+        for r in self.get_all_resources():
+            ret.add(r.group_version)
+        return ret
+
     def _get_objects_for_resource(self, resource, name, namespace, labels, as_table):
         label_selector = self._build_label_selector(labels)
 

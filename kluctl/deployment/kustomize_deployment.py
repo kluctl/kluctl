@@ -129,7 +129,7 @@ class KustomizeDeployment(object):
         d = TemplatedDir(root_dir, rel_deployment_dir, jinja_env, executor, excluded_patterns)
         return d.async_render_subdir(rel_kustomize_dir, abs_rendered_dir)
 
-    def render_helm_charts(self, executor):
+    def render_helm_charts(self, k8s_cluster, executor):
         if self.dir is None:
             return []
 
@@ -140,7 +140,7 @@ class KustomizeDeployment(object):
             if not os.path.exists(path):
                 continue
             chart = HelmChart(path)
-            job = executor.submit(chart.render)
+            job = executor.submit(chart.render, k8s_cluster)
             jobs.append(job)
         return jobs
 

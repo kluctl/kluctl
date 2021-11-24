@@ -90,7 +90,7 @@ class DeploymentCollection:
 
             jobs = []
             for d in self.deployments:
-                jobs += d.render_helm_charts(executor)
+                jobs += d.render_helm_charts(k8s_cluster, executor)
             for job in jobs:
                 job.result()
 
