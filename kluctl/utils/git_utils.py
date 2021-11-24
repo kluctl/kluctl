@@ -194,6 +194,14 @@ class MirroredGitRepo:
                 g.remote("update")
             return
 
+        if os.path.exists(self.mirror_dir):
+            for n in os.listdir(self.mirror_dir):
+                p = os.path.join(self.mirror_dir, n)
+                if os.path.isdir(p):
+                    shutil.rmtree(p)
+                else:
+                    os.unlink(p)
+
         logger.info(f"Cloning mirror repo at {self.mirror_dir}")
         with self._build_git_object() as (g, url):
             g.clone("--mirror", url, "mirror")
