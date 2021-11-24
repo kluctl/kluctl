@@ -3,7 +3,6 @@ import json
 import logging
 import threading
 import time
-from distutils.version import LooseVersion
 
 from kubernetes import config
 from kubernetes.client import ApiClient, Configuration, ApiException
@@ -65,7 +64,7 @@ class k8s_cluster_real(k8s_cluster_base):
         self.table_dynamic_client = DynamicClient(self.table_api_client, discoverer=MyDiscoverer)
 
         v = self.dynamic_client.version
-        self.server_version = "%s.%s" % (v['kubernetes']['major'], v['kubernetes']['minor'])
+        self.server_version = v["kubernetes"]["gitVersion"]
 
     def _fix_api_version(self, group, version):
         if group is None and version is not None:
@@ -267,9 +266,9 @@ class k8s_cluster_real(k8s_cluster_base):
         # default values. We need to fix these resources.
         # UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the
         # issue is still present.
-        needs_defaults_fix = LooseVersion(self.server_version) < LooseVersion('1.21')
+        needs_defaults_fix = LooseVersionComparator(self.server_version) < LooseVersionComparator('1.21')
         # TODO check when this is actually fixed (see https://github.com/kubernetes/kubernetes/issues/94275)
-        needs_type_conversion_fix = LooseVersion(self.server_version) < LooseVersion('1.100')
+        needs_type_conversion_fix = LooseVersionComparator(self.server_version) < LooseVersionComparator('1.100')
         if not needs_defaults_fix and not needs_type_conversion_fix:
             return o
 
