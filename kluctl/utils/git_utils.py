@@ -196,6 +196,8 @@ class MirroredGitRepo:
 
         if os.path.exists(self.mirror_dir):
             for n in os.listdir(self.mirror_dir):
+                if n == ".cache.lock":
+                    continue
                 p = os.path.join(self.mirror_dir, n)
                 if os.path.isdir(p):
                     shutil.rmtree(p)
