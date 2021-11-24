@@ -109,10 +109,15 @@ class KluctlBytecodeCache(BytecodeCache):
         filename = self._get_cache_filename(bucket)
 
         if os.path.exists(filename):
-            with open(filename, "rb") as f:
-                bucket.load_bytecode(f)
-                if bucket.code is not None:
-                    bucket.code = self.replace_code_filenames(bucket.code, "<dummy>", bucket.key[1])
+            for i in range(4):
+                try:
+                    with open(filename, "rb") as f:
+                        bucket.load_bytecode(f)
+                        if bucket.code is not None:
+                            bucket.code = self.replace_code_filenames(bucket.code, "<dummy>", bucket.key[1])
+                except PermissionError:
+                    # Retry. Windows is still failing from time to time...
+                    continue
             self.touch_loaded_marker(bucket)
 
     def dump_bytecode(self, bucket: Bucket) -> None:
