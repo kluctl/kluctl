@@ -127,7 +127,7 @@ class ApplyUtil:
                 self.handle_result(r, patch_warnings + resolve_warnings, hook)
             except ApiException as e:
                 # We didn't manage to solve it, better to abort (and not retry with replace!)
-                self.handle_error(ref, e)
+                self.handle_error(ref, self.k8s_cluster.get_status_message(e))
 
         try:
             r, patch_warnings = self.k8s_cluster.patch_object(x, force_dry_run=self.dry_run)
