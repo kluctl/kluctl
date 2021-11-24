@@ -325,8 +325,6 @@ In addition, the following arguments are available:
 ```
   Misc arguments: 
     -o, --output TEXT             Specify output target file. Can be specified multiple times
-    --no-kubernetes               Don't check kubernetes for current image versions
-    --no-registries               Don't check registries for new image versions
     --simple                      Output a simplified version of the images list
 ```
 <!-- END SECTION -->
@@ -416,7 +414,6 @@ In addition, the following arguments are available:
     --output-images FILE          Also output images list to given FILE. This output the same result as from the list-
                                   images command.
     --output-single-yaml FILE     Also write all resources into a single yaml file.
-    --offline                     Go offline, meaning that kubernetes and registries are not asked for image versions
 ```
 <!-- END SECTION -->
 

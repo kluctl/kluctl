@@ -131,9 +131,6 @@ def validate_command_stub(obj, **kwargs):
 @optgroup.option("--output-single-yaml",
                  help="Also write all resources into a single yaml file.",
                  type=click.Path(dir_okay=False))
-@optgroup.option("--offline",
-                 help="Go offline, meaning that kubernetes and registries are not asked for image versions",
-                 is_flag=True)
 @click.pass_obj
 def render_command_stub(obj, **kwargs):
     from kluctl.cli.commands import render_command
@@ -148,8 +145,6 @@ def render_command_stub(obj, **kwargs):
 @image_args()
 @include_exclude_args()
 @misc_arguments(output=True)
-@optgroup.option("--no-kubernetes", help="Don't check kubernetes for current image versions", default=False, is_flag=True)
-@optgroup.option("--no-registries", help="Don't check registries for new image versions", default=False, is_flag=True)
 @optgroup.option("--simple", help="Output a simplified version of the images list", is_flag=True)
 @click.pass_obj
 def list_images_command_stub(obj, **kwargs):

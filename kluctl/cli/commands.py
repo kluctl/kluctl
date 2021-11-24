@@ -136,7 +136,7 @@ def render_command(obj, kwargs):
     if kwargs["render_output_dir"] is None:
         kwargs["render_output_dir"] = tempfile.mkdtemp(dir=get_tmp_base_dir(), prefix="render-")
 
-    with project_command_context(kwargs, force_offline_images=kwargs["offline"], force_offline_kubernetes=kwargs["offline"]) as cmd_ctx:
+    with project_command_context(kwargs) as cmd_ctx:
         logger.info('Rendered into: %s' % cmd_ctx.deployment_collection.tmpdir)
 
         if kwargs["output_images"]:
@@ -153,7 +153,7 @@ def render_command(obj, kwargs):
             output_yaml_result([kwargs["output_single_yaml"]], all_yamls, all=True)
 
 def list_images_command(obj, kwargs):
-    with project_command_context(kwargs, force_offline_kubernetes=kwargs["no_kubernetes"]) as cmd_ctx:
+    with project_command_context(kwargs) as cmd_ctx:
         cmd_ctx.images.raise_on_error = False
 
         result = {

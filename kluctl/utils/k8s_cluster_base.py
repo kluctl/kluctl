@@ -44,7 +44,7 @@ class k8s_cluster_base(object):
             raise ApiException("group/kind must be supplied")
         return self.get_objects(group=group, version=version, kind=kind, name=name, namespace=namespace, labels=labels, as_table=True)
 
-def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
+def load_cluster_config(cluster_dir, cluster_name, dry_run=True):
     if cluster_name is None:
         raise CommandError("Cluster name must be specified!")
 
@@ -54,9 +54,6 @@ def load_cluster_config(cluster_dir, cluster_name, offline=False, dry_run=True):
     y = yaml_load_file(path)
 
     cluster = y['cluster']
-
-    if offline:
-        return cluster, None
 
     if cluster['name'] != cluster_name:
         raise CommandError('Cluster name in %s does not match requested cluster name %s' % (cluster['name'], cluster_name))

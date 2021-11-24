@@ -25,14 +25,10 @@ def build_jinja_vars(cluster_vars):
 
     return jinja_vars
 
-def build_deploy_images(force_offline, kwargs):
-    image_registries = None
-    if not kwargs.get("no_registries", False):
-        image_registries = init_image_registries()
+def build_deploy_images(kwargs):
+    image_registries = init_image_registries()
     images = Images(image_registries)
-    offline = force_offline or kwargs.get("offline", False)
-    images.update_images = kwargs.get("update_images", False) and not offline
-    images.no_registries = kwargs.get("no_registries", False) or offline
+    images.update_images = kwargs.get("update_images", False)
     return images
 
 def build_fixed_image_entry_from_arg(arg):
@@ -96,24 +92,17 @@ class CommandContext:
     images: Images
 
 @contextlib.contextmanager
-def project_command_context(kwargs,
-                            force_offline_images=False,
-                            force_offline_kubernetes=False) -> ContextManager[CommandContext]:
+def project_command_context(kwargs) -> ContextManager[CommandContext]:
     with load_kluctl_project_from_args(kwargs) as kluctl_project:
         target = None
         if kwargs["target"]:
             target = kluctl_project.find_target(kwargs["target"])
 
-        with project_target_command_context(kwargs, kluctl_project, target,
-                                            force_offline_images=force_offline_images,
-                                            force_offline_kubernetes=force_offline_kubernetes) as cmd_ctx:
+        with project_target_command_context(kwargs, kluctl_project, target) as cmd_ctx:
             yield cmd_ctx
 
 @contextlib.contextmanager
-def project_target_command_context(kwargs, kluctl_project, target,
-                                   force_offline_images=False,
-                                   force_offline_kubernetes=False,
-                                   for_seal=False) -> ContextManager[CommandContext]:
+def project_target_command_context(kwargs, kluctl_project, target, for_seal=False) -> ContextManager[CommandContext]:
 
     cluster_name = kwargs["cluster"]
     if not cluster_name:
@@ -122,11 +111,10 @@ def project_target_command_context(kwargs, kluctl_project, target,
         cluster_name = target["cluster"]
 
     cluster_vars, k8s_cluster = load_cluster_config(kluctl_project.clusters_dir, cluster_name,
-                                                    dry_run=kwargs.get("dry_run", True),
-                                                    offline=force_offline_kubernetes)
+                                                    dry_run=kwargs.get("dry_run", True))
 
     jinja_vars = build_jinja_vars(cluster_vars)
-    images = build_deploy_images(force_offline_images, kwargs)
+    images = build_deploy_images(kwargs)
     inclusion = parse_inclusion(kwargs)
 
     option_args = parse_args(kwargs.get("arg", []))

@@ -15,7 +15,6 @@ class Images(object):
     def __init__(self, image_registries):
         self.image_registries = image_registries
         self.update_images = False
-        self.no_registries = image_registries is None
         self.raise_on_error = False
         self.image_tags_cache = ThreadSafeMultiCache()
 
@@ -38,9 +37,6 @@ class Images(object):
         return self.image_tags_cache.get(image, "tags", do_get)
 
     def get_latest_image_from_registry(self, image, latest_version):
-        if self.no_registries:
-            return None
-
         if isinstance(latest_version, str):
             latest_version = build_latest_version_from_str(latest_version)
 

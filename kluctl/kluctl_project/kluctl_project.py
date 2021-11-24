@@ -327,7 +327,7 @@ class KluctlProject:
             try:
                 # Try to load cluster vars. This might fail in case jinja templating is used in the cluster name
                 # of the target. We assume that this will then succeed in a later iteration
-                cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"], offline=True)
+                cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"])
                 jinja2_vars["cluster"] = cluster_vars
             except:
                 pass
