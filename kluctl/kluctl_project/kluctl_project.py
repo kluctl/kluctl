@@ -295,6 +295,7 @@ class KluctlProject:
 
         self.clone_dynamic_targets(target_infos)
 
+        cluster_vars_cache = {}
         for target_info in target_infos:
             try:
                 target = self.build_dynamic_target(target_info.base_target, target_info.dir)
@@ -307,7 +308,7 @@ class KluctlProject:
                 logger.warning("Failed to load dynamic target config for project. Error=%s" % (str(e)))
                 continue
 
-            target = self.render_target(target)
+            target = self.render_target(target, cluster_vars_cache)
             target["baseTarget"] = target_info.base_target
 
             if target["name"] in target_names:
@@ -316,7 +317,7 @@ class KluctlProject:
                 target_names.add(target["name"])
                 self.targets.append(target)
 
-    def render_target(self, target):
+    def render_target(self, target, cluster_vars_cache):
         errors = []
         # Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
         # to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
@@ -327,9 +328,15 @@ class KluctlProject:
             try:
                 # Try to load cluster vars. This might fail in case jinja templating is used in the cluster name
                 # of the target. We assume that this will then succeed in a later iteration
-                cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"])
+                cluster_vars = cluster_vars_cache.get(target["cluster"])
+                if isinstance(cluster_vars, Exception):
+                    raise cluster_vars
+                if cluster_vars is None:
+                    cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"])
+                    cluster_vars_cache[target["cluster"]] = cluster_vars
                 jinja2_vars["cluster"] = cluster_vars
-            except:
+            except Exception as e:
+                cluster_vars_cache[target["cluster"]] = e
                 pass
             target2, errors = render_dict_strs(target, jinja2_vars, do_raise=False)
             if not errors and target == target2:
