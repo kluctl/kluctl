@@ -37,13 +37,23 @@ spec:
   count: 1
 ```
 
-If more than one patch needs to be specified, add `-xxx` to the annoation key, where `xxx` is an arbitrary number.
+If more than one patch needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
 ### kluctl.io/downscale-ignore
 If set to "true", the resource will be ignored while [downscale](./commands.md#downscale) is executed.
 
 ### kluctl.io/downscale-delete
 If set to "true", the resource will be deleted while [downscale](./commands.md#downscale) is executed.
+
+### kluctl.io/force-apply
+If set to "true", the whole resource will be force-applied, meaning that all fields will be overwritten in case of
+field manager conflicts.
+
+### kluctl.io/force-apply-field
+Specifies a [JSON Path](https://goessner.net/articles/JsonPath/) for fields that should be force-applied. Matching
+fields will be overwritten in case of field manager conflicts.
+
+If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
 ## Hooks related
 See [hooks](./hooks.md) for more details.

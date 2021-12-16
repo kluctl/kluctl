@@ -2,10 +2,14 @@ import json
 import re
 
 from kluctl.utils.dict_utils import copy_dict, object_iterator, del_dict_value, get_dict_value, is_iterable, \
-    has_dict_value
-from kluctl.utils.jsonpath_utils import convert_list_to_json_path
+    has_dict_value, list_matching_dict_pathes
+from kluctl.utils.jsonpath_utils import convert_list_to_json_path, parse_json_path
 
 # We automatically force overwrite these fields as we assume these are human-edited
+from kluctl.utils.utils import parse_bool
+
+FORCE_APPLY_FIELD_ANNOTATION_REGEX = re.compile(r"^kluctl.io/force-apply-field(-\d*)?$")
+
 overwrite_allowed_managers = [
     "kluctl",
     "kubectl",
@@ -114,6 +118,15 @@ def resolve_field_manager_conflicts(local_object, remote_object, conflict_status
 
     ret = copy_dict(local_object)
 
+    force_apply_all = get_dict_value(local_object, 'metadata.annotations["kluctl.io/force-apply"]', "false")
+    force_apply_all = parse_bool(force_apply_all)
+
+    force_apply_fields = set()
+    for k, v in get_dict_value(local_object, "metadata.annotations", {}).items():
+        if FORCE_APPLY_FIELD_ANNOTATION_REGEX.fullmatch(k):
+            for x in list_matching_dict_pathes(ret, v):
+                force_apply_fields.add(x)
+
     lost_ownership = []
     for cause in get_dict_value(conflict_status, "details.causes", []):
         if cause.get("reason") != "FieldManagerConflict" or "field" not in cause:
@@ -132,16 +145,19 @@ def resolve_field_manager_conflicts(local_object, remote_object, conflict_status
         if not has_dict_value(local_object, p):
             raise Exception("Field '%s' not found in local object" % cause["field"])
 
+        local_value = get_dict_value(local_object, p)
+        remote_value = get_dict_value(remote_object, p)
+
         overwrite = True
-        for mf in managers_by_field[mf_path]:
-            if not any(re.fullmatch(x, mf["manager"]) for x in overwrite_allowed_managers):
-                overwrite = False
-                break
+        if not force_apply_all:
+            for mf in managers_by_field[mf_path]:
+                if not any(re.fullmatch(x, mf["manager"]) for x in overwrite_allowed_managers):
+                    overwrite = False
+                    break
+            if str(parse_json_path(p)) in force_apply_fields:
+                overwrite = True
 
         if not overwrite:
-            local_value = get_dict_value(local_object, p)
-            remote_value = get_dict_value(remote_object, p)
-
             del_dict_value(ret, p)
 
             if local_value != remote_value:

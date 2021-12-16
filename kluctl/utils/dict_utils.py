@@ -69,6 +69,14 @@ def del_dict_value(d, k):
     p = parse_json_path(k)
     p.filter(lambda x: True, d)
 
+def list_matching_dict_pathes(d, k):
+    p = parse_json_path(k)
+    f = p.find(d)
+    ret = []
+    for x in f:
+        ret.append(str(x.full_path))
+    return ret
+
 def is_empty(o):
     if isinstance(o, dict) or isinstance(o, list):
         return len(o) == 0
