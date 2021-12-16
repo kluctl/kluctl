@@ -73,6 +73,7 @@ setup(
         "python-gitlab>=2.10.1",
         "jsonpath-ng>=1.5.3",
         "jsonpatch>=1.32",
+        "boto3>=1.20.24",
     ],
     entry_points={
         "console_scripts": [

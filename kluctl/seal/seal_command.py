@@ -73,5 +73,7 @@ def seal_command(obj, kwargs):
                 print_template_error(e)
             except CommandError as e:
                 print(e, file=sys.stderr)
+            except InvalidKluctlProjectConfig as e:
+                print(e.message, file=sys.stderr)
             except Exception as e:
                 logger.exception("Sealing for target %s failed. Error=%s" % (target["name"], str(e)))
