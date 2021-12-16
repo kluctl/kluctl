@@ -249,7 +249,7 @@ class MirroredGitRepo:
         assert self.has_lock
         assert self.has_updated
 
-        logger.info(f"Cloning git project: url='{self.url}', ref='{ref}'")
+        logger.debug(f"Cloning git project: url='{self.url}', ref='{ref}'")
 
         with self._build_git_object():
             args = ["file://%s" % self.mirror_dir, "--single-branch", target_dir]
