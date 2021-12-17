@@ -79,7 +79,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.10.0
+          python-version: 3.10.1
       - uses: actions/cache@v2
         with:
           path: .venv
@@ -215,7 +215,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.10.0
+          python-version: 3.10.1
       - name: pip install
         run: |
           pip install .
