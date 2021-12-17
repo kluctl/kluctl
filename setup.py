@@ -24,7 +24,6 @@ for dirpath, dirnames, filenames in os.walk("./kluctl"):
             continue
         p = os.path.join("..", dirpath, f)
         datas.append(p)
-print("datas=%s" % datas)
 
 # This call to setup() does all the work
 setup(

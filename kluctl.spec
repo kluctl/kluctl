@@ -11,7 +11,6 @@ for dirpath, dirnames, filenames in os.walk("./kluctl"):
             continue
         p = os.path.join(dirpath, f)
         datas.append((p, dirpath))
-print("datas=%s" % datas)
 
 a = Analysis(['cli.py'],
              binaries=[],
