@@ -73,6 +73,7 @@ setup(
         "jsonpath-ng>=1.5.3",
         "jsonpatch>=1.32",
         "boto3>=1.20.24",
+        "rsa==4.6",  # >=4.7 is broken when used with pyinstaller
     ],
     entry_points={
         "console_scripts": [
