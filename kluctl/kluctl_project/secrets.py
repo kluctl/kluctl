@@ -1,6 +1,9 @@
 import logging
 import os
 
+from yaml import YAMLError
+from yaml.parser import ParserError
+
 from kluctl.kluctl_project.passwordstate import Passwordstate
 from kluctl.utils.dict_utils import get_dict_value
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig
@@ -51,7 +54,11 @@ class SecretsLoader:
             field = ps.get("passwordField", "GenericField1")
             l = self.passwordstate.get_password_list(host, path)
             doc = self.passwordstate.get_password(host, l["PasswordListID"], title, field)
-        y = yaml_load(doc)
+        try:
+            y = yaml_load(doc)
+        except YAMLError as e:
+            raise InvalidKluctlProjectConfig("Failed to parse yaml from passwordstate: %s" % str(e))
+
         return y.get("secrets", {})
 
     def load_secrets_aws_secrets_manager(self, secrets_source):
@@ -63,5 +70,8 @@ class SecretsLoader:
 
         from kluctl.kluctl_project.aws_secrets_manager import get_aws_secrets_manager_secret
         secret = get_aws_secrets_manager_secret(profile, region_name, secret_name)
-        y = yaml_load(secret)
+        try:
+            y = yaml_load(secret)
+        except YAMLError as e:
+            raise InvalidKluctlProjectConfig("Failed to parse yaml from AWS Secrets Manager (secretName=%s): %s" % (secret_name, str(e)))
         return y.get("secrets", {})
