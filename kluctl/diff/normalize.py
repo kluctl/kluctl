@@ -1,7 +1,11 @@
-from kluctl.utils.dict_utils import copy_dict, get_dict_value, del_dict_value, \
-    set_dict_default_value
-from kluctl.utils.k8s_object_utils import split_api_version
+import re
 
+from kluctl.utils.dict_utils import copy_dict, get_dict_value, del_dict_value, \
+    set_dict_default_value, list_matching_dict_pathes
+from kluctl.utils.k8s_object_utils import split_api_version
+from kluctl.utils.utils import parse_bool
+
+IGNORE_DIFF_FIELD_ANNOTATION_REGEX = re.compile(r"^kluctl.io/ignore-diff-field(-\d*)?$")
 
 def normalize_env(container):
     env = container.get("env")
@@ -78,7 +82,7 @@ def normalize_misc(o):
     del_dict_value(o, 'status')
 
 # Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-def normalize_object(k8s_cluster, o, ignore_for_diffs):
+def normalize_object(k8s_cluster, o, ignore_for_diffs, local_object):
     group, version = split_api_version(o["apiVersion"])
     kind = o['kind']
     ns = get_dict_value(o, "metadata.namespace")
@@ -117,6 +121,19 @@ def normalize_object(k8s_cluster, o, ignore_for_diffs):
             field_path = [field_path]
         for p in field_path:
             del_dict_value(o, p)
+
+    ignore_all = parse_bool(get_dict_value(local_object, 'metadata.annotations["kluctl.io/ignore-diff"]', "false"))
+    if ignore_all:
+        # Return empty object so that diffs will always be empty
+        return {}
+
+    del_fields = set()
+    for k, v in get_dict_value(local_object, "metadata.annotations", {}).items():
+        if IGNORE_DIFF_FIELD_ANNOTATION_REGEX.fullmatch(k):
+            for x in list_matching_dict_pathes(o, v):
+                del_fields.add(x)
+    for p in del_fields:
+        del_dict_value(o, p)
 
     return o
 

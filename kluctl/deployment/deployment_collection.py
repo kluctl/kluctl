@@ -305,9 +305,9 @@ class DeploymentCollection:
                 if ref not in applied_objects:
                     continue
                 diff_objects[ref] = applied_objects.get(ref)
-                normalized_diff_objects[ref] = normalize_object(k8s_cluster, diff_objects[ref], ignore_for_diffs)
+                normalized_diff_objects[ref] = normalize_object(k8s_cluster, diff_objects[ref], ignore_for_diffs, diff_objects[ref])
                 if ref in self.remote_objects:
-                    normalized_remote_objects[ref] = normalize_object(k8s_cluster, self.remote_objects[ref], ignore_for_diffs)
+                    normalized_remote_objects[ref] = normalize_object(k8s_cluster, self.remote_objects[ref], ignore_for_diffs, diff_objects[ref])
 
         logger.info("Diffing remote/old objects against applied/new objects")
         new_objects = []

@@ -55,6 +55,15 @@ fields will be overwritten in case of field manager conflicts.
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
+### kluctl.io/ignore-diff
+If set to "true", the whole resource will be ignored while calculating diffs.
+
+### kluctl.io/ignore-diff-field
+Specifies a [JSON Path](https://goessner.net/articles/JsonPath/) for fields that should be ignored while calculating
+diffs.
+
+If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
+
 ## Hooks related
 See [hooks](./hooks.md) for more details.
 
