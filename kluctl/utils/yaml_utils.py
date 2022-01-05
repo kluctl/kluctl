@@ -8,6 +8,21 @@ except ImportError:
     print("Failed to load fast LibYAML bindings. You should install them to speed up kluctl.", file=sys.stderr)
     from yaml import SafeLoader as SafeLoader, SafeDumper as SafeDumper
 
+
+def construct_value(load, node):
+    if not isinstance(node, yaml.ScalarNode):
+        raise yaml.constructor.ConstructorError(
+            "while constructing a value",
+            node.start_mark,
+            "expected a scalar, but found %s" % node.id, node.start_mark
+        )
+    yield str(node.value)
+
+
+# See https://github.com/yaml/pyyaml/issues/89
+SafeLoader.add_constructor(u'tag:yaml.org,2002:value', construct_value)
+
+
 def multiline_str_representer(dumper, data):
     if len(data.splitlines()) > 1:  # check for multiline string
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
