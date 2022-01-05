@@ -97,7 +97,7 @@ def delete_objects(k8s_cluster, object_refs, do_wait):
         futures = []
         for ref in namespaces:
             f = executor.submit(do_delete_object, ref)
-            futures.append(f)
+            futures.append((ref, f))
 
         for ref in object_refs:
             if ref in namespaces:
