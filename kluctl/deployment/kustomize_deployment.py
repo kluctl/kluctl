@@ -6,7 +6,7 @@ import shutil
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.seal.deployment_sealer import SEALME_EXT
 from kluctl.utils.dict_utils import merge_dict
-from kluctl.utils.exceptions import CommandError
+from kluctl.utils.exceptions import CommandError, InvalidKluctlProjectConfig
 from kluctl.utils.external_tools import get_external_tool_hash
 from kluctl.utils.k8s_object_utils import get_object_ref, should_remove_namespace
 from kluctl.utils.kustomize import kustomize_build
@@ -33,6 +33,9 @@ class KustomizeDeployment(object):
         self.dir = dir
         self.index = index
         self.objects = []
+
+        if dir and not os.path.isdir(dir):
+            raise InvalidKluctlProjectConfig("kustomizeDir does not exist: %s" % dir)
 
     def get_rel_kustomize_dir(self):
         root_project = self.deployment_project.get_root_deployment()

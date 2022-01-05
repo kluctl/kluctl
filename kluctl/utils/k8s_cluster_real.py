@@ -56,7 +56,7 @@ class k8s_cluster_real(k8s_cluster_base):
             raise CommandError(str(e))
 
         if self.context != "docker-desktop" and not self.config.api_key and not self.config.key_file:
-            raise CommandError("No authentication available. You might need to invoke kubectl first to perform a login")
+            raise CommandError("No authentication available for kubernetes context %s. You might need to invoke kubectl first to perform a login" % self.context)
 
         self.api_client = ApiClient(configuration=self.config)
         self.dynamic_client = DynamicClient(self.api_client, discoverer=MyDiscoverer)
