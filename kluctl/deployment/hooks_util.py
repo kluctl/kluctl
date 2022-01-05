@@ -44,17 +44,14 @@ class HooksUtil:
             do_log(logging.DEBUG, "Deleting hook %s due to hook-delete-policy %s" % (get_long_object_name(h.object), ",".join(h.delete_policies)))
             self.apply_util.delete_object(get_object_ref(h.object))
 
+        wait_results = {}
         if len(apply_objects) != 0:
-            do_log(logging.INFO, "Applying %d hooks" % len(delete_before_objects))
+            do_log(logging.INFO, "Applying %d hooks" % len(apply_objects))
         for h in apply_objects:
             replaced = "before-hook-creation" in h.delete_policies
             do_log(logging.DEBUG, "Applying hook %s" % get_long_object_name(h.object))
             self.apply_util.apply_object(h.object, replaced, True)
 
-        wait_results = {}
-        for h in l:
-            if self.apply_util.abort_signal:
-                return
             ref = get_object_ref(h.object)
             if self.apply_util.had_error(ref):
                 continue
@@ -63,7 +60,7 @@ class HooksUtil:
             wait_results[ref] = self.apply_util.wait_hook(ref)
 
         delete_after_objects = []
-        for h in reversed(l):
+        for h in reversed(apply_objects):
             ref = get_object_ref(h.object)
             if ref not in wait_results:
                 continue
