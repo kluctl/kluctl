@@ -564,7 +564,7 @@ The following arguments are available:
 <!-- BEGIN SECTION "archive" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --output-archive PATH         Path to .tgz to write project to.
+    --output-archive PATH         Path to .tgz to write project to.  [required]
     --output-metadata PATH        Path to .yml to write metadata to. If not specified, metadata is written into the
                                   archive.
     --reproducible                Make archive reproducible.
