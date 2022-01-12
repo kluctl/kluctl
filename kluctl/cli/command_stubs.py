@@ -167,6 +167,7 @@ def list_targets_stub(obj, **kwargs):
 @optgroup.group("Misc arguments")
 @optgroup.option("--output-archive",
                  help="Path to .tgz to write project to.",
+                 required=True,
                  type=click.Path(file_okay=True))
 @optgroup.option("--output-metadata",
                  help="Path to .yml to write metadata to. If not specified, metadata is written into the archive.",
