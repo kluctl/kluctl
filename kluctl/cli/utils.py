@@ -13,7 +13,7 @@ from kluctl.image_registries import init_image_registries
 from kluctl.deployment.images import Images
 from kluctl.utils.external_args import parse_args
 from kluctl.utils.inclusion import Inclusion
-from kluctl.utils.k8s_cluster_base import load_cluster_config, k8s_cluster_base
+from kluctl.utils.k8s_cluster_base import load_cluster_config, k8s_cluster_base, load_cluster
 from kluctl.utils.utils import get_tmp_base_dir
 from kluctl.utils.yaml_utils import yaml_load_file
 
@@ -110,8 +110,8 @@ def project_target_command_context(kwargs, kluctl_project, target, for_seal=Fals
             raise CommandError("You must specify an existing --cluster when not providing a --target")
         cluster_name = target["cluster"]
 
-    cluster_vars, k8s_cluster = load_cluster_config(kluctl_project.clusters_dir, cluster_name,
-                                                    dry_run=kwargs.get("dry_run", True))
+    cluster_vars = load_cluster_config(kluctl_project.clusters_dir, cluster_name)
+    k8s_cluster = load_cluster(cluster_vars, dry_run=kwargs.get("dry_run", True))
 
     jinja_vars = build_jinja_vars(cluster_vars)
     images = build_deploy_images(kwargs)

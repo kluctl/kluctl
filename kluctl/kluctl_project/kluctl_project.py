@@ -332,7 +332,7 @@ class KluctlProject:
                 if isinstance(cluster_vars, Exception):
                     raise cluster_vars
                 if cluster_vars is None:
-                    cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"])
+                    cluster_vars = load_cluster_config(self.clusters_dir, target["cluster"])
                     cluster_vars_cache[target["cluster"]] = cluster_vars
                 jinja2_vars["cluster"] = cluster_vars
             except Exception as e:
