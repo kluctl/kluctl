@@ -53,7 +53,10 @@ class ApplyUtil:
             return ref in self.error_refs
 
     def delete_object(self, ref):
-        self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
+        try:
+            self.k8s_cluster.delete_single_object(ref, force_dry_run=self.dry_run, ignore_not_found=True)
+        except ResourceNotFoundError:
+            pass
 
     def apply_object(self, x, replaced, hook):
         logger.debug(f"  {get_long_object_name(x)}")
