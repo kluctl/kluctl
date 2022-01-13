@@ -110,9 +110,13 @@ In addition, the following arguments are available:
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     --force-apply                 Force conflict resolution when applying. See documentation for details
-    --replace-on-error            When patching an object fails, try to replace. See documentation for more details.
+    --replace-on-error            When patching an object fails, try to replace it. See documentation for more
+                                  details.
     --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
                                   documentation for more details.
+    --hook-timeout DURATION       Maximum time to wait for hook readiness. The timeout is meant per-hook. Timeouts are
+                                  in the duration format (1s, 1m, 1h, ...). If not specified, a default timeout of 5m
+                                  is used.
     --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
@@ -144,9 +148,13 @@ In addition, the following arguments are available:
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
     --force-apply                 Force conflict resolution when applying. See documentation for details
-    --replace-on-error            When patching an object fails, try to replace. See documentation for more details.
+    --replace-on-error            When patching an object fails, try to replace it. See documentation for more
+                                  details.
     --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
                                   documentation for more details.
+    --hook-timeout DURATION       Maximum time to wait for hook readiness. The timeout is meant per-hook. Timeouts are
+                                  in the duration format (1s, 1m, 1h, ...). If not specified, a default timeout of 5m
+                                  is used.
     --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
     -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
                                   either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
@@ -210,7 +218,8 @@ In addition, the following arguments are available:
 ```
   Misc arguments: 
     --force-apply                 Force conflict resolution when applying. See documentation for details
-    --replace-on-error            When patching an object fails, try to replace. See documentation for more details.
+    --replace-on-error            When patching an object fails, try to replace it. See documentation for more
+                                  details.
     --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
                                   documentation for more details.
     --ignore-tags                 Ignores changes in tags when diffing
@@ -252,6 +261,9 @@ In addition, the following arguments are available:
   Misc arguments: 
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
 
@@ -282,6 +294,9 @@ In addition, the following arguments are available:
   Misc arguments: 
     -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
     --dry-run                     Performs all kubernetes API calls in dry-run mode.
+    -o, --output TEXT             Specify output format and target file, in the format 'format=path'. Format can
+                                  either be 'text' or 'yaml'. Can be specified multiple times. The actual format for
+                                  yaml is currently not documented and subject to change.
 ```
 <!-- END SECTION -->
 
@@ -310,8 +325,6 @@ In addition, the following arguments are available:
 ```
   Misc arguments: 
     -o, --output TEXT             Specify output target file. Can be specified multiple times
-    --no-kubernetes               Don't check kubernetes for current image versions
-    --no-registries               Don't check registries for new image versions
     --simple                      Output a simplified version of the images list
 ```
 <!-- END SECTION -->
@@ -353,7 +366,8 @@ Usage: kluctl downscale [OPTIONS]
 
   Downscale all deployments.
 
-  This command will downscale all Deployments, StatefulSets and CronJobs.
+  This command will downscale all Deployments, StatefulSets and CronJobs. It is also possible to influence the
+  behaviour with the help of annotations, as described in the documentation.
 
 <!-- END SECTION -->
 
@@ -400,7 +414,6 @@ In addition, the following arguments are available:
     --output-images FILE          Also output images list to given FILE. This output the same result as from the list-
                                   images command.
     --output-single-yaml FILE     Also write all resources into a single yaml file.
-    --offline                     Go offline, meaning that kubernetes and registries are not asked for image versions
 ```
 <!-- END SECTION -->
 
@@ -551,7 +564,7 @@ The following arguments are available:
 <!-- BEGIN SECTION "archive" "Misc arguments" true -->
 ```
   Misc arguments: 
-    --output-archive PATH         Path to .tgz to write project to.
+    --output-archive PATH         Path to .tgz to write project to.  [required]
     --output-metadata PATH        Path to .yml to write metadata to. If not specified, metadata is written into the
                                   archive.
     --reproducible                Make archive reproducible.

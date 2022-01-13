@@ -1,13 +1,15 @@
-import dataclasses
 import json
 import re
-from typing import Any
 
 from kluctl.utils.dict_utils import copy_dict, object_iterator, del_dict_value, get_dict_value, is_iterable, \
-    set_dict_value
-from kluctl.utils.jsonpath_utils import convert_list_to_json_path
+    has_dict_value, list_matching_dict_pathes
+from kluctl.utils.jsonpath_utils import convert_list_to_json_path, parse_json_path
 
 # We automatically force overwrite these fields as we assume these are human-edited
+from kluctl.utils.utils import parse_bool
+
+FORCE_APPLY_FIELD_ANNOTATION_REGEX = re.compile(r"^kluctl.io/force-apply-field(-\d*)?$")
+
 overwrite_allowed_managers = [
     "kluctl",
     "kubectl",
@@ -15,15 +17,6 @@ overwrite_allowed_managers = [
     "rancher",
     "k9s",
 ]
-
-ignore_managers = {
-    # If kube-apiserver claimed a field, then this was for a good reason, so lets not complain about it
-    "kube-apiserver",
-}
-
-ignore_fields = {
-    ("metadata", "creationTimestamp"),
-}
 
 def check_item_match(o, kv, index):
     if kv[0:2] == "k:":
@@ -81,71 +74,93 @@ def convert_to_json_path(o, mf_path):
                 return ret, False
     return ret, True
 
-not_found = object()
+def convert_to_string(mf_path):
+    ret = []
+    for i in range(len(mf_path)):
+        k = mf_path[i]
+        if k == "{}":
+            raise Exception()
+        if k == ".":
+            if i != len(mf_path) - 1:
+                raise ValueError("Unexpected . element at %s" % convert_list_to_json_path(ret))
+            break
+        if k[:2] == "f:":
+            k = k[2:]
+            ret.append(".%s" % k)
+        elif k[:2] == "k:":
+            strs = []
+            k = json.loads(k[2:])
+            for k2 in sorted(k.keys()):
+                strs.append("%s=%s" % (k2, json.dumps(k[k2])))
+            ret.append("[%s]" % ",".join(strs))
+        elif k[:2] == "v:":
+            ret.append("[=%s]" % k[2:])
+        elif k[:2] == "i:":
+            ret.append("[%s]" % k[2:])
+        else:
+            raise ValueError("Invalid path element %s" % k)
+    return "".join(ret)
 
-@dataclasses.dataclass
-class OverwrittenField:
-    path: str
-    local_value: Any
-    remote_value: Any
-    field_manager: str
-
-def resolve_field_manager_conflicts(local_object, remote_object):
-    overwritten = []
-
+def resolve_field_manager_conflicts(local_object, remote_object, conflict_status):
     managed_fields = get_dict_value(remote_object, "metadata.managedFields")
     if managed_fields is None:
-        return local_object, overwritten
+        raise Exception("managedFields not found")
     v1_fields = [mf for mf in managed_fields if mf['fieldsType'] == 'FieldsV1']
 
-    local_field_owners = {}
+    # "stupid" because the string representation in "details.causes.field" might be ambiguous as k8s does not escape dots
+    fields_as_stupid_strings = {}
+    managers_by_field = {}
     for mf in v1_fields:
         for v, p in object_iterator(mf["fieldsV1"], only_leafs=True):
-            local_json_path, local_found = convert_to_json_path(local_object, p)
-
-            if local_found:
-                local_field_owners[tuple(local_json_path)] = mf
-
-    def find_owner(owners, p):
-        tp = tuple(p)
-        fm = None
-        while len(tp) > 0:
-            fm = owners.get(tp)
-            if fm is not None:
-                break
-            tp = tp[:-1]
-        return fm, tp
+            s = convert_to_string(p)
+            fields_as_stupid_strings.setdefault(s, set()).add(tuple(p))
+            managers_by_field.setdefault(tuple(p), []).append(mf)
 
     ret = copy_dict(local_object)
-    to_delete = set()
-    for v, p in object_iterator(local_object, only_leafs=True):
-        remote_value = get_dict_value(remote_object, p, not_found)
 
-        fm, tp = find_owner(local_field_owners, p)
+    force_apply_all = get_dict_value(local_object, 'metadata.annotations["kluctl.io/force-apply"]', "false")
+    force_apply_all = parse_bool(force_apply_all)
 
-        did_overwrite = False
-        if fm is None:
-            # No manager found that claimed this field. If it's not existing in the remote object, it means it's a
-            # new field so we can safely claim it. If it's present in the remote object AND has changed, it's a system
-            # field that we have no control over!
-            if remote_value is not not_found:
-                if v != remote_value:
-                    set_dict_value(ret, p, remote_value)
-                    did_overwrite = True
-        elif not any(re.fullmatch(x, fm["manager"]) for x in overwrite_allowed_managers):
-            to_delete.add(tp)
-            did_overwrite = True
+    force_apply_fields = set()
+    for k, v in get_dict_value(local_object, "metadata.annotations", {}).items():
+        if FORCE_APPLY_FIELD_ANNOTATION_REGEX.fullmatch(k):
+            for x in list_matching_dict_pathes(ret, v):
+                force_apply_fields.add(x)
 
-        ignore = (fm and fm["manager"] in ignore_managers) or tuple(p) in ignore_fields
-        if did_overwrite and v != remote_value and not ignore:
-            overwritten.append(OverwrittenField(path=convert_list_to_json_path(p),
-                                                local_value=v if v is not not_found else None,
-                                                remote_value=remote_value if remote_value is not not_found else None,
-                                                field_manager=fm["manager"] if fm else "<none>"))
+    lost_ownership = []
+    for cause in get_dict_value(conflict_status, "details.causes", []):
+        if cause.get("reason") != "FieldManagerConflict" or "field" not in cause:
+            raise Exception("Unknown reason '%s'" % cause.get("reason"))
 
-    for p in to_delete:
-        # We do not own this field, so we should also not set it (not even to the same value to ensure we don't
-        # claim shared ownership)
-        del_dict_value(ret, p)
+        mf_path = fields_as_stupid_strings.get(cause["field"])
+        if not mf_path:
+            raise Exception("Could not find matching field for path '%s'" % cause["field"])
+        if len(mf_path) != 1:
+            raise Exception("field path '%s' is ambiguous" % cause["field"])
+        mf_path = list(mf_path)[0]
 
-    return ret, overwritten
+        p, found = convert_to_json_path(remote_object, mf_path)
+        if not found:
+            raise Exception("Field '%s' not found in remote object" % cause["field"])
+        if not has_dict_value(local_object, p):
+            raise Exception("Field '%s' not found in local object" % cause["field"])
+
+        local_value = get_dict_value(local_object, p)
+        remote_value = get_dict_value(remote_object, p)
+
+        overwrite = True
+        if not force_apply_all:
+            for mf in managers_by_field[mf_path]:
+                if not any(re.fullmatch(x, mf["manager"]) for x in overwrite_allowed_managers):
+                    overwrite = False
+                    break
+            if str(parse_json_path(p)) in force_apply_fields:
+                overwrite = True
+
+        if not overwrite:
+            del_dict_value(ret, p)
+
+            if local_value != remote_value:
+                lost_ownership.append(cause)
+
+    return ret, lost_ownership

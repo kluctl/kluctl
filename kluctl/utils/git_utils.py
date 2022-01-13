@@ -145,9 +145,12 @@ def build_git_object(url, working_dir):
     g = MyGit(working_dir)
 
     ssh_command = os.environ.get("GIT_SSH", "ssh")
-    ssh_command += " -o 'StrictHostKeyChecking=no'"
 
-    if sys.platform != "win32":
+    if sys.platform == "win32":
+        if "plink.exe" not in ssh_command.lower():
+            ssh_command += " -o 'StrictHostKeyChecking=no'"
+    else:
+        ssh_command += " -o 'StrictHostKeyChecking=no'"
         ssh_command += " -o 'ControlMaster=auto'"
         ssh_command += " -o 'ControlPath=/tmp/kluctl_control_master-%r@%h-%p'"
         ssh_command += " -o 'ControlPersist=5m'"
@@ -164,74 +167,95 @@ def build_git_object(url, working_dir):
         finally:
             pass
 
-def _clone_or_update_cache(url, cache_dir, do_update):
-    init_marker = os.path.join(cache_dir, ".cache.init")
+class MirroredGitRepo:
+    def __init__(self, url):
+        self.url = url
 
-    if os.path.exists(init_marker):
-        if do_update:
-            logger.info(f"Updating cache repo: url='{url}'")
-            with build_git_object(url, cache_dir) as (g, url):
+        remote_name = build_remote_name(url)
+        self.mirror_dir = os.path.join(get_cache_base_dir(), remote_name)
+
+        self.has_lock = False
+        self.has_updated = False
+
+        if not os.path.exists(self.mirror_dir):
+            os.makedirs(self.mirror_dir, exist_ok=True)
+
+        self.file_lock = filelock.FileLock(os.path.join(self.mirror_dir, ".cache.lock"))
+
+    def _build_git_object(self):
+        return build_git_object(self.url, self.mirror_dir)
+
+    def _clone_or_update2(self):
+        init_marker = os.path.join(self.mirror_dir, ".cache.init")
+
+        if os.path.exists(init_marker):
+            logger.info(f"Updating mirror repo: url='{self.url}'")
+            with self._build_git_object() as (g, url):
                 g.remote("update")
-        return
+            return
 
-    for n in os.listdir(cache_dir):
-        if n == ".cache.lock":
-            continue
-        p = os.path.join(cache_dir, n)
-        if os.path.isdir(p):
-            shutil.rmtree(os.path.join(cache_dir, n))
-        else:
-            os.unlink(p)
+        if os.path.exists(self.mirror_dir):
+            for n in os.listdir(self.mirror_dir):
+                if n == ".cache.lock":
+                    continue
+                p = os.path.join(self.mirror_dir, n)
+                if os.path.isdir(p):
+                    shutil.rmtree(p)
+                else:
+                    os.unlink(p)
 
-    logger.info(f"Cloning mirror repo at {cache_dir}")
-    with build_git_object(url, cache_dir) as (g, url):
-        g.clone("--mirror", url, "mirror")
-        for n in os.listdir(os.path.join(cache_dir, "mirror")):
-            shutil.move(os.path.join(cache_dir, "mirror", n), cache_dir)
-        shutil.rmtree(os.path.join(cache_dir, "mirror"))
-    with open(init_marker, "w"):
-        # only touch it
-        pass
+        logger.info(f"Cloning mirror repo at {self.mirror_dir}")
+        with self._build_git_object() as (g, url):
+            g.clone("--mirror", url, "mirror")
+            for n in os.listdir(os.path.join(self.mirror_dir, "mirror")):
+                shutil.move(os.path.join(self.mirror_dir, "mirror", n), self.mirror_dir)
+            shutil.rmtree(os.path.join(self.mirror_dir, "mirror"))
+        with open(init_marker, "w"):
+            # only touch it
+            pass
 
-@contextmanager
-def with_git_cache(url, do_update=True):
-    remote_name = build_remote_name(url)
-    cache_dir = os.path.join(get_cache_base_dir(), remote_name)
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-    lock_file = os.path.join(cache_dir, ".cache.lock")
+    def update(self):
+        try:
+            self._clone_or_update2()
+            self.has_updated = True
+        except GitCommandError as e:
+            if "did not complete in " in e.stderr:
+                logger.info("Git command timed out, deleting cache (%s) to ensure that we don't get into an "
+                            "inconsistent state" % self.mirror_dir)
+                try:
+                    shutil.rmtree(self.mirror_dir)
+                except:
+                    pass
+            raise
 
-    lock = filelock.FileLock(lock_file)
-    lock.acquire()
+    def lock(self):
+        self.file_lock.acquire()
+        self.has_lock = True
 
-    try:
-        _clone_or_update_cache(url, cache_dir, do_update)
-        yield cache_dir
-    except GitCommandError as e:
-        if "did not complete in " in e.stderr:
-            logger.info("Git command timed out, deleting cache (%s) to ensure that we don't get into an "
-                        "inconsistent state" % cache_dir)
-            try:
-                shutil.rmtree(cache_dir)
-            except:
-                pass
-        raise
-    finally:
-        lock.release()
+    def unlock(self):
+        self.file_lock.release()
+        self.has_lock = False
 
-def ensure_git_cache_updated(url):
-    with with_git_cache(url, do_update=True):
-        pass
+    @contextmanager
+    def locked(self):
+        self.lock()
 
-def clone_project(url, ref, target_dir, git_cache_up_to_date=None):
-    logger.info(f"Cloning git project: url='{url}', ref='{ref}'")
+        try:
+            yield self
+        finally:
+            self.unlock()
 
-    need_update = (git_cache_up_to_date is None or url not in git_cache_up_to_date)
-    with with_git_cache(url, do_update=need_update) as cache_dir:
-        args = ["file://%s" % cache_dir, "--single-branch", target_dir]
-        if ref is not None:
-            args += ["--branch", ref]
-        Git().clone(*args)
+    def clone_project(self, ref, target_dir):
+        assert self.has_lock
+        assert self.has_updated
+
+        logger.debug(f"Cloning git project: url='{self.url}', ref='{ref}'")
+
+        with self._build_git_object():
+            args = ["file://%s" % self.mirror_dir, "--single-branch", target_dir]
+            if ref is not None:
+                args += ["--branch", ref]
+            Git().clone(*args)
 
 def get_git_commit(path):
     g = Git(path)
@@ -264,7 +288,7 @@ def filter_remote_refs(refs, pattern, trim):
     pattern = re.compile(r"refs/heads/%s" % pattern)
     matching_refs = {}
     for r, commit in refs.items():
-        if pattern.match(r):
+        if pattern.fullmatch(r):
             r2 = r
             if trim:
                 r2 = r[len("refs/heads/"):]
@@ -308,7 +332,7 @@ def parse_git_url(p):
         return GitUrl(url.scheme, url.hostname, port, path, url.username)
 
     pattern = re.compile("(.+@)?([\w\d\.]+):(.*)")
-    m = pattern.match(p)
+    m = pattern.fullmatch(p)
     if not m:
         raise Exception("Invalid git url %s" % p)
 

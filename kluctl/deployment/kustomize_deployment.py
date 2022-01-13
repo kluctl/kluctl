@@ -6,7 +6,7 @@ import shutil
 from kluctl.deployment.helm_chart import HelmChart
 from kluctl.seal.deployment_sealer import SEALME_EXT
 from kluctl.utils.dict_utils import merge_dict
-from kluctl.utils.exceptions import CommandError
+from kluctl.utils.exceptions import CommandError, InvalidKluctlProjectConfig
 from kluctl.utils.external_tools import get_external_tool_hash
 from kluctl.utils.k8s_object_utils import get_object_ref, should_remove_namespace
 from kluctl.utils.kustomize import kustomize_build
@@ -26,15 +26,20 @@ def get_kustomize_cache_dir():
 allow_cache = True
 
 class KustomizeDeployment(object):
-    def __init__(self, deployment_project, deployment_collection, config, index):
+    def __init__(self, deployment_project, deployment_collection, config, dir, index):
         self.deployment_project = deployment_project
         self.deployment_collection = deployment_collection
         self.config = config
+        self.dir = dir
         self.index = index
         self.objects = []
 
+        if dir and not os.path.isdir(dir):
+            raise InvalidKluctlProjectConfig("kustomizeDir does not exist: %s" % dir)
+
     def get_rel_kustomize_dir(self):
-        return self.deployment_project.get_rel_dir_to_root(self.config["path"])
+        root_project = self.deployment_project.get_root_deployment()
+        return os.path.relpath(self.dir, root_project.dir)
 
     def get_rel_rendered_dir(self):
         path = self.get_rel_kustomize_dir()
@@ -95,34 +100,36 @@ class KustomizeDeployment(object):
         }, clone=False)
         return self.deployment_project.build_jinja2_env(jinja_vars)
 
-    def render(self, executor):
-        if "path" not in self.config:
+    def render(self, k8s_cluster, executor):
+        if self.dir is None:
             return []
 
-        path = self.config["path"]
-        rendered_dir = self.get_rendered_dir()
+        root_dir = self.deployment_project.get_root_deployment().dir
+        rel_deployment_dir = os.path.relpath(self.deployment_project.dir, root_dir)
+        rel_kustomize_dir = os.path.relpath(self.get_rel_kustomize_dir(), rel_deployment_dir)
+        abs_rendered_dir = self.get_rendered_dir()
 
-        os.makedirs(rendered_dir, exist_ok=True)
+        os.makedirs(abs_rendered_dir, exist_ok=True)
 
         jinja_vars = self.deployment_project.jinja_vars
         if "vars" in self.config:
-            jinja_vars = self.deployment_project.load_jinja_vars_list(self.config["vars"], jinja_vars)
+            jinja_vars = self.deployment_project.load_jinja_vars_list(k8s_cluster, self.config["vars"], jinja_vars)
 
         jinja_env = self.build_jinja2_env(jinja_vars)
 
         excluded_patterns = self.deployment_project.conf['templateExcludes'].copy()
-        if os.path.exists(os.path.join(self.deployment_project.dir, path, 'helm-chart.yml')):
+        if os.path.exists(os.path.join(self.dir, 'helm-chart.yml')):
             # never try to render helm charts
-            excluded_patterns.append(os.path.join(path, 'charts/*'))
+            excluded_patterns.append(os.path.join(rel_kustomize_dir, 'charts/*'))
         if not self.deployment_collection.for_seal:
             # .sealme files are rendered while sealing and not while deploying
             excluded_patterns.append('*.sealme')
 
-        d = TemplatedDir(self.deployment_project.dir, jinja_env, executor, excluded_patterns)
-        return d.async_render_subdir(path, rendered_dir)
+        d = TemplatedDir(root_dir, rel_deployment_dir, jinja_env, executor, excluded_patterns)
+        return d.async_render_subdir(rel_kustomize_dir, abs_rendered_dir)
 
-    def render_helm_charts(self, executor):
-        if "path" not in self.config:
+    def render_helm_charts(self, k8s_cluster, executor):
+        if self.dir is None:
             return []
 
         jobs = []
@@ -132,15 +139,15 @@ class KustomizeDeployment(object):
             if not os.path.exists(path):
                 continue
             chart = HelmChart(path)
-            job = executor.submit(chart.render)
+            job = executor.submit(chart.render, k8s_cluster)
             jobs.append(job)
         return jobs
 
     def resolve_sealed_secrets(self):
-        if "path" not in self.config:
+        if self.dir is None:
             return
 
-        sealed_secrets_dir = self.deployment_project.get_sealed_secrets_dir(self.config["path"])
+        sealed_secrets_dir = self.deployment_project.get_sealed_secrets_dir()
         rel_rendered_dir = self.get_rel_rendered_dir()
         rendered_dir = self.get_rendered_dir()
         base_source_path = self.deployment_project.sealed_secrets_dir
@@ -172,7 +179,7 @@ class KustomizeDeployment(object):
 
     def build_inclusion_values(self):
         values = [("tag", tag) for tag in self.get_tags()]
-        if "path" in self.config:
+        if self.dir is not None:
             kustomize_dir = self.get_rel_kustomize_dir().replace(os.path.sep, "/")
             values.append(("kustomize_dir", kustomize_dir))
         return values
@@ -197,7 +204,7 @@ class KustomizeDeployment(object):
         return inclusion.check_included(values, skip_delete_if_tags)
 
     def prepare_kustomization_yaml(self):
-        if "path" not in self.config:
+        if self.dir is None:
             return
 
         rendered_dir = self.get_rendered_dir()
@@ -214,7 +221,7 @@ class KustomizeDeployment(object):
         yaml_save_file(kustomize_yaml, kustomize_yaml_path)
 
     def build_kustomize(self):
-        if "path" not in self.config:
+        if self.dir is None:
             return
 
         self.prepare_kustomization_yaml()
@@ -236,7 +243,7 @@ class KustomizeDeployment(object):
                 shutil.copy(self.get_rendered_yamls_path(), hash_path)
 
     def postprocess_and_load_objects(self, k8s_cluster):
-        if "path" not in self.config:
+        if self.dir is None:
             return
 
         self.objects = yaml_load_file(self.get_rendered_yamls_path(), all=True)

@@ -49,6 +49,15 @@ def get_dict_value(y, path, default=None):
         return default
     return f[0].value
 
+def has_dict_value(y, path):
+    p = parse_json_path(path)
+    f = p.find(y)
+    if len(f) > 1:
+        raise Exception("Only simple jsonpath supported in get_dict_value")
+    if len(f) == 0:
+        return False
+    return True
+
 def set_dict_value(y, path, value, do_clone=False):
     if do_clone:
         y = copy_dict(y)
@@ -59,6 +68,14 @@ def set_dict_value(y, path, value, do_clone=False):
 def del_dict_value(d, k):
     p = parse_json_path(k)
     p.filter(lambda x: True, d)
+
+def list_matching_dict_pathes(d, k):
+    p = parse_json_path(k)
+    f = p.find(d)
+    ret = []
+    for x in f:
+        ret.append(str(x.full_path))
+    return ret
 
 def is_empty(o):
     if isinstance(o, dict) or isinstance(o, list):

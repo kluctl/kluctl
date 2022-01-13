@@ -10,7 +10,7 @@ from click_option_group import optgroup
 from kluctl import _version
 from kluctl.utils.external_tools import get_external_tool_path
 from kluctl.utils.gitlab.gitlab_util import init_gitlab_util_from_glab
-from kluctl.utils.utils import get_tmp_base_dir
+from kluctl.utils.utils import get_tmp_base_dir, duration
 from kluctl.utils.yaml_utils import yaml_load_file, yaml_save_file
 
 logger = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ def wrapper_helper(options):
         return func
     return wrapper
 
-def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error=False,
+def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error=False, hook_timeout=False,
                    ignore_labels=False, ignore_order=False, abort_on_error=False, output_format=False, output=False,
                    render_output_dir=False):
     options = []
@@ -147,13 +147,19 @@ def misc_arguments(yes=False, dry_run=False, force_apply=False, replace_on_error
                                        default=False, is_flag=True))
     if replace_on_error:
         options.append(optgroup.option("--replace-on-error",
-                                       help="When patching an object fails, try to replace. "
+                                       help="When patching an object fails, try to replace it. "
                                             "See documentation for more details.",
                                        default=False, is_flag=True))
         options.append(optgroup.option("--force-replace-on-error",
                                        help="Same as --replace-on-error, but also try to delete and re-create objects. "
                                             "See documentation for more details.",
                                        default=False, is_flag=True))
+    if hook_timeout:
+        options.append(optgroup.option("--hook-timeout",
+                                       help="Maximum time to wait for hook readiness. The timeout is meant per-hook. "
+                                            "Timeouts are in the duration format (1s, 1m, 1h, ...). If not specified, "
+                                            "a default timeout of 5m is used.",
+                                       default="5m", type=duration))
     if ignore_labels:
         options.append(optgroup.option("--ignore-tags",
                                        help="Ignores changes in tags when diffing",

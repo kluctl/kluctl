@@ -40,7 +40,7 @@ def seal_command_for_target(kwargs, kluctl_project, target, sealing_config, secr
     # pass for_seal=True so that .sealme files are rendered as well
     with project_target_command_context(kwargs, kluctl_project, target, for_seal=True) as cmd_ctx:
         load_secrets(kluctl_project, target, secrets_loader, cmd_ctx.deployment)
-        cmd_ctx.deployment_collection.render_deployments()
+        cmd_ctx.deployment_collection.render_deployments(cmd_ctx.k8s_cluster)
 
         s = DeploymentSealer(cmd_ctx.deployment, cmd_ctx.deployment_collection, cmd_ctx.cluster_vars,
                              cmd_ctx.kluctl_project.sealed_secrets_dir, kwargs["force_reseal"])
@@ -73,5 +73,7 @@ def seal_command(obj, kwargs):
                 print_template_error(e)
             except CommandError as e:
                 print(e, file=sys.stderr)
+            except InvalidKluctlProjectConfig as e:
+                print(e.message, file=sys.stderr)
             except Exception as e:
                 logger.exception("Sealing for target %s failed. Error=%s" % (target["name"], str(e)))

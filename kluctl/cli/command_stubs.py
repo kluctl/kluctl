@@ -9,7 +9,7 @@ from kluctl.cli.main_cli_group import cli_group, kluctl_project_args, misc_argum
                         "installed.\n\n"
                         "Either --target or --cluster must be specified.")
 @kluctl_project_args(with_a=False)
-@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True)
+@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, hook_timeout=True, abort_on_error=True, output_format=True)
 @click.pass_obj
 def bootstrap_command_stub(obj, **kwargs):
     from kluctl.cli.commands import bootstrap_command
@@ -23,7 +23,7 @@ def bootstrap_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, output_format=True, render_output_dir=True)
+@misc_arguments(yes=True, dry_run=True, force_apply=True, replace_on_error=True, abort_on_error=True, hook_timeout=True, output_format=True, render_output_dir=True)
 @click.pass_obj
 def deploy_command_stub(obj, **kwargs):
     from kluctl.cli.commands import deploy_command
@@ -53,7 +53,7 @@ def diff_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True)
+@misc_arguments(yes=True, dry_run=True, output_format=True)
 @click.pass_obj
 def delete_command_stub(obj, **kwargs):
     from kluctl.cli.commands import delete_command
@@ -69,7 +69,7 @@ def delete_command_stub(obj, **kwargs):
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
-@misc_arguments(yes=True, dry_run=True)
+@misc_arguments(yes=True, dry_run=True, output_format=True)
 @click.pass_obj
 def prune_command_stub(obj, **kwargs):
     from kluctl.cli.commands import prune_command
@@ -91,8 +91,9 @@ def poke_images_command_stub(obj, **kwargs):
 
 @cli_group.command("downscale",
                    help="Downscale all deployments.\n\n"
-                        "This command will downscale all Deployments, StatefulSets "
-                        "and CronJobs.")
+                        "This command will downscale all Deployments, StatefulSets and CronJobs. "
+                        "It is also possible to influence the behaviour with the help of annotations, as described in "
+                        "the documentation.")
 @kluctl_project_args()
 @image_args()
 @include_exclude_args()
@@ -130,9 +131,6 @@ def validate_command_stub(obj, **kwargs):
 @optgroup.option("--output-single-yaml",
                  help="Also write all resources into a single yaml file.",
                  type=click.Path(dir_okay=False))
-@optgroup.option("--offline",
-                 help="Go offline, meaning that kubernetes and registries are not asked for image versions",
-                 is_flag=True)
 @click.pass_obj
 def render_command_stub(obj, **kwargs):
     from kluctl.cli.commands import render_command
@@ -147,8 +145,6 @@ def render_command_stub(obj, **kwargs):
 @image_args()
 @include_exclude_args()
 @misc_arguments(output=True)
-@optgroup.option("--no-kubernetes", help="Don't check kubernetes for current image versions", default=False, is_flag=True)
-@optgroup.option("--no-registries", help="Don't check registries for new image versions", default=False, is_flag=True)
 @optgroup.option("--simple", help="Output a simplified version of the images list", is_flag=True)
 @click.pass_obj
 def list_images_command_stub(obj, **kwargs):
@@ -171,6 +167,7 @@ def list_targets_stub(obj, **kwargs):
 @optgroup.group("Misc arguments")
 @optgroup.option("--output-archive",
                  help="Path to .tgz to write project to.",
+                 required=True,
                  type=click.Path(file_okay=True))
 @optgroup.option("--output-metadata",
                  help="Path to .yml to write metadata to. If not specified, metadata is written into the archive.",

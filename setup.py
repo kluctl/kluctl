@@ -24,7 +24,6 @@ for dirpath, dirnames, filenames in os.walk("./kluctl"):
             continue
         p = os.path.join("..", dirpath, f)
         datas.append(p)
-print("datas=%s" % datas)
 
 # This call to setup() does all the work
 setup(
@@ -68,10 +67,13 @@ setup(
         "PyJWT>=2.2.0",
         "python-dxf>=7.7.1",
         "gitpython>=3.1.24",
-        "jsonschema>=4.0.1",
+        "jsonschema>=4.2.1",
         "filelock>=3.3.0",
         "python-gitlab>=2.10.1",
         "jsonpath-ng>=1.5.3",
+        "jsonpatch>=1.32",
+        "boto3>=1.20.24",
+        "rsa==4.6",  # >=4.7 is broken when used with pyinstaller
     ],
     entry_points={
         "console_scripts": [

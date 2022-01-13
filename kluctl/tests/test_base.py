@@ -39,7 +39,7 @@ class DeploymentTestBase(unittest.TestCase):
     @contextlib.contextmanager
     def build_deployment(self, subdir, jinja_vars={}, deploy_args={}):
         with tempfile.TemporaryDirectory(dir=get_tmp_base_dir()) as tmpdir:
-            d = DeploymentProject(os.path.join(cur_dir, subdir), jinja_vars, deploy_args,
+            d = DeploymentProject(None, os.path.join(cur_dir, subdir), jinja_vars, deploy_args,
                                   os.path.join(cur_dir, subdir, '.sealed-secrets'))
             c = DeploymentCollection(d, None, None, tmpdir, False)
             yield d, c
@@ -47,5 +47,5 @@ class DeploymentTestBase(unittest.TestCase):
     @contextlib.contextmanager
     def render_deployment(self, subdir, jinja_vars={}, deploy_args={}):
         with self.build_deployment(subdir, jinja_vars, deploy_args) as (d, c):
-            c.render_deployments()
+            c.render_deployments(None)
             yield c

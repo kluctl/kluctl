@@ -8,13 +8,13 @@ def parse_env_config_sets(prefix):
 
     ret = {}
     for env_name, env_value in os.environ.items():
-        m = r.match(env_name)
+        m = r.fullmatch(env_name)
         if m:
             idx = m.group(1)
             key = m.group(2)
             ret.setdefault(idx, {})[key] = env_value
         else:
-            m = r2.match(env_name)
+            m = r2.fullmatch(env_name)
             if m:
                 key = m.group(1)
                 ret.setdefault(None, {})[key] = env_value

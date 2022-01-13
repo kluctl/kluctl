@@ -120,6 +120,7 @@ definitions:
           oneOf:
             - $ref: "#/definitions/secret_source_path"
             - $ref: "#/definitions/secret_source_passwordstate"
+            - $ref: "#/definitions/secret_source_aws_secrets_manager"
 
   secret_source_path:
     type: object
@@ -158,6 +159,28 @@ definitions:
             type: string
             description: Field name where to load secret file from
             default: GenericField1
+
+  secret_source_aws_secrets_manager:
+    type: object
+    additionalProperties: false
+    required:
+      - awsSecretsManager
+    properties:
+      awsSecretsManager:
+        type: object
+        additionalProperties: false
+        required:
+          - secretName
+        properties:
+          secretName:
+            type: string
+            description: Name or ARN of the secret. In case a name is given, the region must be specified as well
+          region:
+            type: string
+            description: The aws region
+          profile:
+            type: string
+            description: AWS credentials profile to use. The AWS_PROFILE environemnt variables will take predence in case it is also set
 
 additionalProperties: false
 required:

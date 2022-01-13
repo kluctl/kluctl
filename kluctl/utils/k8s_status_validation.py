@@ -19,10 +19,16 @@ class ValidateResult:
     results: list = dataclasses.field(default_factory=list)
 
 def validate_object(o, not_ready_is_error):
+    ref = get_object_ref(o)
     result = ValidateResult()
+
+    for k, v in o["metadata"].get("annotations", {}).items():
+        if not k.startswith(RESULT_ANNOTATION):
+            continue
+        result.results.append(ValidateResultItem(ref, reason=k, message=v))
+
     if "status" not in o:
         return result
-    ref = get_object_ref(o)
     status = o["status"]
 
     class ValidateFailed(Exception):
@@ -179,10 +185,5 @@ def validate_object(o, not_ready_is_error):
                 add_not_ready("not-ready", "PostgresClusterStatus is %s" % pstatus)
     except ValidateFailed:
         pass
-
-    for k, v in o["metadata"].get("annotations", {}).items():
-        if not k.startswith(RESULT_ANNOTATION):
-            continue
-        result.results.append(ValidateResultItem(ref, reason=k, message=v))
 
     return result

@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import gzip
 import hashlib
@@ -14,10 +15,9 @@ from typing import ContextManager
 import jsonschema
 
 from kluctl.schemas.schema import validate_kluctl_project_config, parse_git_project, target_config_schema
-from kluctl.utils.dict_utils import copy_dict, get_dict_value
+from kluctl.utils.dict_utils import copy_dict, get_dict_value, merge_dict
 from kluctl.utils.exceptions import InvalidKluctlProjectConfig, CommandError
-from kluctl.utils.git_utils import parse_git_url, clone_project, get_git_commit, git_ls_remote, \
-    get_git_ref, ensure_git_cache_updated
+from kluctl.utils.git_utils import parse_git_url, get_git_commit, get_git_ref, MirroredGitRepo, git_ls_remote
 from kluctl.utils.jinja2_utils import render_dict_strs
 from kluctl.utils.k8s_cluster_base import load_cluster_config
 from kluctl.utils.utils import get_tmp_base_dir, MyThreadPoolExecutor
@@ -53,6 +53,15 @@ class GitProjectInfo:
     commit: str
     dir: str
 
+@dataclasses.dataclass
+class DynamicTargetInfo:
+    base_target: dict
+    dir: str
+    extra_target_config: dict = None
+    git_project: object = None
+    ref: str = None
+    ref_pattern: str = None
+
 class KluctlProject:
     def __init__(self, project_url, project_ref, config_file, local_clusters, local_deployment, local_sealed_secrets, tmp_dir):
         self.project_url = project_url
@@ -66,7 +75,7 @@ class KluctlProject:
         self.config = None
         self.targets = None
         self.involved_repos = {}
-        self.git_cache_up_to_date = {}
+        self.mirror_repos = {}
         self.refs_for_urls = {}
 
     def create_tgz(self, path, metadata_path, reproducible):
@@ -125,28 +134,28 @@ class KluctlProject:
         project.targets = metadata["targets"]
         return project
 
-    def build_clone_dir(self, url):
+    def build_clone_dir(self, url, ref):
+        if ref is None:
+            ref = "HEAD"
+        ref = ref.replace("/", "-").replace("\\", "-")
         url = parse_git_url(url)
         base_name = os.path.basename(url.path)
         url_hash = hashlib.sha256(("%s:%s" % (url.host, url.path)).encode("utf-8")).hexdigest()
-        for i in range(len(url_hash)):
-            dir = os.path.join(self.tmp_dir, "git", base_name)
-            if i != 0:
-                dir += "-%s" % url_hash[0:i]
-            if not os.path.exists(dir):
-                return dir
-        raise Exception("Unexpected!")
+        return os.path.join(self.tmp_dir, "%s-%s" % (base_name, url_hash), ref)
 
-    def clone_git_project(self, git_project_config, default_git_subdir, do_add_involved_repo):
+    def clone_git_project(self, git_project_config, default_git_subdir, do_add_involved_repo, do_lock):
         os.makedirs(os.path.join(self.tmp_dir, "git"), exist_ok=True)
 
         git_project = parse_git_project(git_project_config["project"], default_git_subdir)
-        target_dir = self.build_clone_dir(git_project.url)
+        target_dir = self.build_clone_dir(git_project.url, git_project.ref)
 
-        clone_project(git_project.url, git_project.ref, target_dir, git_cache_up_to_date=self.git_cache_up_to_date)
+        mirror_repo = self.mirror_repos.setdefault(git_project.url, MirroredGitRepo(git_project.url))
+        with (mirror_repo.locked() if do_lock else contextlib.suppress()):
+            if not mirror_repo.has_updated:
+                mirror_repo.update()
+            mirror_repo.clone_project(git_project.ref, target_dir)
+
         git_ref = get_git_ref(target_dir)
-
-        self.git_cache_up_to_date[git_project.url] = True
 
         dir = target_dir
         if git_project.subdir is not None:
@@ -169,7 +178,7 @@ class KluctlProject:
                 "url": self.project_url,
                 "ref": self.project_ref
             }
-        }, None, True)
+        }, None, True, True)
 
     def add_involved_repo(self, url, ref_pattern, refs):
         s = self.involved_repos.setdefault(url, [])
@@ -212,7 +221,7 @@ class KluctlProject:
                 projects = [self.config[key]]
             ret = []
             for project in projects:
-                info = self.clone_git_project(project, default_git_subdir, True)
+                info = self.clone_git_project(project, default_git_subdir, True, True)
                 ret.append(info)
             return ret
 
@@ -231,7 +240,12 @@ class KluctlProject:
     def update_git_caches(self):
         with MyThreadPoolExecutor() as executor:
             futures = []
-            def do_update(key):
+            def do_update_repo(repo):
+                with repo.locked():
+                    if not repo.has_updated:
+                        repo.update()
+
+            def do_update_projects(key):
                 if key not in self.config:
                     return
                 if isinstance(self.config[key], list):
@@ -240,15 +254,16 @@ class KluctlProject:
                     projects = [self.config[key]]
                 for project in projects:
                     url = parse_git_project(project["project"], None).url
-                    if url in self.git_cache_up_to_date:
+                    if url in self.mirror_repos:
                         return
-                    self.git_cache_up_to_date[url] = True
-                    f = executor.submit(ensure_git_cache_updated, url)
+                    mirror_repo = MirroredGitRepo(url)
+                    self.mirror_repos[url] = mirror_repo
+                    f = executor.submit(do_update_repo, mirror_repo)
                     futures.append(f)
 
-            do_update("deployment")
-            do_update("clusters")
-            do_update("sealedSecrets")
+            do_update_projects("deployment")
+            do_update_projects("clusters")
+            do_update_projects("sealedSecrets")
 
             for target in self.config.get("targets", []):
                 target_config = target.get("targetConfig")
@@ -257,9 +272,10 @@ class KluctlProject:
 
                 if "project" in target_config:
                     url = parse_git_project(target_config["project"], None).url
-                    if url not in self.git_cache_up_to_date:
-                        self.git_cache_up_to_date[url] = True
-                        f = executor.submit(ensure_git_cache_updated, url)
+                    if url not in self.mirror_repos:
+                        mirror_repo = MirroredGitRepo(url)
+                        self.mirror_repos[url] = mirror_repo
+                        f = executor.submit(do_update_repo, mirror_repo)
                         futures.append(f)
                     if url not in self.refs_for_urls:
                         self.refs_for_urls[url] = executor.submit(git_ls_remote, url)
@@ -273,24 +289,35 @@ class KluctlProject:
         target_names = set()
         self.targets = []
 
+        target_infos = []
         for base_target in self.config.get("targets", []):
-            if "targetConfig" not in base_target:
-                target = self.render_target(base_target)
-                dynamic_targets = [target]
+            target_infos += self.prepare_dynamic_targets(base_target)
+
+        self.clone_dynamic_targets(target_infos)
+
+        cluster_vars_cache = {}
+        for target_info in target_infos:
+            try:
+                target = self.build_dynamic_target(target_info.base_target, target_info.dir)
+                if target_info.extra_target_config is not None:
+                    merge_dict(target, {"targetConfig": target_info.extra_target_config}, clone=False)
+            except Exception as e:
+                # Only fail if non-dynamic targets fail to load
+                if target_info.ref_pattern is None:
+                    raise e
+                logger.warning("Failed to load dynamic target config for project. Error=%s" % (str(e)))
+                continue
+
+            target = self.render_target(target, cluster_vars_cache)
+            target["baseTarget"] = target_info.base_target
+
+            if target["name"] in target_names:
+                logger.warning("Duplicate target %s" % target["name"])
             else:
-                dynamic_targets = self.build_dynamic_targets(base_target)
-                for i in range(len(dynamic_targets)):
-                    dynamic_targets[i] = self.render_target(dynamic_targets[i])
-                    dynamic_targets[i]["baseTarget"] = base_target
+                target_names.add(target["name"])
+                self.targets.append(target)
 
-            for dt in dynamic_targets:
-                if dt["name"] in target_names:
-                    logger.warning("Duplicate target %s" % dt["name"])
-                else:
-                    target_names.add(dt["name"])
-                    self.targets.append(dt)
-
-    def render_target(self, target):
+    def render_target(self, target, cluster_vars_cache):
         errors = []
         # Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
         # to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
@@ -301,9 +328,15 @@ class KluctlProject:
             try:
                 # Try to load cluster vars. This might fail in case jinja templating is used in the cluster name
                 # of the target. We assume that this will then succeed in a later iteration
-                cluster_vars, _ = load_cluster_config(self.clusters_dir, target["cluster"], offline=True)
+                cluster_vars = cluster_vars_cache.get(target["cluster"])
+                if isinstance(cluster_vars, Exception):
+                    raise cluster_vars
+                if cluster_vars is None:
+                    cluster_vars = load_cluster_config(self.clusters_dir, target["cluster"])
+                    cluster_vars_cache[target["cluster"]] = cluster_vars
                 jinja2_vars["cluster"] = cluster_vars
-            except:
+            except Exception as e:
+                cluster_vars_cache[target["cluster"]] = e
                 pass
             target2, errors = render_dict_strs(target, jinja2_vars, do_raise=False)
             if not errors and target == target2:
@@ -313,22 +346,26 @@ class KluctlProject:
             raise errors[0]
         return target
 
-    def build_dynamic_targets(self, base_target):
-        target_config = base_target["targetConfig"]
-        if "project" in target_config:
-            return self.build_dynamic_targets_external(base_target)
+    def prepare_dynamic_targets(self, base_target):
+        target_config = base_target.get("targetConfig")
+        if target_config and "project" in target_config:
+            return self.prepare_dynamic_targets_external(base_target)
         else:
-            return self.build_dynamic_targets_simple(base_target)
+            return self.prepare_dynamic_targets_simple(base_target)
 
-    def build_dynamic_targets_simple(self, base_target):
-        target_config = base_target["targetConfig"]
-        if "ref" in target_config or "refPattern" in target_config:
-            raise InvalidKluctlProjectConfig("'ref' and/or 'refPattern' are not allowed for non-external dynamic targets")
+    def prepare_dynamic_targets_simple(self, base_target):
+        if "targetConfig" in base_target:
+            target_config = base_target["targetConfig"]
+            if "ref" in target_config or "refPattern" in target_config:
+                raise InvalidKluctlProjectConfig("'ref' and/or 'refPattern' are not allowed for non-external dynamic targets")
 
-        dynamic_targets = [self.build_dynamic_target(base_target, self.kluctl_project_dir)]
+        dynamic_targets = [DynamicTargetInfo(
+            base_target=base_target,
+            dir=self.kluctl_project_dir,
+        )]
         return dynamic_targets
 
-    def build_dynamic_targets_external(self, base_target):
+    def prepare_dynamic_targets_external(self, base_target):
         target_config = base_target["targetConfig"]
         git_project = parse_git_project(target_config["project"], None)
         refs = self.refs_for_urls[git_project.url]
@@ -363,49 +400,83 @@ class KluctlProject:
             matched_refs.append(ref[len("refs/heads/"):])
 
         dynamic_targets = []
-        involved_repo_refs = {}
-        for ref in matched_refs:
-            info = self.clone_git_project({
-                "project": {
-                    "url": git_project.url,
-                    "ref": ref,
-                }
-            }, None, False)
-            involved_repo_refs[ref] = info.commit
 
-            try:
-                target = self.build_dynamic_target(base_target, info.dir)
-                target["targetConfig"]["ref"] = ref
-                target["targetConfig"]["defaultBranch"] = default_branch
-                dynamic_targets.append(target)
-            except Exception as e:
-                # Only fail if non-dynamic targets fail to load
-                if target_config_ref is not None:
-                    raise e
-                logger.warning("Failed to load dynamic target config for project. Error=%s" % (str(e)))
-        if git_project is not None:
-            self.add_involved_repo(git_project.url, ref_pattern, involved_repo_refs)
+        for ref in matched_refs:
+            dynamic_targets.append(DynamicTargetInfo(
+                base_target=base_target,
+                dir=self.build_clone_dir(git_project.url, ref),
+                git_project=git_project,
+                ref=ref,
+                ref_pattern=ref_pattern,
+                extra_target_config={
+                    "ref": ref,
+                    "defaultBranch": default_branch,
+                }
+            ))
+
         return dynamic_targets
 
+    def clone_dynamic_targets(self, dynamic_targets):
+        @contextmanager
+        def lock_all_repos():
+            for r in self.mirror_repos.values():
+                r.lock()
+            try:
+                yield
+            finally:
+                for r in self.mirror_repos.values():
+                    r.unlock()
+
+        with lock_all_repos(), MyThreadPoolExecutor(max_workers=8) as executor:
+            unique_clones = {}
+            for target_info in dynamic_targets:
+                if target_info.git_project is None:
+                    continue
+
+                if target_info.dir in unique_clones:
+                    continue
+
+                f = executor.submit(self.clone_git_project, {
+                    "project": {
+                        "url": target_info.git_project.url,
+                        "ref": target_info.ref,
+                    }
+                }, None, False, False)
+                unique_clones[target_info.dir] = f
+
+            refs_by_url_and_pattern = {}
+
+            for target_info in dynamic_targets:
+                if target_info.git_project is None:
+                    continue
+                info = unique_clones[target_info.dir].result()
+                refs_by_url_and_pattern.setdefault(info.url, {}).setdefault(target_info.ref_pattern, {})[info.ref] = info.commit
+
+            for url, ref_patterns in refs_by_url_and_pattern.items():
+                for ref_pattern, refs in ref_patterns.items():
+                    self.add_involved_repo(url, ref_pattern, refs)
+
     def build_dynamic_target(self, base_target, dir):
-        target_config = base_target["targetConfig"]
-        config_file = target_config.get("file", "target-config.yml")
-        config_path = os.path.join(dir, config_file)
-        if not os.path.exists(config_path):
-            raise InvalidKluctlProjectConfig("No target config file with name %s found in target" % config_file)
-
-        target_config_file = self.load_target_config(config_path)
         target = copy_dict(base_target)
-
         target.setdefault("args", {})
-        # merge args
-        for arg_name, value in target_config_file.get("args", {}).items():
-            self.check_dynamic_arg(target, arg_name, value)
-            target["args"][arg_name] = value
-
         target.setdefault("images", [])
-        # We prepend the dynamic images to ensure they get higher priority later
-        target["images"] = target_config_file.get("images", []) + target["images"]
+
+        if "targetConfig" in base_target:
+            target_config = base_target["targetConfig"]
+            config_file = target_config.get("file", "target-config.yml")
+            config_path = os.path.join(dir, config_file)
+            if not os.path.exists(config_path):
+                raise InvalidKluctlProjectConfig("No target config file with name %s found in target" % config_file)
+
+            target_config_file = self.load_target_config(config_path)
+
+            # merge args
+            for arg_name, value in target_config_file.get("args", {}).items():
+                self.check_dynamic_arg(target, arg_name, value)
+                target["args"][arg_name] = value
+
+            # We prepend the dynamic images to ensure they get higher priority later
+            target["images"] = target_config_file.get("images", []) + target["images"]
 
         return target
 
@@ -443,7 +514,7 @@ class KluctlProject:
             raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} is not allowed for target")
 
         arg_pattern = dyn_arg.get("pattern", ".*")
-        if not re.match(arg_pattern, arg_value):
+        if not re.fullmatch(arg_pattern, arg_value):
             raise InvalidKluctlProjectConfig(f"Dynamic argument {arg_name} does not match required pattern '{arg_pattern}'")
 
 

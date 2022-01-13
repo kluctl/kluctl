@@ -3,7 +3,6 @@ import json
 import logging
 import threading
 import time
-from distutils.version import LooseVersion
 
 from kubernetes import config
 from kubernetes.client import ApiClient, Configuration, ApiException
@@ -57,7 +56,7 @@ class k8s_cluster_real(k8s_cluster_base):
             raise CommandError(str(e))
 
         if self.context != "docker-desktop" and not self.config.api_key and not self.config.key_file:
-            raise CommandError("No authentication available. You might need to invoke kubectl first to perform a login")
+            raise CommandError("No authentication available for kubernetes context %s. You might need to invoke kubectl first to perform a login" % self.context)
 
         self.api_client = ApiClient(configuration=self.config)
         self.dynamic_client = DynamicClient(self.api_client, discoverer=MyDiscoverer)
@@ -65,7 +64,7 @@ class k8s_cluster_real(k8s_cluster_base):
         self.table_dynamic_client = DynamicClient(self.table_api_client, discoverer=MyDiscoverer)
 
         v = self.dynamic_client.version
-        self.server_version = "%s.%s" % (v['kubernetes']['major'], v['kubernetes']['minor'])
+        self.server_version = v["kubernetes"]["gitVersion"]
 
     def _fix_api_version(self, group, version):
         if group is None and version is not None:
@@ -148,6 +147,15 @@ class k8s_cluster_real(k8s_cluster_base):
                 continue
             return r
         raise ResourceNotFoundError(f"{group}/{kind} not found")
+
+    def get_all_resources(self):
+        return list(self.dynamic_client.resources.search())
+
+    def get_all_api_versions(self):
+        ret = set()
+        for r in self.get_all_resources():
+            ret.add(r.group_version)
+        return ret
 
     def _get_objects_for_resource(self, resource, name, namespace, labels, as_table):
         label_selector = self._build_label_selector(labels)
@@ -258,9 +266,9 @@ class k8s_cluster_real(k8s_cluster_base):
         # default values. We need to fix these resources.
         # UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the
         # issue is still present.
-        needs_defaults_fix = LooseVersion(self.server_version) < LooseVersion('1.21')
+        needs_defaults_fix = LooseVersionComparator(self.server_version) < LooseVersionComparator('1.21')
         # TODO check when this is actually fixed (see https://github.com/kubernetes/kubernetes/issues/94275)
-        needs_type_conversion_fix = LooseVersion(self.server_version) < LooseVersion('1.100')
+        needs_type_conversion_fix = LooseVersionComparator(self.server_version) < LooseVersionComparator('1.100')
         if not needs_defaults_fix and not needs_type_conversion_fix:
             return o
 
@@ -284,17 +292,17 @@ class k8s_cluster_real(k8s_cluster_base):
                 d[k] = str(d[k])
 
         def fix_container(c):
-            fix_ports(c.get('ports', []))
-            fix_string_type((c.get('resources') or {}).get('limits', None), 'cpu')
-            fix_string_type((c.get('resources') or {}).get('requests', None), 'cpu')
+            fix_ports(get_dict_value(c, "ports", []))
+            fix_string_type(get_dict_value(c, "resources.limits"), "cpu")
+            fix_string_type(get_dict_value(c, "resources.requests"), "cpu")
 
         def fix_containers(containers):
             for c in containers:
                 fix_container(c)
 
-        fix_containers(o.get('spec', {}).get('template', {}).get('spec', {}).get('containers', []))
-        fix_ports(o.get('spec', {}).get('ports', []))
-        for x in o.get('spec', {}).get('limits', []):
+        fix_containers(get_dict_value(o, "spec.template.spec.containers", []))
+        fix_ports(get_dict_value(o, "spec.ports", []))
+        for x in get_dict_value(o, "spec.limits", []):
             fix_string_type(x.get('default'), 'cpu')
             fix_string_type(x.get('defaultRequest'), 'cpu')
         return o

@@ -11,9 +11,10 @@ from kluctl.deployment.kustomize_deployment import KustomizeDeployment
 from kluctl.diff.k8s_diff import deep_diff_object
 from kluctl.diff.normalize import normalize_object
 from kluctl.utils.dict_utils import copy_dict, get_dict_value
+from kluctl.utils.exceptions import CommandError
 from kluctl.utils.k8s_delete_utils import find_objects_for_delete
-from kluctl.utils.k8s_downscale_utils import downscale_object
-from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, get_long_object_name_from_ref, \
+from kluctl.utils.k8s_downscale_utils import downscale_object, downsclae_is_delete
+from kluctl.utils.k8s_object_utils import get_object_ref, get_long_object_name, \
     ObjectRef
 from kluctl.utils.k8s_status_validation import validate_object, ValidateResult, ValidateResultItem
 from kluctl.utils.templated_dir import TemplatedDir
@@ -30,6 +31,7 @@ class DeployErrorItem:
 class CommandResult:
     new_objects: list
     changed_objects: list
+    deleted_objects: list
     hook_objects: list
     orphan_objects: list
     errors: list
@@ -42,50 +44,53 @@ class DeploymentCollection:
         self.inclusion = inclusion
         self.tmpdir = tmpdir
         self.for_seal = for_seal
-        self.deployments = self._collect_deployments(self.project)
+        self.deployments = self._collect_deployments(self.project, {})
 
         self.remote_objects = {}
 
         self.errors = set()
         self.warnings = set()
 
-    def _collect_deployments(self, project):
+    def _collect_deployments(self, project, indexes):
         ret = []
 
-        indexes = {}
         for c in project.conf['kustomizeDirs']:
+            dir = None
             index = 0
             if "path" in c:
-                p = os.path.normpath(c["path"])
-                index = indexes.setdefault(p, 0)
-                indexes[p] += 1
-            deployment = KustomizeDeployment(project, self, c, index)
+                dir = os.path.join(project.dir, c["path"])
+                dir = os.path.realpath(dir)
+                if not dir.startswith(project.get_root_deployment().dir):
+                    raise CommandError("kustomizeDir path is not part of root deployment project: %s" % c["path"])
+                index = indexes.setdefault(dir, 0)
+                indexes[dir] += 1
+            deployment = KustomizeDeployment(project, self, c, dir, index)
             ret.append(deployment)
 
         for inc in project.conf['includes']:
             if get_dict_value(inc, "barrier", False):
-                deployment = KustomizeDeployment(project, self, {"barrier": True}, 0)
+                deployment = KustomizeDeployment(project, self, {"barrier": True}, None, 0)
                 ret.append(deployment)
 
             d = inc.get('_included_deployment_collection')
             if d is not None:
-                ret += self._collect_deployments(d)
+                ret += self._collect_deployments(d, indexes)
 
         return ret
 
-    def render_deployments(self):
+    def render_deployments(self, k8s_cluster):
         logger.info("Rendering templates and Helm charts")
         with MyThreadPoolExecutor(max_workers=16) as executor:
             jobs = []
 
             for d in self.deployments:
-                jobs += d.render(executor)
+                jobs += d.render(k8s_cluster, executor)
 
             TemplatedDir.finish_jobs(jobs)
 
             jobs = []
             for d in self.deployments:
-                jobs += d.render_helm_charts(executor)
+                jobs += d.render_helm_charts(k8s_cluster, executor)
             for job in jobs:
                 job.result()
 
@@ -136,33 +141,33 @@ class DeploymentCollection:
         return by_ref
 
     def prepare(self, k8s_cluster):
-        self.render_deployments()
+        self.render_deployments(k8s_cluster)
         self.resolve_sealed_secrets()
         self.build_kustomize_objects(k8s_cluster)
         self.update_remote_objects(k8s_cluster)
 
-    def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error):
+    def deploy(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, abort_on_error, hook_timeout):
         self.clear_errors_and_warnings()
         applied_objects, applied_hook_objects = self.do_apply(k8s_cluster,
                                                               force_apply, replace_on_error, force_replace_on_error,
-                                                              False, abort_on_error)
+                                                              False, abort_on_error, hook_timeout)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
         applied_hook_objects = list(applied_hook_objects.values())
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=applied_hook_objects,
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=[],
+                             hook_objects=applied_hook_objects, orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def diff(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, ignore_tags, ignore_labels, ignore_annotations, ignore_order):
         self.clear_errors_and_warnings()
         applied_objects, applied_hook_objects = self.do_apply(k8s_cluster,
                                                               force_apply, replace_on_error, force_replace_on_error,
-                                                              True, False)
+                                                              True, False, None)
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, ignore_tags, ignore_labels, ignore_annotations, ignore_order)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
         applied_hook_objects = list(applied_hook_objects.values())
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, hook_objects=applied_hook_objects,
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=[],
+                             hook_objects=applied_hook_objects, orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def poke_images(self, k8s_cluster):
@@ -215,28 +220,34 @@ class DeploymentCollection:
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=[],
+                             hook_objects=[], orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def downscale(self, k8s_cluster):
         self.clear_errors_and_warnings()
         with MyThreadPoolExecutor(max_workers=8) as executor:
-            futures = []
+            replace_futures = []
+            delete_futures = []
             for d in self.deployments:
                 if not d.check_inclusion_for_deploy():
                     continue
                 for o in d.objects:
                     ref = get_object_ref(o)
-                    f = executor.submit(self.do_replace_object, k8s_cluster, ref, downscale_object)
-                    futures.append((ref, f))
+                    if downsclae_is_delete(o):
+                        f = executor.submit(k8s_cluster.delete_single_object, ref, ignore_not_found=True)
+                        delete_futures.append((ref, f))
+                    else:
+                        f = executor.submit(self.do_replace_object, k8s_cluster, ref, lambda x, o=o: downscale_object(x, o))
+                        replace_futures.append((ref, f))
 
-            applied_objects = self.do_finish_futures(futures)
+            applied_objects = self.do_finish_futures(replace_futures)
+            deleted_objects = self.do_finish_futures(delete_futures)
 
         new_objects, changed_objects = self.do_diff(k8s_cluster, applied_objects, False, False, False, False)
         orphan_objects = self.find_orphan_objects(k8s_cluster)
-        return CommandResult(new_objects=new_objects, changed_objects=changed_objects,
-                             orphan_objects=orphan_objects,
+        return CommandResult(new_objects=new_objects, changed_objects=changed_objects, deleted_objects=list(deleted_objects.keys()),
+                             hook_objects=[], orphan_objects=orphan_objects,
                              errors=list(self.errors), warnings=list(self.warnings))
 
     def validate(self):
@@ -273,10 +284,10 @@ class DeploymentCollection:
         excluded_objects = list(self.local_objects_by_ref().keys())
         return find_objects_for_delete(k8s_cluster, labels, self.inclusion, excluded_objects)
 
-    def do_apply(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error):
+    def do_apply(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout):
         if k8s_cluster.dry_run:
-            dry_run = dry_run
-        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error)
+            dry_run = True
+        apply_util = ApplyUtil(self, k8s_cluster, force_apply, replace_on_error, force_replace_on_error, dry_run, abort_on_error, hook_timeout)
         apply_util.apply_deployments()
         return apply_util.applied_objects, apply_util.applied_hook_objects
 
@@ -294,9 +305,9 @@ class DeploymentCollection:
                 if ref not in applied_objects:
                     continue
                 diff_objects[ref] = applied_objects.get(ref)
-                normalized_diff_objects[ref] = normalize_object(k8s_cluster, diff_objects[ref], ignore_for_diffs)
+                normalized_diff_objects[ref] = normalize_object(k8s_cluster, diff_objects[ref], ignore_for_diffs, diff_objects[ref])
                 if ref in self.remote_objects:
-                    normalized_remote_objects[ref] = normalize_object(k8s_cluster, self.remote_objects[ref], ignore_for_diffs)
+                    normalized_remote_objects[ref] = normalize_object(k8s_cluster, self.remote_objects[ref], ignore_for_diffs, diff_objects[ref])
 
         logger.info("Diffing remote/old objects against applied/new objects")
         new_objects = []

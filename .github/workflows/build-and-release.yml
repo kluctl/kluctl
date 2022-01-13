@@ -103,7 +103,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8.10
+          python-version: 3.10.0
       - name: Write Version to _version.py
         run: |
           echo "__version__ = '${{ needs.version.outputs.version }}'" > kluctl/_version.py
@@ -122,9 +122,9 @@ jobs:
       - name: Install kluctl
         run: |
           pip install .
+          pip install -r requirements-dev.txt
       - name: Run Pyinstaller
         run: |
-          pip install pyinstaller==4.2
           pyinstaller kluctl.spec
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -143,7 +143,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8.10
+          python-version: 3.10.0
       - name: Write Version to _version.py
         run: |
           echo "__version__ = '${{ needs.version.outputs.version }}'" > kluctl/_version.py
