@@ -65,11 +65,7 @@ class KustomizeDeployment(object):
             a["kluctl.io/skip-delete-if-tags"] = "true"
         return a
 
-    def get_image_wrapper(self, image, namespace=None, deployment_name=None, container=None, latest_version=LooseSemVerLatestVersion()):
-        # TODO remove this
-        if namespace is not None or deployment_name is not None or container is not None:
-            logger.warning("images.get_image called with obsolete parameters (namespace/deployment_name/container). These are not needed anymore.")
-
+    def get_image_wrapper(self, image, latest_version=LooseSemVerLatestVersion()):
         tags = list(sorted(self.get_tags()))
         return self.deployment_collection.images.gen_image_placeholder(image, latest_version, self.get_rel_kustomize_dir(), tags)
 
