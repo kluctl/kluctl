@@ -107,15 +107,23 @@ class DeploymentCollection:
         with MyThreadPoolExecutor() as executor:
             jobs = []
             for d in self.deployments:
-                jobs.append(executor.submit(d.build_kustomize))
-            for job in jobs:
-                job.result()
+                jobs.append((d, executor.submit(d.build_kustomize)))
+            for d, job in jobs:
+                try:
+                    job.result()
+                except Exception as e:
+                    logger.error("Building kustomize objects for %s failed. %s" % (d.dir, str(e)))
+                    raise
             jobs.clear()
 
             for d in self.deployments:
-                jobs.append(executor.submit(d.postprocess_and_load_objects, k8s_cluster))
-            for job in jobs:
-                job.result()
+                jobs.append((d, executor.submit(d.postprocess_and_load_objects, k8s_cluster)))
+            for d, job in jobs:
+                try:
+                    job.result()
+                except Exception as e:
+                    logger.error("Postprocessing kustomize objects for %s failed. %s" % (d.dir, str(e)))
+                    raise
 
     def update_remote_objects(self, k8s_cluster):
         if k8s_cluster is None:
