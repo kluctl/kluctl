@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+import time
 from datetime import datetime
 
 from kubernetes.client import ApiException
@@ -177,6 +178,8 @@ class ApplyUtil:
             if not did_log:
                 logger.info("Waiting for hook %s to get ready..." % get_long_object_name_from_ref(ref))
                 did_log = True
+
+            time.sleep(0.5)
 
     def apply_kustomize_deployment(self, d):
         if "path" not in d.config:
