@@ -1,6 +1,0 @@
-a: "{{ a }}"
-
-b: {{ load_template('loaded.txt') }}
-
-{% set c=load_template('loaded.txt') %}
-c: {{ c }}

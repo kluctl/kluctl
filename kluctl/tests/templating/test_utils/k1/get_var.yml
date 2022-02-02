@@ -1,4 +1,0 @@
-
-test1: {{ get_var("non_existant", "default") }}
-test2: {{ get_var("deep.nested.non_existent", "default") }}
-test3: {{ get_var("deep.nested.var", "default") }}

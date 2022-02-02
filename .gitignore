@@ -1,13 +1,7 @@
 .idea
-.venv
-*.pyc
 *.kubeconfig
 .secrets.yml
 .sealed-secrets
 
-.kube
-.pytest-kind
-
-dist
-build
-kluctl.egg-info
+/vendor
+/kluctl

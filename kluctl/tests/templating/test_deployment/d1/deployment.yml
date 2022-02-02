@@ -1,5 +1,0 @@
-kustomizeDirs:
-- path: k1
-
-templateExcludes:
-  - k1/not-*.yml

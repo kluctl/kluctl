@@ -1,7 +1,0 @@
-kustomizeDirs:
-- path: k1
-
-commonLabels:
-  common_a: a
-deleteByLabels:
-  common_a: a
