@@ -7,22 +7,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type BaseItemConfig struct {
-	Path    *string         `yaml:"path,omitempty"`
-	Tags    []string        `yaml:"tags,omitempty"`
-	Barrier *bool           `yaml:"barrier,omitempty"`
-	Vars    []*VarsListItem `yaml:"vars,omitempty"`
-}
-
 type DeploymentItemConfig struct {
-	BaseItemConfig   `yaml:"base_item_config,inline"`
-	SkipDeleteIfTags *bool `yaml:"skipDeleteIfTags,omitempty"`
-	OnlyRender       *bool `yaml:"onlyRender,omitempty"`
-	AlwaysDeploy     *bool `yaml:"alwaysDeploy,omitempty"`
-}
-
-type IncludeItemConfig struct {
-	BaseItemConfig `yaml:"base_item_config,inline"`
+	Path             *string         `yaml:"path,omitempty"`
+	Tags             []string        `yaml:"tags,omitempty"`
+	Barrier          *bool           `yaml:"barrier,omitempty"`
+	Vars             []*VarsListItem `yaml:"vars,omitempty"`
+	SkipDeleteIfTags *bool           `yaml:"skipDeleteIfTags,omitempty"`
+	OnlyRender       *bool           `yaml:"onlyRender,omitempty"`
+	AlwaysDeploy     *bool           `yaml:"alwaysDeploy,omitempty"`
 }
 
 type DeploymentArg struct {
@@ -100,11 +92,11 @@ type DeploymentProjectConfig struct {
 	Vars          []*VarsListItem      `yaml:"vars,omitempty"`
 	SealedSecrets *SealedSecretsConfig `yaml:"sealedSecrets,omitempty"`
 
-	// Obsolete
 	DeploymentItems []*DeploymentItemConfig `yaml:"deploymentItems,omitempty"`
-	KustomizeDirs   []*DeploymentItemConfig `yaml:"kustomizeDirs,omitempty"`
 
-	Includes []*IncludeItemConfig `yaml:"includes,omitempty"`
+	// Obsolete
+	KustomizeDirs []*DeploymentItemConfig `yaml:"kustomizeDirs,omitempty"`
+	Includes      []*DeploymentItemConfig `yaml:"includes,omitempty"`
 
 	CommonLabels      map[string]string `yaml:"commonLabels,omitempty"`
 	DeleteByLabels    map[string]string `yaml:"deleteByLabels,omitempty"`

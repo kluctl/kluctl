@@ -44,10 +44,6 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 		index:      index,
 	}
 
-	if dir != nil && !utils.IsDirectory(*dir) {
-		return nil, fmt.Errorf("kustomizeDir does not exist: %s", *dir)
-	}
-
 	var err error
 
 	rootProject := di.project.getRootProject()

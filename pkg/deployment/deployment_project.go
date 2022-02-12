@@ -13,6 +13,7 @@ import (
 )
 
 var kustomizeDirsDeprecatedOnce sync.Once
+var includesDeprecatedOnce sync.Once
 
 type DeploymentProject struct {
 	varsCtx          *VarsCtx
@@ -24,7 +25,7 @@ type DeploymentProject struct {
 	includes map[int]*DeploymentProject
 
 	parentProject        *DeploymentProject
-	parentProjectInclude *types.IncludeItemConfig
+	parentProjectInclude *types.DeploymentItemConfig
 }
 
 func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
@@ -40,7 +41,7 @@ func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *VarsCtx, dir string, seale
 		return nil, fmt.Errorf("%s does not exist or is not a directory", dir)
 	}
 
-	err := dp.loadBaseConfig(k)
+	err := dp.loadConfig(k)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load deployment config for %s: %w", dir, err)
 	}
@@ -53,7 +54,7 @@ func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *VarsCtx, dir string, seale
 	return dp, nil
 }
 
-func (p *DeploymentProject) loadBaseConfig(k *k8s.K8sCluster) error {
+func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	configPath := path.Join(p.dir, "deployment.yml")
 	if !utils.Exists(configPath) {
 		if utils.Exists(path.Join(p.dir, "kustomization.yml")) {
@@ -73,30 +74,39 @@ func (p *DeploymentProject) loadBaseConfig(k *k8s.K8sCluster) error {
 	}
 
 	// TODO remove obsolete code
-	if len(p.config.DeploymentItems) != 0 && len(p.config.KustomizeDirs) != 0 {
-		return fmt.Errorf("using deploymentItems and kustomizeDirs at the same time is not allowed")
+	if len(p.config.DeploymentItems) != 0 && (len(p.config.KustomizeDirs) != 0 || len(p.config.Includes) != 0) {
+		return fmt.Errorf("using 'deploymentItems' and 'kustomizeDirs' at the same time is not allowed")
 	}
 	if len(p.config.KustomizeDirs) != 0 {
 		kustomizeDirsDeprecatedOnce.Do(func() {
-			log.Warningf("kustomizeDirs is deprecated, use deploymentItems instead")
+			log.Warningf("'kustomizeDirs' is deprecated, use 'deploymentItems' instead")
 		})
 		p.config.DeploymentItems = p.config.KustomizeDirs
 		p.config.KustomizeDirs = nil
 	}
+	if len(p.config.Includes) != 0 {
+		includesDeprecatedOnce.Do(func() {
+			log.Warningf("'includes' is deprecated, use 'deploymentItems' instead")
+		})
+		p.config.DeploymentItems = append(p.config.DeploymentItems, p.config.Includes...)
+		p.config.Includes = nil
+	}
 
 	// If there are no explicit tags set, interpret the path as a tag, which allows to
 	// enable/disable single deployments via included/excluded tags
-	setDefaultTag := func(item *types.BaseItemConfig) {
+	setDefaultTag := func(item *types.DeploymentItemConfig) {
 		if len(item.Tags) != 0 || item.Path == nil {
 			return
 		}
 		item.Tags = []string{path.Base(*item.Path)}
 	}
 	for _, di := range p.config.DeploymentItems {
-		setDefaultTag(&di.BaseItemConfig)
+		setDefaultTag(di)
 	}
-	for _, di := range p.config.Includes {
-		setDefaultTag(&di.BaseItemConfig)
+
+	err = p.checkDeploymentDirs()
+	if err != nil {
+		return err
 	}
 
 	if len(p.getCommonLabels()) == 0 {
@@ -108,25 +118,52 @@ func (p *DeploymentProject) loadBaseConfig(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
-	for i, inc := range p.config.Includes {
-		if inc.Path == nil {
+func (p *DeploymentProject) checkDeploymentDirs() error {
+	rootProject := p.getRootProject()
+	for _, di := range p.config.DeploymentItems {
+		if di.Path == nil {
 			continue
 		}
-		rootProject := p.getRootProject()
 
-		incDir := path.Join(p.dir, *inc.Path)
-		incDir, err := filepath.Abs(incDir)
+		diDir := path.Join(p.dir, *di.Path)
+		diDir, err := filepath.Abs(diDir)
 		if err != nil {
 			return err
 		}
 
-		if !strings.HasPrefix(incDir, rootProject.dir) {
-			return fmt.Errorf("include path is not part of root deployment project: %s", *inc.Path)
+		if !strings.HasPrefix(diDir, rootProject.dir) {
+			return fmt.Errorf("path is not part of root deployment project: %s", *di.Path)
 		}
 
+		if !utils.Exists(diDir) {
+			return fmt.Errorf("deployment directory does not exist: %s", *di.Path)
+		}
+		if !utils.IsDirectory(diDir) {
+			return fmt.Errorf("deployment path is not a directory: %s", *di.Path)
+		}
+	}
+	return nil
+}
+
+func (p *DeploymentProject) isIncludeDeployment(di *types.DeploymentItemConfig) bool {
+	if di.Path == nil {
+		return false
+	}
+
+	incDir := path.Join(p.dir, *di.Path, "deployment.yml")
+	return utils.Exists(incDir)
+}
+
+func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
+	for i, inc := range p.config.DeploymentItems {
+		if !p.isIncludeDeployment(inc) {
+			continue
+		}
+
+		incDir := path.Join(p.dir, *inc.Path)
+
 		varsCtx := p.varsCtx.Copy()
-		err = varsCtx.loadVarsList(k, p.getRenderSearchDirs(), inc.Vars)
+		err := varsCtx.loadVarsList(k, p.getRenderSearchDirs(), inc.Vars)
 		if err != nil {
 			return err
 		}
@@ -159,12 +196,12 @@ func (p *DeploymentProject) getRootProject() *DeploymentProject {
 
 type deploymentProjectAndIncludeItem struct {
 	p   *DeploymentProject
-	inc *types.IncludeItemConfig
+	inc *types.DeploymentItemConfig
 }
 
 func (p *DeploymentProject) getParents() []deploymentProjectAndIncludeItem {
 	var parents []deploymentProjectAndIncludeItem
-	var inc *types.IncludeItemConfig
+	var inc *types.DeploymentItemConfig
 	d := p
 	for d != nil {
 		parents = append(parents, deploymentProjectAndIncludeItem{p: d, inc: inc})

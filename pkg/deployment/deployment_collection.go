@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -52,53 +51,63 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 	return dc, nil
 }
 
+func (c *DeploymentCollection) createBarrierDummy(project *DeploymentProject) *deploymentItem {
+	b := true
+	tmpDiConfig := &types.DeploymentItemConfig{
+		Barrier: &b,
+	}
+	di, err := NewDeploymentItem(project, c, tmpDiConfig, nil, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return di
+}
+
+func findDeploymentItemIndex(project *DeploymentProject, diConfig *types.DeploymentItemConfig, indexes map[string]int) (int, *string) {
+	var dir2 *string
+	index := 0
+	if diConfig.Path != nil {
+		dir := path.Join(project.dir, *diConfig.Path)
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			// we pre-checked directories, so this should not happen
+			log.Fatal(err)
+		}
+
+		if _, ok := indexes[absDir]; !ok {
+			indexes[absDir] = 0
+		}
+		index, _ = indexes[absDir]
+		indexes[absDir] = index + 1
+		dir2 = &absDir
+	}
+	return index, dir2
+}
+
 func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, indexes map[string]int) ([]*deploymentItem, error) {
 	var ret []*deploymentItem
 
-	for _, diConfig := range project.config.DeploymentItems {
-		var dir2 *string
-		index := 0
-		if diConfig.Path != nil {
-			dir := path.Join(project.dir, *diConfig.Path)
-			dir, err := filepath.Abs(dir)
-			if err != nil {
-				return nil, err
+	for i, diConfig := range project.config.DeploymentItems {
+		if project.isIncludeDeployment(diConfig) {
+			if diConfig.Barrier != nil && *diConfig.Barrier {
+				ret = append(ret, c.createBarrierDummy(project))
 			}
-			if !strings.HasPrefix(dir, project.getRootProject().dir) {
-				return nil, fmt.Errorf("kustomizeDir path is not part of root deployment project: %s", *diConfig.Path)
+			includedProject, ok := project.includes[i]
+			if !ok {
+				log.Fatalf("Did not find find index %d in project.includes", i)
 			}
-			if _, ok := indexes[dir]; !ok {
-				indexes[dir] = 0
-			}
-			index, _ = indexes[dir]
-			indexes[dir] = index + 1
-			dir2 = &dir
-		}
-		di, err := NewDeploymentItem(project, c, diConfig, dir2, index)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, di)
-	}
-
-	for i, incConf := range project.config.Includes {
-		if incConf.Barrier != nil && *incConf.Barrier {
-			tmpDiConfig := &types.DeploymentItemConfig{
-				BaseItemConfig: incConf.BaseItemConfig,
-			}
-			di, err := NewDeploymentItem(project, c, tmpDiConfig, nil, 0)
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, di)
-		}
-
-		if includedProject, ok := project.includes[i]; ok {
 			ret2, err := c.collectDeployments(includedProject, indexes)
 			if err != nil {
 				return nil, err
 			}
 			ret = append(ret, ret2...)
+		} else {
+			index, dir2 := findDeploymentItemIndex(project, diConfig, indexes)
+			di, err := NewDeploymentItem(project, c, diConfig, dir2, index)
+			if err != nil {
+				return nil, err
+			}
+			ret = append(ret, di)
 		}
 	}
 
