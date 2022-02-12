@@ -169,7 +169,7 @@ func (u *hooksUtil) getHook(o *unstructured.Unstructured) *hook {
 	helmHooks := getSet("helm.sh/hook")
 	for h := range helmHooks {
 		if utils.FindStrInSlice(supportedHelmHooks, h) == -1 {
-			u.a.handleError(ref, fmt.Errorf("unsupported helm.sh/hook '%s'", h))
+			u.a.handleWarning(ref, fmt.Errorf("unsupported helm.sh/hook '%s'", h))
 		}
 	}
 

@@ -132,7 +132,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 
 			if !triedRemoteObject {
 				triedRemoteObject = true
-				remoteObject, err = k.GetSingleObject(types.RefFromObject(o))
+				remoteObject, _, err = k.GetSingleObject(types.RefFromObject(o))
 				if err != nil && !errors.IsNotFound(err) {
 					return err
 				}

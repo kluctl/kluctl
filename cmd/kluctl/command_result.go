@@ -61,7 +61,7 @@ func formatCommandResultText(cr *types.CommandResult) string {
 
 	if len(cr.Errors) != 0 {
 		buf.WriteString("\nErrors:\n")
-		prettyErrors(buf, cr.Warnings)
+		prettyErrors(buf, cr.Errors)
 	}
 
 	return buf.String()

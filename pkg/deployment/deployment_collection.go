@@ -26,8 +26,9 @@ type DeploymentCollection struct {
 	deployments   []*deploymentItem
 	remoteObjects map[types.ObjectRef]*unstructured.Unstructured
 
-	errors   map[types.DeploymentError]bool
-	warnings map[types.DeploymentError]bool
+	errors   map[types.ObjectRef]map[types.DeploymentError]bool
+	warnings map[types.ObjectRef]map[types.DeploymentError]bool
+	mutex    sync.Mutex
 }
 
 func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
@@ -38,8 +39,8 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 		RenderDir:     renderDir,
 		forSeal:       forSeal,
 		remoteObjects: map[types.ObjectRef]*unstructured.Unstructured{},
-		errors:        map[types.DeploymentError]bool{},
-		warnings:      map[types.DeploymentError]bool{},
+		errors:        map[types.ObjectRef]map[types.DeploymentError]bool{},
+		warnings:      map[types.ObjectRef]map[types.DeploymentError]bool{},
 	}
 
 	indexes := make(map[string]int)
@@ -195,7 +196,10 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 
 	log.Infof("Updating %d remote objects", len(notFoundRefsList))
 
-	r, err := k.GetObjectsByRefs(notFoundRefsList)
+	r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
+	for ref, aw := range apiWarnings {
+		c.addApiWarnings(ref, aw)
+	}
 	if err != nil {
 		return err
 	}
@@ -324,11 +328,15 @@ func (c *DeploymentCollection) Validate() *types.ValidateResult {
 
 	var result types.ValidateResult
 
-	for e := range c.warnings {
-		result.Warnings = append(result.Warnings, e)
+	for _, m := range c.warnings {
+		for e := range m {
+			result.Warnings = append(result.Warnings, e)
+		}
 	}
-	for e := range c.errors {
-		result.Errors = append(result.Errors, e)
+	for _, m := range c.warnings {
+		for e := range m {
+			result.Errors = append(result.Errors, e)
+		}
 	}
 
 	for _, d := range c.deployments {
@@ -436,14 +444,19 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[type
 	return newObjects, changedObjects, nil
 }
 
-func (c *DeploymentCollection) addWarnings(ref types.ObjectRef, warnings []error) {
-	for _, w := range warnings {
-		de := types.DeploymentError{
-			Ref:   ref,
-			Error: w.Error(),
-		}
-		c.warnings[de] = true
+func (c *DeploymentCollection) addWarning(ref types.ObjectRef, warning error) {
+	de := types.DeploymentError{
+		Ref:   ref,
+		Error: warning.Error(),
 	}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	m, ok := c.warnings[ref]
+	if !ok {
+		m = make(map[types.DeploymentError]bool)
+		c.warnings[ref] = m
+	}
+	m[de] = true
 }
 
 func (c *DeploymentCollection) addError(ref types.ObjectRef, err error) {
@@ -451,28 +464,58 @@ func (c *DeploymentCollection) addError(ref types.ObjectRef, err error) {
 		Ref:   ref,
 		Error: err.Error(),
 	}
-	c.errors[de] = true
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	m, ok := c.errors[ref]
+	if !ok {
+		m = make(map[types.DeploymentError]bool)
+		c.errors[ref] = m
+	}
+	m[de] = true
+}
+
+func (c *DeploymentCollection) addApiWarnings(ref types.ObjectRef, warnings []k8s.ApiWarning) {
+	for _, w := range warnings {
+		c.addWarning(ref, fmt.Errorf(w.Text))
+	}
+}
+
+func (c *DeploymentCollection) hadError(ref types.ObjectRef) bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	_, ok := c.errors[ref]
+	return ok
 }
 
 func (c *DeploymentCollection) errorsList() []types.DeploymentError {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	var l []types.DeploymentError
-	for de := range c.errors {
-		l = append(l, de)
+	for _, m := range c.errors {
+		for de := range m {
+			l = append(l, de)
+		}
 	}
 	return l
 }
 
 func (c *DeploymentCollection) warningsList() []types.DeploymentError {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	var l []types.DeploymentError
-	for de := range c.warnings {
-		l = append(l, de)
+	for _, m := range c.warnings {
+		for de := range m {
+			l = append(l, de)
+		}
 	}
 	return l
 }
 
 func (c *DeploymentCollection) clearErrorsAndWarnings() {
-	c.warnings = map[types.DeploymentError]bool{}
-	c.errors = map[types.DeploymentError]bool{}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.warnings = map[types.ObjectRef]map[types.DeploymentError]bool{}
+	c.errors = map[types.ObjectRef]map[types.DeploymentError]bool{}
 }
 
 func (c *DeploymentCollection) getRemoteObject(ref types.ObjectRef) *unstructured.Unstructured {

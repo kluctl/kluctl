@@ -144,22 +144,38 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 	wp := utils.NewDebuggerAwareWorkerPool(8)
 	defer wp.StopWait(false)
 
+	var ret types.CommandResult
 	namespaceNames := make(map[string]bool)
-	var deletedObjects []types.ObjectRef
 	var mutex sync.Mutex
+
+	handleResult := func(ref types.ObjectRef, apiWarnings []ApiWarning, err error) {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		if err == nil {
+			ret.DeletedObjects = append(ret.DeletedObjects, ref)
+		} else {
+			ret.Errors = append(ret.Errors, types.DeploymentError{
+				Ref:   ref,
+				Error: err.Error(),
+			})
+		}
+		for _, w := range apiWarnings {
+			ret.Warnings = append(ret.Warnings, types.DeploymentError{
+				Ref:   ref,
+				Error: w.Text,
+			})
+		}
+	}
 
 	for _, ref_ := range refs {
 		ref := ref_
 		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
 			wp.Submit(func() error {
-				err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait})
-				mutex.Lock()
-				defer mutex.Unlock()
-				if err == nil {
-					deletedObjects = append(deletedObjects, ref)
-				}
-				return err
+				apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait})
+				handleResult(ref, apiWarnings, err)
+				return nil
 			})
 		}
 	}
@@ -178,15 +194,11 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 			continue
 		}
 		wp.Submit(func() error {
-			err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait})
-			mutex.Lock()
-			defer mutex.Unlock()
-			if err == nil {
-				deletedObjects = append(deletedObjects, ref)
-			}
-			return err
+			apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait})
+			handleResult(ref, apiWarnings, err)
+			return nil
 		})
 	}
 	err = wp.StopWait(false)
-	return &types.CommandResult{DeletedObjects: deletedObjects}, err
+	return &ret, err
 }

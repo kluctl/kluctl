@@ -37,7 +37,7 @@ func runCmdBootstrap(cmd *cobra.Command, args_ []string) error {
 	}
 
 	return withProjectCommandContext(func(ctx *commandCtx) error {
-		existing, err := ctx.k.GetSingleObject(types.ObjectRef{
+		existing, _, err := ctx.k.GetSingleObject(types.ObjectRef{
 			GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
 			Name: "sealedsecrets.bitnami.com",
 		})

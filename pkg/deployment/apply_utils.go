@@ -32,7 +32,6 @@ type applyUtil struct {
 	appliedObjects     map[types.ObjectRef]*unstructured.Unstructured
 	appliedHookObjects map[types.ObjectRef]*unstructured.Unstructured
 	abortSignal        bool
-	errorRefs          map[types.ObjectRef]error
 	mutex              sync.Mutex
 }
 
@@ -43,7 +42,6 @@ func newApplyUtil(deploymentCollection *DeploymentCollection, k *k8s.K8sCluster,
 		o:                    o,
 		appliedObjects:       map[types.ObjectRef]*unstructured.Unstructured{},
 		appliedHookObjects:   map[types.ObjectRef]*unstructured.Unstructured{},
-		errorRefs:            map[types.ObjectRef]error{},
 	}
 }
 
@@ -59,11 +57,18 @@ func (a *applyUtil) handleResult(appliedObject *unstructured.Unstructured, hook 
 	}
 }
 
+func (a *applyUtil) handleApiWarnings(ref types.ObjectRef, warnings []k8s.ApiWarning) {
+	a.deploymentCollection.addApiWarnings(ref, warnings)
+}
+
+func (a *applyUtil) handleWarning(ref types.ObjectRef, warning error) {
+	a.deploymentCollection.addWarning(ref, warning)
+}
+
 func (a *applyUtil) handleError(ref types.ObjectRef, err error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	a.errorRefs[ref] = err
 	if a.o.abortOnError {
 		a.abortSignal = true
 	}
@@ -72,18 +77,15 @@ func (a *applyUtil) handleError(ref types.ObjectRef, err error) {
 }
 
 func (a *applyUtil) hadError(ref types.ObjectRef) bool {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	_, ok := a.errorRefs[ref]
-	return ok
+	return a.deploymentCollection.hadError(ref)
 }
 
 func (a *applyUtil) deleteObject(ref types.ObjectRef) bool {
 	o := k8s.DeleteOptions{
 		ForceDryRun: a.o.dryRun,
 	}
-	err := a.k.DeleteSingleObject(ref, o)
+	apiWarnings, err := a.k.DeleteSingleObject(ref, o)
+	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		a.handleError(ref, err)
 		return false
@@ -110,7 +112,8 @@ func (a *applyUtil) retryApplyForceReplace(x *unstructured.Unstructured, hook bo
 		o := k8s.PatchOptions{
 			ForceDryRun: a.o.dryRun,
 		}
-		r, err := a.k.PatchObject(x, o)
+		r, apiWarnings, err := a.k.PatchObject(x, o)
+		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			a.handleError(ref, err)
 			return
@@ -140,7 +143,8 @@ func (a *applyUtil) retryApplyWithReplace(x *unstructured.Unstructured, hook boo
 		ForceDryRun: a.o.dryRun,
 	}
 
-	r, err := a.k.UpdateObject(x, o)
+	r, apiWarnings, err := a.k.UpdateObject(x, o)
+	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		a.retryApplyForceReplace(x, hook, err)
 		return
@@ -155,7 +159,6 @@ func (a *applyUtil) retryApplyWithConflicts(x *unstructured.Unstructured, hook b
 		a.handleError(ref, applyError)
 	}
 
-	var resolveWarnings []error
 	var x2 *unstructured.Unstructured
 	if !a.o.forceApply {
 		statusError, ok := applyError.(*errors.StatusError)
@@ -170,9 +173,8 @@ func (a *applyUtil) retryApplyWithConflicts(x *unstructured.Unstructured, hook b
 			return
 		}
 		for _, lo := range lostOwnership {
-			resolveWarnings = append(resolveWarnings, fmt.Errorf("%s. Not updating field '%s' as we lost field ownership", lo.Message, lo.Field))
+			a.deploymentCollection.addWarning(ref, fmt.Errorf("%s. Not updating field '%s' as we lost field ownership", lo.Message, lo.Field))
 		}
-		a.deploymentCollection.addWarnings(ref, resolveWarnings)
 		x2 = x3
 	} else {
 		x2 = x
@@ -182,7 +184,8 @@ func (a *applyUtil) retryApplyWithConflicts(x *unstructured.Unstructured, hook b
 		ForceDryRun: a.o.dryRun,
 		ForceApply:  true,
 	}
-	r, err := a.k.PatchObject(x2, options)
+	r, apiWarnings, err := a.k.PatchObject(x2, options)
+	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		// We didn't manage to solve it, better to abort (and not retry with replace!)
 		a.handleError(ref, err)
@@ -209,7 +212,8 @@ func (a *applyUtil) applyObject(x *unstructured.Unstructured, replaced bool, hoo
 	options := k8s.PatchOptions{
 		ForceDryRun: a.o.dryRun,
 	}
-	r, err := a.k.PatchObject(x, options)
+	r, apiWarnings, err := a.k.PatchObject(x, options)
+	a.handleApiWarnings(ref, apiWarnings)
 	if err == nil {
 		a.handleResult(r, hook)
 	} else if meta.IsNoMatchError(err) {
@@ -232,7 +236,8 @@ func (a *applyUtil) waitHook(ref types.ObjectRef) bool {
 	didLog := false
 	startTime := time.Now()
 	for true {
-		o, err := a.k.GetSingleObject(ref)
+		o, apiWarnings, err := a.k.GetSingleObject(ref)
+		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if didLog {

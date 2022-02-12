@@ -34,15 +34,35 @@ type K8sCluster struct {
 	context string
 	DryRun  bool
 
-	discovery          *disk.CachedDiscoveryClient
-	dynamicClientPool  chan dynamic.Interface
-	metadataClientPool chan metadata.Interface
+	discovery  *disk.CachedDiscoveryClient
+	clientPool chan *parallelClientEntry
 
 	ServerVersion *goversion.Version
 
 	allResources       map[schema.GroupVersionKind]v1.APIResource
 	preferredResources map[schema.GroupKind]v1.APIResource
 	mutex              sync.Mutex
+}
+
+type parallelClientEntry struct {
+	dynamicClient  dynamic.Interface
+	metadataClient metadata.Interface
+
+	warnings []ApiWarning
+}
+
+type ApiWarning struct {
+	Code  int
+	Agent string
+	Text  string
+}
+
+func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text string) {
+	p.warnings = append(p.warnings, ApiWarning{
+		Code:  code,
+		Agent: agent,
+		Text:  text,
+	})
 }
 
 func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
@@ -76,24 +96,23 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	k.discovery = discovery2
 
 	parallelClients := 16
-	k.dynamicClientPool = make(chan dynamic.Interface, parallelClients)
-	k.metadataClientPool = make(chan metadata.Interface, parallelClients)
+	k.clientPool = make(chan *parallelClientEntry, parallelClients)
 	for i := 0; i < parallelClients; i++ {
-		dynamic2, err := dynamic.NewForConfig(restConfig)
+		p := &parallelClientEntry{}
+		restConfig.WarningHandler = p
+
+		p.dynamicClient, err = dynamic.NewForConfig(restConfig)
 		if err != nil {
 			return nil, err
 		}
 
-		metadataClient, err := metadata.NewForConfig(config)
+		p.metadataClient, err = metadata.NewForConfig(config)
 		if err != nil {
 			return nil, err
 		}
 
-		k.dynamicClientPool <- dynamic2
-		k.metadataClientPool <- metadataClient
+		k.clientPool <- p
 	}
-
-	// TODO config.WarningHandler
 
 	v, err := k.discovery.ServerVersion()
 	if err != nil {
@@ -287,34 +306,43 @@ func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVer
 	}, ar.Namespaced, nil
 }
 
-func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) error {
+func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
 	gvr, namespaced, err := k.getGVRForGVK(gvk)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	client := <-k.dynamicClientPool
-	defer func() { k.dynamicClientPool <- client }()
+	p := <-k.clientPool
+	defer func() { k.clientPool <- p }()
+
+	p.warnings = nil
 
 	if namespaced {
-		return cb(client.Resource(*gvr).Namespace(namespace))
+		err = cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
+		return append([]ApiWarning(nil), p.warnings...), err
 	} else {
-		return cb(client.Resource(*gvr))
+		err = cb(p.dynamicClient.Resource(*gvr))
+		return append([]ApiWarning(nil), p.warnings...), err
 	}
 }
 
-func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) error {
+func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
 	gvr, namespaced, err := k.getGVRForGVK(gvk)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	client := <-k.metadataClientPool
-	defer func() { k.metadataClientPool <- client }()
+
+	p := <-k.clientPool
+	defer func() { k.clientPool <- p }()
+
+	p.warnings = nil
 
 	if namespaced {
-		return cb(client.Resource(*gvr).Namespace(namespace))
+		err = cb(p.metadataClient.Resource(*gvr).Namespace(namespace))
+		return append([]ApiWarning(nil), p.warnings...), err
 	} else {
-		return cb(client.Resource(*gvr))
+		err = cb(p.metadataClient.Resource(*gvr))
+		return append([]ApiWarning(nil), p.warnings...), err
 	}
 }
 
@@ -330,10 +358,10 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 	return ret
 }
 
-func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) (*unstructured.UnstructuredList, error) {
+func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) (*unstructured.UnstructuredList, []ApiWarning, error) {
 	var result *unstructured.UnstructuredList
 
-	err := k.withDynamicClientForGVK(gvk, namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.withDynamicClientForGVK(gvk, namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.ListOptions{}
 		x, err := r.List(context.Background(), o)
 		if err != nil {
@@ -342,13 +370,13 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) 
 		result = x
 		return nil
 	})
-	return result, err
+	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) (*v1.PartialObjectMetadataList, error) {
+func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) (*v1.PartialObjectMetadataList, []ApiWarning, error) {
 	var result *v1.PartialObjectMetadataList
 
-	err := k.withMetadataClientForGVK(gvk, namespace, func(r metadata.ResourceInterface) error {
+	apiWarnings, err := k.withMetadataClientForGVK(gvk, namespace, func(r metadata.ResourceInterface) error {
 		o := v1.ListOptions{
 			LabelSelector: k.buildLabelSelector(labels),
 		}
@@ -359,7 +387,7 @@ func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace 
 		result = x
 		return nil
 	})
-	return result, err
+	return result, apiWarnings, err
 }
 
 func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, labels map[string]string) ([]*v1.PartialObjectMetadata, error) {
@@ -367,6 +395,7 @@ func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, la
 	defer wp.StopWait(false)
 
 	var ret []*v1.PartialObjectMetadata
+	var retApiWarnings []ApiWarning
 	var mutex sync.Mutex
 
 	k.mutex.Lock()
@@ -387,7 +416,7 @@ func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, la
 			Kind:    ar.Kind,
 		}
 		wp.Submit(func() error {
-			lm, err := k.ListObjectsMetadata(gvk, namespace, labels)
+			lm, apiWarnings, err := k.ListObjectsMetadata(gvk, namespace, labels)
 			if err != nil {
 				return err
 			}
@@ -398,6 +427,7 @@ func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, la
 				o.SetGroupVersionKind(gvk)
 				ret = append(ret, &o)
 			}
+			retApiWarnings = append(retApiWarnings, apiWarnings...)
 			return nil
 		})
 	}
@@ -411,9 +441,9 @@ func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, la
 	return ret, nil
 }
 
-func (k *K8sCluster) GetSingleObject(ref types2.ObjectRef) (*unstructured.Unstructured, error) {
+func (k *K8sCluster) GetSingleObject(ref types2.ObjectRef) (*unstructured.Unstructured, []ApiWarning, error) {
 	var result *unstructured.Unstructured
-	err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.GetOptions{}
 		x, err := r.Get(context.Background(), ref.Name, o)
 		if err != nil {
@@ -422,36 +452,42 @@ func (k *K8sCluster) GetSingleObject(ref types2.ObjectRef) (*unstructured.Unstru
 		result = x
 		return nil
 	})
-	return result, err
+	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) GetObjectsByRefs(refs []types2.ObjectRef) ([]*unstructured.Unstructured, error) {
+func (k *K8sCluster) GetObjectsByRefs(refs []types2.ObjectRef) ([]*unstructured.Unstructured, map[types2.ObjectRef][]ApiWarning, error) {
 	wp := utils.NewWorkerPoolWithErrors(32)
 	defer wp.StopWait(false)
 
+	var ret []*unstructured.Unstructured
+	retApiWarnings := make(map[types2.ObjectRef][]ApiWarning)
+	var mutex sync.Mutex
+
 	for _, ref_ := range refs {
 		ref := ref_
-		wp.SubmitWithResult(func() (interface{}, error) {
-			o, err := k.GetSingleObject(ref)
+		wp.Submit(func() error {
+			o, apiWarnings, err := k.GetSingleObject(ref)
+			mutex.Lock()
+			defer mutex.Unlock()
+			if len(apiWarnings) != 0 {
+				retApiWarnings[ref] = apiWarnings
+			}
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return nil, nil
+					return nil
 				}
-				return nil, err
+				return err
 			}
-			return o, nil
+			ret = append(ret, o)
+			return nil
 		})
 	}
 	err := wp.StopWait(false)
 	if err != nil {
-		return nil, err
+		return nil, retApiWarnings, err
 	}
 
-	var results []*unstructured.Unstructured
-	for _, o := range wp.Results() {
-		results = append(results, o.(*unstructured.Unstructured))
-	}
-	return results, nil
+	return ret, retApiWarnings, nil
 }
 
 type DeleteOptions struct {
@@ -460,7 +496,7 @@ type DeleteOptions struct {
 	ErrorOnNotFound bool
 }
 
-func (k *K8sCluster) DeleteSingleObject(ref types2.ObjectRef, options DeleteOptions) error {
+func (k *K8sCluster) DeleteSingleObject(ref types2.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 
 	pp := v1.DeletePropagationForeground
@@ -595,14 +631,14 @@ type PatchOptions struct {
 	ForceApply  bool
 }
 
-func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOptions) (*unstructured.Unstructured, error) {
+func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOptions) (*unstructured.Unstructured, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 	ref := types2.RefFromObject(o)
 	log2 := log.WithField("ref", ref)
 
 	data, err := o.MarshalJSON()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	po := v1.PatchOptions{
@@ -617,7 +653,7 @@ func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOpti
 
 	log2.Debugf("patching")
 	var result *unstructured.Unstructured
-	err = k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(context.Background(), ref.Name, types.ApplyPatchType, data, po)
 		if err != nil {
 			return err
@@ -625,14 +661,14 @@ func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOpti
 		result = x
 		return nil
 	})
-	return result, err
+	return result, apiWarnings, err
 }
 
 type UpdateOptions struct {
 	ForceDryRun bool
 }
 
-func (k *K8sCluster) UpdateObject(o *unstructured.Unstructured, options UpdateOptions) (*unstructured.Unstructured, error) {
+func (k *K8sCluster) UpdateObject(o *unstructured.Unstructured, options UpdateOptions) (*unstructured.Unstructured, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 	ref := types2.RefFromObject(o)
 	log2 := log.WithField("ref", ref)
@@ -646,7 +682,7 @@ func (k *K8sCluster) UpdateObject(o *unstructured.Unstructured, options UpdateOp
 
 	log2.Debugf("updating")
 	var result *unstructured.Unstructured
-	err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Update(context.Background(), o, uo)
 		if err != nil {
 			return err
@@ -654,5 +690,5 @@ func (k *K8sCluster) UpdateObject(o *unstructured.Unstructured, options UpdateOp
 		result = x
 		return nil
 	})
-	return result, err
+	return result, apiWarnings, err
 }
