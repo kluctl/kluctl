@@ -47,7 +47,7 @@ type SecretsConfig struct {
 }
 
 type KluctlProject struct {
-	Deployment    *ExternalProject `yaml:"name,omitempty"`
+	Deployment    *ExternalProject `yaml:"deployment,omitempty"`
 	SealedSecrets *ExternalProject `yaml:"sealedSecrets,omitempty"`
 	Clusters      ExternalProjects `yaml:"clusters,omitempty"`
 	Targets       []Target         `yaml:"targets,omitempty"`

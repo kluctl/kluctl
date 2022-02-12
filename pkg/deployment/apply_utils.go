@@ -256,7 +256,7 @@ func (a *applyUtil) waitHook(ref types.ObjectRef) bool {
 				log2.Warningf("Cancelled waiting for hook due to errors")
 			}
 			for _, e := range v.Errors {
-				a.handleError(ref, fmt.Errorf(e.Message))
+				a.handleError(ref, fmt.Errorf(e.Error))
 			}
 			return false
 		}

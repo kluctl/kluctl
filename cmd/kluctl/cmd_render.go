@@ -45,4 +45,3 @@ func init() {
 
 	rootCmd.AddCommand(cmd)
 }
-

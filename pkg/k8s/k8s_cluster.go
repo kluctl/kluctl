@@ -24,6 +24,12 @@ import (
 	"time"
 )
 
+var (
+	deprecatedResources = map[schema.GroupKind]bool{
+		{Group: "extensions", Kind: "Ingress"}: true,
+	}
+)
+
 type K8sCluster struct {
 	context string
 	DryRun  bool
@@ -142,6 +148,9 @@ func (k *K8sCluster) updateResources() error {
 				Version: ar.Version,
 				Kind:    ar.Kind,
 			}
+			if _, ok := deprecatedResources[gvk.GroupKind()]; ok {
+				continue
+			}
 			if _, ok := k.allResources[gvk]; ok {
 				ok = false
 			}
@@ -168,6 +177,9 @@ func (k *K8sCluster) updateResources() error {
 			gk := schema.GroupKind{
 				Group: ar.Group,
 				Kind:  ar.Kind,
+			}
+			if _, ok := deprecatedResources[gk]; ok {
+				continue
 			}
 			k.preferredResources[gk] = ar
 		}
@@ -233,6 +245,30 @@ func (k *K8sCluster) GetAllGroupVersions() ([]string, error) {
 		}
 	}
 	return l, nil
+}
+
+func (k *K8sCluster) GetFilteredGKs(filters []string) []schema.GroupKind {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	m := make(map[schema.GroupKind]bool)
+	var l []schema.GroupKind
+	for gk, ar := range k.preferredResources {
+		found := len(filters) == 0
+		for _, f := range filters {
+			if ar.Name == f || ar.Group == f || ar.Kind == f {
+				found = true
+				break
+			}
+		}
+		if found {
+			if _, ok := m[gk]; !ok {
+				m[gk] = true
+				l = append(l, gk)
+			}
+		}
+	}
+	return l
 }
 
 func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {

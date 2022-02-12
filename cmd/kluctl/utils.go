@@ -67,7 +67,7 @@ func withProjectCommandContext(cb func(ctx *commandCtx) error) error {
 }
 
 func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, target *types.Target, forSeal bool, cb func(ctx *commandCtx) error) error {
-	projectDir, err := filepath.Abs(p.ProjectDir)
+	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		}
 	}
 
-	err = deployment.CheckRequiredDeployArgs(projectDir, varsCtx, allArgs)
+	err = deployment.CheckRequiredDeployArgs(deploymentDir, varsCtx, allArgs)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		renderOutputDir = tmpDir
 	}
 
-	d, err := deployment.NewDeploymentProject(k, varsCtx, projectDir, p.SealedSecretsDir, nil)
+	d, err := deployment.NewDeploymentProject(k, varsCtx, deploymentDir, p.SealedSecretsDir, nil)
 	if err != nil {
 		return err
 	}

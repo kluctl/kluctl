@@ -6,6 +6,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"path"
@@ -204,10 +205,8 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *DeploymentCollection) forgetRemoteObjects(refs []types.ObjectRef) {
-	for _, ref := range refs {
-		delete(c.remoteObjects, ref)
-	}
+func (c *DeploymentCollection) ForgetRemoteObject(ref types.ObjectRef) {
+	delete(c.remoteObjects, ref)
 }
 
 func (c *DeploymentCollection) localObjectsByRef() map[types.ObjectRef]bool {
@@ -270,7 +269,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 	if err != nil {
 		return nil, err
 	}
-	orphanObjects, err := c.findOrphanObjects(k)
+	orphanObjects, err := c.FindOrphanObjects(k)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +305,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	if err != nil {
 		return nil, err
 	}
-	orphanObjects, err := c.findOrphanObjects(k)
+	orphanObjects, err := c.FindOrphanObjects(k)
 	if err != nil {
 		return nil, err
 	}
@@ -320,12 +319,45 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	}, nil
 }
 
-func (c *DeploymentCollection) findDeleteObjects(k *k8s.K8sCluster) ([]types.ObjectRef, error) {
+func (c *DeploymentCollection) Validate() *types.ValidateResult {
+	c.clearErrorsAndWarnings()
+
+	var result types.ValidateResult
+
+	for e := range c.warnings {
+		result.Warnings = append(result.Warnings, e)
+	}
+	for e := range c.errors {
+		result.Errors = append(result.Errors, e)
+	}
+
+	for _, d := range c.deployments {
+		if !d.checkInclusionForDeploy() {
+			continue
+		}
+		for _, o := range d.objects {
+			ref := types.RefFromObject(o)
+			remoteObject := c.getRemoteObject(ref)
+			if remoteObject == nil {
+				result.Errors = append(result.Errors, types.DeploymentError{Ref: ref, Error: "object not found"})
+				continue
+			}
+			r := validation.ValidateObject(o, true)
+			result.Errors = append(result.Errors, r.Errors...)
+			result.Warnings = append(result.Warnings, r.Warnings...)
+			result.Results = append(result.Results, r.Results...)
+		}
+	}
+
+	return &result
+}
+
+func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]types.ObjectRef, error) {
 	labels := c.project.getDeleteByLabels()
 	return k8s.FindObjectsForDelete(k, labels, c.inclusion, nil)
 }
 
-func (c *DeploymentCollection) findOrphanObjects(k *k8s.K8sCluster) ([]types.ObjectRef, error) {
+func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]types.ObjectRef, error) {
 	log.Infof("Searching for orphan objects")
 	labels := c.project.getDeleteByLabels()
 	return k8s.FindObjectsForDelete(k, labels, c.inclusion, c.localObjectRefs())

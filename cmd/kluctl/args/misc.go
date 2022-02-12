@@ -19,6 +19,10 @@ var (
 	OutputFormat        []string
 	Output              []string
 	RenderOutputDir     string
+
+	Wait             time.Duration
+	Sleep            time.Duration
+	WarningsAsErrors bool
 )
 
 type EnabledMiscArguments struct {

@@ -194,6 +194,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	if utils.Exists(valuesPath) {
 		args = append(args, "-f", valuesPath)
 	}
+	args = append(args, "-n", namespace)
 
 	if c.config.SkipCRDs != nil && *c.config.SkipCRDs {
 		args = append(args, "--skip-crds")
@@ -227,7 +228,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 		// "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
 		// add the necessary namespace in the rendered resources
 		_, found, _ := unstructured.NestedString(m, "metadata", "namespace")
-		if !found {
+		if !found && k.IsNamespaced((&unstructured.Unstructured{Object: m}).GroupVersionKind()) {
 			_ = unstructured.SetNestedField(m, namespace, "metadata", "namespace")
 		}
 	}

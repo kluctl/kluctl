@@ -38,31 +38,6 @@ var deleteOrder = [][]string{
 	nil,
 }
 
-func getFilteredApiResources(k *K8sCluster, filter []string) (map[schema.GroupVersionKind]bool, error) {
-	apiResourceLists, err := k.discovery.ServerPreferredResources()
-	if err != nil {
-		return nil, err
-	}
-
-	ret := make(map[schema.GroupVersionKind]bool)
-	for _, l := range apiResourceLists {
-		for _, r := range l.APIResources {
-			for _, f := range filter {
-				if r.Name != f && r.Group != f && r.Kind != f {
-					continue
-				}
-				gvk := schema.GroupVersionKind{
-					Group:   r.Group,
-					Version: r.Version,
-					Kind:    r.Kind,
-				}
-				ret[gvk] = true
-			}
-		}
-	}
-	return ret, nil
-}
-
 func objectRefForExclusion(k *K8sCluster, ref types.ObjectRef) types.ObjectRef {
 	ref = k.RemoveNamespaceFromRefIfNeeded(ref)
 	ref.GVK.Version = ""
@@ -70,9 +45,9 @@ func objectRefForExclusion(k *K8sCluster, ref types.ObjectRef) types.ObjectRef {
 }
 
 func filterObjectsForDelete(k *K8sCluster, objects []*v1.PartialObjectMetadata, apiFilter []string, inclusion *utils.Inclusion, excludedObjects map[types.ObjectRef]bool) ([]*v1.PartialObjectMetadata, error) {
-	filteredResources, err := getFilteredApiResources(k, apiFilter)
-	if err != nil {
-		return nil, err
+	filteredResources := make(map[schema.GroupKind]bool)
+	for _, gk := range k.GetFilteredGKs(apiFilter) {
+		filteredResources[gk] = true
 	}
 
 	inclusionHasTags := inclusion.HasType("tags")
@@ -80,8 +55,7 @@ func filterObjectsForDelete(k *K8sCluster, objects []*v1.PartialObjectMetadata, 
 
 	for _, o := range objects {
 		ref := types.RefFromPartialObject(o)
-		ref = objectRefForExclusion(k, ref)
-		if _, ok := filteredResources[ref.GVK]; !ok {
+		if _, ok := filteredResources[ref.GVK.GroupKind()]; !ok {
 			continue
 		}
 
@@ -119,7 +93,7 @@ func filterObjectsForDelete(k *K8sCluster, objects []*v1.PartialObjectMetadata, 
 		}
 
 		// exclude objects from excluded_objects
-		if _, ok := excludedObjects[ref]; ok {
+		if _, ok := excludedObjects[objectRefForExclusion(k, ref)]; ok {
 			continue
 		}
 
