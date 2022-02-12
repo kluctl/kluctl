@@ -74,21 +74,21 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	}
 
 	// TODO remove obsolete code
-	if len(p.config.DeploymentItems) != 0 && (len(p.config.KustomizeDirs) != 0 || len(p.config.Includes) != 0) {
-		return fmt.Errorf("using 'deploymentItems' and 'kustomizeDirs' at the same time is not allowed")
+	if len(p.config.Deployments) != 0 && (len(p.config.KustomizeDirs) != 0 || len(p.config.Includes) != 0) {
+		return fmt.Errorf("using 'deployments' and 'kustomizeDirs' at the same time is not allowed")
 	}
 	if len(p.config.KustomizeDirs) != 0 {
 		kustomizeDirsDeprecatedOnce.Do(func() {
-			log.Warningf("'kustomizeDirs' is deprecated, use 'deploymentItems' instead")
+			log.Warningf("'kustomizeDirs' is deprecated, use 'deployments' instead")
 		})
-		p.config.DeploymentItems = p.config.KustomizeDirs
+		p.config.Deployments = p.config.KustomizeDirs
 		p.config.KustomizeDirs = nil
 	}
 	if len(p.config.Includes) != 0 {
 		includesDeprecatedOnce.Do(func() {
-			log.Warningf("'includes' is deprecated, use 'deploymentItems' instead")
+			log.Warningf("'includes' is deprecated, use 'deployments' instead")
 		})
-		p.config.DeploymentItems = append(p.config.DeploymentItems, p.config.Includes...)
+		p.config.Deployments = append(p.config.Deployments, p.config.Includes...)
 		p.config.Includes = nil
 	}
 
@@ -100,7 +100,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		}
 		item.Tags = []string{path.Base(*item.Path)}
 	}
-	for _, di := range p.config.DeploymentItems {
+	for _, di := range p.config.Deployments {
 		setDefaultTag(di)
 	}
 
@@ -120,7 +120,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 
 func (p *DeploymentProject) checkDeploymentDirs() error {
 	rootProject := p.getRootProject()
-	for _, di := range p.config.DeploymentItems {
+	for _, di := range p.config.Deployments {
 		if di.Path == nil {
 			continue
 		}
@@ -155,7 +155,7 @@ func (p *DeploymentProject) isIncludeDeployment(di *types.DeploymentItemConfig) 
 }
 
 func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
-	for i, inc := range p.config.DeploymentItems {
+	for i, inc := range p.config.Deployments {
 		if !p.isIncludeDeployment(inc) {
 			continue
 		}

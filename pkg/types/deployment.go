@@ -92,7 +92,7 @@ type DeploymentProjectConfig struct {
 	Vars          []*VarsListItem      `yaml:"vars,omitempty"`
 	SealedSecrets *SealedSecretsConfig `yaml:"sealedSecrets,omitempty"`
 
-	DeploymentItems []*DeploymentItemConfig `yaml:"deploymentItems,omitempty"`
+	Deployments []*DeploymentItemConfig `yaml:"deployments,omitempty"`
 
 	// Obsolete
 	KustomizeDirs []*DeploymentItemConfig `yaml:"kustomizeDirs,omitempty"`

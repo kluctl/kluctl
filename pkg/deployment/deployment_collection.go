@@ -87,7 +87,7 @@ func findDeploymentItemIndex(project *DeploymentProject, diConfig *types.Deploym
 func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, indexes map[string]int) ([]*deploymentItem, error) {
 	var ret []*deploymentItem
 
-	for i, diConfig := range project.config.DeploymentItems {
+	for i, diConfig := range project.config.Deployments {
 		if project.isIncludeDeployment(diConfig) {
 			if diConfig.Barrier != nil && *diConfig.Barrier {
 				ret = append(ret, c.createBarrierDummy(project))
