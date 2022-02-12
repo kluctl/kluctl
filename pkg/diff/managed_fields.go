@@ -89,6 +89,7 @@ func convertToKeyList(remote *unstructured.Unstructured, path fieldpath.Path) ([
 				if match {
 					found = true
 					ret = append(ret, i)
+					o = x
 					break
 				}
 			}

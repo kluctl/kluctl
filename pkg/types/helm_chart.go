@@ -13,6 +13,7 @@ type HelmChartConfig2 struct {
 	Namespace    *string `yaml:"namespace,omitempty"`
 	Output       string  `yaml:"output"`
 	SkipCRDs     *bool   `yaml:"skipCRDs,omitempty"`
+	SkipUpdate   *bool   `yaml:"skipUpdate,omitempty"`
 }
 
 type HelmChartConfig struct {

@@ -67,7 +67,9 @@ func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
 			}
 			return nil, err
 		}
-		l = append(l, o)
+		if o != nil {
+			l = append(l, o)
+		}
 	}
 
 	return l, nil

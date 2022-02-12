@@ -93,12 +93,22 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 		return err
 	}
 	var clustersInfos []gitProjectInfo
-	for _, ep := range c.config.Clusters.Projects {
-		info, err := doClone(&ep, "clusters", c.loadArgs.LocalClusters)
+	if c.loadArgs.LocalClusters != "" {
+		clustersInfos = append(clustersInfos, c.localProject(c.loadArgs.LocalClusters))
+	} else if len(c.config.Clusters.Projects) != 0 {
+		for _, ep := range c.config.Clusters.Projects {
+			info, err := doClone(&ep, "clusters", "")
+			if err != nil {
+				return err
+			}
+			clustersInfos = append(clustersInfos, info)
+		}
+	} else {
+		ci, err := doClone(nil, "clusters", "")
 		if err != nil {
 			return err
 		}
-		clustersInfos = append(clustersInfos, info)
+		clustersInfos = append(clustersInfos, ci)
 	}
 
 	mergedClustersDir := path.Join(c.TmpDir, "merged-clusters")

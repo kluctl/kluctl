@@ -130,6 +130,8 @@ func (js *Jinja2Server) isMaybeTemplate(template string, searchDirs []string, is
 			if bytes.IndexRune(b, '{') == -1 {
 				x := string(b)
 				return false, &x
+			} else {
+				return true, nil
 			}
 		}
 	}
