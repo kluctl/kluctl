@@ -2,7 +2,7 @@ package types
 
 import (
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"github.com/go-playground/validator/v10"
 	"strings"
 )
@@ -49,5 +49,5 @@ func (gp *ExternalProjects) UnmarshalYAML(unmarshal func(interface{}) error) err
 }
 
 func init() {
-	utils.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
+	yaml.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
 }

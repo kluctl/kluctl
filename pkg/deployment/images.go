@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strings"
@@ -80,7 +81,7 @@ func (images *Images) parsePlaceholder(s string, offset int) (*placeHolder, erro
 		return nil, err
 	}
 	var ph placeHolder
-	err = utils.ReadYamlStream(bytes.NewReader(b), &ph)
+	err = yaml.ReadYamlStream(bytes.NewReader(b), &ph)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 	var remoteObject *unstructured.Unstructured
 	triedRemoteObject := false
 
-	err := utils.NewObjectIterator(o.Object).IterateLeafs(func(it *utils.ObjectIterator) error {
+	err := uo.NewObjectIterator(o.Object).IterateLeafs(func(it *uo.ObjectIterator) error {
 		s, ok := it.Value().(string)
 		if !ok {
 			return nil
@@ -140,7 +141,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 
 			var deployed *string
 			if remoteObject != nil && ph.startOffset == 0 && ph.endOffset == len(s) {
-				x, found, _ := utils.GetNestedChild(remoteObject.Object, it.KeyPath()...)
+				x, found, _ := uo.FromUnstructured(remoteObject).GetNestedField(it.KeyPath()...)
 				if found {
 					if y, ok := x.(string); ok {
 						deployed = &y

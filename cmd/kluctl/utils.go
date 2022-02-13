@@ -9,7 +9,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/kluctl_project"
 	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -106,7 +106,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		return err
 	}
 
-	allArgs := make(map[string]interface{})
+	allArgs := uo.New()
 
 	optionArgs, err := deployment.ParseArgs(args.Args)
 	if err != nil {
@@ -120,11 +120,15 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 			}
 		}
 	}
-	utils.MergeObject(allArgs, deployment.ConvertArgsToVars(optionArgs))
+	allArgs.Merge(deployment.ConvertArgsToVars(optionArgs))
 	if target != nil {
-		utils.MergeObject(allArgs, target.Args)
+		if target.Args != nil {
+			allArgs.Merge(target.Args)
+		}
 		if forSeal {
-			utils.MergeObject(allArgs, target.SealingConfig.Args)
+			if target.SealingConfig.Args != nil {
+				allArgs.Merge(target.SealingConfig.Args)
+			}
 		}
 	}
 

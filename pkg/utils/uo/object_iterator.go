@@ -1,4 +1,4 @@
-package utils
+package uo
 
 import (
 	log "github.com/sirupsen/logrus"

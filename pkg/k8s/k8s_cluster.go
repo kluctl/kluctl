@@ -5,6 +5,7 @@ import (
 	"fmt"
 	types2 "github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	goversion "github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -556,14 +557,14 @@ func (k *K8sCluster) FixObjectForPatch(o *unstructured.Unstructured) *unstructur
 		return o
 	}
 
-	o = utils.CopyUnstructured(o)
+	o = uo.CopyUnstructured(o)
 
 	fixPorts := func(p string) {
 		if !needsDefaultsFix {
 			return
 		}
 
-		ports, found, _ := utils.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
+		ports, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
 		if !found {
 			return
 		}
@@ -579,7 +580,7 @@ func (k *K8sCluster) FixObjectForPatch(o *unstructured.Unstructured) *unstructur
 		if !needsTypeConversionFix {
 			return
 		}
-		d, found, _ := utils.NewMyJsonPathMust(p).GetFirstMap(o)
+		d, found, _ := uo.NewMyJsonPathMust(p).GetFirstMap(o)
 		if !found {
 			return
 		}
@@ -600,7 +601,7 @@ func (k *K8sCluster) FixObjectForPatch(o *unstructured.Unstructured) *unstructur
 	}
 
 	fixContainers := func(p string) {
-		containers, found, _ := utils.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
+		containers, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
 		if !found {
 			return
 		}
@@ -610,7 +611,7 @@ func (k *K8sCluster) FixObjectForPatch(o *unstructured.Unstructured) *unstructur
 	}
 
 	fixLimits := func(p string) {
-		limits, found, _ := utils.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
+		limits, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
 		if !found {
 			return
 		}

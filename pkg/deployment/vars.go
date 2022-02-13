@@ -5,20 +5,20 @@ import (
 	"github.com/codablock/kluctl/pkg/jinja2_server"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
-	log "github.com/sirupsen/logrus"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type VarsCtx struct {
 	JS   *jinja2_server.Jinja2Server
-	Vars map[string]interface{}
+	Vars *uo.UnstructuredObject
 }
 
 func NewVarsCtx(js *jinja2_server.Jinja2Server) *VarsCtx {
 	vc := &VarsCtx{
 		JS:   js,
-		Vars: map[string]interface{}{},
+		Vars: uo.New(),
 	}
 	return vc
 }
@@ -26,47 +26,32 @@ func NewVarsCtx(js *jinja2_server.Jinja2Server) *VarsCtx {
 func (vc *VarsCtx) Copy() *VarsCtx {
 	cp := &VarsCtx{
 		JS:   vc.JS,
-		Vars: utils.CopyObject(vc.Vars),
+		Vars: vc.Vars.Clone(),
 	}
 	return cp
 }
 
-func (vc *VarsCtx) MergedVars(vars map[string]interface{}) map[string]interface{} {
-	newVars, err := utils.CopyMergeObjects(vc.Vars, vars)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return newVars
+func (vc *VarsCtx) Update(vars *uo.UnstructuredObject) {
+	vc.Vars.Merge(vars)
 }
 
-func (vc *VarsCtx) MergedCtx(vars map[string]interface{}) *VarsCtx {
-	return &VarsCtx{
-		JS:   vc.JS,
-		Vars: vc.MergedVars(vars),
-	}
-}
-
-func (vc *VarsCtx) Update(vars map[string]interface{}) {
-	utils.MergeObject(vc.Vars, vars)
-}
-
-func (vc *VarsCtx) UpdateChild(child string, vars map[string]interface{}) {
-	vc.Update(map[string]interface{}{child: vars})
+func (vc *VarsCtx) UpdateChild(child string, vars *uo.UnstructuredObject) {
+	vc.Vars.MergeChild(child, vars)
 }
 
 func (vc *VarsCtx) UpdateChildFromStruct(child string, o interface{}) error {
-	m, err := utils.StructToObject(o)
+	other, err := uo.FromStruct(o)
 	if err != nil {
 		return err
 	}
-	vc.UpdateChild(child, m)
+	vc.UpdateChild(child, other)
 	return nil
 }
 
 func (vc *VarsCtx) loadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList []*types.VarsListItem) error {
 	for _, v := range varsList {
 		if v.Values != nil {
-			vc.Update(*v.Values)
+			vc.Update(v.Values)
 		} else if v.File != nil {
 			err := vc.loadVarsFile(*v.File, searchDirs)
 			if err != nil {
@@ -93,12 +78,12 @@ func (vc *VarsCtx) loadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList
 }
 
 func (vc *VarsCtx) loadVarsFile(p string, searchDirs []string) error {
-	newVars := make(map[string]interface{})
-	err := vc.renderYamlFile(p, searchDirs, newVars)
+	var newVars uo.UnstructuredObject
+	err := vc.renderYamlFile(p, searchDirs, &newVars)
 	if err != nil {
 		return fmt.Errorf("failed to load vars from %s: %w", p, err)
 	}
-	vc.Update(newVars)
+	vc.Update(&newVars)
 	return nil
 }
 
@@ -124,12 +109,12 @@ func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref types.ObjectRef,
 }
 
 func (vc *VarsCtx) loadVarsFromString(s string) error {
-	var newVars map[string]interface{}
+	var newVars uo.UnstructuredObject
 	err := vc.renderYamlString(s, &newVars)
 	if err != nil {
 		return err
 	}
-	vc.Update(newVars)
+	vc.Update(&newVars)
 	return nil
 }
 
@@ -139,7 +124,7 @@ func (vc *VarsCtx) renderYamlString(s string, out interface{}) error {
 		return err
 	}
 
-	err = utils.ReadYamlString(ret, out)
+	err = yaml.ReadYamlString(ret, out)
 	if err != nil {
 		return err
 	}
@@ -153,7 +138,7 @@ func (vc *VarsCtx) renderYamlFile(p string, searchDirs []string, out interface{}
 		return err
 	}
 
-	err = utils.ReadYamlString(ret, out)
+	err = yaml.ReadYamlString(ret, out)
 	if err != nil {
 		return err
 	}

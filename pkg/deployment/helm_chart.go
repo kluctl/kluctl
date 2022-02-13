@@ -5,6 +5,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/yaml"
 	goversion "github.com/hashicorp/go-version"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,7 +24,7 @@ type helmChart struct {
 
 func NewHelmChart(configFile string) (*helmChart, error) {
 	var config types.HelmChartConfig
-	err := utils.ReadYamlFile(configFile, &config)
+	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +148,7 @@ func (c *helmChart) CheckUpdate() (string, error) {
 		// ensure we didn't get partial matches
 		var lm []map[string]string
 		var ls VersionSlice
-		err = utils.ReadYamlBytes(stdout, &lm)
+		err = yaml.ReadYamlBytes(stdout, &lm)
 		if err != nil {
 			return err
 		}
@@ -217,7 +218,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 		return err
 	}
 
-	parsed, err := utils.ReadYamlAllBytes(rendered)
+	parsed, err := yaml.ReadYamlAllBytes(rendered)
 
 	for _, o := range parsed {
 		m, ok := o.(map[string]interface{})
@@ -232,7 +233,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 			_ = unstructured.SetNestedField(m, namespace, "metadata", "namespace")
 		}
 	}
-	rendered, err = utils.WriteYamlAllBytes(parsed)
+	rendered, err = yaml.WriteYamlAllBytes(parsed)
 	if err != nil {
 		return err
 	}

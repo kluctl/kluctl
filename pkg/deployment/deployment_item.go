@@ -5,6 +5,8 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"io/fs"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -168,7 +170,7 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 	baseSourcePath := di.project.sealedSecretsDir
 
 	var y map[string]interface{}
-	err := utils.ReadYamlFile(path.Join(di.renderedDir, "kustomization.yml"), &y)
+	err := yaml.ReadYamlFile(path.Join(di.renderedDir, "kustomization.yml"), &y)
 	if err != nil {
 		return err
 	}
@@ -262,7 +264,7 @@ func (di *deploymentItem) prepareKusomizationYaml() error {
 	}
 
 	var kustomizeYaml map[string]interface{}
-	err := utils.ReadYamlFile(kustomizeYamlPath, &kustomizeYaml)
+	err := yaml.ReadYamlFile(kustomizeYamlPath, &kustomizeYaml)
 	if err != nil {
 		return err
 	}
@@ -275,7 +277,7 @@ func (di *deploymentItem) prepareKusomizationYaml() error {
 	}
 
 	// Save modified kustomize.yml
-	err = utils.WriteYamlFile(kustomizeYamlPath, kustomizeYaml)
+	err = yaml.WriteYamlFile(kustomizeYamlPath, kustomizeYaml)
 	if err != nil {
 		return err
 	}
@@ -310,7 +312,7 @@ func (di *deploymentItem) buildKustomize() error {
 		yamls = append(yamls, y)
 	}
 
-	err = utils.WriteYamlAllFile(di.renderedYamlPath, yamls)
+	err = yaml.WriteYamlAllFile(di.renderedYamlPath, yamls)
 	if err != nil {
 		return err
 	}
@@ -323,7 +325,7 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		return nil
 	}
 
-	objects, err := utils.ReadYamlAllFile(di.renderedYamlPath)
+	objects, err := yaml.ReadYamlAllFile(di.renderedYamlPath)
 	if err != nil {
 		return err
 	}
@@ -345,9 +347,9 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		}
 
 		// Set common labels/annotations
-		o.SetLabels(utils.CopyMergeStrMap(o.GetLabels(), di.getCommonLabels()))
+		o.SetLabels(uo.CopyMergeStrMap(o.GetLabels(), di.getCommonLabels()))
 		commonAnnotations := di.getCommonAnnotations()
-		o.SetAnnotations(utils.CopyMergeStrMap(o.GetAnnotations(), commonAnnotations))
+		o.SetAnnotations(uo.CopyMergeStrMap(o.GetAnnotations(), commonAnnotations))
 
 		// Resolve image placeholders
 		err = di.collection.images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
@@ -357,7 +359,7 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 	}
 
 	// Need to write it back to disk in case it is needed externally
-	err = utils.WriteYamlAllFile(di.renderedYamlPath, objects)
+	err = yaml.WriteYamlAllFile(di.renderedYamlPath, objects)
 	if err != nil {
 		return err
 	}

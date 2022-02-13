@@ -5,6 +5,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	"path"
 	"path/filepath"
@@ -246,7 +247,7 @@ func (p *DeploymentProject) getCommonLabels() map[string]string {
 	parents := p.getParents()
 	for i, _ := range parents {
 		d := parents[len(parents)-i-1]
-		utils.MergeStrMap(ret, d.p.config.CommonLabels)
+		uo.MergeStrMap(ret, d.p.config.CommonLabels)
 	}
 	return ret
 }
@@ -256,7 +257,7 @@ func (p *DeploymentProject) getDeleteByLabels() map[string]string {
 	parents := p.getParents()
 	for i, _ := range parents {
 		d := parents[len(parents)-i-1]
-		utils.MergeStrMap(ret, d.p.config.DeleteByLabels)
+		uo.MergeStrMap(ret, d.p.config.DeleteByLabels)
 	}
 	return ret
 }

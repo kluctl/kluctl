@@ -3,8 +3,8 @@ package deployment
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"path"
 	"regexp"
 	"strings"
@@ -27,23 +27,26 @@ func ParseArgs(argsList []string) (map[string]string, error) {
 	return args, nil
 }
 
-func ConvertArgsToVars(args map[string]string) map[string]interface{} {
-	m := make(map[string]interface{})
+func ConvertArgsToVars(args map[string]string) *uo.UnstructuredObject {
+	vars := uo.New()
 	for n, v := range args {
-		p := strings.Split(n, ".")
-		_ = unstructured.SetNestedField(m, v, p...)
+		var p []interface{}
+		for _, x := range strings.Split(n, ".") {
+			p = append(p, x)
+		}
+		_ = vars.SetNestedField(v, p...)
 	}
-	return m
+	return vars
 }
 
-func CheckRequiredDeployArgs(dir string, varsCtx *VarsCtx, deployArgs map[string]interface{}) error {
+func CheckRequiredDeployArgs(dir string, varsCtx *VarsCtx, deployArgs *uo.UnstructuredObject) error {
 	// First try to load the config without templating to avoid getting errors while rendering because required
 	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
 	// when the rendering error is actually args related.
 
 	var conf types.DeploymentProjectConfig
 
-	err := utils.ReadYamlFile(path.Join(dir, "deployment.yml"), &conf)
+	err := yaml.ReadYamlFile(path.Join(dir, "deployment.yml"), &conf)
 	if err != nil {
 		// If that failed, it might be that conditional jinja blocks are present in the config, so lets try loading
 		// the config in rendered form. If it fails due to missing args now, we can't help much with better error
@@ -67,15 +70,18 @@ func CheckRequiredDeployArgs(dir string, varsCtx *VarsCtx, deployArgs map[string
 	return nil
 }
 
-func checkRequiredArgs(argsDef []*types.DeploymentArg, args map[string]interface{}) error {
+func checkRequiredArgs(argsDef []*types.DeploymentArg, args *uo.UnstructuredObject) error {
 	for _, a := range argsDef {
-		p := strings.Split(a.Name, ".")
-		_, found, _ := unstructured.NestedFieldNoCopy(args, p...)
+		var p []interface{}
+		for _, x := range strings.Split(a.Name, ".") {
+			p = append(p, x)
+		}
+		_, found, _ := args.GetNestedField(p...)
 		if !found {
 			if a.Default == nil {
 				return fmt.Errorf("required argument %s not set", a.Name)
 			} else {
-				err := unstructured.SetNestedField(args, a.Default, p...)
+				err := args.SetNestedField(a.Default, p...)
 				if err != nil {
 					return err
 				}

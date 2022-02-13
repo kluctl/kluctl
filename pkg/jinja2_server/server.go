@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/gobwas/glob"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
@@ -138,8 +139,8 @@ func (js *Jinja2Server) isMaybeTemplate(template string, searchDirs []string, is
 	return true, nil
 }
 
-func (js *Jinja2Server) renderHelper(jobs []*RenderJob, searchDirs []string, vars map[string]interface{}, isString bool) error {
-	varsStr, err := json.Marshal(vars)
+func (js *Jinja2Server) renderHelper(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool) error {
+	varsStr, err := json.Marshal(vars.Object)
 	if err != nil {
 		return err
 	}
@@ -194,15 +195,15 @@ func (js *Jinja2Server) renderHelper(jobs []*RenderJob, searchDirs []string, var
 	return nil
 }
 
-func (js *Jinja2Server) RenderStrings(jobs []*RenderJob, searchDirs []string, vars map[string]interface{}) error {
+func (js *Jinja2Server) RenderStrings(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
 	return js.renderHelper(jobs, searchDirs, vars, true)
 }
 
-func (js *Jinja2Server) RenderFiles(jobs []*RenderJob, searchDirs []string, vars map[string]interface{}) error {
+func (js *Jinja2Server) RenderFiles(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
 	return js.renderHelper(jobs, searchDirs, vars, false)
 }
 
-func (js *Jinja2Server) RenderString(template string, searchDirs []string, vars map[string]interface{}) (string, error) {
+func (js *Jinja2Server) RenderString(template string, searchDirs []string, vars *uo.UnstructuredObject) (string, error) {
 	jobs := []*RenderJob{{
 		Template: template,
 	}}
@@ -216,7 +217,7 @@ func (js *Jinja2Server) RenderString(template string, searchDirs []string, vars 
 	return *jobs[0].Result, nil
 }
 
-func (js *Jinja2Server) RenderFile(template string, searchDirs []string, vars map[string]interface{}) (string, error) {
+func (js *Jinja2Server) RenderFile(template string, searchDirs []string, vars *uo.UnstructuredObject) (string, error) {
 	jobs := []*RenderJob{{
 		Template: template,
 	}}
@@ -230,8 +231,8 @@ func (js *Jinja2Server) RenderFile(template string, searchDirs []string, vars ma
 	return *jobs[0].Result, nil
 }
 
-func (js *Jinja2Server) RenderStruct(dst interface{}, src interface{}, vars map[string]interface{}) error {
-	m, err := utils.StructToObject(src)
+func (js *Jinja2Server) RenderStruct(dst interface{}, src interface{}, vars *uo.UnstructuredObject) error {
+	m, err := uo.FromStruct(src)
 
 	type pk struct {
 		parent interface{}
@@ -240,7 +241,7 @@ func (js *Jinja2Server) RenderStruct(dst interface{}, src interface{}, vars map[
 
 	var jobs []*RenderJob
 	var fields []pk
-	err = utils.NewObjectIterator(m).IterateLeafs(func(it *utils.ObjectIterator) error {
+	err = m.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 		value := it.Value()
 		if s, ok := value.(string); ok {
 			jobs = append(jobs, &RenderJob{Template: s})
@@ -266,7 +267,7 @@ func (js *Jinja2Server) RenderStruct(dst interface{}, src interface{}, vars map[
 			errors = append(errors, err)
 		}
 
-		err = utils.SetChild(fields[i].parent, fields[i].key, *j.Result)
+		err = uo.SetChild(fields[i].parent, fields[i].key, *j.Result)
 		if err != nil {
 			return err
 		}
@@ -275,7 +276,7 @@ func (js *Jinja2Server) RenderStruct(dst interface{}, src interface{}, vars map[
 		return utils.NewErrorList(errors)
 	}
 
-	err = utils.ObjectToStruct(m, dst)
+	err = m.ToStruct(dst)
 	if err != nil {
 		return err
 	}
@@ -315,7 +316,7 @@ func (js *Jinja2Server) needsRender(path string, excludedPatterns []string) bool
 	return true
 }
 
-func (js *Jinja2Server) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string, vars map[string]interface{}) error {
+func (js *Jinja2Server) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string, vars *uo.UnstructuredObject) error {
 	walkDir := path.Join(rootDir, relSourceDir, subdir)
 
 	var jobs []*RenderJob

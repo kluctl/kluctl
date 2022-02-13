@@ -1,7 +1,8 @@
 package types
 
 import (
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -27,7 +28,7 @@ type VarsListItemClusterConfigMapOrSecret struct {
 }
 
 type VarsListItem struct {
-	Values           *map[string]interface{}               `yaml:"values,omitempty"`
+	Values           *uo.UnstructuredObject                `yaml:"values,omitempty"`
 	File             *string                               `yaml:"file,omitempty"`
 	ClusterConfigMap *VarsListItemClusterConfigMapOrSecret `yaml:"clusterConfigMap,omitempty"`
 	ClusterSecret    *VarsListItemClusterConfigMapOrSecret `yaml:"clusterSecret,omitempty"`
@@ -106,5 +107,5 @@ type DeploymentProjectConfig struct {
 }
 
 func init() {
-	utils.Validator.RegisterStructValidation(ValidateVarsListItem, VarsListItem{})
+	yaml.Validator.RegisterStructValidation(ValidateVarsListItem, VarsListItem{})
 }

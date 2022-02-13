@@ -1,7 +1,8 @@
 package types
 
 import (
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 )
 
 type DynamicArg struct {
@@ -22,17 +23,17 @@ type ExternalTargetConfig struct {
 type SealingConfig struct {
 	// DynamicSealing Set this to false if you want to disable sealing for every dynamic target
 	DynamicSealing bool                   `yaml:"dynamicSealing,omitempty"`
-	Args           map[string]interface{} `yaml:"args,omitempty"`
+	Args           *uo.UnstructuredObject `yaml:"args,omitempty"`
 	SecretSets     []string               `yaml:"secretSets,omitempty"`
 }
 
 type Target struct {
 	Name          string                 `yaml:"name" validate:"required"`
 	Cluster       string                 `yaml:"cluster" validate:"required"`
-	Args          map[string]interface{} `yaml:"args,omitempty"`
+	Args          *uo.UnstructuredObject `yaml:"args,omitempty"`
 	DynamicArgs   []DynamicArg           `yaml:"dynamicArgs,omitempty"`
-	TargetConfig  *ExternalTargetConfig  `yaml:"targetConfig"`
-	SealingConfig SealingConfig          `yaml:"sealingConfig"`
+	TargetConfig  *ExternalTargetConfig  `yaml:"targetConfig,omitempty"`
+	SealingConfig *SealingConfig         `yaml:"sealingConfig,omitempty"`
 	Images        []FixedImage           `yaml:"images,omitempty"`
 }
 
@@ -54,5 +55,5 @@ type KluctlProject struct {
 }
 
 func init() {
-	utils.Validator.RegisterStructValidation(ValidateSecretSource, SecretSource{})
+	yaml.Validator.RegisterStructValidation(ValidateSecretSource, SecretSource{})
 }

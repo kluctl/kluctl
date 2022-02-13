@@ -3,7 +3,7 @@ package diff
 import (
 	"bytes"
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -67,7 +67,7 @@ func convertToKeyList(remote *unstructured.Unstructured, path fieldpath.Path) ([
 	for _, e := range path {
 		if e.FieldName != nil {
 			ret = append(ret, *e.FieldName)
-			x, found, err := utils.GetChild(o, *e.FieldName)
+			x, found, err := uo.GetChild(o, *e.FieldName)
 			if err != nil {
 				return nil, false, err
 			}
@@ -122,7 +122,7 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 		})
 	}
 
-	ret := utils.CopyUnstructured(local)
+	ret := uo.CopyUnstructured(local)
 
 	forceApplyAll := false
 	if x, ok := local.GetAnnotations()[`metadata.annotations["kluctl.io/force-apply"]`]; ok {
@@ -134,16 +134,16 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 		if !forceApplyFieldAnnotationRegex.MatchString(k) {
 			continue
 		}
-		j, err := utils.NewMyJsonPath(v)
+		j, err := uo.NewMyJsonPath(v)
 		if err != nil {
 			return nil, nil, err
 		}
-		fields, err := j.ListMatchingFields(ret.Object)
+		fields, err := j.ListMatchingFields(uo.FromUnstructured(ret))
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, f := range fields {
-			forceApplyFields[utils.KeyListToJsonPath(f)] = true
+			forceApplyFields[uo.KeyListToJsonPath(f)] = true
 		}
 	}
 
@@ -168,14 +168,14 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 		if !found {
 			return nil, nil, fmt.Errorf("field '%s' not found in remote object", cause.Field)
 		}
-		localValue, found, err := utils.GetNestedChild(local.Object, p...)
+		localValue, found, err := uo.FromUnstructured(local).GetNestedField(p...)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !found {
 			return nil, nil, fmt.Errorf("field '%s' not found in local object", cause.Field)
 		}
-		remoteValue, found, err := utils.GetNestedChild(remote.Object, p...)
+		remoteValue, found, err := uo.FromUnstructured(remote).GetNestedField(p...)
 		if !found {
 			log.Fatalf("field '%s' not found in remote object...which can't be!", cause.Field)
 		}
@@ -196,13 +196,13 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 					break
 				}
 			}
-			if _, ok := forceApplyFields[utils.KeyListToJsonPath(p)]; ok {
+			if _, ok := forceApplyFields[uo.KeyListToJsonPath(p)]; ok {
 				overwrite = true
 			}
 		}
 
 		if !overwrite {
-			j, err := utils.NewMyJsonPath(utils.KeyListToJsonPath(p))
+			j, err := uo.NewMyJsonPath(uo.KeyListToJsonPath(p))
 			if err != nil {
 				return nil, nil, err
 			}

@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/yaml"
 )
 
 type InvolvedRepo struct {
@@ -16,5 +16,5 @@ type ArchiveMetadata struct {
 
 func LoadArchiveMetadata(p string) (*ArchiveMetadata, error) {
 	o := &ArchiveMetadata{}
-	return o, utils.ReadYamlFile(p, o)
+	return o, yaml.ReadYamlFile(p, o)
 }

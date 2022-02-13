@@ -4,6 +4,7 @@ import (
 	"fmt"
 	types2 "github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
@@ -53,7 +54,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 	}
 
 	if configPath != "" {
-		err = utils.ReadYamlFile(configPath, &c.config)
+		err = yaml.ReadYamlFile(configPath, &c.config)
 		if err != nil {
 			return err
 		}
@@ -179,7 +180,7 @@ func loadKluctlProjectFromArchive(fromArchive string, fromArchiveMetadata string
 	}
 
 	var metadata types2.ArchiveMetadata
-	err := utils.ReadYamlFile(metdataPath, &metadata)
+	err := yaml.ReadYamlFile(metdataPath, &metadata)
 	if err != nil {
 		return nil, err
 	}

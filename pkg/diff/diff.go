@@ -3,7 +3,8 @@ package diff
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
@@ -19,21 +20,21 @@ func convertPath(path []string, o interface{}) (string, error) {
 	var ret []interface{}
 	for _, p := range path {
 		if i, err := strconv.ParseInt(p, 10, 32); err == nil {
-			x, found, _ := utils.GetChild(o, int(i))
+			x, found, _ := uo.GetChild(o, int(i))
 			if found {
 				ret = append(ret, int(i))
 				o = x
 				continue
 			}
 		}
-		x, found, err := utils.GetChild(o, p)
+		x, found, err := uo.GetChild(o, p)
 		if !found {
 			return "", fmt.Errorf("path element %v is invalid: %w", p, err)
 		}
 		ret = append(ret, p)
 		o = x
 	}
-	return utils.KeyListToJsonPath(ret), nil
+	return uo.KeyListToJsonPath(ret), nil
 }
 
 func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstructured) ([]types.Change, error) {
@@ -133,7 +134,7 @@ func objectToDiffableString(o interface{}) (string, error) {
 		return v, nil
 	}
 
-	b, err := utils.WriteYamlString(o)
+	b, err := yaml.WriteYamlString(o)
 	if err != nil {
 		return "", err
 	}

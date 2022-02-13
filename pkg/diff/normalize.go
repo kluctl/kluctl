@@ -4,37 +4,33 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-func listToMap(l []map[string]interface{}, key string) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
+func listToMap(l []*uo.UnstructuredObject, key string) (map[string]*uo.UnstructuredObject, error) {
+	m := make(map[string]*uo.UnstructuredObject)
 	for _, e := range l {
-		kv, ok := e[key]
-		if !ok {
+		kv, found, _ := e.GetNestedString(key)
+		if !found {
 			return nil, fmt.Errorf("%s not found in list element", key)
 		}
-		kvs, ok := kv.(string)
-		if !ok {
-			return nil, fmt.Errorf("%s in list element is not a string", key)
-		}
-		m[kvs] = e
+		m[kv] = e
 	}
 	return m, nil
 }
 
-func normalizeEnv(container map[string]interface{}) {
-	env := utils.NestedMapSliceNoErr(container, "env")
-	envFrom := utils.NestedMapSliceNoErr(container, "envFrom")
+func normalizeEnv(container *uo.UnstructuredObject) {
+	env := container.GetNestedObjectListNoErr("env")
+	envFrom := container.GetNestedObjectListNoErr("envFrom")
 
 	if len(env) != 0 {
 		newEnv, err := listToMap(env, "name")
 		if err == nil {
-			container["env"] = newEnv
+			_ = container.SetNestedField(newEnv, "env")
 		}
 	}
 	if len(envFrom) != 0 {
@@ -43,7 +39,7 @@ func normalizeEnv(container map[string]interface{}) {
 		for _, e := range envFrom {
 			k := ""
 			for _, t := range envTypes {
-				name, found, _ := unstructured.NestedString(e, t, "name")
+				name, found, _ := e.GetNestedString(t, "name")
 				if !found {
 					continue
 				}
@@ -58,30 +54,30 @@ func normalizeEnv(container map[string]interface{}) {
 				m[k] = e
 			}
 		}
-		container["envFrom"] = m
+		_ = container.SetNestedField(m, "envFrom")
 	}
 }
 
-func normalizeContainers(containers []map[string]interface{}) {
+func normalizeContainers(containers []*uo.UnstructuredObject) {
 	for _, c := range containers {
 		normalizeEnv(c)
 	}
 }
 
-func normalizeSecretAndConfigMaps(o map[string]interface{}) {
-	data, found, _ := unstructured.NestedMap(o, "data")
-	if found && len(data) == 0 {
-		unstructured.RemoveNestedField(o, "data")
+func normalizeSecretAndConfigMaps(o *uo.UnstructuredObject) {
+	data, found, _ := o.GetNestedObject("data")
+	if found && len(data.Object) == 0 {
+		_ = data.RemoveNestedField("data")
 	}
 }
 
-func normalizeServiceAccount(o map[string]interface{}) {
-	serviceAccountName, found, _ := unstructured.NestedString(o, "metadata", "name")
+func normalizeServiceAccount(o *uo.UnstructuredObject) {
+	serviceAccountName, found, _ := o.GetNestedString("metadata", "name")
 	if !found {
 		return
 	}
 
-	secrets, found, _ := unstructured.NestedSlice(o, "secrets")
+	secrets, found, _ := o.GetNestedObjectList("secrets")
 	if !found {
 		return
 	}
@@ -89,70 +85,61 @@ func normalizeServiceAccount(o map[string]interface{}) {
 	// remove default service account tokens
 	var newSecrets []interface{}
 	for _, s := range secrets {
-		s2, ok := s.(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		name, found, _ := unstructured.NestedString(s2, "name")
+		name, found, _ := s.GetNestedString("name")
 		if !found || strings.HasPrefix(name, fmt.Sprintf("%s-", serviceAccountName)) {
 			continue
 		}
 		newSecrets = append(newSecrets, s)
 	}
-	o["secrets"] = newSecrets
+	_ = o.SetNestedField(newSecrets, "secrets")
 }
 
-func normalizeMetadata(k *k8s.K8sCluster, o *unstructured.Unstructured) {
-	k.RemoveNamespaceIfNeeded(o)
+func normalizeMetadata(k *k8s.K8sCluster, o *uo.UnstructuredObject) {
+	k.RemoveNamespaceIfNeeded(o.ToUnstructured())
 
 	// We don't care about managedFields when diffing (they just produce noise)
-	unstructured.RemoveNestedField(o.Object, "metadata", "managedFields")
-	unstructured.RemoveNestedField(o.Object, "metadata", "annotations", "managedFields", "kubectl.kubernetes.io/last-applied-configuration")
+	_ = o.RemoveNestedField("metadata", "managedFields")
+	_ = o.RemoveNestedField("metadata", "annotations", "managedFields", "kubectl.kubernetes.io/last-applied-configuration")
 
 	// We don't want to see this in diffs
-	unstructured.RemoveNestedField(o.Object, "metadata", "creationTimestamp")
-	unstructured.RemoveNestedField(o.Object, "metadata", "generation")
-	unstructured.RemoveNestedField(o.Object, "metadata", "resourceVersion")
-	unstructured.RemoveNestedField(o.Object, "metadata", "selfLink")
-	unstructured.RemoveNestedField(o.Object, "metadata", "uid")
+	_ = o.RemoveNestedField("metadata", "creationTimestamp")
+	_ = o.RemoveNestedField("metadata", "generation")
+	_ = o.RemoveNestedField("metadata", "resourceVersion")
+	_ = o.RemoveNestedField("metadata", "selfLink")
+	_ = o.RemoveNestedField("metadata", "uid")
 
 	// Ensure empty labels/metadata exist
-	if len(o.GetLabels()) == 0 {
-		_ = unstructured.SetNestedStringMap(o.Object, map[string]string{}, "metadata", "labels")
-	}
-	if len(o.GetAnnotations()) == 0 {
-		_ = unstructured.SetNestedStringMap(o.Object, map[string]string{}, "metadata", "annotations")
-	}
+	_ = o.SetNestedFieldDefault(map[string]string{}, "metadata", "labels")
+	_ = o.SetNestedFieldDefault(map[string]string{}, "metadata", "annotations")
 }
 
-func normalizeMisc(o map[string]interface{}) {
+func normalizeMisc(o *uo.UnstructuredObject) {
 	// These are random values found in Jobs
-	unstructured.RemoveNestedField(o, "spec", "template", "metadata", "labels", "controller-uid")
-	unstructured.RemoveNestedField(o, "spec", "selector", "matchLabels", "controller-uid")
+	_ = o.RemoveNestedField("spec", "template", "metadata", "labels", "controller-uid")
+	_ = o.RemoveNestedField("spec", "selector", "matchLabels", "controller-uid")
 
-	unstructured.RemoveNestedField(o, "status")
+	_ = o.RemoveNestedField("status")
 }
 
 var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field(-\d*)?$`)
 
 // NormalizeObject Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-func NormalizeObject(k *k8s.K8sCluster, o *unstructured.Unstructured, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *unstructured.Unstructured) *unstructured.Unstructured {
-	gvk := o.GroupVersionKind()
-	name := o.GetName()
-	ns := o.GetNamespace()
+func NormalizeObject(k *k8s.K8sCluster, o_ *unstructured.Unstructured, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *unstructured.Unstructured) *unstructured.Unstructured {
+	gvk := o_.GroupVersionKind()
+	name := o_.GetName()
+	ns := o_.GetNamespace()
 
-	o = utils.CopyUnstructured(o)
+	o := uo.FromUnstructured(o_).Clone()
 	normalizeMetadata(k, o)
-	normalizeMisc(o.Object)
+	normalizeMisc(o)
 
 	switch gvk.Kind {
 	case "Deployment", "StatefulSet", "DaemonSet", "job":
-		normalizeContainers(utils.NestedMapSliceNoErr(o.Object, "spec", "template", "spec", "containers"))
+		normalizeContainers(o.GetNestedObjectListNoErr("spec", "template", "spec", "containers"))
 	case "Secret", "ConfigMap":
-		normalizeSecretAndConfigMaps(o.Object)
+		normalizeSecretAndConfigMaps(o)
 	case "ServiceAccount":
-		normalizeServiceAccount(o.Object)
+		normalizeServiceAccount(o)
 	}
 
 	checkMatch := func(v string, m *string) bool {
@@ -177,7 +164,7 @@ func NormalizeObject(k *k8s.K8sCluster, o *unstructured.Unstructured, ignoreForD
 		}
 
 		for _, fp := range ifd.FieldPath {
-			jp, err := utils.NewMyJsonPath(fp)
+			jp, err := uo.NewMyJsonPath(fp)
 			if err != nil {
 				continue
 			}
@@ -193,7 +180,7 @@ func NormalizeObject(k *k8s.K8sCluster, o *unstructured.Unstructured, ignoreForD
 
 	for k, v := range localObject.GetAnnotations() {
 		if ignoreDiffFieldAnnotationRegex.MatchString(k) {
-			j, err := utils.NewMyJsonPath(v)
+			j, err := uo.NewMyJsonPath(v)
 			if err != nil {
 				continue
 			}
@@ -201,5 +188,5 @@ func NormalizeObject(k *k8s.K8sCluster, o *unstructured.Unstructured, ignoreForD
 		}
 	}
 
-	return o
+	return o.ToUnstructured()
 }

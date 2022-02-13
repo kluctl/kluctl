@@ -6,6 +6,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -136,7 +137,7 @@ func (a *applyUtil) retryApplyWithReplace(x *unstructured.Unstructured, hook boo
 	log2.Warningf("Patching failed, retrying with replace instead of patch")
 
 	rv := remoteObject.GetResourceVersion()
-	x2 := utils.CopyUnstructured(x)
+	x2 := uo.CopyUnstructured(x)
 	x2.SetResourceVersion(rv)
 
 	o := k8s.UpdateOptions{

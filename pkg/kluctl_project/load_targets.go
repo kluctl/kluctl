@@ -6,6 +6,8 @@ import (
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"path"
 	"reflect"
@@ -289,13 +291,13 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 	}
 
 	var targetConfig types.TargetConfig
-	err = utils.ReadYamlFile(configPath, &targetConfig)
+	err = yaml.ReadYamlFile(configPath, &targetConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	// check and merge args
-	err = utils.NewObjectIterator(targetConfig.Args).IterateLeafs(func(it *utils.ObjectIterator) error {
+	err = targetConfig.Args.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 		strValue := fmt.Sprintf("%v", it.Value())
 		err := c.CheckDynamicArg(&target, it.JsonPath(), strValue)
 		if err != nil {
@@ -306,7 +308,7 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 	if err != nil {
 		return nil, err
 	}
-	utils.MergeObject(target.Args, targetConfig.Args)
+	target.Args.Merge(targetConfig.Args)
 
 	// We prepend the dynamic images to ensure they get higher priority later
 	target.Images = append(targetConfig.Images, target.Images...)

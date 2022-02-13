@@ -1,5 +1,7 @@
 package types
 
+import "github.com/codablock/kluctl/pkg/utils/uo"
+
 type FixedImage struct {
 	Image         string   `yaml:"image" validate:"required"`
 	ResultImage   string   `yaml:"resultImage" validate:"required"`
@@ -19,5 +21,5 @@ type FixedImagesConfig struct {
 
 type TargetConfig struct {
 	FixedImagesConfig `yaml:"fixed_images_config,inline"`
-	Args              map[string]interface{} `yaml:"args,omitempty"`
+	Args              *uo.UnstructuredObject `yaml:"args,omitempty"`
 }

@@ -3,13 +3,15 @@ package types
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"path"
 )
 
 type ClusterConfig2 struct {
 	Name    string                 `yaml:"name" validate:"required"`
 	Context string                 `yaml:"context" validate:"required"`
-	Vars    map[string]interface{} `yaml:"vars,omitempty"`
+	Vars    *uo.UnstructuredObject `yaml:"vars,omitempty"`
 }
 
 type ClusterConfig struct {
@@ -18,43 +20,38 @@ type ClusterConfig struct {
 
 // TODO remove custom unmarshaller when https://github.com/goccy/go-yaml/pull/220 gets released
 func (cc *ClusterConfig2) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var m map[string]interface{}
-	err := unmarshal(&m)
+	var u uo.UnstructuredObject
+	err := unmarshal(&u)
 	if err != nil {
 		return err
 	}
 
-	nameI, ok := m["name"]
+	name, ok, err := u.GetNestedString("name")
 	if !ok {
-		return fmt.Errorf("name is missing in cluster config")
+		return fmt.Errorf("name is missing (or not a string) in cluster config")
 	}
-	contextI, ok := m["context"]
+	context, ok, err := u.GetNestedString("context")
 	if !ok {
-		return fmt.Errorf("context is missing in cluster config")
-	}
-
-	cc.Name, ok = nameI.(string)
-	if !ok {
-		return fmt.Errorf("name is not a string")
-	}
-	cc.Context, ok = contextI.(string)
-	if !ok {
-		return fmt.Errorf("context is not a string")
+		return fmt.Errorf("context is missing (or not a string) in cluster config")
 	}
 
-	delete(m, "name")
-	delete(m, "context")
-	cc.Vars = m
+	cc.Name = name
+	cc.Context = context
+
+	_ = u.RemoveNestedField("name")
+	_ = u.RemoveNestedField("context")
+
+	cc.Vars = &u
 	return nil
 }
 
 func (cc *ClusterConfig2) MarshalYAML() (interface{}, error) {
-	m := map[string]interface{}{
-		"name": cc.Name,
+	o := uo.FromMap(map[string]interface{}{
+		"name":    cc.Name,
 		"context": cc.Context,
-	}
-	utils.MergeObject(m, cc.Vars)
-	return m, nil
+	})
+	o.Merge(cc.Vars)
+	return o, nil
 }
 
 func LoadClusterConfig(clusterDir string, clusterName string) (*ClusterConfig, error) {
@@ -68,7 +65,7 @@ func LoadClusterConfig(clusterDir string, clusterName string) (*ClusterConfig, e
 	}
 
 	var config ClusterConfig
-	err := utils.ReadYamlFile(p, &config)
+	err := yaml.ReadYamlFile(p, &config)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package utils
+package uo
 
 import (
 	"fmt"
@@ -60,10 +60,10 @@ func NewMyJsonPathMust(p string) *MyJsonPath {
 	return j
 }
 
-func (j *MyJsonPath) ListMatchingFields(o map[string]interface{}) ([][]interface{}, error) {
+func (j *MyJsonPath) ListMatchingFields(o *UnstructuredObject) ([][]interface{}, error) {
 	var ret [][]interface{}
 
-	o = CopyObject(o)
+	o = o.Clone()
 	magic := struct{}{}
 
 	err := j.exp.Set(o, magic)
@@ -71,7 +71,7 @@ func (j *MyJsonPath) ListMatchingFields(o map[string]interface{}) ([][]interface
 		return nil, err
 	}
 
-	_ = NewObjectIterator(o).IterateLeafs(func(it *ObjectIterator) error {
+	_ = o.NewIterator().IterateLeafs(func(it *ObjectIterator) error {
 		if it.Value() == magic {
 			var c []interface{}
 			c = append(c, it.KeyPath()...)

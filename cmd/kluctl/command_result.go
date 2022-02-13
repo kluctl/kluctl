@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/yaml"
 	"io"
 	"os"
 	"strings"
@@ -92,7 +93,7 @@ func prettyChanges(buf io.StringWriter, ref types.ObjectRef, changes []types.Cha
 }
 
 func formatCommandResultYaml(cr *types.CommandResult) (string, error) {
-	b, err := utils.WriteYamlString(cr)
+	b, err := yaml.WriteYamlString(cr)
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +149,7 @@ func formatValidateResultText(vr *types.ValidateResult) string {
 }
 
 func formatValidateResultYaml(vr *types.ValidateResult) (string, error) {
-	b, err := utils.WriteYamlString(vr)
+	b, err := yaml.WriteYamlString(vr)
 	if err != nil {
 		return "", err
 	}
@@ -209,13 +210,13 @@ func outputYamlResult(output []*string, result interface{}, multiDoc bool) error
 		if !ok {
 			return fmt.Errorf("object is not a list")
 		}
-		x, err := utils.WriteYamlAllString(l)
+		x, err := yaml.WriteYamlAllString(l)
 		if err != nil {
 			return err
 		}
 		s = x
 	} else {
-		x, err := utils.WriteYamlString(result)
+		x, err := yaml.WriteYamlString(result)
 		if err != nil {
 			return err
 		}
