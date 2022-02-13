@@ -53,14 +53,14 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 	}
 
 	if configPath != "" {
-		err := types2.LoadKluctlProjectConfig(configPath, &c.config)
+		err = utils.ReadYamlFile(configPath, &c.config)
 		if err != nil {
 			return err
 		}
 	}
 
 	if allowGit {
-		err := c.updateGitCaches()
+		err = c.updateGitCaches()
 		if err != nil {
 			return err
 		}

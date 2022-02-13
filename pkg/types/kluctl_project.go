@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
 )
 
@@ -54,18 +53,6 @@ type KluctlProject struct {
 	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
 }
 
-func LoadKluctlProjectConfig(p string, o *KluctlProject) error {
-	err := utils.ReadYamlFile(p, o)
-	if err != nil {
-		return err
-	}
-	err = validate.Struct(o)
-	if err != nil {
-		return fmt.Errorf("validation for %v failed: %w", p, err)
-	}
-	return nil
-}
-
 func init() {
-	validate.RegisterStructValidation(ValidateSecretSource, SecretSource{})
+	utils.Validator.RegisterStructValidation(ValidateSecretSource, SecretSource{})
 }

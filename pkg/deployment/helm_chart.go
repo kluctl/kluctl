@@ -22,14 +22,15 @@ type helmChart struct {
 }
 
 func NewHelmChart(configFile string) (*helmChart, error) {
-	config, err := types.LoadHelmChartConfig(configFile)
+	var config types.HelmChartConfig
+	err := utils.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
 	}
 
 	hc := &helmChart{
 		configFile: configFile,
-		config:     config,
+		config:     &config,
 	}
 	return hc, nil
 }

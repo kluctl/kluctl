@@ -25,8 +25,8 @@ func StructToObject(s interface{}) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	m := make(map[string]interface{})
-	err = ReadYamlBytes(b, m)
+	var m map[string]interface{}
+	err = ReadYamlBytes(b, &m)
 	if err != nil {
 		return nil, err
 	}

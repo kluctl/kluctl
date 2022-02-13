@@ -1,9 +1,8 @@
 package types
 
 import (
-	"fmt"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/go-playground/validator/v10"
-	"gopkg.in/yaml.v3"
 )
 
 type DeploymentItemConfig struct {
@@ -62,16 +61,16 @@ type SealedSecretsConfig struct {
 
 type SingleStringOrList []string
 
-func (s *SingleStringOrList) UnmarshalYAML(value *yaml.Node) error {
+func (s *SingleStringOrList) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var single string
-	if err := value.Decode(&single); err == nil {
+	if err := unmarshal(&single); err == nil {
 		// it's a single project
 		*s = []string{single}
 		return nil
 	}
 	// try as array
 	var arr []string
-	if err := value.Decode(&arr); err != nil {
+	if err := unmarshal(&arr); err != nil {
 		return err
 	}
 	*s = arr
@@ -106,19 +105,6 @@ type DeploymentProjectConfig struct {
 	TemplateExcludes []string                   `yaml:"TemplateExcludes,omitempty"`
 }
 
-func (c *DeploymentProjectConfig) UnmarshalYAML(value *yaml.Node) error {
-	type raw DeploymentProjectConfig
-	err := value.Decode((*raw)(c))
-	if err != nil {
-		return err
-	}
-	err = validate.Struct(c)
-	if err != nil {
-		return fmt.Errorf("validation for DeploymentProjectConfig failed: %w", err)
-	}
-	return nil
-}
-
 func init() {
-	validate.RegisterStructValidation(ValidateVarsListItem, VarsListItem{})
+	utils.Validator.RegisterStructValidation(ValidateVarsListItem, VarsListItem{})
 }

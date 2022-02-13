@@ -124,8 +124,8 @@ func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref types.ObjectRef,
 }
 
 func (vc *VarsCtx) loadVarsFromString(s string) error {
-	newVars := make(map[string]interface{})
-	err := vc.renderYamlString(s, newVars)
+	var newVars map[string]interface{}
+	err := vc.renderYamlString(s, &newVars)
 	if err != nil {
 		return err
 	}

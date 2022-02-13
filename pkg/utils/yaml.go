@@ -4,11 +4,19 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 	"io"
 	"os"
 	"strings"
 )
+
+func newYamlDecoder(r io.Reader) *yaml.Decoder {
+	return yaml.NewDecoder(r, yaml.Strict(), yaml.Validator(Validator))
+}
+
+func newYamlEncoder(w io.Writer) *yaml.Encoder {
+	return yaml.NewEncoder(w)
+}
 
 func ReadYamlFile(p string, o interface{}) error {
 	r, err := os.Open(p)
@@ -33,8 +41,7 @@ func ReadYamlBytes(b []byte, o interface{}) error {
 }
 
 func ReadYamlStream(r io.Reader, o interface{}) error {
-	d := yaml.NewDecoder(r)
-	d.KnownFields(true)
+	d := newYamlDecoder(r)
 	err := d.Decode(o)
 	return err
 }
@@ -58,8 +65,7 @@ func ReadYamlAllBytes(b []byte) ([]interface{}, error) {
 }
 
 func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
-	d := yaml.NewDecoder(r)
-	d.KnownFields(true)
+	d := newYamlDecoder(r)
 
 	var l []interface{}
 	for true {
@@ -120,9 +126,8 @@ func WriteYamlAllString(l []interface{}) (string, error) {
 }
 
 func WriteYamlAllStream(w io.Writer, l []interface{}) error {
-	enc := yaml.NewEncoder(w)
+	enc := newYamlEncoder(w)
 	defer enc.Close()
-	enc.SetIndent(2)
 
 	for _, o := range l {
 		err := enc.Encode(o)

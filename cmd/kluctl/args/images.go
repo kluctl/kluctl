@@ -3,6 +3,7 @@ package args
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/spf13/cobra"
 	"strings"
 )
@@ -25,7 +26,7 @@ func LoadFixedImagesFromArgs() (*types.FixedImagesConfig, error) {
 	var ret types.FixedImagesConfig
 
 	if FixedImagesFile != "" {
-		err := types.LoadFixedImagesConfig(FixedImagesFile, &ret)
+		err := utils.ReadYamlFile(FixedImagesFile, &ret)
 		if err != nil {
 			return nil, err
 		}

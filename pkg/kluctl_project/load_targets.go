@@ -289,7 +289,7 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 	}
 
 	var targetConfig types.TargetConfig
-	err = types.LoadTargetConfig(configPath, &targetConfig)
+	err = utils.ReadYamlFile(configPath, &targetConfig)
 	if err != nil {
 		return nil, err
 	}

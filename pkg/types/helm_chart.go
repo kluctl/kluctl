@@ -1,10 +1,5 @@
 package types
 
-import (
-	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
-)
-
 type HelmChartConfig2 struct {
 	Repo         *string `yaml:"repo,omitempty"`
 	ChartName    *string `yaml:"chartName,omitempty"`
@@ -18,17 +13,4 @@ type HelmChartConfig2 struct {
 
 type HelmChartConfig struct {
 	HelmChartConfig2 `yaml:"helmChart" validate:"required"`
-}
-
-func LoadHelmChartConfig(p string) (*HelmChartConfig, error) {
-	var o HelmChartConfig
-	err := utils.ReadYamlFile(p, &o)
-	if err != nil {
-		return nil, err
-	}
-	err = validate.Struct(o)
-	if err != nil {
-		return nil, fmt.Errorf("validation for %v failed: %w", p, err)
-	}
-	return &o, nil
 }

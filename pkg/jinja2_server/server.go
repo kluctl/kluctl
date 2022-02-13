@@ -210,6 +210,9 @@ func (js *Jinja2Server) RenderString(template string, searchDirs []string, vars 
 	if err != nil {
 		return "", err
 	}
+	if jobs[0].Error != nil {
+		return "", jobs[0].Error
+	}
 	return *jobs[0].Result, nil
 }
 
@@ -220,6 +223,9 @@ func (js *Jinja2Server) RenderFile(template string, searchDirs []string, vars ma
 	err := js.RenderFiles(jobs, searchDirs, vars)
 	if err != nil {
 		return "", err
+	}
+	if jobs[0].Error != nil {
+		return "", jobs[0].Error
 	}
 	return *jobs[0].Result, nil
 }

@@ -3,7 +3,6 @@ package git_url
 import (
 	"fmt"
 	giturls "github.com/whilp/git-urls"
-	"gopkg.in/yaml.v3"
 	"net/url"
 	"strings"
 )
@@ -20,9 +19,9 @@ func Parse(u string) (*GitUrl, error) {
 	return &GitUrl{*u2}, nil
 }
 
-func (u *GitUrl) UnmarshalYAML(value *yaml.Node) error {
+func (u *GitUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
-	err := value.Decode(&s)
+	err := unmarshal(&s)
 	if err != nil {
 		return err
 	}

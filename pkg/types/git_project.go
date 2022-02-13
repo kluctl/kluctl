@@ -2,8 +2,8 @@ package types
 
 import (
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/go-playground/validator/v10"
-	"gopkg.in/yaml.v3"
 	"strings"
 )
 
@@ -13,13 +13,13 @@ type GitProject struct {
 	SubDir string         `yaml:"subDir"`
 }
 
-func (gp *GitProject) UnmarshalYAML(value *yaml.Node) error {
-	if err := value.Decode(&gp.Url); err == nil {
+func (gp *GitProject) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	if err := unmarshal(&gp.Url); err == nil {
 		// it's a simple string
 		return nil
 	}
 	type raw GitProject
-	return value.Decode((*raw)(gp))
+	return unmarshal((*raw)(gp))
 }
 
 func ValidateGitProject(sl validator.StructLevel) {
@@ -37,17 +37,17 @@ type ExternalProjects struct {
 	Projects []ExternalProject
 }
 
-func (gp *ExternalProjects) UnmarshalYAML(value *yaml.Node) error {
+func (gp *ExternalProjects) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	singleProject := ExternalProject{}
-	if err := value.Decode(&singleProject); err == nil {
+	if err := unmarshal(&singleProject); err == nil {
 		// it's a single project
 		gp.Projects = []ExternalProject{singleProject}
 		return nil
 	}
 	// try as array
-	return value.Decode(gp.Projects)
+	return unmarshal(gp.Projects)
 }
 
 func init() {
-	validate.RegisterStructValidation(ValidateGitProject, GitProject{})
+	utils.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
 }

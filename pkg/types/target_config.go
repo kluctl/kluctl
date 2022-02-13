@@ -1,10 +1,5 @@
 package types
 
-import (
-	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
-)
-
 type FixedImage struct {
 	Image         string   `yaml:"image" validate:"required"`
 	ResultImage   string   `yaml:"resultImage" validate:"required"`
@@ -25,28 +20,4 @@ type FixedImagesConfig struct {
 type TargetConfig struct {
 	FixedImagesConfig `yaml:"fixed_images_config,inline"`
 	Args              map[string]interface{} `yaml:"args,omitempty"`
-}
-
-func LoadFixedImagesConfig(p string, o *FixedImagesConfig) error {
-	err := utils.ReadYamlFile(p, o)
-	if err != nil {
-		return err
-	}
-	err = validate.Struct(o)
-	if err != nil {
-		return fmt.Errorf("validation for %v failed: %w", p, err)
-	}
-	return nil
-}
-
-func LoadTargetConfig(p string, o *TargetConfig) error {
-	err := utils.ReadYamlFile(p, o)
-	if err != nil {
-		return err
-	}
-	err = validate.Struct(o)
-	if err != nil {
-		return fmt.Errorf("validation for %v failed: %w", p, err)
-	}
-	return nil
 }
