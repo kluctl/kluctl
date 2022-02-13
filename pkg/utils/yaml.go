@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goccy/go-yaml"
+	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"strings"
@@ -41,6 +42,13 @@ func ReadYamlBytes(b []byte, o interface{}) error {
 }
 
 func ReadYamlStream(r io.Reader, o interface{}) error {
+	if _, ok := o.(*map[string]interface{}); ok {
+		// much faster
+		d := yaml3.NewDecoder(r)
+		return d.Decode(o)
+	}
+
+	// we need proper working strict mode
 	d := newYamlDecoder(r)
 	err := d.Decode(o)
 	return err
@@ -65,7 +73,8 @@ func ReadYamlAllBytes(b []byte) ([]interface{}, error) {
 }
 
 func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
-	d := newYamlDecoder(r)
+	// yaml.v3 is much faster then go-yaml
+	d := yaml3.NewDecoder(r)
 
 	var l []interface{}
 	for true {
@@ -126,7 +135,7 @@ func WriteYamlAllString(l []interface{}) (string, error) {
 }
 
 func WriteYamlAllStream(w io.Writer, l []interface{}) error {
-	enc := newYamlEncoder(w)
+	enc := yaml3.NewEncoder(w)
 	defer enc.Close()
 
 	for _, o := range l {
