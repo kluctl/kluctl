@@ -178,7 +178,8 @@ func loadKluctlProjectFromArchive(fromArchive string, fromArchiveMetadata string
 		metdataPath = path.Join(dir, "metadata.yml")
 	}
 
-	metadata, err := types2.LoadArchiveMetadata(metdataPath)
+	var metadata types2.ArchiveMetadata
+	err := utils.ReadYamlFile(metdataPath, &metadata)
 	if err != nil {
 		return nil, err
 	}

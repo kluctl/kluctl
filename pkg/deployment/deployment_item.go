@@ -167,8 +167,8 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 	sealedSecretsDir := di.project.getSealedSecretsDir()
 	baseSourcePath := di.project.sealedSecretsDir
 
-	y := make(map[string]interface{})
-	err := utils.ReadYamlFile(path.Join(di.renderedDir, "kustomization.yml"), y)
+	var y map[string]interface{}
+	err := utils.ReadYamlFile(path.Join(di.renderedDir, "kustomization.yml"), &y)
 	if err != nil {
 		return err
 	}
@@ -261,8 +261,8 @@ func (di *deploymentItem) prepareKusomizationYaml() error {
 		return nil
 	}
 
-	kustomizeYaml := make(map[string]interface{})
-	err := utils.ReadYamlFile(kustomizeYamlPath, kustomizeYaml)
+	var kustomizeYaml map[string]interface{}
+	err := utils.ReadYamlFile(kustomizeYamlPath, &kustomizeYaml)
 	if err != nil {
 		return err
 	}
