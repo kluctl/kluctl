@@ -100,6 +100,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	for i := 0; i < parallelClients; i++ {
 		p := &parallelClientEntry{}
 		restConfig.WarningHandler = p
+		config.WarningHandler = p
 
 		p.dynamicClient, err = dynamic.NewForConfig(restConfig)
 		if err != nil {
