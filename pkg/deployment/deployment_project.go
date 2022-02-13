@@ -150,8 +150,16 @@ func (p *DeploymentProject) isIncludeDeployment(di *types.DeploymentItemConfig) 
 		return false
 	}
 
-	incDir := path.Join(p.dir, *di.Path, "deployment.yml")
-	return utils.Exists(incDir)
+	base := path.Join(p.dir, *di.Path)
+
+	if utils.Exists(path.Join(base, "kustomization.yml")) || utils.Exists(path.Join(base, "kustomization.yaml")) {
+		return false
+	}
+	if !utils.Exists(path.Join(base, "deployment.yml")) {
+		return false
+	}
+
+	return true
 }
 
 func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
