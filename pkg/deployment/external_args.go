@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"path"
 	"regexp"
@@ -42,7 +43,7 @@ func CheckRequiredDeployArgs(dir string, varsCtx *VarsCtx, deployArgs map[string
 
 	var conf types.DeploymentProjectConfig
 
-	err := types.LoadDeploymentProjectConfig(path.Join(dir, "deployment.yml"), &conf)
+	err := utils.ReadYamlFile(path.Join(dir, "deployment.yml"), &conf)
 	if err != nil {
 		// If that failed, it might be that conditional jinja blocks are present in the config, so lets try loading
 		// the config in rendered form. If it fails due to missing args now, we can't help much with better error

@@ -7,7 +7,6 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -140,7 +139,7 @@ func (vc *VarsCtx) renderYamlString(s string, out interface{}) error {
 		return err
 	}
 
-	err = yaml.Unmarshal([]byte(ret), out)
+	err = utils.ReadYamlString(ret, out)
 	if err != nil {
 		return err
 	}
@@ -154,7 +153,7 @@ func (vc *VarsCtx) renderYamlFile(p string, searchDirs []string, out interface{}
 		return err
 	}
 
-	err = yaml.Unmarshal([]byte(ret), out)
+	err = utils.ReadYamlString(ret, out)
 	if err != nil {
 		return err
 	}

@@ -3,8 +3,6 @@ package types
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
 	"path"
 )
 
@@ -28,13 +26,8 @@ func LoadClusterConfig(clusterDir string, clusterName string) (*ClusterConfig, e
 		return nil, fmt.Errorf("cluster config for %s not found", clusterName)
 	}
 
-	b, err := ioutil.ReadFile(p)
-	if err != nil {
-		return nil, err
-	}
-
 	var config ClusterConfig
-	err = yaml.Unmarshal(b, &config)
+	err := utils.ReadYamlFile(p, &config)
 	if err != nil {
 		return nil, err
 	}

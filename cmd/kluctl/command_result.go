@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
-	"gopkg.in/yaml.v2"
 	"io"
 	"os"
 	"strings"
@@ -93,11 +92,11 @@ func prettyChanges(buf io.StringWriter, ref types.ObjectRef, changes []types.Cha
 }
 
 func formatCommandResultYaml(cr *types.CommandResult) (string, error) {
-	b, err := yaml.Marshal(cr)
+	b, err := utils.WriteYamlString(cr)
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+	return b, nil
 }
 
 func formatCommandResult(cr *types.CommandResult, format string) (string, error) {
@@ -149,7 +148,7 @@ func formatValidateResultText(vr *types.ValidateResult) string {
 }
 
 func formatValidateResultYaml(vr *types.ValidateResult) (string, error) {
-	b, err := yaml.Marshal(vr)
+	b, err := utils.WriteYamlString(vr)
 	if err != nil {
 		return "", err
 	}

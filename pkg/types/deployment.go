@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
 )
@@ -107,14 +106,15 @@ type DeploymentProjectConfig struct {
 	TemplateExcludes []string                   `yaml:"TemplateExcludes,omitempty"`
 }
 
-func LoadDeploymentProjectConfig(p string, o *DeploymentProjectConfig) error {
-	err := utils.ReadYamlFile(p, o)
+func (c *DeploymentProjectConfig) UnmarshalYAML(value *yaml.Node) error {
+	type raw DeploymentProjectConfig
+	err := value.Decode((*raw)(c))
 	if err != nil {
 		return err
 	}
-	err = validate.Struct(o)
+	err = validate.Struct(c)
 	if err != nil {
-		return fmt.Errorf("validation for %v failed: %w", p, err)
+		return fmt.Errorf("validation for DeploymentProjectConfig failed: %w", err)
 	}
 	return nil
 }

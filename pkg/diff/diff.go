@@ -8,7 +8,6 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
 	diff2 "github.com/r3labs/diff/v2"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strconv"
 	"strings"
@@ -134,11 +133,11 @@ func objectToDiffableString(o interface{}) (string, error) {
 		return v, nil
 	}
 
-	b, err := yaml.Marshal(o)
+	b, err := utils.WriteYamlString(o)
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+	return b, nil
 }
 
 func prependStrToLines(s string, prepend string) string {

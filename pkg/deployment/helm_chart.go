@@ -6,7 +6,6 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	goversion "github.com/hashicorp/go-version"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
@@ -147,7 +146,7 @@ func (c *helmChart) CheckUpdate() (string, error) {
 		// ensure we didn't get partial matches
 		var lm []map[string]string
 		var ls VersionSlice
-		err = yaml.Unmarshal([]byte(stdout), &lm)
+		err = utils.ReadYamlBytes(stdout, &lm)
 		if err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -21,13 +20,13 @@ func CopyUnstructured(u *unstructured.Unstructured) *unstructured.Unstructured {
 }
 
 func StructToObject(s interface{}) (map[string]interface{}, error) {
-	b, err := yaml.Marshal(s)
+	b, err := WriteYamlBytes(s)
 	if err != nil {
 		return nil, err
 	}
 
 	m := make(map[string]interface{})
-	err = yaml.Unmarshal(b, m)
+	err = ReadYamlBytes(b, m)
 	if err != nil {
 		return nil, err
 	}
@@ -35,11 +34,11 @@ func StructToObject(s interface{}) (map[string]interface{}, error) {
 }
 
 func ObjectToStruct(m map[string]interface{}, dst interface{}) error {
-	b, err := yaml.Marshal(m)
+	b, err := WriteYamlBytes(m)
 	if err != nil {
 		return err
 	}
-	return yaml.Unmarshal(b, dst)
+	return ReadYamlBytes(b, dst)
 }
 
 func MergeObject(a map[string]interface{}, b map[string]interface{}) {

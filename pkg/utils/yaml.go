@@ -28,6 +28,10 @@ func ReadYamlString(s string, o interface{}) error {
 	return ReadYamlStream(strings.NewReader(s), o)
 }
 
+func ReadYamlBytes(b []byte, o interface{}) error {
+	return ReadYamlStream(bytes.NewReader(b), o)
+}
+
 func ReadYamlStream(r io.Reader, o interface{}) error {
 	d := yaml.NewDecoder(r)
 	d.KnownFields(true)
@@ -77,6 +81,10 @@ func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
 
 func WriteYamlString(o interface{}) (string, error) {
 	return WriteYamlAllString([]interface{}{o})
+}
+
+func WriteYamlBytes(o interface{}) ([]byte, error) {
+	return WriteYamlAllBytes([]interface{}{o})
 }
 
 func WriteYamlFile(p string, o interface{}) error {
