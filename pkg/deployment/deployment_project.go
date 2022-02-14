@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	"github.com/codablock/kluctl/pkg/jinja2_server"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
@@ -17,7 +18,7 @@ var kustomizeDirsDeprecatedOnce sync.Once
 var includesDeprecatedOnce sync.Once
 
 type DeploymentProject struct {
-	varsCtx          *VarsCtx
+	VarsCtx          *jinja2_server.VarsCtx
 	dir              string
 	sealedSecretsDir string
 
@@ -29,9 +30,9 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *jinja2_server.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
-		varsCtx:          varsCtx.Copy(),
+		VarsCtx:          varsCtx.Copy(),
 		dir:              dir,
 		sealedSecretsDir: sealedSecretsDir,
 		parentProject:    parentProject,
@@ -55,6 +56,12 @@ func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *VarsCtx, dir string, seale
 	return dp, nil
 }
 
+func (p *DeploymentProject) MergeSecretsIntoAllChildren(vars *uo.UnstructuredObject) {
+	for _, c := range p.getChildren(true, true) {
+		c.VarsCtx.UpdateChild("secrets", vars)
+	}
+}
+
 func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	configPath := path.Join(p.dir, "deployment.yml")
 	if !utils.Exists(configPath) {
@@ -64,12 +71,12 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		return fmt.Errorf("%s not found", p.dir)
 	}
 
-	err := p.varsCtx.renderYamlFile("deployment.yml", p.getRenderSearchDirs(), &p.config)
+	err := p.VarsCtx.RenderYamlFile("deployment.yml", p.getRenderSearchDirs(), &p.config)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}
 
-	err = p.varsCtx.loadVarsList(k, p.getRenderSearchDirs(), p.config.Vars)
+	err = p.VarsCtx.LoadVarsList(k, p.getRenderSearchDirs(), p.config.Vars)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
 	}
@@ -171,8 +178,8 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 
 		incDir := path.Join(p.dir, *inc.Path)
 
-		varsCtx := p.varsCtx.Copy()
-		err := varsCtx.loadVarsList(k, p.getRenderSearchDirs(), inc.Vars)
+		varsCtx := p.VarsCtx.Copy()
+		err := varsCtx.LoadVarsList(k, p.getRenderSearchDirs(), inc.Vars)
 		if err != nil {
 			return err
 		}

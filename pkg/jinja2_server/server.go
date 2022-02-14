@@ -233,6 +233,9 @@ func (js *Jinja2Server) RenderFile(template string, searchDirs []string, vars *u
 
 func (js *Jinja2Server) RenderStruct(dst interface{}, src interface{}, vars *uo.UnstructuredObject) error {
 	m, err := uo.FromStruct(src)
+	if err != nil {
+		return err
+	}
 
 	type pk struct {
 		parent interface{}

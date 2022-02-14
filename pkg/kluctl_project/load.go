@@ -54,7 +54,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 	}
 
 	if configPath != "" {
-		err = yaml.ReadYamlFile(configPath, &c.config)
+		err = yaml.ReadYamlFile(configPath, &c.Config)
 		if err != nil {
 			return err
 		}
@@ -85,19 +85,19 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 		return c.cloneGitProject(*ep, defaultGitSubDir, true, true)
 	}
 
-	deploymentInfo, err := doClone(c.config.Deployment, "", c.loadArgs.LocalDeployment)
+	deploymentInfo, err := doClone(c.Config.Deployment, "", c.loadArgs.LocalDeployment)
 	if err != nil {
 		return err
 	}
-	sealedSecretsInfo, err := doClone(c.config.SealedSecrets, ".sealed-secrets", c.loadArgs.LocalSealedSecrets)
+	sealedSecretsInfo, err := doClone(c.Config.SealedSecrets, ".sealed-secrets", c.loadArgs.LocalSealedSecrets)
 	if err != nil {
 		return err
 	}
 	var clustersInfos []gitProjectInfo
 	if c.loadArgs.LocalClusters != "" {
 		clustersInfos = append(clustersInfos, c.localProject(c.loadArgs.LocalClusters))
-	} else if len(c.config.Clusters.Projects) != 0 {
-		for _, ep := range c.config.Clusters.Projects {
+	} else if len(c.Config.Clusters.Projects) != 0 {
+		for _, ep := range c.Config.Clusters.Projects {
 			info, err := doClone(&ep, "clusters", "")
 			if err != nil {
 				return err
@@ -193,6 +193,6 @@ func loadKluctlProjectFromArchive(fromArchive string, fromArchiveMetadata string
 			LocalSealedSecrets: path.Join(dir, "sealed-secrets"),
 		}, dir)
 	p.involvedRepos = metadata.InvolvedRepos
-	p.targets = metadata.Targets
+	p.DynamicTargets = metadata.Targets
 	return p, nil
 }

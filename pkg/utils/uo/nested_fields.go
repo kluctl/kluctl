@@ -153,6 +153,30 @@ func (uo *UnstructuredObject) GetNestedObjectListNoErr(keys ...interface{}) []*U
 	return l
 }
 
+func (uo *UnstructuredObject) GetNestedStringMapCopy(keys ...interface{}) (map[string]string, bool, error) {
+	v, found, err := uo.GetNestedField(keys...)
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, nil
+	}
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return nil, false, fmt.Errorf("value at %s is not a map", KeyListToJsonPath(keys))
+	}
+	ret := make(map[string]string)
+	for k, v := range m {
+		s, ok := v.(string)
+		if !ok {
+			return nil, false, fmt.Errorf("value at %s.%s is not a string", KeyListToJsonPath(keys), k)
+		}
+		ret[k] = s
+	}
+
+	return ret, true, nil
+}
+
 func (uo *UnstructuredObject) SetNestedFieldDefault(defaultValue interface{}, keys ...interface{}) error {
 	v, found, err := uo.GetNestedField(keys...)
 	if err != nil {

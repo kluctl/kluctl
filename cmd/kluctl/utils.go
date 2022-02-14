@@ -56,11 +56,11 @@ func withProjectCommandContext(cb func(ctx *commandCtx) error) error {
 	return withKluctlProjectFromArgs(func(p *kluctl_project.KluctlProjectContext) error {
 		var target *types.Target
 		if args.Target != "" {
-			t, err := p.FindTarget(args.Target)
+			t, err := p.FindDynamicTarget(args.Target)
 			if err != nil {
 				return err
 			}
-			target = t
+			target = t.Target
 		}
 		return withProjectTargetCommandContext(p, target, false, cb)
 	})
@@ -90,7 +90,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		return err
 	}
 
-	varsCtx := deployment.NewVarsCtx(p.JS)
+	varsCtx := jinja2_server.NewVarsCtx(p.JS)
 	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
 	if err != nil {
 		return err

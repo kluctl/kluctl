@@ -62,6 +62,24 @@ func (uo *UnstructuredObject) ToStruct(out interface{}) error {
 	return yaml.ReadYamlBytes(b, out)
 }
 
+func FromString(s string) (*UnstructuredObject, error) {
+	o := New()
+	err := yaml.ReadYamlString(s, &o.Object)
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+
+func FromFile(p string) (*UnstructuredObject, error) {
+	o := New()
+	err := yaml.ReadYamlFile(p, &o.Object)
+	if err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+
 func (uo *UnstructuredObject) Clone() *UnstructuredObject {
 	var c map[string]interface{}
 	err := copier.CopyWithOption(&c, &uo.Object, copier.Option{

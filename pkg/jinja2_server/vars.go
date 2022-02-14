@@ -1,8 +1,7 @@
-package deployment
+package jinja2_server
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/jinja2_server"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -11,11 +10,11 @@ import (
 )
 
 type VarsCtx struct {
-	JS   *jinja2_server.Jinja2Server
+	JS   *Jinja2Server
 	Vars *uo.UnstructuredObject
 }
 
-func NewVarsCtx(js *jinja2_server.Jinja2Server) *VarsCtx {
+func NewVarsCtx(js *Jinja2Server) *VarsCtx {
 	vc := &VarsCtx{
 		JS:   js,
 		Vars: uo.New(),
@@ -48,7 +47,7 @@ func (vc *VarsCtx) UpdateChildFromStruct(child string, o interface{}) error {
 	return nil
 }
 
-func (vc *VarsCtx) loadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList []*types.VarsListItem) error {
+func (vc *VarsCtx) LoadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList []*types.VarsListItem) error {
 	for _, v := range varsList {
 		if v.Values != nil {
 			vc.Update(v.Values)
@@ -79,7 +78,7 @@ func (vc *VarsCtx) loadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList
 
 func (vc *VarsCtx) loadVarsFile(p string, searchDirs []string) error {
 	var newVars uo.UnstructuredObject
-	err := vc.renderYamlFile(p, searchDirs, &newVars)
+	err := vc.RenderYamlFile(p, searchDirs, &newVars)
 	if err != nil {
 		return fmt.Errorf("failed to load vars from %s: %w", p, err)
 	}
@@ -132,7 +131,7 @@ func (vc *VarsCtx) renderYamlString(s string, out interface{}) error {
 	return nil
 }
 
-func (vc *VarsCtx) renderYamlFile(p string, searchDirs []string, out interface{}) error {
+func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}) error {
 	ret, err := vc.JS.RenderFile(p, searchDirs, vc.Vars)
 	if err != nil {
 		return err
@@ -146,6 +145,6 @@ func (vc *VarsCtx) renderYamlFile(p string, searchDirs []string, out interface{}
 	return nil
 }
 
-func (vc *VarsCtx) renderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string) error {
+func (vc *VarsCtx) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string) error {
 	return vc.JS.RenderDirectory(rootDir, searchDirs, relSourceDir, excludePatterns, subdir, targetDir, vc.Vars)
 }

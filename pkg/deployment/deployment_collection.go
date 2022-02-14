@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/diff"
 	"github.com/codablock/kluctl/pkg/k8s"
+	"github.com/codablock/kluctl/pkg/seal"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
+	"io/fs"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -114,7 +117,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 	return ret, nil
 }
 
-func (c *DeploymentCollection) renderDeployments(k *k8s.K8sCluster) error {
+func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 	log.Infof("Rendering templates and Helm charts")
 
 	wp := utils.NewDebuggerAwareWorkerPool(16)
@@ -143,6 +146,32 @@ func (c *DeploymentCollection) renderDeployments(k *k8s.K8sCluster) error {
 	}
 
 	return nil
+}
+
+func (c *DeploymentCollection) Seal(sealer *seal.Sealer) error {
+	if c.project.config.SealedSecrets.OutputPattern == nil {
+		return fmt.Errorf("sealedSecrets.outputPattern is not defined")
+	}
+
+	err := filepath.WalkDir(c.RenderDir, func(p string, d fs.DirEntry, err error) error {
+		if !strings.HasSuffix(p, sealmeExt) {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(c.RenderDir, p)
+		if err != nil {
+			return err
+		}
+		targetDir := path.Join(c.project.sealedSecretsDir, path.Dir(relPath))
+		targetFile := path.Join(targetDir, *c.project.config.SealedSecrets.OutputPattern, path.Base(p))
+		targetFile = targetFile[:len(targetFile)-len(sealmeExt)]
+		err = sealer.SealFile(p, targetFile)
+		if err != nil {
+			return fmt.Errorf("failed sealing %s: %w", path.Base(p), err)
+		}
+		return nil
+	})
+	return err
 }
 
 func (c *DeploymentCollection) resolveSealedSecrets() error {
@@ -241,7 +270,7 @@ func (c *DeploymentCollection) localObjectRefs() []types.ObjectRef {
 }
 
 func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
-	err := c.renderDeployments(k)
+	err := c.RenderDeployments(k)
 	if err != nil {
 		return err
 	}

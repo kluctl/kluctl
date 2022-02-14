@@ -110,8 +110,8 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 		return err
 	}
 
-	varsCtx := di.project.varsCtx.Copy()
-	err = varsCtx.loadVarsList(k, di.project.getRenderSearchDirs(), di.config.Vars)
+	varsCtx := di.project.VarsCtx.Copy()
+	err = varsCtx.LoadVarsList(k, di.project.getRenderSearchDirs(), di.config.Vars)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 	}
 
 	wp.Submit(func() error {
-		return varsCtx.renderDirectory(rootDir, di.project.getRenderSearchDirs(), di.relProjectDir, excludePatterns, di.relToProjectItemDir, di.renderedDir)
+		return varsCtx.RenderDirectory(rootDir, di.project.getRenderSearchDirs(), di.relProjectDir, excludePatterns, di.relToProjectItemDir, di.renderedDir)
 	})
 
 	return nil

@@ -42,15 +42,19 @@ func ReadYamlBytes(b []byte, o interface{}) error {
 }
 
 func ReadYamlStream(r io.Reader, o interface{}) error {
+	var err error
 	if _, ok := o.(*map[string]interface{}); ok {
 		// much faster
 		d := yaml3.NewDecoder(r)
-		return d.Decode(o)
+		err = d.Decode(o)
+	} else {
+		// we need proper working strict mode
+		d := newYamlDecoder(r)
+		err = d.Decode(o)
 	}
-
-	// we need proper working strict mode
-	d := newYamlDecoder(r)
-	err := d.Decode(o)
+	if err != nil && errors.Is(err, io.EOF) {
+		return nil
+	}
 	return err
 }
 
@@ -137,6 +141,8 @@ func WriteYamlAllString(l []interface{}) (string, error) {
 func WriteYamlAllStream(w io.Writer, l []interface{}) error {
 	enc := yaml3.NewEncoder(w)
 	defer enc.Close()
+
+	enc.SetIndent(2)
 
 	for _, o := range l {
 		err := enc.Encode(o)

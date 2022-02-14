@@ -22,7 +22,7 @@ type ExternalTargetConfig struct {
 
 type SealingConfig struct {
 	// DynamicSealing Set this to false if you want to disable sealing for every dynamic target
-	DynamicSealing bool                   `yaml:"dynamicSealing,omitempty"`
+	DynamicSealing *bool                  `yaml:"dynamicSealing,omitempty"`
 	Args           *uo.UnstructuredObject `yaml:"args,omitempty"`
 	SecretSets     []string               `yaml:"secretSets,omitempty"`
 }
@@ -37,20 +37,32 @@ type Target struct {
 	Images        []FixedImage           `yaml:"images,omitempty"`
 }
 
+type DynamicTarget struct {
+	Target         *Target `yaml:"target" validate:"required"`
+	BaseTargetName string  `yaml:"baseTargetName"`
+}
+
 type SecretSet struct {
-	Name    string        `yaml:"name" validate:"required"`
-	Sources []interface{} `yaml:"sources" validate:"required,gt=0,dive,required"`
+	Name    string         `yaml:"name" validate:"required"`
+	Sources []SecretSource `yaml:"sources" validate:"required,gt=0"`
+}
+
+type GlobalSealedSecretsConfig struct {
+	Bootstrap      *bool   `yaml:"bootstrap,omitempty"`
+	Namespace      *string `yaml:"namespace,omitempty"`
+	ControllerName *string `yaml:"controllerName,omitempty"`
 }
 
 type SecretsConfig struct {
-	SecretSets []SecretSet `yaml:"secretSets,omitempty"`
+	SealedSecrets *GlobalSealedSecretsConfig `yaml:"sealedSecrets,omitempty"`
+	SecretSets    []SecretSet                `yaml:"secretSets,omitempty"`
 }
 
 type KluctlProject struct {
 	Deployment    *ExternalProject `yaml:"deployment,omitempty"`
 	SealedSecrets *ExternalProject `yaml:"sealedSecrets,omitempty"`
 	Clusters      ExternalProjects `yaml:"clusters,omitempty"`
-	Targets       []Target         `yaml:"targets,omitempty"`
+	Targets       []*Target        `yaml:"targets,omitempty"`
 	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
 }
 

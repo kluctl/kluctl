@@ -103,7 +103,7 @@ type DeploymentProjectConfig struct {
 	Tags              []string          `yaml:"tags,omitempty"`
 
 	IgnoreForDiff    []*IgnoreForDiffItemConfig `yaml:"ignoreForDiff,omitempty"`
-	TemplateExcludes []string                   `yaml:"TemplateExcludes,omitempty"`
+	TemplateExcludes []string                   `yaml:"templateExcludes,omitempty"`
 }
 
 func init() {

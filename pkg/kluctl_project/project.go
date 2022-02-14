@@ -26,15 +26,15 @@ type KluctlProjectContext struct {
 	loadArgs LoadKluctlProjectArgs
 
 	TmpDir string
-	config types.KluctlProject
+	Config types.KluctlProject
 
 	ProjectDir       string
 	DeploymentDir    string
 	ClustersDir      string
 	SealedSecretsDir string
 
-	involvedRepos map[string][]types.InvolvedRepo
-	targets       []*types.Target
+	involvedRepos  map[string][]types.InvolvedRepo
+	DynamicTargets []*types.DynamicTarget
 
 	mirroredRepos map[string]*git.MirroredGitRepo
 
@@ -52,9 +52,18 @@ func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string) *Klu
 	return o
 }
 
-func (c *KluctlProjectContext) FindTarget(name string) (*types.Target, error) {
-	for _, target := range c.targets {
+func (c *KluctlProjectContext) FindBaseTarget(name string) (*types.Target, error) {
+	for _, target := range c.Config.Targets {
 		if target.Name == name {
+			return target, nil
+		}
+	}
+	return nil, fmt.Errorf("target %s not existent in kluctl project config", name)
+}
+
+func (c *KluctlProjectContext) FindDynamicTarget(name string) (*types.DynamicTarget, error) {
+	for _, target := range c.DynamicTargets {
+		if target.Target.Name == name {
 			return target, nil
 		}
 	}

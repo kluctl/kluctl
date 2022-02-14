@@ -2,8 +2,8 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/deployment"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
+	"github.com/codablock/kluctl/pkg/jinja2_server"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -26,10 +26,10 @@ type dynamicTargetInfo struct {
 
 func (c *KluctlProjectContext) loadTargets() error {
 	targetNames := make(map[string]bool)
-	c.targets = nil
+	c.DynamicTargets = nil
 
 	var targetInfos []*dynamicTargetInfo
-	for _, baseTarget := range c.config.Targets {
+	for _, baseTarget := range c.Config.Targets {
 		l, err := c.prepareDynamicTargets(baseTarget)
 		if err != nil {
 			return err
@@ -62,7 +62,10 @@ func (c *KluctlProjectContext) loadTargets() error {
 			log.Warningf("Duplicate target %s", target.Name)
 		} else {
 			targetNames[target.Name] = true
-			c.targets = append(c.targets, target)
+			c.DynamicTargets = append(c.DynamicTargets, &types.DynamicTarget{
+				Target:         target,
+				BaseTargetName: targetInfo.baseTarget.Name,
+			})
 		}
 	}
 	return nil
@@ -75,7 +78,7 @@ func (c *KluctlProjectContext) renderTarget(target *types.Target) (*types.Target
 	var errors []error
 	curTarget := target
 	for i := 0; i < 10; i++ {
-		varsCtx := deployment.NewVarsCtx(c.JS)
+		varsCtx := jinja2_server.NewVarsCtx(c.JS)
 		err := varsCtx.UpdateChildFromStruct("target", curTarget)
 		if err != nil {
 			return nil, err
@@ -102,7 +105,7 @@ func (c *KluctlProjectContext) renderTarget(target *types.Target) (*types.Target
 	return curTarget, nil
 }
 
-func (c *KluctlProjectContext) prepareDynamicTargets(baseTarget types.Target) ([]*dynamicTargetInfo, error) {
+func (c *KluctlProjectContext) prepareDynamicTargets(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
 	if baseTarget.TargetConfig != nil && baseTarget.TargetConfig.Project != nil {
 		return c.prepareDynamicTargetsExternal(baseTarget)
 	} else {
@@ -110,7 +113,7 @@ func (c *KluctlProjectContext) prepareDynamicTargets(baseTarget types.Target) ([
 	}
 }
 
-func (c *KluctlProjectContext) prepareDynamicTargetsSimple(baseTarget types.Target) ([]*dynamicTargetInfo, error) {
+func (c *KluctlProjectContext) prepareDynamicTargetsSimple(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
 	if baseTarget.TargetConfig != nil {
 		if baseTarget.TargetConfig.Ref != nil || baseTarget.TargetConfig.RefPattern != nil {
 			return nil, fmt.Errorf("'ref' and/or 'refPattern' are not allowed for non-external dynamic targets")
@@ -118,14 +121,14 @@ func (c *KluctlProjectContext) prepareDynamicTargetsSimple(baseTarget types.Targ
 	}
 	dynamicTargets := []*dynamicTargetInfo{
 		{
-			baseTarget: &baseTarget,
+			baseTarget: baseTarget,
 			dir:        c.ProjectDir,
 		},
 	}
 	return dynamicTargets, nil
 }
 
-func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget types.Target) ([]*dynamicTargetInfo, error) {
+func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
 	mr, ok := c.mirroredRepos[baseTarget.TargetConfig.Project.Url.NormalizedRepoKey()]
 	if !ok {
 		return nil, fmt.Errorf("repo not found in mirroredRepos, this is unexpected and probably a bug")
@@ -176,7 +179,7 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget types.Ta
 		}
 
 		dynamicTargets = append(dynamicTargets, &dynamicTargetInfo{
-			baseTarget:    &baseTarget,
+			baseTarget:    baseTarget,
 			dir:           cloneDir,
 			gitProject:    baseTarget.TargetConfig.Project,
 			ref:           &ref,
@@ -297,19 +300,20 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 	}
 
 	// check and merge args
-	err = targetConfig.Args.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
-		strValue := fmt.Sprintf("%v", it.Value())
-		err := c.CheckDynamicArg(&target, it.JsonPath(), strValue)
+	if targetConfig.Args != nil {
+		err = targetConfig.Args.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
+			strValue := fmt.Sprintf("%v", it.Value())
+			err := c.CheckDynamicArg(&target, it.JsonPath(), strValue)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		target.Args.Merge(targetConfig.Args)
 	}
-	target.Args.Merge(targetConfig.Args)
-
 	// We prepend the dynamic images to ensure they get higher priority later
 	target.Images = append(targetConfig.Images, target.Images...)
 

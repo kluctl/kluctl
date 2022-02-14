@@ -63,17 +63,17 @@ func (c *KluctlProjectContext) updateGitCaches() error {
 		return doUpdateGitProject(p.Project.Url)
 	}
 
-	err := doUpdateExternalProject(c.config.Deployment)
+	err := doUpdateExternalProject(c.Config.Deployment)
 	if err != nil {
 		waitGroup.Wait()
 		return err
 	}
-	err = doUpdateExternalProject(c.config.SealedSecrets)
+	err = doUpdateExternalProject(c.Config.SealedSecrets)
 	if err != nil {
 		waitGroup.Wait()
 		return err
 	}
-	for _, ep := range c.config.Clusters.Projects {
+	for _, ep := range c.Config.Clusters.Projects {
 		err = doUpdateExternalProject(&ep)
 		if err != nil {
 			waitGroup.Wait()
@@ -81,7 +81,7 @@ func (c *KluctlProjectContext) updateGitCaches() error {
 		}
 	}
 
-	for _, target := range c.config.Targets {
+	for _, target := range c.Config.Targets {
 		if target.TargetConfig == nil || target.TargetConfig.Project == nil {
 			continue
 		}

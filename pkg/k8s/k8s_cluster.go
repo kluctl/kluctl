@@ -15,10 +15,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	"net/http"
 	"path"
 	"strings"
 	"sync"
@@ -46,6 +49,8 @@ type K8sCluster struct {
 }
 
 type parallelClientEntry struct {
+	http           *http.Client
+	corev1         *corev1.CoreV1Client
 	dynamicClient  dynamic.Interface
 	metadataClient metadata.Interface
 
@@ -88,9 +93,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	config.QPS = 10
 	config.Burst = 20
 
-	restConfig := dynamic.ConfigFor(config)
-
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(restConfig, path.Join(utils.GetTmpBaseDir(), "kube-cache"), path.Join(utils.GetTmpBaseDir(), "kube-http-cache"), time.Hour*24)
+	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), path.Join(utils.GetTmpBaseDir(), "kube-cache"), path.Join(utils.GetTmpBaseDir(), "kube-http-cache"), time.Hour*24)
 	if err != nil {
 		return nil, err
 	}
@@ -100,15 +103,24 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	k.clientPool = make(chan *parallelClientEntry, parallelClients)
 	for i := 0; i < parallelClients; i++ {
 		p := &parallelClientEntry{}
-		restConfig.WarningHandler = p
 		config.WarningHandler = p
 
-		p.dynamicClient, err = dynamic.NewForConfig(restConfig)
+		p.http, err = rest.HTTPClientFor(config)
 		if err != nil {
 			return nil, err
 		}
 
-		p.metadataClient, err = metadata.NewForConfig(config)
+		p.corev1, err = corev1.NewForConfigAndClient(config, p.http)
+		if err != nil {
+			return nil, err
+		}
+
+		p.dynamicClient, err = dynamic.NewForConfigAndClient(config, p.http)
+		if err != nil {
+			return nil, err
+		}
+
+		p.metadataClient, err = metadata.NewForConfigAndClient(config, p.http)
 		if err != nil {
 			return nil, err
 		}
@@ -306,6 +318,12 @@ func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVer
 		Version:  ar.Version,
 		Resource: ar.Name,
 	}, ar.Namespaced, nil
+}
+
+func (k *K8sCluster) WithCoreV1(cb func(client *corev1.CoreV1Client) error) error {
+	p := <-k.clientPool
+	defer func() { k.clientPool <- p }()
+	return cb(p.corev1)
 }
 
 func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
