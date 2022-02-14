@@ -1,3 +1,0 @@
-tolerations:
-  - key: CriticalAddonsOnly
-    operator: Exists
