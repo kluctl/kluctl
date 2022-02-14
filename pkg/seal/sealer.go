@@ -19,15 +19,16 @@ import (
 	"path"
 	"reflect"
 	"strconv"
-	"strings"
 )
 
 const hashAnnotation = "kluctl.io/sealedsecret-hashes"
+const clusterIdAnnotation = "kluctl.io/sealedsecret-cluster-id"
 
 type Sealer struct {
 	clusterConfig *types.ClusterConfig2
 	forceReseal   bool
 	cert          *rsa.PublicKey
+	clusterId string
 }
 
 func NewSealer(k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, clusterConfig *types.ClusterConfig2, forceReseal bool) (*Sealer, error) {
@@ -40,7 +41,36 @@ func NewSealer(k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsCo
 		return nil, err
 	}
 	s.cert = cert
+
+	clusterId, err := getClusterId(k)
+	if err != nil {
+		return nil, err
+	}
+
+	s.clusterId = clusterId
+
 	return s, nil
+}
+
+// We treat the hashed kube-root-ca.crt as cluster id for now. We also accept that it might change when keys
+// get rotated.
+func getClusterId(k *k8s.K8sCluster) (string, error) {
+	o, _, err := k.GetSingleObject(types.ObjectRef{
+		GVK: schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+		Name: "kube-root-ca.crt",
+		Namespace: "kube-system",
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
+	}
+	kubeRootCA, ok, err := uo.FromUnstructured(o).GetNestedString("data", "ca.crt")
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
+	}
+	if !ok {
+		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: ca.crt key is missing")
+	}
+	return utils.Sha256String(kubeRootCA), nil
 }
 
 func (s *Sealer) doHash(key string, secret []byte, secretName string, secretNamespace string, scope string) string {
@@ -51,7 +81,6 @@ func (s *Sealer) doHash(key string, secret []byte, secretName string, secretName
 	if scope != "strict" {
 		salt += "-" + scope
 	}
-
 	h, err := scrypt.Key(secret, []byte(salt), 1<<14, 8, 1, 64)
 	if err != nil {
 		log.Fatal(err)
@@ -128,14 +157,17 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 
 	var existingContent *uo.UnstructuredObject
 	var existingHashes *uo.UnstructuredObject
+	var existingClusterId string
 
 	if utils.Exists(targetFile) {
 		existingContent, err = uo.FromFile(targetFile)
-		if err != nil {
-			return err
+		a := existingContent.GetK8sAnnotation(hashAnnotation)
+		if a != nil {
+			existingHashes, _ = uo.FromString(*a)
 		}
-		if x, ok := existingContent.ToUnstructured().GetAnnotations()[hashAnnotation]; ok {
-			existingHashes, _ = uo.FromString(x)
+		a = existingContent.GetK8sAnnotation(clusterIdAnnotation)
+		if a != nil {
+			existingClusterId = *a
 		}
 	}
 	if existingHashes == nil {
@@ -192,49 +224,57 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 		result.SetNestedField(metadata.Object, "spec", "template", "metadata")
 	}
 
-	var changedKeys []string
+	resealAll := true
+	if s.forceReseal {
+		resealAll = true
+		log.Infof("Forcing reseal of secrets in %s", secretName)
+	} else if existingClusterId != s.clusterId {
+		resealAll = true
+		log.Infof("Target cluster for secret %s has changed, forcing reseal", secretName)
+	}
+
 	for k, v := range secrets {
 		hash := s.doHash(k, v, secretName, secretNamespace, *scope)
 		existingHash, _, _ := existingHashes.GetNestedString(k)
-		if hash == existingHash && !s.forceReseal {
+
+		doEncrypt := resealAll
+		if !doEncrypt && hash != existingHash {
+			log.Infof("Secret %s and key %s has changed, resealing", secretName, k)
+			doEncrypt = true
+		}
+
+		if !doEncrypt {
 			e, ok, _ := existingContent.GetNestedString("spec", "encryptedData", k)
 			if ok {
-				log.Debugf("Secret %s and key %s is unchanged, skipping encryption", secretName, k)
+				log.Debugf("Secret %s and key %s is unchanged", secretName, k)
 				result.SetNestedField(e, "spec", "encryptedData", k)
 				resultSecretHashes[k] = hash
 				continue
+			} else {
+				log.Infof("Old encrypted secret %s and key %s not found", secretName, k)
+				doEncrypt = true
 			}
 		}
-		log.Debugf("Secret %s and key %s has changed, encrypting it", secretName, k)
+
 		e, err := s.encryptSecret(v, secretName, secretNamespace, *scope)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt secret %s with key %s", secretName, k)
 		}
 		result.SetNestedField(e, "spec", "encryptedData", k)
 		resultSecretHashes[k] = hash
-		changedKeys = append(changedKeys, k)
-	}
-
-	for k := range existingHashes.Object {
-		_, ok, _ := result.GetNestedString("spec", "encryptedData", k)
-		if !ok {
-			log.Debugf("Secret %s and key %s has been deleted", secretName, k)
-			changedKeys = append(changedKeys, k)
-		}
 	}
 
 	resultSecretHashesStr, err := yaml.WriteYamlString(resultSecretHashes)
 	if err != nil {
 		return err
 	}
-	result.SetNestedField(resultSecretHashesStr, "metadata", "annotations", hashAnnotation)
+	result.SetK8sAnnotation(hashAnnotation, resultSecretHashesStr)
+	result.SetK8sAnnotation(clusterIdAnnotation, s.clusterId)
 
 	if reflect.DeepEqual(existingContent, result) {
 		log.Infof("Skipped %s as it did not change", baseName)
 		return nil
 	}
-
-	log.Infof("Sealed %s. New/changed/deleted keys: %s", baseName, strings.Join(changedKeys, ", "))
 
 	err = yaml.WriteYamlFile(targetFile, result)
 	if err != nil {
