@@ -2,7 +2,6 @@ package uo
 
 import (
 	log "github.com/sirupsen/logrus"
-	"regexp"
 )
 
 type ObjectIteratorFunc func(it *ObjectIterator) error
@@ -43,8 +42,6 @@ func (it *ObjectIterator) Value() interface{} {
 func (it *ObjectIterator) SetValue(v interface{}) error {
 	return SetChild(it.Parent(), it.Key(), v)
 }
-
-var isAlpha = regexp.MustCompile(`^[A-Za-z]+$`)
 
 func (it *ObjectIterator) JsonPath() string {
 	return KeyListToJsonPath(it.keys)

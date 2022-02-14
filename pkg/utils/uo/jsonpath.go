@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/ohler55/ojg/jp"
 	log "github.com/sirupsen/logrus"
+	"regexp"
 	"strings"
 )
+
+var isSimpleIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]+$`)
 
 func KeyListToJsonPath(keys []interface{}) string {
 	p := ""
@@ -13,7 +16,7 @@ func KeyListToJsonPath(keys []interface{}) string {
 		if i, ok := k.(int); ok {
 			p = fmt.Sprintf("%s[%d]", p, i)
 		} else if s, ok := k.(string); ok {
-			if isAlpha.MatchString(s) {
+			if isSimpleIdentifier.MatchString(s) {
 				if p != "" {
 					p += "."
 				}
