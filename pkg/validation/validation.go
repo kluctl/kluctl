@@ -35,6 +35,9 @@ func (c condition) getMessage(def string) string {
 func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret types.ValidateResult) {
 	ref := types.RefFromObject(o)
 
+	// We assume all is good in case no validation is performed
+	ret.Ready = true
+
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(*validationFailed); ok {
@@ -46,6 +49,7 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 				err := fmt.Errorf("panic in ValidateObject: %v", e)
 				ret.Errors = append(ret.Errors, types.DeploymentError{Ref: ref, Error: err.Error()})
 			}
+			ret.Ready = false
 		}
 	}()
 
