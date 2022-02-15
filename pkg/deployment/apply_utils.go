@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	errors2 "errors"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/diff"
 	"github.com/codablock/kluctl/pkg/k8s"
@@ -158,12 +159,13 @@ func (a *applyUtil) retryApplyWithConflicts(x *unstructured.Unstructured, hook b
 
 	if remoteObject == nil {
 		a.handleError(ref, applyError)
+		return
 	}
 
 	var x2 *unstructured.Unstructured
 	if !a.o.forceApply {
-		statusError, ok := applyError.(*errors.StatusError)
-		if !ok {
+		var statusError *errors.StatusError
+		if !errors2.As(applyError, &statusError) {
 			a.handleError(ref, applyError)
 			return
 		}
