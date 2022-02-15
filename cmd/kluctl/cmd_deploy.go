@@ -15,7 +15,7 @@ func runCmdDeploy(cmd *cobra.Command, args_ []string) error {
 
 func runCmdDeploy2(cmd *cobra.Command, ctx *commandCtx) error {
 	if !args.ForceYes && !args.DryRun {
-		if !AskForConfirmation(fmt.Sprintf("Do you really want to deploy to the context/cluster %s", ctx.k.Context())) {
+		if !AskForConfirmation(fmt.Sprintf("Do you really want to deploy to the context/cluster %s?", ctx.k.Context())) {
 			return fmt.Errorf("aborted")
 		}
 	}
