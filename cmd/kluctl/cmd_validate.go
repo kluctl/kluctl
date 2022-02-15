@@ -13,7 +13,7 @@ func runCmdValidate(cmd *cobra.Command, args_ []string) error {
 	return withProjectCommandContext(func(ctx *commandCtx) error {
 		startTime := time.Now()
 		for true {
-			result := ctx.deploymentCollection.Validate()
+			result := ctx.deploymentCollection.Validate(ctx.k)
 			failed := len(result.Errors) != 0 || (args.WarningsAsErrors && len(result.Warnings) != 0)
 
 			err := outputValidateResult(args.Output, result)

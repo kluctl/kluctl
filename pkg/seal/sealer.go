@@ -28,7 +28,7 @@ type Sealer struct {
 	clusterConfig *types.ClusterConfig2
 	forceReseal   bool
 	cert          *rsa.PublicKey
-	clusterId string
+	clusterId     string
 }
 
 func NewSealer(k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, clusterConfig *types.ClusterConfig2, forceReseal bool) (*Sealer, error) {
@@ -56,8 +56,8 @@ func NewSealer(k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsCo
 // get rotated.
 func getClusterId(k *k8s.K8sCluster) (string, error) {
 	o, _, err := k.GetSingleObject(types.ObjectRef{
-		GVK: schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
-		Name: "kube-root-ca.crt",
+		GVK:       schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+		Name:      "kube-root-ca.crt",
 		Namespace: "kube-system",
 	})
 	if err != nil {

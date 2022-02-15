@@ -16,7 +16,7 @@ type SecretSourceAwsSecretsManager struct {
 
 type SecretSource struct {
 	Path              *string                        `yaml:"path,omitempty"`
-	SystemEnvVars *uo.UnstructuredObject `yaml:"systemEnvVars,omitempty"`
+	SystemEnvVars     *uo.UnstructuredObject         `yaml:"systemEnvVars,omitempty"`
 	AwsSecretsManager *SecretSourceAwsSecretsManager `yaml:"awsSecretsManager,omitempty"`
 }
 

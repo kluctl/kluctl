@@ -35,8 +35,9 @@ type CommandResult struct {
 }
 
 type ValidateResultEntry struct {
-	Ref     ObjectRef `yaml:"ref"`
-	Message string    `yaml:"message"`
+	Ref        ObjectRef `yaml:"ref"`
+	Annotation string    `yaml:"annotation"`
+	Message    string    `yaml:"message"`
 }
 
 type ValidateResult struct {

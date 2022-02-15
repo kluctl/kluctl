@@ -12,7 +12,7 @@ func (el *errorList) Error() string {
 	s := ""
 	for _, err := range el.errors {
 		if len(s) != 0 {
-			s += "; "
+			s += "\n"
 		}
 		s += err.Error()
 	}

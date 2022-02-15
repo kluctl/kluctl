@@ -93,7 +93,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	config.QPS = 10
 	config.Burst = 20
 
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), path.Join(utils.GetTmpBaseDir(), "kube-cache"), path.Join(utils.GetTmpBaseDir(), "kube-http-cache"), time.Hour*24)
+	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), path.Join(utils.GetTmpBaseDir(), "kube-cache"), path.Join(utils.GetTmpBaseDir(), "kube-http-cache"), time.Minute*1)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +310,10 @@ func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVer
 
 	ar, ok := k.allResources[gvk]
 	if !ok {
-		return nil, false, fmt.Errorf("resource not found for %s", gvk.String())
+		return nil, false, errors.NewNotFound(schema.GroupResource{
+			Group:    gvk.Group,
+			Resource: gvk.Kind,
+		}, "gvk")
 	}
 
 	return &schema.GroupVersionResource{
@@ -676,7 +679,7 @@ func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOpti
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(context.Background(), ref.Name, types.ApplyPatchType, data, po)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
 		}
 		result = x
 		return nil

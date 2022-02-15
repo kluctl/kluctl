@@ -89,6 +89,25 @@ func (uo *UnstructuredObject) GetNestedString(keys ...interface{}) (string, bool
 	return s, true, nil
 }
 
+func (uo *UnstructuredObject) GetNestedInt(keys ...interface{}) (int64, bool, error) {
+	v, found, err := uo.GetNestedField(keys...)
+	if err != nil {
+		return 0, false, err
+	}
+	if !found {
+		return 0, false, nil
+	}
+	i, ok := v.(int64)
+	if !ok {
+		if i2, ok := v.(int); ok {
+			i = int64(i2)
+		} else {
+			return 0, false, fmt.Errorf("value at %s is not an int", KeyListToJsonPath(keys))
+		}
+	}
+	return i, true, nil
+}
+
 func (uo *UnstructuredObject) GetNestedList(keys ...interface{}) ([]interface{}, bool, error) {
 	v, found, err := uo.GetNestedField(keys...)
 	if err != nil {

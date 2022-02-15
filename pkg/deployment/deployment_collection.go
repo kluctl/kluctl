@@ -361,9 +361,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	}, nil
 }
 
-func (c *DeploymentCollection) Validate() *types.ValidateResult {
-	c.clearErrorsAndWarnings()
-
+func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult {
 	var result types.ValidateResult
 
 	for _, m := range c.warnings {
@@ -371,24 +369,32 @@ func (c *DeploymentCollection) Validate() *types.ValidateResult {
 			result.Warnings = append(result.Warnings, e)
 		}
 	}
-	for _, m := range c.warnings {
+	for _, m := range c.errors {
 		for e := range m {
 			result.Errors = append(result.Errors, e)
 		}
 	}
 
+	a := newApplyUtil(c, k, applyUtilOptions{})
+	h := hooksUtil{a: a}
 	for _, d := range c.deployments {
 		if !d.checkInclusionForDeploy() {
 			continue
 		}
 		for _, o := range d.objects {
+			hook := h.getHook(o)
+			if hook != nil && !hook.isPersistent() {
+				continue
+			}
+
 			ref := types.RefFromObject(o)
+
 			remoteObject := c.getRemoteObject(ref)
 			if remoteObject == nil {
 				result.Errors = append(result.Errors, types.DeploymentError{Ref: ref, Error: "object not found"})
 				continue
 			}
-			r := validation.ValidateObject(o, true)
+			r := validation.ValidateObject(remoteObject, true)
 			result.Errors = append(result.Errors, r.Errors...)
 			result.Warnings = append(result.Warnings, r.Warnings...)
 			result.Results = append(result.Results, r.Results...)

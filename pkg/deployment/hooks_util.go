@@ -249,3 +249,12 @@ func (u *hooksUtil) getSortedHooksList(objects []*unstructured.Unstructured) []*
 	})
 	return ret
 }
+
+func (h *hook) isPersistent() bool {
+	for p := range h.deletePolicies {
+		if p != "before-hook-creation" && p != "hook-failed" {
+			return false
+		}
+	}
+	return true
+}
