@@ -36,6 +36,7 @@ type applyUtil struct {
 	deletedObjects     map[types.ObjectRef]bool
 	deletedHookObjects map[types.ObjectRef]bool
 	abortSignal        bool
+	deployedNewCRD     bool
 	mutex              sync.Mutex
 }
 
@@ -48,6 +49,7 @@ func newApplyUtil(deploymentCollection *DeploymentCollection, k *k8s.K8sCluster,
 		appliedHookObjects:   map[types.ObjectRef]*unstructured.Unstructured{},
 		deletedObjects:       map[types.ObjectRef]bool{},
 		deletedHookObjects:   map[types.ObjectRef]bool{},
+		deployedNewCRD:       true, // assume someone deployed CRDs in the meantime
 	}
 }
 
@@ -227,6 +229,10 @@ func (a *applyUtil) applyObject(x *unstructured.Unstructured, replaced bool, hoo
 		ForceDryRun: a.o.dryRun,
 	}
 	r, apiWarnings, err := a.k.PatchObject(x, options)
+	retry, err := a.handleNewCRDs(r, err)
+	if retry {
+		r, apiWarnings, err = a.k.PatchObject(x, options)
+	}
 	a.handleApiWarnings(ref, apiWarnings)
 	if err == nil {
 		a.handleResult(r, hook)
@@ -234,9 +240,35 @@ func (a *applyUtil) applyObject(x *unstructured.Unstructured, replaced bool, hoo
 		a.handleError(ref, err)
 	} else if errors.IsConflict(err) {
 		a.retryApplyWithConflicts(x, hook, remoteObject, err)
+	} else if errors.IsInternalError(err) {
+		a.handleError(ref, err)
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
 	}
+}
+
+func (a *applyUtil) handleNewCRDs(x *unstructured.Unstructured, err error) (bool, error) {
+	if err != nil && meta.IsNoMatchError(err) {
+		// maybe this was a resource for which the CRD was only deployed recently, so we should do rediscovery and then
+		// retry the patch
+		if a.deployedNewCRD {
+			a.deployedNewCRD = false
+			err = a.k.RediscoverResources()
+			if err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	} else if err == nil {
+		ref := types.RefFromObject(x)
+		if ref.GVK.Group == "apiextensions.k8s.io" && ref.GVK.Kind == "CustomResourceDefinition" {
+			// this is a freshly deployed CRD, so we must perform rediscovery in case an api resource can't be found
+			a.deployedNewCRD = true
+			return true, nil
+		}
+		return false, nil
+	}
+	return false, err
 }
 
 func (a *applyUtil) waitHook(ref types.ObjectRef) bool {

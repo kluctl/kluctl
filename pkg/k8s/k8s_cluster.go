@@ -9,6 +9,7 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -93,7 +94,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	config.QPS = 10
 	config.Burst = 20
 
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), path.Join(utils.GetTmpBaseDir(), "kube-cache"), path.Join(utils.GetTmpBaseDir(), "kube-http-cache"), time.Minute*1)
+	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), path.Join(utils.GetTmpBaseDir(), "kube-cache"), path.Join(utils.GetTmpBaseDir(), "kube-http-cache"), time.Hour*24)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	}
 	k.ServerVersion = v2
 
-	err = k.updateResources()
+	err = k.updateResources(true)
 	if err != nil {
 		return nil, err
 	}
@@ -150,9 +151,11 @@ func (k *K8sCluster) Context() string {
 	return k.context
 }
 
-func (k *K8sCluster) updateResources() error {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
+func (k *K8sCluster) updateResources(doLock bool) error {
+	if doLock {
+		k.mutex.Lock()
+		defer k.mutex.Unlock()
+	}
 
 	k.allResources = map[schema.GroupVersionKind]v1.APIResource{}
 	k.preferredResources = map[schema.GroupKind]v1.APIResource{}
@@ -218,6 +221,14 @@ func (k *K8sCluster) updateResources() error {
 		}
 	}
 	return nil
+}
+
+func (k *K8sCluster) RediscoverResources() error {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	k.discovery.Invalidate()
+	return k.updateResources(false)
 }
 
 func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) bool {
@@ -304,16 +315,36 @@ func (k *K8sCluster) GetFilteredGKs(filters []string) []schema.GroupKind {
 	return l
 }
 
+func (k *K8sCluster) GetGVKs(group *string, version *string, kind *string) []schema.GroupVersionKind {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	var ret []schema.GroupVersionKind
+	for gvk := range k.allResources {
+		if group != nil && *group != gvk.Group {
+			continue
+		}
+		if version != nil && *version != gvk.Version {
+			continue
+		}
+		if kind != nil && *kind != gvk.Kind {
+			continue
+		}
+		ret = append(ret, gvk)
+	}
+	return ret
+}
+
 func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
 	ar, ok := k.allResources[gvk]
 	if !ok {
-		return nil, false, errors.NewNotFound(schema.GroupResource{
-			Group:    gvk.Group,
-			Resource: gvk.Kind,
-		}, "gvk")
+		return nil, false, &meta.NoKindMatchError{
+			GroupKind:        gvk.GroupKind(),
+			SearchedVersions: []string{gvk.Version},
+		}
 	}
 
 	return &schema.GroupVersionResource{
@@ -496,7 +527,7 @@ func (k *K8sCluster) GetObjectsByRefs(refs []types2.ObjectRef) ([]*unstructured.
 				retApiWarnings[ref] = apiWarnings
 			}
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
 					return nil
 				}
 				return err
