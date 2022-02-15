@@ -299,7 +299,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 		abortOnError:        abortOnError,
 		hookTimeout:         hookTimeout,
 	}
-	appliedObjects, appliedHookObjects, err := c.doApply(k, o)
+	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(k, o)
 	if err != nil {
 		return nil, err
 	}
@@ -318,6 +318,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 	return &types.CommandResult{
 		NewObjects:     newObjects,
 		ChangedObjects: changedObjects,
+		DeletedObjects: deletedObjects,
 		HookObjects:    appliedHookObjectsList,
 		OrphanObjects:  orphanObjects,
 		Errors:         c.errorsList(),
@@ -335,7 +336,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 		abortOnError:        false,
 		hookTimeout:         0,
 	}
-	appliedObjects, appliedHookObjects, err := c.doApply(k, o)
+	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(k, o)
 	if err != nil {
 		return nil, err
 	}
@@ -354,6 +355,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	return &types.CommandResult{
 		NewObjects:     newObjects,
 		ChangedObjects: changedObjects,
+		DeletedObjects: deletedObjects,
 		HookObjects:    appliedHookObjectsList,
 		OrphanObjects:  orphanObjects,
 		Errors:         c.errorsList(),
@@ -415,10 +417,14 @@ func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]types.Obj
 	return k8s.FindObjectsForDelete(k, labels, c.inclusion, c.localObjectRefs())
 }
 
-func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (map[types.ObjectRef]*unstructured.Unstructured, map[types.ObjectRef]*unstructured.Unstructured, error) {
+func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (map[types.ObjectRef]*unstructured.Unstructured, map[types.ObjectRef]*unstructured.Unstructured, []types.ObjectRef, error) {
 	au := newApplyUtil(c, k, o)
 	au.applyDeployments()
-	return au.appliedObjects, au.appliedHookObjects, nil
+	var deletedObjects []types.ObjectRef
+	for ref := range au.deletedObjects {
+		deletedObjects = append(deletedObjects, ref)
+	}
+	return au.appliedObjects, au.appliedHookObjects, deletedObjects, nil
 }
 
 func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[types.ObjectRef]*unstructured.Unstructured, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*unstructured.Unstructured, []*types.ChangedObject, error) {

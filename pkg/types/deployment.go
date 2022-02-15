@@ -7,13 +7,29 @@ import (
 )
 
 type DeploymentItemConfig struct {
-	Path             *string         `yaml:"path,omitempty"`
-	Tags             []string        `yaml:"tags,omitempty"`
-	Barrier          *bool           `yaml:"barrier,omitempty"`
-	Vars             []*VarsListItem `yaml:"vars,omitempty"`
-	SkipDeleteIfTags *bool           `yaml:"skipDeleteIfTags,omitempty"`
-	OnlyRender       *bool           `yaml:"onlyRender,omitempty"`
-	AlwaysDeploy     *bool           `yaml:"alwaysDeploy,omitempty"`
+	Path             *string                  `yaml:"path,omitempty"`
+	Tags             []string                 `yaml:"tags,omitempty"`
+	Barrier          *bool                    `yaml:"barrier,omitempty"`
+	Vars             []*VarsListItem          `yaml:"vars,omitempty"`
+	SkipDeleteIfTags *bool                    `yaml:"skipDeleteIfTags,omitempty"`
+	OnlyRender       *bool                    `yaml:"onlyRender,omitempty"`
+	AlwaysDeploy     *bool                    `yaml:"alwaysDeploy,omitempty"`
+	DeleteObjects    []DeleteObjectItemConfig `yaml:"deleteObjects,omitempty"`
+}
+
+type DeleteObjectItemConfig struct {
+	Group     *string `yaml:"group,omitempty"`
+	Version   *string `yaml:"version,omitempty"`
+	Kind      *string `yaml:"kind,omitempty"`
+	Name      string  `yaml:"name" validate:"required"`
+	Namespace string  `yaml:"namespace,omitempty"`
+}
+
+func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(DeleteObjectItemConfig)
+	if s.Group == nil && s.Version == nil && s.Kind == nil {
+		sl.ReportError(s, "self", "self", "missingfield", "at least one of group/version/kind must be set")
+	}
 }
 
 type DeploymentArg struct {
@@ -108,4 +124,5 @@ type DeploymentProjectConfig struct {
 
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateVarsListItem, VarsListItem{})
+	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
 }

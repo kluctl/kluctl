@@ -173,7 +173,7 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
 			wp.Submit(func() error {
-				apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait})
+				apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 				handleResult(ref, apiWarnings, err)
 				return nil
 			})
@@ -194,7 +194,7 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 			continue
 		}
 		wp.Submit(func() error {
-			apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait})
+			apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 			handleResult(ref, apiWarnings, err)
 			return nil
 		})

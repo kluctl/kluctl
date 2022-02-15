@@ -33,6 +33,8 @@ type applyUtil struct {
 
 	appliedObjects     map[types.ObjectRef]*unstructured.Unstructured
 	appliedHookObjects map[types.ObjectRef]*unstructured.Unstructured
+	deletedObjects     map[types.ObjectRef]bool
+	deletedHookObjects map[types.ObjectRef]bool
 	abortSignal        bool
 	mutex              sync.Mutex
 }
@@ -44,6 +46,8 @@ func newApplyUtil(deploymentCollection *DeploymentCollection, k *k8s.K8sCluster,
 		o:                    o,
 		appliedObjects:       map[types.ObjectRef]*unstructured.Unstructured{},
 		appliedHookObjects:   map[types.ObjectRef]*unstructured.Unstructured{},
+		deletedObjects:       map[types.ObjectRef]bool{},
+		deletedHookObjects:   map[types.ObjectRef]bool{},
 	}
 }
 
@@ -82,15 +86,22 @@ func (a *applyUtil) hadError(ref types.ObjectRef) bool {
 	return a.deploymentCollection.hadError(ref)
 }
 
-func (a *applyUtil) deleteObject(ref types.ObjectRef) bool {
+func (a *applyUtil) deleteObject(ref types.ObjectRef, hook bool) bool {
 	o := k8s.DeleteOptions{
 		ForceDryRun: a.o.dryRun,
 	}
 	apiWarnings, err := a.k.DeleteSingleObject(ref, o)
 	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
-		a.handleError(ref, err)
+		if !errors.IsNotFound(err) {
+			a.handleError(ref, err)
+		}
 		return false
+	}
+	if hook {
+		a.deletedHookObjects[ref] = true
+	} else {
+		a.deletedObjects[ref] = true
 	}
 	return true
 }
@@ -106,7 +117,7 @@ func (a *applyUtil) retryApplyForceReplace(x *unstructured.Unstructured, hook bo
 
 	log2.Warningf("Patching failed, retrying by deleting and re-applying")
 
-	if !a.deleteObject(ref) {
+	if !a.deleteObject(ref, hook) {
 		return
 	}
 
@@ -286,14 +297,32 @@ func (a *applyUtil) waitHook(ref types.ObjectRef) bool {
 	return false
 }
 
-func (a *applyUtil) applyKustomizeDeployment(d *deploymentItem) {
+func (a *applyUtil) applyDeploymentItem(d *deploymentItem) {
 	if d.config.Path == nil {
-		return
+		_ = 1
 	}
 
 	if !d.checkInclusionForDeploy() {
 		a.doLog(d, log.InfoLevel, "Skipping")
 		return
+	}
+
+	var toDelete []types.ObjectRef
+	for _, x := range d.config.DeleteObjects {
+		for _, gvk := range a.k.GetGVKs(x.Group, x.Version, x.Kind) {
+			ref := types.ObjectRef{
+				GVK:       gvk,
+				Name:      x.Name,
+				Namespace: x.Namespace,
+			}
+			toDelete = append(toDelete, ref)
+		}
+	}
+	if len(toDelete) != 0 {
+		log.Infof("Deleting %d objects", len(toDelete))
+		for _, ref := range toDelete {
+			a.deleteObject(ref, false)
+		}
 	}
 
 	initialDeploy := true
@@ -319,7 +348,9 @@ func (a *applyUtil) applyKustomizeDeployment(d *deploymentItem) {
 		applyObjects = append(applyObjects, o)
 	}
 
-	a.doLog(d, log.InfoLevel, "Applying %d objects", len(d.objects))
+	if len(applyObjects) != 0 {
+		a.doLog(d, log.InfoLevel, "Applying %d objects", len(applyObjects))
+	}
 	for _, o := range applyObjects {
 		a.applyObject(o, false, false)
 	}
@@ -351,7 +382,7 @@ func (a *applyUtil) applyDeployments() {
 		previousWasBarrier = d.config.Barrier != nil && *d.config.Barrier
 
 		wp.Submit(func() error {
-			a.applyKustomizeDeployment(d)
+			a.applyDeploymentItem(d)
 			return nil
 		})
 	}

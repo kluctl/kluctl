@@ -85,7 +85,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 			dpStr = append(dpStr, p)
 		}
 		doLog(log.DebugLevel, "Deleting hook %s due to hook-delete-policy %s", ref.String(), strings.Join(dpStr, ","))
-		return u.a.deleteObject(ref)
+		return u.a.deleteObject(ref, true)
 	}
 
 	if len(deleteBeforeObjects) != 0 {

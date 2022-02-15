@@ -514,9 +514,9 @@ func (k *K8sCluster) GetObjectsByRefs(refs []types2.ObjectRef) ([]*unstructured.
 }
 
 type DeleteOptions struct {
-	ForceDryRun     bool
-	NoWait          bool
-	ErrorOnNotFound bool
+	ForceDryRun         bool
+	NoWait              bool
+	IgnoreNotFoundError bool
 }
 
 func (k *K8sCluster) DeleteSingleObject(ref types2.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
@@ -533,7 +533,7 @@ func (k *K8sCluster) DeleteSingleObject(ref types2.ObjectRef, options DeleteOpti
 	return k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		err := r.Delete(context.Background(), ref.Name, o)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
 				return nil
 			}
 			return err
