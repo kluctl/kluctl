@@ -11,14 +11,14 @@ import (
 	"strings"
 )
 
-func listToMap(l []*uo.UnstructuredObject, key string) (map[string]*uo.UnstructuredObject, error) {
-	m := make(map[string]*uo.UnstructuredObject)
+func listToMap(l []*uo.UnstructuredObject, key string) (map[string]interface{}, error) {
+	m := make(map[string]interface{})
 	for _, e := range l {
 		kv, found, _ := e.GetNestedString(key)
 		if !found {
 			return nil, fmt.Errorf("%s not found in list element", key)
 		}
-		m[kv] = e
+		m[kv] = e.Object
 	}
 	return m, nil
 }
