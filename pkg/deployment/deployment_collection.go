@@ -7,6 +7,7 @@ import (
 	"github.com/codablock/kluctl/pkg/seal"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"io/fs"
@@ -571,4 +572,26 @@ func (c *DeploymentCollection) clearErrorsAndWarnings() {
 func (c *DeploymentCollection) getRemoteObject(ref types.ObjectRef) *unstructured.Unstructured {
 	o, _ := c.remoteObjects[ref]
 	return o
+}
+
+func (c *DeploymentCollection) FindRenderedImages() map[types.ObjectRef][]string {
+	ret := make(map[types.ObjectRef][]string)
+	for _, d := range c.deployments {
+		for _, o := range d.objects {
+			ref := types.RefFromObject(o)
+			u := uo.FromUnstructured(o)
+			l, ok, _ := u.GetNestedObjectList("spec", "template", "spec", "containers")
+			if !ok {
+				continue
+			}
+			for _, c := range l {
+				image, ok, _ := c.GetNestedString("image")
+				if !ok {
+					continue
+				}
+				ret[ref] = append(ret[ref], image)
+			}
+		}
+	}
+	return ret
 }

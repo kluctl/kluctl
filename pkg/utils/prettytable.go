@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"golang.org/x/crypto/ssh/terminal"
+	"sort"
 	"strings"
 )
 
@@ -14,6 +15,12 @@ type PrettyTable struct {
 
 func (t *PrettyTable) AddRow(c ...string) {
 	t.rows = append(t.rows, c)
+}
+
+func (t *PrettyTable) SortRows(col int) {
+	sort.SliceStable(t.rows[1:], func(i, j int) bool {
+		return t.rows[i+1][col] < t.rows[j+1][col]
+	})
 }
 
 func (t *PrettyTable) Render(limitWidths []int) string {
@@ -46,12 +53,12 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 	widths := make([]int, cols)
 	widthSum := 0
 	for i := 0; i < cols; i++ {
+		w := -1
 		if i < len(limitWidths) {
-			widths[i] = maxWidth(i, limitWidths[i])
-			widthSum += widths[i]
-		} else {
-			widths[i] = -1
+			w = limitWidths[i]
 		}
+		widths[i] = maxWidth(i, w)
+		widthSum += widths[i]
 	}
 
 	if len(limitWidths) < cols {
