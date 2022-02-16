@@ -150,3 +150,10 @@ func (lv LooseVersion) Compare(b LooseVersion) int {
 	}
 	return 0
 }
+
+type LooseVersionSlice []LooseVersion
+func (x LooseVersionSlice) Less(i, j int) bool {
+	return x[i].Less(x[j], true)
+}
+func (x LooseVersionSlice) Len() int      { return len(x) }
+func (x LooseVersionSlice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }

@@ -113,22 +113,6 @@ func (c *helmChart) Pull() error {
 	}
 }
 
-type VersionSlice []string
-
-func (x VersionSlice) Less(i, j int) bool {
-	v1, err1 := goversion.NewVersion(x[i])
-	v2, err2 := goversion.NewVersion(x[j])
-	if err1 != nil {
-		v1, _ = goversion.NewVersion("0")
-	}
-	if err2 != nil {
-		v2, _ = goversion.NewVersion("0")
-	}
-	return v1.LessThan(v2)
-}
-func (x VersionSlice) Len() int      { return len(x) }
-func (x VersionSlice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
-
 func (c *helmChart) CheckUpdate() (string, error) {
 	if c.config.Repo != nil && strings.HasPrefix(*c.config.Repo, "oci://") {
 		return "", nil
@@ -147,7 +131,7 @@ func (c *helmChart) CheckUpdate() (string, error) {
 		}
 		// ensure we didn't get partial matches
 		var lm []map[string]string
-		var ls VersionSlice
+		var ls utils.LooseVersionSlice
 		err = yaml.ReadYamlBytes(stdout, &lm)
 		if err != nil {
 			return err
@@ -155,7 +139,7 @@ func (c *helmChart) CheckUpdate() (string, error) {
 		for _, x := range lm {
 			if n, ok := x["name"]; ok && n == chartName {
 				if v, ok := x["version"]; ok {
-					ls = append(ls, v)
+					ls = append(ls, utils.LooseVersion(v))
 				}
 			}
 		}
@@ -163,7 +147,7 @@ func (c *helmChart) CheckUpdate() (string, error) {
 			return fmt.Errorf("helm chart %s not found in repository", chartName)
 		}
 		sort.Sort(ls)
-		latestVersion = ls[len(ls)-1]
+		latestVersion = string(ls[len(ls)-1])
 		if c.config.ChartVersion != nil && latestVersion == *c.config.ChartVersion {
 			return nil
 		}
