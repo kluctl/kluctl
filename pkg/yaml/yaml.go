@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/goccy/go-yaml"
@@ -151,4 +152,17 @@ func WriteYamlAllStream(w io.Writer, l []interface{}) error {
 		}
 	}
 	return nil
+}
+
+func ConvertYamlToJson(b []byte) ([]byte, error) {
+	var x interface{}
+	err := ReadYamlBytes(b, &x)
+	if err != nil {
+		return nil, err
+	}
+	b, err = json.Marshal(x)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }

@@ -11,9 +11,11 @@ import (
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -364,6 +366,68 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	}, nil
 }
 
+func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResult, error) {
+	wp := utils.NewWorkerPoolWithErrors(8)
+	defer wp.StopWait(false)
+
+	appliedObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
+	var deletedObjects []types.ObjectRef
+	var mutex sync.Mutex
+
+	for _, d := range c.deployments {
+		if !d.checkInclusionForDeploy() {
+			continue
+		}
+		for _, o := range d.objects {
+			o := o
+			ref := types.RefFromObject(o)
+			if isDownscaleDelete(o) {
+				wp.Submit(func() error {
+					apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{IgnoreNotFoundError: true})
+					c.addApiWarnings(ref, apiWarnings)
+					if err != nil {
+						return err
+					}
+					mutex.Lock()
+					defer mutex.Unlock()
+					deletedObjects = append(deletedObjects, ref)
+					return nil
+				})
+			} else {
+				wp.Submit(func() error {
+					o2, err := c.doReplaceObject(k, ref, func(remote *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+						return downscaleObject(remote, o)
+					})
+					if err != nil {
+						return err
+					}
+					mutex.Lock()
+					defer mutex.Unlock()
+					appliedObjects[ref] = o2
+					return nil
+				})
+			}
+		}
+	}
+
+	err := wp.StopWait(false)
+	if err != nil {
+		return nil, err
+	}
+
+	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, false, false, false)
+	if err != nil {
+		return nil, err
+	}
+	return &types.CommandResult{
+		NewObjects:     newObjects,
+		ChangedObjects: changedObjects,
+		DeletedObjects: deletedObjects,
+		Errors:         c.errorsList(),
+		Warnings:       c.warningsList(),
+	}, nil
+}
+
 func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult {
 	var result types.ValidateResult
 
@@ -493,6 +557,48 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[type
 	}
 
 	return newObjects, changedObjects, nil
+}
+
+func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref types.ObjectRef, callback func(o *unstructured.Unstructured) (*unstructured.Unstructured, error)) (*unstructured.Unstructured, error) {
+	firstCall := true
+	for true {
+		var remote *unstructured.Unstructured
+		if firstCall {
+			remote = c.getRemoteObject(ref)
+		} else {
+			o2, apiWarnings, err := k.GetSingleObject(ref)
+			c.addApiWarnings(ref, apiWarnings)
+			if err != nil && !errors.IsNotFound(err) {
+				return nil, err
+			}
+			remote = o2
+		}
+		if remote == nil {
+			return remote, nil
+		}
+		firstCall = false
+
+		modified, err := callback(remote)
+		if err != nil {
+			return nil, err
+		}
+		if reflect.DeepEqual(remote.Object, modified.Object) {
+			return remote, nil
+		}
+
+		result, apiWarnings, err := k.UpdateObject(modified, k8s.UpdateOptions{})
+		c.addApiWarnings(ref, apiWarnings)
+		if err != nil {
+			if errors.IsConflict(err) {
+				log.Warningf("Conflict while patching %s. Retrying...", ref.String())
+				continue
+			} else {
+				return nil, err
+			}
+		}
+		return result, nil
+	}
+	return nil, fmt.Errorf("unexpected end of loop")
 }
 
 func (c *DeploymentCollection) addWarning(ref types.ObjectRef, warning error) {

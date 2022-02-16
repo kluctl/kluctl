@@ -50,8 +50,8 @@ func confirmedDeleteObjects(k *k8s.K8sCluster, refs []types.ObjectRef) (*types.C
 func init() {
 	var cmd = &cobra.Command{
 		Use:   "delete",
-		Short: "Delete the a target (or parts of it) from the corresponding cluster",
-		Long: "Delete the a target (or parts of it) from the corresponding cluster.\n\n" +
+		Short: "Delete a target (or parts of it) from the corresponding cluster",
+		Long: "Delete a target (or parts of it) from the corresponding cluster.\n\n" +
 			"Objects are located based on `deleteByLabels`, configured in `deployment.yml`\n\n" +
 			"WARNING: This command will also delete objects which are not part of your deployment " +
 			"project (anymore). It really only decides based on the `deleteByLabel` labels and does NOT " +
