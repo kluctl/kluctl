@@ -31,6 +31,21 @@ func (images *Images) AddFixedImage(fi types.FixedImage) {
 	images.fixedImages = append(images.fixedImages, fi)
 }
 
+func (images *Images) SeenImages(simple bool) []types.FixedImage {
+	var ret []types.FixedImage
+	for _, fi := range images.seenImages {
+		if simple {
+			ret = append(ret, types.FixedImage{
+				Image: fi.Image,
+				ResultImage: fi.ResultImage,
+			})
+		} else {
+			ret = append(ret, fi)
+		}
+	}
+	return ret
+}
+
 func (images *Images) GetFixedImage(image string, namespace string, deployment string, container string) *string {
 	for i := len(images.fixedImages) - 1; i >= 0; i-- {
 		fi := &images.fixedImages[i]

@@ -200,9 +200,9 @@ func outputValidateResult(output []string, vr *types.ValidateResult) error {
 	})
 }
 
-func outputYamlResult(output []*string, result interface{}, multiDoc bool) error {
+func outputYamlResult(output []string, result interface{}, multiDoc bool) error {
 	if len(output) == 0 {
-		output = []*string{nil}
+		output = []string{"-"}
 	}
 	var s string
 	if multiDoc {
@@ -223,7 +223,7 @@ func outputYamlResult(output []*string, result interface{}, multiDoc bool) error
 		s = x
 	}
 	for _, path := range output {
-		err := outputResult(path, s)
+		err := outputResult(&path, s)
 		if err != nil {
 			return err
 		}

@@ -48,6 +48,7 @@ type commandCtx struct {
 	target               *types.Target
 	clusterConfig        *types.ClusterConfig
 	k                    *k8s.K8sCluster
+	images               *deployment.Images
 	deploymentProject    *deployment.DeploymentProject
 	deploymentCollection *deployment.DeploymentCollection
 }
@@ -183,6 +184,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		target:               target,
 		clusterConfig:        clusterConfig,
 		k:                    k,
+		images: images,
 		deploymentProject:    d,
 		deploymentCollection: c,
 	}
