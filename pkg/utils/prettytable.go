@@ -29,13 +29,15 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 	maxWidth := func(col int, maxW int) int {
 		w := 0
 		for _, l := range t.rows {
-			if len(l[col]) > w {
-				w = len(l[col])
-			}
-			if maxW != -1 {
-				if maxW < w {
-					w = maxW
+			for _, cl := range strings.Split(l[col], "\n") {
+				if len(cl) > w {
+					w = len(cl)
 				}
+			}
+		}
+		if maxW != -1 {
+			if maxW < w {
+				w = maxW
 			}
 		}
 		return w
@@ -58,7 +60,9 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 			w = limitWidths[i]
 		}
 		widths[i] = maxWidth(i, w)
-		widthSum += widths[i]
+		if i != cols - 1 {
+			widthSum += widths[i]
+		}
 	}
 
 	if len(limitWidths) < cols {
