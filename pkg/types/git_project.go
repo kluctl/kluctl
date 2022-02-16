@@ -9,8 +9,8 @@ import (
 
 type GitProject struct {
 	Url    git_url.GitUrl `yaml:"url" validate:"required"`
-	Ref    string         `yaml:"ref"`
-	SubDir string         `yaml:"subDir"`
+	Ref    string         `yaml:"ref,omitempty"`
+	SubDir string         `yaml:"subDir,omitempty"`
 }
 
 func (gp *GitProject) UnmarshalYAML(unmarshal func(interface{}) error) error {
