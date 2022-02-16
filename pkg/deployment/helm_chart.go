@@ -18,7 +18,7 @@ import (
 
 type helmChart struct {
 	configFile string
-	config     *types.HelmChartConfig
+	Config     *types.HelmChartConfig
 }
 
 func NewHelmChart(configFile string) (*helmChart, error) {
@@ -30,7 +30,7 @@ func NewHelmChart(configFile string) (*helmChart, error) {
 
 	hc := &helmChart{
 		configFile: configFile,
-		config:     &config,
+		Config:     &config,
 	}
 	return hc, nil
 }
@@ -39,14 +39,14 @@ func (c *helmChart) withRepoContext(cb func(repoName string) error) error {
 	needRepo := false
 	repoName := "stable"
 
-	if c.config.Repo != nil && *c.config.Repo != "stable" {
+	if c.Config.Repo != nil && *c.Config.Repo != "stable" {
 		needRepo = true
-		repoName = fmt.Sprintf("kluctl-%s", utils.Sha256String(*c.config.Repo))[:16]
+		repoName = fmt.Sprintf("kluctl-%s", utils.Sha256String(*c.Config.Repo))[:16]
 	}
 
 	if needRepo {
 		_, _ = c.doHelm([]string{"repo", "remove", repoName}, true)
-		_, err := c.doHelm([]string{"repo", "add", repoName, *c.config.Repo}, false)
+		_, err := c.doHelm([]string{"repo", "add", repoName, *c.Config.Repo}, false)
 		if err != nil {
 			return err
 		}
@@ -63,18 +63,18 @@ func (c *helmChart) withRepoContext(cb func(repoName string) error) error {
 }
 
 func (c *helmChart) GetChartName() (string, error) {
-	if c.config.Repo != nil && strings.HasPrefix(*c.config.Repo, "oci://") {
-		s := strings.Split(*c.config.Repo, "/")
+	if c.Config.Repo != nil && strings.HasPrefix(*c.Config.Repo, "oci://") {
+		s := strings.Split(*c.Config.Repo, "/")
 		chartName := s[len(s)-1]
 		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
-			return "", fmt.Errorf("invalid oci chart url: %s", *c.config.Repo)
+			return "", fmt.Errorf("invalid oci chart url: %s", *c.Config.Repo)
 		}
 		return chartName, nil
 	}
-	if c.config.ChartName == nil {
+	if c.Config.ChartName == nil {
 		return "", fmt.Errorf("chartName is missing in helm-chart.yml")
 	}
-	return *c.config.ChartName, nil
+	return *c.Config.ChartName, nil
 }
 
 func (c *helmChart) Pull() error {
@@ -89,33 +89,29 @@ func (c *helmChart) Pull() error {
 	_ = os.RemoveAll(rmDir)
 
 	var args []string
-	if c.config.Repo != nil && strings.HasPrefix(*c.config.Repo, "oci://") {
-		args = []string{"pull", *c.config.Repo, "--destination", targetDir, "--untar"}
-		if c.config.ChartVersion != nil {
-			args = append(args, "--version")
-			args = append(args, *c.config.ChartVersion)
-		}
+	if c.Config.Repo != nil && strings.HasPrefix(*c.Config.Repo, "oci://") {
+		args = []string{"pull", *c.Config.Repo, "--destination", targetDir, "--untar"}
+		args = append(args, "--version")
+		args = append(args, *c.Config.ChartVersion)
 		_, err = c.doHelm(args, false)
 		return err
 	} else {
 		return c.withRepoContext(func(repoName string) error {
 			args = []string{"pull", fmt.Sprintf("%s/%s", repoName, chartName), "--destination", targetDir, "--untar"}
-			if c.config.ChartVersion != nil {
-				args = append(args, "--version", *c.config.ChartVersion)
-			}
+			args = append(args, "--version", *c.Config.ChartVersion)
 			_, err = c.doHelm(args, false)
 			return err
 		})
 	}
 }
 
-func (c *helmChart) CheckUpdate() (string, error) {
-	if c.config.Repo != nil && strings.HasPrefix(*c.config.Repo, "oci://") {
-		return "", nil
+func (c *helmChart) CheckUpdate() (string, bool, error) {
+	if c.Config.Repo != nil && strings.HasPrefix(*c.Config.Repo, "oci://") {
+		return "", false, nil
 	}
 	chartName, err := c.GetChartName()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	var latestVersion string
 	err = c.withRepoContext(func(repoName string) error {
@@ -144,15 +140,13 @@ func (c *helmChart) CheckUpdate() (string, error) {
 		}
 		sort.Sort(ls)
 		latestVersion = string(ls[len(ls)-1])
-		if c.config.ChartVersion != nil && latestVersion == *c.config.ChartVersion {
-			return nil
-		}
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return latestVersion, nil
+	updated := latestVersion != *c.Config.ChartVersion
+	return latestVersion, updated, nil
 }
 
 func (c *helmChart) Render(k *k8s.K8sCluster) error {
@@ -163,13 +157,13 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	dir := path.Dir(c.configFile)
 	chartDir := path.Join(dir, "charts", chartName)
 	valuesPath := path.Join(dir, "helm-values.yml")
-	outputPath := path.Join(dir, c.config.Output)
+	outputPath := path.Join(dir, c.Config.Output)
 
-	args := []string{"template", c.config.ReleaseName, chartDir}
+	args := []string{"template", c.Config.ReleaseName, chartDir}
 
 	namespace := "default"
-	if c.config.Namespace != nil {
-		namespace = *c.config.Namespace
+	if c.Config.Namespace != nil {
+		namespace = *c.Config.Namespace
 	}
 
 	if utils.Exists(valuesPath) {
@@ -177,7 +171,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	}
 	args = append(args, "-n", namespace)
 
-	if c.config.SkipCRDs != nil && *c.config.SkipCRDs {
+	if c.Config.SkipCRDs != nil && *c.Config.SkipCRDs {
 		args = append(args, "--skip-crds")
 	} else {
 		args = append(args, "--include-crds")
@@ -270,4 +264,8 @@ func (c *helmChart) doHelm(args []string, ignoreStdErr bool) ([]byte, error) {
 		return nil, fmt.Errorf("helm returned non-zero exit code %d", ps.ExitCode())
 	}
 	return stdout, nil
+}
+
+func (c *helmChart) Save() error {
+	return yaml.WriteYamlFile(c.configFile, c.Config)
 }

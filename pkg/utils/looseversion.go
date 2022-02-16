@@ -152,6 +152,7 @@ func (lv LooseVersion) Compare(b LooseVersion) int {
 }
 
 type LooseVersionSlice []LooseVersion
+
 func (x LooseVersionSlice) Less(i, j int) bool {
 	return x[i].Less(x[j], true)
 }

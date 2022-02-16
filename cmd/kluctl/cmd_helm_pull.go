@@ -38,10 +38,10 @@ func init() {
 	var cmd = &cobra.Command{
 		Use:   "helm-pull",
 		Short: "Recursively searches for `helm-chart.yml` files and pulls the specified Helm charts",
-		Long: "Recursively searches for `helm-chart.yml` files and pulls the specified Helm charts.\n\n"+
-		"The Helm charts are stored under the sub-directory `charts/<chart-name>` next to the "+
-		"`helm-chart.yml`. These Helm charts are meant to be added to version control so that "+
-		"pulling is only needed when really required (e.g. when the chart version changes).",
+		Long: "Recursively searches for `helm-chart.yml` files and pulls the specified Helm charts.\n\n" +
+			"The Helm charts are stored under the sub-directory `charts/<chart-name>` next to the " +
+			"`helm-chart.yml`. These Helm charts are meant to be added to version control so that " +
+			"pulling is only needed when really required (e.g. when the chart version changes).",
 		RunE: runCmdHelmPull,
 	}
 	cmd.Flags().StringVar(&args.LocalDeployment, "local-deployment", "", "Local deployment directory. Defaults to current directory")
