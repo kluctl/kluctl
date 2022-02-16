@@ -6,7 +6,6 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/yaml"
-	goversion "github.com/hashicorp/go-version"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
@@ -46,11 +45,8 @@ func (c *helmChart) withRepoContext(cb func(repoName string) error) error {
 	}
 
 	if needRepo {
-		_, err := c.doHelm([]string{"repo", "remove", repoName}, true)
-		if err != nil {
-			return err
-		}
-		_, err = c.doHelm([]string{"repo", "add", repoName, *c.config.Repo}, false)
+		_, _ = c.doHelm([]string{"repo", "remove", repoName}, true)
+		_, err := c.doHelm([]string{"repo", "add", repoName, *c.config.Repo}, false)
 		if err != nil {
 			return err
 		}
