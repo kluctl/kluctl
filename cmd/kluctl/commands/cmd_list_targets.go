@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"github.com/codablock/kluctl/cmd/kluctl/args"
@@ -22,8 +22,8 @@ func init() {
 	var cmd = &cobra.Command{
 		Use:   "list-targets",
 		Short: "Outputs a yaml list with all target, including dynamic targets",
-		Long: "Outputs a yaml list with all target, including dynamic targets",
-		RunE: runCmdListTargets,
+		Long:  "Outputs a yaml list with all target, including dynamic targets",
+		RunE:  runCmdListTargets,
 	}
 	args.AddProjectArgs(cmd, true, true, false)
 	args.AddMiscArguments(cmd, args.EnabledMiscArguments{

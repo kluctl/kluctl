@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"github.com/codablock/kluctl/cmd/kluctl/args"
