@@ -84,11 +84,11 @@ func CopyFileStream(src io.Reader, dst string) error {
 	return err
 }
 
-func FsCopyDir(srcFs fs.ReadDirFS, src string, dst string) error {
+func FsCopyDir(srcFs fs.FS, src string, dst string) error {
 	var err error
 	var fds []fs.DirEntry
 
-	if fds, err = srcFs.ReadDir(src); err != nil {
+	if fds, err = fs.ReadDir(srcFs, src); err != nil {
 		return err
 	}
 	if err = os.MkdirAll(dst, 0o700); err != nil {
@@ -109,4 +109,8 @@ func FsCopyDir(srcFs fs.ReadDirFS, src string, dst string) error {
 		}
 	}
 	return nil
+}
+
+func CopyDir(src string, dst string) error {
+	return FsCopyDir(os.DirFS(src), "", dst)
 }
