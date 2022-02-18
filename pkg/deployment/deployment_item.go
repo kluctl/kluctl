@@ -105,7 +105,7 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 
 	rootDir := di.project.getRootProject().dir
 
-	err := os.MkdirAll(di.renderedDir, 0o777)
+	err := os.MkdirAll(di.renderedDir, 0o700)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 		if err != nil {
 			return fmt.Errorf("failed to read source secret file %s: %w", sourcePath, err)
 		}
-		err = ioutil.WriteFile(targetPath, b, 0o666)
+		err = ioutil.WriteFile(targetPath, b, 0o600)
 		if err != nil {
 			return fmt.Errorf("failed to write target secret file %s: %w", targetPath, err)
 		}

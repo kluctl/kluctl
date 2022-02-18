@@ -212,7 +212,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(outputPath, rendered, 0o666)
+	err = ioutil.WriteFile(outputPath, rendered, 0o600)
 	if err != nil {
 		return err
 	}

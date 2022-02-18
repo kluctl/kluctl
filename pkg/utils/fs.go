@@ -91,7 +91,7 @@ func FsCopyDir(srcFs fs.ReadDirFS, src string, dst string) error {
 	if fds, err = srcFs.ReadDir(src); err != nil {
 		return err
 	}
-	if err = os.MkdirAll(dst, 0o777); err != nil {
+	if err = os.MkdirAll(dst, 0o700); err != nil {
 		return err
 	}
 	for _, fd := range fds {

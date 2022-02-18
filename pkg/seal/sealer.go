@@ -113,7 +113,7 @@ func (s *Sealer) encryptSecret(secret []byte, secretName string, secretNamespace
 
 func (s *Sealer) SealFile(p string, targetFile string) error {
 	baseName := path.Base(targetFile)
-	err := os.MkdirAll(path.Dir(targetFile), 0o777)
+	err := os.MkdirAll(path.Dir(targetFile), 0o700)
 	if err != nil {
 		return err
 	}

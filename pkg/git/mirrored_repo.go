@@ -39,7 +39,7 @@ func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
 	}
 
 	if !utils.IsDirectory(o.mirrorDir) {
-		err := os.MkdirAll(o.mirrorDir, 0o777)
+		err := os.MkdirAll(o.mirrorDir, 0o700)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create mirror repo for %v: %w", u.String(), err)
 		}

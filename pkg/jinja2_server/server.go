@@ -330,7 +330,7 @@ func (js *Jinja2Server) RenderDirectory(rootDir string, searchDirs []string, rel
 			return err
 		}
 		if d.IsDir() {
-			err = os.MkdirAll(path.Join(targetDir, relPath), 0o777)
+			err = os.MkdirAll(path.Join(targetDir, relPath), 0o700)
 			if err != nil {
 				return err
 			}
@@ -374,7 +374,7 @@ func (js *Jinja2Server) RenderDirectory(rootDir string, searchDirs []string, rel
 			continue
 		}
 
-		err = ioutil.WriteFile(job.target, []byte(*job.Result), 0o666)
+		err = ioutil.WriteFile(job.target, []byte(*job.Result), 0o600)
 		if err != nil {
 			return err
 		}

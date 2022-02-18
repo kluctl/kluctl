@@ -116,7 +116,7 @@ func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (stri
 }
 
 func (c *KluctlProjectContext) cloneGitProject(gitProject types2.ExternalProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
-	err = os.MkdirAll(path.Join(c.TmpDir, "git"), 0o777)
+	err = os.MkdirAll(path.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
 	}

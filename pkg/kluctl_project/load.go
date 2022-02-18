@@ -12,7 +12,7 @@ import (
 )
 
 func (c *KluctlProjectContext) mergeClustersDirs(mergedClustersDir string, clustersInfos []gitProjectInfo) error {
-	err := os.MkdirAll(mergedClustersDir, 0o777)
+	err := os.MkdirAll(mergedClustersDir, 0o700)
 	if err != nil {
 		return err
 	}
