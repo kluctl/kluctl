@@ -159,9 +159,9 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 		}
 
 		if di.Path != nil {
-			pth = path.Join(pth, "kustomization.yml")
+			pth = path.Join(diDir, "kustomization.yml")
 		} else {
-			pth = path.Join(pth, "deployment.yml")
+			pth = path.Join(diDir, "deployment.yml")
 		}
 		if !utils.IsFile(pth) {
 			return fmt.Errorf("%s not found or not a file", pth)
