@@ -330,10 +330,6 @@ func (a *applyUtil) waitHook(ref types.ObjectRef) bool {
 }
 
 func (a *applyUtil) applyDeploymentItem(d *deploymentItem) {
-	if d.config.Path == nil {
-		_ = 1
-	}
-
 	if !d.checkInclusionForDeploy() {
 		a.doLog(d, log.InfoLevel, "Skipping")
 		return

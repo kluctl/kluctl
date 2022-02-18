@@ -102,14 +102,15 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 
 	// If there are no explicit tags set, interpret the path as a tag, which allows to
 	// enable/disable single deployments via included/excluded tags
-	setDefaultTag := func(item *types.DeploymentItemConfig) {
-		if len(item.Tags) != 0 || item.Path == nil {
-			return
+	for _, item := range p.config.Deployments {
+		if len(item.Tags) != 0 {
+			continue
 		}
-		item.Tags = []string{path.Base(*item.Path)}
-	}
-	for _, di := range p.config.Deployments {
-		setDefaultTag(di)
+		if item.Path != nil {
+			item.Tags = []string{path.Base(*item.Path)}
+		} else if item.Include != nil {
+			item.Tags = []string{path.Base(*item.Include)}
+		}
 	}
 
 	err = p.checkDeploymentDirs()
@@ -129,54 +130,53 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 func (p *DeploymentProject) checkDeploymentDirs() error {
 	rootProject := p.getRootProject()
 	for _, di := range p.config.Deployments {
-		if di.Path == nil {
+		if di.Path == nil && di.Include == nil {
 			continue
 		}
 
-		diDir := path.Join(p.dir, *di.Path)
+		var pth string
+		if di.Path != nil {
+			pth = *di.Path
+		} else {
+			pth = *di.Include
+		}
+
+		diDir := path.Join(p.dir, pth)
 		diDir, err := filepath.Abs(diDir)
 		if err != nil {
 			return err
 		}
 
 		if !strings.HasPrefix(diDir, rootProject.dir) {
-			return fmt.Errorf("path is not part of root deployment project: %s", *di.Path)
+			return fmt.Errorf("path/include is not part of root deployment project: %s", pth)
 		}
 
 		if !utils.Exists(diDir) {
-			return fmt.Errorf("deployment directory does not exist: %s", *di.Path)
+			return fmt.Errorf("deployment directory does not exist: %s", pth)
 		}
 		if !utils.IsDirectory(diDir) {
-			return fmt.Errorf("deployment path is not a directory: %s", *di.Path)
+			return fmt.Errorf("deployment path is not a directory: %s", pth)
+		}
+
+		if di.Path != nil {
+			pth = path.Join(pth, "kustomization.yml")
+		} else {
+			pth = path.Join(pth, "deployment.yml")
+		}
+		if !utils.IsFile(pth) {
+			return fmt.Errorf("%s not found or not a file", pth)
 		}
 	}
 	return nil
 }
 
-func (p *DeploymentProject) isIncludeDeployment(di *types.DeploymentItemConfig) bool {
-	if di.Path == nil {
-		return false
-	}
-
-	base := path.Join(p.dir, *di.Path)
-
-	if utils.Exists(path.Join(base, "kustomization.yml")) || utils.Exists(path.Join(base, "kustomization.yaml")) {
-		return false
-	}
-	if !utils.Exists(path.Join(base, "deployment.yml")) {
-		return false
-	}
-
-	return true
-}
-
 func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 	for i, inc := range p.config.Deployments {
-		if !p.isIncludeDeployment(inc) {
+		if inc.Include == nil {
 			continue
 		}
 
-		incDir := path.Join(p.dir, *inc.Path)
+		incDir := path.Join(p.dir, *inc.Include)
 
 		varsCtx := p.VarsCtx.Copy()
 		err := varsCtx.LoadVarsList(k, p.getRenderSearchDirs(), inc.Vars)

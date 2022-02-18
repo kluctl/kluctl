@@ -69,24 +69,22 @@ func (c *DeploymentCollection) createBarrierDummy(project *DeploymentProject) *d
 	return di
 }
 
-func findDeploymentItemIndex(project *DeploymentProject, diConfig *types.DeploymentItemConfig, indexes map[string]int) (int, *string) {
+func findDeploymentItemIndex(project *DeploymentProject, pth string, indexes map[string]int) (int, *string) {
 	var dir2 *string
 	index := 0
-	if diConfig.Path != nil {
-		dir := path.Join(project.dir, *diConfig.Path)
-		absDir, err := filepath.Abs(dir)
-		if err != nil {
-			// we pre-checked directories, so this should not happen
-			log.Fatal(err)
-		}
-
-		if _, ok := indexes[absDir]; !ok {
-			indexes[absDir] = 0
-		}
-		index, _ = indexes[absDir]
-		indexes[absDir] = index + 1
-		dir2 = &absDir
+	dir := path.Join(project.dir, pth)
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		// we pre-checked directories, so this should not happen
+		log.Fatal(err)
 	}
+
+	if _, ok := indexes[absDir]; !ok {
+		indexes[absDir] = 0
+	}
+	index, _ = indexes[absDir]
+	indexes[absDir] = index + 1
+	dir2 = &absDir
 	return index, dir2
 }
 
@@ -94,10 +92,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 	var ret []*deploymentItem
 
 	for i, diConfig := range project.config.Deployments {
-		if project.isIncludeDeployment(diConfig) {
-			if diConfig.Barrier != nil && *diConfig.Barrier {
-				ret = append(ret, c.createBarrierDummy(project))
-			}
+		if diConfig.Include != nil {
 			includedProject, ok := project.includes[i]
 			if !ok {
 				log.Fatalf("Did not find find index %d in project.includes", i)
@@ -107,8 +102,11 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 				return nil, err
 			}
 			ret = append(ret, ret2...)
+			if diConfig.Barrier != nil && *diConfig.Barrier {
+				ret = append(ret, c.createBarrierDummy(project))
+			}
 		} else {
-			index, dir2 := findDeploymentItemIndex(project, diConfig, indexes)
+			index, dir2 := findDeploymentItemIndex(project, *diConfig.Path, indexes)
 			di, err := NewDeploymentItem(project, c, diConfig, dir2, index)
 			if err != nil {
 				return nil, err

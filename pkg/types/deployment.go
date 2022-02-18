@@ -8,6 +8,7 @@ import (
 
 type DeploymentItemConfig struct {
 	Path             *string                  `yaml:"path,omitempty"`
+	Include			 *string                  `yaml:"include,omitempty"`
 	Tags             []string                 `yaml:"tags,omitempty"`
 	Barrier          *bool                    `yaml:"barrier,omitempty"`
 	Vars             []*VarsListItem          `yaml:"vars,omitempty"`
@@ -15,6 +16,13 @@ type DeploymentItemConfig struct {
 	OnlyRender       *bool                    `yaml:"onlyRender,omitempty"`
 	AlwaysDeploy     *bool                    `yaml:"alwaysDeploy,omitempty"`
 	DeleteObjects    []DeleteObjectItemConfig `yaml:"deleteObjects,omitempty"`
+}
+
+func ValidateDeploymentItemConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(DeploymentItemConfig)
+	if s.Path != nil && s.Include != nil {
+		sl.ReportError(s, "path", "Path", "pathinclude", "path and include can not be set at the same time")
+	}
 }
 
 type DeleteObjectItemConfig struct {
@@ -124,5 +132,6 @@ type DeploymentProjectConfig struct {
 
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateVarsListItem, VarsListItem{})
+	yaml.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
 	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
 }
