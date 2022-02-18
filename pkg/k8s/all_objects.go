@@ -27,7 +27,7 @@ func GetIncludedObjectsMetadata(k *K8sCluster, verbs []string, labels map[string
 		if annotations != nil {
 			if itemDir, ok := annotations["kluctl.io/kustomize_dir"]; ok {
 				iv = append(iv, utils.InclusionEntry{
-					Type:  "kustomize_dir",
+					Type:  "deploymentItemDir",
 					Value: itemDir,
 				})
 			}

@@ -224,8 +224,8 @@ func (di *deploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 		values = append(values, utils.InclusionEntry{Type: "tag", Value: t})
 	}
 	if di.dir != nil {
-		dir := strings.ReplaceAll(di.relToProjectItemDir, string(os.PathSeparator), "/")
-		values = append(values, utils.InclusionEntry{Type: "kustomize_dir", Value: dir})
+		dir := strings.ReplaceAll(di.relToRootItemDir, string(os.PathSeparator), "/")
+		values = append(values, utils.InclusionEntry{Type: "deploymentItemDir", Value: dir})
 	}
 	return values
 }
