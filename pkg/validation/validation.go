@@ -163,6 +163,8 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 		v := getStatusField(field, doError, doRaise, def)
 		if i, ok := v.(int64); ok {
 			return i
+		} else if i, ok := v.(uint64); ok {
+			return int64(i)
 		} else if i, ok := v.(int); ok {
 			return int64(i)
 		} else {
@@ -179,6 +181,9 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 	parseIntOrPercent := func(v interface{}) (int64, bool, error) {
 		if i, ok := v.(int64); ok {
 			return i, false, nil
+		}
+		if i, ok := v.(uint64); ok {
+			return int64(i), false, nil
 		}
 		if i, ok := v.(int); ok {
 			return int64(i), false, nil
