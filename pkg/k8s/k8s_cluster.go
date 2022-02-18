@@ -21,7 +21,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"net/http"
 	"net/url"
 	"path"
@@ -79,13 +78,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 		DryRun:  dryRun,
 	}
 
-	home := homedir.HomeDir()
-	if home == "" {
-		return nil, fmt.Errorf("home dir could not be determined")
-	}
-	kubeconfig := path.Join(home, ".kube", "config")
-
-	configLoadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
+	configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
 
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
