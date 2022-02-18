@@ -1,6 +1,7 @@
 package uo
 
 import (
+	"fmt"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -80,6 +81,22 @@ func FromFile(p string) (*UnstructuredObject, error) {
 	return o, nil
 }
 
+func FromStringMulti(s string) ([]*UnstructuredObject, error) {
+	ifs, err := yaml.ReadYamlAllString(s)
+	if err != nil {
+		return nil, err
+	}
+	var ret []*UnstructuredObject
+	for _, i := range ifs {
+		m, ok := i.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("object is not a map")
+		}
+		ret = append(ret, FromMap(m))
+	}
+	return ret, nil
+}
+
 func (uo *UnstructuredObject) Clone() *UnstructuredObject {
 	var c map[string]interface{}
 	err := copier.CopyWithOption(&c, &uo.Object, copier.Option{
@@ -109,4 +126,8 @@ func (uo *UnstructuredObject) MergeCopy(other *UnstructuredObject) *Unstructured
 
 func (uo *UnstructuredObject) NewIterator() *ObjectIterator {
 	return NewObjectIterator(uo.Object)
+}
+
+func (uo *UnstructuredObject) Clear() {
+	uo.Object = make(map[string]interface{})
 }

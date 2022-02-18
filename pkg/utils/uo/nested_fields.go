@@ -164,6 +164,14 @@ func (uo *UnstructuredObject) GetNestedObjectList(keys ...interface{}) ([]*Unstr
 	return ret, true, nil
 }
 
+func (uo *UnstructuredObject) SetNestedObjectList(items []*UnstructuredObject, keys ...interface{}) error {
+	var l []map[string]interface{}
+	for _, i := range items {
+		l = append(l, i.Object)
+	}
+	return uo.SetNestedField(l, keys...)
+}
+
 func (uo *UnstructuredObject) GetNestedObjectListNoErr(keys ...interface{}) []*UnstructuredObject {
 	l, found, err := uo.GetNestedObjectList(keys...)
 	if !found || err != nil {

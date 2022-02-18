@@ -36,6 +36,10 @@ func (uo *UnstructuredObject) SetK8sGVK(gvk schema.GroupVersionKind) {
 	}
 }
 
+func (uo *UnstructuredObject) SetK8sGVKs(g string, v string, k string) {
+	uo.SetK8sGVK(schema.GroupVersionKind{Group: g, Version: v, Kind: k})
+}
+
 func (uo *UnstructuredObject) GetK8sName() string {
 	s, _, err := uo.GetNestedString("metadata", "name")
 	if err != nil {
@@ -59,11 +63,19 @@ func (uo *UnstructuredObject) GetK8sNamespace() string {
 	return s
 }
 
-func (uo *UnstructuredObject) SetK8sNamespace(name string) {
-	err := uo.SetNestedField(name, "metadata", "namespace")
-	if err != nil {
-		log.Fatal(err)
+func (uo *UnstructuredObject) SetK8sNamespace(namespace string) {
+	if namespace != "" {
+		err := uo.SetNestedField(namespace, "metadata", "namespace")
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		err := uo.RemoveNestedField("metadata", "namespace")
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
 }
 
 func (uo *UnstructuredObject) GetK8sLabels() map[string]string {
@@ -75,6 +87,13 @@ func (uo *UnstructuredObject) GetK8sLabels() map[string]string {
 		return map[string]string{}
 	}
 	return ret
+}
+
+func (uo *UnstructuredObject) SetK8sLabels(labels map[string]string) {
+	_ = uo.RemoveNestedField("metadata", "labels")
+	for k, v := range labels {
+		uo.SetK8sLabel(k, v)
+	}
 }
 
 func (uo *UnstructuredObject) GetK8sLabel(name string) *string {
@@ -115,6 +134,13 @@ func (uo *UnstructuredObject) GetK8sAnnotation(name string) *string {
 		return nil
 	}
 	return &ret
+}
+
+func (uo *UnstructuredObject) SetK8sAnnotations(annotations map[string]string) {
+	_ = uo.RemoveNestedField("metadata", "annotations")
+	for k, v := range annotations {
+		uo.SetK8sAnnotation(k, v)
+	}
 }
 
 func (uo *UnstructuredObject) SetK8sAnnotation(name string, value string) {
