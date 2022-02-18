@@ -44,7 +44,7 @@ func confirmedDeleteObjects(k *k8s.K8sCluster, refs []types.ObjectRef) (*types.C
 		}
 	}
 
-	return k8s.DeleteObjects(k, refs, false)
+	return k8s.DeleteObjects(k, refs, true)
 }
 
 func init() {
