@@ -92,9 +92,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 		doLog(log.InfoLevel, "Deleting %d hooks before hook execution", len(deleteBeforeObjects))
 	}
 	for _, h := range deleteBeforeObjects {
-		if !doDeleteForPolicy(h) {
-			return
-		}
+		doDeleteForPolicy(h)
 	}
 
 	waitResults := make(map[types.ObjectRef]bool)
