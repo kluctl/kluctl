@@ -4,12 +4,22 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"github.com/jinzhu/copier"
+	"log"
 	"os"
 	"path"
+	"sync"
 )
+
+var createTmpBaseDirOnce sync.Once
 
 func GetTmpBaseDir() string {
 	dir := path.Join(os.TempDir(), "kluctl")
+	createTmpBaseDirOnce.Do(func() {
+		err := os.MkdirAll(dir, 0o700)
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
 	return dir
 }
 
