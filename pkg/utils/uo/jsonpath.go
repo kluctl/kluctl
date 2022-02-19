@@ -69,7 +69,7 @@ func (j *MyJsonPath) ListMatchingFields(o *UnstructuredObject) ([][]interface{},
 	o = o.Clone()
 	magic := struct{}{}
 
-	err := j.exp.Set(o, magic)
+	err := j.exp.Set(o.Object, magic)
 	if err != nil {
 		return nil, err
 	}
