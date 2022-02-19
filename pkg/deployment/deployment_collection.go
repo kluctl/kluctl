@@ -69,10 +69,13 @@ func (c *DeploymentCollection) createBarrierDummy(project *DeploymentProject) *d
 	return di
 }
 
-func findDeploymentItemIndex(project *DeploymentProject, pth string, indexes map[string]int) (int, *string) {
+func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes map[string]int) (int, *string) {
+	if pth == nil {
+		return 0, nil
+	}
 	var dir2 *string
 	index := 0
-	dir := path.Join(project.dir, pth)
+	dir := path.Join(project.dir, *pth)
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		// we pre-checked directories, so this should not happen
@@ -106,7 +109,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 				ret = append(ret, c.createBarrierDummy(project))
 			}
 		} else {
-			index, dir2 := findDeploymentItemIndex(project, *diConfig.Path, indexes)
+			index, dir2 := findDeploymentItemIndex(project, diConfig.Path, indexes)
 			di, err := NewDeploymentItem(project, c, diConfig, dir2, index)
 			if err != nil {
 				return nil, err
