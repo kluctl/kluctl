@@ -1,4 +1,4 @@
-package jinja2_server
+package jinja2
 
 import (
 	"fmt"
@@ -10,13 +10,13 @@ import (
 )
 
 type VarsCtx struct {
-	JS   *Jinja2Server
+	J2   *Jinja2
 	Vars *uo.UnstructuredObject
 }
 
-func NewVarsCtx(js *Jinja2Server) *VarsCtx {
+func NewVarsCtx(j2 *Jinja2) *VarsCtx {
 	vc := &VarsCtx{
-		JS:   js,
+		J2:   j2,
 		Vars: uo.New(),
 	}
 	return vc
@@ -24,7 +24,7 @@ func NewVarsCtx(js *Jinja2Server) *VarsCtx {
 
 func (vc *VarsCtx) Copy() *VarsCtx {
 	cp := &VarsCtx{
-		JS:   vc.JS,
+		J2:   vc.J2,
 		Vars: vc.Vars.Clone(),
 	}
 	return cp
@@ -118,7 +118,7 @@ func (vc *VarsCtx) loadVarsFromString(s string) error {
 }
 
 func (vc *VarsCtx) renderYamlString(s string, out interface{}) error {
-	ret, err := vc.JS.RenderString(s, nil, vc.Vars)
+	ret, err := vc.J2.RenderString(s, nil, vc.Vars)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (vc *VarsCtx) renderYamlString(s string, out interface{}) error {
 }
 
 func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}) error {
-	ret, err := vc.JS.RenderFile(p, searchDirs, vc.Vars)
+	ret, err := vc.J2.RenderFile(p, searchDirs, vc.Vars)
 	if err != nil {
 		return err
 	}
@@ -146,5 +146,5 @@ func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}
 }
 
 func (vc *VarsCtx) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string) error {
-	return vc.JS.RenderDirectory(rootDir, searchDirs, relSourceDir, excludePatterns, subdir, targetDir, vc.Vars)
+	return vc.J2.RenderDirectory(rootDir, searchDirs, relSourceDir, excludePatterns, subdir, targetDir, vc.Vars)
 }

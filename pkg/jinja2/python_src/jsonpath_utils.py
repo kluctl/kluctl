@@ -2,7 +2,6 @@
 import fnmatch
 import logging
 import os
-import threading
 
 import ply
 from jsonpath_ng import auto_id_field, jsonpath, JSONPath
@@ -82,7 +81,7 @@ def convert_list_to_json_path(p):
     return p2
 
 json_path_cache = {}
-json_path_local = threading.local()
+json_path_parser = MyJsonPathParser()
 
 def parse_json_path(p) -> JSONPath:
     if isinstance(p, list) or isinstance(p, tuple):
@@ -92,12 +91,10 @@ def parse_json_path(p) -> JSONPath:
         return json_path_cache[p]
 
     try:
-        if not hasattr(json_path_local, "parser"):
-            json_path_local.parser = MyJsonPathParser()
-
-        pp = json_path_local.parser.parse(p)
+        pp = json_path_parser.parse(p)
     except JsonPathParserError as e:
         raise Exception("Invalid json path '%s'. Error=%s" % (p, str(e)))
+
     pp = json_path_cache.setdefault(p, pp)
 
     return pp

@@ -2,7 +2,7 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/jinja2_server"
+	"github.com/codablock/kluctl/pkg/jinja2"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
@@ -40,7 +40,7 @@ func ConvertArgsToVars(args map[string]string) *uo.UnstructuredObject {
 	return vars
 }
 
-func CheckRequiredDeployArgs(dir string, varsCtx *jinja2_server.VarsCtx, deployArgs *uo.UnstructuredObject) error {
+func CheckRequiredDeployArgs(dir string, varsCtx *jinja2.VarsCtx, deployArgs *uo.UnstructuredObject) error {
 	// First try to load the config without templating to avoid getting errors while rendering because required
 	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
 	// when the rendering error is actually args related.

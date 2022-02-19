@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/git"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	"github.com/codablock/kluctl/pkg/jinja2_server"
+	"github.com/codablock/kluctl/pkg/jinja2"
 	"github.com/codablock/kluctl/pkg/types"
 	"regexp"
 )
@@ -19,7 +19,7 @@ type LoadKluctlProjectArgs struct {
 	FromArchive         string
 	FromArchiveMetadata string
 
-	JS *jinja2_server.Jinja2Server
+	J2 *jinja2.Jinja2
 }
 
 type KluctlProjectContext struct {
@@ -38,7 +38,7 @@ type KluctlProjectContext struct {
 
 	mirroredRepos map[string]*git.MirroredGitRepo
 
-	JS *jinja2_server.Jinja2Server
+	J2 *jinja2.Jinja2
 }
 
 func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string) *KluctlProjectContext {
@@ -47,7 +47,7 @@ func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string) *Klu
 		TmpDir:        tmpDir,
 		involvedRepos: make(map[string][]types.InvolvedRepo),
 		mirroredRepos: make(map[string]*git.MirroredGitRepo),
-		JS:            loadArgs.JS,
+		J2:            loadArgs.J2,
 	}
 	return o
 }

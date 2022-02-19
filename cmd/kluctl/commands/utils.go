@@ -5,7 +5,7 @@ import (
 	args "github.com/codablock/kluctl/cmd/kluctl/args"
 	"github.com/codablock/kluctl/pkg/deployment"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	"github.com/codablock/kluctl/pkg/jinja2_server"
+	"github.com/codablock/kluctl/pkg/jinja2"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/kluctl_project"
 	"github.com/codablock/kluctl/pkg/types"
@@ -24,11 +24,12 @@ func withKluctlProjectFromArgs(cb func(p *kluctl_project.KluctlProjectContext) e
 			return err
 		}
 	}
-	js, err := jinja2_server.NewJinja2Server()
+	j2, err := jinja2.NewJinja2()
 	if err != nil {
 		return err
 	}
-	defer js.Stop()
+	defer j2.Close()
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		ProjectUrl:          url,
 		ProjectRef:          args.ProjectRef,
@@ -38,7 +39,7 @@ func withKluctlProjectFromArgs(cb func(p *kluctl_project.KluctlProjectContext) e
 		LocalSealedSecrets:  args.LocalSealedSecrets,
 		FromArchive:         args.FromArchive,
 		FromArchiveMetadata: args.FromArchiveMetadata,
-		JS:                  js,
+		J2:                  j2,
 	}
 	return kluctl_project.LoadKluctlProject(loadArgs, cb)
 }
@@ -91,7 +92,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		return err
 	}
 
-	varsCtx := jinja2_server.NewVarsCtx(p.JS)
+	varsCtx := jinja2.NewVarsCtx(p.J2)
 	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
 	if err != nil {
 		return err

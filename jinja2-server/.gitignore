@@ -1,8 +1,0 @@
-__pycache__
-
-/venv
-/main.bin
-/main.build
-
-jinja2_server_pb2.py
-jinja2_server_pb2_grpc.py

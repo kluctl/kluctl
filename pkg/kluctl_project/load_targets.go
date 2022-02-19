@@ -3,7 +3,7 @@ package kluctl_project
 import (
 	"fmt"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	"github.com/codablock/kluctl/pkg/jinja2_server"
+	"github.com/codablock/kluctl/pkg/jinja2"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -78,7 +78,7 @@ func (c *KluctlProjectContext) renderTarget(target *types.Target) (*types.Target
 	var errors []error
 	curTarget := target
 	for i := 0; i < 10; i++ {
-		varsCtx := jinja2_server.NewVarsCtx(c.JS)
+		varsCtx := jinja2.NewVarsCtx(c.J2)
 		err := varsCtx.UpdateChildFromStruct("target", curTarget)
 		if err != nil {
 			return nil, err
@@ -93,7 +93,7 @@ func (c *KluctlProjectContext) renderTarget(target *types.Target) (*types.Target
 		}
 
 		var newTarget types.Target
-		err = c.JS.RenderStruct(&newTarget, curTarget, varsCtx.Vars)
+		err = c.J2.RenderStruct(&newTarget, curTarget, varsCtx.Vars)
 		if err == nil && reflect.DeepEqual(curTarget, &newTarget) {
 			return curTarget, nil
 		}

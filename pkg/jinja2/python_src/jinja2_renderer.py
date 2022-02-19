@@ -1,24 +1,19 @@
 import base64
 import json
-from concurrent.futures import ThreadPoolExecutor
 
 from jinja2 import StrictUndefined, FileSystemLoader
 
-import jinja2_server_pb2
-import jinja2_server_pb2_grpc
 from dict_utils import merge_dict
 from jinja2_cache import KluctlBytecodeCache
 from jinja2_utils import KluctlJinja2Environment, add_jinja2_filters, extract_template_error
-from yaml_utils import yaml_load
 
 jinja2_cache = KluctlBytecodeCache(max_cache_files=10000)
 
 begin_placeholder = "XXXXXbegin_get_image_"
 end_placeholder = "_end_get_imageXXXXX"
 
-class Jinja2Servicer(jinja2_server_pb2_grpc.Jinja2ServerServicer):
-    def __init__(self):
-        self.executor = ThreadPoolExecutor()
+
+class Jinja2Renderer:
 
     def get_image_wrapper(self, image, latest_version=None):
         if latest_version is None:
@@ -71,39 +66,39 @@ class Jinja2Servicer(jinja2_server_pb2_grpc.Jinja2ServerServicer):
         add_jinja2_filters(environment)
         return environment
 
-    def prepare_result(self, cnt):
-        result = jinja2_server_pb2.JobResult()
-        for i in range(cnt):
-            r = jinja2_server_pb2.SingleResult()
-            result.results.append(r)
-        return result
+    def render_helper(self, templates, search_dirs, vars, is_string):
+        env = self.build_env(vars, search_dirs)
 
+        result = []
 
-    def render_helper(self, request, is_string):
-        result = self.prepare_result(len(request.templates))
-        env = self.build_env(request.vars, request.search_dirs)
-
-        def do_render(i, t):
+        for i, t in enumerate(templates):
             try:
                 if is_string:
                     t = env.from_string(t)
                 else:
                     t = env.get_template(t)
-                result.results[i].result = t.render()
+                result.append({
+                    "result": t.render()
+                })
             except Exception as e:
-                result.results[i].error = extract_template_error(e)
+                result.append({
+                    "error": extract_template_error(e),
+                })
 
-        futures = []
-        for i, t in enumerate(request.templates):
-            f = self.executor.submit(do_render, i, t)
-            futures.append(f)
-
-        for f in futures:
-            f.result()
         return result
 
-    def RenderStrings(self, request, context):
-        return self.render_helper(request, True)
+    def RenderStrings(self, templates, search_dirs, vars):
+        try:
+            return self.render_helper(templates, search_dirs, vars, True)
+        except Exception as e:
+            return [{
+                "error": str(e)
+            }] * len(templates)
 
-    def RenderFiles(self, request, context):
-        return self.render_helper(request, False)
+    def RenderFiles(self, templates, search_dirs, vars):
+        try:
+            return self.render_helper(templates, search_dirs, vars, False)
+        except Exception as e:
+            return [{
+                "error": str(e)
+            }] * len(templates)

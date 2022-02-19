@@ -2,5 +2,3 @@ jinja2===3.0.3
 click==8.0.3
 jsonpath-ng==1.5.3
 pyyaml==6.0
-protobuf==3.19.4
-grpcio==1.43.0

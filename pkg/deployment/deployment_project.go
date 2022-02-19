@@ -2,7 +2,7 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/jinja2_server"
+	"github.com/codablock/kluctl/pkg/jinja2"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
@@ -18,7 +18,7 @@ var kustomizeDirsDeprecatedOnce sync.Once
 var includesDeprecatedOnce sync.Once
 
 type DeploymentProject struct {
-	VarsCtx          *jinja2_server.VarsCtx
+	VarsCtx          *jinja2.VarsCtx
 	dir              string
 	sealedSecretsDir string
 
@@ -30,7 +30,7 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *jinja2_server.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *jinja2.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
 		VarsCtx:          varsCtx.Copy(),
 		dir:              dir,
