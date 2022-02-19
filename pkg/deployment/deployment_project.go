@@ -96,7 +96,12 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		includesDeprecatedOnce.Do(func() {
 			log.Warningf("'includes' is deprecated, use 'deployments' instead")
 		})
-		p.config.Deployments = append(p.config.Deployments, p.config.Includes...)
+		for _, inc := range p.config.Includes {
+			c := *inc
+			c.Include = c.Path
+			c.Path = nil
+			p.config.Deployments = append(p.config.Deployments, &c)
+		}
 		p.config.Includes = nil
 	}
 
