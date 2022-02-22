@@ -10,6 +10,7 @@ import (
 	"github.com/hexops/gotextdiff/span"
 	diff2 "github.com/r3labs/diff/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -38,7 +39,11 @@ func convertPath(path []string, o interface{}) (string, error) {
 }
 
 func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstructured) ([]types.Change, error) {
-	cl, err := diff2.Diff(oldObject.Object, newObject.Object)
+	differ, err := diff2.NewDiffer(diff2.AllowTypeMismatch(true))
+	if err != nil {
+		return nil, err
+	}
+	cl, err := differ.Diff(oldObject.Object, newObject.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +52,7 @@ func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstruct
 	for _, c := range cl {
 		switch c.Type {
 		case "create":
-			ud, err := buildUnifiedDiff(notPresent, c.To)
+			ud, err := buildUnifiedDiff(notPresent, c.To, false)
 			if err != nil {
 				return nil, err
 			}
@@ -62,7 +67,7 @@ func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstruct
 				UnifiedDiff: ud,
 			})
 		case "delete":
-			ud, err := buildUnifiedDiff(c.From, notPresent)
+			ud, err := buildUnifiedDiff(c.From, notPresent, false)
 			if err != nil {
 				return nil, err
 			}
@@ -77,7 +82,11 @@ func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstruct
 				UnifiedDiff: ud,
 			})
 		case "update":
-			ud, err := buildUnifiedDiff(c.From, c.To)
+			showType := false
+			if reflect.TypeOf(c.From) != reflect.TypeOf(c.To) {
+				showType = true
+			}
+			ud, err := buildUnifiedDiff(c.From, c.To, showType)
 			if err != nil {
 				return nil, err
 			}
@@ -97,12 +106,12 @@ func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstruct
 	return changes, nil
 }
 
-func buildUnifiedDiff(a interface{}, b interface{}) (string, error) {
-	aStr, err := objectToDiffableString(a)
+func buildUnifiedDiff(a interface{}, b interface{}, showType bool) (string, error) {
+	aStr, err := objectToDiffableString(a, showType)
 	if err != nil {
 		return "", err
 	}
-	bStr, err := objectToDiffableString(b)
+	bStr, err := objectToDiffableString(b, showType)
 	if err != nil {
 		return "", err
 	}
@@ -123,7 +132,18 @@ func buildUnifiedDiff(a interface{}, b interface{}) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-func objectToDiffableString(o interface{}) (string, error) {
+func objectToDiffableString(o interface{}, showType bool) (string, error) {
+	s, err := objectToDiffableStringNoType(o)
+	if err != nil {
+		return "", err
+	}
+	if showType {
+		s += fmt.Sprintf(" (type: %s)", reflect.TypeOf(o).Name())
+	}
+	return s, nil
+}
+
+func objectToDiffableStringNoType(o interface{}) (string, error) {
 	if o == nil {
 		return "null", nil
 	}
@@ -134,11 +154,15 @@ func objectToDiffableString(o interface{}) (string, error) {
 		return v, nil
 	}
 
-	b, err := yaml.WriteYamlString(o)
-	if err != nil {
-		return "", err
+	if _, ok := o.(map[string]interface{}); ok {
+		b, err := yaml.WriteYamlString(o)
+		if err != nil {
+			return "", err
+		}
+		return b, nil
+	} else {
+		return fmt.Sprint(o), nil
 	}
-	return b, nil
 }
 
 func prependStrToLines(s string, prepend string) string {
