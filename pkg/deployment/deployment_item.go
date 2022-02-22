@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
+	"path"
 	"path/filepath"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -119,7 +120,7 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 	excludePatterns = append(excludePatterns, di.project.config.TemplateExcludes...)
 	if utils.IsFile(filepath.Join(*di.dir, "helm-chart.yml")) {
 		// never try to render helm charts
-		excludePatterns = append(excludePatterns, filepath.Join(di.relToProjectItemDir, "charts/**"))
+		excludePatterns = append(excludePatterns, path.Join(strings.ReplaceAll(di.relToProjectItemDir, string(os.PathSeparator), "/"), "charts/**"))
 	}
 	if !di.collection.forSeal {
 		// .sealme files are rendered while sealing and not while deploying

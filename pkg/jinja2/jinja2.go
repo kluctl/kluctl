@@ -335,7 +335,7 @@ func (j *Jinja2) getGlob(pattern string) (glob.Glob, error) {
 			return nil, g2.(error)
 		}
 	}
-	g, err := glob.Compile(pattern)
+	g, err := glob.Compile(pattern, '/')
 	if err != nil {
 		j.globCache[pattern] = err
 		return nil, err
@@ -344,6 +344,8 @@ func (j *Jinja2) getGlob(pattern string) (glob.Glob, error) {
 	return g.(glob.Glob), nil
 }
 func (j *Jinja2) needsRender(path string, excludedPatterns []string) bool {
+	path = strings.ReplaceAll(path, string(os.PathSeparator), "/")
+
 	for _, p := range excludedPatterns {
 		g, err := j.getGlob(p)
 		if err != nil {
