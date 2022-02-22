@@ -163,7 +163,7 @@ func LoadKluctlProject(args LoadKluctlProjectArgs, cb func(ctx *KluctlProjectCon
 func loadKluctlProjectFromArchive(fromArchive string, fromArchiveMetadata string, tmpDir string) (*KluctlProjectContext, error) {
 	var dir string
 	if utils.IsFile(fromArchiveMetadata) {
-		err := utils.ExtractTarGz(fromArchive, tmpDir)
+		err := utils.ExtractTarGzFile(fromArchive, tmpDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract archive %v: %w", fromArchive, err)
 		}
