@@ -242,21 +242,9 @@ func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 		log.Fatalf("tried to clone from a project that is not locked/updated")
 	}
 
-	log.Debugf("Cloning git project: url='%v', ref='%v'", g.url.String(), ref)
+	log.Debugf("Cloning git project: url='%s', ref='%s', target='%s'", g.url.String(), ref, targetDir)
 
-	fileUrl := fmt.Sprintf("file://%s", g.mirrorDir)
-	if ref != "" {
-		ref = fmt.Sprintf("refs/heads/%s", plumbing.ReferenceName(ref))
-	}
-	_, err := git.PlainClone(targetDir, false, &git.CloneOptions{
-		URL:           fileUrl,
-		SingleBranch:  true,
-		ReferenceName: plumbing.ReferenceName(ref),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to clone %s to %s: %w", fileUrl, targetDir, err)
-	}
-	return err
+	return PoorMansClone(g.mirrorDir, targetDir, ref)
 }
 
 func buildRemoteName(u git_url.GitUrl) string {

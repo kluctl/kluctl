@@ -112,5 +112,5 @@ func FsCopyDir(srcFs fs.FS, src string, dst string) error {
 }
 
 func CopyDir(src string, dst string) error {
-	return FsCopyDir(os.DirFS(src), "", dst)
+	return FsCopyDir(os.DirFS(src), ".", dst)
 }
