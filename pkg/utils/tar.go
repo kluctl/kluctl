@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 )
+
 func ExtractTarGzFile(tarGzPath string, targetPath string) error {
 	f, err := os.Open(tarGzPath)
 	if err != nil {

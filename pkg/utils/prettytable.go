@@ -60,7 +60,7 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 			w = limitWidths[i]
 		}
 		widths[i] = maxWidth(i, w)
-		if i != cols - 1 {
+		if i != cols-1 {
 			widthSum += widths[i]
 		}
 	}

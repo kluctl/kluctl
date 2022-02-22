@@ -8,7 +8,7 @@ import (
 
 type DeploymentItemConfig struct {
 	Path             *string                  `yaml:"path,omitempty"`
-	Include			 *string                  `yaml:"include,omitempty"`
+	Include          *string                  `yaml:"include,omitempty"`
 	Tags             []string                 `yaml:"tags,omitempty"`
 	Barrier          *bool                    `yaml:"barrier,omitempty"`
 	Vars             []*VarsListItem          `yaml:"vars,omitempty"`

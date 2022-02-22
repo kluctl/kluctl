@@ -20,11 +20,11 @@ import (
 )
 
 type Jinja2 struct {
-	srcDir string
-	p *python.PythonInterpreter
+	srcDir   string
+	p        *python.PythonInterpreter
 	renderer *python.PyObject
 
-	sem    *semaphore.Weighted
+	sem            *semaphore.Weighted
 	globCache      map[string]interface{}
 	globCacheMutex sync.Mutex
 }
@@ -73,8 +73,8 @@ func NewJinja2() (*Jinja2, error) {
 	}
 
 	j := &Jinja2{
-		srcDir: srcDir,
-		p: p,
+		srcDir:    srcDir,
+		p:         p,
 		sem:       semaphore.NewWeighted(1),
 		globCache: map[string]interface{}{},
 	}
@@ -121,7 +121,7 @@ func (j *Jinja2) Close() {
 	})
 
 	j.p.Stop()
-	
+
 	_ = os.RemoveAll(j.srcDir)
 }
 

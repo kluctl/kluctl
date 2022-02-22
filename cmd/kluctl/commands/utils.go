@@ -185,7 +185,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		target:               target,
 		clusterConfig:        clusterConfig,
 		k:                    k,
-		images: images,
+		images:               images,
 		deploymentProject:    d,
 		deploymentCollection: c,
 	}

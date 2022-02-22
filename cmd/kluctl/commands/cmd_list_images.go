@@ -19,10 +19,10 @@ func init() {
 	var cmd = &cobra.Command{
 		Use:   "list-images",
 		Short: "Renders the target and outputs all images used via `images.get_image(...)",
-		Long: "Renders the target and outputs all images used via `images.get_image(...)`\n\n"+
-		"The result is a compatible with yaml files expected by --fixed-images-file.\n\n"+
-		"If fixed images (`-f/--fixed-image`) are provided, these are also taken into account, "+
-		"as described in for the deploy command.",
+		Long: "Renders the target and outputs all images used via `images.get_image(...)`\n\n" +
+			"The result is a compatible with yaml files expected by --fixed-images-file.\n\n" +
+			"If fixed images (`-f/--fixed-image`) are provided, these are also taken into account, " +
+			"as described in for the deploy command.",
 		RunE: runCmdListImages,
 	}
 	args.AddProjectArgs(cmd, true, true, true)

@@ -27,7 +27,7 @@ func extractSource() (string, error) {
 	}
 
 	err = filepath.WalkDir(filepath.Join(tmpDir, "wheel"), func(p string, d fs.DirEntry, err error) error {
-		if !strings.HasSuffix(p,".whl") {
+		if !strings.HasSuffix(p, ".whl") {
 			return nil
 		}
 		r, err := zip.OpenReader(p)
@@ -49,7 +49,7 @@ func extractSource() (string, error) {
 				return err
 			}
 
-			err = func () error {
+			err = func() error {
 				dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
 				if err != nil {
 					return err

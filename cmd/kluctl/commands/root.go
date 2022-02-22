@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	v string
+	v             string
 	noUpdateCheck = false
 )
 

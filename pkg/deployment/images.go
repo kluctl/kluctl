@@ -36,7 +36,7 @@ func (images *Images) SeenImages(simple bool) []types.FixedImage {
 	for _, fi := range images.seenImages {
 		if simple {
 			ret = append(ret, types.FixedImage{
-				Image: fi.Image,
+				Image:       fi.Image,
 				ResultImage: fi.ResultImage,
 			})
 		} else {
