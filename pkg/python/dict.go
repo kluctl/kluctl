@@ -1,24 +1,22 @@
 package python
-
-/*
-#include "Python.h"
-*/
 import "C"
-import "unsafe"
+import (
+	"github.com/codablock/kluctl/pkg/utils/lib_wrapper"
+)
 
 type PyDict = PyObject
 
 func PyDict_New() *PyDict {
-	return (*PyList)(C.PyDict_New())
+	return togo(pythonModule.Call_VP_PTRS("PyDict_New"))
 }
 
 func PyDict_FromObject(o *PyObject) *PyDict {
-	return (*PyDict)(o)
+	return o
 }
 
 func (d *PyDict) GetItemString(key string) *PyObject {
-	ckey := C.CString(key)
-	defer C.free(unsafe.Pointer(ckey))
+	ckey := lib_wrapper.NewCString(key)
+	defer ckey.Free()
 
-	return (*PyObject)(C.PyDict_GetItemString((*C.PyObject)(d), ckey))
+	return togo(pythonModule.Call_VP_PTRS("PyDict_GetItemString", d.p, ckey.P))
 }

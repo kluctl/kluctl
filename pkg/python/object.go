@@ -1,57 +1,53 @@
 package python
 
-/*
-#include "Python.h"
-#include "variadic.h"
-*/
-import "C"
-import "unsafe"
+import (
+	"github.com/codablock/kluctl/pkg/utils/lib_wrapper"
+	"unsafe"
+)
 
-const MaxVariadicLength = 20
-
-type PyObject C.PyObject
+type PyObject struct {
+	p unsafe.Pointer
+}
 
 func (p *PyObject) IncRef() {
-	C.Py_IncRef((*C.PyObject)(p))
+	pythonModule.Call_V_PTRS("Py_IncRef", p.p)
 }
 
 func (p *PyObject) DecRef() {
-	C.Py_DecRef((*C.PyObject)(p))
+	pythonModule.Call_V_PTRS("Py_DecRef", p.p)
 }
 
 func (p *PyObject) Length() int {
-	return int(C.PyObject_Length((*C.PyObject)(p)))
+	return pythonModule.Call_I_PTRS("PyObject_Length", p.p)
 }
 
 func (p *PyObject) GetAttrString(attr_name string) *PyObject {
-	cattr_name := C.CString(attr_name)
-	defer C.free(unsafe.Pointer(cattr_name))
+	cattr_name := lib_wrapper.NewCString(attr_name)
+	defer cattr_name.Free()
 
-	return (*PyObject)(C.PyObject_GetAttrString((*C.PyObject)(p), cattr_name))
+	return togo(pythonModule.Call_VP_PTRS("PyObject_GetAttrString", p.p, cattr_name.P))
 }
 
 func (p *PyObject) SetAttrString(attr_name string, v *PyObject) int {
-	cattr_name := C.CString(attr_name)
-	defer C.free(unsafe.Pointer(cattr_name))
+	cattr_name := lib_wrapper.NewCString(attr_name)
+	defer cattr_name.Free()
 
-	return int(C.PyObject_SetAttrString((*C.PyObject)(p), cattr_name, (*C.PyObject)(v)))
+	return pythonModule.Call_I_PTRS("PyObject_SetAttrString", cattr_name.P, v.p)
 }
 
 func (p *PyObject) CallObject(args *PyObject) *PyObject {
-	return (*PyObject)(C.PyObject_CallObject((*C.PyObject)(p), (*C.PyObject)(args)))
+	var a unsafe.Pointer
+	if args != nil {
+		a = args.p
+	}
+	return togo(pythonModule.Call_VP_PTRS("PyObject_CallObject", p.p, a))
 }
 
 func (p *PyObject) CallMethodObjArgs(name *PyObject, args ...*PyObject) *PyObject {
-	if len(args) > MaxVariadicLength {
-		panic("CallMethodObjArgs: too many arguments")
+	cargs := make([]unsafe.Pointer, len(args), len(args)+1)
+	for i, o := range args {
+		cargs[i] = o.p
 	}
-	if len(args) == 0 {
-		return (*PyObject)(C._go_PyObject_CallMethodObjArgs((*C.PyObject)(p), (*C.PyObject)(name), 0, (**C.PyObject)(nil)))
-	}
-
-	cargs := make([]*C.PyObject, len(args), len(args))
-	for i, arg := range args {
-		cargs[i] = (*C.PyObject)(arg)
-	}
-	return (*PyObject)(C._go_PyObject_CallMethodObjArgs((*C.PyObject)(p), (*C.PyObject)(name), C.int(len(args)), (**C.PyObject)(unsafe.Pointer(&cargs[0]))))
+	cargs = append(cargs, nil)
+	return togo(pythonModule.Call_VP_PTRS_VARGS("PyObject_CallMethodObjArgs", []unsafe.Pointer{p.p, name.p}, cargs...))
 }

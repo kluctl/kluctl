@@ -1,14 +1,10 @@
 package python
 
-/*
-#include "Python.h"
-*/
-import "C"
-
 type PyList = PyObject
 
 func PyList_New(len int) *PyList {
-	return (*PyList)(C.PyList_New(C.Py_ssize_t(len)))
+	p := pythonModule.Call_VP_SS("PyList_New", len)
+	return togo(p)
 }
 
 func PyList_FromObject(l *PyObject) *PyList {
@@ -16,9 +12,9 @@ func PyList_FromObject(l *PyObject) *PyList {
 }
 
 func (l *PyList) GetItem(pos int) *PyObject {
-	return 	(*PyObject)(C.PyList_GetItem((*C.PyObject)(l), C.Py_ssize_t(pos)))
+	return togo(pythonModule.Call_VP_VP_SS("PyList_GetItem", l.p, pos))
 }
 
 func (l *PyList) Append(item *PyObject) int {
-	return int(C.PyList_Append((*C.PyObject)(l), (*C.PyObject)(item)))
+	return pythonModule.Call_I_PTRS("PyList_Append", l.p, item.p)
 }

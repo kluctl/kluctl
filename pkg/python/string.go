@@ -1,19 +1,18 @@
 package python
 
-/*
-#include "Python.h"
-*/
 import "C"
-import "unsafe"
+import (
+	"github.com/codablock/kluctl/pkg/utils/lib_wrapper"
+)
 
 func PyUnicode_FromString(u string) *PyObject {
-	cu := C.CString(u)
-	defer C.free(unsafe.Pointer(cu))
+	cu := lib_wrapper.NewCString(u)
+	defer cu.Free()
 
-	return (*PyObject)(C.PyUnicode_FromString(cu))
+	return togo(pythonModule.Call_VP_PTRS("PyUnicode_FromString", cu.P))
 }
 
 func PyUnicode_AsUTF8(unicode *PyObject) string {
-	cutf8 := C.PyUnicode_AsUTF8((*C.PyObject)(unicode))
-	return C.GoString(cutf8)
+	cutf8 := pythonModule.Call_VP_PTRS("PyUnicode_AsUTF8", unicode.p)
+	return C.GoString((*C.char)(cutf8))
 }

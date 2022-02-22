@@ -1,49 +1,58 @@
 package python
 
-/*
-#cgo pkg-config: python3
-#include "Python.h"
-*/
-import "C"
-
 import (
+	"fmt"
+	"github.com/codablock/kluctl/pkg/utils/lib_wrapper"
 	"unsafe"
 )
 
-type PyThreadState C.PyThreadState
+type PyThreadState unsafe.Pointer
+
+func Py_SetPythonHome(home string) error {
+	chome := lib_wrapper.NewCString(home)
+	defer chome.Free()
+
+	newHome := togo(pythonModule.Call_VP_PTRS("Py_DecodeLocale", chome.P, nil))
+	if newHome == nil {
+		return fmt.Errorf("fail to call Py_DecodeLocale on '%s'", home)
+	}
+	pythonModule.Call_V_PTRS("Py_SetPythonHome", newHome.p)
+
+	return nil
+}
 
 func Py_Initialize() {
-	C.Py_Initialize()
+	pythonModule.Call_V_PTRS("Py_Initialize")
 }
 
-func Py_NewInterpreter() *PyThreadState {
-	p := C.Py_NewInterpreter()
-	return (*PyThreadState)(unsafe.Pointer(p))
+func Py_NewInterpreter() PyThreadState {
+	p := pythonModule.Call_VP_PTRS("Py_NewInterpreter")
+	return (PyThreadState)(p)
 }
 
-func Py_EndInterpreter(o *PyThreadState) {
-	C.Py_EndInterpreter((*C.PyThreadState)(unsafe.Pointer(o)))
+func Py_EndInterpreter(o PyThreadState) {
+	pythonModule.Call_V_PTRS("Py_EndInterpreter", unsafe.Pointer(o))
 }
 
-func PyEval_AcquireThread(o *PyThreadState) {
-	C.PyEval_AcquireThread((*C.PyThreadState)(unsafe.Pointer(o)))
+func PyEval_AcquireThread(o PyThreadState) {
+	pythonModule.Call_V_PTRS("PyEval_AcquireThread", unsafe.Pointer(o))
 }
 
-func PyEval_ReleaseThread(o *PyThreadState) {
-	C.PyEval_ReleaseThread((*C.PyThreadState)(unsafe.Pointer(o)))
+func PyEval_ReleaseThread(o PyThreadState) {
+	pythonModule.Call_V_PTRS("PyEval_ReleaseThread", unsafe.Pointer(o))
 }
 
-func PyEval_SaveThread() *PyThreadState {
-	return (*PyThreadState)(C.PyEval_SaveThread())
+func PyEval_SaveThread() PyThreadState {
+	return PyThreadState(pythonModule.Call_VP_PTRS("PyEval_SaveThread"))
 }
 
-func PyThreadState_Get() *PyThreadState {
-	return (*PyThreadState)(C.PyThreadState_Get())
+func PyThreadState_Get() PyThreadState {
+	return PyThreadState(pythonModule.Call_VP_PTRS("PyThreadState_Get"))
 }
 
 func PyImport_ImportModule(name string) *PyObject {
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
+	cname := lib_wrapper.NewCString(name)
+	defer cname.Free()
 
-	return (*PyObject)(C.PyImport_ImportModule(cname))
+	return togo(pythonModule.Call_VP_PTRS("PyImport_ImportModule", cname.P))
 }

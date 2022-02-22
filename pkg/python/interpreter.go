@@ -1,6 +1,5 @@
 package python
 
-
 import (
 	"log"
 	"runtime"
@@ -11,18 +10,18 @@ type PythonInterpreter struct {
 	init     chan error
 	stopChan chan bool
 
-	threadState *PyThreadState
+	threadState PyThreadState
 }
 
 type pythonInterpreterCall struct {
-	fun func() error
+	fun    func() error
 	result chan error
 }
 
 func NewPythonInterpreter() (*PythonInterpreter, error) {
 	p := &PythonInterpreter{
-		calls: make(chan *pythonInterpreterCall),
-		init: make(chan error),
+		calls:    make(chan *pythonInterpreterCall),
+		init:     make(chan error),
 		stopChan: make(chan bool),
 	}
 
@@ -41,11 +40,11 @@ func (p *PythonInterpreter) Stop() {
 
 func (p *PythonInterpreter) Run(fun func() error) error {
 	c := &pythonInterpreterCall{
-		fun: fun,
+		fun:    fun,
 		result: make(chan error),
 	}
 	p.calls <- c
-	err := <- c.result
+	err := <-c.result
 	return err
 }
 
@@ -78,9 +77,11 @@ func (p *PythonInterpreter) runThread() {
 	for true {
 		select {
 		case c := <-p.calls:
-			PyEval_AcquireThread(p.threadState)
-			p.processCall(c)
-			PyEval_ReleaseThread(p.threadState)
+			func() {
+				PyEval_AcquireThread(p.threadState)
+				defer PyEval_ReleaseThread(p.threadState)
+				p.processCall(c)
+			}()
 		case <-p.stopChan:
 			return
 		}
@@ -94,13 +95,7 @@ func (p *PythonInterpreter) processCall(c *pythonInterpreterCall) {
 	}
 
 	err := c.fun()
-	c.result<-err
+	c.result <- err
 }
 
-var mainThreadState *PyThreadState
-
-func init() {
-	Py_Initialize()
-	mainThreadState = PyEval_SaveThread()
-}
-
+var mainThreadState PyThreadState
