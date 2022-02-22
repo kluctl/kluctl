@@ -30,10 +30,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var noUpdateCheck = false
+var (
+	v string
+	noUpdateCheck = false
+)
 
 const latestReleaseUrl = "https://api.github.com/repos/codablock/kluctl/releases/latest"
 
+func setupLogs() error {
+	lvl, err := log.ParseLevel(v)
+	if err != nil {
+		return err
+	}
+	log.SetLevel(lvl)
+	return nil
+}
 
 type VersionCheckState struct {
 	LastVersionCheck time.Time `yaml:"lastVersionCheck"`
@@ -94,6 +105,9 @@ var rootCmd = &cobra.Command{
 	Long: `The missing glue to put together large Kubernetes deployments,
 composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unified way.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if err := setupLogs(); err != nil {
+			return err
+		}
 		checkNewVersion()
 		return nil
 	},
@@ -118,5 +132,6 @@ func Execute() {
 func init() {
 	rootCmd.SilenceUsage = true
 
-	rootCmd.Flags().BoolVar(&noUpdateCheck, "no-update-check", false, "Disable update check on startup")
+	rootCmd.PersistentFlags().StringVarP(&v, "verbosity", "v", log.InfoLevel.String(), "Log level (debug, info, warn, error, fatal, panic")
+	rootCmd.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false, "Disable update check on startup")
 }
