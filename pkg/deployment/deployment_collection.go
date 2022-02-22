@@ -13,7 +13,6 @@ import (
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -75,7 +74,7 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 	}
 	var dir2 *string
 	index := 0
-	dir := path.Join(project.dir, *pth)
+	dir := filepath.Join(project.dir, *pth)
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		// we pre-checked directories, so this should not happen
@@ -166,12 +165,12 @@ func (c *DeploymentCollection) Seal(sealer *seal.Sealer) error {
 		if err != nil {
 			return err
 		}
-		targetDir := path.Join(c.project.sealedSecretsDir, path.Dir(relPath))
-		targetFile := path.Join(targetDir, *c.project.config.SealedSecrets.OutputPattern, path.Base(p))
+		targetDir := filepath.Join(c.project.sealedSecretsDir, filepath.Dir(relPath))
+		targetFile := filepath.Join(targetDir, *c.project.config.SealedSecrets.OutputPattern, filepath.Base(p))
 		targetFile = targetFile[:len(targetFile)-len(sealmeExt)]
 		err = sealer.SealFile(p, targetFile)
 		if err != nil {
-			return fmt.Errorf("failed sealing %s: %w", path.Base(p), err)
+			return fmt.Errorf("failed sealing %s: %w", filepath.Base(p), err)
 		}
 		return nil
 	})

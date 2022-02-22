@@ -8,7 +8,6 @@ import (
 	"github.com/codablock/kluctl/pkg/utils/aws"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -39,10 +38,10 @@ func (s *SecretsLoader) LoadSecrets(source *types.SecretSource) (*uo.Unstructure
 
 func (s *SecretsLoader) loadSecretsFile(source *types.SecretSource) (*uo.UnstructuredObject, error) {
 	var p string
-	if utils.Exists(path.Join(s.project.DeploymentDir, *source.Path)) {
-		p = path.Join(s.project.DeploymentDir, *source.Path)
-	} else if utils.Exists(path.Join(s.secretsDir, *source.Path)) {
-		p = path.Join(s.secretsDir, *source.Path)
+	if utils.Exists(filepath.Join(s.project.DeploymentDir, *source.Path)) {
+		p = filepath.Join(s.project.DeploymentDir, *source.Path)
+	} else if utils.Exists(filepath.Join(s.secretsDir, *source.Path)) {
+		p = filepath.Join(s.secretsDir, *source.Path)
 	}
 	if p == "" || !utils.Exists(p) {
 		return nil, fmt.Errorf("secrets file %s does not exist", *source.Path)

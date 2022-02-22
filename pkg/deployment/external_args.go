@@ -6,7 +6,7 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
-	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -47,7 +47,7 @@ func CheckRequiredDeployArgs(dir string, varsCtx *jinja2.VarsCtx, deployArgs *uo
 
 	var conf types.DeploymentProjectConfig
 
-	err := yaml.ReadYamlFile(path.Join(dir, "deployment.yml"), &conf)
+	err := yaml.ReadYamlFile(filepath.Join(dir, "deployment.yml"), &conf)
 	if err != nil {
 		// If that failed, it might be that conditional jinja blocks are present in the config, so lets try loading
 		// the config in rendered form. If it fails due to missing args now, we can't help much with better error

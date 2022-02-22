@@ -23,7 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -47,7 +47,7 @@ func checkNewVersion() {
 		return
 	}
 
-	versionCheckPath := path.Join(utils.GetTmpBaseDir(), "version_check.yml")
+	versionCheckPath := filepath.Join(utils.GetTmpBaseDir(), "version_check.yml")
 	var versionCheckState VersionCheckState
 	err := yaml.ReadYamlFile(versionCheckPath, &versionCheckState)
 	if err == nil {

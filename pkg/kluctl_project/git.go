@@ -6,8 +6,9 @@ import (
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
 	types2 "github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	log "github.com/sirupsen/logrus"
 	"os"
-	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -110,13 +111,16 @@ func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (stri
 	}
 	ref = strings.ReplaceAll(ref, "/", "-")
 	ref = strings.ReplaceAll(ref, "\\", "-")
-	baseName := path.Base(u.Path)
-	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))
-	return path.Join(c.TmpDir, fmt.Sprintf("%s-%s", baseName, urlHash), ref), nil
+	urlPath := strings.ReplaceAll(u.Path, "/", string(os.PathSeparator))
+	baseName := filepath.Base(urlPath)
+	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))[:16]
+	cloneDir := filepath.Join(c.TmpDir, fmt.Sprintf("%s-%s", baseName, urlHash), ref)
+	log.Tracef("buildCloneDir: ref=%s, urlPath=%s, baseName=%s, urlHash=%s, cloneDir=%s", ref, urlPath, baseName, urlHash, cloneDir)
+	return cloneDir, nil
 }
 
 func (c *KluctlProjectContext) cloneGitProject(gitProject types2.ExternalProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
-	err = os.MkdirAll(path.Join(c.TmpDir, "git"), 0o700)
+	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
 	}
@@ -132,7 +136,7 @@ func (c *KluctlProjectContext) cloneGitProject(gitProject types2.ExternalProject
 	}
 	dir := targetDir
 	if subDir != "" {
-		dir = path.Join(dir, subDir)
+		dir = filepath.Join(dir, subDir)
 	}
 
 	mr, ok := c.mirroredRepos[gitProject.Project.Url.NormalizedRepoKey()]

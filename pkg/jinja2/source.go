@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -27,7 +26,7 @@ func extractSource() (string, error) {
 		return "", err
 	}
 
-	err = filepath.WalkDir(path.Join(tmpDir, "wheel"), func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(filepath.Join(tmpDir, "wheel"), func(p string, d fs.DirEntry, err error) error {
 		if !strings.HasSuffix(p,".whl") {
 			return nil
 		}

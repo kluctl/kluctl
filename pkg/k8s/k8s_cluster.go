@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
 	"net/url"
-	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -92,8 +92,8 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	discoveryCacheDir := path.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
-	httpCacheDir := path.Join(utils.GetTmpBaseDir(), "kube-cache/http", apiHost.Hostname())
+	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
+	httpCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/http", apiHost.Hostname())
 	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), discoveryCacheDir, httpCacheDir, time.Hour*24)
 	if err != nil {
 		return nil, err

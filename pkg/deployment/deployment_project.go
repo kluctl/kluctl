@@ -8,7 +8,6 @@ import (
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -63,9 +62,9 @@ func (p *DeploymentProject) MergeSecretsIntoAllChildren(vars *uo.UnstructuredObj
 }
 
 func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
-	configPath := path.Join(p.dir, "deployment.yml")
+	configPath := filepath.Join(p.dir, "deployment.yml")
 	if !utils.Exists(configPath) {
-		if utils.Exists(path.Join(p.dir, "kustomization.yml")) {
+		if utils.Exists(filepath.Join(p.dir, "kustomization.yml")) {
 			return fmt.Errorf("deployment.yml not found but folder %s contains a kustomization.yml", p.dir)
 		}
 		return fmt.Errorf("%s not found", p.dir)
@@ -112,9 +111,9 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 			continue
 		}
 		if item.Path != nil {
-			item.Tags = []string{path.Base(*item.Path)}
+			item.Tags = []string{filepath.Base(*item.Path)}
 		} else if item.Include != nil {
-			item.Tags = []string{path.Base(*item.Include)}
+			item.Tags = []string{filepath.Base(*item.Include)}
 		}
 	}
 
@@ -146,7 +145,7 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 			pth = *di.Include
 		}
 
-		diDir := path.Join(p.dir, pth)
+		diDir := filepath.Join(p.dir, pth)
 		diDir, err := filepath.Abs(diDir)
 		if err != nil {
 			return err
@@ -164,9 +163,9 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 		}
 
 		if di.Path != nil {
-			pth = path.Join(diDir, "kustomization.yml")
+			pth = filepath.Join(diDir, "kustomization.yml")
 		} else {
-			pth = path.Join(diDir, "deployment.yml")
+			pth = filepath.Join(diDir, "deployment.yml")
 		}
 		if !utils.IsFile(pth) {
 			return fmt.Errorf("%s not found or not a file", pth)
@@ -181,7 +180,7 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 			continue
 		}
 
-		incDir := path.Join(p.dir, *inc.Include)
+		incDir := filepath.Join(p.dir, *inc.Include)
 
 		varsCtx := p.VarsCtx.Copy()
 		err := varsCtx.LoadVarsList(k, p.getRenderSearchDirs(), inc.Vars)

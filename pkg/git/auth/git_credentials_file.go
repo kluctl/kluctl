@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	giturls "github.com/whilp/git-urls"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 type GitCredentialsFileAuthProvider struct {
@@ -21,18 +21,18 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transp
 		log.Warningf("Could not determine home directory: %v", err)
 		return nil
 	}
-	auth := a.tryBuildAuth(gitUrl, path.Join(home, ".git-credentials"))
+	auth := a.tryBuildAuth(gitUrl, filepath.Join(home, ".git-credentials"))
 	if auth != nil {
 		return auth
 	}
 
 	if xdgHome, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgHome != "" {
-		auth = a.tryBuildAuth(gitUrl, path.Join(xdgHome, ".git-credentials"))
+		auth = a.tryBuildAuth(gitUrl, filepath.Join(xdgHome, ".git-credentials"))
 		if auth != nil {
 			return auth
 		}
 	} else {
-		auth = a.tryBuildAuth(gitUrl, path.Join(home, ".config/.git-credentials"))
+		auth = a.tryBuildAuth(gitUrl, filepath.Join(home, ".config/.git-credentials"))
 		if auth != nil {
 			return auth
 		}

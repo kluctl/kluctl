@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 )
 func ExtractTarGzFile(tarGzPath string, targetPath string) error {
 	f, err := os.Open(tarGzPath)
@@ -39,11 +39,11 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(path.Join(targetPath, header.Name), 0755); err != nil {
+			if err := os.Mkdir(filepath.Join(targetPath, header.Name), 0755); err != nil {
 				return fmt.Errorf("ExtractTarGz: Mkdir() failed: %w", err)
 			}
 		case tar.TypeReg:
-			outFile, err := os.Create(path.Join(targetPath, header.Name))
+			outFile, err := os.Create(filepath.Join(targetPath, header.Name))
 			if err != nil {
 				return fmt.Errorf("ExtractTarGz: Create() failed: %w", err)
 			}
@@ -53,7 +53,7 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 				return fmt.Errorf("ExtractTarGz: Copy() failed: %w", err)
 			}
 		case tar.TypeSymlink:
-			if err := os.Symlink(header.Linkname, path.Join(targetPath, header.Name)); err != nil {
+			if err := os.Symlink(header.Linkname, filepath.Join(targetPath, header.Name)); err != nil {
 				return fmt.Errorf("ExtractTarGz: Symlink() failed: %w", err)
 			}
 		default:

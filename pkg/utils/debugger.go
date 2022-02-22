@@ -12,6 +12,8 @@ func IsLaunchedByDebugger() bool {
 	// We loop in case there were intermediary processes like the gopls language server.
 	for pid != 0 {
 		switch p, err := ps.FindProcess(pid); {
+		case p == nil:
+			return false
 		case err != nil:
 			return false
 		case p.Executable() == "dlv":

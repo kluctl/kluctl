@@ -9,7 +9,7 @@ import (
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
-	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"sync"
@@ -288,7 +288,7 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 	if targetInfo.baseTarget.TargetConfig.File != nil {
 		configFile = *targetInfo.baseTarget.TargetConfig.File
 	}
-	configPath := path.Join(targetInfo.dir, configFile)
+	configPath := filepath.Join(targetInfo.dir, configFile)
 	if !utils.IsFile(configPath) {
 		return nil, fmt.Errorf("no target config file with name %s found in target", configFile)
 	}

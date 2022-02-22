@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io/fs"
-	"path"
 	"path/filepath"
 )
 
@@ -24,7 +23,7 @@ func runCmdHelmUpdate(cmd *cobra.Command, args_ []string) error {
 		rootPath = args.LocalDeployment
 	}
 	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
-		fname := path.Base(p)
+		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" {
 			chart, err := deployment.NewHelmChart(p)
 			if err != nil {
@@ -52,7 +51,7 @@ func runCmdHelmUpdate(cmd *cobra.Command, args_ []string) error {
 					return err
 				}
 
-				chartsDir := path.Join(path.Dir(p), "charts")
+				chartsDir := filepath.Join(filepath.Dir(p), "charts")
 
 				// we need to list all files contained inside the charts dir BEFORE doing the pull, so that we later
 				// know what got deleted
@@ -86,7 +85,7 @@ func runCmdHelmUpdate(cmd *cobra.Command, args_ []string) error {
 				}
 
 				if commit {
-					msg := fmt.Sprintf("Updated helm chart %s from %s to %s", path.Dir(p), oldVersion, newVersion)
+					msg := fmt.Sprintf("Updated helm chart %s from %s to %s", filepath.Dir(p), oldVersion, newVersion)
 					log.Infof("Committing: %s", msg)
 					r, err := git.PlainOpen(rootPath)
 					if err != nil {

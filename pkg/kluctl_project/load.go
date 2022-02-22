@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 func (c *KluctlProjectContext) mergeClustersDirs(mergedClustersDir string, clustersInfos []gitProjectInfo) error {
@@ -27,9 +27,9 @@ func (c *KluctlProjectContext) mergeClustersDirs(mergedClustersDir string, clust
 			return err
 		}
 		for _, fi := range files {
-			p := path.Join(ci.dir, fi.Name())
+			p := filepath.Join(ci.dir, fi.Name())
 			if utils.IsFile(p) {
-				err = utils.CopyFile(p, path.Join(mergedClustersDir, fi.Name()))
+				err = utils.CopyFile(p, filepath.Join(mergedClustersDir, fi.Name()))
 				if err != nil {
 					return err
 				}
@@ -47,7 +47,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 
 	configPath := c.loadArgs.ProjectConfig
 	if configPath == "" {
-		p := path.Join(kluctlProjectInfo.dir, ".kluctl.yml")
+		p := filepath.Join(kluctlProjectInfo.dir, ".kluctl.yml")
 		if utils.IsFile(p) {
 			configPath = p
 		}
@@ -74,7 +74,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 		if ep == nil {
 			p := kluctlProjectInfo.dir
 			if defaultGitSubDir != "" {
-				p = path.Join(p, defaultGitSubDir)
+				p = filepath.Join(p, defaultGitSubDir)
 			}
 			return c.localProject(p), nil
 		}
@@ -112,7 +112,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 		clustersInfos = append(clustersInfos, ci)
 	}
 
-	mergedClustersDir := path.Join(c.TmpDir, "merged-clusters")
+	mergedClustersDir := filepath.Join(c.TmpDir, "merged-clusters")
 	err = c.mergeClustersDirs(mergedClustersDir, clustersInfos)
 	if err != nil {
 		return err
@@ -176,7 +176,7 @@ func loadKluctlProjectFromArchive(fromArchive string, fromArchiveMetadata string
 	if fromArchiveMetadata != "" {
 		metdataPath = fromArchiveMetadata
 	} else {
-		metdataPath = path.Join(dir, "metadata.yml")
+		metdataPath = filepath.Join(dir, "metadata.yml")
 	}
 
 	var metadata types2.ArchiveMetadata
@@ -187,10 +187,10 @@ func loadKluctlProjectFromArchive(fromArchive string, fromArchiveMetadata string
 
 	p := NewKluctlProjectContext(
 		LoadKluctlProjectArgs{
-			ProjectConfig:      path.Join(dir, ".kluctl.yml"),
-			LocalClusters:      path.Join(dir, "clusters"),
-			LocalDeployment:    path.Join(dir, "deployment"),
-			LocalSealedSecrets: path.Join(dir, "sealed-secrets"),
+			ProjectConfig:      filepath.Join(dir, ".kluctl.yml"),
+			LocalClusters:      filepath.Join(dir, "clusters"),
+			LocalDeployment:    filepath.Join(dir, "deployment"),
+			LocalSealedSecrets: filepath.Join(dir, "sealed-secrets"),
 		}, dir)
 	p.involvedRepos = metadata.InvolvedRepos
 	p.DynamicTargets = metadata.Targets

@@ -14,7 +14,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -133,7 +132,7 @@ func (j *Jinja2) isMaybeTemplate(template string, searchDirs []string, isString 
 		}
 	} else {
 		for _, s := range searchDirs {
-			b, err := ioutil.ReadFile(path.Join(s, template))
+			b, err := ioutil.ReadFile(filepath.Join(s, template))
 			if err != nil {
 				continue
 			}
@@ -358,7 +357,7 @@ func (j *Jinja2) needsRender(path string, excludedPatterns []string) bool {
 }
 
 func (j *Jinja2) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string, vars *uo.UnstructuredObject) error {
-	walkDir := path.Join(rootDir, relSourceDir, subdir)
+	walkDir := filepath.Join(rootDir, relSourceDir, subdir)
 
 	var jobs []*RenderJob
 
@@ -368,15 +367,15 @@ func (j *Jinja2) RenderDirectory(rootDir string, searchDirs []string, relSourceD
 			return err
 		}
 		if d.IsDir() {
-			err = os.MkdirAll(path.Join(targetDir, relPath), 0o700)
+			err = os.MkdirAll(filepath.Join(targetDir, relPath), 0o700)
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 
-		sourcePath := path.Clean(path.Join(subdir, relPath))
-		targetPath := path.Join(targetDir, relPath)
+		sourcePath := filepath.Clean(filepath.Join(subdir, relPath))
+		targetPath := filepath.Join(targetDir, relPath)
 
 		if strings.Index(sourcePath, ".sealme") != -1 {
 			sourcePath += ""

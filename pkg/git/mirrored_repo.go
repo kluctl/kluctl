@@ -11,12 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 import "github.com/gofrs/flock"
 
-var cacheBaseDir = path.Join(utils.GetTmpBaseDir(), "git-cache")
+var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
 type MirroredGitRepo struct {
 	url        git_url.GitUrl
@@ -35,7 +35,7 @@ func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
 	o := &MirroredGitRepo{
 		url:        u,
 		remoteName: remoteName,
-		mirrorDir:  path.Join(cacheBaseDir, remoteName),
+		mirrorDir:  filepath.Join(cacheBaseDir, remoteName),
 	}
 
 	if !utils.IsDirectory(o.mirrorDir) {
@@ -44,7 +44,7 @@ func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
 			return nil, fmt.Errorf("failed to create mirror repo for %v: %w", u.String(), err)
 		}
 	}
-	o.fileLock = flock.New(path.Join(o.mirrorDir, ".cache.lock"))
+	o.fileLock = flock.New(filepath.Join(o.mirrorDir, ".cache.lock"))
 	return o, nil
 }
 
@@ -120,7 +120,7 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 			if fi.Name() == ".cache.lock" {
 				continue
 			}
-			_ = os.RemoveAll(path.Join(g.mirrorDir, fi.Name()))
+			_ = os.RemoveAll(filepath.Join(g.mirrorDir, fi.Name()))
 		}
 	}
 	return nil
@@ -173,7 +173,7 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 }
 
 func (g *MirroredGitRepo) cloneOrUpdate() error {
-	initMarker := path.Join(g.mirrorDir, ".cache2.init")
+	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	if utils.IsFile(initMarker) {
 		return g.update(g.mirrorDir)
 	}
@@ -216,7 +216,7 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 		return err
 	}
 	for _, fi := range files {
-		err = os.Rename(path.Join(tmpMirrorDir, fi.Name()), path.Join(g.mirrorDir, fi.Name()))
+		err = os.Rename(filepath.Join(tmpMirrorDir, fi.Name()), filepath.Join(g.mirrorDir, fi.Name()))
 		if err != nil {
 			return err
 		}
@@ -260,7 +260,7 @@ func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 }
 
 func buildRemoteName(u git_url.GitUrl) string {
-	r := path.Base(u.Path)
+	r := filepath.Base(u.Path)
 	if strings.HasSuffix(r, ".git") {
 		r = r[:len(r)-len(".git")]
 	}

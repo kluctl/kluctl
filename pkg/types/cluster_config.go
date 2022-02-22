@@ -5,7 +5,7 @@ import (
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
-	"path"
+	"path/filepath"
 )
 
 type ClusterConfig2 struct {
@@ -59,7 +59,7 @@ func LoadClusterConfig(clusterDir string, clusterName string) (*ClusterConfig, e
 		return nil, fmt.Errorf("cluster name must be specified")
 	}
 
-	p := path.Join(clusterDir, fmt.Sprintf("%s.yml", clusterName))
+	p := filepath.Join(clusterDir, fmt.Sprintf("%s.yml", clusterName))
 	if !utils.IsFile(p) {
 		return nil, fmt.Errorf("cluster config for %s not found", clusterName)
 	}

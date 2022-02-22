@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io/fs"
-	"path"
 	"path/filepath"
 )
 
@@ -17,7 +16,7 @@ func runCmdHelmPull(cmd *cobra.Command, args_ []string) error {
 		rootPath = args.LocalDeployment
 	}
 	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
-		fname := path.Base(p)
+		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" {
 			log.Infof("Pulling for %s", p)
 			chart, err := deployment.NewHelmChart(p)

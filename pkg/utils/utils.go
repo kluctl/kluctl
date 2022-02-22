@@ -6,14 +6,14 @@ import (
 	"github.com/jinzhu/copier"
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 )
 
 var createTmpBaseDirOnce sync.Once
 
 func GetTmpBaseDir() string {
-	dir := path.Join(os.TempDir(), "kluctl")
+	dir := filepath.Join(os.TempDir(), "kluctl")
 	createTmpBaseDirOnce.Do(func() {
 		err := os.MkdirAll(dir, 0o700)
 		if err != nil {

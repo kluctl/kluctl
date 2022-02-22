@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -83,9 +83,9 @@ func (c *helmChart) Pull() error {
 		return err
 	}
 
-	dir := path.Dir(c.configFile)
-	targetDir := path.Join(dir, "charts")
-	rmDir := path.Join(targetDir, chartName)
+	dir := filepath.Dir(c.configFile)
+	targetDir := filepath.Join(dir, "charts")
+	rmDir := filepath.Join(targetDir, chartName)
 	_ = os.RemoveAll(rmDir)
 
 	var args []string
@@ -154,10 +154,10 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
-	dir := path.Dir(c.configFile)
-	chartDir := path.Join(dir, "charts", chartName)
-	valuesPath := path.Join(dir, "helm-values.yml")
-	outputPath := path.Join(dir, c.Config.Output)
+	dir := filepath.Dir(c.configFile)
+	chartDir := filepath.Join(dir, "charts", chartName)
+	valuesPath := filepath.Join(dir, "helm-values.yml")
+	outputPath := filepath.Join(dir, c.Config.Output)
 
 	args := []string{"template", c.Config.ReleaseName, chartDir}
 

@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
-	"path"
 	"path/filepath"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -71,8 +70,8 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 			di.relRenderedDir = fmt.Sprintf("%s-%d", di.relRenderedDir, di.index)
 		}
 
-		di.renderedDir = path.Join(di.collection.RenderDir, di.relRenderedDir)
-		di.renderedYamlPath = path.Join(di.renderedDir, ".rendered.yml")
+		di.renderedDir = filepath.Join(di.collection.RenderDir, di.relRenderedDir)
+		di.renderedYamlPath = filepath.Join(di.renderedDir, ".rendered.yml")
 	}
 	return di, nil
 }
@@ -118,9 +117,9 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 
 	var excludePatterns []string
 	excludePatterns = append(excludePatterns, di.project.config.TemplateExcludes...)
-	if utils.IsFile(path.Join(*di.dir, "helm-chart.yml")) {
+	if utils.IsFile(filepath.Join(*di.dir, "helm-chart.yml")) {
 		// never try to render helm charts
-		excludePatterns = append(excludePatterns, path.Join(di.relToProjectItemDir, "charts/**"))
+		excludePatterns = append(excludePatterns, filepath.Join(di.relToProjectItemDir, "charts/**"))
 	}
 	if !di.collection.forSeal {
 		// .sealme files are rendered while sealing and not while deploying
@@ -170,7 +169,7 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 	baseSourcePath := di.project.sealedSecretsDir
 
 	var y map[string]interface{}
-	err := yaml.ReadYamlFile(path.Join(di.renderedDir, "kustomization.yml"), &y)
+	err := yaml.ReadYamlFile(filepath.Join(di.renderedDir, "kustomization.yml"), &y)
 	if err != nil {
 		return err
 	}
@@ -179,22 +178,22 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 		return err
 	}
 	for _, resource := range l {
-		p := path.Join(di.renderedDir, resource)
+		p := filepath.Join(di.renderedDir, resource)
 		if utils.Exists(p) || !utils.Exists(p+sealmeExt) {
 			continue
 		}
-		relDir, err := filepath.Rel(di.renderedDir, path.Dir(p))
+		relDir, err := filepath.Rel(di.renderedDir, filepath.Dir(p))
 		if err != nil {
 			return err
 		}
-		fname := path.Base(p)
+		fname := filepath.Base(p)
 
-		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", path.Clean(path.Join(di.project.dir, resource)))
+		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.project.dir, resource)))
 		if sealedSecretsDir == nil {
 			return fmt.Errorf("%s. Sealed secrets dir could not be determined", baseError)
 		}
-		sourcePath := path.Clean(path.Join(baseSourcePath, di.relRenderedDir, relDir, *sealedSecretsDir, fname))
-		targetPath := path.Join(di.renderedDir, relDir, fname)
+		sourcePath := filepath.Clean(filepath.Join(baseSourcePath, di.relRenderedDir, relDir, *sealedSecretsDir, fname))
+		targetPath := filepath.Join(di.renderedDir, relDir, fname)
 		if !utils.IsFile(sourcePath) {
 			return fmt.Errorf("%s. %s not found. You might need to seal it first", baseError, sourcePath)
 		}
@@ -258,7 +257,7 @@ func (di *deploymentItem) prepareKusomizationYaml() error {
 		return nil
 	}
 
-	kustomizeYamlPath := path.Join(di.renderedDir, "kustomization.yml")
+	kustomizeYamlPath := filepath.Join(di.renderedDir, "kustomization.yml")
 	if !utils.IsFile(kustomizeYamlPath) {
 		return nil
 	}

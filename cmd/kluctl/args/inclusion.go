@@ -5,7 +5,7 @@ import (
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/spf13/cobra"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -32,13 +32,13 @@ func ParseInclusionFromArgs() (*utils.Inclusion, error) {
 		inclusion.AddExclude("tag", tag)
 	}
 	for _, dir := range IncludeDeploymentDirs {
-		if path.IsAbs(dir) {
+		if filepath.IsAbs(dir) {
 			return nil, fmt.Errorf("--include-deployment-dir path must be relative")
 		}
 		inclusion.AddInclude("deploymentItemDir", strings.ReplaceAll(dir, string(os.PathSeparator), "/"))
 	}
 	for _, dir := range ExcludeDeploymentDirs {
-		if path.IsAbs(dir) {
+		if filepath.IsAbs(dir) {
 			return nil, fmt.Errorf("--exclude-deployment-dir path must be relative")
 		}
 		inclusion.AddExclude("deploymentItemDir", strings.ReplaceAll(dir, string(os.PathSeparator), "/"))
