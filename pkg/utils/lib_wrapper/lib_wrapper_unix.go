@@ -4,6 +4,7 @@
 package lib_wrapper
 
 /*
+#cgo LDFLAGS: -ldl
 #include <stdlib.h>
 #include <dlfcn.h>
 */

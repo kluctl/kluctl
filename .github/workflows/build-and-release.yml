@@ -1,11 +1,17 @@
-name: build-and-release
+name: build
 
 on:
   push:
     branches:
-      - 'main'
+      - '*'
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
+        required: false
+        default: false
 
 jobs:
   version:
@@ -59,148 +65,293 @@ jobs:
           path: |
             CHANGELOG.md
 
-  docker:
-    runs-on: ubuntu-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-18.04
+            binary-suffix: linux-amd64
+          - os: macos-10.15
+            binary-suffix: darwin-amd64
+          - os: windows-2019
+            binary-suffix: windows-amd64
+        os: [ubuntu-18.04, macos-10.15, windows-2019]
+    runs-on: ${{ matrix.os }}
     needs:
       - version
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v1
+      - uses: actions/setup-go@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Write Version to _version.py
+          go-version: '1.17.6'
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.10.2
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Install dependencies on Linux
+        if: runner.os == 'Linux'
         run: |
-          echo "__version__ = '${{ needs.version.outputs.version }}'" > kluctl/_version.py
-          cat kluctl/_version.py
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v2
+          echo "deb-src http://archive.ubuntu.com/ubuntu/ bionic main restricted" | sudo tee /etc/apt/sources.list.d/deb-src.list
+          sudo apt update
+          sudo apt-get build-dep -y python3
+      - name: Install dependencies on Mac
+        if: runner.os == 'macOS'
+        run: |
+          brew install openssl
+          brew install readline
+      - name: Cache Python build
+        id: python-cache
+        uses: actions/cache@v2
         with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ needs.version.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          path: build-python/*/cpython-install
+          key: build-python-${{ runner.os }}-${{ hashFiles('hack/build-python-*') }}
+      - name: Build python (non-Windows)
+        if: runner.os != 'Windows' && steps.python-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          ./hack/build-python-unix.sh
+      - name: Build python (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ./hack/build-python-windows.sh
+      - name: Write Version to version.go
+        run: |
+          sed -ibak 's/0.0.0/${{ needs.version.outputs.version }}/g' pkg/version/version.go
+          cat pkg/version/version.go
+      - name: Go Mod Vendor
+        shell: bash
+        run: |
+          go mod vendor
+      - name: Go Generate
+        shell: bash
+        run: |
+          go generate ./...
+      - name: Build kluctl
+        shell: bash
+        run: |
+          go build ./cmd/kluctl
+          EXE=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            EXE=".exe"
+          fi
+          mv kluctl$EXE kluctl-${{ matrix.binary-suffix }}$EXE
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: dist-${{ matrix.binary-suffix }}
+          path: |
+            kluctl-${{ matrix.binary-suffix }}*
+      - name: Upload pkg artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: pkg-${{ matrix.binary-suffix }}
+          path: |
+            pkg
 
-  pyinstaller:
-    needs:
-      - version
+  tests:
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-10.15, windows-2016]
+        include:
+          - os: ubuntu-18.04
+            binary-suffix: linux-amd64
+          - os: macos-10.15
+            binary-suffix: darwin-amd64
+          - os: windows-2019
+            binary-suffix: windows-amd64
+        os: [ubuntu-18.04, macos-10.15, windows-2019]
+      fail-fast: false
+    concurrency: docker.ci.kluctl.io-${{ matrix.binary-suffix }}
+    needs:
+      - version
+      - build
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
+      - uses: actions/setup-go@v2
         with:
-          python-version: 3.10.0
-      - name: Write Version to _version.py
+          go-version: '1.17.6'
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Setup TOOLS envs
+        shell: bash
         run: |
-          echo "__version__ = '${{ needs.version.outputs.version }}'" > kluctl/_version.py
-          cat kluctl/_version.py
-      - name: Install libyaml-dev on Linux
-        if: runner.os == 'Linux'
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            echo "SUDO=sudo" >> $GITHUB_ENV
+          fi
+
+          TOOLS_EXE=
+          TOOLS_TARGET_DIR=$GITHUB_WORKSPACE/bin
+          mkdir $TOOLS_TARGET_DIR
+
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            TOOLS_OS=darwin
+          elif [ "${{ runner.os }}" == "Windows" ]; then
+            TOOLS_OS=windows
+            TOOLS_EXE=.exe
+          else
+            TOOLS_OS=linux
+          fi
+          echo "TOOLS_OS=$TOOLS_OS" >> $GITHUB_ENV
+          echo "TOOLS_TARGET_DIR=$TOOLS_TARGET_DIR" >> $GITHUB_ENV
+          echo "$TOOLS_TARGET_DIR" >> $GITHUB_PATH
+      - name: "[Windows] Install openssh"
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install openssh
+      # Enable tmate debugging of manually-triggered workflows if the input option was provided
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
+        with:
+          limit-access-to-actor: true
+      - name: Provide required tools versions
+        shell: bash
+        run: |
+          echo "KUBECTL_VERSION=1.21.5" >> $GITHUB_ENV
+          echo "KIND_VERSION=0.11.1" >> $GITHUB_ENV
+          echo "HELM_VERSION=3.6.3" >> $GITHUB_ENV
+          echo "DOCKER_VERSION=20.10.9" >> $GITHUB_ENV
+      - name: Download required tools
+        shell: bash
+        run: |
+          curl -L -o kubectl$TOOLS_EXE https://storage.googleapis.com/kubernetes-release/release/v$KUBECTL_VERSION/bin/${TOOLS_OS}/amd64/kubectl$TOOLS_EXE && \
+              $SUDO mv kubectl$TOOLS_EXE "$TOOLS_TARGET_DIR/"
+          curl -L -o kind$TOOLS_EXE https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${TOOLS_OS}-amd64 && \
+              $SUDO mv kind$TOOLS_EXE "$TOOLS_TARGET_DIR/"
+          curl -L -o helm.tar.gz https://get.helm.sh/helm-v$HELM_VERSION-${TOOLS_OS}-amd64.tar.gz && \
+              tar xzf helm.tar.gz && \
+              $SUDO mv ${TOOLS_OS}-amd64/helm$TOOLS_EXE "$TOOLS_TARGET_DIR/"
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            curl -L -o docker.tar.gz https://download.docker.com/mac/static/stable/x86_64/docker-$DOCKER_VERSION.tgz
+            tar xzf docker.tar.gz
+            $SUDO mv docker/docker "$TOOLS_TARGET_DIR/"
+            rm -rf docker
+          elif [ "${{ runner.os }}" == "Windows" ]; then
+            curl -L -o docker.zip https://download.docker.com/win/static/stable/x86_64/docker-$DOCKER_VERSION.zip
+            unzip docker.zip
+            mv docker/docker.exe "$TOOLS_TARGET_DIR/"
+            rm -rf docker
+          fi
+          $SUDO chmod -R +x "$TOOLS_TARGET_DIR/"
+      - name: Test required tools
+        shell: bash
+        run: |
+          kubectl version || true
+          kind version || true
+          helm version || true
+      - name: Download pkg artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: pkg-${{ matrix.binary-suffix }}
+          path: pkg
+      - name: Port-forward docker
+        shell: bash
+        run: |
+          echo "${{ secrets.CI_SSH_KEY }}" > kluctl-ci.pem
+          chmod og-rwx kluctl-ci.pem
+          ls -lah kluctl-ci.pem
+          ./hack/setup-docker-port-forward.sh
+          echo "DOCKER_HOST=localhost:2375" >> $GITHUB_ENV
+      - name: Start kind cluster
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            PORT=10000
+          elif [ "${{ runner.os }}" == "Windows" ]; then
+            PORT=10001
+          else
+            PORT=10002
+          fi
+          KIND_CLUSTER_NAME=$(echo "kluctl-${{ runner.os }}" | awk '{{  print tolower($1)}}')
+          echo "KIND_CLUSTER_NAME=$KIND_CLUSTER_NAME" >> $GITHUB_ENV
+
+          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$PORT"
+      - name: Go Mod Vendor
+        shell: bash
+        run: |
+          go mod vendor
+      - name: Run tests
+        shell: bash
+        run: |
+          go test ./cmd/... ./pkg/... -v
+          go test ./e2e/... -kind-cluster-name=$KIND_CLUSTER_NAME -kind-kubeconfig=$(pwd)/kind-kubeconfig -parallel 4 -v
+      - name: Delete kind cluster
+        shell: bash
+        run: |
+          kind delete cluster --name $KIND_CLUSTER_NAME
+      - name: Check docs
+        shell: bash
+        run: |
+          go run ./hack/replace-commands-help --commands-md ./docs/commands.md
+
+          if [ "$(git status --porcelain -- docs)" != "" ]; then
+            echo "commands.md is not up-to-date. Run "./hack/replace-commands-help --commands-md ./docs/commands.md" to fix this!"
+            exit 1
+          fi
+  check-code:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Install packages
         run: |
           sudo apt update
-          sudo apt install libyaml-dev binutils gcc -y
-          pip install "pyyaml==5.4.1" --global-option=--with-libyaml
-      - name: Install libyaml on MacOS
-        if: runner.os == 'macOS'
-        run: |
-          brew install libyaml
-          pip install "pyyaml==5.4.1" --global-option=--with-libyaml
-      - name: Install kluctl
-        run: |
-          pip install .
-          pip install -r requirements-dev.txt
-      - name: Run Pyinstaller
-        run: |
-          pyinstaller kluctl.spec
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: dist-binary-${{ matrix.os }}
-          path: |
-            dist
-
-  publish_pypi:
-    needs:
-      - version
-    runs-on: ubuntu-18.04
-    steps:
+          sudo apt install -y git
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.10.0
-      - name: Write Version to _version.py
+          python-version: 3.10.2
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+      - name: check-docs
         run: |
-          echo "__version__ = '${{ needs.version.outputs.version }}'" > kluctl/_version.py
-          cat kluctl/_version.py
-      - name: Install pypa/build
-        run: >-
-          python -m
-          pip install
-          build
-          --user
-      - name: Build a binary wheel and a source tarball
-        run: >-
-          python -m
-          build
-          --sdist
-          --wheel
-          --outdir dist/
-          .
-      # TODO this fails atm due to invalid version numbers (the git hash...)
-      #- name: Publish distribution 📦 to Test PyPI
-      #  uses: pypa/gh-action-pypi-publish@release/v1
-      #  with:
-      #    user: __token__
-      #    password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      #    repository_url: https://test.pypi.org/legacy/
-      - name: Publish distribution 📦 to PyPI
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          #python scripts/replace-commands-help.py
+          #if [ "$(git status --porcelain)" != "" ]; then
+          #  echo "commands.md is not up-to-date. Run ./scripts/replace-commands-help.py to fix this!"
+          #  exit 1
+          #fi
 
   release:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     needs:
       - version
-      - docker
-      - pyinstaller
+      - build
+      - check-code
+      - tests
     steps:
-        - name: Checkout
-          uses: actions/checkout@v2
-        - name: Download artifacts
-          uses: actions/download-artifact@v2
-        - name: find
-          run: |
-            find .
-        - name: Prepare release-files
-          run: |
-            mkdir dist
-            mv dist-binary-ubuntu-18.04/kluctl dist/kluctl-linux-amd64
-            mv dist-binary-macos-10.15/kluctl dist/kluctl-darwin-amd64
-            mv dist-binary-windows-2016/kluctl.exe dist/kluctl-windows-amd64.exe
-        - name: Release
-          uses: softprops/action-gh-release@v1
-          with:
-            draft: false
-            body_path: changelog/CHANGELOG.md
-            files: |
-              dist/*
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Download changelog artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: changelog
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: true
+          body_path: changelog/CHANGELOG.md
+          files: |
+            kluctl-linux-*
+            kluctl-darwin-*
+            kluctl-windows-*

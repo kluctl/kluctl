@@ -1,7 +1,13 @@
+.DS_Store
+
 .idea
+.python-version
+
 *.kubeconfig
 .secrets.yml
 .sealed-secrets
 
 /vendor
+/build-python
 /kluctl
+/kluctl.exe
