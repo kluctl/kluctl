@@ -5,6 +5,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"io/ioutil"
@@ -58,7 +59,12 @@ func main() {
 	goFile += "import \"github.com/codablock/kluctl/pkg/utils/lib_wrapper\"\n"
 	goFile += goCode
 
-	err = ioutil.WriteFile(*outputFile, []byte(goFile), 0o600)
+	formatted, err := format.Source([]byte(goFile))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(*outputFile, []byte(formatted), 0o600)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -110,13 +116,13 @@ func (g *generator) generateImpl() (string, string) {
 	var goCode string
 
 	goCode += fmt.Sprintf("type %sImpl struct {\n", g.typ.Name.String())
-	goCode += indent(structDecls, 2)
+	goCode += indent(structDecls, 1)
 	goCode += "}\n"
 
 	goCode += fmt.Sprintf("func New_%s(module *lib_wrapper.LibWrapper) %s {\n", g.typ.Name.String(), g.typ.Name.String())
-	goCode += fmt.Sprintf("  w := &%sImpl{module: module}\n", g.typ.Name.String())
-	goCode += indent(initCalls, 2)
-	goCode += "  return w\n"
+	goCode += fmt.Sprintf("\tw := &%sImpl{module: module}\n", g.typ.Name.String())
+	goCode += indent(initCalls, 1)
+	goCode += "\treturn w\n"
 	goCode += "}\n"
 
 	goCode += goFuncs
@@ -169,7 +175,7 @@ func (g *generator) generateGoFunc(name string, m *ast.FuncType) string {
 	}
 
 	funcStr += " {\n"
-	funcStr += indent(g.generateTrampolineCall(name, m), 2)
+	funcStr += indent(g.generateTrampolineCall(name, m), 1)
 	funcStr += "}\n"
 
 	return funcStr
@@ -305,7 +311,7 @@ func (g *generator) generateCFunc(name string, m *ast.FuncType) string {
 		body += "default: assert(0);\n"
 		body += "}\n"
 	}
-	funcStr += indent(body, 2)
+	funcStr += indent(body, 1)
 	funcStr += "}\n"
 	return funcStr
 }
@@ -331,7 +337,7 @@ func (g *generator) getCType(t string) string {
 
 func indent(s string, i int) string {
 	l := strings.Split(s, "\n")
-	is := strings.Repeat(" ", i)
+	is := strings.Repeat("\t", i)
 	for i, _ := range l {
 		if l[i] != "" {
 			l[i] = is + l[i]

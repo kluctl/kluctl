@@ -5,128 +5,128 @@ package python
 #include <stdlib.h>
 #include <sys/types.h>
 void _trampoline_Py_Initialize(void* f) {
-  typedef void (*F)();
-  ((F)f)();
+	typedef void (*F)();
+	((F)f)();
 }
 void _trampoline_Py_InitializeEx(void* f, int initsigs) {
-  typedef void (*F)(int);
-  ((F)f)(initsigs);
+	typedef void (*F)(int);
+	((F)f)(initsigs);
 }
 void* _trampoline_Py_DecodeLocale(void* f, char* s) {
-  typedef void* (*F)(char*);
-  return ((F)f)(s);
+	typedef void* (*F)(char*);
+	return ((F)f)(s);
 }
 void _trampoline_Py_SetPythonHome(void* f, void* l) {
-  typedef void (*F)(void*);
-  ((F)f)(l);
+	typedef void (*F)(void*);
+	((F)f)(l);
 }
 void* _trampoline_Py_NewInterpreter(void* f) {
-  typedef void* (*F)();
-  return ((F)f)();
+	typedef void* (*F)();
+	return ((F)f)();
 }
 void _trampoline_Py_EndInterpreter(void* f, void* o) {
-  typedef void (*F)(void*);
-  ((F)f)(o);
+	typedef void (*F)(void*);
+	((F)f)(o);
 }
 void _trampoline_PyEval_AcquireThread(void* f, void* o) {
-  typedef void (*F)(void*);
-  ((F)f)(o);
+	typedef void (*F)(void*);
+	((F)f)(o);
 }
 void _trampoline_PyEval_ReleaseThread(void* f, void* o) {
-  typedef void (*F)(void*);
-  ((F)f)(o);
+	typedef void (*F)(void*);
+	((F)f)(o);
 }
 void* _trampoline_PyEval_SaveThread(void* f) {
-  typedef void* (*F)();
-  return ((F)f)();
+	typedef void* (*F)();
+	return ((F)f)();
 }
 void* _trampoline_PyThreadState_Swap(void* f, void* o) {
-  typedef void* (*F)(void*);
-  return ((F)f)(o);
+	typedef void* (*F)(void*);
+	return ((F)f)(o);
 }
 void _trampoline_PyEval_ReleaseLock(void* f) {
-  typedef void (*F)();
-  ((F)f)();
+	typedef void (*F)();
+	((F)f)();
 }
 void* _trampoline_PyImport_ImportModule(void* f, char* name) {
-  typedef void* (*F)(char*);
-  return ((F)f)(name);
+	typedef void* (*F)(char*);
+	return ((F)f)(name);
 }
 void _trampoline_Py_IncRef(void* f, void* o) {
-  typedef void (*F)(void*);
-  ((F)f)(o);
+	typedef void (*F)(void*);
+	((F)f)(o);
 }
 void _trampoline_Py_DecRef(void* f, void* o) {
-  typedef void (*F)(void*);
-  ((F)f)(o);
+	typedef void (*F)(void*);
+	((F)f)(o);
 }
 int _trampoline_PyObject_Length(void* f, void* p) {
-  typedef int (*F)(void*);
-  return ((F)f)(p);
+	typedef int (*F)(void*);
+	return ((F)f)(p);
 }
 void* _trampoline_PyObject_GetAttrString(void* f, void* p, char* name) {
-  typedef void* (*F)(void*, char*);
-  return ((F)f)(p, name);
+	typedef void* (*F)(void*, char*);
+	return ((F)f)(p, name);
 }
 int _trampoline_PyObject_SetAttrString(void* f, void* p, char* name, void* p2) {
-  typedef int (*F)(void*, char*, void*);
-  return ((F)f)(p, name, p2);
+	typedef int (*F)(void*, char*, void*);
+	return ((F)f)(p, name, p2);
 }
 void* _trampoline_PyObject_CallObject(void* f, void* p, void* args) {
-  typedef void* (*F)(void*, void*);
-  return ((F)f)(p, args);
+	typedef void* (*F)(void*, void*);
+	return ((F)f)(p, args);
 }
 void* _trampoline_PyObject_CallMethodObjArgs(void* f, void* p, void* name, int cargs_vargs_len, void** cargs_vargs) {
-  typedef void* (*F)(void*, void*, ...);
-  switch(cargs_vargs_len) {
-  case 0: return ((F)f)(p, name);
-  case 1: return ((F)f)(p, name, cargs_vargs[0]);
-  case 2: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1]);
-  case 3: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2]);
-  case 4: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3]);
-  case 5: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4]);
-  case 6: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5]);
-  case 7: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5], cargs_vargs[6]);
-  case 8: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5], cargs_vargs[6], cargs_vargs[7]);
-  case 9: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5], cargs_vargs[6], cargs_vargs[7], cargs_vargs[8]);
-  default: assert(0);
-  }
+	typedef void* (*F)(void*, void*, ...);
+	switch(cargs_vargs_len) {
+	case 0: return ((F)f)(p, name);
+	case 1: return ((F)f)(p, name, cargs_vargs[0]);
+	case 2: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1]);
+	case 3: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2]);
+	case 4: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3]);
+	case 5: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4]);
+	case 6: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5]);
+	case 7: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5], cargs_vargs[6]);
+	case 8: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5], cargs_vargs[6], cargs_vargs[7]);
+	case 9: return ((F)f)(p, name, cargs_vargs[0], cargs_vargs[1], cargs_vargs[2], cargs_vargs[3], cargs_vargs[4], cargs_vargs[5], cargs_vargs[6], cargs_vargs[7], cargs_vargs[8]);
+	default: assert(0);
+	}
 }
 void* _trampoline_PyList_New(void* f, ssize_t len) {
-  typedef void* (*F)(ssize_t);
-  return ((F)f)(len);
+	typedef void* (*F)(ssize_t);
+	return ((F)f)(len);
 }
 void* _trampoline_PyList_GetItem(void* f, void* o, ssize_t i) {
-  typedef void* (*F)(void*, ssize_t);
-  return ((F)f)(o, i);
+	typedef void* (*F)(void*, ssize_t);
+	return ((F)f)(o, i);
 }
 int _trampoline_PyList_SetItem(void* f, void* o, ssize_t i, void* e) {
-  typedef int (*F)(void*, ssize_t, void*);
-  return ((F)f)(o, i, e);
+	typedef int (*F)(void*, ssize_t, void*);
+	return ((F)f)(o, i, e);
 }
 int _trampoline_PyList_Append(void* f, void* o, void* e) {
-  typedef int (*F)(void*, void*);
-  return ((F)f)(o, e);
+	typedef int (*F)(void*, void*);
+	return ((F)f)(o, e);
 }
 void* _trampoline_PyDict_New(void* f) {
-  typedef void* (*F)();
-  return ((F)f)();
+	typedef void* (*F)();
+	return ((F)f)();
 }
 void* _trampoline_PyDict_GetItemString(void* f, void* p, char* key) {
-  typedef void* (*F)(void*, char*);
-  return ((F)f)(p, key);
+	typedef void* (*F)(void*, char*);
+	return ((F)f)(p, key);
 }
 void* _trampoline_PyUnicode_FromString(void* f, char* pth) {
-  typedef void* (*F)(char*);
-  return ((F)f)(pth);
+	typedef void* (*F)(char*);
+	return ((F)f)(pth);
 }
 char* _trampoline_PyUnicode_AsUTF8(void* f, void* r) {
-  typedef char* (*F)(void*);
-  return ((F)f)(r);
+	typedef char* (*F)(void*);
+	return ((F)f)(r);
 }
 void _trampoline_PyErr_Print(void* f) {
-  typedef void (*F)();
-  ((F)f)();
+	typedef void (*F)();
+	((F)f)();
 }
 */
 import "C"

@@ -19,6 +19,7 @@ type pythonJinja2Renderer struct {
 }
 
 var addSrcToPathOnce sync.Once
+
 func addSrcToPath() {
 	addSrcToPathOnce.Do(func() {
 		p, err := python.MainPythonInterpreter()
