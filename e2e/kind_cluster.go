@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"flag"
 	"fmt"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"github.com/pkg/errors"
@@ -139,13 +141,7 @@ func kindCreate(name, kubeconfig string) error {
 	}
 }
 
-func crateKindCluster(name string) *KindCluster {
-	tmpdir := path.Join(os.TempDir(), "kluctl-e2e")
-	err := os.MkdirAll(tmpdir, 0o700)
-	if err != nil {
-		log.Fatal(err)
-	}
-	kubeconfig := path.Join(tmpdir, fmt.Sprintf("kubeconfig-%s.yml", name))
+func createKindCluster(name string, kubeconfig string) *KindCluster {
 	k, err := CreateKindCluster(name, kubeconfig)
 	if err != nil {
 		log.Fatal(err)
@@ -153,8 +149,11 @@ func crateKindCluster(name string) *KindCluster {
 	return k
 }
 
+var kindName = flag.String("kind-cluster-name", "kluctl-e2e", "Kind cluster name to use/create")
+var kindKubeconfig = flag.String("kind-kubeconfig", path.Join(utils.GetTmpBaseDir(), "kluctl-e2e-kubeconfig.yml"), "Kind kubeconfig to use/create")
+
 func createDefaultKindCluster() *KindCluster {
-	return crateKindCluster("kluctl-e2e")
+	return createKindCluster(*kindName, *kindKubeconfig)
 }
 
 var defaultKindCluster = createDefaultKindCluster()
