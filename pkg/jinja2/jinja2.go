@@ -13,6 +13,8 @@ import (
 	"sync"
 )
 
+//go:generate bash ./python_src/pip-wheel.sh
+
 type Jinja2 struct {
 	pj             *pythonJinja2Renderer
 	globCache      map[string]interface{}
