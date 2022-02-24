@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-func recreateNamespace(t* testing.T, k *KindCluster, namespace string) {
+func recreateNamespace(t *testing.T, k *KindCluster, namespace string) {
 	_, _ = k.Kubectl("delete", "ns", namespace)
 	k.KubectlMust(t, "create", "ns", namespace)
-	k.KubectlMust(t,"label", "ns", namespace, "kluctl-e2e=true")
+	k.KubectlMust(t, "label", "ns", namespace, "kluctl-e2e=true")
 }
 
 func deleteTestNamespaces(k *KindCluster) {
@@ -74,8 +74,8 @@ func assertResourceNotExists(t *testing.T, k *KindCluster, namespace string, res
 	}
 }
 
-func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected interface{}, keys... interface{}) {
-	v, ok , err := o.GetNestedField(keys...)
+func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected interface{}, keys ...interface{}) {
+	v, ok, err := o.GetNestedField(keys...)
 	if err != nil {
 		t.Fatal(err)
 	}

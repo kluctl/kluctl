@@ -27,7 +27,7 @@ func CreateKindCluster(name, kubeconfigPath string) (*KindCluster, error) {
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
 
 	c := &KindCluster{
-		Name: name,
+		Name:       name,
 		kubeconfig: kubeconfigPath,
 	}
 
@@ -67,7 +67,7 @@ func (c *KindCluster) RESTConfig() *rest.Config {
 	return c.config
 }
 
-func (c *KindCluster) Kubectl(args... string) (string, error) {
+func (c *KindCluster) Kubectl(args ...string) (string, error) {
 	cmd := exec.Command("kubectl", args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", c.kubeconfig))
@@ -76,7 +76,7 @@ func (c *KindCluster) Kubectl(args... string) (string, error) {
 	return string(stdout), err
 }
 
-func (c *KindCluster) KubectlMust(t *testing.T, args... string) string {
+func (c *KindCluster) KubectlMust(t *testing.T, args ...string) string {
 	stdout, err := c.Kubectl(args...)
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
@@ -88,7 +88,7 @@ func (c *KindCluster) KubectlMust(t *testing.T, args... string) string {
 	return stdout
 }
 
-func (c *KindCluster) KubectlYaml(args... string) (*uo.UnstructuredObject, error) {
+func (c *KindCluster) KubectlYaml(args ...string) (*uo.UnstructuredObject, error) {
 	args = append(args, "-oyaml")
 	stdout, err := c.Kubectl(args...)
 	if err != nil {
@@ -99,7 +99,7 @@ func (c *KindCluster) KubectlYaml(args... string) (*uo.UnstructuredObject, error
 	return ret, err
 }
 
-func (c *KindCluster) KubectlYamlMust(t *testing.T, args... string) *uo.UnstructuredObject {
+func (c *KindCluster) KubectlYamlMust(t *testing.T, args ...string) *uo.UnstructuredObject {
 	o, err := c.KubectlYaml(args...)
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {
@@ -145,7 +145,7 @@ func crateKindCluster(name string) *KindCluster {
 	if err != nil {
 		log.Fatal(err)
 	}
-	kubeconfig := path.Join(tmpdir,  fmt.Sprintf("kubeconfig-%s.yml", name))
+	kubeconfig := path.Join(tmpdir, fmt.Sprintf("kubeconfig-%s.yml", name))
 	k, err := CreateKindCluster(name, kubeconfig)
 	if err != nil {
 		log.Fatal(err)

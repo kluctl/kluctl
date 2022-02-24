@@ -8,7 +8,7 @@ import (
 	"os/exec"
 )
 
-func runWrappedCmd(testName string, cwd string, env[] string, args []string) (string, string, error) {
+func runWrappedCmd(testName string, cwd string, env []string, args []string) (string, string, error) {
 	executable, err := os.Executable()
 	if err != nil {
 		return "", "", err

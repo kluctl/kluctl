@@ -24,11 +24,11 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 	addBusyboxDeployment(p, "busybox", resourceOpts{name: "busybox", namespace: namespace})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertReadiness(t, k, namespace, "Deployment/busybox", time.Minute * 5)
+	assertReadiness(t, k, namespace, "Deployment/busybox", time.Minute*5)
 
-	cmData := map[string]string {
+	cmData := map[string]string{
 		"cluster_var": "{{ cluster.cluster_var }}",
-		"target_var": "{{ args.target_var }}",
+		"target_var":  "{{ args.target_var }}",
 	}
 
 	assertResourceNotExists(t, k, namespace, "ConfigMap/cm")
@@ -57,9 +57,9 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 }
 
 func TestExternalProjects(t *testing.T) {
-	testCases := []struct{
+	testCases := []struct {
 		name string
-		p testProject
+		p    testProject
 	}{
 		{name: "external-kluctl-project", p: testProject{kluctlProjectExternal: true}},
 		{name: "external-clusters-project", p: testProject{clustersExternal: true}},
@@ -76,4 +76,3 @@ func TestExternalProjects(t *testing.T) {
 		})
 	}
 }
-

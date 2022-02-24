@@ -76,7 +76,7 @@ func TestInclusionTags(t *testing.T) {
 	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
-	doAssertExists := func(add... string) {
+	doAssertExists := func(add ...string) {
 		assertExistsHelper(t, p, k, shouldExists, add, nil)
 	}
 
@@ -111,7 +111,7 @@ func TestExclusionTags(t *testing.T) {
 	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
-	doAssertExists := func(add... string) {
+	doAssertExists := func(add ...string) {
 		assertExistsHelper(t, p, k, shouldExists, add, nil)
 	}
 
@@ -136,7 +136,7 @@ func TestInclusionIncludeDirs(t *testing.T) {
 	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
-	doAssertExists := func(add... string) {
+	doAssertExists := func(add ...string) {
 		assertExistsHelper(t, p, k, shouldExists, add, nil)
 	}
 
@@ -158,7 +158,7 @@ func TestInclusionDeploymentDirs(t *testing.T) {
 	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
-	doAssertExists := func(add... string) {
+	doAssertExists := func(add ...string) {
 		assertExistsHelper(t, p, k, shouldExists, add, nil)
 	}
 
@@ -236,7 +236,7 @@ func TestInclusionDelete(t *testing.T) {
 	p.KluctlMust("delete", "--yes", "-t", "test", "-E", "cm2")
 	var a []string
 	for _, x := range p.listDeploymentItemPathes(".", false) {
-		if x != "cm1" && x != "cm2"{
+		if x != "cm1" && x != "cm2" {
 			a = append(a, x)
 		}
 	}

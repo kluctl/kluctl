@@ -18,16 +18,16 @@ import (
 )
 
 type testProject struct {
-	t *testing.T
+	t           *testing.T
 	projectName string
 
 	kluctlProjectExternal bool
-	clustersExternal bool
-	deploymentExternal bool
+	clustersExternal      bool
+	deploymentExternal    bool
 	sealedSecretsExternal bool
 
-	localClusters *string
-	localDeployment *string
+	localClusters      *string
+	localDeployment    *string
 	localSealedSecrets *string
 
 	kubeconfigs []string
@@ -226,7 +226,7 @@ func (p *testProject) listDeploymentItemPathes(dir string, fullPath bool) []stri
 	return ret
 }
 
-func (p *testProject) updateKustomizeDeployment(dir string, update func (o *uo.UnstructuredObject, wt *git.Worktree) error) {
+func (p *testProject) updateKustomizeDeployment(dir string, update func(o *uo.UnstructuredObject, wt *git.Worktree) error) {
 	r, err := git.PlainOpen(p.getDeploymentDir())
 	if err != nil {
 		p.t.Fatal(err)
@@ -279,7 +279,7 @@ func (p *testProject) updateTarget(name string, cluster string, args *uo.Unstruc
 			newTargets = append(newTargets, t)
 		}
 		n := uo.FromMap(map[string]interface{}{
-			"name": name,
+			"name":    name,
 			"cluster": cluster,
 		})
 		if args != nil {
@@ -387,7 +387,7 @@ func (p *testProject) convertInterfaceToList(x interface{}) []interface{} {
 }
 
 type kustomizeResource struct {
-	name string
+	name    string
 	content interface{}
 }
 
@@ -454,7 +454,7 @@ func (p *testProject) getSealedSecretsDir() string {
 const stdoutStartMarker = "========= stdout start ========="
 const stdoutEndMarker = "========= stdout end ========="
 
-func (p *testProject) Kluctl(argsIn... string) (string, string, error) {
+func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
 
@@ -488,7 +488,7 @@ func (p *testProject) Kluctl(argsIn... string) (string, string, error) {
 	return stdout, stderr, err
 }
 
-func (p *testProject) KluctlMust(argsIn... string) (string, string) {
+func (p *testProject) KluctlMust(argsIn ...string) (string, string) {
 	stdout, stderr, err := p.Kluctl(argsIn...)
 	if err != nil {
 		log.Error(stderr)

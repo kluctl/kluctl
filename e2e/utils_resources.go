@@ -7,10 +7,10 @@ import (
 )
 
 type resourceOpts struct {
-	name string
-	namespace string
-	tags []string
-	labels map[string]string
+	name        string
+	namespace   string
+	tags        []string
+	labels      map[string]string
 	annotations map[string]string
 }
 
@@ -62,7 +62,7 @@ func addConfigMapDeployment(p *testProject, dir string, data map[string]string, 
 
 func addDeploymentHelper(p *testProject, dir string, o *uo.UnstructuredObject, opts resourceOpts) {
 	rbac := renderTemplateObjectHelper(podRbacTemplate, map[string]interface{}{
-		"name": o.GetK8sName(),
+		"name":      o.GetK8sName(),
 		"namespace": o.GetK8sNamespace(),
 	})
 	for _, x := range rbac {
@@ -80,9 +80,9 @@ func addDeploymentHelper(p *testProject, dir string, o *uo.UnstructuredObject, o
 
 func addDeploymentDeployment(p *testProject, dir string, opts resourceOpts, image string, command []string, args []string) {
 	o := renderTemplateObjectHelper(deploymentTemplate, map[string]interface{}{
-		"name": opts.name,
+		"name":      opts.name,
 		"namespace": opts.namespace,
-		"image": image,
+		"image":     image,
 	})
 	o[0].SetNestedField(command, "spec", "template", "spec", "containers", 0, "command")
 	o[0].SetNestedField(args, "spec", "template", "spec", "containers", 0, "args")
@@ -91,9 +91,9 @@ func addDeploymentDeployment(p *testProject, dir string, opts resourceOpts, imag
 
 func addJobDeployment(p *testProject, dir string, opts resourceOpts, image string, command []string, args []string) {
 	o := renderTemplateObjectHelper(jobTemplate, map[string]interface{}{
-		"name": opts.name,
+		"name":      opts.name,
 		"namespace": opts.namespace,
-		"image": image,
+		"image":     image,
 	})
 	o[0].SetNestedField(command, "spec", "template", "spec", "containers", 0, "command")
 	o[0].SetNestedField(args, "spec", "template", "spec", "containers", 0, "args")
@@ -152,7 +152,7 @@ spec:
           name: container
 `
 
-const jobTemplate=`
+const jobTemplate = `
 apiVersion: batch/v1
 kind: Job
 metadata:
