@@ -1,10 +1,18 @@
 package python
 
+import "unsafe"
+
 type PyList = PyObject
 
 func PyList_New(len int) *PyList {
-	p := pythonModule.Call_VP_SS("PyList_New", len)
-	return togo(p)
+	return PythonWrapper.PyList_New(len)
+}
+
+func PyList_FromPointer(p unsafe.Pointer) *PyList {
+	if p == nil {
+		return nil
+	}
+	return &PyList{p: p}
 }
 
 func PyList_FromObject(l *PyObject) *PyList {
@@ -12,9 +20,9 @@ func PyList_FromObject(l *PyObject) *PyList {
 }
 
 func (l *PyList) GetItem(pos int) *PyObject {
-	return togo(pythonModule.Call_VP_VP_SS("PyList_GetItem", l.p, pos))
+	return PythonWrapper.PyList_GetItem(l, pos)
 }
 
 func (l *PyList) Append(item *PyObject) int {
-	return pythonModule.Call_I_PTRS("PyList_Append", l.p, item.p)
+	return PythonWrapper.PyList_Append(l, item)
 }

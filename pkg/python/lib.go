@@ -17,6 +17,25 @@ import (
 )
 
 var pythonModule *lib_wrapper.LibWrapper
+var PythonWrapper LibPythonWrapper
+
+type PythonThreadState struct {
+	P unsafe.Pointer
+}
+
+func PythonThreadState_FromPointer(p unsafe.Pointer) *PythonThreadState {
+	if p == nil {
+		return nil
+	}
+	return &PythonThreadState{P: p}
+}
+
+func (p *PythonThreadState) GetPointer() unsafe.Pointer {
+	if p == nil {
+		return nil
+	}
+	return p.P
+}
 
 func init() {
 	libPath := decompressLib()
@@ -31,21 +50,13 @@ func init() {
 	}
 
 	pythonModule = lib_wrapper.LoadModule(filepath.Join(libPath, module))
+	PythonWrapper = New_LibPythonWrapper(pythonModule)
 
-	err := Py_SetPythonHome(libPath)
-	if err != nil {
-		log.Panic(err)
-	}
+	l := PythonWrapper.Py_DecodeLocale(libPath)
+	PythonWrapper.Py_SetPythonHome(l)
 
-	Py_Initialize()
-	mainThreadState = PyEval_SaveThread()
-}
-
-func togo(p unsafe.Pointer) *PyObject {
-	if p == nil {
-		return nil
-	}
-	return &PyObject{p: p}
+	PythonWrapper.Py_InitializeEx(0)
+	mainThreadState = PythonWrapper.PyEval_SaveThread()
 }
 
 func decompressLib() string {

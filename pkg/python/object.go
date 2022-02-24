@@ -1,7 +1,6 @@
 package python
 
 import (
-	"github.com/codablock/kluctl/pkg/utils/lib_wrapper"
 	"unsafe"
 )
 
@@ -9,45 +8,46 @@ type PyObject struct {
 	p unsafe.Pointer
 }
 
+func PyObject_FromPointer(p unsafe.Pointer) *PyObject {
+	if p == nil {
+		return nil
+	}
+	return &PyObject{p: p}
+}
+
+func (p *PyObject) GetPointer() unsafe.Pointer {
+	if p == nil {
+		return nil
+	}
+	return p.p
+}
+
 func (p *PyObject) IncRef() {
-	pythonModule.Call_V_PTRS("Py_IncRef", p.p)
+	PythonWrapper.Py_IncRef(p)
 }
 
 func (p *PyObject) DecRef() {
-	pythonModule.Call_V_PTRS("Py_DecRef", p.p)
+	PythonWrapper.Py_DecRef(p)
 }
 
 func (p *PyObject) Length() int {
-	return pythonModule.Call_I_PTRS("PyObject_Length", p.p)
+	return PythonWrapper.PyObject_Length(p)
 }
 
 func (p *PyObject) GetAttrString(attr_name string) *PyObject {
-	cattr_name := lib_wrapper.NewCString(attr_name)
-	defer cattr_name.Free()
-
-	return togo(pythonModule.Call_VP_PTRS("PyObject_GetAttrString", p.p, cattr_name.P))
+	return PythonWrapper.PyObject_GetAttrString(p, attr_name)
 }
 
 func (p *PyObject) SetAttrString(attr_name string, v *PyObject) int {
-	cattr_name := lib_wrapper.NewCString(attr_name)
-	defer cattr_name.Free()
-
-	return pythonModule.Call_I_PTRS("PyObject_SetAttrString", cattr_name.P, v.p)
+	return PythonWrapper.PyObject_SetAttrString(p, attr_name, v)
 }
 
 func (p *PyObject) CallObject(args *PyObject) *PyObject {
-	var a unsafe.Pointer
-	if args != nil {
-		a = args.p
-	}
-	return togo(pythonModule.Call_VP_PTRS("PyObject_CallObject", p.p, a))
+	return PythonWrapper.PyObject_CallObject(p, args)
 }
 
 func (p *PyObject) CallMethodObjArgs(name *PyObject, args ...*PyObject) *PyObject {
-	cargs := make([]unsafe.Pointer, len(args), len(args)+1)
-	for i, o := range args {
-		cargs[i] = o.p
-	}
-	cargs = append(cargs, nil)
-	return togo(pythonModule.Call_VP_PTRS_VARGS("PyObject_CallMethodObjArgs", []unsafe.Pointer{p.p, name.p}, cargs...))
+	args = append([]*PyObject{}, args...)
+	args = append(args, nil)
+	return PythonWrapper.PyObject_CallMethodObjArgs(p, name, args)
 }

@@ -6,7 +6,6 @@ package lib_wrapper
 /*
 #include <stdlib.h>
 #include <dlfcn.h>
-
 */
 import "C"
 import (
@@ -15,10 +14,10 @@ import (
 )
 
 func LoadModule(pth string) *LibWrapper {
-	cPth := NewCString(pth)
-	defer cPth.Free()
+	cPth := C.CString(pth)
+	defer C.free(unsafe.Pointer(cPth))
 
-	mod := C.dlopen((*C.char)(cPth.P), C.RTLD_LAZY)
+	mod := C.dlopen(cPth, C.RTLD_LAZY)
 	if mod == nil {
 		log.Panicf("dlopen for %s failed", pth)
 	}
@@ -28,10 +27,10 @@ func LoadModule(pth string) *LibWrapper {
 }
 
 func (lw *LibWrapper) loadFunc(funcName string) FunctionPtr {
-	cFuncName := NewCString(funcName)
-	defer cFuncName.Free()
+	cFuncName := C.CString(funcName)
+	defer C.free(unsafe.Pointer(cFuncName))
 
-	f := C.dlsym(lw.module, (*C.char)(cFuncName.P))
+	f := C.dlsym(lw.module, cFuncName)
 	if f == nil {
 		log.Panicf("dlsym for %s failed", funcName)
 	}
