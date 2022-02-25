@@ -4,35 +4,26 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/yaml"
-	"github.com/spf13/cobra"
 	"strings"
 )
 
-var (
-	FixedImages     []string
-	FixedImagesFile string
-	UpdateImages    bool
-)
-
-func AddImageArgs(cmd *cobra.Command) {
-	cmd.Flags().StringArrayVarP(&FixedImages, "fixed-image", "F", nil, "Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'")
-	cmd.Flags().StringVar(&FixedImagesFile, "fixed-images-file", "", "Use .yml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format")
-	cmd.Flags().BoolVarP(&UpdateImages, "update-images", "u", false, "This causes kluctl to prefer the latest image found in registries, based on the `latest_image` filters provided to 'images.get_image(...)' calls. Use this flag if you want to update to the latest versions/tags of all images. '-u' takes precedence over `--fixed-image/--fixed-images-file`, meaning that the latest images are used even if an older image is given via fixed images.")
-
-	_ = cmd.MarkFlagFilename("fixed-images-file", "yml", "yaml")
+type ImageFlags struct {
+	FixedImage      []string `group:"images" short:"F" help:"Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'"`
+	FixedImagesFile string   `group:"images" help:"Use .yml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format" type:"existingfile"`
+	UpdateImages    bool     `group:"images" short:"u" help:"This causes kluctl to prefer the latest image found in registries, based on the 'latest_image' filters provided to 'images.get_image(...)' calls. Use this flag if you want to update to the latest versions/tags of all images. '-u' takes precedence over '--fixed-image/--fixed-images-file', meaning that the latest images are used even if an older image is given via fixed images."`
 }
 
-func LoadFixedImagesFromArgs() (*types.FixedImagesConfig, error) {
+func (args *ImageFlags) LoadFixedImagesFromArgs() (*types.FixedImagesConfig, error) {
 	var ret types.FixedImagesConfig
 
-	if FixedImagesFile != "" {
-		err := yaml.ReadYamlFile(FixedImagesFile, &ret)
+	if args.FixedImagesFile != "" {
+		err := yaml.ReadYamlFile(args.FixedImagesFile, &ret)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	for _, fi := range FixedImages {
+	for _, fi := range args.FixedImage {
 		e, err := buildFixedImageEntryFromArg(fi)
 		if err != nil {
 			return nil, err

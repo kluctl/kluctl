@@ -6,8 +6,6 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"os"
 	"regexp"
 	"sort"
@@ -15,9 +13,22 @@ import (
 	"sync"
 )
 
-func runCmdCheckImageUpdates(cmd *cobra.Command, args_ []string) error {
+type checkImageUpdatesCmd struct {
+	args.ProjectFlags
+	args.TargetFlags
+}
+
+func (cmd *checkImageUpdatesCmd) Help() string {
+	return `This is based on a best effort approach and might give many false-positives.`
+}
+
+func (cmd *checkImageUpdatesCmd) Run() error {
 	var renderedImages map[types.ObjectRef][]string
-	err := withProjectCommandContext(func(ctx *commandCtx) error {
+	ptArgs := projectTargetCommandArgs{
+		projectFlags: cmd.ProjectFlags,
+		targetFlags:  cmd.TargetFlags,
+	}
+	err := withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		renderedImages = ctx.deploymentCollection.FindRenderedImages()
 		return nil
 	})
@@ -123,22 +134,4 @@ func runCmdCheckImageUpdates(cmd *cobra.Command, args_ []string) error {
 	table.SortRows(1)
 	_, _ = os.Stdout.WriteString(table.Render([]int{60}))
 	return nil
-}
-
-func init() {
-	var cmd = &cobra.Command{
-		Use:   "check-image-updates",
-		Short: "Render deployment and check if any images have new tags available",
-		Long: `Render deployment and check if any images have new tags available
-
-This is based on a best effort approach and might give many false-positives.`,
-		RunE: runCmdCheckImageUpdates,
-	}
-	args.AddProjectArgs(cmd, true, true, true)
-	err := viper.BindPFlags(cmd.Flags())
-	if err != nil {
-		panic(err)
-	}
-
-	rootCmd.AddCommand(cmd)
 }

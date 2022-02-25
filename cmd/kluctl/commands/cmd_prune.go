@@ -3,26 +3,51 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func runCmdPrune(cmd *cobra.Command, args_ []string) error {
-	return withProjectCommandContext(func(ctx *commandCtx) error {
-		return runCmdPrune2(cmd, ctx)
+type pruneCmd struct {
+	args.ProjectFlags
+	args.TargetFlags
+	args.ArgsFlags
+	args.ImageFlags
+	args.InclusionFlags
+	args.YesFlags
+	args.DryRunFlags
+	args.OutputFormatFlags
+}
+
+func (cmd *pruneCmd) Help() string {
+	return `"Searching works by:
+
+  1. Search the cluster for all objects match 'deleteByLabels', as configured in 'deployment.yml''
+  2. Render the local target and list all objects.
+  3. Remove all objects from the list of 1. that are part of the list in 2.`
+}
+
+func (cmd *pruneCmd) Run() error {
+	ptArgs := projectTargetCommandArgs{
+		projectFlags:   cmd.ProjectFlags,
+		targetFlags:    cmd.TargetFlags,
+		argsFlags:      cmd.ArgsFlags,
+		imageFlags:     cmd.ImageFlags,
+		inclusionFlags: cmd.InclusionFlags,
+		dryRunArgs:     &cmd.DryRunFlags,
+	}
+	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+		return cmd.runCmdPrune(ctx)
 	})
 }
 
-func runCmdPrune2(cmd *cobra.Command, ctx *commandCtx) error {
+func (cmd *pruneCmd) runCmdPrune(ctx *commandCtx) error {
 	objects, err := ctx.deploymentCollection.FindOrphanObjects(ctx.k)
 	if err != nil {
 		return err
 	}
-	result, err := confirmedDeleteObjects(ctx.k, objects)
+	result, err := confirmedDeleteObjects(ctx.k, objects, cmd.DryRun, cmd.Yes)
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(args.Output, result)
+	err = outputCommandResult(cmd.OutputFormat, result)
 	if err != nil {
 		return err
 	}
@@ -30,32 +55,4 @@ func runCmdPrune2(cmd *cobra.Command, ctx *commandCtx) error {
 		return fmt.Errorf("command failed")
 	}
 	return nil
-}
-
-func init() {
-	var cmd = &cobra.Command{
-		Use:   "prune",
-		Short: "Searches the target cluster for prunable objects and deletes them",
-		Long: "Searches the target cluster for prunable objects and deletes them.\n\n" +
-			"Searching works by:\n\n" +
-			"\b\n" +
-			"  1. Search the cluster for all objects match `deleteByLabels`, as configured in `deployment.yml`\n" +
-			"  2. Render the local target and list all objects.\n" +
-			"  3. Remove all objects from the list of 1. that are part of the list in 2.\n",
-		RunE: runCmdPrune,
-	}
-	args.AddProjectArgs(cmd, true, true, true)
-	args.AddImageArgs(cmd)
-	args.AddInclusionArgs(cmd)
-	args.AddMiscArguments(cmd, args.EnabledMiscArguments{
-		Yes:          true,
-		DryRun:       true,
-		OutputFormat: true,
-	})
-	err := viper.BindPFlags(cmd.Flags())
-	if err != nil {
-		panic(err)
-	}
-
-	rootCmd.AddCommand(cmd)
 }

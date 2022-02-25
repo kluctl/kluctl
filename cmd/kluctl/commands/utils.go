@@ -2,7 +2,7 @@ package commands
 
 import (
 	"fmt"
-	args "github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/cmd/kluctl/args"
 	"github.com/codablock/kluctl/pkg/deployment"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
 	"github.com/codablock/kluctl/pkg/jinja2"
@@ -15,11 +15,11 @@ import (
 	"path/filepath"
 )
 
-func withKluctlProjectFromArgs(cb func(p *kluctl_project.KluctlProjectContext) error) error {
+func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl_project.KluctlProjectContext) error) error {
 	var url *git_url.GitUrl
-	if args.ProjectUrl != "" {
+	if projectFlags.ProjectUrl != "" {
 		var err error
-		url, err = git_url.Parse(args.ProjectUrl)
+		url, err = git_url.Parse(projectFlags.ProjectUrl)
 		if err != nil {
 			return err
 		}
@@ -32,16 +32,26 @@ func withKluctlProjectFromArgs(cb func(p *kluctl_project.KluctlProjectContext) e
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		ProjectUrl:          url,
-		ProjectRef:          args.ProjectRef,
-		ProjectConfig:       args.ProjectConfig,
-		LocalClusters:       args.LocalClusters,
-		LocalDeployment:     args.LocalDeployment,
-		LocalSealedSecrets:  args.LocalSealedSecrets,
-		FromArchive:         args.FromArchive,
-		FromArchiveMetadata: args.FromArchiveMetadata,
+		ProjectRef:          projectFlags.ProjectRef,
+		ProjectConfig:       projectFlags.ProjectConfig,
+		LocalClusters:       projectFlags.LocalClusters,
+		LocalDeployment:     projectFlags.LocalDeployment,
+		LocalSealedSecrets:  projectFlags.LocalSealedSecrets,
+		FromArchive:         projectFlags.FromArchive,
+		FromArchiveMetadata: projectFlags.FromArchiveMetadata,
 		J2:                  j2,
 	}
 	return kluctl_project.LoadKluctlProject(loadArgs, cb)
+}
+
+type projectTargetCommandArgs struct {
+	projectFlags         args.ProjectFlags
+	targetFlags          args.TargetFlags
+	argsFlags            args.ArgsFlags
+	imageFlags           args.ImageFlags
+	inclusionFlags       args.InclusionFlags
+	dryRunArgs           *args.DryRunFlags
+	renderOutputDirFlags args.RenderOutputDirFlags
 }
 
 type commandCtx struct {
@@ -54,27 +64,27 @@ type commandCtx struct {
 	deploymentCollection *deployment.DeploymentCollection
 }
 
-func withProjectCommandContext(cb func(ctx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(func(p *kluctl_project.KluctlProjectContext) error {
+func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
+	return withKluctlProjectFromArgs(args.projectFlags, func(p *kluctl_project.KluctlProjectContext) error {
 		var target *types.Target
-		if args.Target != "" {
-			t, err := p.FindDynamicTarget(args.Target)
+		if args.targetFlags.Target != "" {
+			t, err := p.FindDynamicTarget(args.targetFlags.Target)
 			if err != nil {
 				return err
 			}
 			target = t.Target
 		}
-		return withProjectTargetCommandContext(p, target, false, cb)
+		return withProjectTargetCommandContext(args, p, target, false, cb)
 	})
 }
 
-func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, target *types.Target, forSeal bool, cb func(ctx *commandCtx) error) error {
+func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, target *types.Target, forSeal bool, cb func(ctx *commandCtx) error) error {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return err
 	}
 
-	clusterName := args.Cluster
+	clusterName := args.projectFlags.Cluster
 	if clusterName == "" {
 		if target == nil {
 			return fmt.Errorf("you must specify an existing --cluster when not providing a --target")
@@ -87,7 +97,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		return err
 	}
 
-	k, err := k8s.NewK8sCluster(clusterConfig.Cluster.Context, args.DryRun)
+	k, err := k8s.NewK8sCluster(clusterConfig.Cluster.Context, args.dryRunArgs == nil || args.dryRunArgs.DryRun)
 	if err != nil {
 		return err
 	}
@@ -98,19 +108,19 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		return err
 	}
 
-	images, err := deployment.NewImages(args.UpdateImages)
+	images, err := deployment.NewImages(args.imageFlags.UpdateImages)
 	if err != nil {
 		return err
 	}
 
-	inclusion, err := args.ParseInclusionFromArgs()
+	inclusion, err := args.inclusionFlags.ParseInclusionFromArgs()
 	if err != nil {
 		return err
 	}
 
 	allArgs := uo.New()
 
-	optionArgs, err := deployment.ParseArgs(args.Args)
+	optionArgs, err := deployment.ParseArgs(args.argsFlags.Arg)
 	if err != nil {
 		return err
 	}
@@ -141,7 +151,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 
 	varsCtx.UpdateChild("args", allArgs)
 
-	renderOutputDir := args.RenderOutputDir
+	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
 		tmpDir, err := ioutil.TempDir(p.TmpDir, "rendered")
 		if err != nil {
@@ -160,7 +170,7 @@ func withProjectTargetCommandContext(p *kluctl_project.KluctlProjectContext, tar
 		return err
 	}
 
-	fixedImages, err := args.LoadFixedImagesFromArgs()
+	fixedImages, err := args.imageFlags.LoadFixedImagesFromArgs()
 	if err != nil {
 		return err
 	}

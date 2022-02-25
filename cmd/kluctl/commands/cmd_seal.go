@@ -8,14 +8,24 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-var (
-	SecretsDir  string
-	ForceReseal bool
-)
+type sealCmd struct {
+	args.ProjectFlags
+	args.TargetFlags
+
+	SecretsDir  string `help:"Specifies where to find unencrypted secret files. The given directory is NOT meant to be part of your source repository! The given path only matters for secrets of type 'path'. Defaults to the current working directory."`
+	ForceReseal bool   `help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+}
+
+func (cmd *sealCmd) Help() string {
+	return `Loads all secrets from the specified secrets sets from the target's sealingConfig and
+then renders the target, including all files with the '.sealme' extension. Then runs
+kubeseal on each '.sealme' file and stores secrets in the directory specified by
+'--local-sealed-secrets', using the outputPattern from your deployment project.
+
+If no '--target' is specified, sealing is performed for all targets.`
+}
 
 func findSecretsEntry(ctx *commandCtx, name string) (*types.SecretSet, error) {
 	for _, e := range ctx.kluctlProject.Config.SecretsConfig.SecretSets {
@@ -50,11 +60,16 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 	return nil
 }
 
-func runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, target *types.Target, secretsLoader *seal.SecretsLoader) error {
+func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, target *types.Target, secretsLoader *seal.SecretsLoader) error {
 	log.Infof("Sealing for target %s", target.Name)
 
+	ptArgs := projectTargetCommandArgs{
+		projectFlags: cmd.ProjectFlags,
+		targetFlags:  cmd.TargetFlags,
+	}
+
 	// pass forSeal=True so that .sealme files are rendered as well
-	return withProjectTargetCommandContext(p, target, true, func(ctx *commandCtx) error {
+	return withProjectTargetCommandContext(ptArgs, p, target, true, func(ctx *commandCtx) error {
 		err := loadSecrets(ctx, target, secretsLoader)
 		if err != nil {
 			return err
@@ -85,7 +100,7 @@ func runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, target *types.T
 		if err != nil {
 			return err
 		}
-		sealer, err := seal.NewSealer(ctx.k, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, ForceReseal)
+		sealer, err := seal.NewSealer(ctx.k, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
 		if err != nil {
 			return err
 		}
@@ -98,19 +113,19 @@ func runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, target *types.T
 	})
 }
 
-func runCmdSeal(cmd *cobra.Command, args_ []string) error {
-	return withKluctlProjectFromArgs(func(p *kluctl_project.KluctlProjectContext) error {
+func (cmd *sealCmd) Run() error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, func(p *kluctl_project.KluctlProjectContext) error {
 		hadError := false
 
-		secretsLoader := seal.NewSecretsLoader(p, SecretsDir)
+		secretsLoader := seal.NewSecretsLoader(p, cmd.SecretsDir)
 
 		baseTargets := make(map[string]bool)
 		noTargetMatch := true
 		for _, target := range p.DynamicTargets {
-			if args.Target != "" && args.Target != target.Target.Name {
+			if cmd.Target != "" && cmd.Target != target.Target.Name {
 				continue
 			}
-			if args.Cluster != "" && args.Cluster != target.Target.Cluster {
+			if cmd.Cluster != "" && cmd.Cluster != target.Target.Cluster {
 				continue
 			}
 			if target.Target.SealingConfig == nil {
@@ -135,7 +150,7 @@ func runCmdSeal(cmd *cobra.Command, args_ []string) error {
 				sealTarget = baseTarget
 			}
 
-			err := runCmdSealForTarget(p, sealTarget, secretsLoader)
+			err := cmd.runCmdSealForTarget(p, sealTarget, secretsLoader)
 			if err != nil {
 				log.Warningf("Sealing for target %s failed: %v", sealTarget.Name, err)
 				hadError = true
@@ -149,31 +164,4 @@ func runCmdSeal(cmd *cobra.Command, args_ []string) error {
 		}
 		return nil
 	})
-}
-
-func init() {
-	cmd := &cobra.Command{
-		Use:   "seal",
-		Short: "Seal secrets based on target's sealingConfig",
-		Long: "Loads all secrets from the specified secrets sets from the target's sealingConfig and " +
-			"then renders the target, including all files with the `.sealme` extension. Then runs " +
-			"kubeseal on each `.sealme` file and stores secrets in the directory specified by " +
-			"`--local-sealed-secrets`, using the outputPattern from your deployment project.\n\n" +
-			"If no `--target` is specified, sealing is performed for all targets.",
-		RunE: runCmdSeal,
-	}
-
-	args.AddProjectArgs(cmd, true, true, true)
-
-	cmd.Flags().StringVar(&SecretsDir, "secrets-dir", ".", "Specifies where to find unencrypted secret files. The given directory is NOT meant to be part "+
-		"of your source repository! The given path only matters for secrets of type 'path'. Defaults "+
-		"to the current working directory.")
-	cmd.Flags().BoolVar(&ForceReseal, "force-reseal", false, "Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those.")
-
-	err := viper.BindPFlags(cmd.Flags())
-	if err != nil {
-		panic(err)
-	}
-
-	rootCmd.AddCommand(cmd)
 }

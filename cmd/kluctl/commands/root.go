@@ -16,6 +16,7 @@ limitations under the License.
 package commands
 
 import (
+	"github.com/alecthomas/kong"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/version"
@@ -26,19 +27,40 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/spf13/cobra"
-)
-
-var (
-	v             string
-	noUpdateCheck = false
 )
 
 const latestReleaseUrl = "https://api.github.com/repos/codablock/kluctl/releases/latest"
 
-func setupLogs() error {
-	lvl, err := log.ParseLevel(v)
+type cli struct {
+	Verbosity     string `group:"global" short:"v" help:"Log level (debug, info, warn, error, fatal, panic)." default:"info"`
+	NoUpdateCheck bool   `group:"global" help:"Disable update check on startup"`
+
+	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
+	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
+	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
+	Diff              diffCmd              `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
+	Downscale         downscaleCmd         `cmd:"" help:"Downscale all deployments"`
+	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yml' files and pulls the specified Helm charts"`
+	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yml'' files and checks for new available versions"`
+	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
+	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all target, including dynamic targets"`
+	Prune             pruneCmd             `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
+	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
+	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
+	Validate          validateCmd          `cmd:"" help:"Validates the already deployed deployment"`
+}
+
+var flagGroups = []kong.Group{
+	{Key: "project", Title: "Project arguments:", Description: ""},
+	{Key: "images", Title: "Image arguments:", Description: ""},
+	{Key: "inclusion", Title: "Inclusion/Exclusion arguments:", Description: ""},
+	{Key: "misc", Title: "Misc arguments:", Description: ""},
+	{Key: "global", Title: "Global arguments:", Description: ""},
+}
+var globalFlagGroup = &flagGroups[len(flagGroups)-1]
+
+func (c *cli) setupLogs() error {
+	lvl, err := log.ParseLevel(c.Verbosity)
 	if err != nil {
 		return err
 	}
@@ -50,8 +72,8 @@ type VersionCheckState struct {
 	LastVersionCheck time.Time `yaml:"lastVersionCheck"`
 }
 
-func checkNewVersion() {
-	if noUpdateCheck {
+func (c *cli) checkNewVersion() {
+	if c.NoUpdateCheck {
 		return
 	}
 	if version.Version == "0.0.0" {
@@ -98,40 +120,58 @@ func checkNewVersion() {
 	}
 }
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "kluctl",
-	Short: "Deploy and manage complex deployments on Kubernetes",
-	Long: `The missing glue to put together large Kubernetes deployments,
-composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unified way.`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if err := setupLogs(); err != nil {
-			return err
-		}
-		checkNewVersion()
-		return nil
-	},
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
-}
-
-func RootCmd() *cobra.Command {
-	return rootCmd
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
+func (c *cli) BeforeApply() error {
+	if err := c.setupLogs(); err != nil {
+		return err
 	}
+	c.checkNewVersion()
+	return nil
 }
 
-func init() {
-	rootCmd.SilenceUsage = true
+func (c *cli) Help() string {
+	return `
+Deploy and manage complex deployments on Kubernetes
 
-	rootCmd.PersistentFlags().StringVarP(&v, "verbosity", "v", log.InfoLevel.String(), "Log level (debug, info, warn, error, fatal, panic")
-	rootCmd.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false, "Disable update check on startup")
+The missing glue to put together large Kubernetes deployments,
+composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unified way.`
+}
+
+func ParseArgs(args []string, options ...kong.Option) (*kong.Context, error) {
+	var cli cli
+
+	helpOption := kong.HelpOptions{
+		Compact: true,
+		Summary: true,
+		WrapUpperBound: 120,
+	}
+
+	var options2 []kong.Option
+	options2 = append(options2, helpOption)
+	options2 = append(options2, kong.ExplicitGroups(flagGroups))
+	options2 = append(options2, options...)
+
+	parser, err := kong.New(&cli, options2...)
+	if err != nil {
+		panic(err)
+	}
+	parser.Model.HelpFlag.Group = globalFlagGroup
+	ctx, err := parser.Parse(args)
+	return ctx, err
+}
+
+func Execute() {
+	confOption := kong.Configuration(kong.JSON, "/etc/kluctl.json", "~/.kluctl/config.json")
+	ctx, err := ExecuteWithArgs(os.Args[1:], confOption)
+	if err != nil && ctx == nil {
+		log.Fatal(err)
+	}
+	ctx.FatalIfErrorf(err)
+}
+
+func ExecuteWithArgs(args []string, options ...kong.Option) (*kong.Context, error) {
+	ctx, err := ParseArgs(args, options...)
+	if err != nil {
+		return nil, err
+	}
+	return ctx, ctx.Run()
 }

@@ -3,13 +3,38 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func runCmdDownscale(cmd *cobra.Command, args_ []string) error {
-	return withProjectCommandContext(func(ctx *commandCtx) error {
-		if !args.ForceYes && !args.DryRun {
+type downscaleCmd struct {
+	args.ProjectFlags
+	args.TargetFlags
+	args.ArgsFlags
+	args.ImageFlags
+	args.InclusionFlags
+	args.YesFlags
+	args.DryRunFlags
+	args.OutputFormatFlags
+	args.RenderOutputDirFlags
+}
+
+func (cmd *downscaleCmd) Help() string {
+	return `This command will downscale all Deployments, StatefulSets and CronJobs.
+It is also possible to influence the behaviour with the help of annotations, as described in
+the documentation.`
+}
+
+func (cmd *downscaleCmd) Run() error {
+	ptArgs := projectTargetCommandArgs{
+		projectFlags:         cmd.ProjectFlags,
+		targetFlags:          cmd.TargetFlags,
+		argsFlags:            cmd.ArgsFlags,
+		imageFlags:           cmd.ImageFlags,
+		inclusionFlags:       cmd.InclusionFlags,
+		dryRunArgs:           &cmd.DryRunFlags,
+		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+	}
+	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+		if !cmd.Yes && !cmd.DryRun {
 			if !AskForConfirmation(fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.k.Context())) {
 				return fmt.Errorf("aborted")
 			}
@@ -18,7 +43,7 @@ func runCmdDownscale(cmd *cobra.Command, args_ []string) error {
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(args.Output, result)
+		err = outputCommandResult(cmd.OutputFormat, result)
 		if err != nil {
 			return err
 		}
@@ -27,31 +52,4 @@ func runCmdDownscale(cmd *cobra.Command, args_ []string) error {
 		}
 		return nil
 	})
-}
-
-func init() {
-	var cmd = &cobra.Command{
-		Use:   "downscale",
-		Short: "Downscale all deployments",
-		Long: "Downscale all deployments.\n\n" +
-			"This command will downscale all Deployments, StatefulSets and CronJobs. " +
-			"It is also possible to influence the behaviour with the help of annotations, as described in " +
-			"the documentation.",
-		RunE: runCmdDownscale,
-	}
-	args.AddProjectArgs(cmd, true, true, true)
-	args.AddImageArgs(cmd)
-	args.AddInclusionArgs(cmd)
-	args.AddMiscArguments(cmd, args.EnabledMiscArguments{
-		Yes:             true,
-		DryRun:          true,
-		OutputFormat:    true,
-		RenderOutputDir: true,
-	})
-	err := viper.BindPFlags(cmd.Flags())
-	if err != nil {
-		panic(err)
-	}
-
-	rootCmd.AddCommand(cmd)
 }

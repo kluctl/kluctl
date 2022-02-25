@@ -3,20 +3,44 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"os"
 	"time"
 )
 
-func runCmdValidate(cmd *cobra.Command, args_ []string) error {
-	return withProjectCommandContext(func(ctx *commandCtx) error {
+type validateCmd struct {
+	args.ProjectFlags
+	args.TargetFlags
+	args.ArgsFlags
+	args.InclusionFlags
+	args.OutputFlags
+	args.RenderOutputDirFlags
+
+	Wait             time.Duration `help:"Wait for the given amount of time until the deployment validates"`
+	Sleep            time.Duration `help:"Sleep duration between validation attempts" default:"5s"`
+	WarningsAsErrors bool          `help:"Consider warnings as failures"`
+}
+
+func (cmd *validateCmd) Help() string {
+	return `This means that all objects are retrieved from the cluster and checked for readiness.
+
+TODO: This needs to be better documented!`
+}
+
+func (cmd *validateCmd) Run() error {
+	ptArgs := projectTargetCommandArgs{
+		projectFlags:         cmd.ProjectFlags,
+		targetFlags:          cmd.TargetFlags,
+		argsFlags:            cmd.ArgsFlags,
+		inclusionFlags:       cmd.InclusionFlags,
+		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+	}
+	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		startTime := time.Now()
 		for true {
 			result := ctx.deploymentCollection.Validate(ctx.k)
-			failed := len(result.Errors) != 0 || (args.WarningsAsErrors && len(result.Warnings) != 0)
+			failed := len(result.Errors) != 0 || (cmd.WarningsAsErrors && len(result.Warnings) != 0)
 
-			err := outputValidateResult(args.Output, result)
+			err := outputValidateResult(cmd.Output, result)
 			if err != nil {
 				return err
 			}
@@ -26,11 +50,11 @@ func runCmdValidate(cmd *cobra.Command, args_ []string) error {
 				return nil
 			}
 
-			if args.Wait <= 0 || time.Now().Sub(startTime) > args.Wait {
+			if cmd.Wait <= 0 || time.Now().Sub(startTime) > cmd.Wait {
 				return fmt.Errorf("Validation failed")
 			}
 
-			time.Sleep(args.Sleep)
+			time.Sleep(cmd.Sleep)
 
 			// Need to force re-requesting these objects
 			for _, e := range result.Results {
@@ -45,30 +69,4 @@ func runCmdValidate(cmd *cobra.Command, args_ []string) error {
 		}
 		return nil
 	})
-}
-
-func init() {
-	var cmd = &cobra.Command{
-		Use:   "validate",
-		Short: "Validates the already deployed deployment",
-		Long: "Validates the already deployed deployment.\n\n" +
-			"This means that all objects are retrieved from the cluster and checked for readiness.\n\n" +
-			"TODO: This needs to be better documented!",
-		RunE: runCmdValidate,
-	}
-	args.AddProjectArgs(cmd, true, true, true)
-	args.AddInclusionArgs(cmd)
-	args.AddMiscArguments(cmd, args.EnabledMiscArguments{
-		Output:          true,
-		RenderOutputDir: true,
-	})
-	cmd.Flags().DurationVar(&args.Wait, "wait", 0, "Wait for the given amount of time until the deployment validates")
-	cmd.Flags().DurationVar(&args.Sleep, "sleep", time.Second*5, "Sleep duration between validation attempts")
-	cmd.Flags().BoolVar(&args.WarningsAsErrors, "warnings-as-errors", false, "Consider warnings as failures")
-	err := viper.BindPFlags(cmd.Flags())
-	if err != nil {
-		panic(err)
-	}
-
-	rootCmd.AddCommand(cmd)
 }
