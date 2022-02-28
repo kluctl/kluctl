@@ -54,11 +54,11 @@ type cli struct {
 }
 
 var flagGroups = []kong.Group{
-	{Key: "project", Title: "Project arguments:", Description: ""},
-	{Key: "images", Title: "Image arguments:", Description: ""},
-	{Key: "inclusion", Title: "Inclusion/Exclusion arguments:", Description: ""},
-	{Key: "misc", Title: "Misc arguments:", Description: ""},
-	{Key: "global", Title: "Global arguments:", Description: ""},
+	{Key: "project", Title: "Project arguments:", Description: "Define where and how to load the kluctl project and its components from."},
+	{Key: "images", Title: "Image arguments:", Description: "Control fixed images and update behaviour."},
+	{Key: "inclusion", Title: "Inclusion/Exclusion arguments:", Description: "Control inclusion/exclusion."},
+	{Key: "misc", Title: "Misc arguments:", Description: "Command specific arguments."},
+	{Key: "global", Title: "Global arguments:", Description: "Global arguments."},
 }
 var globalFlagGroup = &flagGroups[len(flagGroups)-1]
 
