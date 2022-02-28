@@ -7,6 +7,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/registries"
 	"github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/utils/versions"
 	"github.com/codablock/kluctl/pkg/yaml"
@@ -21,6 +22,8 @@ type Images struct {
 	fixedImages  []types.FixedImage
 	seenImages   []types.FixedImage
 	mutex        sync.Mutex
+
+	registryCache utils.ThreadSafeMultiCache
 }
 
 func NewImages(updateImages bool) (*Images, error) {
@@ -69,10 +72,14 @@ func (images *Images) GetFixedImage(image string, namespace string, deployment s
 }
 
 func (images *Images) GetLatestImageFromRegistry(image string, latestVersion string) (*string, error) {
-	tags, err := registries.ListImageTags(image)
+	ret, err := images.registryCache.Get(image, "tag", func() (interface{}, error) {
+		return registries.ListImageTags(image)
+	})
 	if err != nil {
 		return nil, err
 	}
+	tags, _ := ret.([]string)
+
 	if len(tags) == 0 {
 		return nil, nil
 	}
