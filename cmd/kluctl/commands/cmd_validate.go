@@ -15,9 +15,9 @@ type validateCmd struct {
 	args.OutputFlags
 	args.RenderOutputDirFlags
 
-	Wait             time.Duration `help:"Wait for the given amount of time until the deployment validates"`
-	Sleep            time.Duration `help:"Sleep duration between validation attempts" default:"5s"`
-	WarningsAsErrors bool          `help:"Consider warnings as failures"`
+	Wait             time.Duration `group:"misc" help:"Wait for the given amount of time until the deployment validates"`
+	Sleep            time.Duration `group:"misc" help:"Sleep duration between validation attempts" default:"5s"`
+	WarningsAsErrors bool          `group:"misc" help:"Consider warnings as failures"`
 }
 
 func (cmd *validateCmd) Help() string {

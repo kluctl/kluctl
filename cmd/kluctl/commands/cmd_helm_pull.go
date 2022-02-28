@@ -8,7 +8,7 @@ import (
 )
 
 type helmPullCmd struct {
-	LocalDeployment string `help:"Local deployment directory. Defaults to current directory"`
+	LocalDeployment string `group:"project" help:"Local deployment directory. Defaults to current directory"`
 }
 
 func (cmd *helmPullCmd) Help() string {

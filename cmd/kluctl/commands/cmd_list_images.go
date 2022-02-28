@@ -12,7 +12,7 @@ type listImagesCmd struct {
 	args.InclusionFlags
 	args.OutputFlags
 
-	Simple bool `help:"Output a simplified version of the images list"`
+	Simple bool `group:"misc" help:"Output a simplified version of the images list"`
 }
 
 func (cmd *listImagesCmd) Help() string {

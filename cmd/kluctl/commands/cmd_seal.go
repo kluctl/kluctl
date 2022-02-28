@@ -14,8 +14,8 @@ type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
 
-	SecretsDir  string `help:"Specifies where to find unencrypted secret files. The given directory is NOT meant to be part of your source repository! The given path only matters for secrets of type 'path'. Defaults to the current working directory."`
-	ForceReseal bool   `help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	SecretsDir  string `group:"misc" help:"Specifies where to find unencrypted secret files. The given directory is NOT meant to be part of your source repository! The given path only matters for secrets of type 'path'. Defaults to the current working directory."`
+	ForceReseal bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
 }
 
 func (cmd *sealCmd) Help() string {
