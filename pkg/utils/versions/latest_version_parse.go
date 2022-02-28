@@ -258,7 +258,7 @@ func parseArg(p *preparsed) (*arg, error) {
 		}
 		tok := p.Next()
 		if tok != scanner.String && tok != scanner.Ident && tok != scanner.Int {
-			return 'e', nil, fmt.Errorf("unexpected token %v, expected string, ident or int")
+			return 'e', nil, fmt.Errorf("unexpected token %v, expected string, ident or int", tok)
 		}
 		value := p.CurTokenText()
 		if tok == scanner.String {
