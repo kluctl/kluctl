@@ -5,6 +5,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/versions"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -123,7 +124,7 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 		}
 		// ensure we didn't get partial matches
 		var lm []map[string]string
-		var ls utils.LooseVersionSlice
+		var ls versions.LooseVersionSlice
 		err = yaml.ReadYamlBytes(stdout, &lm)
 		if err != nil {
 			return err
@@ -131,7 +132,7 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 		for _, x := range lm {
 			if n, ok := x["name"]; ok && n == chartName {
 				if v, ok := x["version"]; ok {
-					ls = append(ls, utils.LooseVersion(v))
+					ls = append(ls, versions.LooseVersion(v))
 				}
 			}
 		}

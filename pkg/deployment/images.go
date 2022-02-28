@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/k8s"
+	"github.com/codablock/kluctl/pkg/registries"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/utils/versions"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -67,7 +69,24 @@ func (images *Images) GetFixedImage(image string, namespace string, deployment s
 }
 
 func (images *Images) GetLatestImageFromRegistry(image string, latestVersion string) (*string, error) {
-	return nil, nil
+	tags, err := registries.ListImageTags(image)
+	if err != nil {
+		return nil, err
+	}
+	if len(tags) == 0 {
+		return nil, nil
+	}
+
+	lv, err := versions.ParseLatestVersion(latestVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	tags = versions.Filter(lv, tags)
+
+	latest := lv.Latest(tags)
+	result := fmt.Sprintf("%s:%s", image, latest)
+	return &result, nil
 }
 
 const beginPlaceholder = "XXXXXbegin_get_image_"
@@ -119,7 +138,7 @@ func (images *Images) extractContainerName(parent interface{}) string {
 }
 
 func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Unstructured, deploymentDir string, tags []string) error {
-	namespace := o.GetNamespace()
+	ref := types.RefFromObject(o)
 	deployment := fmt.Sprintf("%s/%s", o.GetKind(), o.GetName())
 
 	var remoteObject *unstructured.Unstructured
@@ -164,7 +183,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 				}
 			}
 
-			resultImage, err := images.resolveImage(ph, namespace, deployment, container, deployed, deploymentDir, tags)
+			resultImage, err := images.resolveImage(ph, ref, deployment, container, deployed, deploymentDir, tags)
 			if err != nil {
 				return err
 			}
@@ -186,8 +205,8 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 	return nil
 }
 
-func (images *Images) resolveImage(ph *placeHolder, namespace string, deployment string, container string, deployed *string, deploymentDir string, tags []string) (*string, error) {
-	fixed := images.GetFixedImage(ph.Image, namespace, deployment, container)
+func (images *Images) resolveImage(ph *placeHolder, ref types.ObjectRef, deployment string, container string, deployed *string, deploymentDir string, tags []string) (*string, error) {
+	fixed := images.GetFixedImage(ph.Image, ref.Namespace, deployment, container)
 
 	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)
 	if err != nil {
@@ -208,7 +227,8 @@ func (images *Images) resolveImage(ph *placeHolder, namespace string, deployment
 			ResultImage:   *result,
 			DeployedImage: deployed,
 			RegistryImage: registry,
-			Namespace:     &namespace,
+			Namespace:     &ref.Namespace,
+			Object:        &ref,
 			Deployment:    &deployment,
 			Container:     &container,
 			VersionFilter: &ph.LatestVersion,

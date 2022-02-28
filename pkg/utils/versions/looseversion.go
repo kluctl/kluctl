@@ -1,7 +1,9 @@
-package utils
+package versions
 
 import (
+	"github.com/codablock/kluctl/pkg/utils"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -91,7 +93,7 @@ func (lv LooseVersion) Less(b LooseVersion, preferLongSuffix bool) bool {
 	bNums, bSuffixStr := b.SplitVersion()
 
 	cmp := func(a []int, b []int) bool {
-		l := IntMin(len(a), len(b))
+		l := utils.IntMin(len(a), len(b))
 		for i := 0; i < l; i++ {
 			if a[i] < b[i] {
 				return true
@@ -120,7 +122,7 @@ func (lv LooseVersion) Less(b LooseVersion, preferLongSuffix bool) bool {
 
 	aSuffix := splitSuffix(aSuffixStr)
 	bSuffix := splitSuffix(bSuffixStr)
-	l := IntMin(len(aSuffix), len(bSuffix))
+	l := utils.IntMin(len(aSuffix), len(bSuffix))
 
 	for i := 0; i < l; i++ {
 		if aSuffix[i].Less(bSuffix[i]) {
@@ -158,3 +160,12 @@ func (x LooseVersionSlice) Less(i, j int) bool {
 }
 func (x LooseVersionSlice) Len() int      { return len(x) }
 func (x LooseVersionSlice) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+func SortLooseVersionStrings(versions []string) LooseVersionSlice {
+	var c LooseVersionSlice
+	for _, v := range versions {
+		c = append(c, LooseVersion(v))
+	}
+	sort.Stable(c)
+	return c
+}

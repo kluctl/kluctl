@@ -5,6 +5,7 @@ import (
 	"github.com/codablock/kluctl/pkg/registries"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/versions"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"regexp"
@@ -109,14 +110,14 @@ func (cmd *checkImageUpdatesCmd) Run() error {
 				}
 				filteredTags = append(filteredTags, tag)
 			}
-			doKey := func(tag string) utils.LooseVersion {
+			doKey := func(tag string) versions.LooseVersion {
 				if prefix != "" {
 					tag = tag[len(prefix):]
 				}
 				if suffix != "" {
 					tag = tag[:len(tag)-len(suffix)]
 				}
-				return utils.LooseVersion(tag)
+				return versions.LooseVersion(tag)
 			}
 			sort.SliceStable(filteredTags, func(i, j int) bool {
 				a := doKey(filteredTags[i])

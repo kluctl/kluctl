@@ -19,6 +19,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/utils/versions"
 	"github.com/codablock/kluctl/pkg/version"
 	"github.com/codablock/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
@@ -113,8 +114,8 @@ func (c *cli) checkNewVersion() {
 	if strings.HasPrefix(latestVersionStr, "v") {
 		latestVersionStr = latestVersionStr[1:]
 	}
-	latestVersion := utils.LooseVersion(latestVersionStr)
-	localVersion := utils.LooseVersion(version.Version)
+	latestVersion := versions.LooseVersion(latestVersionStr)
+	localVersion := versions.LooseVersion(version.Version)
 	if localVersion.Less(latestVersion, true) {
 		log.Warningf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion, latestVersion)
 	}
