@@ -25,7 +25,7 @@ func Filter(lv LatestVersionFilter, versions []string) []string {
 
 type regexVersionFilter struct {
 	patternStr string
-	pattern *regexp.Regexp
+	pattern    *regexp.Regexp
 }
 
 func NewRegexVersionFilter(pattern string) (LatestVersionFilter, error) {
@@ -35,11 +35,11 @@ func NewRegexVersionFilter(pattern string) (LatestVersionFilter, error) {
 	}
 	return &regexVersionFilter{
 		patternStr: pattern,
-		pattern: p,
+		pattern:    p,
 	}, nil
 }
 
-func (f *regexVersionFilter) Match(version string) bool{
+func (f *regexVersionFilter) Match(version string) bool {
 	return f.pattern.MatchString(version)
 }
 

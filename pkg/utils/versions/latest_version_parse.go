@@ -9,12 +9,12 @@ import (
 )
 
 type tokenAndText struct {
-	tok rune
+	tok  rune
 	text string
 }
 
 type preparsed struct {
-	tokens []tokenAndText
+	tokens  []tokenAndText
 	nextPos int
 }
 
@@ -45,10 +45,10 @@ func (p *preparsed) Peek() rune {
 }
 
 func (p *preparsed) PeekN(n int) rune {
-	if p.nextPos + n >= len(p.tokens) {
+	if p.nextPos+n >= len(p.tokens) {
 		return scanner.EOF
 	}
-	return p.tokens[p.nextPos + n].tok
+	return p.tokens[p.nextPos+n].tok
 }
 
 func ParseLatestVersion(str string) (LatestVersionFilter, error) {
@@ -80,7 +80,9 @@ func parseFilter(p *preparsed) (LatestVersionFilter, error) {
 	name := p.CurTokenText()
 
 	tok = p.Next()
-	if tok != '(' {return nil, fmt.Errorf("unexpected token %v, expected (", tok)}
+	if tok != '(' {
+		return nil, fmt.Errorf("unexpected token %v, expected (", tok)
+	}
 
 	var f LatestVersionFilter
 
@@ -100,7 +102,9 @@ func parseFilter(p *preparsed) (LatestVersionFilter, error) {
 	}
 
 	tok = p.Next()
-	if tok != ')' {return nil, fmt.Errorf("unexpected token %v, expected (", tok)}
+	if tok != ')' {
+		return nil, fmt.Errorf("unexpected token %v, expected (", tok)
+	}
 
 	return f, nil
 }
@@ -160,11 +164,11 @@ func parseNumberFilter(p *preparsed) (LatestVersionFilter, error) {
 }
 
 type arg struct {
-	name string
-	tok rune
-	value interface{}
+	name     string
+	tok      rune
+	value    interface{}
 	required bool
-	isBool bool
+	isBool   bool
 
 	found bool
 }
@@ -179,7 +183,7 @@ func parseArgs(p *preparsed, args []*arg) error {
 		if p.Peek() == ')' {
 			break
 		}
-		if len(parsedArgs) + len(parsedKvArgs) != 0 {
+		if len(parsedArgs)+len(parsedKvArgs) != 0 {
 			if tok := p.Next(); tok != ',' {
 				return fmt.Errorf("unexpected token %v, expected ')' or ','", tok)
 			}
@@ -258,7 +262,7 @@ func parseArg(p *preparsed) (*arg, error) {
 		}
 		value := p.CurTokenText()
 		if tok == scanner.String {
-			value = value[1:len(value)-1]
+			value = value[1 : len(value)-1]
 		}
 		return tok, value, nil
 	}
@@ -273,8 +277,8 @@ func parseArg(p *preparsed) (*arg, error) {
 			return nil, err
 		}
 		a := arg{
-			name: name,
-			tok: valueTok,
+			name:  name,
+			tok:   valueTok,
 			value: value,
 		}
 		return &a, nil
@@ -285,7 +289,7 @@ func parseArg(p *preparsed) (*arg, error) {
 		return nil, err
 	}
 	a := arg{
-		tok: valueTok,
+		tok:   valueTok,
 		value: value,
 	}
 	return &a, nil
