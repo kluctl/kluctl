@@ -570,9 +570,12 @@ func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (m
 }
 
 func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[types.ObjectRef]*unstructured.Unstructured, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*unstructured.Unstructured, []*types.ChangedObject, error) {
-	diffObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
-	normalizedDiffObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
-	normalizedRemoteObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
+	var newObjects []*unstructured.Unstructured
+	var changedObjects []*types.ChangedObject
+	var mutex sync.Mutex
+
+	wp := utils.NewDebuggerAwareWorkerPool(8)
+	defer wp.StopWait(false)
 
 	for _, d := range c.deployments {
 		if !d.checkInclusionForDeploy() {
@@ -581,51 +584,45 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[type
 
 		ignoreForDiffs := d.project.getIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations)
 		for _, o := range d.objects {
+			o := o
 			ref := types.RefFromObject(o)
-			if _, ok := appliedObjects[ref]; !ok {
+			ao, ok := appliedObjects[ref]
+			if !ok {
+				// if we can't even find it in appliedObjects, it probably ran into an error
 				continue
 			}
-			diffObjects[ref] = appliedObjects[ref]
-			normalizedDiffObjects[ref] = diff.NormalizeObject(k, diffObjects[ref], ignoreForDiffs, diffObjects[ref])
-			if r, ok := c.remoteObjects[ref]; ok {
-				normalizedRemoteObjects[ref] = diff.NormalizeObject(k, r, ignoreForDiffs, diffObjects[ref])
+			ro, _ := c.remoteObjects[ref]
+
+			if ao != nil && ro == nil {
+				newObjects = append(newObjects, ao)
+			} else if ao == nil && ro != nil {
+				// deleted?
+				continue
+			} else if ao == nil && ro == nil {
+				// did not apply? (e.g. in downscale command)
+				continue
+			} else {
+				wp.Submit(func() error {
+					nao := diff.NormalizeObject(k, ao, ignoreForDiffs, o)
+					nro := diff.NormalizeObject(k, ro, ignoreForDiffs, o)
+					changes, err := diff.Diff(nro, nao)
+					if err != nil {
+						return err
+					}
+					if len(changes) == 0 {
+						return nil
+					}
+					mutex.Lock()
+					defer mutex.Unlock()
+					changedObjects = append(changedObjects, &types.ChangedObject{
+						NewObject: ao,
+						OldObject: ro,
+						Changes:   changes,
+					})
+					return nil
+				})
 			}
 		}
-	}
-
-	wp := utils.NewDebuggerAwareWorkerPool(8)
-	defer wp.StopWait(false)
-
-	var newObjects []*unstructured.Unstructured
-	var changedObjects []*types.ChangedObject
-	var mutex sync.Mutex
-
-	for ref, o_ := range diffObjects {
-		o := o_
-		normalizedRemoteObject, ok := normalizedRemoteObjects[ref]
-		if !ok {
-			newObjects = append(newObjects, o)
-			continue
-		}
-		normalizedDiffObject, _ := normalizedDiffObjects[ref]
-		remoteObject, _ := c.remoteObjects[ref]
-		wp.Submit(func() error {
-			changes, err := diff.Diff(normalizedRemoteObject, normalizedDiffObject)
-			if err != nil {
-				return err
-			}
-			if len(changes) == 0 {
-				return nil
-			}
-			mutex.Lock()
-			defer mutex.Unlock()
-			changedObjects = append(changedObjects, &types.ChangedObject{
-				NewObject: o,
-				OldObject: remoteObject,
-				Changes:   changes,
-			})
-			return nil
-		})
 	}
 
 	err := wp.StopWait(false)
