@@ -366,6 +366,83 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	}, nil
 }
 
+func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResult, error) {
+	allObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
+	for _, d := range c.deployments {
+		if !d.checkInclusionForDeploy() {
+			continue
+		}
+		for _, o := range d.objects {
+			allObjects[types.RefFromObject(o)] = o
+		}
+	}
+
+	containersAndImages := make(map[types.ObjectRef][]types.FixedImage)
+	for _, fi := range c.images.seenImages {
+		_, ok := allObjects[*fi.Object]
+		if !ok {
+			c.addError(*fi.Object, fmt.Errorf("object not found while trying to associate image with deployed object"))
+			continue
+		}
+
+		containersAndImages[*fi.Object] = append(containersAndImages[*fi.Object], fi)
+	}
+
+	wp := utils.NewWorkerPoolWithErrors(8)
+	defer wp.StopWait(false)
+
+	doPokeImage := func(images []types.FixedImage, o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+		u := uo.FromUnstructured(o)
+		containers, _, _ := u.GetNestedObjectList("spec", "template", "spec", "containers")
+
+		for _, image := range images {
+			for _, c := range containers {
+				containerName, _, _ := c.GetNestedString("name")
+				if image.Container != nil && containerName == *image.Container {
+					c.SetNestedField(image.ResultImage, "image")
+				}
+			}
+		}
+		return u.ToUnstructured(), nil
+	}
+
+	appliedObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
+	var mutex sync.Mutex
+
+	for ref, containers := range containersAndImages {
+		ref := ref
+		containers := containers
+		wp.Submit(func() error {
+			newObject, err := c.doReplaceObject(k, ref, func(o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+				return doPokeImage(containers, o)
+			})
+			if err != nil {
+				c.addError(ref, err)
+			} else {
+				mutex.Lock()
+				defer mutex.Unlock()
+				appliedObjects[ref] = newObject
+			}
+			return nil
+		})
+	}
+	err := wp.StopWait(false)
+	if err != nil {
+		return nil, err
+	}
+
+	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, false, false, false)
+	if err != nil {
+		return nil, err
+	}
+	return &types.CommandResult{
+		NewObjects:     newObjects,
+		ChangedObjects: changedObjects,
+		Errors:         c.errorsList(),
+		Warnings:       c.warningsList(),
+	}, nil
+}
+
 func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	wp := utils.NewWorkerPoolWithErrors(8)
 	defer wp.StopWait(false)
@@ -578,7 +655,8 @@ func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref types.Obje
 		}
 		firstCall = false
 
-		modified, err := callback(remote)
+		remoteCopy := uo.CopyUnstructured(remote)
+		modified, err := callback(remoteCopy)
 		if err != nil {
 			return nil, err
 		}

@@ -45,6 +45,7 @@ type cli struct {
 	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yml'' files and checks for new available versions"`
 	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
 	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all target, including dynamic targets"`
+	PokeImages        pokeImagesCmd        `cmd:"" help:"Replace all images in target"`
 	Prune             pruneCmd             `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
 	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
 	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
@@ -141,8 +142,8 @@ func ParseArgs(args []string, options ...kong.Option) (*kong.Context, error) {
 	var cli cli
 
 	helpOption := kong.HelpOptions{
-		Compact: true,
-		Summary: true,
+		Compact:        true,
+		Summary:        true,
 		WrapUpperBound: 120,
 	}
 
