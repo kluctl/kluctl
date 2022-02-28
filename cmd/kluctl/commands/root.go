@@ -36,6 +36,7 @@ type cli struct {
 	Verbosity     string `group:"global" short:"v" help:"Log level (debug, info, warn, error, fatal, panic)." default:"info"`
 	NoUpdateCheck bool   `group:"global" help:"Disable update check on startup"`
 
+	Archive           archiveCmd           `cmd:"" help:"Write project and all related components into single tgz"`
 	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
 	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
 	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
