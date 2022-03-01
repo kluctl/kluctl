@@ -106,6 +106,8 @@ func (p *testProject) gitInit(dir string) {
 
 	config.User.Name = "Test User"
 	config.User.Email = "no@mail.com"
+	config.Author = config.User
+	config.Committer = config.User
 	err = utils.Touch(path.Join(dir, ".dummy"))
 	if err != nil {
 		p.t.Fatal(err)
