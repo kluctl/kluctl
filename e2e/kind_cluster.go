@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"flag"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -149,11 +148,16 @@ func createKindCluster(name string, kubeconfig string) *KindCluster {
 	return k
 }
 
-var kindName = flag.String("kind-cluster-name", "kluctl-e2e", "Kind cluster name to use/create")
-var kindKubeconfig = flag.String("kind-kubeconfig", path.Join(utils.GetTmpBaseDir(), "kluctl-e2e-kubeconfig.yml"), "Kind kubeconfig to use/create")
-
 func createDefaultKindCluster() *KindCluster {
-	return createKindCluster(*kindName, *kindKubeconfig)
+	kindClusterName := os.Getenv("KIND_CLUSTER_NAME")
+	kindKubeconfig := os.Getenv("KIND_KUBECONFIG")
+	if kindClusterName == "" {
+		kindClusterName = "kluctl-e2e"
+	}
+	if kindKubeconfig == "" {
+		kindKubeconfig = path.Join(utils.GetTmpBaseDir(), "kluctl-e2e-kubeconfig.yml")
+	}
+	return createKindCluster(kindClusterName, kindKubeconfig)
 }
 
 var defaultKindCluster = createDefaultKindCluster()

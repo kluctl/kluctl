@@ -279,6 +279,7 @@ jobs:
           fi
           KIND_CLUSTER_NAME=$(echo "kluctl-${{ runner.os }}" | awk '{{  print tolower($1)}}')
           echo "KIND_CLUSTER_NAME=$KIND_CLUSTER_NAME" >> $GITHUB_ENV
+          echo "KIND_KUBECONFIG=$(pwd)/kind-kubeconfig" >> $GITHUB_ENV
 
           ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$PORT"
       - name: Go Mod Vendor
@@ -292,7 +293,7 @@ jobs:
       - name: Run e2e tests
         shell: bash
         run: |
-          go test ./e2e/... -kind-cluster-name=$KIND_CLUSTER_NAME -kind-kubeconfig=$(pwd)/kind-kubeconfig -parallel 4 -v
+          go test ./e2e/... -parallel 4 -v
       - name: Delete kind cluster
         shell: bash
         run: |
