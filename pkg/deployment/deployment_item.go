@@ -253,7 +253,7 @@ func (di *deploymentItem) checkInclusionForDelete() bool {
 	return di.collection.inclusion.CheckIncluded(values, skipDeleteIfTags)
 }
 
-func (di *deploymentItem) prepareKusomizationYaml() error {
+func (di *deploymentItem) prepareKustomizationYaml() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -289,7 +289,7 @@ func (di *deploymentItem) buildKustomize() error {
 		return nil
 	}
 
-	err := di.prepareKusomizationYaml()
+	err := di.prepareKustomizationYaml()
 	if err != nil {
 		return err
 	}
