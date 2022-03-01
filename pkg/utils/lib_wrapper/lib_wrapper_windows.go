@@ -13,7 +13,7 @@ import (
 func LoadModule(pth string) *LibWrapper {
 	mod, err := syscall.LoadLibrary(pth)
 	if err != nil {
-		log.Panicf("LoadLibrary for %s failed: %w", pth, err)
+		log.Panicf("LoadLibrary for %s failed: %v", pth, err)
 	}
 	return &LibWrapper{
 		module: unsafe.Pointer(mod),
