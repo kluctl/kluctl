@@ -6,6 +6,8 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 )
 
 func Exists(path string) bool {
@@ -55,6 +57,7 @@ func CopyFile(src string, dst string) error {
 }
 
 func FsCopyFile(srcFs fs.FS, src, dst string) error {
+	src = strings.ReplaceAll(src, string(os.PathSeparator), "/")
 	source, err := srcFs.Open(src)
 	if err != nil {
 		return err
@@ -88,6 +91,8 @@ func FsCopyDir(srcFs fs.FS, src string, dst string) error {
 	var err error
 	var fds []fs.DirEntry
 
+	src = strings.ReplaceAll(src, string(os.PathSeparator), "/")
+
 	if fds, err = fs.ReadDir(srcFs, src); err != nil {
 		return err
 	}
@@ -96,7 +101,7 @@ func FsCopyDir(srcFs fs.FS, src string, dst string) error {
 	}
 	for _, fd := range fds {
 		srcfp := path.Join(src, fd.Name())
-		dstfp := path.Join(dst, fd.Name())
+		dstfp := filepath.Join(dst, fd.Name())
 
 		if fd.IsDir() {
 			if err = FsCopyDir(srcFs, srcfp, dstfp); err != nil {
