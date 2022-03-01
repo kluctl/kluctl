@@ -5,7 +5,7 @@ import "unsafe"
 type PyList = PyObject
 
 func PyList_New(len int) *PyList {
-	return PythonWrapper.PyList_New(len)
+	return PythonWrapper.PyList_New(ssize_t(len))
 }
 
 func PyList_FromPointer(p unsafe.Pointer) *PyList {
@@ -20,7 +20,7 @@ func PyList_FromObject(l *PyObject) *PyList {
 }
 
 func (l *PyList) GetItem(pos int) *PyObject {
-	return PythonWrapper.PyList_GetItem(l, pos)
+	return PythonWrapper.PyList_GetItem(l, ssize_t(pos))
 }
 
 func (l *PyList) Append(item *PyObject) int {

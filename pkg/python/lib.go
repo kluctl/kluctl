@@ -52,7 +52,7 @@ func init() {
 	pythonModule = lib_wrapper.LoadModule(filepath.Join(libPath, module))
 	PythonWrapper = New_LibPythonWrapper(pythonModule)
 
-	l := PythonWrapper.Py_DecodeLocale(libPath)
+	l := PythonWrapper.Py_DecodeLocale(libPath, nil)
 	PythonWrapper.Py_SetPythonHome(l)
 
 	PythonWrapper.Py_InitializeEx(0)

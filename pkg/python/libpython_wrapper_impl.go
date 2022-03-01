@@ -12,9 +12,9 @@ void _trampoline_Py_InitializeEx(void* f, int initsigs) {
 	typedef void (*F)(int);
 	((F)f)(initsigs);
 }
-void* _trampoline_Py_DecodeLocale(void* f, char* s) {
-	typedef void* (*F)(char*);
-	return ((F)f)(s);
+void* _trampoline_Py_DecodeLocale(void* f, char* s, void* size) {
+	typedef void* (*F)(char*, void*);
+	return ((F)f)(s, size);
 }
 void _trampoline_Py_SetPythonHome(void* f, void* l) {
 	typedef void (*F)(void*);
@@ -205,10 +205,11 @@ func (w *LibPythonWrapperImpl) Py_InitializeEx(initsigs int) {
 	_c_initsigs := C.int(initsigs)
 	C._trampoline_Py_InitializeEx(unsafe.Pointer(w._func_Py_InitializeEx), _c_initsigs)
 }
-func (w *LibPythonWrapperImpl) Py_DecodeLocale(s string) unsafe.Pointer {
+func (w *LibPythonWrapperImpl) Py_DecodeLocale(s string, size *ssize_t) unsafe.Pointer {
 	_c_s := C.CString(s)
 	defer C.free(unsafe.Pointer(_c_s))
-	_g_ret := unsafe.Pointer(C._trampoline_Py_DecodeLocale(unsafe.Pointer(w._func_Py_DecodeLocale), _c_s))
+	_c_size := (size).GetPointer()
+	_g_ret := unsafe.Pointer(C._trampoline_Py_DecodeLocale(unsafe.Pointer(w._func_Py_DecodeLocale), _c_s, _c_size))
 	return _g_ret
 }
 func (w *LibPythonWrapperImpl) Py_SetPythonHome(l unsafe.Pointer) {

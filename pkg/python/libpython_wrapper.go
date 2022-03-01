@@ -2,14 +2,18 @@ package python
 
 import "unsafe"
 
-type ssize_t = int
+type ssize_t uint
+
+func (s *ssize_t) GetPointer() unsafe.Pointer {
+	return unsafe.Pointer(s)
+}
 
 //go:generate go run .../lib_wrapper/gen --input libpython_wrapper.go --output libpython_wrapper_impl.go
 type LibPythonWrapper interface {
 	Py_Initialize()
 	Py_InitializeEx(initsigs int)
 
-	Py_DecodeLocale(s string) unsafe.Pointer
+	Py_DecodeLocale(s string, size *ssize_t) unsafe.Pointer
 	Py_SetPythonHome(l unsafe.Pointer)
 
 	Py_NewInterpreter() *PythonThreadState
