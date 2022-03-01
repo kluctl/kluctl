@@ -504,7 +504,7 @@ func (p *testProject) KluctlMust(argsIn ...string) (string, string) {
 
 func (p *testProject) buildFileUrl(pth string) string {
 	if runtime.GOOS == "windows" {
-		return fmt.Sprintf("file:///%s", pth)
+		return fmt.Sprintf("file:///%s", strings.ReplaceAll(pth, string(os.PathSeparator), "/"))
 	}
 	return fmt.Sprintf("file://%s", pth)
 }
