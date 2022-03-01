@@ -31,8 +31,6 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 	tarReader := tar.NewReader(r)
 	for true {
 		header, err := tarReader.Next()
-		header.Name = strings.ReplaceAll(header.Name, "/", string(os.PathSeparator))
-
 		if err == io.EOF {
 			break
 		}
@@ -40,6 +38,8 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 		if err != nil {
 			return fmt.Errorf("ExtractTarGz: Next() failed: %w", err)
 		}
+
+		header.Name = strings.ReplaceAll(header.Name, "/", string(os.PathSeparator))
 
 		switch header.Typeflag {
 		case tar.TypeDir:
