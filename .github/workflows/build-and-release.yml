@@ -289,6 +289,9 @@ jobs:
         shell: bash
         run: |
           go test ./cmd/... ./pkg/... -v
+      - name: Run e2e tests
+        shell: bash
+        run: |
           go test ./e2e/... -kind-cluster-name=$KIND_CLUSTER_NAME -kind-kubeconfig=$(pwd)/kind-kubeconfig -parallel 4 -v
       - name: Delete kind cluster
         shell: bash
