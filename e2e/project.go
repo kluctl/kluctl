@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -45,8 +44,8 @@ func (p *testProject) init(t *testing.T, projectName string) {
 	p.baseDir = baseDir
 
 	_ = os.MkdirAll(p.getKluctlProjectDir(), 0o700)
-	_ = os.MkdirAll(path.Join(p.getClustersDir(), "clusters"), 0o700)
-	_ = os.MkdirAll(path.Join(p.getSealedSecretsDir(), ".sealed-secrets"), 0o700)
+	_ = os.MkdirAll(filepath.Join(p.getClustersDir(), "clusters"), 0o700)
+	_ = os.MkdirAll(filepath.Join(p.getSealedSecretsDir(), ".sealed-secrets"), 0o700)
 	_ = os.MkdirAll(p.getDeploymentDir(), 0o700)
 
 	p.gitInit(p.getKluctlProjectDir())
@@ -112,7 +111,7 @@ func (p *testProject) gitInit(dir string) {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	err = utils.Touch(path.Join(dir, ".dummy"))
+	err = utils.Touch(filepath.Join(dir, ".dummy"))
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -150,7 +149,7 @@ func (p *testProject) commitFiles(repo string, add []string, all bool, message s
 }
 
 func (p *testProject) commitYaml(y *uo.UnstructuredObject, repo string, pth string, message string) {
-	err := yaml.WriteYamlFile(path.Join(repo, pth), y)
+	err := yaml.WriteYamlFile(filepath.Join(repo, pth), y)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -159,7 +158,7 @@ func (p *testProject) commitYaml(y *uo.UnstructuredObject, repo string, pth stri
 		if err != nil {
 			p.t.Fatal(err)
 		}
-		message = fmt.Sprintf("update %s", path.Join(relPath, pth))
+		message = fmt.Sprintf("update %s", filepath.Join(relPath, pth))
 	}
 	p.commitFiles(repo, []string{pth}, false, message)
 }
@@ -169,8 +168,8 @@ func (p *testProject) updateYaml(repo string, pth string, update func(o *uo.Unst
 		p.t.Fatal()
 	}
 	o := uo.New()
-	if utils.Exists(path.Join(repo, pth)) {
-		err := yaml.ReadYamlFile(path.Join(repo, pth), o)
+	if utils.Exists(filepath.Join(repo, pth)) {
+		err := yaml.ReadYamlFile(filepath.Join(repo, pth), o)
 		if err != nil {
 			p.t.Fatal(err)
 		}
@@ -191,7 +190,7 @@ func (p *testProject) updateKluctlYaml(update func(o *uo.UnstructuredObject) err
 }
 
 func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.UnstructuredObject) error) {
-	p.updateYaml(p.getDeploymentDir(), path.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
+	p.updateYaml(p.getDeploymentDir(), filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
 		if dir == "." {
 			o.SetNestedField(p.projectName, "commonLabels", "project_name")
 			o.SetNestedField(p.projectName, "deleteByLabels", "project_name")
@@ -201,7 +200,7 @@ func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.Unstruc
 }
 
 func (p *testProject) getDeploymentYaml(dir string) *uo.UnstructuredObject {
-	o, err := uo.FromFile(path.Join(p.getDeploymentDir(), dir, "deployment.yml"))
+	o, err := uo.FromFile(filepath.Join(p.getDeploymentDir(), dir, "deployment.yml"))
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -220,13 +219,13 @@ func (p *testProject) listDeploymentItemPathes(dir string, fullPath bool) []stri
 		if ok {
 			x := pth
 			if fullPath {
-				x = path.Join(dir, pth)
+				x = filepath.Join(dir, pth)
 			}
 			ret = append(ret, x)
 		}
 		pth, ok, _ = x.GetNestedString("include")
 		if ok {
-			ret = append(ret, p.listDeploymentItemPathes(path.Join(dir, pth), fullPath)...)
+			ret = append(ret, p.listDeploymentItemPathes(filepath.Join(dir, pth), fullPath)...)
 		}
 	}
 	return ret
@@ -242,14 +241,14 @@ func (p *testProject) updateKustomizeDeployment(dir string, update func(o *uo.Un
 		p.t.Fatal(err)
 	}
 
-	pth := path.Join(dir, "kustomization.yml")
+	pth := filepath.Join(dir, "kustomization.yml")
 	p.updateYaml(p.getDeploymentDir(), pth, func(o *uo.UnstructuredObject) error {
 		return update(o, wt)
 	}, fmt.Sprintf("Update kustomization.yml for %s", dir))
 }
 
 func (p *testProject) updateCluster(name string, context string, vars *uo.UnstructuredObject) {
-	pth := path.Join("clusters", fmt.Sprintf("%s.yml", name))
+	pth := filepath.Join("clusters", fmt.Sprintf("%s.yml", name))
 	p.updateYaml(p.getClustersDir(), pth, func(o *uo.UnstructuredObject) error {
 		o.Clear()
 		o.SetNestedField(name, "cluster", "name")
@@ -332,19 +331,19 @@ func (p *testProject) addDeploymentIncludes(dir string) {
 	var pp []string
 	for _, x := range strings.Split(dir, "/") {
 		if x != "." {
-			p.addDeploymentInclude(path.Join(pp...), x, nil)
+			p.addDeploymentInclude(filepath.Join(pp...), x, nil)
 		}
 		pp = append(pp, x)
 	}
 }
 
 func (p *testProject) addKustomizeDeployment(dir string, resources []kustomizeResource, tags []string) {
-	deploymentDir := path.Dir(dir)
+	deploymentDir := filepath.Dir(dir)
 	if deploymentDir != "" {
 		p.addDeploymentIncludes(deploymentDir)
 	}
 
-	absKustomizeDir := path.Join(p.getDeploymentDir(), dir)
+	absKustomizeDir := filepath.Join(p.getDeploymentDir(), dir)
 
 	err := os.MkdirAll(absKustomizeDir, 0o700)
 	if err != nil {
@@ -361,7 +360,7 @@ func (p *testProject) addKustomizeDeployment(dir string, resources []kustomizeRe
 	p.updateDeploymentYaml(deploymentDir, func(o *uo.UnstructuredObject) error {
 		d, _, _ := o.GetNestedObjectList("deployments")
 		n := uo.FromMap(map[string]interface{}{
-			"path": path.Base(dir),
+			"path": filepath.Base(dir),
 		})
 		if len(tags) != 0 {
 			n.SetNestedField(tags, "tags")
@@ -403,11 +402,11 @@ func (p *testProject) addKustomizeResources(dir string, resources []kustomizeRes
 		for _, r := range resources {
 			l = append(l, r.name)
 			x := p.convertInterfaceToList(r.content)
-			err := yaml.WriteYamlAllFile(path.Join(p.getDeploymentDir(), dir, r.name), x)
+			err := yaml.WriteYamlAllFile(filepath.Join(p.getDeploymentDir(), dir, r.name), x)
 			if err != nil {
 				return err
 			}
-			_, err = wt.Add(path.Join(dir, r.name))
+			_, err = wt.Add(filepath.Join(dir, r.name))
 			if err != nil {
 				return err
 			}
@@ -418,12 +417,12 @@ func (p *testProject) addKustomizeResources(dir string, resources []kustomizeRes
 }
 
 func (p *testProject) deleteKustomizeDeployment(dir string) {
-	deploymentDir := path.Dir(dir)
+	deploymentDir := filepath.Dir(dir)
 	p.updateDeploymentItems(deploymentDir, func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
 		var newItems []*uo.UnstructuredObject
 		for _, item := range items {
 			pth, _, _ := item.GetNestedString("path")
-			if pth == path.Base(dir) {
+			if pth == filepath.Base(dir) {
 				continue
 			}
 			newItems = append(newItems, item)
@@ -433,26 +432,26 @@ func (p *testProject) deleteKustomizeDeployment(dir string) {
 }
 
 func (p *testProject) getKluctlProjectDir() string {
-	return path.Join(p.baseDir, "kluctl-project")
+	return filepath.Join(p.baseDir, "kluctl-project")
 }
 
 func (p *testProject) getClustersDir() string {
 	if p.clustersExternal {
-		return path.Join(p.baseDir, "external-clusters")
+		return filepath.Join(p.baseDir, "external-clusters")
 	}
 	return p.getKluctlProjectDir()
 }
 
 func (p *testProject) getDeploymentDir() string {
 	if p.deploymentExternal {
-		return path.Join(p.baseDir, "external-deployment")
+		return filepath.Join(p.baseDir, "external-deployment")
 	}
 	return p.getKluctlProjectDir()
 }
 
 func (p *testProject) getSealedSecretsDir() string {
 	if p.sealedSecretsExternal {
-		return path.Join(p.baseDir, "external-sealed-secrets")
+		return filepath.Join(p.baseDir, "external-sealed-secrets")
 	}
 	return p.getKluctlProjectDir()
 }

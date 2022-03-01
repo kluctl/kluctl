@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 	"testing"
@@ -155,7 +155,7 @@ func createDefaultKindCluster() *KindCluster {
 		kindClusterName = "kluctl-e2e"
 	}
 	if kindKubeconfig == "" {
-		kindKubeconfig = path.Join(utils.GetTmpBaseDir(), "kluctl-e2e-kubeconfig.yml")
+		kindKubeconfig = filepath.Join(utils.GetTmpBaseDir(), "kluctl-e2e-kubeconfig.yml")
 	}
 	return createKindCluster(kindClusterName, kindKubeconfig)
 }

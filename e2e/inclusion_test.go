@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -174,7 +174,7 @@ func TestInclusionDeploymentDirs(t *testing.T) {
 	var a []string
 	for _, x := range p.listDeploymentItemPathes(".", false) {
 		if x != "icm5" {
-			a = append(a, path.Base(x))
+			a = append(a, filepath.Base(x))
 		}
 	}
 	doAssertExists(a...)
