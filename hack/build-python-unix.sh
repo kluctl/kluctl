@@ -24,7 +24,6 @@ fi
 cd cpython
 
 if [ "$os" = "darwin" ]; then
-  #export PKG_CONFIG_PATH="$(brew --prefix openssl)/lib/pkgconfig"
   export CPPFLAGS="-I$(brew --prefix readline)/include"
   export LDFLAGS="-L$(brew --prefix readline)/lib"
 fi

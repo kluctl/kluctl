@@ -18,7 +18,7 @@ func LoadModule(pth string) *LibWrapper {
 	cPth := C.CString(pth)
 	defer C.free(unsafe.Pointer(cPth))
 
-	mod := C.dlopen(cPth, C.RTLD_LAZY)
+	mod := C.dlopen(cPth, C.RTLD_LAZY | C.RTLD_GLOBAL)
 	if mod == nil {
 		log.Panicf("dlopen for %s failed", pth)
 	}
