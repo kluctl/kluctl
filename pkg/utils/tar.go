@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func ExtractTarGzFile(tarGzPath string, targetPath string) error {
@@ -30,6 +31,7 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 	tarReader := tar.NewReader(r)
 	for true {
 		header, err := tarReader.Next()
+		header.Name = strings.ReplaceAll(header.Name, "/", string(os.PathSeparator))
 
 		if err == io.EOF {
 			break
@@ -84,7 +86,7 @@ func AddToTar(tw *tar.Writer, pth string, name string, filter func(h *tar.Header
 	if err != nil {
 		return err
 	}
-	h.Name = name
+	h.Name = strings.ReplaceAll(name, string(os.PathSeparator), "/")
 
 	if filter != nil {
 		h, err = filter(h)
