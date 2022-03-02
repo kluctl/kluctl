@@ -1,13 +1,17 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
+	http_server "github.com/codablock/kluctl/pkg/git/http-server"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"github.com/go-git/go-git/v5"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -32,6 +36,10 @@ type testProject struct {
 	kubeconfigs []string
 
 	baseDir string
+
+	gitServer *http_server.Server
+	gitHttpServer *http.Server
+	gitServerPort int
 }
 
 func (p *testProject) init(t *testing.T, projectName string) {
@@ -48,6 +56,8 @@ func (p *testProject) init(t *testing.T, projectName string) {
 	_ = os.MkdirAll(filepath.Join(p.getSealedSecretsDir(), ".sealed-secrets"), 0o700)
 	_ = os.MkdirAll(p.getDeploymentDir(), 0o700)
 
+	p.initGitServer()
+
 	p.gitInit(p.getKluctlProjectDir())
 	if p.clustersExternal {
 		p.gitInit(p.getClustersDir())
@@ -61,13 +71,13 @@ func (p *testProject) init(t *testing.T, projectName string) {
 
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
 		if p.clustersExternal {
-			o.SetNestedField(p.buildFileUrl(p.getClustersDir()), "clusters", "project")
+			o.SetNestedField(p.buildLocalGitUrl(p.getClustersDir()), "clusters", "project")
 		}
 		if p.deploymentExternal {
-			o.SetNestedField(p.buildFileUrl(p.getDeploymentDir()), "deployment", "project")
+			o.SetNestedField(p.buildLocalGitUrl(p.getDeploymentDir()), "deployment", "project")
 		}
 		if p.sealedSecretsExternal {
-			o.SetNestedField(p.buildFileUrl(p.getSealedSecretsDir()), "sealedSecrets", "project")
+			o.SetNestedField(p.buildLocalGitUrl(p.getSealedSecretsDir()), "sealedSecrets", "project")
 		}
 		return nil
 	})
@@ -76,7 +86,33 @@ func (p *testProject) init(t *testing.T, projectName string) {
 	})
 }
 
+func (p *testProject) initGitServer() {
+	p.gitServer = http_server.New(p.baseDir)
+
+	p.gitHttpServer = &http.Server{
+		Addr: "127.0.0.1:0",
+		Handler: p.gitServer,
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		log.Fatal(err)
+	}
+	a := ln.Addr().(*net.TCPAddr)
+	p.gitServerPort = a.Port
+
+	go func() {
+		_ = p.gitHttpServer.Serve(ln)
+	}()
+}
+
 func (p *testProject) cleanup() {
+	if p.gitHttpServer != nil {
+		_ = p.gitHttpServer.Shutdown(context.Background())
+		p.gitHttpServer = nil
+		p.gitServer = nil
+	}
+
 	if p.baseDir == "" {
 		return
 	}
@@ -465,7 +501,7 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 
 	cwd := ""
 	if p.kluctlProjectExternal {
-		args = append(args, "--project-url", p.buildFileUrl(p.getKluctlProjectDir()))
+		args = append(args, "--project-url", p.buildLocalGitUrl(p.getKluctlProjectDir()))
 	} else {
 		cwd = p.getKluctlProjectDir()
 	}
@@ -502,9 +538,10 @@ func (p *testProject) KluctlMust(argsIn ...string) (string, string) {
 	return stdout, stderr
 }
 
-func (p *testProject) buildFileUrl(pth string) string {
-	if runtime.GOOS == "windows" {
-		return fmt.Sprintf("file:///%s", strings.ReplaceAll(pth, string(os.PathSeparator), "/"))
+func (p *testProject) buildLocalGitUrl(repo string) string {
+	relPth, err := filepath.Rel(p.baseDir, repo)
+	if err != nil {
+		log.Panic(err)
 	}
-	return fmt.Sprintf("file://%s", pth)
+	return fmt.Sprintf("http://localhost:%d/%s/.git", p.gitServerPort, relPth)
 }
