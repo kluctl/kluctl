@@ -307,30 +307,6 @@ jobs:
             echo "commands.md is not up-to-date. Run "./hack/replace-commands-help --commands-md ./docs/commands.md" to fix this!"
             exit 1
           fi
-  check-code:
-    runs-on: ubuntu-latest
-    needs:
-      - build
-    steps:
-      - name: Install packages
-        run: |
-          sudo apt update
-          sudo apt install -y git
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.10.2
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-      - name: check-docs
-        run: |
-          #python scripts/replace-commands-help.py
-          #if [ "$(git status --porcelain)" != "" ]; then
-          #  echo "commands.md is not up-to-date. Run ./scripts/replace-commands-help.py to fix this!"
-          #  exit 1
-          #fi
 
   release:
     runs-on: ubuntu-latest
@@ -338,7 +314,6 @@ jobs:
     needs:
       - version
       - build
-      - check-code
       - tests
     steps:
       - name: Checkout
