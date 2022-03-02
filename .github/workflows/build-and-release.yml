@@ -299,6 +299,7 @@ jobs:
         run: |
           kind delete cluster --name $KIND_CLUSTER_NAME
       - name: Check docs
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           go run ./hack/replace-commands-help --commands-md ./docs/commands.md
