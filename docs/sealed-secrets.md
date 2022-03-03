@@ -9,20 +9,23 @@ The integration consists of two parts:
 
 # Requirements
 
-The cluster must have the [sealed-secrets operator](https://github.com/bitnami-labs/sealed-secrets) installed. This
-can either be done through the [bootstrap command](./commands.md#bootstrap) or through some other/custom means.
+The Sealed Secrets integration relies on the [sealed-secrets operator](https://github.com/bitnami-labs/sealed-secrets)
+being installed. Installing the operator is the responsibility of you (or whoever is managing/operating the cluster).
+
+kluctl can however perform sealing of secrets without an existing sealed-secrets operator installation. This is solved
+by automatically pre-provisioning a key onto the cluster that is compatible with the operator.
 
 # Sealing of .sealme files
 
 Sealing is done via the [seal command](./commands.md#seal). It must be done before the actual deployment is performed.
 The `seal` command recursively searches for files that end with `.sealme`, renders them with the
-[Jinja2 templating](./jinja2-templating.md) engine and then seals them by invoking `kubeseal` (part of 
-[sealed secrets](https://github.com/bitnami-labs/sealed-secrets)).
+[Jinja2 templating](./jinja2-templating.md) engine. The rendered secret resource is then converted/encrypted into a
+sealed secret.
 
 The `.sealme` files itself have to be [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/),
 but without any actual secret data inside. The secret data is referenced via Jinja2 variables and is expected to be
 provided only at the time of sealing. This means, that the sensitive secret data must only be in clear text while sealing.
-Afterwards, the sensitive data can be removed locally, and the sealed secrets can be added to version control.
+Afterwards the sealed secrets can be added to version control.
 
 Example file (the name could be for example `db-secrets.yml.sealme`):
 ```yaml
@@ -91,6 +94,10 @@ diretory.
 Sealed secrets are stored together with hashes of all individual secret entries. These hashes are then used to avoid
 unnecessary re-sealing in future [seal](./commands.md#seal) invocations. If you want to force re-sealing, use the
 [--force-reseal](./commands.md#seal) option.
+
+Hashing of secrets is done with bcrypt and the cluster id as salt. The cluster id is currently defined as the sha256 hash
+of the cluster CA certificate. This will cause re-sealing of all secrets in case a cluster is set up from scratch
+(which causes key from the sealed secrets operator to get wiped as well).
 
 # Clusters and namespaces
 Sealed secrets are usually only decryptable by one cluster, simply because each cluster has its own set of randomly

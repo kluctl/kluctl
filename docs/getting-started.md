@@ -6,11 +6,6 @@ This is a short documentation on how to get started before actually deploying yo
 
 You need to install a set of command line tools to fully use kluctl. These are:
 
-1. [kustomize](https://kubectl.docs.kubernetes.io/installation/kustomize/) <br>
-   It is currently not possible to use the kubectl integration of kustomize. This means, that you must install the
-   kustomize binaries. This might change in the future.
-1. [kubeseal](https://github.com/bitnami-labs/sealed-secrets/releases) <br>
-   Follow the "Client side" instructions for the latest release
 1. [helm](https://github.com/helm/helm/releases) <br>
    Download the binaries for your system, make them executable and make them globally available
    (modify your PATH or copy it into /usr/local/bin)
@@ -23,7 +18,7 @@ The first step is of course: You need a kubernetes cluster. It doesn't really ma
 it's a managed cluster, or a self-hosted cluster, kops or kubespray based, AWS, GCE, Azure, ... and so on. kluctl
 is completely independent of how Kubernetes is deployed and where it is hosted.
 
-There is however a minimum Kubenetes version that must be met: 1.20.0. This is due to the heavy use of server-side apply
+There is however a minimum Kubernetes version that must be met: 1.20.0. This is due to the heavy use of server-side apply
 which was not stable enough in older versions of Kubernetes.
 
 ## Prepare your kubeconfig
@@ -39,25 +34,11 @@ you used, you might also be able to directly export the context into your local 
 [kops](https://github.com/kubernetes/kops/blob/master/docs/cli/kops_export.md) is able to export and merge the kubeconfig
 for a given cluster.
 
-## Bootstrap the cluster
-
-A cluster that is managed by kluctl needs a bootstrap deployment first. This bootstrap deployment installs mandatory
-things into the cluster (e.g. the sealed-secrets controller). The bootstrap deployment is located under the kluctl
-Git repository in the `kluctl/bootstrap` directory. You can easily deploy it with this kluctl invocation:
-
-```shell
-$ kluctl bootstrap --cluster test.example.com
-```
-
-The bootstrap deployment might need to be updated from time to time. Simply re-do the above command whenever a new
-kluctl release is available.
-
 ## Example projects
 
 Now you can play around with the projects within the `examples` folder. In order to have fun with a very simple example, just install [kind](https://kind.sigs.k8s.io/), create a [cluster](https://kind.sigs.k8s.io/docs/user/quick-start/#creating-a-cluster) and run the following commands:
 ```
 cd examples/simple
-kluctl bootstrap --cluster kind
 kluctl diff --target dev
 kluctl deploy --target dev
 ```

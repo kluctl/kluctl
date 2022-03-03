@@ -203,6 +203,27 @@ secretsConfig:
             passwordField: field-name # This is optional and defaults to GenericField1
 ```
 
+#### systemEnvVars
+Load secrets from environment variables. Children of `systemEnvVars` can be arbitrary yaml, e.g. dictionaries or lists.
+The leaf values are used to get a value from the system environment.
+
+Example:
+```yaml
+secretsConfig:
+  secretSets:
+    - name: prod
+      sources:
+        - systemEnvVars:
+            var1: ENV_VAR_NAME1
+            someDict:
+              var2: ENV_VAR_NAME2
+            someList:
+              - var3: ENV_VAR_NAME3
+```
+
+The above example will make 3 secret variables available: `secrets.var1`, `secrets.someDict.var2` and
+`secrets.someList[0].var3`, each having the values of the environment variables specified by the leaf values.
+
 #### awsSecretsManager
 [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) integration. Loads a secrets YAML from an AWS Secrets
 Manager secret. The secret can either be specified via an ARN or via a secretName and region combination. An AWS
@@ -308,9 +329,9 @@ once and not for all dynamic targets.
 
 # Separating kluctl projects and deployment projects
 
-As seen in the `.kluctl.yml` documentation, deployment projects can rely in other repositories then the kluctl project.
+As seen in the `.kluctl.yml` documentation, deployment projects can exist in other repositories then the kluctl project.
 This is a desired pattern in some circumstances, for example when you want to share a single deployment project with
-multiple teams that all manage their own clusters. This way each team can have its own minimalistic kluct project which
+multiple teams that all manage their own clusters. This way each team can have its own minimalistic kluctl project which
 points to the deployment project and the teams clusters configuration.
 
 This way secret sources can also differ between teams and sharing can be reduced to a minimum if desired.

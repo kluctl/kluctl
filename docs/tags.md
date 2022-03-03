@@ -8,16 +8,15 @@ Tags are useful when only one or more specific kustomize deployments need to be 
 
 ## Default tags
 
-[kustomizeDirs](./deployments.md#kustomizedirs) and [includes](./deployments.md#includes) in deployment projects can
-have an optional list of tags assigned.
+[deployment items](./deployments.md#deployments) in deployment projects can have an optional list of tags assigned.
 
 If this list is completely omitted, one single entry is added by default. This single entry equals to the last element
-of the `path` in the `kustomizeDirs`/`includes` entry.
+of the `path` in the `deployments` entry.
 
 Consider the following example:
 
 ```yaml
-kustomizeDirs:
+deployments:
   - path: nginx
   - path: some/subdir
 ```
@@ -30,25 +29,25 @@ or even conflicting tags (e.g. `subdir` is really a bad tag), in which case you'
 
 ## Tag inheritance
 
-Deployment projects and kustomize deployments inherit the tags of their parents. For example, if a deployment project
-has a [tags](./deployments.md#tags-2) field defined, all `kustomizeDirs` entries and all `includes` entries would
-inherit all these tags. Also, the sub-deployment projects included via `includes` inherit the tags of the `includes`
-entry (which might have been inherited as described before), leading to further inheritance by deeper `kustomizeDirs`
-and `includes`.
+Deployment projects and deployments items inherit the tags of their parents. For example, if a deployment project
+has a [tags](./deployments.md#tags-deployment-project) property defined, all `deployments` entries would
+inherit all these tags. Also, the sub-deployment projects included via deployment items of type
+[include](./deployments.md#includes) inherit the tags of the deployment project. These included sub-deployments also
+inherit the [tags](./deployments.md#tags-deployment-item) specified by the deployment item itself.
 
 Consider the following example `deployment.yml`:
 
 ```yaml
-includes:
-  - path: sub-deployment1
+deployments:
+  - include: sub-deployment1
     tags:
       - tag1
       - tag2
-  - path: sub-deployment2
+  - include: sub-deployment2
     tags:
       - tag3
       - tag4
-  - path: subdir/subsub
+  - include: subdir/subsub
 ```
 
 Any kustomize deployment found in `sub-deployment1` would now inherit `tag1` and `tag2`. If `sub-deployment1` performs

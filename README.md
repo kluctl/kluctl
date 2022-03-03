@@ -44,10 +44,10 @@ in a sane way.
 
 ## Installation
 
-kluctl can be installed in 3 different ways.
+kluctl can currently only be installed this way:
 1. Download a standalone binary from the latest release and make it available in your PATH, either by copying it into `/usr/local/bin` or by modifying the PATH variable
-2. Use pip to install kluctl: `pip install kluctl`
-3. Use kluctl inside docker, which is useful in CI/CD for example. The image is currently hosted on Docker Hub: https://hub.docker.com/repository/docker/codablock/kluctl
+
+Future releases will include packaged releases for homebrew and other established package managers (contributions are welcome).
 
 ## Documentation
 
@@ -58,7 +58,7 @@ You can find a basic Getting Started documentation [here](./docs/getting-started
 ### kluctl project config (.kluctl.yml)
 
 The [.kluctl.yml](./docs/kluctl_project.md) file is the central configuration file that defines your kluctl project.
-It declares what (clusters, secrets, deployment projects, ...) is need for your deployment, where to find it and what
+It declares what (clusters, secrets, deployment projects, ...) is needed for your deployment, where to find it and what
 targets are available to invoke commands against.
 
 ### Deployment projects
@@ -94,10 +94,10 @@ base infrastructure.
 ### Jinja2 based templating engine
 
 Kubernetes resources and all other involved configuration is based on [Jinja2](https://palletsprojects.com/p/jinja/)
-templates. Templates can easily be configured via CLI arguments (`-a var_name=value`) or via
-the [deployment project](./docs/deployments.md#vars) declare a custom set of variables.
+templates. Jinja2 context variables are usually passed though [kluctl targets](./docs/kluctl_project.md#targets)
+but can also be overridden via CLI.
 
-Jinja2 macros allow unifying of heavily repeated deployments (e.g. you 100 microservices) in a convenient way. 
+Jinja2 macros allow unifying of heavily repeated deployments (e.g. your 100 microservices) in a convenient way.
 
 ### Unified CLI (command line interface)
 
@@ -105,16 +105,13 @@ Deploying your application and all of its dependencies is done via a unified com
 the same, no matter how large (single nginx or 100 microservices) or flexible (test env, uat env, prod env, local env...)
 your deployment actually is.
 
-The unified CLI also allows to build other tools around kluctl, for example web based UIs around your deployments
-or ChatOps bots.
-
 ### Secure management of (sealed) secrets in Git
 
 Maintaining secrets inside Git is a complex and dangerous task, but at the same time has many advantages when done
 properly. Encrypting such secrets is a must, but there are multiple more or less secure ways to do so.
 
 kluctl has builtin support for [sealed-secrets](https://github.com/bitnami-labs/sealed-secrets). This means,
-it can plug in sealed secrets into you deployment in a dynamic and configurable way, targeting multiple clusters,
+it can plug in sealed secrets into your deployment in a dynamic and configurable way, targeting multiple clusters,
 environments, configurations and so on.
 
 sealed-secrets is public-key crypto based, allowing to target individual clusters or namespaces in a secure way,

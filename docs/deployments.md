@@ -78,12 +78,10 @@ An example `deployment.yml` looks like this:
 sealedSecrets:
   outputPattern: "{{ cluster.name }}/{{ args.environment }}"
 
-kustomizeDirs:
+deployments:
 - path: nginx
 - path: my-app
-
-includes:
-- path: monitoring
+- include: monitoring
 
 commonLabels:
   my.prefix/environment: "{{ args.environment }}"
@@ -103,63 +101,130 @@ The following sub-chapters describe the available properties/fields in the `depl
 `sealedSecrets` configures how sealed secrets are stored while sealing and located while rendering.
 See [Sealed Secrets](./sealed-secrets.md#outputpattern-and-location-of-stored-sealed-secrets) for details.
 
-### kustomizeDirs
+### deployments
 
-`kustomizeDirs` is a list of [kustomize](https://kustomize.io/) deployments to be included in the deployment. The
-kustomize deployment must be located in a directory that is relative to the location of the `deployment.yml`.
+`deployments` is a list of deployment items. Multiple deployment types are supported, which is documented further down.
+Individual deployments are performed in parallel, unless a [barrier](#barriers) is encountered which causes kluctl to
+wait for all previous deployments to finish.
 
+#### [kustomize](https://kustomize.io/) deployments
+
+Specifies a [kustomize](https://kustomize.io/) deployment.
 Please see [Kustomize integration](./kustomize-integration.md) for more details.
-
-#### path
-The relative path of the kustomize deployment. It must contain a valid `kustomization.yml`.
-
-#### tags
-A list of tags the kustomize deployment should have. See [tags](./tags.md) for more details.
-
-#### barrier
-Causes kluctl to wait until the current and all previous kustomize deployments have been applied. This is useful when
-upcoming deployments need the current or previous deployments to be finished beforehand.
-
-#### alwaysDeploy
-Forces a kustomize Deployment to be included everytime, ignoring inclusion/exclusion sets from the command line.
-See [Deploying with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
-
-#### skipDeleteIfTags
-Forces exclusion of a kustomize deployment whenever inclusion/exclusion tags are specified via command line.
-See [Deleting with tag inclusion/exclusion](./tags.md#deleting-with-tag-inclusionexclusion) for details.
-
-### vars
-A list of additional sets of variables to be added to the Jinja2 context.
-
-There are currently two types of entries possible:
-1. If `values` is present, it directly contains the new variables
-1. If `file` is present, it points to a relative yaml file that contains the variables.
 
 Example:
 ```yaml
-vars:
-- file: vars1.yml
-- values:
-    var1: value1
-    var2:
-      var3: value3
+deployments:
+- path: path/to/deployment
 ```
 
-See [jinja2-templating](./jinja2-templating.md) for more details.
+The `path` must point to a directory relative to the directory containing the `deployment.yml`. Only directories
+that are part of the kluctl project are allowed. The directory must contain a valid `kustomization.yml`.
 
-### includes
-A list of sub-deployment projects to include. These are deployment-projects as well and inherit many of the
-properties of the parent deployment project.
+#### Includes
 
-#### path
-The relative path of the sub-deployment project. It must contain a valid `deployment.yml`.
+Specifies a sub-deployment project to be included. The included sub-deployment project will inherit many properties
+of the parent project, e.g. tags, commonLabels and so on.
 
-#### tags
-A list of tags the include and all of its sub-includes and kustomize deployments should have.
-See [tags](./tags.md) for more details.
+Example:
+```yaml
+deployments:
+- include: path/to/sub-deploment
+```
 
-#### barrier
-Same as `barrier` in `kustomizeDirs`.
+The `path` must point to a directory relative to the directory containing the `deployment.yml`. Only directories
+that are part of the kluctl project are allowed. The directory must contain a valid `deployment.yml`.
+
+#### Barriers
+Causes kluctl to wait until all previous kustomize deployments have been applied. This is useful when
+upcoming deployments need the current or previous deployments to be finished beforehand. Previous deployments also
+include all sub-deployments from included deployments.
+
+Example:
+```yaml
+deployments:
+- path: kustomizeDeployment1
+- path: kustomizeDeployment2
+- include: subDeployment1
+- barrier: true
+# At this point, it's ensured that kustomizeDeployment1, kustomizeDeployment2 and all sub-deployments from
+# subDeployment1 are fully deployed.
+- path: kustomizeDeployment3
+```
+
+### deployments common properties
+All entries in `deployments` can have the following common properties:
+
+#### vars (deployment item)
+A list of additional sets of variables to be added to the Jinja2 context the corresponding (and sub-deployments in case
+of includes).
+
+See [jinja2-templating](./jinja2-templating.md#vars-from-deploymentyml) for more details.
+
+Example:
+```yaml
+deployments:
+- path: kustomizeDeployment1
+  vars:
+    - file: vars1.yml
+    - values:
+        var1: value1
+- path: kustomizeDeployment2
+# all sub-deployments of this include will have the given variables available in their Jinj2 context.
+- include: subDeployment1
+  vars:
+    - file: vars2.yml
+```
+
+#### tags (deployment item)
+A list of tags the deployment should have. See [tags](./tags.md) for more details. For includes, this means that all
+sub-deployments will get these tags applied to. If not specified, the default tags logic as described in [tags](./tags.md)
+is applied.
+
+Example:
+
+```yaml
+deployments:
+- path: kustomizeDeployment1
+  tags:
+    - tag1
+    - tag2
+- path: kustomizeDeployment2
+  tags:
+    - tag3
+# all sub-deployments of this include will get tag4 applied
+- include: subDeployment1
+  tags:
+    - tag4
+```
+
+#### alwaysDeploy
+Forces a deployment to be included everytime, ignoring inclusion/exclusion sets from the command line.
+See [Deploying with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
+
+```yaml
+deployments:
+- path: kustomizeDeployment1
+  alwaysDeploy: true
+- path: kustomizeDeployment2
+```
+
+#### skipDeleteIfTags
+Forces exclusion of a deployment whenever inclusion/exclusion tags are specified via command line.
+See [Deleting with tag inclusion/exclusion](./tags.md#deleting-with-tag-inclusionexclusion) for details.
+
+```yaml
+deployments:
+- path: kustomizeDeployment1
+  skipDeleteIfTags: true
+- path: kustomizeDeployment2
+```
+
+### vars (deployment project)
+A list of additional sets of variables to be added to the Jinja2 context of all deployments (and sub-deployment) of the
+current deployment project.
+
+See [jinja2-templating](./jinja2-templating.md#vars-from-deploymentyml) for more details.
 
 ### commonLabels
 A dictionary of [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and values to be
@@ -170,11 +235,9 @@ through a specific deployment project.
 
 Consider the following example `deployment.yml`:
 ```yaml
-kustomizeDirs:
+deployments:
   - path: nginx
-
-includes:
-  - path: sub-deployment1
+  - include: sub-deployment1
 
 commonLabels:
   my.prefix/deployment-name: my-deployment-project-name
@@ -215,7 +278,7 @@ to delete. This might then cause deletion of object that are NOT related to your
 A string that is used as the default namespace for all kustomize deployments which don't have a `namespace` set in their
 `kustomization.yml`.
 
-### tags
+### tags (deployment project)
 A list of common tags which are applied to all kustomize deployments and sub-deployment includes.
 
 See [tags](./tags.md) for more details.
@@ -226,8 +289,8 @@ in Jinja2 templating via the global `args` object. Only the root `deployment.yml
 
 An example looks like this:
 ```yaml
-kustomizeDirs:
-  - name: nginx
+deployments:
+  - path: nginx
 
 args:
   - name: environment
@@ -258,7 +321,7 @@ that includes Go templates, which will in most cases make Jinja2 templating fail
 A list of objects and fields to ignore while performing diffs. Consider the following example:
 
 ```yaml
-kustomizeDirs:
+deployments:
   - ...
 
 ignoreForDiff:

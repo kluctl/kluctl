@@ -10,13 +10,16 @@ is possible and how to use it.
 
 ## vars from deployment.yml
 
-[vars](./deployments.md#vars) can be used to add more variables to the deployment project. These are then available
-for every kustomize deployment of the current deployment project and also inside all included sub-deployments.
+There are multiple places in deployment projects (deployment.yml) where additional variables can be loaded into
+future Jinja2 contexts.
 
-These are however not available while the `deployment.yml` is rendered that defines these vars. This file is
-rendered and interpreted before the `vars` are processed and added to the Jinja2 context.
+The first place where vars can be specified is the deployment root, as documented [here](./deployments.md#vars-deployment-project).
+These vars are visible for all deployments inside the deployment project, including sub-deployments from includes.
 
-However, each entry in `vars` can use all variables defined before that specific file is processed. Consider the
+The second place to specify variables is in the deployment items, as documented [here](./deployments.md#vars-deployment-item).
+
+The variables loaded for each entry in `vars` are not available inside the `deployment.yml` file itself.
+However, each entry in `vars` can use all variables defined before that specific entry is processed. Consider the
 following example.
 
 ```yaml
@@ -48,7 +51,7 @@ vars:
   - file: vars1.yml
 ```
 
-After which all included kustomizeDirs and sub-deployments can use the jinja2 variables from `vars1.yml`.
+After which all included deployments and sub-deployments can use the jinja2 variables from `vars1.yml`.
 
 ### values
 An inline definition of variables. Example:
@@ -60,7 +63,7 @@ vars:
       b: c
 ```
 
-These variables can then be used in all kustomizeDirs and sub-deployments.
+These variables can then be used in all deployments and sub-deployments.
 
 ### clusterConfigMap
 Loads a configmap from the target's cluster and loads the specified key's value as a yaml file into the jinja2 variables
@@ -227,7 +230,7 @@ data:
 ### get_var(field_path, default)
 Convenience method to navigate through the current context variables via a
 [JSON Path](https://goessner.net/articles/JsonPath/). Let's assume you currently have these variables defines 
-(e.g. via [vars](./deployments.md#vars)):
+(e.g. via [vars](./deployments.md#vars-deployment-project)):
 ```yaml
 my:
   deep:
@@ -263,3 +266,18 @@ The path given to include/import is treated as relative to the template that is 
 [Jinja2 macros](https://jinja.palletsprojects.com/en/2.11.x/templates/#macros) are fully supported. When writing
 macros that produce yaml resources, you must use the `---` yaml separator in case you want to produce multiple resources
 in one go.
+
+# Why no Go Templating
+
+kluctl started as a python project and was then migrated to be a Go project. In the python world, Jinja2 is the obvious
+choice when it comes to templating. In the Go world, of course Go Templates would be the first choice.
+
+When the migration to Go was performed, it was a conscious and opinionated decision to stick with Jinja2 templating.
+The reason is that I (@codablock) believe that Go Templates are hard to read and write and at the same time quite limited
+in their features (without extensive work). It never felt natural to write Go Templates.
+
+This "feeling" was confirmed by multiple users of kluctl when it started and users described as "relieving" to not
+be forced to use Go Templates.
+
+The above is my personal experience and opinion. I'm still quite open for contributions in regard to Go Templating
+support, as long as Jinja2 support is kept.
