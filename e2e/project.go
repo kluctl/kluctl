@@ -525,7 +525,7 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", strings.Join(p.kubeconfigs, sep)))
 
-	log.Infof("Runnning kluctl: %s", strings.Join(args, " "))
+	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
 	stdout, stderr, err := runWrappedCmd(p.t,"TestKluctlWrapper", cwd, env, args)
 	return stdout, stderr, err
@@ -534,7 +534,7 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 func (p *testProject) KluctlMust(argsIn ...string) (string, string) {
 	stdout, stderr, err := p.Kluctl(argsIn...)
 	if err != nil {
-		log.Error(stderr)
+		p.t.Logf(stderr)
 		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr

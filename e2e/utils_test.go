@@ -3,7 +3,6 @@ package e2e
 import (
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/validation"
-	log "github.com/sirupsen/logrus"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -22,7 +21,7 @@ func deleteTestNamespaces(k *KindCluster) {
 }
 
 func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource string, timeout time.Duration) bool {
-	log.Infof("Waiting for readiness: %s/%s", namespace, resource)
+	t.Logf("Waiting for readiness: %s/%s", namespace, resource)
 
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
