@@ -328,10 +328,9 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          draft: false
-          prerelease: true
+          draft: true
           body_path: changelog/CHANGELOG.md
           files: |
-            kluctl-linux-*
-            kluctl-darwin-*
-            kluctl-windows-*
+            dist-*/kluctl-linux-*
+            dist-*/kluctl-darwin-*
+            dist-*/kluctl-windows-*
