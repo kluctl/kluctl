@@ -51,6 +51,8 @@ type cli struct {
 	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
 	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate          validateCmd          `cmd:"" help:"Validates the already deployed deployment"`
+
+	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
 
 var flagGroups = []kong.Group{
