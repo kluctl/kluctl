@@ -27,7 +27,7 @@ if [ "$os" = "darwin" ]; then
   export CPPFLAGS="-I$(brew --prefix readline)/include"
   export LDFLAGS="-L$(brew --prefix readline)/lib"
 fi
-./configure $CONFIGURE_FLAGS --enable-shared --disable-test-modules --without-static-libpython --prefix $DIR/../build-python/$os/cpython-install
+./configure $CONFIGURE_FLAGS --enable-shared --disable-test-modules --without-static-libpython --with-ensurepip=no --prefix $DIR/../build-python/$os/cpython-install
 make -j4
 make install
 
