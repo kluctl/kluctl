@@ -58,7 +58,7 @@ var flagGroups = []kong.Group{
 	{Key: "images", Title: "Image arguments:", Description: "Control fixed images and update behaviour."},
 	{Key: "inclusion", Title: "Inclusion/Exclusion arguments:", Description: "Control inclusion/exclusion."},
 	{Key: "misc", Title: "Misc arguments:", Description: "Command specific arguments."},
-	{Key: "global", Title: "Global arguments:", Description: "Global arguments."},
+	{Key: "global", Title: "Global arguments:"},
 }
 var globalFlagGroup = &flagGroups[len(flagGroups)-1]
 
@@ -139,7 +139,7 @@ The missing glue to put together large Kubernetes deployments,
 composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unified way.`
 }
 
-func ParseArgs(args []string, options ...kong.Option) (*kong.Context, error) {
+func ParseArgs(args []string, options ...kong.Option) (*kong.Kong, *kong.Context, error) {
 	var cli cli
 
 	helpOption := kong.HelpOptions{
@@ -151,6 +151,8 @@ func ParseArgs(args []string, options ...kong.Option) (*kong.Context, error) {
 	var options2 []kong.Option
 	options2 = append(options2, helpOption)
 	options2 = append(options2, kong.ExplicitGroups(flagGroups))
+	options2 = append(options2, kong.ShortUsageOnError())
+	options2 = append(options2, kong.Name("kluctl"))
 	options2 = append(options2, options...)
 
 	parser, err := kong.New(&cli, options2...)
@@ -159,22 +161,19 @@ func ParseArgs(args []string, options ...kong.Option) (*kong.Context, error) {
 	}
 	parser.Model.HelpFlag.Group = globalFlagGroup
 	ctx, err := parser.Parse(args)
-	return ctx, err
+	return parser, ctx, err
 }
 
 func Execute() {
 	confOption := kong.Configuration(kong.JSON, "/etc/kluctl.json", "~/.kluctl/config.json")
-	ctx, err := ExecuteWithArgs(os.Args[1:], confOption)
-	if err != nil && ctx == nil {
-		log.Fatal(err)
-	}
-	ctx.FatalIfErrorf(err)
+	parser, _, err := ExecuteWithArgs(os.Args[1:], confOption)
+	parser.FatalIfErrorf(err)
 }
 
-func ExecuteWithArgs(args []string, options ...kong.Option) (*kong.Context, error) {
-	ctx, err := ParseArgs(args, options...)
+func ExecuteWithArgs(args []string, options ...kong.Option) (*kong.Kong, *kong.Context, error) {
+	parser, ctx, err := ParseArgs(args, options...)
 	if err != nil {
-		return nil, err
+		return parser, ctx, err
 	}
-	return ctx, ctx.Run()
+	return parser, ctx, ctx.Run()
 }

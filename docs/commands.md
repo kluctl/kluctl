@@ -98,7 +98,7 @@ The following commands are available:
 
 ## deploy
 <!-- BEGIN SECTION "deploy" "Usage" false -->
-Usage: replace-commands-help deploy
+Usage: kluctl deploy
 
 <!-- END SECTION -->
 
@@ -163,7 +163,7 @@ and outputs them instead. This option modifies the behaviour to immediately abor
 
 ## diff
 <!-- BEGIN SECTION "diff" "Usage" false -->
-Usage: replace-commands-help diff
+Usage: kluctl diff
 
 <!-- END SECTION -->
 
@@ -199,7 +199,7 @@ Misc arguments:
 
 ## delete
 <!-- BEGIN SECTION "delete" "Usage" false -->
-Usage: replace-commands-help delete
+Usage: kluctl delete
 
 <!-- END SECTION -->
 
@@ -228,7 +228,7 @@ They have the same meaning as described in [deploy](#deploy).
 
 ## prune
 <!-- BEGIN SECTION "prune" "Usage" false -->
-Usage: replace-commands-help prune
+Usage: kluctl prune
 
 <!-- END SECTION -->
 
@@ -257,7 +257,7 @@ They have the same meaning as described in [deploy](#deploy).
 
 ## list-images
 <!-- BEGIN SECTION "list-images" "Usage" false -->
-Usage: replace-commands-help list-images
+Usage: kluctl list-images
 
 <!-- END SECTION -->
 
@@ -280,7 +280,7 @@ Misc arguments:
 
 ## poke-images
 <!-- BEGIN SECTION "poke-images" "Usage" false -->
-Usage: replace-commands-help poke-images
+Usage: kluctl poke-images
 
 <!-- END SECTION -->
 
@@ -306,7 +306,7 @@ Misc arguments:
 
 ## downscale
 <!-- BEGIN SECTION "downscale" "Usage" false -->
-Usage: replace-commands-help downscale
+Usage: kluctl downscale
 
 <!-- END SECTION -->
 
@@ -335,7 +335,7 @@ Misc arguments:
 
 ## render
 <!-- BEGIN SECTION "render" "Usage" false -->
-Usage: replace-commands-help render
+Usage: kluctl render
 
 <!-- END SECTION -->
 
@@ -357,7 +357,7 @@ Misc arguments:
 
 ## validate
 <!-- BEGIN SECTION "validate" "Usage" false -->
-Usage: replace-commands-help validate
+Usage: kluctl validate
 
 <!-- END SECTION -->
 
@@ -383,7 +383,7 @@ Misc arguments:
 
 ## seal
 <!-- BEGIN SECTION "seal" "Usage" false -->
-Usage: replace-commands-help seal
+Usage: kluctl seal
 
 <!-- END SECTION -->
 
@@ -409,7 +409,7 @@ Misc arguments:
 
 ## helm-pull
 <!-- BEGIN SECTION "helm-pull" "Usage" false -->
-Usage: replace-commands-help helm-pull
+Usage: kluctl helm-pull
 
 <!-- END SECTION -->
 
@@ -420,7 +420,7 @@ The following sets of arguments are available:
 
 ## helm-update
 <!-- BEGIN SECTION "helm-update" "Usage" false -->
-Usage: replace-commands-help helm-update
+Usage: kluctl helm-update
 
 <!-- END SECTION -->
 
@@ -441,7 +441,7 @@ Misc arguments:
 
 ## list-targets
 <!-- BEGIN SECTION "list-targets" "Usage" false -->
-Usage: replace-commands-help list-targets
+Usage: kluctl list-targets
 
 <!-- END SECTION -->
 
@@ -458,7 +458,7 @@ Misc arguments:
 
 ## archive
 <!-- BEGIN SECTION "archive" "Usage" false -->
-Usage: replace-commands-help archive
+Usage: kluctl archive
 
 <!-- END SECTION -->
 

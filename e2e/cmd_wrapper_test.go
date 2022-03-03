@@ -42,7 +42,7 @@ func doRunCmd() error {
 		_, _ = os.Stderr.WriteString(stdoutEndMarker + "\n")
 	}()
 
-	_, err = commands.ExecuteWithArgs(cmdArgs)
+	_, _, err = commands.ExecuteWithArgs(cmdArgs)
 	return err
 }
 

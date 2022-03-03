@@ -113,11 +113,8 @@ func getHelpSection(command string, section string) []string {
     }
 
     helpBuf := bytes.NewBuffer(nil)
-    ctx, err := commands.ParseArgs([]string{command, "--help"}, kong.Exit(exitFunc), kong.Writers(helpBuf, helpBuf))
-    if err != nil {
-        log.Fatal(err)
-    }
-    _ = ctx
+    parser, _, err := commands.ParseArgs([]string{command, "--help"}, kong.Exit(exitFunc), kong.Writers(helpBuf, helpBuf))
+    parser.FatalIfErrorf(err)
 
     lines := strings.Split(helpBuf.String(), "\n")
 
