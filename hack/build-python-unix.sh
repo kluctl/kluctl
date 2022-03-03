@@ -27,10 +27,11 @@ if [ "$os" = "darwin" ]; then
   export CPPFLAGS="-I$(brew --prefix readline)/include"
   export LDFLAGS="-L$(brew --prefix readline)/lib"
 fi
-./configure $CONFIGURE_FLAGS --enable-shared --prefix $DIR/../build-python/$os/cpython-install
+./configure $CONFIGURE_FLAGS --enable-shared --disable-test-modules --without-static-libpython --prefix $DIR/../build-python/$os/cpython-install
 make -j4
 make install
 
 cd ..
 cd cpython-install
-tar czf $DIR/../pkg/python/python-lib-$os.tar.gz lib
+find . -name __pycache__ -exec rm -rf {} \;
+find . -name '*.a' -exec rm {} \;
