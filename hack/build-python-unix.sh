@@ -35,3 +35,7 @@ cd ..
 cd cpython-install
 find . -name __pycache__ | xargs rm -rf
 find . -name '*.a' | xargs rm
+
+for i in ensurepip idlelib distutils pydoc_data asyncio email tkinter lib2to3 xml multiprocessing unittest; do
+  rm -rf lib/python3.10/$i
+done
