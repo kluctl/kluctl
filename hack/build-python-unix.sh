@@ -33,5 +33,5 @@ make install
 
 cd ..
 cd cpython-install
-find . -name __pycache__ -exec rm -rf {} \;
-find . -name '*.a' -exec rm {} \;
+find . -name __pycache__ | xargs rm -rf
+find . -name '*.a' | xargs rm
