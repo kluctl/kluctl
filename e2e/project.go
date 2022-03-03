@@ -498,6 +498,7 @@ const stdoutEndMarker = "========= stdout end ========="
 func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
+	args = append(args, "--no-update-check")
 
 	cwd := ""
 	if p.kluctlProjectExternal {
