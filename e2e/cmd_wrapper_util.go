@@ -6,9 +6,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"testing"
 )
 
-func runWrappedCmd(testName string, cwd string, env []string, args []string) (string, string, error) {
+func runWrappedCmd(t *testing.T, testName string, cwd string, env []string, args []string) (string, string, error) {
 	executable, err := os.Executable()
 	if err != nil {
 		return "", "", err
@@ -34,7 +35,7 @@ func runWrappedCmd(testName string, cwd string, env []string, args []string) (st
 		return "", "", err
 	}
 
-	stdReader := func(std *os.File, buf io.StringWriter, pipe io.Reader) {
+	stdReader := func(testLogPrefix string, buf io.StringWriter, pipe io.Reader) {
 		scanner := bufio.NewScanner(pipe)
 		inMarker := false
 		for scanner.Scan() {
@@ -44,16 +45,15 @@ func runWrappedCmd(testName string, cwd string, env []string, args []string) (st
 					inMarker = true
 					continue
 				}
-				_, _ = std.WriteString(l + "\n")
+				t.Log(testLogPrefix + l)
 			} else {
 				if l == stdoutEndMarker {
 					inMarker = false
 					continue
 				}
 
-				l += "\n"
-				_, _ = std.WriteString(l)
-				_, _ = buf.WriteString(l)
+				t.Log(testLogPrefix + l)
+				_, _ = buf.WriteString(l + "\n")
 			}
 		}
 	}
@@ -61,8 +61,8 @@ func runWrappedCmd(testName string, cwd string, env []string, args []string) (st
 	stdoutBuf := bytes.NewBuffer(nil)
 	stderrBuf := bytes.NewBuffer(nil)
 
-	go stdReader(os.Stdout, stdoutBuf, stdoutPipe)
-	go stdReader(os.Stderr, stderrBuf, stderrPipe)
+	go stdReader("stdout: ", stdoutBuf, stdoutPipe)
+	go stdReader("stderr: ", stderrBuf, stderrPipe)
 
 	err = cmd.Run()
 	return stdoutBuf.String(), stderrBuf.String(), err
