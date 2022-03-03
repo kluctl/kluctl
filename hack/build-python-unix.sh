@@ -33,7 +33,7 @@ make install
 
 cd ..
 cd cpython-install
-find . -name __pycache__ | xargs rm -r -rf
+find . -name __pycache__ | xargs -r rm -rf
 find . -name '*.a' | xargs -r rm
 
 for i in ensurepip idlelib distutils pydoc_data asyncio email tkinter lib2to3 xml multiprocessing unittest; do
