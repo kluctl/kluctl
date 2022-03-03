@@ -293,7 +293,7 @@ jobs:
       - name: Run e2e tests
         shell: bash
         run: |
-          go test ./e2e/... -parallel 1 -v
+          go test ./e2e/... -parallel 4 -v
       - name: Delete kind cluster
         shell: bash
         run: |
