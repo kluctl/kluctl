@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 func ParseEnvConfigSets(prefix string) map[int]map[string]string {
 	ret := make(map[int]map[string]string)
 

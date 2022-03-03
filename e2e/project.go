@@ -37,7 +37,7 @@ type testProject struct {
 
 	baseDir string
 
-	gitServer *http_server.Server
+	gitServer     *http_server.Server
 	gitHttpServer *http.Server
 	gitServerPort int
 }
@@ -90,7 +90,7 @@ func (p *testProject) initGitServer() {
 	p.gitServer = http_server.New(p.baseDir)
 
 	p.gitHttpServer = &http.Server{
-		Addr: "127.0.0.1:0",
+		Addr:    "127.0.0.1:0",
 		Handler: p.gitServer,
 	}
 

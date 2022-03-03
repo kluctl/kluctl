@@ -22,7 +22,7 @@ type service struct {
 }
 
 type Server struct {
-	baseDir string
+	baseDir  string
 	services []service
 }
 

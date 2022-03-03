@@ -40,10 +40,10 @@ var globalMyKeychain myKeychain
 
 type myKeychain struct {
 	cachedResponses utils.ThreadSafeMultiCache
-	authRealms map[string]bool
-	authErrors map[string]bool
-	init sync.Once
-	mutex sync.Mutex
+	authRealms      map[string]bool
+	authErrors      map[string]bool
+	init            sync.Once
+	mutex           sync.Mutex
 }
 
 func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
@@ -55,8 +55,8 @@ func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, err
 			username, _ := m["USERNAME"]
 			password, _ := m["PASSWORD"]
 			return authn.FromConfig(authn.AuthConfig{
-				Username:      username,
-				Password:      password,
+				Username: username,
+				Password: password,
 			}), nil
 		}
 	}
@@ -69,7 +69,7 @@ func (kc *myKeychain) realmFromRequest(req *http.Request) string {
 }
 
 func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew func(res *http.Response) error) (*http.Response, error) {
-	resI, err := kc.cachedResponses.Get(req.Host, req.URL.Path + "#" + extraKey, func() (interface{}, error) {
+	resI, err := kc.cachedResponses.Get(req.Host, req.URL.Path+"#"+extraKey, func() (interface{}, error) {
 		res, err := remote.DefaultTransport.RoundTrip(req)
 		if err != nil {
 			return nil, err
