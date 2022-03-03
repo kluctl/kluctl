@@ -125,7 +125,7 @@ func (c *cli) checkNewVersion() {
 	}
 }
 
-func (c *cli) BeforeApply() error {
+func (c *cli) AfterApply() error {
 	if err := c.setupLogs(); err != nil {
 		return err
 	}
