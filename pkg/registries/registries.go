@@ -5,15 +5,22 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/docker/distribution/registry/client/auth/challenge"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
 
 func ListImageTags(image string) ([]string, error) {
@@ -68,32 +75,130 @@ func (kc *myKeychain) realmFromRequest(req *http.Request) string {
 	return fmt.Sprintf("%s://%s%s", req.URL.Scheme, req.URL.Host, req.URL.Path)
 }
 
-func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew func(res *http.Response) error) (*http.Response, error) {
-	resI, err := kc.cachedResponses.Get(req.Host, req.URL.Path+"#"+extraKey, func() (interface{}, error) {
-		res, err := remote.DefaultTransport.RoundTrip(req)
-		if err != nil {
-			return nil, err
-		}
+func (kc *myKeychain) getCachePath(key string) string {
+	return filepath.Join(utils.GetTmpBaseDir(), "registries-cache", key[0:2], key[2:4], key)
+}
 
-		if onNew != nil {
-			err = onNew(res)
+func (kc *myKeychain) checkInvalidToken(resBody []byte) bool {
+	j, err := uo.FromString(string(resBody))
+	if err != nil {
+		return false
+	}
+
+	tokenStr, ok, _ := j.GetNestedString("token")
+	if !ok {
+		return false
+	}
+
+	_, err = jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		return nil, nil
+	})
+	if err != nil {
+		if vErr, ok := err.(*jwt.ValidationError); ok {
+			if vErr.Errors & ^jwt.ValidationErrorSignatureInvalid == 0 {
+				// invalid signature errors are expected as we did not provide a key
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func (kc *myKeychain) readCachedResponse(key string) []byte {
+	cachePath := kc.getCachePath(key)
+	st, err := os.Stat(cachePath)
+
+	if err != nil {
+		return nil
+	}
+
+	if time.Now().Sub(st.ModTime()) > 55 * time.Minute {
+		return nil
+	}
+
+	b, err := ioutil.ReadFile(cachePath)
+	if err != nil {
+		return nil
+	}
+
+	res, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(b)), nil)
+
+	if strings.HasPrefix(res.Header.Get("Content-Type"), "application/json") {
+		jb, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil
+		}
+		if kc.checkInvalidToken(jb) {
+			return nil
+		}
+	}
+
+	return b
+}
+
+func (kc *myKeychain) writeCachedResponse(key string, data []byte) {
+	cachePath := kc.getCachePath(key)
+	if !utils.Exists(filepath.Dir(cachePath)) {
+		err := os.MkdirAll(filepath.Dir(cachePath), 0o700)
+		if err != nil {
+			log.Warningf("writeCachedResponse failed: %v", err)
+			return
+		}
+	}
+
+	err := ioutil.WriteFile(cachePath + ".tmp", data, 0o600)
+	if err != nil {
+		log.Warningf("writeCachedResponse failed: %v", err)
+		return
+	}
+	err = os.Rename(cachePath + ".tmp", cachePath)
+	if err != nil {
+		log.Warningf("writeCachedResponse failed: %v", err)
+		return
+	}
+}
+
+func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew func(res *http.Response) error) (*http.Response, error) {
+	key := fmt.Sprintf("%s\n%s\n%s\n", req.Host, req.URL.Path, extraKey)
+	key = utils.Sha256String(key)
+
+	isNew := false
+	resI, err := kc.cachedResponses.Get(req.Host, key, func() (interface{}, error) {
+		isNew = true
+
+		b := kc.readCachedResponse(key)
+		if b == nil {
+			res, err := remote.DefaultTransport.RoundTrip(req)
 			if err != nil {
 				return nil, err
 			}
+			b, err = httputil.DumpResponse(res, true)
+			if err != nil {
+				return nil, err
+			}
+
+			kc.writeCachedResponse(key, b)
 		}
 
-		return httputil.DumpResponse(res, true)
+		return b, nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
 	resBytes, _ := resI.([]byte)
-	r := bufio.NewReader(bytes.NewReader(resBytes))
 
-	res, err := http.ReadResponse(r, req)
+	res, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(resBytes)), req)
 	if err != nil {
 		return res, err
+	}
+
+	if isNew && onNew != nil {
+		err = onNew(res)
+		if err != nil {
+			return nil, err
+		}
+		res, _ = http.ReadResponse(bufio.NewReader(bytes.NewReader(resBytes)), req)
 	}
 
 	return res, err
