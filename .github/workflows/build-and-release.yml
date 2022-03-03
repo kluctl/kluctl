@@ -138,7 +138,7 @@ jobs:
       - name: Build kluctl
         shell: bash
         run: |
-          go build ./cmd/kluctl
+          go build -ldflags "-s -w" ./cmd/kluctl
           EXE=""
           if [ "${{ runner.os }}" = "Windows" ]; then
             EXE=".exe"
