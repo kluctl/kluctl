@@ -15,7 +15,10 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
+	"sigs.k8s.io/kustomize/kyaml/openapi"
+	yaml2 "sigs.k8s.io/kustomize/kyaml/yaml"
 	"strings"
+	"sync"
 )
 
 const sealmeExt = ".sealme"
@@ -294,6 +297,8 @@ func (di *deploymentItem) buildKustomize() error {
 		return err
 	}
 
+	waitForOpenapiInitDone()
+
 	ko := krusty.MakeDefaultOptions()
 	k := krusty.MakeKustomizer(ko)
 
@@ -365,4 +370,27 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 	}
 
 	return nil
+}
+
+var openapiInitDoneMutex sync.Mutex
+var openapiInitDoneOnce sync.Once
+
+func waitForOpenapiInitDone() {
+	openapiInitDoneOnce.Do(func() {
+		openapiInitDoneMutex.Lock()
+		openapiInitDoneMutex.Unlock()
+	})
+}
+
+func init() {
+	openapiInitDoneMutex.Lock()
+	go func() {
+		// we do a single call to IsNamespaceScoped to enforce openapi schema initialization
+		// this is required here to ensure that it is later not done in parallel which would cause race conditions
+		openapi.IsNamespaceScoped(yaml2.TypeMeta{
+			APIVersion: "",
+			Kind:       "ConfigMap",
+		})
+		openapiInitDoneMutex.Unlock()
+	}()
 }
