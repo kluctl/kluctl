@@ -199,7 +199,8 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 		Name: "origin",
 		URLs: []string{g.url.String()},
 		Fetch: []config.RefSpec{
-			"+refs/*:refs/*", // same as with "git clone --mirror"
+			"+refs/heads/*:refs/heads/*",
+			"+refs/tags/*:refs/tags/*",
 		},
 	})
 	if err != nil {
