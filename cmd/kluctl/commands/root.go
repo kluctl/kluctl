@@ -168,7 +168,8 @@ func ParseArgs(args []string, options ...kong.Option) (*kong.Kong, *kong.Context
 
 func Execute() {
 	confOption := kong.Configuration(kong.JSON, "/etc/kluctl.json", "~/.kluctl/config.json")
-	parser, _, err := ExecuteWithArgs(os.Args[1:], confOption)
+	envOption := kong.DefaultEnvars("KLUCTL")
+	parser, _, err := ExecuteWithArgs(os.Args[1:], confOption, envOption)
 	parser.FatalIfErrorf(err)
 }
 
