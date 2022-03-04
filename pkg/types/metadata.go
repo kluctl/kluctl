@@ -6,6 +6,6 @@ type InvolvedRepo struct {
 }
 
 type ArchiveMetadata struct {
-	InvolvedRepos map[string][]InvolvedRepo `yaml:"involvedRepo"`
+	InvolvedRepos map[string][]InvolvedRepo `yaml:"involvedRepos"`
 	Targets       []*DynamicTarget          `yaml:"targets"`
 }
