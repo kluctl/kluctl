@@ -178,7 +178,9 @@ func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew 
 				return nil, err
 			}
 
-			kc.writeCachedResponse(key, b)
+			if res.StatusCode < 500 {
+				kc.writeCachedResponse(key, b)
+			}
 		}
 
 		return b, nil
