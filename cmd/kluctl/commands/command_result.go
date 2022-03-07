@@ -172,7 +172,7 @@ func outputHelper(output []string, cb func(format string) (string, error)) error
 		output = []string{"text"}
 	}
 	for _, o := range output {
-		s := strings.SplitN(o, "=", 1)
+		s := strings.SplitN(o, "=", 2)
 		format := s[0]
 		var path *string
 		if len(s) > 1 {
@@ -234,7 +234,7 @@ func outputYamlResult(output []string, result interface{}, multiDoc bool) error 
 func outputResult(f *string, result string) error {
 	w := os.Stdout
 	if f != nil && *f != "-" {
-		f, err := os.Open(*f)
+		f, err := os.Create(*f)
 		if err != nil {
 			return err
 		}
