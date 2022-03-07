@@ -8,7 +8,7 @@ import (
 )
 
 type ObjectRef struct {
-	GVK       schema.GroupVersionKind
+	GVK       schema.GroupVersionKind `yaml:"gvk,inline"`
 	Name      string
 	Namespace string
 }
