@@ -163,8 +163,7 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 
 	var dynamicTargets []*dynamicTargetInfo
 	for ref := range refs {
-		ref := ref
-		m, err := c.matchRef(ref, *refPattern)
+		m, refShortName, err := c.matchRef(ref, *refPattern)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +171,7 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 			continue
 		}
 
-		cloneDir, err := c.buildCloneDir(baseTarget.TargetConfig.Project.Url, ref)
+		cloneDir, err := c.buildCloneDir(baseTarget.TargetConfig.Project.Url, refShortName)
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +180,7 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 			baseTarget:    baseTarget,
 			dir:           cloneDir,
 			gitProject:    baseTarget.TargetConfig.Project,
-			ref:           &ref,
+			ref:           &refShortName,
 			refPattern:    refPattern,
 			defaultBranch: *defaultBranch,
 		})
@@ -189,23 +188,29 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 	return dynamicTargets, nil
 }
 
-func (c *KluctlProjectContext) matchRef(s string, pattern string) (bool, error) {
+func (c *KluctlProjectContext) matchRef(s string, pattern string) (bool, string, error) {
 	if strings.HasPrefix(pattern, "refs/") {
 		p, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
-		return p.MatchString(s), nil
+		return p.MatchString(s), s, nil
 	}
 	p1, err := regexp.Compile(fmt.Sprintf("^refs/heads/%s$", pattern))
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
 	p2, err := regexp.Compile(fmt.Sprintf("^refs/tags/%s$", pattern))
 	if err != nil {
-		return false, err
+		return false, "", err
 	}
-	return p1.MatchString(s) || p2.MatchString(s), nil
+	if p1.MatchString(s) {
+		return true, s[len("refs/heads/"):], nil
+	} else if p2.MatchString(s) {
+		return true, s[len("refs/tags/"):], nil
+	} else {
+		return false, "", nil
+	}
 }
 
 func (c *KluctlProjectContext) cloneDynamicTargets(dynamicTargets []*dynamicTargetInfo) error {
