@@ -146,6 +146,10 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 	if err != nil {
 		return err
 	}
+	remoteRefsMap := make(map[plumbing.ReferenceName]bool)
+	for _, reference := range g.remoteRefs {
+		remoteRefsMap[reference.Name()] = true
+	}
 
 	err = remote.Fetch(&git.FetchOptions{
 		Auth:     auth,
@@ -155,6 +159,27 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
+	}
+
+	localRemoteRefs, err := r.References()
+	if err != nil {
+		return err
+	}
+	var toDelete []plumbing.Reference
+	err = localRemoteRefs.ForEach(func(reference *plumbing.Reference) error {
+		if _, ok := remoteRefsMap[reference.Name()]; !ok {
+			toDelete = append(toDelete, *reference)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, ref := range toDelete {
+		err = r.Storer.RemoveReference(ref.Name())
+		if err != nil {
+			return err
+		}
 	}
 
 	// update default branch, referenced via HEAD
