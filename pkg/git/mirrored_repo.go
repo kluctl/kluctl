@@ -245,7 +245,11 @@ func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 
 	log.Debugf("Cloning git project: url='%s', ref='%s', target='%s'", g.url.String(), ref, targetDir)
 
-	return PoorMansClone(g.mirrorDir, targetDir, ref)
+	err := PoorMansClone(g.mirrorDir, targetDir, ref)
+	if err != nil {
+		return fmt.Errorf("failed to clone %s from %s: %w", ref, g.url.String(), err)
+	}
+	return nil
 }
 
 func buildRemoteName(u git_url.GitUrl) string {

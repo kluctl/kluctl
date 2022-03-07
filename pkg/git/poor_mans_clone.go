@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // PoorMansClone poor mans clone from a local repo, which does not rely on go-git using git-upload-pack
@@ -80,7 +82,17 @@ func PoorMansClone(sourceDir string, targetDir string, ref string) error {
 	}
 	var ref2 plumbing.ReferenceName
 	if ref != "" {
-		ref2 = plumbing.NewBranchReferenceName(ref)
+		if strings.HasPrefix(ref,"refs/heads") {
+			ref2 = plumbing.ReferenceName(ref)
+		} else {
+			if _, err := r.Reference(plumbing.NewBranchReferenceName(ref), true); err == nil {
+				ref2 = plumbing.NewBranchReferenceName(ref)
+			} else if _, err := r.Reference(plumbing.NewTagReferenceName(ref), true); err == nil {
+				ref2 = plumbing.NewTagReferenceName(ref)
+			} else {
+				return fmt.Errorf("ref %s not found", ref)
+			}
+		}
 	} else {
 		x, err := r.Reference("HEAD", true)
 		if err != nil {
