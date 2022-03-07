@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -145,7 +146,6 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 	if defaultBranch == nil {
 		return nil, fmt.Errorf("git project %v seems to have no default branch", baseTarget.TargetConfig.Project.Url.String())
 	}
-	*defaultBranch = (*defaultBranch)[len("refs/heads/"):]
 
 	if baseTarget.TargetConfig.Ref == nil && baseTarget.TargetConfig.RefPattern == nil {
 		// use default branch of repo
@@ -161,17 +161,16 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 		refPattern = targetConfigRef
 	}
 
-	compiledRefPattern, err := regexp.Compile(fmt.Sprintf("^refs/heads/%s$", *refPattern))
-	if err != nil {
-		return nil, fmt.Errorf("invalid ref pattern %s: %w", *refPattern, err)
-	}
-
 	var dynamicTargets []*dynamicTargetInfo
-	for fullRefName := range refs {
-		if !compiledRefPattern.MatchString(fullRefName) {
+	for ref := range refs {
+		ref := ref
+		m, err := c.matchRef(ref, *refPattern)
+		if err != nil {
+			return nil, err
+		}
+		if !m {
 			continue
 		}
-		ref := fullRefName[len("refs/heads/"):]
 
 		cloneDir, err := c.buildCloneDir(baseTarget.TargetConfig.Project.Url, ref)
 		if err != nil {
@@ -188,6 +187,25 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 		})
 	}
 	return dynamicTargets, nil
+}
+
+func (c *KluctlProjectContext) matchRef(s string, pattern string) (bool, error) {
+	if strings.HasPrefix(pattern, "refs/") {
+		p, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
+		if err != nil {
+			return false, err
+		}
+		return p.MatchString(s), nil
+	}
+	p1, err := regexp.Compile(fmt.Sprintf("^refs/heads/%s$", pattern))
+	if err != nil {
+		return false, err
+	}
+	p2, err := regexp.Compile(fmt.Sprintf("^refs/tags/%s$", pattern))
+	if err != nil {
+		return false, err
+	}
+	return p1.MatchString(s) || p2.MatchString(s), nil
 }
 
 func (c *KluctlProjectContext) cloneDynamicTargets(dynamicTargets []*dynamicTargetInfo) error {
