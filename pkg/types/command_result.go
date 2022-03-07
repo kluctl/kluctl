@@ -41,7 +41,7 @@ type ValidateResultEntry struct {
 }
 
 type ValidateResult struct {
-	Ready    bool                  `yaml:"ref"`
+	Ready    bool                  `yaml:"ready"`
 	Warnings []DeploymentError     `yaml:"warnings,omitempty"`
 	Errors   []DeploymentError     `yaml:"errors,omitempty"`
 	Results  []ValidateResultEntry `yaml:"results,omitempty"`
