@@ -153,7 +153,14 @@ func objectToDiffableStringNoType(o interface{}) (string, error) {
 		return v, nil
 	}
 
+	isYaml := false
 	if _, ok := o.(map[string]interface{}); ok {
+		isYaml = true
+	} else if _, ok := o.([]interface{}); ok {
+		isYaml = true
+	}
+
+	if isYaml {
 		b, err := yaml.WriteYamlString(o)
 		if err != nil {
 			return "", err
