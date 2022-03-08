@@ -147,6 +147,12 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	return k, nil
 }
 
+func (k *K8sCluster) ReadWrite() *K8sCluster {
+	k2 := *k
+	k2.DryRun = false
+	return &k2
+}
+
 func (k *K8sCluster) Context() string {
 	return k.context
 }

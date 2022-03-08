@@ -33,7 +33,7 @@ func fetchCert(k *k8s.K8sCluster, namespace string, controllerName string) (*rsa
 				log.Warningf("Failed to retrieve public certificate from sealed-secrets-controller, re-trying with bootstrap secret")
 				s, err = openCertFromBootstrap(client, namespace)
 				if err != nil {
-					return fmt.Errorf("failed to retrieve selaed secrets public key: %w", err)
+					return fmt.Errorf("failed to retrieve sealed secrets public key: %w", err)
 				}
 			}
 		}
