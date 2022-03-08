@@ -253,6 +253,8 @@ func (a *applyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	if err != nil && meta.IsNoMatchError(err) {
 		// maybe this was a resource for which the CRD was only deployed recently, so we should do rediscovery and then
 		// retry the patch
+		a.mutex.Lock()
+		defer a.mutex.Unlock()
 		if a.deployedNewCRD {
 			a.deployedNewCRD = false
 			err = a.k.RediscoverResources()
@@ -265,6 +267,8 @@ func (a *applyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 		ref := x.GetK8sRef()
 		if ref.GVK.Group == "apiextensions.k8s.io" && ref.GVK.Kind == "CustomResourceDefinition" {
 			// this is a freshly deployed CRD, so we must perform rediscovery in case an api resource can't be found
+			a.mutex.Lock()
+			defer a.mutex.Unlock()
 			a.deployedNewCRD = true
 			return true, nil
 		}
