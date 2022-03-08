@@ -325,9 +325,12 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 	if err != nil {
 		return nil, err
 	}
-	var appliedHookObjectsList []*uo.UnstructuredObject
+	var appliedHookObjectsList []*types.RefAndObject
 	for _, o := range appliedHookObjects {
-		appliedHookObjectsList = append(appliedHookObjectsList, o)
+		appliedHookObjectsList = append(appliedHookObjectsList, &types.RefAndObject{
+			Ref:    o.GetK8sRef(),
+			Object: o,
+		})
 	}
 	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, false, false, false)
 	if err != nil {
@@ -362,9 +365,12 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	if err != nil {
 		return nil, err
 	}
-	var appliedHookObjectsList []*uo.UnstructuredObject
+	var appliedHookObjectsList []*types.RefAndObject
 	for _, o := range appliedHookObjects {
-		appliedHookObjectsList = append(appliedHookObjectsList, o)
+		appliedHookObjectsList = append(appliedHookObjectsList, &types.RefAndObject{
+			Ref:    o.GetK8sRef(),
+			Object: o,
+		})
 	}
 	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, ignoreTags, ignoreLabels, ignoreAnnotations)
 	if err != nil {
@@ -587,8 +593,8 @@ func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (m
 	return au.appliedObjects, au.appliedHookObjects, deletedObjects, nil
 }
 
-func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*uo.UnstructuredObject, []*types.ChangedObject, error) {
-	var newObjects []*uo.UnstructuredObject
+func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*types.RefAndObject, []*types.ChangedObject, error) {
+	var newObjects []*types.RefAndObject
 	var changedObjects []*types.ChangedObject
 	var mutex sync.Mutex
 
@@ -612,7 +618,10 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2
 			ro, _ := c.remoteObjects[ref]
 
 			if ao != nil && ro == nil {
-				newObjects = append(newObjects, ao)
+				newObjects = append(newObjects, &types.RefAndObject{
+					Ref:    ao.GetK8sRef(),
+					Object: ao,
+				})
 			} else if ao == nil && ro != nil {
 				// deleted?
 				continue

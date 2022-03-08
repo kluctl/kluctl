@@ -174,7 +174,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 		if !found {
 			return nil, nil, fmt.Errorf("field '%s' not found in local object", cause.Field)
 		}
-		remoteValue, found, err :=remote.GetNestedField(p...)
+		remoteValue, found, err := remote.GetNestedField(p...)
 		if !found {
 			log.Fatalf("field '%s' not found in remote object...which can't be!", cause.Field)
 		}

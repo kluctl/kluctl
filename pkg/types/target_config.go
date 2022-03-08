@@ -14,9 +14,9 @@ type FixedImage struct {
 	Object        *k8s.ObjectRef `yaml:"object,omitempty"`
 	Deployment    *string        `yaml:"deployment,omitempty"`
 	Container     *string        `yaml:"container,omitempty"`
-	VersionFilter *string    `yaml:"versionFilter,omitempty"`
-	DeployTags    []string   `yaml:"deployTags,omitempty"`
-	DeploymentDir *string    `yaml:"deploymentDir,omitempty"`
+	VersionFilter *string        `yaml:"versionFilter,omitempty"`
+	DeployTags    []string       `yaml:"deployTags,omitempty"`
+	DeploymentDir *string        `yaml:"deploymentDir,omitempty"`
 }
 
 type FixedImagesConfig struct {
