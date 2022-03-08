@@ -99,6 +99,9 @@ func (a *applyUtil) deleteObject(ref k8s2.ObjectRef, hook bool) bool {
 		}
 		return false
 	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	if hook {
 		a.deletedHookObjects[ref] = true
 	} else {
