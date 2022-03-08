@@ -198,12 +198,14 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range stringData.Object {
-		s, ok := v.(string)
-		if !ok {
-			return fmt.Errorf("%s is not a string", k)
+	if ok {
+		for k, v := range stringData.Object {
+			s, ok := v.(string)
+			if !ok {
+				return fmt.Errorf("%s is not a string", k)
+			}
+			secrets[k] = []byte(s)
 		}
-		secrets[k] = []byte(s)
 	}
 
 	resultSecretHashes := make(map[string]string)
