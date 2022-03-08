@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"context"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/diff"
 	"github.com/codablock/kluctl/pkg/k8s"
@@ -10,6 +11,7 @@ import (
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/semaphore"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -194,28 +196,45 @@ func (c *DeploymentCollection) resolveSealedSecrets() error {
 func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 	log.Infof("Building kustomize objects")
 
-	wp := utils.NewDebuggerAwareWorkerPool(8)
-	defer wp.StopWait(false)
+	var wg sync.WaitGroup
+	var errs []error
+	var mutex sync.Mutex
+	sem := semaphore.NewWeighted(16)
 
 	for _, d_ := range c.deployments {
 		d := d_
-		wp.Submit(func() error {
+
+		wg.Add(1)
+		go func() {
 			err := d.buildKustomize()
 			if err != nil {
-				return fmt.Errorf("building kustomize objects for %s failed. %w", *d.dir, err)
-			}
-			err = d.postprocessAndLoadObjects(k)
-			if err != nil {
-				return fmt.Errorf("postprocessing kustomize objects for %s failed. %w", *d.dir, err)
-			}
-			return nil
-		})
-	}
-	err := wp.StopWait(false)
-	if err != nil {
-		return err
-	}
+				mutex.Lock()
+				errs = append(errs, fmt.Errorf("building kustomize objects for %s failed. %w", *d.dir, err))
+				mutex.Unlock()
+			} else {
+				wg.Add(1)
+				go func() {
+					_ = sem.Acquire(context.Background(), 1)
+					defer sem.Release(1)
 
+					err := d.postprocessAndLoadObjects(k)
+					if err != nil {
+						mutex.Lock()
+						errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed. %w", *d.dir, err))
+						mutex.Unlock()
+					}
+					wg.Done()
+				}()
+			}
+
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	if len(errs) != 0 {
+		return utils.NewErrorList(errs)
+	}
 	return nil
 }
 
