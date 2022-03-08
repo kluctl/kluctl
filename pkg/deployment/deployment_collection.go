@@ -348,6 +348,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 		OrphanObjects:  orphanObjects,
 		Errors:         c.errorsList(),
 		Warnings:       c.warningsList(),
+		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
@@ -388,6 +389,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 		OrphanObjects:  orphanObjects,
 		Errors:         c.errorsList(),
 		Warnings:       c.warningsList(),
+		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
@@ -464,6 +466,7 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 		ChangedObjects: changedObjects,
 		Errors:         c.errorsList(),
 		Warnings:       c.warningsList(),
+		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
@@ -526,6 +529,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 		DeletedObjects: deletedObjects,
 		Errors:         c.errorsList(),
 		Warnings:       c.warningsList(),
+		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
@@ -642,6 +646,7 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2
 					mutex.Lock()
 					defer mutex.Unlock()
 					changedObjects = append(changedObjects, &types.ChangedObject{
+						Ref:       ref,
 						NewObject: ao,
 						OldObject: ro,
 						Changes:   changes,
