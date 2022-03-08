@@ -104,7 +104,7 @@ func formatCommandResult(cr *types.CommandResult, format string) (string, error)
 	switch format {
 	case "text":
 		return formatCommandResultText(cr), nil
-	case "yal":
+	case "yaml":
 		return formatCommandResultYaml(cr)
 	default:
 		return "", fmt.Errorf("invalid format: %s", format)
@@ -179,6 +179,9 @@ func outputHelper(output []string, cb func(format string) (string, error)) error
 			path = &s[1]
 		}
 		r, err := cb(format)
+		if err != nil {
+			return err
+		}
 
 		err = outputResult(path, r)
 		if err != nil {
