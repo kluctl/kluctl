@@ -46,6 +46,7 @@ func ListImageTags(image string) ([]string, error) {
 var globalMyKeychain myKeychain
 
 type myKeychain struct {
+	cachedAuth utils.ThreadSafeCache
 	cachedResponses utils.ThreadSafeMultiCache
 	authRealms      map[string]bool
 	authErrors      map[string]bool
@@ -53,7 +54,7 @@ type myKeychain struct {
 	mutex           sync.Mutex
 }
 
-func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+func (kc *myKeychain) doResolve(resource authn.Resource) (authn.Authenticator, error) {
 	registry := resource.RegistryStr()
 
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_REGISTRY") {
@@ -69,6 +70,18 @@ func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, err
 	}
 
 	return authn.DefaultKeychain.Resolve(resource)
+}
+
+func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	registry := resource.RegistryStr()
+
+	ret, err := kc.cachedAuth.Get(registry, func() (interface{}, error) {
+		return kc.doResolve(resource)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.(authn.Authenticator), nil
 }
 
 func (kc *myKeychain) realmFromRequest(req *http.Request) string {
