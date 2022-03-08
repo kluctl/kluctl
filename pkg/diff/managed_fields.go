@@ -103,9 +103,14 @@ func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) ([]int
 func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
 	managedFields := remote.GetK8sManagedFields()
 
-	// "stupid" because the string representation in "details.causes.field" might be ambiguous as k8s does not escape dots
-	fieldsAsStupidStrings := make(map[string][]fieldpath.Path)
-	managersByFields := make(map[string][]string)
+	type managersByField struct {
+		// "stupid" because the string representation of field pathes might be ambiguous as k8s does not escape dots
+		stupidPath string
+		pathes []fieldpath.Path
+		managers []string
+	}
+
+	managersByFields := make(map[string]*managersByField)
 
 	for _, mf := range managedFields {
 		fieldSet := fieldpath.NewSet()
@@ -116,8 +121,21 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 
 		fieldSet.Iterate(func(path fieldpath.Path) {
 			s := path.String()
-			fieldsAsStupidStrings[s] = append(fieldsAsStupidStrings[s], path)
-			managersByFields[s] = append(managersByFields[s], mf.Manager)
+			if _, ok := managersByFields[s]; !ok {
+				managersByFields[s] = &managersByField{stupidPath: s}
+			}
+			m, _ := managersByFields[s]
+			found := false
+			for _, p := range m.pathes {
+				if p.Equals(path) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				m.pathes = append(m.pathes, path)
+			}
+			m.managers = append(m.managers, mf.Manager)
 		})
 	}
 
@@ -152,15 +170,15 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			return nil, nil, fmt.Errorf("unknown type %s", cause.Type)
 		}
 
-		mfPath, ok := fieldsAsStupidStrings[cause.Field]
+		mf, ok := managersByFields[cause.Field]
 		if !ok {
 			return nil, nil, fmt.Errorf("could not find matching field for path '%s'", cause.Field)
 		}
-		if len(mfPath) != 1 {
+		if len(mf.pathes) != 1 {
 			return nil, nil, fmt.Errorf("field path '%s' is ambiguous", cause.Field)
 		}
 
-		p, found, err := convertToKeyList(remote, mfPath[0])
+		p, found, err := convertToKeyList(remote, mf.pathes[0])
 		if err != nil {
 			return nil, nil, err
 		}
@@ -181,8 +199,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 
 		overwrite := true
 		if !forceApplyAll {
-			mfbf, _ := managersByFields[mfPath[0].String()]
-			for _, mfn := range mfbf {
+			for _, mfn := range mf.managers {
 				found := false
 				for _, oa := range overwriteAllowedManagers {
 					if oa.MatchString(mfn) {
