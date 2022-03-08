@@ -285,6 +285,7 @@ func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
 	log2 := log.WithField("ref", ref)
 	log2.Debugf("Waiting for hook to get ready")
 
+	lastLogTime := time.Now()
 	didLog := false
 	startTime := time.Now()
 	for true {
@@ -328,6 +329,10 @@ func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
 		if !didLog {
 			log2.Infof("Waiting for hook to get ready...")
 			didLog = true
+			lastLogTime = time.Now()
+		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
+			log2.Infof("Still waiting for hook to get ready (%s)...", time.Now().Sub(lastLogTime).String())
+			lastLogTime = time.Now()
 		}
 
 		time.Sleep(500 * time.Millisecond)
@@ -385,8 +390,15 @@ func (a *applyUtil) applyDeploymentItem(d *deploymentItem) {
 	if len(applyObjects) != 0 {
 		a.doLog(d, log.InfoLevel, "Applying %d objects", len(applyObjects))
 	}
-	for _, o := range applyObjects {
+	startTime := time.Now()
+	didLog := false
+	for i, o := range applyObjects {
 		a.applyObject(o, false, false)
+		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
+			a.doLog(d, log.InfoLevel, "...applied %d of %d objects", i+1, len(applyObjects))
+			startTime = time.Now()
+			didLog = true
+		}
 	}
 
 	if initialDeploy {

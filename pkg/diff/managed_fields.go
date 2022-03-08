@@ -106,8 +106,8 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 	type managersByField struct {
 		// "stupid" because the string representation of field pathes might be ambiguous as k8s does not escape dots
 		stupidPath string
-		pathes []fieldpath.Path
-		managers []string
+		pathes     []fieldpath.Path
+		managers   []string
 	}
 
 	managersByFields := make(map[string]*managersByField)
