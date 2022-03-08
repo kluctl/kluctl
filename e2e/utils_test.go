@@ -30,7 +30,7 @@ func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource s
 			t.Fatal(err)
 		}
 
-		v := validation.ValidateObject(y.ToUnstructured(), true)
+		v := validation.ValidateObject(y, true)
 		if v.Ready {
 			return true
 		}
