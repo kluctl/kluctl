@@ -5,7 +5,6 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"regexp"
 	"strconv"
 	"strings"
@@ -95,7 +94,7 @@ func normalizeServiceAccount(o *uo.UnstructuredObject) {
 }
 
 func normalizeMetadata(k *k8s.K8sCluster, o *uo.UnstructuredObject) {
-	k.RemoveNamespaceIfNeeded(o.ToUnstructured())
+	k.RemoveNamespaceIfNeeded(o)
 
 	// We don't care about managedFields when diffing (they just produce noise)
 	_ = o.RemoveNestedField("metadata", "managedFields")
@@ -124,12 +123,12 @@ func normalizeMisc(o *uo.UnstructuredObject) {
 var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field(-\d*)?$`)
 
 // NormalizeObject Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-func NormalizeObject(k *k8s.K8sCluster, o_ *unstructured.Unstructured, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *unstructured.Unstructured) *unstructured.Unstructured {
-	gvk := o_.GroupVersionKind()
-	name := o_.GetName()
-	ns := o_.GetNamespace()
+func NormalizeObject(k *k8s.K8sCluster, o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) *uo.UnstructuredObject {
+	gvk := o_.GetK8sGVK()
+	name := o_.GetK8sName()
+	ns := o_.GetK8sNamespace()
 
-	o := uo.FromUnstructured(o_).Clone()
+	o := o_.Clone()
 	normalizeMetadata(k, o)
 	normalizeMisc(o)
 
@@ -172,13 +171,13 @@ func NormalizeObject(k *k8s.K8sCluster, o_ *unstructured.Unstructured, ignoreFor
 		}
 	}
 
-	ignoreAll, _ := strconv.ParseBool(localObject.GetAnnotations()["kluctl.io/ignore-diff"])
+	ignoreAll, _ := strconv.ParseBool(localObject.GetK8sAnnotations()["kluctl.io/ignore-diff"])
 	if ignoreAll {
 		// Return empty object so that diffs will always be empty
-		return &unstructured.Unstructured{Object: map[string]interface{}{}}
+		return &uo.UnstructuredObject{Object: map[string]interface{}{}}
 	}
 
-	for k, v := range localObject.GetAnnotations() {
+	for k, v := range localObject.GetK8sAnnotations() {
 		if ignoreDiffFieldAnnotationRegex.MatchString(k) {
 			j, err := uo.NewMyJsonPath(v)
 			if err != nil {
@@ -188,5 +187,5 @@ func NormalizeObject(k *k8s.K8sCluster, o_ *unstructured.Unstructured, ignoreFor
 		}
 	}
 
-	return o.ToUnstructured()
+	return o
 }

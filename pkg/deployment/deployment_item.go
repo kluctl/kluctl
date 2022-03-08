@@ -9,7 +9,6 @@ import (
 	"github.com/codablock/kluctl/pkg/yaml"
 	"io/fs"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"path"
 	"path/filepath"
@@ -30,7 +29,7 @@ type deploymentItem struct {
 	dir        *string
 	index      int
 
-	objects []*unstructured.Unstructured
+	objects []*uo.UnstructuredObject
 
 	relProjectDir       string
 	relToRootItemDir    string
@@ -172,12 +171,11 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 	sealedSecretsDir := di.project.getSealedSecretsDir()
 	baseSourcePath := di.project.sealedSecretsDir
 
-	var y map[string]interface{}
-	err := yaml.ReadYamlFile(filepath.Join(di.renderedDir, "kustomization.yml"), &y)
+	y, err := uo.FromFile(filepath.Join(di.renderedDir, "kustomization.yml"))
 	if err != nil {
 		return err
 	}
-	l, _, err := unstructured.NestedStringSlice(y, "resources")
+	l, _, err := y.GetNestedStringList("resources")
 	if err != nil {
 		return err
 	}
@@ -335,15 +333,13 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		return err
 	}
 
-	di.objects = []*unstructured.Unstructured{}
+	di.objects = []*uo.UnstructuredObject{}
 	for _, o := range objects {
 		m, ok := o.(map[string]interface{})
 		if !ok {
 			return fmt.Errorf("object is not a map")
 		}
-		di.objects = append(di.objects, &unstructured.Unstructured{
-			Object: m,
-		})
+		di.objects = append(di.objects, uo.FromMap(m))
 	}
 
 	for _, o := range di.objects {
@@ -352,9 +348,9 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		}
 
 		// Set common labels/annotations
-		o.SetLabels(uo.CopyMergeStrMap(o.GetLabels(), di.getCommonLabels()))
+		o.SetK8sLabels(uo.CopyMergeStrMap(o.GetK8sLabels(), di.getCommonLabels()))
 		commonAnnotations := di.getCommonAnnotations()
-		o.SetAnnotations(uo.CopyMergeStrMap(o.GetAnnotations(), commonAnnotations))
+		o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 		// Resolve image placeholders
 		err = di.collection.images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())

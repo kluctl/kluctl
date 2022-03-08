@@ -9,7 +9,6 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
 	diff2 "github.com/r3labs/diff/v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,7 +37,7 @@ func convertPath(path []string, o interface{}) (string, error) {
 	return uo.KeyListToJsonPath(ret), nil
 }
 
-func Diff(oldObject *unstructured.Unstructured, newObject *unstructured.Unstructured) ([]types.Change, error) {
+func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([]types.Change, error) {
 	differ, err := diff2.NewDiffer(diff2.AllowTypeMismatch(true))
 	if err != nil {
 		return nil, err

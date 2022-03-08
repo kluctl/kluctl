@@ -1,7 +1,9 @@
-package k8s
+package deployment
 
 import (
+	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,13 +40,13 @@ var deleteOrder = [][]string{
 	nil,
 }
 
-func objectRefForExclusion(k *K8sCluster, ref types.ObjectRef) types.ObjectRef {
+func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef {
 	ref = k.RemoveNamespaceFromRefIfNeeded(ref)
 	ref.GVK.Version = ""
 	return ref
 }
 
-func filterObjectsForDelete(k *K8sCluster, objects []*v1.PartialObjectMetadata, apiFilter []string, inclusion *utils.Inclusion, excludedObjects map[types.ObjectRef]bool) ([]*v1.PartialObjectMetadata, error) {
+func filterObjectsForDelete(k *k8s.K8sCluster, objects []*v1.PartialObjectMetadata, apiFilter []string, inclusion *utils.Inclusion, excludedObjects map[k8s2.ObjectRef]bool) ([]*v1.PartialObjectMetadata, error) {
 	filteredResources := make(map[schema.GroupKind]bool)
 	for _, gk := range k.GetFilteredGKs(apiFilter) {
 		filteredResources[gk] = true
@@ -54,7 +56,7 @@ func filterObjectsForDelete(k *K8sCluster, objects []*v1.PartialObjectMetadata, 
 	var ret []*v1.PartialObjectMetadata
 
 	for _, o := range objects {
-		ref := types.RefFromPartialObject(o)
+		ref := k8s2.RefFromPartialObject(o)
 		if _, ok := filteredResources[ref.GVK.GroupKind()]; !ok {
 			continue
 		}
@@ -110,10 +112,10 @@ func filterObjectsForDelete(k *K8sCluster, objects []*v1.PartialObjectMetadata, 
 	return ret, nil
 }
 
-func FindObjectsForDelete(k *K8sCluster, labels map[string]string, inclusion *utils.Inclusion, excludedObjects []types.ObjectRef) ([]types.ObjectRef, error) {
+func FindObjectsForDelete(k *k8s.K8sCluster, labels map[string]string, inclusion *utils.Inclusion, excludedObjects []k8s2.ObjectRef) ([]k8s2.ObjectRef, error) {
 	log.Infof("Getting all cluster objects matching deleteByLabels")
 
-	excludedObjectsMap := make(map[types.ObjectRef]bool)
+	excludedObjectsMap := make(map[k8s2.ObjectRef]bool)
 	for _, ref := range excludedObjects {
 		excludedObjectsMap[objectRefForExclusion(k, ref)] = true
 	}
@@ -123,7 +125,7 @@ func FindObjectsForDelete(k *K8sCluster, labels map[string]string, inclusion *ut
 		return nil, err
 	}
 
-	var ret []types.ObjectRef
+	var ret []k8s2.ObjectRef
 
 	for _, filter := range deleteOrder {
 		l, err := filterObjectsForDelete(k, allClusterObjects, filter, inclusion, excludedObjectsMap)
@@ -131,7 +133,7 @@ func FindObjectsForDelete(k *K8sCluster, labels map[string]string, inclusion *ut
 			return nil, err
 		}
 		for _, o := range l {
-			ref := types.RefFromPartialObject(o)
+			ref := k8s2.RefFromPartialObject(o)
 			excludedObjectsMap[objectRefForExclusion(k, ref)] = true
 			ret = append(ret, ref)
 		}
@@ -140,7 +142,7 @@ func FindObjectsForDelete(k *K8sCluster, labels map[string]string, inclusion *ut
 	return ret, nil
 }
 
-func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.CommandResult, error) {
+func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*types.CommandResult, error) {
 	wp := utils.NewDebuggerAwareWorkerPool(8)
 	defer wp.StopWait(false)
 
@@ -148,7 +150,7 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 	namespaceNames := make(map[string]bool)
 	var mutex sync.Mutex
 
-	handleResult := func(ref types.ObjectRef, apiWarnings []ApiWarning, err error) {
+	handleResult := func(ref k8s2.ObjectRef, apiWarnings []k8s.ApiWarning, err error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 
@@ -173,7 +175,7 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
 			wp.Submit(func() error {
-				apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
+				apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 				handleResult(ref, apiWarnings, err)
 				return nil
 			})
@@ -194,7 +196,7 @@ func DeleteObjects(k *K8sCluster, refs []types.ObjectRef, doWait bool) (*types.C
 			continue
 		}
 		wp.Submit(func() error {
-			apiWarnings, err := k.DeleteSingleObject(ref, DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
+			apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 			handleResult(ref, apiWarnings, err)
 			return nil
 		})

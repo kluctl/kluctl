@@ -5,10 +5,10 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/utils/versions"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,12 +200,13 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 		if !ok {
 			return fmt.Errorf("object is not a map")
 		}
+		o := uo.FromMap(m)
 
 		// "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
 		// add the necessary namespace in the rendered resources
-		_, found, _ := unstructured.NestedString(m, "metadata", "namespace")
-		if !found && k.IsNamespaced((&unstructured.Unstructured{Object: m}).GroupVersionKind()) {
-			_ = unstructured.SetNestedField(m, namespace, "metadata", "namespace")
+		ns := o.GetK8sNamespace()
+		if ns == "" && k.IsNamespaced(o.GetK8sGVK()) {
+			o.SetK8sNamespace(namespace)
 		}
 	}
 	rendered, err = yaml.WriteYamlAllBytes(parsed)

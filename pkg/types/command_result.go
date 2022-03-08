@@ -1,7 +1,8 @@
 package types
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/codablock/kluctl/pkg/types/k8s"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 )
 
 type Change struct {
@@ -13,30 +14,30 @@ type Change struct {
 }
 
 type ChangedObject struct {
-	NewObject *unstructured.Unstructured `yaml:"newObject,omitempty"`
-	OldObject *unstructured.Unstructured `yaml:"oldObject,omitempty"`
-	Changes   []Change                   `yaml:"changes,omitempty"`
+	NewObject *uo.UnstructuredObject `yaml:"newObject,omitempty"`
+	OldObject *uo.UnstructuredObject `yaml:"oldObject,omitempty"`
+	Changes   []Change               `yaml:"changes,omitempty"`
 }
 
 type DeploymentError struct {
-	Ref   ObjectRef `yaml:"ref"`
-	Error string    `yaml:"error"`
+	Ref   k8s.ObjectRef `yaml:"ref"`
+	Error string        `yaml:"error"`
 }
 
 type CommandResult struct {
-	NewObjects     []*unstructured.Unstructured `yaml:"newObjects,omitempty"`
-	ChangedObjects []*ChangedObject             `yaml:"changedObjects,omitempty"`
-	HookObjects    []*unstructured.Unstructured `yaml:"hook-objects,omitempty"`
-	OrphanObjects  []ObjectRef                  `yaml:"orphanObjects,omitempty"`
-	DeletedObjects []ObjectRef                  `yaml:"deletedObjects,omitempty"`
-	Errors         []DeploymentError            `yaml:"errors,omitempty"`
-	Warnings       []DeploymentError            `yaml:"warnings,omitempty"`
-	SeenImages     []FixedImage                 `yaml:"seenImages,omitempty"`
+	NewObjects     []*uo.UnstructuredObject `yaml:"newObjects,omitempty"`
+	ChangedObjects []*ChangedObject         `yaml:"changedObjects,omitempty"`
+	HookObjects    []*uo.UnstructuredObject `yaml:"hookObjects,omitempty"`
+	OrphanObjects  []k8s.ObjectRef          `yaml:"orphanObjects,omitempty"`
+	DeletedObjects []k8s.ObjectRef          `yaml:"deletedObjects,omitempty"`
+	Errors         []DeploymentError        `yaml:"errors,omitempty"`
+	Warnings       []DeploymentError        `yaml:"warnings,omitempty"`
+	SeenImages     []FixedImage             `yaml:"seenImages,omitempty"`
 }
 
 type ValidateResultEntry struct {
-	Ref        ObjectRef `yaml:"ref"`
-	Annotation string    `yaml:"annotation"`
+	Ref        k8s.ObjectRef `yaml:"ref"`
+	Annotation string        `yaml:"annotation"`
 	Message    string    `yaml:"message"`
 }
 

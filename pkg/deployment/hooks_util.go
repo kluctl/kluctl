@@ -2,10 +2,10 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,7 +36,7 @@ type hooksUtil struct {
 }
 
 type hook struct {
-	object         *unstructured.Unstructured
+	object         *uo.UnstructuredObject
 	hooks          map[string]bool
 	weight         int
 	deletePolicies map[string]bool
@@ -61,7 +61,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 	if len(l) != 0 && log.IsLevelEnabled(log.DebugLevel) {
 		doLog(log.DebugLevel, "Sorted hooks:")
 		for _, h := range l {
-			doLog(log.DebugLevel, "  %s", types.RefFromObject(h.object).String())
+			doLog(log.DebugLevel, "  %s", h.object.GetK8sRef().String())
 		}
 	}
 
@@ -79,7 +79,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 	}
 
 	doDeleteForPolicy := func(h *hook) bool {
-		ref := types.RefFromObject(h.object)
+		ref := h.object.GetK8sRef()
 		var dpStr []string
 		for p := range h.deletePolicies {
 			dpStr = append(dpStr, p)
@@ -95,12 +95,12 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 		doDeleteForPolicy(h)
 	}
 
-	waitResults := make(map[types.ObjectRef]bool)
+	waitResults := make(map[k8s.ObjectRef]bool)
 	if len(applyObjects) != 0 {
 		doLog(log.InfoLevel, "Applying %d hooks", len(applyObjects))
 	}
 	for _, h := range applyObjects {
-		ref := types.RefFromObject(h.object)
+		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
 		doLog(log.DebugLevel, "Applying hook %s", ref.String())
 		u.a.applyObject(h.object, replaced, true)
@@ -117,7 +117,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 	var deleteAfterObjects []*hook
 	for i := len(applyObjects) - 1; i >= 0; i-- {
 		h := applyObjects[i]
-		ref := types.RefFromObject(h.object)
+		ref := h.object.GetK8sRef()
 		waitResult, ok := waitResults[ref]
 		if !ok {
 			continue
@@ -141,11 +141,11 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 	}
 }
 
-func (u *hooksUtil) getHook(o *unstructured.Unstructured) *hook {
-	ref := types.RefFromObject(o)
+func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
+	ref := o.GetK8sRef()
 	getSet := func(name string) map[string]bool {
 		ret := make(map[string]bool)
-		a, ok := o.GetAnnotations()[name]
+		a, ok := o.GetK8sAnnotations()[name]
 		if !ok {
 			return ret
 		}
@@ -184,9 +184,9 @@ func (u *hooksUtil) getHook(o *unstructured.Unstructured) *hook {
 	helmCompatibility("pre-delete", "pre-delete")
 	helmCompatibility("post-delete", "post-delete")
 
-	weightStr, ok := o.GetAnnotations()["kluctl.io/hook-weight"]
+	weightStr, ok := o.GetK8sAnnotations()["kluctl.io/hook-weight"]
 	if !ok {
-		weightStr, ok = o.GetAnnotations()["helm.sh/hook-weight"]
+		weightStr, ok = o.GetK8sAnnotations()["helm.sh/hook-weight"]
 	}
 	if !ok {
 		weightStr = "0"
@@ -210,7 +210,7 @@ func (u *hooksUtil) getHook(o *unstructured.Unstructured) *hook {
 		}
 	}
 
-	waitStr, ok := o.GetAnnotations()["kluctl.io/hook-wait"]
+	waitStr, ok := o.GetK8sAnnotations()["kluctl.io/hook-wait"]
 	if !ok {
 		waitStr = "true"
 	}
@@ -233,7 +233,7 @@ func (u *hooksUtil) getHook(o *unstructured.Unstructured) *hook {
 	}
 }
 
-func (u *hooksUtil) getSortedHooksList(objects []*unstructured.Unstructured) []*hook {
+func (u *hooksUtil) getSortedHooksList(objects []*uo.UnstructuredObject) []*hook {
 	var ret []*hook
 	for _, o := range objects {
 		h := u.getHook(o)

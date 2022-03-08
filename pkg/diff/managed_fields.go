@@ -6,7 +6,6 @@ import (
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 	"regexp"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
@@ -61,7 +60,7 @@ func checkListItemMatch(o interface{}, pathElement fieldpath.PathElement, index 
 	}
 }
 
-func convertToKeyList(remote *unstructured.Unstructured, path fieldpath.Path) ([]interface{}, bool, error) {
+func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) ([]interface{}, bool, error) {
 	var ret []interface{}
 	var o interface{} = remote.Object
 	for _, e := range path {
@@ -101,8 +100,8 @@ func convertToKeyList(remote *unstructured.Unstructured, path fieldpath.Path) ([
 	return ret, true, nil
 }
 
-func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unstructured.Unstructured, conflictStatus metav1.Status) (*unstructured.Unstructured, []LostOwnership, error) {
-	managedFields := remote.GetManagedFields()
+func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
+	managedFields := remote.GetK8sManagedFields()
 
 	// "stupid" because the string representation in "details.causes.field" might be ambiguous as k8s does not escape dots
 	fieldsAsStupidStrings := make(map[string][]fieldpath.Path)
@@ -122,15 +121,15 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 		})
 	}
 
-	ret := uo.CopyUnstructured(local)
+	ret := local.Clone()
 
 	forceApplyAll := false
-	if x, ok := local.GetAnnotations()[`metadata.annotations["kluctl.io/force-apply"]`]; ok {
-		forceApplyAll, _ = strconv.ParseBool(x)
+	if x := local.GetK8sAnnotation("kluctl.io/force-apply"); x != nil {
+		forceApplyAll, _ = strconv.ParseBool(*x)
 	}
 
 	forceApplyFields := make(map[string]bool)
-	for k, v := range local.GetAnnotations() {
+	for k, v := range local.GetK8sAnnotations() {
 		if !forceApplyFieldAnnotationRegex.MatchString(k) {
 			continue
 		}
@@ -138,7 +137,7 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 		if err != nil {
 			return nil, nil, err
 		}
-		fields, err := j.ListMatchingFields(uo.FromUnstructured(ret))
+		fields, err := j.ListMatchingFields(ret)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -168,14 +167,14 @@ func ResolveFieldManagerConflicts(local *unstructured.Unstructured, remote *unst
 		if !found {
 			return nil, nil, fmt.Errorf("field '%s' not found in remote object", cause.Field)
 		}
-		localValue, found, err := uo.FromUnstructured(local).GetNestedField(p...)
+		localValue, found, err := local.GetNestedField(p...)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !found {
 			return nil, nil, fmt.Errorf("field '%s' not found in local object", cause.Field)
 		}
-		remoteValue, found, err := uo.FromUnstructured(remote).GetNestedField(p...)
+		remoteValue, found, err :=remote.GetNestedField(p...)
 		if !found {
 			log.Fatalf("field '%s' not found in remote object...which can't be!", cause.Field)
 		}

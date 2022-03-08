@@ -123,6 +123,25 @@ func (uo *UnstructuredObject) GetNestedList(keys ...interface{}) ([]interface{},
 	return l, true, nil
 }
 
+func (uo *UnstructuredObject) GetNestedStringList(keys ...interface{}) ([]string, bool, error) {
+	l, found, err := uo.GetNestedList(keys...)
+	if err != nil {
+		return nil, false, err
+	}
+	if !found {
+		return nil, false, nil
+	}
+	ret := make([]string, len(l))
+	for i, x := range l {
+		s, ok := x.(string)
+		if !ok {
+			return nil, false, fmt.Errorf("value at index %s is not a slice of strings", KeyListToJsonPath(keys))
+		}
+		ret[i] = s
+	}
+	return ret, true, nil
+}
+
 func (uo *UnstructuredObject) GetNestedObject(keys ...interface{}) (*UnstructuredObject, bool, error) {
 	a, found, err := uo.GetNestedField(keys...)
 	if err != nil {

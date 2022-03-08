@@ -34,12 +34,6 @@ func DeepCopy(dst interface{}, src interface{}) error {
 	})
 }
 
-func CloneStringSlice(s []string) []string {
-	n := make([]string, len(s), len(s))
-	copy(n, s)
-	return n
-}
-
 func FindStrInSlice(a []string, s string) int {
 	for i, v := range a {
 		if v == s {

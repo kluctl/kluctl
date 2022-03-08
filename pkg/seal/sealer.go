@@ -9,6 +9,7 @@ import (
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
@@ -55,7 +56,7 @@ func NewSealer(k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsCo
 // We treat the hashed kube-root-ca.crt as cluster id for now. We also accept that it might change when keys
 // get rotated.
 func getClusterId(k *k8s.K8sCluster) (string, error) {
-	o, _, err := k.GetSingleObject(types.ObjectRef{
+	o, _, err := k.GetSingleObject(k8s2.ObjectRef{
 		GVK:       schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
 		Name:      "kube-root-ca.crt",
 		Namespace: "kube-system",
@@ -63,7 +64,7 @@ func getClusterId(k *k8s.K8sCluster) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
 	}
-	kubeRootCA, ok, err := uo.FromUnstructured(o).GetNestedString("data", "ca.crt")
+	kubeRootCA, ok, err := o.GetNestedString("data", "ca.crt")
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
 	}

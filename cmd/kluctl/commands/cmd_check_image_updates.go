@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/codablock/kluctl/cmd/kluctl/args"
 	"github.com/codablock/kluctl/pkg/registries"
-	"github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/versions"
 	log "github.com/sirupsen/logrus"
@@ -24,7 +24,7 @@ func (cmd *checkImageUpdatesCmd) Help() string {
 }
 
 func (cmd *checkImageUpdatesCmd) Run() error {
-	var renderedImages map[types.ObjectRef][]string
+	var renderedImages map[k8s.ObjectRef][]string
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,

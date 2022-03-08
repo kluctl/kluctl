@@ -1,7 +1,9 @@
 package uo
 
 import (
+	"github.com/codablock/kluctl/pkg/types/k8s"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -78,6 +80,14 @@ func (uo *UnstructuredObject) SetK8sNamespace(namespace string) {
 
 }
 
+func (uo *UnstructuredObject) GetK8sRef() k8s.ObjectRef {
+	return k8s.ObjectRef{
+		GVK:       uo.GetK8sGVK(),
+		Name:      uo.GetK8sName(),
+		Namespace: uo.GetK8sNamespace(),
+	}
+}
+
 func (uo *UnstructuredObject) GetK8sLabels() map[string]string {
 	ret, ok, err := uo.GetNestedStringMapCopy("metadata", "labels")
 	if err != nil {
@@ -148,4 +158,24 @@ func (uo *UnstructuredObject) SetK8sAnnotation(name string, value string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func (uo *UnstructuredObject) GetK8sResourceVersion() string {
+	ret, _, _ := uo.GetNestedString("metadata", "resourceVersion")
+	return ret
+}
+
+func (uo *UnstructuredObject) SetK8sResourceVersion(rv string) {
+	if rv == "" {
+		_ = uo.RemoveNestedField("metadata", "resourceVersion")
+	} else {
+		err := uo.SetNestedField(rv, "metadata", "resourceVersion")
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+func (uo *UnstructuredObject) GetK8sManagedFields() []metav1.ManagedFieldsEntry {
+	return uo.ToUnstructured().GetManagedFields()
 }

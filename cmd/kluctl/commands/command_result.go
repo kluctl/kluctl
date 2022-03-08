@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"io"
@@ -21,23 +22,23 @@ func formatCommandResultText(cr *types.CommandResult) string {
 
 	if len(cr.NewObjects) != 0 {
 		buf.WriteString("\nNew objects:\n")
-		var refs []types.ObjectRef
+		var refs []k8s.ObjectRef
 		for _, o := range cr.NewObjects {
-			refs = append(refs, types.RefFromObject(o))
+			refs = append(refs, o.GetK8sRef())
 		}
 		prettyObjectRefs(buf, refs)
 	}
 	if len(cr.ChangedObjects) != 0 {
 		buf.WriteString("\nChanged objects:\n")
-		var refs []types.ObjectRef
+		var refs []k8s.ObjectRef
 		for _, co := range cr.ChangedObjects {
-			refs = append(refs, types.RefFromObject(co.NewObject))
+			refs = append(refs, co.NewObject.GetK8sRef())
 		}
 		prettyObjectRefs(buf, refs)
 
 		buf.WriteString("\n")
 		for _, co := range cr.ChangedObjects {
-			prettyChanges(buf, types.RefFromObject(co.NewObject), co.Changes)
+			prettyChanges(buf, co.NewObject.GetK8sRef(), co.Changes)
 		}
 	}
 
@@ -48,9 +49,9 @@ func formatCommandResultText(cr *types.CommandResult) string {
 
 	if len(cr.HookObjects) != 0 {
 		buf.WriteString("\nApplied hooks:\n")
-		var refs []types.ObjectRef
+		var refs []k8s.ObjectRef
 		for _, o := range cr.HookObjects {
-			refs = append(refs, types.RefFromObject(o))
+			refs = append(refs, o.GetK8sRef())
 		}
 		prettyObjectRefs(buf, refs)
 	}
@@ -67,7 +68,7 @@ func formatCommandResultText(cr *types.CommandResult) string {
 	return buf.String()
 }
 
-func prettyObjectRefs(buf io.StringWriter, refs []types.ObjectRef) {
+func prettyObjectRefs(buf io.StringWriter, refs []k8s.ObjectRef) {
 	for _, ref := range refs {
 		_, _ = buf.WriteString(fmt.Sprintf("  %s\n", ref.String()))
 	}
@@ -79,7 +80,7 @@ func prettyErrors(buf io.StringWriter, errors []types.DeploymentError) {
 	}
 }
 
-func prettyChanges(buf io.StringWriter, ref types.ObjectRef, changes []types.Change) {
+func prettyChanges(buf io.StringWriter, ref k8s.ObjectRef, changes []types.Change) {
 	_, _ = buf.WriteString(fmt.Sprintf("Diff for object %s\n", ref.String()))
 
 	var t utils.PrettyTable

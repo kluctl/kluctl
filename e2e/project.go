@@ -527,7 +527,7 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 
 	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
-	stdout, stderr, err := runWrappedCmd(p.t,"TestKluctlWrapper", cwd, env, args)
+	stdout, stderr, err := runWrappedCmd(p.t, "TestKluctlWrapper", cwd, env, args)
 	return stdout, stderr, err
 }
 

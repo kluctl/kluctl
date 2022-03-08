@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strconv"
 	"strings"
@@ -32,8 +31,8 @@ func (c condition) getMessage(def string) string {
 	return c.message
 }
 
-func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret types.ValidateResult) {
-	ref := types.RefFromObject(o)
+func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.ValidateResult) {
+	ref := o.GetK8sRef()
 
 	// We assume all is good in case no validation is performed
 	ret.Ready = true
@@ -53,7 +52,7 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 		}
 	}()
 
-	for k, v := range o.GetAnnotations() {
+	for k, v := range o.GetK8sAnnotations() {
 		if strings.HasPrefix(k, resultAnnotation) {
 			ret.Results = append(ret.Results, types.ValidateResultEntry{
 				Ref:        ref,
@@ -63,8 +62,7 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 		}
 	}
 
-	u := uo.FromUnstructured(o)
-	status, ok, _ := u.GetNestedObject("status")
+	status, ok, _ := o.GetNestedObject("status")
 	if !ok {
 		return
 	}
@@ -209,7 +207,7 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 		return i, nil
 	}
 
-	switch u.GetK8sGVK().GroupKind() {
+	switch o.GetK8sGVK().GroupKind() {
 	case schema.GroupKind{Group: "", Kind: "Pod"}:
 		c := getCondition("Ready", false, false)
 		if c.status != "True" {
@@ -237,13 +235,13 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 			addNotReady("Volume is not bound")
 		}
 	case schema.GroupKind{Group: "", Kind: "Service"}:
-		svcType, _, _ := u.GetNestedString("spec", "type")
+		svcType, _, _ := o.GetNestedString("spec", "type")
 		if svcType != "ExternalName" {
-			clusterIP, _, _ := u.GetNestedString("spec", "clusterIP")
+			clusterIP, _, _ := o.GetNestedString("spec", "clusterIP")
 			if clusterIP == "" {
 				addError("Service does not have a cluster IP")
 			} else if svcType == "LoadBalancer" {
-				externalIPs, _, _ := u.GetNestedList("spec", "externalIPs")
+				externalIPs, _, _ := o.GetNestedList("spec", "externalIPs")
 				if len(externalIPs) == 0 {
 					ingress, _, _ := status.GetNestedList("loadBalancer", "ingress")
 					if len(ingress) == 0 {
@@ -253,14 +251,14 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 			}
 		}
 	case schema.GroupKind{Group: "apps", Kind: "DaemonSet"}:
-		updateStrategyType, _, _ := u.GetNestedString("spec", "updateStrategy", "type")
+		updateStrategyType, _, _ := o.GetNestedString("spec", "updateStrategy", "type")
 		if updateStrategyType == "RollingUpdate" {
 			updatedNumberScheduled := getStatusFieldInt("updatedNumberScheduled", true, true, 0)
 			desiredNumberScheduled := getStatusFieldInt("desiredNumberScheduled", true, true, 0)
 			if updatedNumberScheduled != desiredNumberScheduled {
 				addNotReady(fmt.Sprintf("DaemonSet is not ready. %d out of %d expected pods have been scheduled", updatedNumberScheduled, desiredNumberScheduled))
 			} else {
-				maxUnavailableI, _, _ := u.GetNestedField("spec", "updateStrategy", "maxUnavailable")
+				maxUnavailableI, _, _ := o.GetNestedField("spec", "updateStrategy", "maxUnavailable")
 				if maxUnavailableI == nil {
 					maxUnavailableI = 1
 				}
@@ -286,10 +284,10 @@ func ValidateObject(o *unstructured.Unstructured, notReadyIsError bool) (ret typ
 			}
 		}
 	case schema.GroupKind{Group: "apps", Kind: "StatefulSet"}:
-		updateStrategyType, _, _ := u.GetNestedString("spec", "updateStrategy", "type")
+		updateStrategyType, _, _ := o.GetNestedString("spec", "updateStrategy", "type")
 		if updateStrategyType == "RollingUpdate" {
-			partition, _, _ := u.GetNestedInt("spec", "updateStrategy", "rollingUpdate", "partition")
-			replicas, ok, _ := u.GetNestedInt("spec", "replicas")
+			partition, _, _ := o.GetNestedInt("spec", "updateStrategy", "rollingUpdate", "partition")
+			replicas, ok, _ := o.GetNestedInt("spec", "replicas")
 			if !ok {
 				replicas = 1
 			}

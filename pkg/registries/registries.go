@@ -46,7 +46,7 @@ func ListImageTags(image string) ([]string, error) {
 var globalMyKeychain myKeychain
 
 type myKeychain struct {
-	cachedAuth utils.ThreadSafeCache
+	cachedAuth      utils.ThreadSafeCache
 	cachedResponses utils.ThreadSafeMultiCache
 	authRealms      map[string]bool
 	authErrors      map[string]bool
@@ -126,7 +126,7 @@ func (kc *myKeychain) readCachedResponse(key string) []byte {
 		return nil
 	}
 
-	if time.Now().Sub(st.ModTime()) > 55 * time.Minute {
+	if time.Now().Sub(st.ModTime()) > 55*time.Minute {
 		return nil
 	}
 
@@ -160,12 +160,12 @@ func (kc *myKeychain) writeCachedResponse(key string, data []byte) {
 		}
 	}
 
-	err := ioutil.WriteFile(cachePath + ".tmp", data, 0o600)
+	err := ioutil.WriteFile(cachePath+".tmp", data, 0o600)
 	if err != nil {
 		log.Warningf("writeCachedResponse failed: %v", err)
 		return
 	}
-	err = os.Rename(cachePath + ".tmp", cachePath)
+	err = os.Rename(cachePath+".tmp", cachePath)
 	if err != nil {
 		log.Warningf("writeCachedResponse failed: %v", err)
 		return

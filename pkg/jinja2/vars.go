@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type VarsCtx struct {
@@ -57,13 +57,13 @@ func (vc *VarsCtx) LoadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList
 				return err
 			}
 		} else if v.ClusterConfigMap != nil {
-			ref := types.NewObjectRef("", "v1", "ConfigMap", v.ClusterConfigMap.Name, v.ClusterConfigMap.Namespace)
+			ref := k8s2.NewObjectRef("", "v1", "ConfigMap", v.ClusterConfigMap.Name, v.ClusterConfigMap.Namespace)
 			err := vc.loadVarsFromK8sObject(k, ref, v.ClusterConfigMap.Key)
 			if err != nil {
 				return err
 			}
 		} else if v.ClusterSecret != nil {
-			ref := types.NewObjectRef("", "v1", "Secret", v.ClusterSecret.Name, v.ClusterSecret.Namespace)
+			ref := k8s2.NewObjectRef("", "v1", "Secret", v.ClusterSecret.Name, v.ClusterSecret.Namespace)
 			err := vc.loadVarsFromK8sObject(k, ref, v.ClusterSecret.Key)
 			if err != nil {
 				return err
@@ -86,13 +86,13 @@ func (vc *VarsCtx) loadVarsFile(p string, searchDirs []string) error {
 	return nil
 }
 
-func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref types.ObjectRef, key string) error {
+func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref k8s2.ObjectRef, key string) error {
 	o, _, err := k.GetSingleObject(ref)
 	if err != nil {
 		return err
 	}
 
-	value, found, err := unstructured.NestedString(o.UnstructuredContent(), "data", key)
+	value, found, err := o.GetNestedString("data", key)
 	if err != nil {
 		return err
 	}

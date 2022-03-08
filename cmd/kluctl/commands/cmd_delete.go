@@ -3,8 +3,10 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"os"
 )
 
@@ -56,7 +58,7 @@ func (cmd *deleteCmd) Run() error {
 	})
 }
 
-func confirmedDeleteObjects(k *k8s.K8sCluster, refs []types.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
+func confirmedDeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
 	if len(refs) != 0 {
 		_, _ = os.Stderr.WriteString("The following objects will be deleted:\n")
 		for _, ref := range refs {
@@ -69,5 +71,5 @@ func confirmedDeleteObjects(k *k8s.K8sCluster, refs []types.ObjectRef, dryRun bo
 		}
 	}
 
-	return k8s.DeleteObjects(k, refs, true)
+	return deployment.DeleteObjects(k, refs, true)
 }

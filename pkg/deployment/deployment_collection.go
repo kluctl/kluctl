@@ -7,6 +7,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/seal"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/validation"
@@ -14,7 +15,6 @@ import (
 	"golang.org/x/sync/semaphore"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -30,10 +30,10 @@ type DeploymentCollection struct {
 	forSeal   bool
 
 	deployments   []*deploymentItem
-	remoteObjects map[types.ObjectRef]*unstructured.Unstructured
+	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 
-	errors   map[types.ObjectRef]map[types.DeploymentError]bool
-	warnings map[types.ObjectRef]map[types.DeploymentError]bool
+	errors   map[k8s2.ObjectRef]map[types.DeploymentError]bool
+	warnings map[k8s2.ObjectRef]map[types.DeploymentError]bool
 	mutex    sync.Mutex
 }
 
@@ -44,9 +44,9 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 		inclusion:     inclusion,
 		RenderDir:     renderDir,
 		forSeal:       forSeal,
-		remoteObjects: map[types.ObjectRef]*unstructured.Unstructured{},
-		errors:        map[types.ObjectRef]map[types.DeploymentError]bool{},
-		warnings:      map[types.ObjectRef]map[types.DeploymentError]bool{},
+		remoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		errors:        map[k8s2.ObjectRef]map[types.DeploymentError]bool{},
+		warnings:      map[k8s2.ObjectRef]map[types.DeploymentError]bool{},
 	}
 
 	indexes := make(map[string]int)
@@ -243,8 +243,8 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 		return nil
 	}
 
-	notFoundRefsMap := make(map[types.ObjectRef]bool)
-	var notFoundRefsList []types.ObjectRef
+	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
+	var notFoundRefsList []k8s2.ObjectRef
 	for ref := range c.localObjectsByRef() {
 		if _, ok := c.remoteObjects[ref]; !ok {
 			if _, ok = notFoundRefsMap[ref]; !ok {
@@ -264,27 +264,27 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 		return err
 	}
 	for _, o := range r {
-		c.remoteObjects[types.RefFromObject(o)] = o
+		c.remoteObjects[o.GetK8sRef()] = o
 	}
 	return nil
 }
 
-func (c *DeploymentCollection) ForgetRemoteObject(ref types.ObjectRef) {
+func (c *DeploymentCollection) ForgetRemoteObject(ref k8s2.ObjectRef) {
 	delete(c.remoteObjects, ref)
 }
 
-func (c *DeploymentCollection) localObjectsByRef() map[types.ObjectRef]bool {
-	ret := make(map[types.ObjectRef]bool)
+func (c *DeploymentCollection) localObjectsByRef() map[k8s2.ObjectRef]bool {
+	ret := make(map[k8s2.ObjectRef]bool)
 	for _, d := range c.deployments {
 		for _, o := range d.objects {
-			ret[types.RefFromObject(o)] = true
+			ret[o.GetK8sRef()] = true
 		}
 	}
 	return ret
 }
 
-func (c *DeploymentCollection) localObjectRefs() []types.ObjectRef {
-	var ret []types.ObjectRef
+func (c *DeploymentCollection) localObjectRefs() []k8s2.ObjectRef {
+	var ret []k8s2.ObjectRef
 	for ref := range c.localObjectsByRef() {
 		ret = append(ret, ref)
 	}
@@ -325,7 +325,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 	if err != nil {
 		return nil, err
 	}
-	var appliedHookObjectsList []*unstructured.Unstructured
+	var appliedHookObjectsList []*uo.UnstructuredObject
 	for _, o := range appliedHookObjects {
 		appliedHookObjectsList = append(appliedHookObjectsList, o)
 	}
@@ -362,7 +362,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	if err != nil {
 		return nil, err
 	}
-	var appliedHookObjectsList []*unstructured.Unstructured
+	var appliedHookObjectsList []*uo.UnstructuredObject
 	for _, o := range appliedHookObjects {
 		appliedHookObjectsList = append(appliedHookObjectsList, o)
 	}
@@ -386,17 +386,17 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 }
 
 func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResult, error) {
-	allObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
+	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, d := range c.deployments {
 		if !d.checkInclusionForDeploy() {
 			continue
 		}
 		for _, o := range d.objects {
-			allObjects[types.RefFromObject(o)] = o
+			allObjects[o.GetK8sRef()] = o
 		}
 	}
 
-	containersAndImages := make(map[types.ObjectRef][]types.FixedImage)
+	containersAndImages := make(map[k8s2.ObjectRef][]types.FixedImage)
 	for _, fi := range c.images.seenImages {
 		_, ok := allObjects[*fi.Object]
 		if !ok {
@@ -410,9 +410,8 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 	wp := utils.NewWorkerPoolWithErrors(8)
 	defer wp.StopWait(false)
 
-	doPokeImage := func(images []types.FixedImage, o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-		u := uo.FromUnstructured(o)
-		containers, _, _ := u.GetNestedObjectList("spec", "template", "spec", "containers")
+	doPokeImage := func(images []types.FixedImage, o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+		containers, _, _ := o.GetNestedObjectList("spec", "template", "spec", "containers")
 
 		for _, image := range images {
 			for _, c := range containers {
@@ -422,17 +421,17 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 				}
 			}
 		}
-		return u.ToUnstructured(), nil
+		return o, nil
 	}
 
-	appliedObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
+	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	var mutex sync.Mutex
 
 	for ref, containers := range containersAndImages {
 		ref := ref
 		containers := containers
 		wp.Submit(func() error {
-			newObject, err := c.doReplaceObject(k, ref, func(o *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+			newObject, err := c.doReplaceObject(k, ref, func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 				return doPokeImage(containers, o)
 			})
 			if err != nil {
@@ -466,8 +465,8 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 	wp := utils.NewWorkerPoolWithErrors(8)
 	defer wp.StopWait(false)
 
-	appliedObjects := make(map[types.ObjectRef]*unstructured.Unstructured)
-	var deletedObjects []types.ObjectRef
+	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
+	var deletedObjects []k8s2.ObjectRef
 	var mutex sync.Mutex
 
 	for _, d := range c.deployments {
@@ -476,7 +475,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 		}
 		for _, o := range d.objects {
 			o := o
-			ref := types.RefFromObject(o)
+			ref := o.GetK8sRef()
 			if isDownscaleDelete(o) {
 				wp.Submit(func() error {
 					apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{IgnoreNotFoundError: true})
@@ -491,7 +490,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 				})
 			} else {
 				wp.Submit(func() error {
-					o2, err := c.doReplaceObject(k, ref, func(remote *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+					o2, err := c.doReplaceObject(k, ref, func(remote *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 						return downscaleObject(remote, o)
 					})
 					if err != nil {
@@ -550,7 +549,7 @@ func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult
 				continue
 			}
 
-			ref := types.RefFromObject(o)
+			ref := o.GetK8sRef()
 
 			remoteObject := c.getRemoteObject(ref)
 			if remoteObject == nil {
@@ -567,29 +566,29 @@ func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult
 	return &result
 }
 
-func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]types.ObjectRef, error) {
+func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	labels := c.project.getDeleteByLabels()
-	return k8s.FindObjectsForDelete(k, labels, c.inclusion, nil)
+	return FindObjectsForDelete(k, labels, c.inclusion, nil)
 }
 
-func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]types.ObjectRef, error) {
+func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	log.Infof("Searching for orphan objects")
 	labels := c.project.getDeleteByLabels()
-	return k8s.FindObjectsForDelete(k, labels, c.inclusion, c.localObjectRefs())
+	return FindObjectsForDelete(k, labels, c.inclusion, c.localObjectRefs())
 }
 
-func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (map[types.ObjectRef]*unstructured.Unstructured, map[types.ObjectRef]*unstructured.Unstructured, []types.ObjectRef, error) {
+func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (map[k8s2.ObjectRef]*uo.UnstructuredObject, map[k8s2.ObjectRef]*uo.UnstructuredObject, []k8s2.ObjectRef, error) {
 	au := newApplyUtil(c, k, o)
 	au.applyDeployments()
-	var deletedObjects []types.ObjectRef
+	var deletedObjects []k8s2.ObjectRef
 	for ref := range au.deletedObjects {
 		deletedObjects = append(deletedObjects, ref)
 	}
 	return au.appliedObjects, au.appliedHookObjects, deletedObjects, nil
 }
 
-func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[types.ObjectRef]*unstructured.Unstructured, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*unstructured.Unstructured, []*types.ChangedObject, error) {
-	var newObjects []*unstructured.Unstructured
+func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*uo.UnstructuredObject, []*types.ChangedObject, error) {
+	var newObjects []*uo.UnstructuredObject
 	var changedObjects []*types.ChangedObject
 	var mutex sync.Mutex
 
@@ -604,7 +603,7 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[type
 		ignoreForDiffs := d.project.getIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations)
 		for _, o := range d.objects {
 			o := o
-			ref := types.RefFromObject(o)
+			ref := o.GetK8sRef()
 			ao, ok := appliedObjects[ref]
 			if !ok {
 				// if we can't even find it in appliedObjects, it probably ran into an error
@@ -652,10 +651,10 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[type
 	return newObjects, changedObjects, nil
 }
 
-func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref types.ObjectRef, callback func(o *unstructured.Unstructured) (*unstructured.Unstructured, error)) (*unstructured.Unstructured, error) {
+func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref k8s2.ObjectRef, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) (*uo.UnstructuredObject, error) {
 	firstCall := true
 	for true {
-		var remote *unstructured.Unstructured
+		var remote *uo.UnstructuredObject
 		if firstCall {
 			remote = c.getRemoteObject(ref)
 		} else {
@@ -671,7 +670,7 @@ func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref types.Obje
 		}
 		firstCall = false
 
-		remoteCopy := uo.CopyUnstructured(remote)
+		remoteCopy := remote.Clone()
 		modified, err := callback(remoteCopy)
 		if err != nil {
 			return nil, err
@@ -695,7 +694,7 @@ func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref types.Obje
 	return nil, fmt.Errorf("unexpected end of loop")
 }
 
-func (c *DeploymentCollection) addWarning(ref types.ObjectRef, warning error) {
+func (c *DeploymentCollection) addWarning(ref k8s2.ObjectRef, warning error) {
 	de := types.DeploymentError{
 		Ref:   ref,
 		Error: warning.Error(),
@@ -710,7 +709,7 @@ func (c *DeploymentCollection) addWarning(ref types.ObjectRef, warning error) {
 	m[de] = true
 }
 
-func (c *DeploymentCollection) addError(ref types.ObjectRef, err error) {
+func (c *DeploymentCollection) addError(ref k8s2.ObjectRef, err error) {
 	de := types.DeploymentError{
 		Ref:   ref,
 		Error: err.Error(),
@@ -725,13 +724,13 @@ func (c *DeploymentCollection) addError(ref types.ObjectRef, err error) {
 	m[de] = true
 }
 
-func (c *DeploymentCollection) addApiWarnings(ref types.ObjectRef, warnings []k8s.ApiWarning) {
+func (c *DeploymentCollection) addApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
 	for _, w := range warnings {
 		c.addWarning(ref, fmt.Errorf(w.Text))
 	}
 }
 
-func (c *DeploymentCollection) hadError(ref types.ObjectRef) bool {
+func (c *DeploymentCollection) hadError(ref k8s2.ObjectRef) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	_, ok := c.errors[ref]
@@ -765,22 +764,21 @@ func (c *DeploymentCollection) warningsList() []types.DeploymentError {
 func (c *DeploymentCollection) clearErrorsAndWarnings() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.warnings = map[types.ObjectRef]map[types.DeploymentError]bool{}
-	c.errors = map[types.ObjectRef]map[types.DeploymentError]bool{}
+	c.warnings = map[k8s2.ObjectRef]map[types.DeploymentError]bool{}
+	c.errors = map[k8s2.ObjectRef]map[types.DeploymentError]bool{}
 }
 
-func (c *DeploymentCollection) getRemoteObject(ref types.ObjectRef) *unstructured.Unstructured {
+func (c *DeploymentCollection) getRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
 	o, _ := c.remoteObjects[ref]
 	return o
 }
 
-func (c *DeploymentCollection) FindRenderedImages() map[types.ObjectRef][]string {
-	ret := make(map[types.ObjectRef][]string)
+func (c *DeploymentCollection) FindRenderedImages() map[k8s2.ObjectRef][]string {
+	ret := make(map[k8s2.ObjectRef][]string)
 	for _, d := range c.deployments {
 		for _, o := range d.objects {
-			ref := types.RefFromObject(o)
-			u := uo.FromUnstructured(o)
-			l, ok, _ := u.GetNestedObjectList("spec", "template", "spec", "containers")
+			ref := o.GetK8sRef()
+			l, ok, _ := o.GetNestedObjectList("spec", "template", "spec", "containers")
 			if !ok {
 				continue
 			}

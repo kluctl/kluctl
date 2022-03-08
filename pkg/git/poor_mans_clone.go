@@ -82,7 +82,7 @@ func PoorMansClone(sourceDir string, targetDir string, ref string) error {
 	}
 	var ref2 plumbing.ReferenceName
 	if ref != "" {
-		if strings.HasPrefix(ref,"refs/heads") {
+		if strings.HasPrefix(ref, "refs/heads") {
 			ref2 = plumbing.ReferenceName(ref)
 		} else {
 			if _, err := r.Reference(plumbing.NewBranchReferenceName(ref), true); err == nil {

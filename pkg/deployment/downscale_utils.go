@@ -2,11 +2,9 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/yaml"
 	jsonpatch "github.com/evanphx/json-patch"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"
 	"strconv"
@@ -18,25 +16,25 @@ var (
 	downscaleAnnotationIgnore     = "kluctl.io/downscale-ignore"
 )
 
-func isDownscaleDelete(o *unstructured.Unstructured) bool {
-	a, _ := o.GetAnnotations()[downscaleAnnotationDelete]
+func isDownscaleDelete(o *uo.UnstructuredObject) bool {
+	a, _ := o.GetK8sAnnotations()[downscaleAnnotationDelete]
 	b, _ := strconv.ParseBool(a)
 	return b
 }
 
-func isDownscaleIgnore(o *unstructured.Unstructured) bool {
-	a, _ := o.GetAnnotations()[downscaleAnnotationIgnore]
+func isDownscaleIgnore(o *uo.UnstructuredObject) bool {
+	a, _ := o.GetK8sAnnotations()[downscaleAnnotationIgnore]
 	b, _ := strconv.ParseBool(a)
 	return b
 }
 
-func downscaleObject(remote *unstructured.Unstructured, local *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func downscaleObject(remote *uo.UnstructuredObject, local *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 	ret := remote
 	if isDownscaleIgnore(local) {
 		return ret, nil
 	}
 	var patch jsonpatch.Patch
-	for k, v := range local.GetAnnotations() {
+	for k, v := range local.GetK8sAnnotations() {
 		if downscaleAnnotationPatchRegex.MatchString(k) {
 			j, err := yaml.ConvertYamlToJson([]byte(v))
 			if err != nil {
@@ -63,26 +61,26 @@ func downscaleObject(remote *unstructured.Unstructured, local *unstructured.Unst
 		if err != nil {
 			return nil, err
 		}
-		ret = &unstructured.Unstructured{}
+		ret = &uo.UnstructuredObject{}
 		err = yaml.ReadYamlBytes(j, &ret.Object)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	ref := types.RefFromObject(remote)
+	ref := remote.GetK8sRef()
 	switch ref.GVK.GroupKind() {
 	case schema.GroupKind{Group: "apps", Kind: "Deployment"}:
 		fallthrough
 	case schema.GroupKind{Group: "apps", Kind: "StatefulSet"}:
-		ret = uo.CopyUnstructured(ret)
-		err := uo.FromUnstructured(ret).SetNestedField(0, "spec", "replicas")
+		ret = ret.Clone()
+		err := ret.SetNestedField(0, "spec", "replicas")
 		if err != nil {
 			return nil, err
 		}
 	case schema.GroupKind{Group: "batch", Kind: "CronJob"}:
-		ret = uo.CopyUnstructured(ret)
-		err := uo.FromUnstructured(ret).SetNestedField(true, "spec", "suspend")
+		ret = ret.Clone()
+		err := ret.SetNestedField(true, "spec", "suspend")
 		if err != nil {
 			return nil, err
 		}

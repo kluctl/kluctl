@@ -7,12 +7,12 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/registries"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/codablock/kluctl/pkg/utils/versions"
 	"github.com/codablock/kluctl/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"strings"
 	"sync"
 )
@@ -144,11 +144,11 @@ func (images *Images) extractContainerName(parent interface{}) string {
 	return ""
 }
 
-func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Unstructured, deploymentDir string, tags []string) error {
-	ref := types.RefFromObject(o)
-	deployment := fmt.Sprintf("%s/%s", o.GetKind(), o.GetName())
+func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string) error {
+	ref := o.GetK8sRef()
+	deployment := fmt.Sprintf("%s/%s", ref.GVK.Kind, ref.Name)
 
-	var remoteObject *unstructured.Unstructured
+	var remoteObject *uo.UnstructuredObject
 	triedRemoteObject := false
 
 	err := uo.NewObjectIterator(o.Object).IterateLeafs(func(it *uo.ObjectIterator) error {
@@ -174,7 +174,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 
 			if !triedRemoteObject {
 				triedRemoteObject = true
-				remoteObject, _, err = k.GetSingleObject(types.RefFromObject(o))
+				remoteObject, _, err = k.GetSingleObject(o.GetK8sRef())
 				if err != nil && !errors.IsNotFound(err) {
 					return err
 				}
@@ -182,7 +182,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 
 			var deployed *string
 			if remoteObject != nil && ph.startOffset == 0 && ph.endOffset == len(s) {
-				x, found, _ := uo.FromUnstructured(remoteObject).GetNestedField(it.KeyPath()...)
+				x, found, _ := remoteObject.GetNestedField(it.KeyPath()...)
 				if found {
 					if y, ok := x.(string); ok {
 						deployed = &y
@@ -212,7 +212,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *unstructured.Uns
 	return nil
 }
 
-func (images *Images) resolveImage(ph *placeHolder, ref types.ObjectRef, deployment string, container string, deployed *string, deploymentDir string, tags []string) (*string, error) {
+func (images *Images) resolveImage(ph *placeHolder, ref k8s2.ObjectRef, deployment string, container string, deployed *string, deploymentDir string, tags []string) (*string, error) {
 	fixed := images.GetFixedImage(ph.Image, ref.Namespace, deployment, container)
 
 	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)

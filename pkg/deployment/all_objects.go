@@ -1,12 +1,13 @@
-package k8s
+package deployment
 
 import (
+	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 )
 
-func GetIncludedObjectsMetadata(k *K8sCluster, verbs []string, labels map[string]string, inclusion *utils.Inclusion) ([]*v1.PartialObjectMetadata, error) {
+func GetIncludedObjectsMetadata(k *k8s.K8sCluster, verbs []string, labels map[string]string, inclusion *utils.Inclusion) ([]*v1.PartialObjectMetadata, error) {
 	objects, err := k.ListAllObjectsMetadata(verbs, "", labels)
 	if err != nil {
 		return nil, err

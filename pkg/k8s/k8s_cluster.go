@@ -3,15 +3,15 @@ package k8s
 import (
 	"context"
 	"fmt"
-	types2 "github.com/codablock/kluctl/pkg/types"
+	"github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	goversion "github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery/cached/disk"
@@ -241,7 +241,7 @@ func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) bool {
 	return r.Namespaced
 }
 
-func (k *K8sCluster) ShouldRemoveNamespace(ref types2.ObjectRef) bool {
+func (k *K8sCluster) ShouldRemoveNamespace(ref k8s.ObjectRef) bool {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 	r, ok := k.allResources[ref.GVK]
@@ -258,15 +258,15 @@ func (k *K8sCluster) ShouldRemoveNamespace(ref types2.ObjectRef) bool {
 	return true
 }
 
-func (k *K8sCluster) RemoveNamespaceIfNeeded(o *unstructured.Unstructured) {
-	ref := types2.RefFromObject(o)
+func (k *K8sCluster) RemoveNamespaceIfNeeded(o *uo.UnstructuredObject) {
+	ref := o.GetK8sRef()
 	if !k.ShouldRemoveNamespace(ref) {
 		return
 	}
-	o.SetNamespace("")
+	o.SetK8sNamespace("")
 }
 
-func (k *K8sCluster) RemoveNamespaceFromRefIfNeeded(ref types2.ObjectRef) types2.ObjectRef {
+func (k *K8sCluster) RemoveNamespaceFromRefIfNeeded(ref k8s.ObjectRef) k8s.ObjectRef {
 	if !k.ShouldRemoveNamespace(ref) {
 		return ref
 	}
@@ -412,8 +412,8 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 	return ret
 }
 
-func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) (*unstructured.UnstructuredList, []ApiWarning, error) {
-	var result *unstructured.UnstructuredList
+func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
+	var result []*uo.UnstructuredObject
 
 	apiWarnings, err := k.withDynamicClientForGVK(gvk, namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.ListOptions{}
@@ -421,7 +421,9 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) 
 		if err != nil {
 			return err
 		}
-		result = x
+		for _, o := range x.Items {
+			result = append(result, uo.FromUnstructured(&o))
+		}
 		return nil
 	})
 	return result, apiWarnings, err
@@ -495,26 +497,26 @@ func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, la
 	return ret, nil
 }
 
-func (k *K8sCluster) GetSingleObject(ref types2.ObjectRef) (*unstructured.Unstructured, []ApiWarning, error) {
-	var result *unstructured.Unstructured
+func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
+	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.GetOptions{}
 		x, err := r.Get(context.Background(), ref.Name, o)
 		if err != nil {
 			return err
 		}
-		result = x
+		result = uo.FromUnstructured(x)
 		return nil
 	})
 	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) GetObjectsByRefs(refs []types2.ObjectRef) ([]*unstructured.Unstructured, map[types2.ObjectRef][]ApiWarning, error) {
+func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredObject, map[k8s.ObjectRef][]ApiWarning, error) {
 	wp := utils.NewWorkerPoolWithErrors(32)
 	defer wp.StopWait(false)
 
-	var ret []*unstructured.Unstructured
-	retApiWarnings := make(map[types2.ObjectRef][]ApiWarning)
+	var ret []*uo.UnstructuredObject
+	retApiWarnings := make(map[k8s.ObjectRef][]ApiWarning)
 	var mutex sync.Mutex
 
 	for _, ref_ := range refs {
@@ -550,7 +552,7 @@ type DeleteOptions struct {
 	IgnoreNotFoundError bool
 }
 
-func (k *K8sCluster) DeleteSingleObject(ref types2.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
+func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 
 	pp := v1.DeletePropagationForeground
@@ -580,7 +582,7 @@ func (k *K8sCluster) DeleteSingleObject(ref types2.ObjectRef, options DeleteOpti
 	})
 }
 
-func (k *K8sCluster) waitForDeletedObject(r dynamic.ResourceInterface, ref types2.ObjectRef) error {
+func (k *K8sCluster) waitForDeletedObject(r dynamic.ResourceInterface, ref k8s.ObjectRef) error {
 	for true {
 		o := v1.GetOptions{}
 		_, err := r.Get(context.Background(), ref.Name, o)
@@ -597,7 +599,7 @@ func (k *K8sCluster) waitForDeletedObject(r dynamic.ResourceInterface, ref types
 var v1_21, _ = goversion.NewVersion("1.21")
 var v1_1000, _ = goversion.NewVersion("1.1000")
 
-func (k *K8sCluster) FixObjectForPatch(o *unstructured.Unstructured) *unstructured.Unstructured {
+func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.UnstructuredObject {
 	// A bug in versions < 1.20 cause errors when applying resources that have some fields omitted which have
 	// default values. We need to fix these resources.
 	// UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the
@@ -609,7 +611,7 @@ func (k *K8sCluster) FixObjectForPatch(o *unstructured.Unstructured) *unstructur
 		return o
 	}
 
-	o = uo.CopyUnstructured(o)
+	o = o.Clone()
 
 	fixPorts := func(p string) {
 		if !needsDefaultsFix {
@@ -685,12 +687,12 @@ type PatchOptions struct {
 	ForceApply  bool
 }
 
-func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOptions) (*unstructured.Unstructured, []ApiWarning, error) {
+func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
-	ref := types2.RefFromObject(o)
+	ref := o.GetK8sRef()
 	log2 := log.WithField("ref", ref)
 
-	data, err := o.MarshalJSON()
+	data, err := yaml.WriteYamlBytes(o)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -706,13 +708,13 @@ func (k *K8sCluster) PatchObject(o *unstructured.Unstructured, options PatchOpti
 	}
 
 	log2.Debugf("patching")
-	var result *unstructured.Unstructured
+	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(context.Background(), ref.Name, types.ApplyPatchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
 		}
-		result = x
+		result = uo.FromUnstructured(x)
 		return nil
 	})
 	return result, apiWarnings, err
@@ -722,26 +724,26 @@ type UpdateOptions struct {
 	ForceDryRun bool
 }
 
-func (k *K8sCluster) UpdateObject(o *unstructured.Unstructured, options UpdateOptions) (*unstructured.Unstructured, []ApiWarning, error) {
+func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
-	ref := types2.RefFromObject(o)
+	ref := o.GetK8sRef()
 	log2 := log.WithField("ref", ref)
 
-	uo := v1.UpdateOptions{
+	updateOpts := v1.UpdateOptions{
 		FieldManager: "kluctl",
 	}
 	if dryRun {
-		uo.DryRun = []string{"All"}
+		updateOpts.DryRun = []string{"All"}
 	}
 
 	log2.Debugf("updating")
-	var result *unstructured.Unstructured
+	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Update(context.Background(), o, uo)
+		x, err := r.Update(context.Background(), o.ToUnstructured(), updateOpts)
 		if err != nil {
 			return err
 		}
-		result = x
+		result = uo.FromUnstructured(x)
 		return nil
 	})
 	return result, apiWarnings, err
