@@ -127,7 +127,7 @@ func parseRegexFilter(p *preparsed) (LatestVersionFilter, error) {
 
 func parseSemVerFilter(p *preparsed) (LatestVersionFilter, error) {
 	args := []*arg{
-		{name: "allow_no_nums", tok: scanner.Ident, isBool: true},
+		{name: "allow_no_nums", tok: scanner.Ident, value: false, isBool: true},
 	}
 	err := parseArgs(p, args)
 	if err != nil {
@@ -140,7 +140,7 @@ func parseSemVerFilter(p *preparsed) (LatestVersionFilter, error) {
 func parsePrefixFilter(p *preparsed) (LatestVersionFilter, error) {
 	args := []*arg{
 		{name: "prefix", tok: scanner.String, required: true},
-		{name: "suffix", tok: scanner.Ident},
+		{name: "suffix", tok: scanner.Ident, value: ""},
 	}
 	err := parseArgs(p, args)
 	if err != nil {
@@ -239,11 +239,15 @@ func parseArgs(p *preparsed, args []*arg) error {
 		if a.required && !a.found {
 			return fmt.Errorf("required arg %s not found", a.name)
 		}
-		if a.isBool {
-			if a.tok != scanner.Ident || (a.value != "true" && a.value != "false") {
+		if a.found && a.isBool {
+			if a.tok != scanner.Ident {
 				return fmt.Errorf("invalid value for arg %s, must be a bool", a.name)
 			}
-			a.value, _ = strconv.ParseBool(a.value.(string))
+			b, err := strconv.ParseBool(a.value.(string))
+			if err != nil {
+				return fmt.Errorf("invalid value for arg %s, must be a bool", a.name)
+			}
+			a.value = b
 		}
 	}
 
