@@ -45,7 +45,7 @@ func (gp *ExternalProjects) UnmarshalYAML(unmarshal func(interface{}) error) err
 		return nil
 	}
 	// try as array
-	return unmarshal(gp.Projects)
+	return unmarshal(&gp.Projects)
 }
 
 func init() {
