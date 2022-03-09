@@ -28,4 +28,5 @@ func BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
 func init() {
 	RegisterAuthProvider(&GitEnvAuthProvider{})
 	RegisterAuthProvider(&GitCredentialsFileAuthProvider{})
+	RegisterAuthProvider(&GitSshAuthProvider{})
 }
