@@ -31,12 +31,12 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 			continue
 		}
 
-		if !gitUrl.IsSsh() {
+		if !gitUrl.IsSsh() && password != "" {
 			return &http.BasicAuth{
 				Username: username,
 				Password: password,
 			}
-		} else if ssh_key != "" {
+		} else if gitUrl.IsSsh() && ssh_key != "" {
 			a, err := ssh.NewPublicKeysFromFile(username, ssh_key, "")
 			if err != nil {
 				log.Debugf("Failed to parse private key %s: %v", ssh_key, err)
