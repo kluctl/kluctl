@@ -16,6 +16,10 @@ type GitCredentialsFileAuthProvider struct {
 }
 
 func (a *GitCredentialsFileAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
+	if gitUrl.Scheme != "http" && gitUrl.Scheme != "https" {
+		return nil
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Warningf("Could not determine home directory: %v", err)

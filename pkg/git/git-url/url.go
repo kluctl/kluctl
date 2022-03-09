@@ -37,6 +37,10 @@ func (u GitUrl) MarshalYAML() (interface{}, error) {
 	return u.String(), nil
 }
 
+func (u *GitUrl) IsSsh() bool {
+	return u.Scheme == "ssh" || u.Scheme == "git" || u.Scheme == "git+ssh"
+}
+
 func (u *GitUrl) NormalizePort() string {
 	port := u.Port()
 	if port == "" {
