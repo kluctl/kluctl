@@ -227,7 +227,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 		result.SetNestedField(metadata.Object, "spec", "template", "metadata")
 	}
 
-	resealAll := true
+	resealAll := false
 	if s.forceReseal {
 		resealAll = true
 		log.Infof("Forcing reseal of secrets in %s", secretName)
