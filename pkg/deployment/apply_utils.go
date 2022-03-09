@@ -331,7 +331,7 @@ func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			log2.Infof("Still waiting for hook to get ready (%s)...", time.Now().Sub(lastLogTime).String())
+			log2.Infof("Still waiting for hook to get ready (%s)...", time.Now().Sub(startTime).String())
 			lastLogTime = time.Now()
 		}
 
