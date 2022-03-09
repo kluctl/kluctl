@@ -20,7 +20,6 @@ var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
 type MirroredGitRepo struct {
 	url        git_url.GitUrl
-	remoteName string
 	mirrorDir  string
 
 	hasLock    bool
@@ -31,11 +30,10 @@ type MirroredGitRepo struct {
 }
 
 func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
-	remoteName := buildRemoteName(u)
+	mirrorRepoName := buildMirrorRepoName(u)
 	o := &MirroredGitRepo{
 		url:        u,
-		remoteName: remoteName,
-		mirrorDir:  filepath.Join(cacheBaseDir, remoteName),
+		mirrorDir:  filepath.Join(cacheBaseDir, mirrorRepoName),
 	}
 
 	if !utils.IsDirectory(o.mirrorDir) {
@@ -277,7 +275,7 @@ func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 	return nil
 }
 
-func buildRemoteName(u git_url.GitUrl) string {
+func buildMirrorRepoName(u git_url.GitUrl) string {
 	r := filepath.Base(u.Path)
 	if strings.HasSuffix(r, ".git") {
 		r = r[:len(r)-len(".git")]
