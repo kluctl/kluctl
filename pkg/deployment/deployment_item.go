@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
@@ -120,10 +119,26 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 
 	var excludePatterns []string
 	excludePatterns = append(excludePatterns, di.project.config.TemplateExcludes...)
-	if utils.IsFile(filepath.Join(*di.dir, "helm-chart.yml")) {
-		// never try to render helm charts
-		excludePatterns = append(excludePatterns, path.Join(strings.ReplaceAll(di.relToProjectItemDir, string(os.PathSeparator), "/"), "charts/**"))
+	err = filepath.WalkDir(*di.dir, func(p string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			relDir, err := filepath.Rel(*di.dir, p)
+			if err != nil {
+				return err
+			}
+			if utils.IsFile(filepath.Join(p, "helm-chart.yml")) {
+				// never try to render helm charts
+				ep := filepath.Join(di.relToProjectItemDir, relDir, "charts/**")
+				ep = strings.ReplaceAll(ep, string(os.PathSeparator), "/")
+				excludePatterns = append(excludePatterns, ep)
+				return filepath.SkipDir
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+
 	if !di.collection.forSeal {
 		// .sealme files are rendered while sealing and not while deploying
 		excludePatterns = append(excludePatterns, "**.sealme")
