@@ -316,6 +316,12 @@ A list of file patterns to exclude from Jinja2 rendering/templating. This is imp
 resources containing sequences of characters that are misinterpreted by Jinja2. An example would be a configuration file
 that includes Go templates, which will in most cases make Jinja2 templating fail.
 
+Recursive patterns can be specified with double-wildcards, e.g.:
+```yaml
+templateExcludes:
+  - path/to/excludes/**
+```
+
 ### ignoreForDiff
 
 A list of objects and fields to ignore while performing diffs. Consider the following example:
