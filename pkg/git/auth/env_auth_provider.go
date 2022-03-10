@@ -30,6 +30,9 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 		if username == "" {
 			continue
 		}
+		if gitUrl.User != nil && gitUrl.User.Username() != "" && gitUrl.User.Username() != username {
+			continue
+		}
 
 		if !gitUrl.IsSsh() && password != "" {
 			return &http.BasicAuth{
