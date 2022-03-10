@@ -97,5 +97,9 @@ func (u *GitUrl) Normalize() *GitUrl {
 
 func (u *GitUrl) NormalizedRepoKey() string {
 	u2 := u.Normalize()
-	return fmt.Sprintf("%s:%s", u2.Host, u2.Path)
+	username := ""
+	if u.User != nil && u.User.Username() != "" {
+		username = u.User.Username() + "@"
+	}
+	return fmt.Sprintf("%s%s:%s", username, u2.Host, u2.Path)
 }
