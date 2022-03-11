@@ -120,6 +120,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 		}
 
 		fieldSet.Iterate(func(path fieldpath.Path) {
+			path = path.Copy()
 			s := path.String()
 			if _, ok := managersByFields[s]; !ok {
 				managersByFields[s] = &managersByField{stupidPath: s}
