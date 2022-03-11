@@ -6,4 +6,4 @@ mkdir -p $DIR/wheel
 cd $DIR/wheel
 
 rm *.whl
-pip wheel -r ../requirements.txt
+pip3 wheel -r ../requirements.txt
