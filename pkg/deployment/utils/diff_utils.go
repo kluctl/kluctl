@@ -22,9 +22,9 @@ type diffUtil struct {
 	IgnoreAnnotations bool
 
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	NewObjects     []*types.RefAndObject
-	ChangedObjects []*types.ChangedObject
-	mutex          sync.Mutex
+	NewObjects        []*types.RefAndObject
+	ChangedObjects    []*types.ChangedObject
+	mutex             sync.Mutex
 }
 
 func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *diffUtil {

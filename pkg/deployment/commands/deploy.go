@@ -11,11 +11,11 @@ import (
 type DeployCommand struct {
 	c *deployment.DeploymentCollection
 
-	ForceApply bool
-	ReplaceOnError bool
+	ForceApply          bool
+	ReplaceOnError      bool
 	ForceReplaceOnError bool
-	AbortOnError bool
-	HookTimeout time.Duration
+	AbortOnError        bool
+	HookTimeout         time.Duration
 }
 
 func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {

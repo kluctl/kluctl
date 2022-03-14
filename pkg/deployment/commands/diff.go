@@ -13,9 +13,9 @@ type DiffCommand struct {
 	ForceApply          bool
 	ReplaceOnError      bool
 	ForceReplaceOnError bool
-	IgnoreTags        bool
-	IgnoreLabels      bool
-	IgnoreAnnotations bool
+	IgnoreTags          bool
+	IgnoreLabels        bool
+	IgnoreAnnotations   bool
 }
 
 func NewDiffCommand(c *deployment.DeploymentCollection) *DiffCommand {

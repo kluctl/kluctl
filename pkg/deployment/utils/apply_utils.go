@@ -22,9 +22,9 @@ type ApplyUtilOptions struct {
 	ForceApply          bool
 	ReplaceOnError      bool
 	ForceReplaceOnError bool
-	DryRun       bool
-	AbortOnError bool
-	HookTimeout  time.Duration
+	DryRun              bool
+	AbortOnError        bool
+	HookTimeout         time.Duration
 }
 
 type ApplyUtil struct {
