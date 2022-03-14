@@ -2,6 +2,7 @@ package jinja2
 
 import "C"
 import (
+	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"github.com/gobwas/glob"
@@ -206,12 +207,23 @@ func (j *Jinja2) RenderDirectory(rootDir string, searchDirs []string, relSourceD
 		sourcePath := filepath.Clean(filepath.Join(subdir, relPath))
 		targetPath := filepath.Join(targetDir, relPath)
 
-		if strings.Index(sourcePath, ".sealme") != -1 {
-			sourcePath += ""
-		}
-
 		if !j.needsRender(sourcePath, excludePatterns) {
 			return utils.CopyFile(p, targetPath)
+		}
+
+		found := false
+		for _, searchDir := range searchDirs {
+			if utils.Exists(filepath.Join(searchDir, sourcePath)) {
+				sourcePath = filepath.Clean(filepath.Join(searchDir, sourcePath))
+				sourcePath, err = filepath.Rel(rootDir, sourcePath)
+				if err != nil {
+					return err
+				}
+				found = true
+			}
+		}
+		if !found {
+			return fmt.Errorf("did not find %s in searchDirs", relPath)
 		}
 
 		// jinja2 templates are using / even on Windows
