@@ -1,4 +1,4 @@
-package deployment
+package utils
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ var (
 	downscaleAnnotationIgnore     = "kluctl.io/downscale-ignore"
 )
 
-func isDownscaleDelete(o *uo.UnstructuredObject) bool {
+func IsDownscaleDelete(o *uo.UnstructuredObject) bool {
 	a, _ := o.GetK8sAnnotations()[downscaleAnnotationDelete]
 	b, _ := strconv.ParseBool(a)
 	return b
@@ -28,7 +28,7 @@ func isDownscaleIgnore(o *uo.UnstructuredObject) bool {
 	return b
 }
 
-func downscaleObject(remote *uo.UnstructuredObject, local *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+func DownscaleObject(remote *uo.UnstructuredObject, local *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 	ret := remote
 	if isDownscaleIgnore(local) {
 		return ret, nil

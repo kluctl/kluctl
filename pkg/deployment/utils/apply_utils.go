@@ -1,8 +1,9 @@
-package deployment
+package utils
 
 import (
 	errors2 "errors"
 	"fmt"
+	"github.com/codablock/kluctl/pkg/deployment"
 	"github.com/codablock/kluctl/pkg/diff"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
@@ -17,22 +18,22 @@ import (
 	"time"
 )
 
-type applyUtilOptions struct {
-	forceApply          bool
-	replaceOnError      bool
-	forceReplaceOnError bool
-	dryRun              bool
-	abortOnError        bool
-	hookTimeout         time.Duration
+type ApplyUtilOptions struct {
+	ForceApply          bool
+	ReplaceOnError      bool
+	ForceReplaceOnError bool
+	DryRun       bool
+	AbortOnError bool
+	HookTimeout  time.Duration
 }
 
-type applyUtil struct {
-	dew                  *deploymentErrorsAndWarnings
-	deploymentCollection *DeploymentCollection
+type ApplyUtil struct {
+	dew                  *DeploymentErrorsAndWarnings
+	deploymentCollection *deployment.DeploymentCollection
 	k                    *k8s.K8sCluster
-	o                    applyUtilOptions
+	o                    ApplyUtilOptions
 
-	appliedObjects     map[k8s2.ObjectRef]*uo.UnstructuredObject
+	AppliedObjects     map[k8s2.ObjectRef]*uo.UnstructuredObject
 	appliedHookObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	deletedObjects     map[k8s2.ObjectRef]bool
 	deletedHookObjects map[k8s2.ObjectRef]bool
@@ -41,13 +42,13 @@ type applyUtil struct {
 	mutex              sync.Mutex
 }
 
-func newApplyUtil(dew *deploymentErrorsAndWarnings, deploymentCollection *DeploymentCollection, k *k8s.K8sCluster, o applyUtilOptions) *applyUtil {
-	return &applyUtil{
+func NewApplyUtil(dew *DeploymentErrorsAndWarnings, deploymentCollection *deployment.DeploymentCollection, k *k8s.K8sCluster, o ApplyUtilOptions) *ApplyUtil {
+	return &ApplyUtil{
 		dew:                  dew,
 		deploymentCollection: deploymentCollection,
 		k:                    k,
 		o:                    o,
-		appliedObjects:       map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		AppliedObjects:       map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		appliedHookObjects:   map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		deletedObjects:       map[k8s2.ObjectRef]bool{},
 		deletedHookObjects:   map[k8s2.ObjectRef]bool{},
@@ -55,7 +56,7 @@ func newApplyUtil(dew *deploymentErrorsAndWarnings, deploymentCollection *Deploy
 	}
 }
 
-func (a *applyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool) {
+func (a *ApplyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -63,42 +64,42 @@ func (a *applyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool
 	if hook {
 		a.appliedHookObjects[ref] = appliedObject
 	} else {
-		a.appliedObjects[ref] = appliedObject
+		a.AppliedObjects[ref] = appliedObject
 	}
 }
 
-func (a *applyUtil) handleApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
-	a.dew.addApiWarnings(ref, warnings)
+func (a *ApplyUtil) handleApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
+	a.dew.AddApiWarnings(ref, warnings)
 }
 
-func (a *applyUtil) handleWarning(ref k8s2.ObjectRef, warning error) {
-	a.dew.addWarning(ref, warning)
+func (a *ApplyUtil) HandleWarning(ref k8s2.ObjectRef, warning error) {
+	a.dew.AddWarning(ref, warning)
 }
 
-func (a *applyUtil) handleError(ref k8s2.ObjectRef, err error) {
+func (a *ApplyUtil) HandleError(ref k8s2.ObjectRef, err error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if a.o.abortOnError {
+	if a.o.AbortOnError {
 		a.abortSignal = true
 	}
 
-	a.dew.addError(ref, err)
+	a.dew.AddError(ref, err)
 }
 
-func (a *applyUtil) hadError(ref k8s2.ObjectRef) bool {
-	return a.dew.hadError(ref)
+func (a *ApplyUtil) HadError(ref k8s2.ObjectRef) bool {
+	return a.dew.HadError(ref)
 }
 
-func (a *applyUtil) deleteObject(ref k8s2.ObjectRef, hook bool) bool {
+func (a *ApplyUtil) DeleteObject(ref k8s2.ObjectRef, hook bool) bool {
 	o := k8s.DeleteOptions{
-		ForceDryRun: a.o.dryRun,
+		ForceDryRun: a.o.DryRun,
 	}
 	apiWarnings, err := a.k.DeleteSingleObject(ref, o)
 	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			a.handleError(ref, err)
+			a.HandleError(ref, err)
 		}
 		return false
 	}
@@ -113,29 +114,29 @@ func (a *applyUtil) deleteObject(ref k8s2.ObjectRef, hook bool) bool {
 	return true
 }
 
-func (a *applyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, applyError error) {
+func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, applyError error) {
 	ref := x.GetK8sRef()
 	log2 := log.WithField("ref", ref)
 
-	if !a.o.forceReplaceOnError {
-		a.handleError(ref, applyError)
+	if !a.o.ForceReplaceOnError {
+		a.HandleError(ref, applyError)
 		return
 	}
 
 	log2.Warningf("Patching failed, retrying by deleting and re-applying")
 
-	if !a.deleteObject(ref, hook) {
+	if !a.DeleteObject(ref, hook) {
 		return
 	}
 
-	if !a.o.dryRun {
+	if !a.o.DryRun {
 		o := k8s.PatchOptions{
-			ForceDryRun: a.o.dryRun,
+			ForceDryRun: a.o.DryRun,
 		}
 		r, apiWarnings, err := a.k.PatchObject(x, o)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
-			a.handleError(ref, err)
+			a.HandleError(ref, err)
 			return
 		}
 		a.handleResult(r, hook)
@@ -144,12 +145,12 @@ func (a *applyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 	}
 }
 
-func (a *applyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
+func (a *ApplyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
 	log2 := log.WithField("ref", ref)
 
-	if !a.o.replaceOnError || remoteObject == nil {
-		a.handleError(ref, applyError)
+	if !a.o.ReplaceOnError || remoteObject == nil {
+		a.HandleError(ref, applyError)
 		return
 	}
 
@@ -160,7 +161,7 @@ func (a *applyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, r
 	x2.SetK8sResourceVersion(rv)
 
 	o := k8s.UpdateOptions{
-		ForceDryRun: a.o.dryRun,
+		ForceDryRun: a.o.DryRun,
 	}
 
 	r, apiWarnings, err := a.k.UpdateObject(x, o)
@@ -172,29 +173,29 @@ func (a *applyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, r
 	a.handleResult(r, hook)
 }
 
-func (a *applyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
+func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
 
 	if remoteObject == nil {
-		a.handleError(ref, applyError)
+		a.HandleError(ref, applyError)
 		return
 	}
 
 	var x2 *uo.UnstructuredObject
-	if !a.o.forceApply {
+	if !a.o.ForceApply {
 		var statusError *errors.StatusError
 		if !errors2.As(applyError, &statusError) {
-			a.handleError(ref, applyError)
+			a.HandleError(ref, applyError)
 			return
 		}
 
 		x3, lostOwnership, err := diff.ResolveFieldManagerConflicts(x, remoteObject, statusError.ErrStatus)
 		if err != nil {
-			a.handleError(ref, err)
+			a.HandleError(ref, err)
 			return
 		}
 		for _, lo := range lostOwnership {
-			a.dew.addWarning(ref, fmt.Errorf("%s. Not updating field '%s' as we lost field ownership", lo.Message, lo.Field))
+			a.dew.AddWarning(ref, fmt.Errorf("%s. Not updating field '%s' as we lost field ownership", lo.Message, lo.Field))
 		}
 		x2 = x3
 	} else {
@@ -202,28 +203,28 @@ func (a *applyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 	}
 
 	options := k8s.PatchOptions{
-		ForceDryRun: a.o.dryRun,
+		ForceDryRun: a.o.DryRun,
 		ForceApply:  true,
 	}
 	r, apiWarnings, err := a.k.PatchObject(x2, options)
 	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		// We didn't manage to solve it, better to abort (and not retry with replace!)
-		a.handleError(ref, err)
+		a.HandleError(ref, err)
 		return
 	}
 	a.handleResult(r, hook)
 }
 
-func (a *applyUtil) applyObject(x *uo.UnstructuredObject, replaced bool, hook bool) {
+func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bool) {
 	ref := x.GetK8sRef()
 	log2 := log.WithField("ref", ref)
 	log2.Debugf("applying object")
 
 	x = a.k.FixObjectForPatch(x)
-	remoteObject := a.deploymentCollection.getRemoteObject(ref)
+	remoteObject := a.deploymentCollection.GetRemoteObject(ref)
 
-	if a.o.dryRun && replaced && remoteObject != nil {
+	if a.o.DryRun && replaced && remoteObject != nil {
 		// Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
 		// this object, it might fail as it is expected to not exist.
 		a.handleResult(x, hook)
@@ -231,7 +232,7 @@ func (a *applyUtil) applyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	}
 
 	options := k8s.PatchOptions{
-		ForceDryRun: a.o.dryRun,
+		ForceDryRun: a.o.DryRun,
 	}
 	r, apiWarnings, err := a.k.PatchObject(x, options)
 	retry, err := a.handleNewCRDs(r, err)
@@ -242,17 +243,17 @@ func (a *applyUtil) applyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	if err == nil {
 		a.handleResult(r, hook)
 	} else if meta.IsNoMatchError(err) {
-		a.handleError(ref, err)
+		a.HandleError(ref, err)
 	} else if errors.IsConflict(err) {
 		a.retryApplyWithConflicts(x, hook, remoteObject, err)
 	} else if errors.IsInternalError(err) {
-		a.handleError(ref, err)
+		a.HandleError(ref, err)
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
 	}
 }
 
-func (a *applyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, error) {
+func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, error) {
 	if err != nil && meta.IsNoMatchError(err) {
 		// maybe this was a resource for which the CRD was only deployed recently, so we should do rediscovery and then
 		// retry the patch
@@ -280,8 +281,8 @@ func (a *applyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	return false, err
 }
 
-func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
-	if a.o.dryRun {
+func (a *ApplyUtil) WaitHook(ref k8s2.ObjectRef) bool {
+	if a.o.DryRun {
 		return true
 	}
 
@@ -299,10 +300,10 @@ func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
 				if didLog {
 					log2.Warningf("Cancelled waiting for hook as it disappeared while waiting for it")
 				}
-				a.handleError(ref, fmt.Errorf("object disappeared while waiting for it to become ready"))
+				a.HandleError(ref, fmt.Errorf("object disappeared while waiting for it to become ready"))
 				return false
 			}
-			a.handleError(ref, err)
+			a.HandleError(ref, err)
 			return false
 		}
 		v := validation.ValidateObject(o, false)
@@ -317,15 +318,15 @@ func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
 				log2.Warningf("Cancelled waiting for hook due to errors")
 			}
 			for _, e := range v.Errors {
-				a.handleError(ref, fmt.Errorf(e.Error))
+				a.HandleError(ref, fmt.Errorf(e.Error))
 			}
 			return false
 		}
 
-		if a.o.hookTimeout != 0 && time.Now().Sub(startTime) >= a.o.hookTimeout {
+		if a.o.HookTimeout != 0 && time.Now().Sub(startTime) >= a.o.HookTimeout {
 			err := fmt.Errorf("timed out while waiting for hook")
 			log2.Warningf(err.Error())
-			a.handleError(ref, err)
+			a.HandleError(ref, err)
 			return false
 		}
 
@@ -343,14 +344,14 @@ func (a *applyUtil) waitHook(ref k8s2.ObjectRef) bool {
 	return false
 }
 
-func (a *applyUtil) applyDeploymentItem(d *deploymentItem) {
-	if !d.checkInclusionForDeploy() {
-		a.doLog(d, log.InfoLevel, "Skipping")
+func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
+	if !d.CheckInclusionForDeploy() {
+		a.DoLog(d, log.InfoLevel, "Skipping")
 		return
 	}
 
 	var toDelete []k8s2.ObjectRef
-	for _, x := range d.config.DeleteObjects {
+	for _, x := range d.Config.DeleteObjects {
 		for _, gvk := range a.k.GetGVKs(x.Group, x.Version, x.Kind) {
 			ref := k8s2.ObjectRef{
 				GVK:       gvk,
@@ -363,62 +364,62 @@ func (a *applyUtil) applyDeploymentItem(d *deploymentItem) {
 	if len(toDelete) != 0 {
 		log.Infof("Deleting %d objects", len(toDelete))
 		for _, ref := range toDelete {
-			a.deleteObject(ref, false)
+			a.DeleteObject(ref, false)
 		}
 	}
 
 	initialDeploy := true
-	for _, o := range d.objects {
-		if a.deploymentCollection.getRemoteObject(o.GetK8sRef()) != nil {
+	for _, o := range d.Objects {
+		if a.deploymentCollection.GetRemoteObject(o.GetK8sRef()) != nil {
 			initialDeploy = false
 		}
 	}
 
-	h := hooksUtil{a: a}
+	h := HooksUtil{a: a}
 
 	if initialDeploy {
-		h.runHooks(d, []string{"pre-deploy-initial", "pre-deploy"})
+		h.RunHooks(d, []string{"pre-deploy-initial", "pre-deploy"})
 	} else {
-		h.runHooks(d, []string{"pre-deploy-upgrade", "pre-deploy"})
+		h.RunHooks(d, []string{"pre-deploy-upgrade", "pre-deploy"})
 	}
 
 	var applyObjects []*uo.UnstructuredObject
-	for _, o := range d.objects {
-		if h.getHook(o) != nil {
+	for _, o := range d.Objects {
+		if h.GetHook(o) != nil {
 			continue
 		}
 		applyObjects = append(applyObjects, o)
 	}
 
 	if len(applyObjects) != 0 {
-		a.doLog(d, log.InfoLevel, "Applying %d objects", len(applyObjects))
+		a.DoLog(d, log.InfoLevel, "Applying %d objects", len(applyObjects))
 	}
 	startTime := time.Now()
 	didLog := false
 	for i, o := range applyObjects {
-		a.applyObject(o, false, false)
+		a.ApplyObject(o, false, false)
 		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
-			a.doLog(d, log.InfoLevel, "...applied %d of %d objects", i+1, len(applyObjects))
+			a.DoLog(d, log.InfoLevel, "...applied %d of %d objects", i+1, len(applyObjects))
 			startTime = time.Now()
 			didLog = true
 		}
 	}
 
 	if initialDeploy {
-		h.runHooks(d, []string{"post-deploy-initial", "post-deploy"})
+		h.RunHooks(d, []string{"post-deploy-initial", "post-deploy"})
 	} else {
-		h.runHooks(d, []string{"post-deploy-upgrade", "post-deploy"})
+		h.RunHooks(d, []string{"post-deploy-upgrade", "post-deploy"})
 	}
 }
 
-func (a *applyUtil) applyDeployments() {
+func (a *ApplyUtil) ApplyDeployments() {
 	log.Infof("Running server-side apply for all objects")
 
 	wp := utils.NewDebuggerAwareWorkerPool(16)
 	defer wp.StopWait(false)
 
 	previousWasBarrier := false
-	for _, d_ := range a.deploymentCollection.deployments {
+	for _, d_ := range a.deploymentCollection.Deployments {
 		d := d_
 		if a.abortSignal {
 			break
@@ -428,7 +429,7 @@ func (a *applyUtil) applyDeployments() {
 			_ = wp.StopWait(true)
 		}
 
-		previousWasBarrier = d.config.Barrier != nil && *d.config.Barrier
+		previousWasBarrier = d.Config.Barrier != nil && *d.Config.Barrier
 
 		wp.Submit(func() error {
 			a.applyDeploymentItem(d)
@@ -438,12 +439,12 @@ func (a *applyUtil) applyDeployments() {
 	_ = wp.StopWait(false)
 }
 
-func (a *applyUtil) doLog(d *deploymentItem, level log.Level, s string, f ...interface{}) {
-	s = fmt.Sprintf("%s: %s", d.relToProjectItemDir, fmt.Sprintf(s, f...))
+func (a *ApplyUtil) DoLog(d *deployment.DeploymentItem, level log.Level, s string, f ...interface{}) {
+	s = fmt.Sprintf("%s: %s", d.RelToProjectItemDir, fmt.Sprintf(s, f...))
 	log.StandardLogger().Logf(level, s)
 }
 
-func (a *applyUtil) getDeletedObjectsList() []k8s2.ObjectRef {
+func (a *ApplyUtil) GetDeletedObjectsList() []k8s2.ObjectRef {
 	var ret []k8s2.ObjectRef
 	for ref := range a.deletedObjects {
 		ret = append(ret, ref)
@@ -451,7 +452,7 @@ func (a *applyUtil) getDeletedObjectsList() []k8s2.ObjectRef {
 	return ret
 }
 
-func (a *applyUtil) getAppliedHookObjects() []*types.RefAndObject {
+func (a *ApplyUtil) GetAppliedHookObjects() []*types.RefAndObject {
 	var ret []*types.RefAndObject
 	for _, o := range a.appliedHookObjects {
 		ret = append(ret, &types.RefAndObject{

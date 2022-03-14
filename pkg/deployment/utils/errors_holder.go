@@ -1,4 +1,4 @@
-package deployment
+package utils
 
 import (
 	"errors"
@@ -10,26 +10,26 @@ import (
 	"sync"
 )
 
-type deploymentErrorsAndWarnings struct {
+type DeploymentErrorsAndWarnings struct {
 	errors   map[k8s.ObjectRef]map[types.DeploymentError]bool
 	warnings map[k8s.ObjectRef]map[types.DeploymentError]bool
 	mutex    sync.Mutex
 }
 
-func NewDeploymentErrorsAndWarnings() *deploymentErrorsAndWarnings {
-	dew := &deploymentErrorsAndWarnings{}
+func NewDeploymentErrorsAndWarnings() *DeploymentErrorsAndWarnings {
+	dew := &DeploymentErrorsAndWarnings{}
 	dew.init()
 	return dew
 }
 
-func (dew *deploymentErrorsAndWarnings) init() {
+func (dew *DeploymentErrorsAndWarnings) init() {
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
 	dew.warnings = map[k8s.ObjectRef]map[types.DeploymentError]bool{}
 	dew.errors = map[k8s.ObjectRef]map[types.DeploymentError]bool{}
 }
 
-func (dew *deploymentErrorsAndWarnings) addWarning(ref k8s.ObjectRef, warning error) {
+func (dew *DeploymentErrorsAndWarnings) AddWarning(ref k8s.ObjectRef, warning error) {
 	de := types.DeploymentError{
 		Ref:   ref,
 		Error: warning.Error(),
@@ -44,7 +44,7 @@ func (dew *deploymentErrorsAndWarnings) addWarning(ref k8s.ObjectRef, warning er
 	m[de] = true
 }
 
-func (dew *deploymentErrorsAndWarnings) addError(ref k8s.ObjectRef, err error) {
+func (dew *DeploymentErrorsAndWarnings) AddError(ref k8s.ObjectRef, err error) {
 	de := types.DeploymentError{
 		Ref:   ref,
 		Error: err.Error(),
@@ -59,20 +59,20 @@ func (dew *deploymentErrorsAndWarnings) addError(ref k8s.ObjectRef, err error) {
 	m[de] = true
 }
 
-func (dew *deploymentErrorsAndWarnings) addApiWarnings(ref k8s.ObjectRef, warnings []k8s2.ApiWarning) {
+func (dew *DeploymentErrorsAndWarnings) AddApiWarnings(ref k8s.ObjectRef, warnings []k8s2.ApiWarning) {
 	for _, w := range warnings {
-		dew.addWarning(ref, fmt.Errorf(w.Text))
+		dew.AddWarning(ref, fmt.Errorf(w.Text))
 	}
 }
 
-func (dew *deploymentErrorsAndWarnings) hadError(ref k8s.ObjectRef) bool {
+func (dew *DeploymentErrorsAndWarnings) HadError(ref k8s.ObjectRef) bool {
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
 	_, ok := dew.errors[ref]
 	return ok
 }
 
-func (dew *deploymentErrorsAndWarnings) getErrorsList() []types.DeploymentError {
+func (dew *DeploymentErrorsAndWarnings) GetErrorsList() []types.DeploymentError {
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
 	var ret []types.DeploymentError
@@ -84,7 +84,7 @@ func (dew *deploymentErrorsAndWarnings) getErrorsList() []types.DeploymentError 
 	return ret
 }
 
-func (dew *deploymentErrorsAndWarnings) getWarningsList() []types.DeploymentError {
+func (dew *DeploymentErrorsAndWarnings) GetWarningsList() []types.DeploymentError {
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
 	var ret []types.DeploymentError
@@ -96,15 +96,15 @@ func (dew *deploymentErrorsAndWarnings) getWarningsList() []types.DeploymentErro
 	return ret
 }
 
-func (dew *deploymentErrorsAndWarnings) getPlainErrorsList() []error {
+func (dew *DeploymentErrorsAndWarnings) getPlainErrorsList() []error {
 	var ret []error
-	for _, e := range dew.getErrorsList() {
+	for _, e := range dew.GetErrorsList() {
 		ret = append(ret, errors.New(e.Error))
 	}
 	return ret
 }
 
-func (dew *deploymentErrorsAndWarnings) getMultiError() error {
+func (dew *DeploymentErrorsAndWarnings) GetMultiError() error {
 	l := dew.getPlainErrorsList()
 	if len(l) == 0 {
 		return nil

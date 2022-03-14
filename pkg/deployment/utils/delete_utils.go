@@ -1,4 +1,4 @@
-package deployment
+package utils
 
 import (
 	"github.com/codablock/kluctl/pkg/k8s"

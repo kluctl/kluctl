@@ -21,37 +21,37 @@ import (
 
 const sealmeExt = ".sealme"
 
-type deploymentItem struct {
-	project    *DeploymentProject
+type DeploymentItem struct {
+	Project    *DeploymentProject
 	collection *DeploymentCollection
-	config     *types.DeploymentItemConfig
+	Config     *types.DeploymentItemConfig
 	dir        *string
 	index      int
 
-	objects []*uo.UnstructuredObject
+	Objects []*uo.UnstructuredObject
 
 	relProjectDir       string
 	relToRootItemDir    string
-	relToProjectItemDir string
+	RelToProjectItemDir string
 	relRenderedDir      string
 	renderedDir         string
 	renderedYamlPath    string
 }
 
-func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*deploymentItem, error) {
-	di := &deploymentItem{
-		project:    project,
+func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
+	di := &DeploymentItem{
+		Project:    project,
 		collection: collection,
-		config:     config,
+		Config:     config,
 		dir:        dir,
 		index:      index,
 	}
 
 	var err error
 
-	rootProject := di.project.getRootProject()
+	rootProject := di.Project.getRootProject()
 
-	di.relProjectDir, err = filepath.Rel(rootProject.dir, di.project.dir)
+	di.relProjectDir, err = filepath.Rel(rootProject.dir, di.Project.dir)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 			return nil, err
 		}
 
-		di.relToProjectItemDir, err = filepath.Rel(di.relProjectDir, di.relToRootItemDir)
+		di.RelToProjectItemDir, err = filepath.Rel(di.relProjectDir, di.relToRootItemDir)
 		if err != nil {
 			return nil, err
 		}
@@ -78,8 +78,8 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 	return di, nil
 }
 
-func (di *deploymentItem) getCommonLabels() map[string]string {
-	l := di.project.getCommonLabels()
+func (di *DeploymentItem) getCommonLabels() map[string]string {
+	l := di.Project.getCommonLabels()
 	i := 0
 	for _, t := range di.getTags().ListKeys() {
 		l[fmt.Sprintf("kluctl.io/tag-%d", i)] = t
@@ -88,37 +88,37 @@ func (di *deploymentItem) getCommonLabels() map[string]string {
 	return l
 }
 
-func (di *deploymentItem) getCommonAnnotations() map[string]string {
+func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	// TODO change it to kluctl.io/deployment_dir
 	a := map[string]string{
 		"kluctl.io/kustomize_dir": strings.ReplaceAll(di.relToRootItemDir, string(os.PathSeparator), "/"),
 	}
-	if di.config.SkipDeleteIfTags != nil && *di.config.SkipDeleteIfTags {
+	if di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags {
 		a["kluctl.io/skip-delete-if-tags"] = "true"
 	}
 	return a
 }
 
-func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErrors) error {
 	if di.dir == nil {
 		return nil
 	}
 
-	rootDir := di.project.getRootProject().dir
+	rootDir := di.Project.getRootProject().dir
 
 	err := os.MkdirAll(di.renderedDir, 0o700)
 	if err != nil {
 		return err
 	}
 
-	varsCtx := di.project.VarsCtx.Copy()
-	err = varsCtx.LoadVarsList(k, di.project.getRenderSearchDirs(), di.config.Vars)
+	varsCtx := di.Project.VarsCtx.Copy()
+	err = varsCtx.LoadVarsList(k, di.Project.getRenderSearchDirs(), di.Config.Vars)
 	if err != nil {
 		return err
 	}
 
 	var excludePatterns []string
-	excludePatterns = append(excludePatterns, di.project.config.TemplateExcludes...)
+	excludePatterns = append(excludePatterns, di.Project.config.TemplateExcludes...)
 	err = filepath.WalkDir(*di.dir, func(p string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			relDir, err := filepath.Rel(*di.dir, p)
@@ -127,7 +127,7 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 			}
 			if utils.IsFile(filepath.Join(p, "helm-chart.yml")) {
 				// never try to render helm charts
-				ep := filepath.Join(di.relToProjectItemDir, relDir, "charts/**")
+				ep := filepath.Join(di.RelToProjectItemDir, relDir, "charts/**")
 				ep = strings.ReplaceAll(ep, string(os.PathSeparator), "/")
 				excludePatterns = append(excludePatterns, ep)
 				return filepath.SkipDir
@@ -145,13 +145,13 @@ func (di *deploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 	}
 
 	wp.Submit(func() error {
-		return varsCtx.RenderDirectory(rootDir, di.project.getRenderSearchDirs(), di.relProjectDir, excludePatterns, di.relToProjectItemDir, di.renderedDir)
+		return varsCtx.RenderDirectory(rootDir, di.Project.getRenderSearchDirs(), di.relProjectDir, excludePatterns, di.RelToProjectItemDir, di.renderedDir)
 	})
 
 	return nil
 }
 
-func (di *deploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErrors) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -176,15 +176,15 @@ func (di *deploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 	return nil
 }
 
-func (di *deploymentItem) resolveSealedSecrets() error {
+func (di *DeploymentItem) resolveSealedSecrets() error {
 	if di.dir == nil {
 		return nil
 	}
 
 	// TODO check for bootstrap
 
-	sealedSecretsDir := di.project.getSealedSecretsDir()
-	baseSourcePath := di.project.sealedSecretsDir
+	sealedSecretsDir := di.Project.getSealedSecretsDir()
+	baseSourcePath := di.Project.sealedSecretsDir
 
 	y, err := uo.FromFile(filepath.Join(di.renderedDir, "kustomization.yml"))
 	if err != nil {
@@ -205,7 +205,7 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 		}
 		fname := filepath.Base(p)
 
-		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.project.dir, resource)))
+		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.Project.dir, resource)))
 		if sealedSecretsDir == nil {
 			return fmt.Errorf("%s. Sealed secrets dir could not be determined", baseError)
 		}
@@ -226,15 +226,15 @@ func (di *deploymentItem) resolveSealedSecrets() error {
 	return nil
 }
 
-func (di *deploymentItem) getTags() *utils.OrderedMap {
-	tags := di.project.getTags()
-	for _, t := range di.config.Tags {
+func (di *DeploymentItem) getTags() *utils.OrderedMap {
+	tags := di.Project.getTags()
+	for _, t := range di.Config.Tags {
 		tags.Set(t, true)
 	}
 	return tags
 }
 
-func (di *deploymentItem) buildInclusionEntries() []utils.InclusionEntry {
+func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 	var values []utils.InclusionEntry
 	for _, t := range di.getTags().ListKeys() {
 		values = append(values, utils.InclusionEntry{Type: "tag", Value: t})
@@ -246,30 +246,30 @@ func (di *deploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 	return values
 }
 
-func (di *deploymentItem) checkInclusionForDeploy() bool {
+func (di *DeploymentItem) CheckInclusionForDeploy() bool {
 	if di.collection.inclusion == nil {
 		return true
 	}
-	if di.config.OnlyRender != nil && *di.config.OnlyRender {
+	if di.Config.OnlyRender != nil && *di.Config.OnlyRender {
 		return true
 	}
-	if di.config.AlwaysDeploy != nil && *di.config.AlwaysDeploy {
+	if di.Config.AlwaysDeploy != nil && *di.Config.AlwaysDeploy {
 		return true
 	}
 	values := di.buildInclusionEntries()
 	return di.collection.inclusion.CheckIncluded(values, false)
 }
 
-func (di *deploymentItem) checkInclusionForDelete() bool {
+func (di *DeploymentItem) checkInclusionForDelete() bool {
 	if di.collection.inclusion == nil {
 		return true
 	}
-	skipDeleteIfTags := di.config.SkipDeleteIfTags != nil && *di.config.SkipDeleteIfTags
+	skipDeleteIfTags := di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags
 	values := di.buildInclusionEntries()
 	return di.collection.inclusion.CheckIncluded(values, skipDeleteIfTags)
 }
 
-func (di *deploymentItem) prepareKustomizationYaml() error {
+func (di *DeploymentItem) prepareKustomizationYaml() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -285,7 +285,7 @@ func (di *deploymentItem) prepareKustomizationYaml() error {
 		return err
 	}
 
-	overrideNamespace := di.project.getOverrideNamespace()
+	overrideNamespace := di.Project.getOverrideNamespace()
 	if overrideNamespace != nil {
 		if _, ok := kustomizeYaml["namespace"]; !ok {
 			kustomizeYaml["namespace"] = *overrideNamespace
@@ -300,7 +300,7 @@ func (di *deploymentItem) prepareKustomizationYaml() error {
 	return nil
 }
 
-func (di *deploymentItem) buildKustomize() error {
+func (di *DeploymentItem) buildKustomize() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -338,7 +338,7 @@ func (di *deploymentItem) buildKustomize() error {
 	return nil
 }
 
-func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
+func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -348,16 +348,16 @@ func (di *deploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		return err
 	}
 
-	di.objects = []*uo.UnstructuredObject{}
+	di.Objects = []*uo.UnstructuredObject{}
 	for _, o := range objects {
 		m, ok := o.(map[string]interface{})
 		if !ok {
 			return fmt.Errorf("object is not a map")
 		}
-		di.objects = append(di.objects, uo.FromMap(m))
+		di.Objects = append(di.Objects, uo.FromMap(m))
 	}
 
-	for _, o := range di.objects {
+	for _, o := range di.Objects {
 		if k != nil {
 			k.RemoveNamespaceIfNeeded(o)
 		}

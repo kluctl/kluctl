@@ -294,7 +294,7 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap {
 	return &tags
 }
 
-func (p *DeploymentProject) getIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []*types.IgnoreForDiffItemConfig {
+func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []*types.IgnoreForDiffItemConfig {
 	var ret []*types.IgnoreForDiffItemConfig
 	for _, e := range p.getParents() {
 		ret = append(ret, e.p.config.IgnoreForDiff...)

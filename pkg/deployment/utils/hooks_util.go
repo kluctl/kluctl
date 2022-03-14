@@ -1,7 +1,8 @@
-package deployment
+package utils
 
 import (
 	"fmt"
+	"github.com/codablock/kluctl/pkg/deployment"
 	"github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -31,8 +32,12 @@ var supportedHelmHooks = []string{
 	"pre-rollback", "post-rollback",
 }
 
-type hooksUtil struct {
-	a *applyUtil
+type HooksUtil struct {
+	a *ApplyUtil
+}
+
+func NewHooksUtil(a *ApplyUtil) *HooksUtil {
+	return &HooksUtil{a: a}
 }
 
 type hook struct {
@@ -43,13 +48,13 @@ type hook struct {
 	wait           bool
 }
 
-func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
+func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 	doLog := func(level log.Level, s string, f ...interface{}) {
-		u.a.doLog(d, level, s, f...)
+		u.a.DoLog(d, level, s, f...)
 	}
 
 	var l []*hook
-	for _, h := range u.getSortedHooksList(d.objects) {
+	for _, h := range u.getSortedHooksList(d.Objects) {
 		for h2 := range h.hooks {
 			if utils.FindStrInSlice(hooks, h2) != -1 {
 				l = append(l, h)
@@ -85,7 +90,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 			dpStr = append(dpStr, p)
 		}
 		doLog(log.DebugLevel, "Deleting hook %s due to hook-delete-policy %s", ref.String(), strings.Join(dpStr, ","))
-		return u.a.deleteObject(ref, true)
+		return u.a.DeleteObject(ref, true)
 	}
 
 	if len(deleteBeforeObjects) != 0 {
@@ -103,15 +108,15 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
 		doLog(log.DebugLevel, "Applying hook %s", ref.String())
-		u.a.applyObject(h.object, replaced, true)
+		u.a.ApplyObject(h.object, replaced, true)
 
-		if u.a.hadError(ref) {
+		if u.a.HadError(ref) {
 			continue
 		}
 		if !h.wait {
 			continue
 		}
-		waitResults[ref] = u.a.waitHook(ref)
+		waitResults[ref] = u.a.WaitHook(ref)
 	}
 
 	var deleteAfterObjects []*hook
@@ -141,7 +146,7 @@ func (u *hooksUtil) runHooks(d *deploymentItem, hooks []string) {
 	}
 }
 
-func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
+func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	ref := o.GetK8sRef()
 	getSet := func(name string) map[string]bool {
 		ret := make(map[string]bool)
@@ -160,14 +165,14 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 	hooks := getSet("kluctl.io/hook")
 	for h := range hooks {
 		if utils.FindStrInSlice(supportedKluctlHooks, h) == -1 {
-			u.a.handleError(ref, fmt.Errorf("unsupported kluctl.io/hook '%s'", h))
+			u.a.HandleError(ref, fmt.Errorf("unsupported kluctl.io/hook '%s'", h))
 		}
 	}
 
 	helmHooks := getSet("helm.sh/hook")
 	for h := range helmHooks {
 		if utils.FindStrInSlice(supportedHelmHooks, h) == -1 {
-			u.a.handleWarning(ref, fmt.Errorf("unsupported helm.sh/hook '%s'", h))
+			u.a.HandleWarning(ref, fmt.Errorf("unsupported helm.sh/hook '%s'", h))
 		}
 	}
 
@@ -194,7 +199,7 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 	}
 	weight, err := strconv.ParseInt(*weightStr, 10, 32)
 	if err != nil {
-		u.a.handleError(ref, fmt.Errorf("failed to parse hook weight: %w", err))
+		u.a.HandleError(ref, fmt.Errorf("failed to parse hook weight: %w", err))
 	}
 
 	deletePolicy := getSet("kluctl.io/hook-delete-policy")
@@ -207,7 +212,7 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 
 	for p := range deletePolicy {
 		if utils.FindStrInSlice(supportedKluctlDeletePolicies, p) == -1 {
-			u.a.handleError(ref, fmt.Errorf("unsupported kluctl.io/hook-delete-policy '%s'", p))
+			u.a.HandleError(ref, fmt.Errorf("unsupported kluctl.io/hook-delete-policy '%s'", p))
 		}
 	}
 
@@ -218,7 +223,7 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 	}
 	wait, err := strconv.ParseBool(*waitStr)
 	if err != nil {
-		u.a.handleError(ref, fmt.Errorf("failed to parse %s as bool", waitStr))
+		u.a.HandleError(ref, fmt.Errorf("failed to parse %s as bool", waitStr))
 		wait = true
 	}
 
@@ -235,10 +240,10 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 	}
 }
 
-func (u *hooksUtil) getSortedHooksList(objects []*uo.UnstructuredObject) []*hook {
+func (u *HooksUtil) getSortedHooksList(objects []*uo.UnstructuredObject) []*hook {
 	var ret []*hook
 	for _, o := range objects {
-		h := u.getHook(o)
+		h := u.GetHook(o)
 		if h == nil {
 			continue
 		}
@@ -250,7 +255,7 @@ func (u *hooksUtil) getSortedHooksList(objects []*uo.UnstructuredObject) []*hook
 	return ret
 }
 
-func (h *hook) isPersistent() bool {
+func (h *hook) IsPersistent() bool {
 	for p := range h.deletePolicies {
 		if p != "before-hook-creation" && p != "hook-failed" {
 			return false

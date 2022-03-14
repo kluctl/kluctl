@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/deployment"
+	"github.com/codablock/kluctl/pkg/deployment/utils"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
@@ -71,5 +71,5 @@ func confirmedDeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun boo
 		}
 	}
 
-	return deployment.DeleteObjects(k, refs, true)
+	return utils.DeleteObjects(k, refs, true)
 }
