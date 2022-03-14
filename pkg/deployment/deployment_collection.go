@@ -591,14 +591,12 @@ func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult
 }
 
 func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
-	labels := c.project.getCommonLabels()
-	return FindObjectsForDelete(k, labels, c.inclusion, nil)
+	return FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), nil)
 }
 
 func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	log.Infof("Searching for orphan objects")
-	labels := c.project.getCommonLabels()
-	return FindObjectsForDelete(k, labels, c.inclusion, c.localObjectRefs())
+	return FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), c.localObjectRefs())
 }
 
 func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (map[k8s2.ObjectRef]*uo.UnstructuredObject, map[k8s2.ObjectRef]*uo.UnstructuredObject, []k8s2.ObjectRef, error) {
@@ -799,6 +797,40 @@ func (c *DeploymentCollection) clearErrorsAndWarnings() {
 func (c *DeploymentCollection) getRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
 	o, _ := c.remoteObjects[ref]
 	return o
+}
+
+func (c *DeploymentCollection) getFilteredRemoteObjects(inclusion *utils.Inclusion) []*uo.UnstructuredObject {
+	var ret []*uo.UnstructuredObject
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for _, o := range c.remoteObjects {
+		iv := c.getInclusionEntries(o)
+		if inclusion.CheckIncluded(iv, false) {
+			ret = append(ret, o)
+		}
+	}
+
+	return ret
+}
+
+func (c *DeploymentCollection) getInclusionEntries(o *uo.UnstructuredObject) []utils.InclusionEntry {
+	var iv []utils.InclusionEntry
+	for _, v := range o.GetK8sLabelsWithRegex("^kluctl.io/tag-\\d+$") {
+		iv = append(iv, utils.InclusionEntry{
+			Type:  "tag",
+			Value: v,
+		})
+	}
+
+	if itemDir := o.GetK8sAnnotation("kluctl.io/kustomize_dir"); itemDir != nil {
+		iv = append(iv, utils.InclusionEntry{
+			Type:  "deploymentItemDir",
+			Value: *itemDir,
+		})
+	}
+	return iv
 }
 
 func (c *DeploymentCollection) FindRenderedImages() map[k8s2.ObjectRef][]string {

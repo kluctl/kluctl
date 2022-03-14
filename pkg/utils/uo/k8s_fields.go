@@ -5,6 +5,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
+	"regexp"
 )
 
 func (uo *UnstructuredObject) GetK8sGVK() schema.GroupVersionKind {
@@ -124,6 +126,18 @@ func (uo *UnstructuredObject) SetK8sLabel(name string, value string) {
 	}
 }
 
+func (uo *UnstructuredObject) GetK8sLabelsWithRegex(r interface{}) map[string]string {
+	p := uo.getRegexp(r)
+
+	ret := make(map[string]string)
+	for k, v := range uo.GetK8sLabels() {
+		if p.MatchString(k) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
 func (uo *UnstructuredObject) GetK8sAnnotations() map[string]string {
 	ret, ok, err := uo.GetNestedStringMapCopy("metadata", "annotations")
 	if err != nil {
@@ -160,6 +174,18 @@ func (uo *UnstructuredObject) SetK8sAnnotation(name string, value string) {
 	}
 }
 
+func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[string]string {
+	p := uo.getRegexp(r)
+
+	ret := make(map[string]string)
+	for k, v := range uo.GetK8sAnnotations() {
+		if p.MatchString(k) {
+			ret[k] = v
+		}
+	}
+	return ret
+}
+
 func (uo *UnstructuredObject) GetK8sResourceVersion() string {
 	ret, _, _ := uo.GetNestedString("metadata", "resourceVersion")
 	return ret
@@ -183,4 +209,16 @@ func (uo *UnstructuredObject) GetK8sOwnerReferences() []*UnstructuredObject {
 
 func (uo *UnstructuredObject) GetK8sManagedFields() []metav1.ManagedFieldsEntry {
 	return uo.ToUnstructured().GetManagedFields()
+}
+
+func (ui *UnstructuredObject) getRegexp(r interface{}) *regexp.Regexp {
+	if x, ok := r.(*regexp.Regexp); ok {
+		return x
+	} else {
+		if x, ok := r.(string); ok {
+			return regexp.MustCompile(x)
+		}
+	}
+	log.Panicf("unknown type %s", reflect.TypeOf(r).String())
+	return nil
 }

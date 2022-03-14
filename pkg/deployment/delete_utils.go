@@ -6,7 +6,6 @@ import (
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strconv"
 	"sync"
@@ -46,13 +45,12 @@ func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef
 	return ref
 }
 
-func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusion *utils.Inclusion, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
+func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusionHasTags bool, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
 	filteredResources := make(map[schema.GroupKind]bool)
 	for _, gk := range k.GetFilteredGKs(apiFilter) {
 		filteredResources[gk] = true
 	}
 
-	inclusionHasTags := inclusion.HasType("tags")
 	var ret []*uo.UnstructuredObject
 
 	for _, o := range objects {
@@ -112,23 +110,16 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 	return ret, nil
 }
 
-func FindObjectsForDelete(k *k8s.K8sCluster, labels map[string]string, inclusion *utils.Inclusion, excludedObjects []k8s2.ObjectRef) ([]k8s2.ObjectRef, error) {
-	log.Infof("Getting all cluster objects matching commonLabels")
-
+func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.UnstructuredObject, inclusionHasTags bool, excludedObjects []k8s2.ObjectRef) ([]k8s2.ObjectRef, error) {
 	excludedObjectsMap := make(map[k8s2.ObjectRef]bool)
 	for _, ref := range excludedObjects {
 		excludedObjectsMap[objectRefForExclusion(k, ref)] = true
 	}
 
-	allClusterObjects, err := GetIncludedObjectsMetadata(k, []string{"delete"}, labels, inclusion)
-	if err != nil {
-		return nil, err
-	}
-
 	var ret []k8s2.ObjectRef
 
 	for _, filter := range deleteOrder {
-		l, err := filterObjectsForDelete(k, allClusterObjects, filter, inclusion, excludedObjectsMap)
+		l, err := filterObjectsForDelete(k, allClusterObjects, filter, inclusionHasTags, excludedObjectsMap)
 		if err != nil {
 			return nil, err
 		}
