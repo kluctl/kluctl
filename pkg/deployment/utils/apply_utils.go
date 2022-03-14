@@ -14,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -437,6 +438,55 @@ func (a *ApplyUtil) ApplyDeployments() {
 		})
 	}
 	_ = wp.StopWait(false)
+}
+
+func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.UnstructuredObject, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) {
+	firstCall := true
+	for true {
+		var remote *uo.UnstructuredObject
+		if firstCall && firstVersion != nil {
+			remote = firstVersion
+		} else {
+			o2, apiWarnings, err := a.k.GetSingleObject(ref)
+			a.dew.AddApiWarnings(ref, apiWarnings)
+			if err != nil && !errors.IsNotFound(err) {
+				a.HandleError(ref, err)
+				return
+			}
+			remote = o2
+		}
+		if remote == nil {
+			a.handleResult(remote, false)
+			return
+		}
+		firstCall = false
+
+		remoteCopy := remote.Clone()
+		modified, err := callback(remoteCopy)
+		if err != nil {
+			a.HandleError(ref, err)
+			return
+		}
+		if reflect.DeepEqual(remote.Object, modified.Object) {
+			a.handleResult(remote, false)
+			return
+		}
+
+		result, apiWarnings, err := a.k.UpdateObject(modified, k8s.UpdateOptions{})
+		a.dew.AddApiWarnings(ref, apiWarnings)
+		if err != nil {
+			if errors.IsConflict(err) {
+				log.Warningf("Conflict while patching %s. Retrying...", ref.String())
+				continue
+			} else {
+				a.HandleError(ref, err)
+				return
+			}
+		}
+		a.handleResult(result, false)
+		return
+	}
+	a.HandleError(ref, fmt.Errorf("unexpected end of loop"))
 }
 
 func (a *ApplyUtil) DoLog(d *deployment.DeploymentItem, level log.Level, s string, f ...interface{}) {

@@ -12,9 +12,7 @@ import (
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"path/filepath"
-	"reflect"
 	"sync"
 )
 
@@ -305,84 +303,6 @@ func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResult, error) {
-	dew := utils2.NewDeploymentErrorsAndWarnings()
-
-	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	for _, d := range c.Deployments {
-		if !d.CheckInclusionForDeploy() {
-			continue
-		}
-		for _, o := range d.Objects {
-			allObjects[o.GetK8sRef()] = o
-		}
-	}
-
-	containersAndImages := make(map[k8s2.ObjectRef][]types.FixedImage)
-	for _, fi := range c.Images.seenImages {
-		_, ok := allObjects[*fi.Object]
-		if !ok {
-			dew.AddError(*fi.Object, fmt.Errorf("object not found while trying to associate image with deployed object"))
-			continue
-		}
-
-		containersAndImages[*fi.Object] = append(containersAndImages[*fi.Object], fi)
-	}
-
-	wp := utils.NewWorkerPoolWithErrors(8)
-	defer wp.StopWait(false)
-
-	doPokeImage := func(images []types.FixedImage, o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
-		containers, _, _ := o.GetNestedObjectList("spec", "template", "spec", "containers")
-
-		for _, image := range images {
-			for _, c := range containers {
-				containerName, _, _ := c.GetNestedString("name")
-				if image.Container != nil && containerName == *image.Container {
-					c.SetNestedField(image.ResultImage, "image")
-				}
-			}
-		}
-		return o, nil
-	}
-
-	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	var mutex sync.Mutex
-
-	for ref, containers := range containersAndImages {
-		ref := ref
-		containers := containers
-		wp.Submit(func() error {
-			newObject, err := c.doReplaceObject(k, dew, ref, func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
-				return doPokeImage(containers, o)
-			})
-			if err != nil {
-				dew.AddError(ref, err)
-			} else {
-				mutex.Lock()
-				defer mutex.Unlock()
-				appliedObjects[ref] = newObject
-			}
-			return nil
-		})
-	}
-	err := wp.StopWait(false)
-	if err != nil {
-		return nil, err
-	}
-
-	du := utils2.NewDiffUtil(dew, c.Deployments, c.RemoteObjects, appliedObjects)
-	du.Diff(k)
-
-	return &types.CommandResult{
-		NewObjects:     du.NewObjects,
-		ChangedObjects: du.ChangedObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     c.Images.seenImages,
-	}, nil
-}
-
 func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
@@ -491,49 +411,6 @@ func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.Obje
 func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	log.Infof("Searching for orphan objects")
 	return utils2.FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), c.localObjectRefs())
-}
-
-func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, dew *utils2.DeploymentErrorsAndWarnings, ref k8s2.ObjectRef, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) (*uo.UnstructuredObject, error) {
-	firstCall := true
-	for true {
-		var remote *uo.UnstructuredObject
-		if firstCall {
-			remote = c.GetRemoteObject(ref)
-		} else {
-			o2, apiWarnings, err := k.GetSingleObject(ref)
-			dew.AddApiWarnings(ref, apiWarnings)
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, err
-			}
-			remote = o2
-		}
-		if remote == nil {
-			return remote, nil
-		}
-		firstCall = false
-
-		remoteCopy := remote.Clone()
-		modified, err := callback(remoteCopy)
-		if err != nil {
-			return nil, err
-		}
-		if reflect.DeepEqual(remote.Object, modified.Object) {
-			return remote, nil
-		}
-
-		result, apiWarnings, err := k.UpdateObject(modified, k8s.UpdateOptions{})
-		dew.AddApiWarnings(ref, apiWarnings)
-		if err != nil {
-			if errors.IsConflict(err) {
-				log.Warningf("Conflict while patching %s. Retrying...", ref.String())
-				continue
-			} else {
-				return nil, err
-			}
-		}
-		return result, nil
-	}
-	return nil, fmt.Errorf("unexpected end of loop")
 }
 
 func (c *DeploymentCollection) getFilteredRemoteObjects(inclusion *utils.Inclusion) []*uo.UnstructuredObject {
