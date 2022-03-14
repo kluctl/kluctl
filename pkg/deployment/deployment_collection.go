@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sync"
-	"time"
 )
 
 type DeploymentCollection struct {
@@ -304,39 +303,6 @@ func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
 		return err
 	}
 	return nil
-}
-
-func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replaceOnError bool, forceReplaceOnError, abortOnError bool, hookTimeout time.Duration) (*types.CommandResult, error) {
-	dew := utils2.NewDeploymentErrorsAndWarnings()
-
-	o := utils2.ApplyUtilOptions{
-		ForceApply:          forceApply,
-		ReplaceOnError:      replaceOnError,
-		ForceReplaceOnError: forceReplaceOnError,
-		DryRun:              k.DryRun,
-		AbortOnError:        abortOnError,
-		HookTimeout:         hookTimeout,
-	}
-	au := utils2.NewApplyUtil(dew, c, k, o)
-	au.ApplyDeployments()
-
-	du := utils2.NewDiffUtil(dew, c.Deployments, c.RemoteObjects, au.AppliedObjects)
-	du.Diff(k)
-
-	orphanObjects, err := c.FindOrphanObjects(k)
-	if err != nil {
-		return nil, err
-	}
-	return &types.CommandResult{
-		NewObjects:     du.NewObjects,
-		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjectsList(),
-		HookObjects:    au.GetAppliedHookObjects(),
-		OrphanObjects:  orphanObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     c.Images.seenImages,
-	}, nil
 }
 
 func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResult, error) {

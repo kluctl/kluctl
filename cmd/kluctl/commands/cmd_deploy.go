@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 )
 
 type deployCmd struct {
@@ -50,7 +51,14 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 		}
 	}
 
-	result, err := ctx.deploymentCollection.Deploy(ctx.k, cmd.ForceApply, cmd.ReplaceOnError, cmd.ForceReplaceOnError, cmd.AbortOnError, cmd.HookTimeout)
+	cmd2 := commands.NewDeployCommand(ctx.deploymentCollection)
+	cmd2.ForceApply = cmd.ForceApply
+	cmd2.ReplaceOnError = cmd.ReplaceOnError
+	cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
+	cmd2.AbortOnError = cmd.AbortOnError
+	cmd2.HookTimeout = cmd.HookTimeout
+
+	result, err := cmd2.Run(ctx.k)
 	if err != nil {
 		return err
 	}
