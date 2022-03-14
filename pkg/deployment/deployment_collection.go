@@ -5,7 +5,6 @@ import (
 	"fmt"
 	utils2 "github.com/codablock/kluctl/pkg/deployment/utils"
 	"github.com/codablock/kluctl/pkg/k8s"
-	"github.com/codablock/kluctl/pkg/seal"
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
@@ -13,18 +12,16 @@ import (
 	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
-	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 )
 
 type DeploymentCollection struct {
-	project   *DeploymentProject
-	images    *Images
+	Project *DeploymentProject
+	Images  *Images
 	inclusion *utils.Inclusion
 	RenderDir string
 	forSeal   bool
@@ -36,8 +33,8 @@ type DeploymentCollection struct {
 
 func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
 	dc := &DeploymentCollection{
-		project:       project,
-		images:        images,
+		Project:       project,
+		Images:        images,
 		inclusion:     inclusion,
 		RenderDir:     renderDir,
 		forSeal:       forSeal,
@@ -90,7 +87,7 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, indexes map[string]int) ([]*DeploymentItem, error) {
 	var ret []*DeploymentItem
 
-	for i, diConfig := range project.config.Deployments {
+	for i, diConfig := range project.Config.Deployments {
 		if diConfig.Include != nil {
 			includedProject, ok := project.includes[i]
 			if !ok {
@@ -146,32 +143,6 @@ func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 	}
 
 	return nil
-}
-
-func (c *DeploymentCollection) Seal(sealer *seal.Sealer) error {
-	if c.project.config.SealedSecrets.OutputPattern == nil {
-		return fmt.Errorf("sealedSecrets.outputPattern is not defined")
-	}
-
-	err := filepath.WalkDir(c.RenderDir, func(p string, d fs.DirEntry, err error) error {
-		if !strings.HasSuffix(p, sealmeExt) {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(c.RenderDir, p)
-		if err != nil {
-			return err
-		}
-		targetDir := filepath.Join(c.project.sealedSecretsDir, filepath.Dir(relPath))
-		targetFile := filepath.Join(targetDir, *c.project.config.SealedSecrets.OutputPattern, filepath.Base(p))
-		targetFile = targetFile[:len(targetFile)-len(sealmeExt)]
-		err = sealer.SealFile(p, targetFile)
-		if err != nil {
-			return fmt.Errorf("failed sealing %s: %w", filepath.Base(p), err)
-		}
-		return nil
-	})
-	return err
 }
 
 func (c *DeploymentCollection) resolveSealedSecrets() error {

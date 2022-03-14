@@ -18,9 +18,9 @@ var warnOnce utils.OnceByKey
 type DeploymentProject struct {
 	VarsCtx          *jinja2.VarsCtx
 	dir              string
-	sealedSecretsDir string
+	SealedSecretsDir string
 
-	config types.DeploymentProjectConfig
+	Config types.DeploymentProjectConfig
 
 	includes map[int]*DeploymentProject
 
@@ -32,7 +32,7 @@ func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *jinja2.VarsCtx, dir string
 	dp := &DeploymentProject{
 		VarsCtx:          varsCtx.Copy(),
 		dir:              dir,
-		sealedSecretsDir: sealedSecretsDir,
+		SealedSecretsDir: sealedSecretsDir,
 		parentProject:    parentProject,
 		includes:         map[int]*DeploymentProject{},
 	}
@@ -69,43 +69,43 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		return fmt.Errorf("%s not found", p.dir)
 	}
 
-	err := p.VarsCtx.RenderYamlFile("deployment.yml", p.getRenderSearchDirs(), &p.config)
+	err := p.VarsCtx.RenderYamlFile("deployment.yml", p.getRenderSearchDirs(), &p.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}
 
-	err = p.VarsCtx.LoadVarsList(k, p.getRenderSearchDirs(), p.config.Vars)
+	err = p.VarsCtx.LoadVarsList(k, p.getRenderSearchDirs(), p.Config.Vars)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
 	}
 
 	// TODO remove obsolete code
-	if len(p.config.Deployments) != 0 && (len(p.config.KustomizeDirs) != 0 || len(p.config.Includes) != 0) {
+	if len(p.Config.Deployments) != 0 && (len(p.Config.KustomizeDirs) != 0 || len(p.Config.Includes) != 0) {
 		return fmt.Errorf("using 'deployments' and 'kustomizeDirs' at the same time is not allowed")
 	}
-	if len(p.config.KustomizeDirs) != 0 {
+	if len(p.Config.KustomizeDirs) != 0 {
 		warnOnce.Do("kustomizeDirs", func() {
 			log.Warningf("'kustomizeDirs' is deprecated, use 'deployments' instead")
 		})
-		p.config.Deployments = p.config.KustomizeDirs
-		p.config.KustomizeDirs = nil
+		p.Config.Deployments = p.Config.KustomizeDirs
+		p.Config.KustomizeDirs = nil
 	}
-	if len(p.config.Includes) != 0 {
+	if len(p.Config.Includes) != 0 {
 		warnOnce.Do("includes", func() {
 			log.Warningf("'includes' is deprecated, use 'deployments' instead")
 		})
-		for _, inc := range p.config.Includes {
+		for _, inc := range p.Config.Includes {
 			c := *inc
 			c.Include = c.Path
 			c.Path = nil
-			p.config.Deployments = append(p.config.Deployments, &c)
+			p.Config.Deployments = append(p.Config.Deployments, &c)
 		}
-		p.config.Includes = nil
+		p.Config.Includes = nil
 	}
 
 	// If there are no explicit tags set, interpret the path as a tag, which allows to
 	// enable/disable single deployments via included/excluded tags
-	for _, item := range p.config.Deployments {
+	for _, item := range p.Config.Deployments {
 		if len(item.Tags) != 0 {
 			continue
 		}
@@ -124,15 +124,15 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	if len(p.getCommonLabels()) == 0 {
 		return fmt.Errorf("no commonLabels in root deployment. This is not allowed")
 	}
-	if len(p.config.DeleteByLabels) != 0 {
+	if len(p.Config.DeleteByLabels) != 0 {
 		warnOnce.Do("deleteByLabels", func() {
 			log.Warningf("'deleteByLabels' is deprecated and ignored from now on")
 		})
-		if !reflect.DeepEqual(p.config.CommonLabels, p.config.DeleteByLabels) {
+		if !reflect.DeepEqual(p.Config.CommonLabels, p.Config.DeleteByLabels) {
 			return fmt.Errorf("commonLabels and deleteByLabels do not match")
 		}
 	}
-	if len(p.config.Args) != 0 && p.parentProject != nil {
+	if len(p.Config.Args) != 0 && p.parentProject != nil {
 		return fmt.Errorf("only the root deployment.yml can define args")
 	}
 	return nil
@@ -140,7 +140,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 
 func (p *DeploymentProject) checkDeploymentDirs() error {
 	rootProject := p.getRootProject()
-	for _, di := range p.config.Deployments {
+	for _, di := range p.Config.Deployments {
 		if di.Path == nil && di.Include == nil {
 			continue
 		}
@@ -182,7 +182,7 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 }
 
 func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
-	for i, inc := range p.config.Deployments {
+	for i, inc := range p.Config.Deployments {
 		if inc.Include == nil {
 			continue
 		}
@@ -195,7 +195,7 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 			return err
 		}
 
-		newProject, err := NewDeploymentProject(k, varsCtx, incDir, p.sealedSecretsDir, p)
+		newProject, err := NewDeploymentProject(k, varsCtx, incDir, p.SealedSecretsDir, p)
 		if err != nil {
 			return err
 		}
@@ -208,10 +208,10 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 
 func (p *DeploymentProject) getSealedSecretsDir() *string {
 	root := p.getRootProject()
-	if root.config.SealedSecrets == nil {
+	if root.Config.SealedSecrets == nil {
 		return nil
 	}
-	return root.config.SealedSecrets.OutputPattern
+	return root.Config.SealedSecrets.OutputPattern
 }
 
 func (p *DeploymentProject) getRootProject() *DeploymentProject {
@@ -265,15 +265,15 @@ func (p *DeploymentProject) getCommonLabels() map[string]string {
 	parents := p.getParents()
 	for i, _ := range parents {
 		d := parents[len(parents)-i-1]
-		uo.MergeStrMap(ret, d.p.config.CommonLabels)
+		uo.MergeStrMap(ret, d.p.Config.CommonLabels)
 	}
 	return ret
 }
 
 func (p *DeploymentProject) getOverrideNamespace() *string {
 	for _, e := range p.getParents() {
-		if e.p.config.OverrideNamespace != nil {
-			return e.p.config.OverrideNamespace
+		if e.p.Config.OverrideNamespace != nil {
+			return e.p.Config.OverrideNamespace
 		}
 	}
 	return nil
@@ -287,7 +287,7 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap {
 				tags.Set(t, true)
 			}
 		}
-		for _, t := range e.p.config.Tags {
+		for _, t := range e.p.Config.Tags {
 			tags.Set(t, true)
 		}
 	}
@@ -297,7 +297,7 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap {
 func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []*types.IgnoreForDiffItemConfig {
 	var ret []*types.IgnoreForDiffItemConfig
 	for _, e := range p.getParents() {
-		ret = append(ret, e.p.config.IgnoreForDiff...)
+		ret = append(ret, e.p.Config.IgnoreForDiff...)
 	}
 	if ignoreTags {
 		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels."kluctl.io/tag-*"`}})

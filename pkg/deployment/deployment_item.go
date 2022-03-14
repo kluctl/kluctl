@@ -19,7 +19,7 @@ import (
 	"sync"
 )
 
-const sealmeExt = ".sealme"
+const SealmeExt = ".sealme"
 
 type DeploymentItem struct {
 	Project    *DeploymentProject
@@ -118,7 +118,7 @@ func (di *DeploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 	}
 
 	var excludePatterns []string
-	excludePatterns = append(excludePatterns, di.Project.config.TemplateExcludes...)
+	excludePatterns = append(excludePatterns, di.Project.Config.TemplateExcludes...)
 	err = filepath.WalkDir(*di.dir, func(p string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			relDir, err := filepath.Rel(*di.dir, p)
@@ -184,7 +184,7 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 	// TODO check for bootstrap
 
 	sealedSecretsDir := di.Project.getSealedSecretsDir()
-	baseSourcePath := di.Project.sealedSecretsDir
+	baseSourcePath := di.Project.SealedSecretsDir
 
 	y, err := uo.FromFile(filepath.Join(di.renderedDir, "kustomization.yml"))
 	if err != nil {
@@ -196,7 +196,7 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 	}
 	for _, resource := range l {
 		p := filepath.Join(di.renderedDir, resource)
-		if utils.Exists(p) || !utils.Exists(p+sealmeExt) {
+		if utils.Exists(p) || !utils.Exists(p+SealmeExt) {
 			continue
 		}
 		relDir, err := filepath.Rel(di.renderedDir, filepath.Dir(p))
@@ -368,7 +368,7 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 		// Resolve image placeholders
-		err = di.collection.images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
+		err = di.collection.Images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
 		if err != nil {
 			return err
 		}

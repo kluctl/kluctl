@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 	"github.com/codablock/kluctl/pkg/kluctl_project"
 	"github.com/codablock/kluctl/pkg/seal"
 	"github.com/codablock/kluctl/pkg/types"
@@ -105,7 +106,9 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, 
 			return err
 		}
 
-		err = ctx.deploymentCollection.Seal(sealer)
+		cmd2 := commands.NewSealCommand(ctx.deploymentCollection)
+		err = cmd2.Run(sealer)
+
 		if err != nil {
 			return err
 		}
