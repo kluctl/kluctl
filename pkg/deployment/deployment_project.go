@@ -10,11 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
-var kustomizeDirsDeprecatedOnce sync.Once
-var includesDeprecatedOnce sync.Once
+var warnOnce utils.OnceByKey
 
 type DeploymentProject struct {
 	VarsCtx          *jinja2.VarsCtx
@@ -85,14 +83,14 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		return fmt.Errorf("using 'deployments' and 'kustomizeDirs' at the same time is not allowed")
 	}
 	if len(p.config.KustomizeDirs) != 0 {
-		kustomizeDirsDeprecatedOnce.Do(func() {
+		warnOnce.Do("kustomizeDirs", func() {
 			log.Warningf("'kustomizeDirs' is deprecated, use 'deployments' instead")
 		})
 		p.config.Deployments = p.config.KustomizeDirs
 		p.config.KustomizeDirs = nil
 	}
 	if len(p.config.Includes) != 0 {
-		includesDeprecatedOnce.Do(func() {
+		warnOnce.Do("includes", func() {
 			log.Warningf("'includes' is deprecated, use 'deployments' instead")
 		})
 		for _, inc := range p.config.Includes {
