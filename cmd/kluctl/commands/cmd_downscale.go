@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 )
 
 type downscaleCmd struct {
@@ -39,7 +40,10 @@ func (cmd *downscaleCmd) Run() error {
 				return fmt.Errorf("aborted")
 			}
 		}
-		result, err := ctx.deploymentCollection.Downscale(ctx.k)
+
+		cmd2 := commands.NewDownscaleCommand(ctx.deploymentCollection)
+
+		result, err := cmd2.Run(ctx.k)
 		if err != nil {
 			return err
 		}
