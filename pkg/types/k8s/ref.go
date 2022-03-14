@@ -15,7 +15,11 @@ func (r ObjectRef) String() string {
 	if r.Namespace != "" {
 		return fmt.Sprintf("%s/%s/%s", r.Namespace, r.GVK.Kind, r.Name)
 	} else {
-		return fmt.Sprintf("%s/%s", r.GVK.Kind, r.Name)
+		if r.Name != "" {
+			return fmt.Sprintf("%s/%s", r.GVK.Kind, r.Name)
+		} else {
+			return r.GVK.Kind
+		}
 	}
 }
 

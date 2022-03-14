@@ -243,6 +243,19 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 		return nil
 	}
 
+	log.Infof("Getting remote objects by commonLabels")
+	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", c.project.getCommonLabels(), false)
+	for gvk, aw := range apiWarnings {
+		c.addApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
+	}
+	if err != nil {
+		return err
+	}
+
+	for _, o := range allObjects {
+		c.remoteObjects[o.GetK8sRef()] = o
+	}
+
 	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
 	var notFoundRefsList []k8s2.ObjectRef
 	for ref := range c.localObjectsByRef() {
@@ -254,17 +267,18 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 		}
 	}
 
-	log.Infof("Updating %d remote objects", len(notFoundRefsList))
-
-	r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
-	for ref, aw := range apiWarnings {
-		c.addApiWarnings(ref, aw)
-	}
-	if err != nil {
-		return err
-	}
-	for _, o := range r {
-		c.remoteObjects[o.GetK8sRef()] = o
+	if len(notFoundRefsList) != 0 {
+		log.Infof("Getting %d additional remote objects", len(notFoundRefsList))
+		r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
+		for ref, aw := range apiWarnings {
+			c.addApiWarnings(ref, aw)
+		}
+		if err != nil {
+			return err
+		}
+		for _, o := range r {
+			c.remoteObjects[o.GetK8sRef()] = o
+		}
 	}
 	return nil
 }
@@ -619,7 +633,7 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2
 				// if we can't even find it in appliedObjects, it probably ran into an error
 				continue
 			}
-			ro, _ := c.remoteObjects[ref]
+			ro := c.getRemoteObject(ref)
 
 			if ao != nil && ro == nil {
 				newObjects = append(newObjects, &types.RefAndObject{

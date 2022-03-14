@@ -8,7 +8,7 @@ import (
 )
 
 func GetIncludedObjectsMetadata(k *k8s.K8sCluster, verbs []string, labels map[string]string, inclusion *utils.Inclusion) ([]*uo.UnstructuredObject, error) {
-	objects, err := k.ListAllObjects(verbs, "", labels, true)
+	objects, _, err := k.ListAllObjects(verbs, "", labels, true)
 	if err != nil {
 		return nil, err
 	}

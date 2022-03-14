@@ -466,12 +466,12 @@ func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace 
 	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string, onlyMetadata bool) ([]*uo.UnstructuredObject, error) {
+func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string, onlyMetadata bool) ([]*uo.UnstructuredObject, map[schema.GroupVersionKind][]ApiWarning, error) {
 	wp := utils.NewWorkerPoolWithErrors(8)
 	defer wp.StopWait(false)
 
 	var ret []*uo.UnstructuredObject
-	var retApiWarnings []ApiWarning
+	retApiWarnings := make(map[schema.GroupVersionKind][]ApiWarning)
 	var mutex sync.Mutex
 
 	k.mutex.Lock()
@@ -506,7 +506,9 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 			mutex.Lock()
 			defer mutex.Unlock()
 			ret = append(ret, l...)
-			retApiWarnings = append(retApiWarnings, apiWarnings...)
+			if len(apiWarnings) != 0 {
+				retApiWarnings[gvk] = apiWarnings
+			}
 			return nil
 		})
 	}
@@ -515,9 +517,9 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 
 	err := wp.StopWait(false)
 	if err != nil {
-		return nil, err
+		return nil, retApiWarnings, err
 	}
-	return ret, nil
+	return ret, retApiWarnings, nil
 }
 
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
