@@ -121,6 +121,8 @@ def add_jinja2_filters(jinja2_env):
 def extract_template_error(e):
     try:
         raise e
+    except TemplateNotFound as e2:
+        return "template %s not found" % str(e2)
     except:
         etype, value, tb = sys.exc_info()
     extracted_tb = traceback.extract_tb(tb)
