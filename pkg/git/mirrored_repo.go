@@ -19,8 +19,8 @@ import "github.com/gofrs/flock"
 var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
 type MirroredGitRepo struct {
-	url        git_url.GitUrl
-	mirrorDir  string
+	url       git_url.GitUrl
+	mirrorDir string
 
 	hasLock    bool
 	hasUpdated bool
@@ -32,8 +32,8 @@ type MirroredGitRepo struct {
 func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
 	mirrorRepoName := buildMirrorRepoName(u)
 	o := &MirroredGitRepo{
-		url:        u,
-		mirrorDir:  filepath.Join(cacheBaseDir, mirrorRepoName),
+		url:       u,
+		mirrorDir: filepath.Join(cacheBaseDir, mirrorRepoName),
 	}
 
 	if !utils.IsDirectory(o.mirrorDir) {
