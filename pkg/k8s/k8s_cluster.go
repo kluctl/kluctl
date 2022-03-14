@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
@@ -377,7 +378,7 @@ func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namesp
 
 	p.warnings = nil
 
-	if namespaced {
+	if namespaced && namespace != "" {
 		err = cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
 		return append([]ApiWarning(nil), p.warnings...), err
 	} else {
@@ -397,7 +398,7 @@ func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, names
 
 	p.warnings = nil
 
-	if namespaced {
+	if namespaced && namespace != "" {
 		err = cb(p.metadataClient.Resource(*gvr).Namespace(namespace))
 		return append([]ApiWarning(nil), p.warnings...), err
 	} else {
@@ -418,11 +419,13 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 	return ret
 }
 
-func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
+func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	var result []*uo.UnstructuredObject
 
 	apiWarnings, err := k.withDynamicClientForGVK(gvk, namespace, func(r dynamic.ResourceInterface) error {
-		o := v1.ListOptions{}
+		o := v1.ListOptions{
+			LabelSelector: k.buildLabelSelector(labels),
+		}
 		x, err := r.List(context.Background(), o)
 		if err != nil {
 			return err
@@ -435,8 +438,8 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string) 
 	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) (*v1.PartialObjectMetadataList, []ApiWarning, error) {
-	var result *v1.PartialObjectMetadataList
+func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
+	var result []*uo.UnstructuredObject
 
 	apiWarnings, err := k.withMetadataClientForGVK(gvk, namespace, func(r metadata.ResourceInterface) error {
 		o := v1.ListOptions{
@@ -446,17 +449,28 @@ func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace 
 		if err != nil {
 			return err
 		}
-		result = x
+		for _, o := range x.Items {
+			b, err := json.Marshal(o)
+			if err != nil {
+				log.Panic(err)
+			}
+			u, err := uo.FromString(string(b))
+			if err != nil {
+				log.Panic(err)
+			}
+			u.SetK8sGVK(gvk)
+			result = append(result, u)
+		}
 		return nil
 	})
 	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, labels map[string]string) ([]*v1.PartialObjectMetadata, error) {
+func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string, onlyMetadata bool) ([]*uo.UnstructuredObject, error) {
 	wp := utils.NewWorkerPoolWithErrors(8)
 	defer wp.StopWait(false)
 
-	var ret []*v1.PartialObjectMetadata
+	var ret []*uo.UnstructuredObject
 	var retApiWarnings []ApiWarning
 	var mutex sync.Mutex
 
@@ -478,17 +492,20 @@ func (k *K8sCluster) ListAllObjectsMetadata(verbs []string, namespace string, la
 			Kind:    ar.Kind,
 		}
 		wp.Submit(func() error {
-			lm, apiWarnings, err := k.ListObjectsMetadata(gvk, namespace, labels)
+			var l []*uo.UnstructuredObject
+			var apiWarnings []ApiWarning
+			var err error
+			if onlyMetadata {
+				l, apiWarnings, err = k.ListObjectsMetadata(gvk, namespace, labels)
+			} else {
+				l, apiWarnings, err = k.ListObjects(gvk, namespace, labels)
+			}
 			if err != nil {
 				return err
 			}
 			mutex.Lock()
 			defer mutex.Unlock()
-			for _, o := range lm.Items {
-				o := o
-				o.SetGroupVersionKind(gvk)
-				ret = append(ret, &o)
-			}
+			ret = append(ret, l...)
 			retApiWarnings = append(retApiWarnings, apiWarnings...)
 			return nil
 		})

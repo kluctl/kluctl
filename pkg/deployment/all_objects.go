@@ -3,17 +3,17 @@ package deployment
 import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	"strings"
 )
 
-func GetIncludedObjectsMetadata(k *k8s.K8sCluster, verbs []string, labels map[string]string, inclusion *utils.Inclusion) ([]*v1.PartialObjectMetadata, error) {
-	objects, err := k.ListAllObjectsMetadata(verbs, "", labels)
+func GetIncludedObjectsMetadata(k *k8s.K8sCluster, verbs []string, labels map[string]string, inclusion *utils.Inclusion) ([]*uo.UnstructuredObject, error) {
+	objects, err := k.ListAllObjects(verbs, "", labels, true)
 	if err != nil {
 		return nil, err
 	}
 
-	var ret []*v1.PartialObjectMetadata
+	var ret []*uo.UnstructuredObject
 
 	for _, o := range objects {
 		var iv []utils.InclusionEntry
@@ -24,7 +24,7 @@ func GetIncludedObjectsMetadata(k *k8s.K8sCluster, verbs []string, labels map[st
 			})
 		}
 
-		annotations := o.GetAnnotations()
+		annotations := o.GetK8sAnnotations()
 		if annotations != nil {
 			if itemDir, ok := annotations["kluctl.io/kustomize_dir"]; ok {
 				iv = append(iv, utils.InclusionEntry{
@@ -43,8 +43,8 @@ func GetIncludedObjectsMetadata(k *k8s.K8sCluster, verbs []string, labels map[st
 	return ret, nil
 }
 
-func getTagsFromObject(o *v1.PartialObjectMetadata) map[string]bool {
-	labels := o.GetLabels()
+func getTagsFromObject(o *uo.UnstructuredObject) map[string]bool {
+	labels := o.GetK8sLabels()
 	if len(labels) == 0 {
 		return nil
 	}

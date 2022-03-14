@@ -5,8 +5,8 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strconv"
 	"sync"
@@ -46,24 +46,24 @@ func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef
 	return ref
 }
 
-func filterObjectsForDelete(k *k8s.K8sCluster, objects []*v1.PartialObjectMetadata, apiFilter []string, inclusion *utils.Inclusion, excludedObjects map[k8s2.ObjectRef]bool) ([]*v1.PartialObjectMetadata, error) {
+func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusion *utils.Inclusion, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
 	filteredResources := make(map[schema.GroupKind]bool)
 	for _, gk := range k.GetFilteredGKs(apiFilter) {
 		filteredResources[gk] = true
 	}
 
 	inclusionHasTags := inclusion.HasType("tags")
-	var ret []*v1.PartialObjectMetadata
+	var ret []*uo.UnstructuredObject
 
 	for _, o := range objects {
-		ref := k8s2.RefFromPartialObject(o)
+		ref := o.GetK8sRef()
 		if _, ok := filteredResources[ref.GVK.GroupKind()]; !ok {
 			continue
 		}
 
-		annotations := o.GetAnnotations()
-		ownerRefs := o.GetOwnerReferences()
-		managedFields := o.GetManagedFields()
+		annotations := o.GetK8sAnnotations()
+		ownerRefs := o.GetK8sOwnerReferences()
+		managedFields := o.GetK8sManagedFields()
 
 		// exclude when explicitly requested
 		skipDelete, err := strconv.ParseBool(annotations["kluctl.io/skip-delete"])
@@ -133,7 +133,7 @@ func FindObjectsForDelete(k *k8s.K8sCluster, labels map[string]string, inclusion
 			return nil, err
 		}
 		for _, o := range l {
-			ref := k8s2.RefFromPartialObject(o)
+			ref := o.GetK8sRef()
 			excludedObjectsMap[objectRefForExclusion(k, ref)] = true
 			ret = append(ret, ref)
 		}

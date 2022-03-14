@@ -2,8 +2,6 @@ package k8s
 
 import (
 	"fmt"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -30,21 +28,5 @@ func NewObjectRef(group string, version string, kind string, name string, namesp
 		},
 		Name:      name,
 		Namespace: namespace,
-	}
-}
-
-func RefFromObject(o *unstructured.Unstructured) ObjectRef {
-	return ObjectRef{
-		GVK:       o.GroupVersionKind(),
-		Name:      o.GetName(),
-		Namespace: o.GetNamespace(),
-	}
-}
-
-func RefFromPartialObject(o *v1.PartialObjectMetadata) ObjectRef {
-	return ObjectRef{
-		GVK:       o.GroupVersionKind(),
-		Name:      o.GetName(),
-		Namespace: o.GetNamespace(),
 	}
 }

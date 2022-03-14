@@ -176,6 +176,11 @@ func (uo *UnstructuredObject) SetK8sResourceVersion(rv string) {
 	}
 }
 
+func (uo *UnstructuredObject) GetK8sOwnerReferences() []*UnstructuredObject {
+	ret, _, _ := uo.GetNestedObjectList("metadata", "ownerReferences")
+	return ret
+}
+
 func (uo *UnstructuredObject) GetK8sManagedFields() []metav1.ManagedFieldsEntry {
 	return uo.ToUnstructured().GetManagedFields()
 }
