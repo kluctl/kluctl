@@ -344,19 +344,10 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 		abortOnError:        abortOnError,
 		hookTimeout:         hookTimeout,
 	}
-	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(dew, k, o)
-	if err != nil {
-		return nil, err
-	}
-	var appliedHookObjectsList []*types.RefAndObject
-	for _, o := range appliedHookObjects {
-		appliedHookObjectsList = append(appliedHookObjectsList, &types.RefAndObject{
-			Ref:    o.GetK8sRef(),
-			Object: o,
-		})
-	}
+	au := newApplyUtil(dew, c, k, o)
+	au.applyDeployments()
 
-	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, appliedObjects)
+	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, au.appliedObjects)
 	du.diff(k)
 
 	orphanObjects, err := c.FindOrphanObjects(k)
@@ -366,8 +357,8 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 	return &types.CommandResult{
 		NewObjects:     du.newObjects,
 		ChangedObjects: du.changedObjects,
-		DeletedObjects: deletedObjects,
-		HookObjects:    appliedHookObjectsList,
+		DeletedObjects: au.getDeletedObjectsList(),
+		HookObjects:    au.getAppliedHookObjects(),
 		OrphanObjects:  orphanObjects,
 		Errors:         dew.getErrorsList(),
 		Warnings:       dew.getWarningsList(),
@@ -386,19 +377,10 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 		abortOnError:        false,
 		hookTimeout:         0,
 	}
-	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(dew, k, o)
-	if err != nil {
-		return nil, err
-	}
-	var appliedHookObjectsList []*types.RefAndObject
-	for _, o := range appliedHookObjects {
-		appliedHookObjectsList = append(appliedHookObjectsList, &types.RefAndObject{
-			Ref:    o.GetK8sRef(),
-			Object: o,
-		})
-	}
+	au := newApplyUtil(dew, c, k, o)
+	au.applyDeployments()
 
-	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, appliedObjects)
+	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, au.appliedObjects)
 	du.ignoreTags = ignoreTags
 	du.ignoreLabels = ignoreLabels
 	du.ignoreAnnotations = ignoreAnnotations
@@ -411,8 +393,8 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 	return &types.CommandResult{
 		NewObjects:     du.newObjects,
 		ChangedObjects: du.changedObjects,
-		DeletedObjects: deletedObjects,
-		HookObjects:    appliedHookObjectsList,
+		DeletedObjects: au.getDeletedObjectsList(),
+		HookObjects:    au.getAppliedHookObjects(),
 		OrphanObjects:  orphanObjects,
 		Errors:         dew.getErrorsList(),
 		Warnings:       dew.getWarningsList(),
@@ -606,16 +588,6 @@ func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.Obje
 func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	log.Infof("Searching for orphan objects")
 	return FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), c.localObjectRefs())
-}
-
-func (c *DeploymentCollection) doApply(dew *deploymentErrorsAndWarnings, k *k8s.K8sCluster, o applyUtilOptions) (map[k8s2.ObjectRef]*uo.UnstructuredObject, map[k8s2.ObjectRef]*uo.UnstructuredObject, []k8s2.ObjectRef, error) {
-	au := newApplyUtil(dew, c, k, o)
-	au.applyDeployments()
-	var deletedObjects []k8s2.ObjectRef
-	for ref := range au.deletedObjects {
-		deletedObjects = append(deletedObjects, ref)
-	}
-	return au.appliedObjects, au.appliedHookObjects, deletedObjects, nil
 }
 
 func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, dew *deploymentErrorsAndWarnings, ref k8s2.ObjectRef, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) (*uo.UnstructuredObject, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/diff"
 	"github.com/codablock/kluctl/pkg/k8s"
+	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -440,4 +441,23 @@ func (a *applyUtil) applyDeployments() {
 func (a *applyUtil) doLog(d *deploymentItem, level log.Level, s string, f ...interface{}) {
 	s = fmt.Sprintf("%s: %s", d.relToProjectItemDir, fmt.Sprintf(s, f...))
 	log.StandardLogger().Logf(level, s)
+}
+
+func (a *applyUtil) getDeletedObjectsList() []k8s2.ObjectRef {
+	var ret []k8s2.ObjectRef
+	for ref := range a.deletedObjects {
+		ret = append(ret, ref)
+	}
+	return ret
+}
+
+func (a *applyUtil) getAppliedHookObjects() []*types.RefAndObject {
+	var ret []*types.RefAndObject
+	for _, o := range a.appliedHookObjects {
+		ret = append(ret, &types.RefAndObject{
+			Ref:    o.GetK8sRef(),
+			Object: o,
+		})
+	}
+	return ret
 }
