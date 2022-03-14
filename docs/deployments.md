@@ -87,10 +87,6 @@ commonLabels:
   my.prefix/environment: "{{ args.environment }}"
   my.prefix/deployment-project: k8s-deployment-airsea
 
-deleteByLabels:
-  my.prefix/environment: "{{ args.environment }}"
-  my.prefix/deployment-project: k8s-deployment-airsea
-
 args:
 - name: environment
 ```
@@ -244,13 +240,6 @@ commonLabels:
   my.prefix/environment-name: {{ args.environment }}
   my.prefix/label-1: value-1
   my.prefix/label-2: value-2
-
-# PLEASE read through the documentation for this field to understand why it should match commonLabels!
-deleteByLabels:
-  my.prefix/deployment-name: my-deployment-project-name
-  my.prefix/environment-name: {{ args.environment }}
-  my.prefix/label-1: value-1
-  my.prefix/label-2: value-2
 ```
 
 Every resource deployed by the kustomize deployment `nginx` will now get the two provided labels attached. All included
@@ -260,19 +249,14 @@ down.
 In case an included sub-deployment project also contains `commonLabels`, both dictionaries of common labels are merged
 inside the included sub-deployment project. In case of conflicts, the included common labels override the inherited.
 
+The root deployment's `commonLabels` is also used to identify objects to be deleted when performing `kluctl delete`
+or `kluctl prune` operations
+
 Please note that these `commonLabels` are not related to `commonLabels` supported in `kustomization.yml` files. It was
 decided to not rely on this feature but instead attach labels manually to resources right before sending them to
 kubernetes. This is due to an [implementation detail](https://github.com/kubernetes-sigs/kustomize/issues/1009) in
 kustomize which causes `commonLabels` to also be applied to label selectors, which makes otherwise editable resources
 read-only when it comes to `commonLabels`.
-
-### deleteByLabels
-A dictionary of labels used to filter resources when performing `kluctl delete` or `kluctl prune` operations.
-It should usually match `commonLabels`, but can also omit parts of `commonLabels` (DANGEROUS!!!). It should however
-never add labels that are not present in `commonLabels`.
-
-Having `deleteByLabels` correct is crucial, as it might other lead to unrelated matches when searching for objects
-to delete. This might then cause deletion of object that are NOT related to your deployment project.
 
 ### overrideNamespace
 A string that is used as the default namespace for all kustomize deployments which don't have a `namespace` set in their

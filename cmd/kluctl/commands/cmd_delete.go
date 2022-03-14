@@ -22,7 +22,7 @@ type deleteCmd struct {
 }
 
 func (cmd *deleteCmd) Help() string {
-	return `Objects are located based on 'deleteByLabels'', configured in 'deployment.yml'
+	return `Objects are located based on 'commonLabels'', configured in 'deployment.yml'
 
 WARNING: This command will also delete objects which are not part of your deployment
 project (anymore). It really only decides based on the 'deleteByLabel' labels and does NOT

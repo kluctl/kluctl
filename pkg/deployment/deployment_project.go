@@ -9,6 +9,7 @@ import (
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	"path/filepath"
+	"reflect"
 	"strings"
 )
 
@@ -121,7 +122,15 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	}
 
 	if len(p.getCommonLabels()) == 0 {
-		return fmt.Errorf("no commonLabels/deleteByLabels in root deployment. This is not allowed")
+		return fmt.Errorf("no commonLabels in root deployment. This is not allowed")
+	}
+	if len(p.config.DeleteByLabels) != 0 {
+		warnOnce.Do("deleteByLabels", func() {
+			log.Warningf("'deleteByLabels' is deprecated and ignored from now on")
+		})
+		if !reflect.DeepEqual(p.config.CommonLabels, p.config.DeleteByLabels) {
+			return fmt.Errorf("commonLabels and deleteByLabels do not match")
+		}
 	}
 	if len(p.config.Args) != 0 && p.parentProject != nil {
 		return fmt.Errorf("only the root deployment.yml can define args")
@@ -257,16 +266,6 @@ func (p *DeploymentProject) getCommonLabels() map[string]string {
 	for i, _ := range parents {
 		d := parents[len(parents)-i-1]
 		uo.MergeStrMap(ret, d.p.config.CommonLabels)
-	}
-	return ret
-}
-
-func (p *DeploymentProject) getDeleteByLabels() map[string]string {
-	ret := make(map[string]string)
-	parents := p.getParents()
-	for i, _ := range parents {
-		d := parents[len(parents)-i-1]
-		uo.MergeStrMap(ret, d.p.config.DeleteByLabels)
 	}
 	return ret
 }

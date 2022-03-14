@@ -19,7 +19,7 @@ type pruneCmd struct {
 func (cmd *pruneCmd) Help() string {
 	return `"Searching works by:
 
-  1. Search the cluster for all objects match 'deleteByLabels', as configured in 'deployment.yml''
+  1. Search the cluster for all objects match 'commonLabels', as configured in 'deployment.yml''
   2. Render the local target and list all objects.
   3. Remove all objects from the list of 1. that are part of the list in 2.`
 }

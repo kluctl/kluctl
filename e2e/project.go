@@ -229,7 +229,6 @@ func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.Unstruc
 	p.updateYaml(p.getDeploymentDir(), filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
 		if dir == "." {
 			o.SetNestedField(p.projectName, "commonLabels", "project_name")
-			o.SetNestedField(p.projectName, "deleteByLabels", "project_name")
 		}
 		return update(o)
 	}, "")

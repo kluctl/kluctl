@@ -113,7 +113,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 }
 
 func FindObjectsForDelete(k *k8s.K8sCluster, labels map[string]string, inclusion *utils.Inclusion, excludedObjects []k8s2.ObjectRef) ([]k8s2.ObjectRef, error) {
-	log.Infof("Getting all cluster objects matching deleteByLabels")
+	log.Infof("Getting all cluster objects matching commonLabels")
 
 	excludedObjectsMap := make(map[k8s2.ObjectRef]bool)
 	for _, ref := range excludedObjects {

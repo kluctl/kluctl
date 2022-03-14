@@ -577,13 +577,13 @@ func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult
 }
 
 func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
-	labels := c.project.getDeleteByLabels()
+	labels := c.project.getCommonLabels()
 	return FindObjectsForDelete(k, labels, c.inclusion, nil)
 }
 
 func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	log.Infof("Searching for orphan objects")
-	labels := c.project.getDeleteByLabels()
+	labels := c.project.getCommonLabels()
 	return FindObjectsForDelete(k, labels, c.inclusion, c.localObjectRefs())
 }
 
