@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/codablock/kluctl/pkg/diff"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/seal"
 	"github.com/codablock/kluctl/pkg/types"
@@ -31,8 +30,6 @@ type DeploymentCollection struct {
 
 	deployments   []*deploymentItem
 	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-
 	mutex         sync.Mutex
 }
 
@@ -44,7 +41,6 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 		RenderDir:     renderDir,
 		forSeal:       forSeal,
 		remoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
-		remoteDiffObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 	}
 
 	indexes := make(map[string]int)
@@ -282,20 +278,6 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster, dew *deplo
 }
 
 func (c *DeploymentCollection) addRemoteObject(o *uo.UnstructuredObject) {
-	diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
-	if diffName == nil {
-		x := o.GetK8sName()
-		diffName = &x
-	}
-	diffRef := o.GetK8sRef()
-	diffRef.Name = *diffName
-	oldCreationTime := time.Time{}
-	if old, ok := c.remoteDiffObjects[diffRef]; ok {
-		oldCreationTime = old.GetK8sCreationTime()
-	}
-	if oldCreationTime.IsZero() || o.GetK8sCreationTime().After(oldCreationTime) {
-		c.remoteDiffObjects[diffRef] = o
-	}
 	c.remoteObjects[o.GetK8sRef()] = o
 }
 
@@ -304,19 +286,8 @@ func (c *DeploymentCollection) getRemoteObject(ref k8s2.ObjectRef) *uo.Unstructu
 	return o
 }
 
-func (c *DeploymentCollection) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) *uo.UnstructuredObject {
-	ref := localObject.GetK8sRef()
-	diffName := localObject.GetK8sAnnotation("kluctl.io/diff-name")
-	if diffName != nil {
-		ref.Name = *diffName
-	}
-	o, _ := c.remoteDiffObjects[ref]
-	return o
-}
-
 func (c *DeploymentCollection) ForgetRemoteObject(ref k8s2.ObjectRef) {
 	delete(c.remoteObjects, ref)
-	delete(c.remoteDiffObjects, ref)
 }
 
 func (c *DeploymentCollection) localObjectsByRef() map[k8s2.ObjectRef]bool {
@@ -384,17 +355,17 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 			Object: o,
 		})
 	}
-	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, false, false, false)
-	if err != nil {
-		return nil, err
-	}
+
+	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, appliedObjects)
+	du.diff(k)
+
 	orphanObjects, err := c.FindOrphanObjects(k)
 	if err != nil {
 		return nil, err
 	}
 	return &types.CommandResult{
-		NewObjects:     newObjects,
-		ChangedObjects: changedObjects,
+		NewObjects:     du.newObjects,
+		ChangedObjects: du.changedObjects,
 		DeletedObjects: deletedObjects,
 		HookObjects:    appliedHookObjectsList,
 		OrphanObjects:  orphanObjects,
@@ -426,17 +397,20 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 			Object: o,
 		})
 	}
-	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, ignoreTags, ignoreLabels, ignoreAnnotations)
-	if err != nil {
-		return nil, err
-	}
+
+	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, appliedObjects)
+	du.ignoreTags = ignoreTags
+	du.ignoreLabels = ignoreLabels
+	du.ignoreAnnotations = ignoreAnnotations
+	du.diff(k)
+
 	orphanObjects, err := c.FindOrphanObjects(k)
 	if err != nil {
 		return nil, err
 	}
 	return &types.CommandResult{
-		NewObjects:     newObjects,
-		ChangedObjects: changedObjects,
+		NewObjects:     du.newObjects,
+		ChangedObjects: du.changedObjects,
 		DeletedObjects: deletedObjects,
 		HookObjects:    appliedHookObjectsList,
 		OrphanObjects:  orphanObjects,
@@ -512,13 +486,12 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 		return nil, err
 	}
 
-	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, false, false, false)
-	if err != nil {
-		return nil, err
-	}
+	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, appliedObjects)
+	du.diff(k)
+
 	return &types.CommandResult{
-		NewObjects:     newObjects,
-		ChangedObjects: changedObjects,
+		NewObjects:     du.newObjects,
+		ChangedObjects: du.changedObjects,
 		Errors:         dew.getErrorsList(),
 		Warnings:       dew.getWarningsList(),
 		SeenImages:     c.images.seenImages,
@@ -576,13 +549,12 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 		return nil, err
 	}
 
-	newObjects, changedObjects, err := c.doDiff(k, appliedObjects, false, false, false)
-	if err != nil {
-		return nil, err
-	}
+	du := NewDiffUtil(dew, c.deployments, c.remoteObjects, appliedObjects)
+	du.diff(k)
+
 	return &types.CommandResult{
-		NewObjects:     newObjects,
-		ChangedObjects: changedObjects,
+		NewObjects:     du.newObjects,
+		ChangedObjects: du.changedObjects,
 		DeletedObjects: deletedObjects,
 		Errors:         dew.getErrorsList(),
 		Warnings:       dew.getWarningsList(),
@@ -644,74 +616,6 @@ func (c *DeploymentCollection) doApply(dew *deploymentErrorsAndWarnings, k *k8s.
 		deletedObjects = append(deletedObjects, ref)
 	}
 	return au.appliedObjects, au.appliedHookObjects, deletedObjects, nil
-}
-
-func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) ([]*types.RefAndObject, []*types.ChangedObject, error) {
-	var newObjects []*types.RefAndObject
-	var changedObjects []*types.ChangedObject
-	var mutex sync.Mutex
-
-	wp := utils.NewDebuggerAwareWorkerPool(8)
-	defer wp.StopWait(false)
-
-	for _, d := range c.deployments {
-		if !d.checkInclusionForDeploy() {
-			continue
-		}
-
-		ignoreForDiffs := d.project.getIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations)
-		for _, o := range d.objects {
-			o := o
-			ref := o.GetK8sRef()
-			ao, ok := appliedObjects[ref]
-			if !ok {
-				// if we can't even find it in appliedObjects, it probably ran into an error
-				continue
-			}
-			ro := c.getRemoteObjectForDiff(o)
-
-			if ao != nil && ro == nil {
-				newObjects = append(newObjects, &types.RefAndObject{
-					Ref:    ao.GetK8sRef(),
-					Object: ao,
-				})
-			} else if ao == nil && ro != nil {
-				// deleted?
-				continue
-			} else if ao == nil && ro == nil {
-				// did not apply? (e.g. in downscale command)
-				continue
-			} else {
-				wp.Submit(func() error {
-					nao := diff.NormalizeObject(k, ao, ignoreForDiffs, o)
-					nro := diff.NormalizeObject(k, ro, ignoreForDiffs, o)
-					changes, err := diff.Diff(nro, nao)
-					if err != nil {
-						return err
-					}
-					if len(changes) == 0 {
-						return nil
-					}
-					mutex.Lock()
-					defer mutex.Unlock()
-					changedObjects = append(changedObjects, &types.ChangedObject{
-						Ref:       ref,
-						NewObject: ao,
-						OldObject: ro,
-						Changes:   changes,
-					})
-					return nil
-				})
-			}
-		}
-	}
-
-	err := wp.StopWait(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return newObjects, changedObjects, nil
 }
 
 func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, dew *deploymentErrorsAndWarnings, ref k8s2.ObjectRef, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) (*uo.UnstructuredObject, error) {
