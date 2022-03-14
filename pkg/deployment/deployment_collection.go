@@ -30,7 +30,7 @@ type DeploymentCollection struct {
 	forSeal   bool
 
 	Deployments   []*DeploymentItem
-	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
+	RemoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	mutex         sync.Mutex
 }
 
@@ -41,7 +41,7 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 		inclusion:     inclusion,
 		RenderDir:     renderDir,
 		forSeal:       forSeal,
-		remoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		RemoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 	}
 
 	indexes := make(map[string]int)
@@ -239,7 +239,7 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster, dew *utils
 	}
 
 	log.Infof("Getting remote objects by commonLabels")
-	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", c.project.getCommonLabels(), false)
+	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", c.Project.getCommonLabels(), false)
 	for gvk, aw := range apiWarnings {
 		dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
 	}
@@ -254,7 +254,7 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster, dew *utils
 	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
 	var notFoundRefsList []k8s2.ObjectRef
 	for ref := range c.localObjectsByRef() {
-		if _, ok := c.remoteObjects[ref]; !ok {
+		if _, ok := c.RemoteObjects[ref]; !ok {
 			if _, ok = notFoundRefsMap[ref]; !ok {
 				notFoundRefsMap[ref] = true
 				notFoundRefsList = append(notFoundRefsList, ref)
@@ -279,16 +279,16 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster, dew *utils
 }
 
 func (c *DeploymentCollection) addRemoteObject(o *uo.UnstructuredObject) {
-	c.remoteObjects[o.GetK8sRef()] = o
+	c.RemoteObjects[o.GetK8sRef()] = o
 }
 
 func (c *DeploymentCollection) GetRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
-	o, _ := c.remoteObjects[ref]
+	o, _ := c.RemoteObjects[ref]
 	return o
 }
 
 func (c *DeploymentCollection) ForgetRemoteObject(ref k8s2.ObjectRef) {
-	delete(c.remoteObjects, ref)
+	delete(c.RemoteObjects, ref)
 }
 
 func (c *DeploymentCollection) localObjectsByRef() map[k8s2.ObjectRef]bool {
@@ -349,7 +349,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 	au := utils2.NewApplyUtil(dew, c, k, o)
 	au.ApplyDeployments()
 
-	du := utils2.NewDiffUtil(dew, c.Deployments, c.remoteObjects, au.AppliedObjects)
+	du := utils2.NewDiffUtil(dew, c.Deployments, c.RemoteObjects, au.AppliedObjects)
 	du.Diff(k)
 
 	orphanObjects, err := c.FindOrphanObjects(k)
@@ -364,43 +364,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 		OrphanObjects:  orphanObjects,
 		Errors:         dew.GetErrorsList(),
 		Warnings:       dew.GetWarningsList(),
-		SeenImages:     c.images.seenImages,
-	}, nil
-}
-
-func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceOnError bool, forceReplaceOnError bool, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) (*types.CommandResult, error) {
-	dew := utils2.NewDeploymentErrorsAndWarnings()
-
-	o := utils2.ApplyUtilOptions{
-		ForceApply:          forceApply,
-		ReplaceOnError:      replaceOnError,
-		ForceReplaceOnError: forceReplaceOnError,
-		DryRun:              true,
-		AbortOnError:        false,
-		HookTimeout:         0,
-	}
-	au := utils2.NewApplyUtil(dew, c, k, o)
-	au.ApplyDeployments()
-
-	du := utils2.NewDiffUtil(dew, c.Deployments, c.remoteObjects, au.AppliedObjects)
-	du.IgnoreTags = ignoreTags
-	du.IgnoreLabels = ignoreLabels
-	du.IgnoreAnnotations = ignoreAnnotations
-	du.Diff(k)
-
-	orphanObjects, err := c.FindOrphanObjects(k)
-	if err != nil {
-		return nil, err
-	}
-	return &types.CommandResult{
-		NewObjects:     du.NewObjects,
-		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjectsList(),
-		HookObjects:    au.GetAppliedHookObjects(),
-		OrphanObjects:  orphanObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     c.images.seenImages,
+		SeenImages:     c.Images.seenImages,
 	}, nil
 }
 
@@ -418,7 +382,7 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 	}
 
 	containersAndImages := make(map[k8s2.ObjectRef][]types.FixedImage)
-	for _, fi := range c.images.seenImages {
+	for _, fi := range c.Images.seenImages {
 		_, ok := allObjects[*fi.Object]
 		if !ok {
 			dew.AddError(*fi.Object, fmt.Errorf("object not found while trying to associate image with deployed object"))
@@ -470,7 +434,7 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 		return nil, err
 	}
 
-	du := utils2.NewDiffUtil(dew, c.Deployments, c.remoteObjects, appliedObjects)
+	du := utils2.NewDiffUtil(dew, c.Deployments, c.RemoteObjects, appliedObjects)
 	du.Diff(k)
 
 	return &types.CommandResult{
@@ -478,7 +442,7 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 		ChangedObjects: du.ChangedObjects,
 		Errors:         dew.GetErrorsList(),
 		Warnings:       dew.GetWarningsList(),
-		SeenImages:     c.images.seenImages,
+		SeenImages:     c.Images.seenImages,
 	}, nil
 }
 
@@ -533,7 +497,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 		return nil, err
 	}
 
-	du := utils2.NewDiffUtil(dew, c.Deployments, c.remoteObjects, appliedObjects)
+	du := utils2.NewDiffUtil(dew, c.Deployments, c.RemoteObjects, appliedObjects)
 	du.Diff(k)
 
 	return &types.CommandResult{
@@ -542,7 +506,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 		DeletedObjects: deletedObjects,
 		Errors:         dew.GetErrorsList(),
 		Warnings:       dew.GetWarningsList(),
-		SeenImages:     c.images.seenImages,
+		SeenImages:     c.Images.seenImages,
 	}, nil
 }
 
@@ -641,7 +605,7 @@ func (c *DeploymentCollection) getFilteredRemoteObjects(inclusion *utils.Inclusi
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	for _, o := range c.remoteObjects {
+	for _, o := range c.RemoteObjects {
 		iv := c.getInclusionEntries(o)
 		if inclusion.CheckIncluded(iv, false) {
 			ret = append(ret, o)

@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 )
 
 type diffCmd struct {
@@ -35,7 +36,14 @@ func (cmd *diffCmd) Run() error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		result, err := ctx.deploymentCollection.Diff(ctx.k, cmd.ForceApply, cmd.ReplaceOnError, cmd.ForceReplaceOnError, cmd.IgnoreTags, cmd.IgnoreLabels, cmd.IgnoreAnnotations)
+		cmd2 := commands.NewDiffCommand(ctx.deploymentCollection)
+		cmd2.ForceApply = cmd.ForceApply
+		cmd2.ReplaceOnError = cmd.ReplaceOnError
+		cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
+		cmd2.IgnoreTags = cmd.IgnoreTags
+		cmd2.IgnoreLabels = cmd.IgnoreLabels
+		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
+		result, err := cmd2.Run(ctx.k)
 		if err != nil {
 			return err
 		}
