@@ -3,12 +3,10 @@ package deployment
 import (
 	"context"
 	"fmt"
-	utils2 "github.com/codablock/kluctl/pkg/deployment/utils"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"path/filepath"
@@ -16,25 +14,23 @@ import (
 )
 
 type DeploymentCollection struct {
-	Project *DeploymentProject
-	Images  *Images
-	inclusion *utils.Inclusion
+	Project   *DeploymentProject
+	Images    *Images
+	Inclusion *utils.Inclusion
 	RenderDir string
 	forSeal   bool
 
-	Deployments   []*DeploymentItem
-	RemoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	mutex         sync.Mutex
+	Deployments []*DeploymentItem
+	mutex       sync.Mutex
 }
 
 func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
 	dc := &DeploymentCollection{
-		Project:       project,
-		Images:        images,
-		inclusion:     inclusion,
-		RenderDir:     renderDir,
-		forSeal:       forSeal,
-		RemoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		Project:   project,
+		Images:    images,
+		Inclusion: inclusion,
+		RenderDir: renderDir,
+		forSeal:   forSeal,
 	}
 
 	indexes := make(map[string]int)
@@ -200,65 +196,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster, dew *utils2.DeploymentErrorsAndWarnings) error {
-	if k == nil {
-		return nil
-	}
-
-	log.Infof("Getting remote objects by commonLabels")
-	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", c.Project.getCommonLabels(), false)
-	for gvk, aw := range apiWarnings {
-		dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
-	}
-	if err != nil {
-		return err
-	}
-
-	for _, o := range allObjects {
-		c.addRemoteObject(o)
-	}
-
-	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
-	var notFoundRefsList []k8s2.ObjectRef
-	for ref := range c.localObjectsByRef() {
-		if _, ok := c.RemoteObjects[ref]; !ok {
-			if _, ok = notFoundRefsMap[ref]; !ok {
-				notFoundRefsMap[ref] = true
-				notFoundRefsList = append(notFoundRefsList, ref)
-			}
-		}
-	}
-
-	if len(notFoundRefsList) != 0 {
-		log.Infof("Getting %d additional remote objects", len(notFoundRefsList))
-		r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
-		for ref, aw := range apiWarnings {
-			dew.AddApiWarnings(ref, aw)
-		}
-		if err != nil {
-			return err
-		}
-		for _, o := range r {
-			c.addRemoteObject(o)
-		}
-	}
-	return nil
-}
-
-func (c *DeploymentCollection) addRemoteObject(o *uo.UnstructuredObject) {
-	c.RemoteObjects[o.GetK8sRef()] = o
-}
-
-func (c *DeploymentCollection) GetRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
-	o, _ := c.RemoteObjects[ref]
-	return o
-}
-
-func (c *DeploymentCollection) ForgetRemoteObject(ref k8s2.ObjectRef) {
-	delete(c.RemoteObjects, ref)
-}
-
-func (c *DeploymentCollection) localObjectsByRef() map[k8s2.ObjectRef]bool {
+func (c *DeploymentCollection) LocalObjectsByRef() map[k8s2.ObjectRef]bool {
 	ret := make(map[k8s2.ObjectRef]bool)
 	for _, d := range c.Deployments {
 		for _, o := range d.Objects {
@@ -268,17 +206,15 @@ func (c *DeploymentCollection) localObjectsByRef() map[k8s2.ObjectRef]bool {
 	return ret
 }
 
-func (c *DeploymentCollection) localObjectRefs() []k8s2.ObjectRef {
+func (c *DeploymentCollection) LocalObjectRefs() []k8s2.ObjectRef {
 	var ret []k8s2.ObjectRef
-	for ref := range c.localObjectsByRef() {
+	for ref := range c.LocalObjectsByRef() {
 		ret = append(ret, ref)
 	}
 	return ret
 }
 
 func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
-	dew := utils2.NewDeploymentErrorsAndWarnings()
-
 	err := c.RenderDeployments(k)
 	if err != nil {
 		return err
@@ -291,58 +227,7 @@ func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
-	err = c.updateRemoteObjects(k, dew)
-	if err != nil {
-		return err
-	}
-	err = dew.GetMultiError()
-	if err != nil {
-		return err
-	}
 	return nil
-}
-
-func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
-	return utils2.FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), nil)
-}
-
-func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
-	log.Infof("Searching for orphan objects")
-	return utils2.FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), c.localObjectRefs())
-}
-
-func (c *DeploymentCollection) getFilteredRemoteObjects(inclusion *utils.Inclusion) []*uo.UnstructuredObject {
-	var ret []*uo.UnstructuredObject
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	for _, o := range c.RemoteObjects {
-		iv := c.getInclusionEntries(o)
-		if inclusion.CheckIncluded(iv, false) {
-			ret = append(ret, o)
-		}
-	}
-
-	return ret
-}
-
-func (c *DeploymentCollection) getInclusionEntries(o *uo.UnstructuredObject) []utils.InclusionEntry {
-	var iv []utils.InclusionEntry
-	for _, v := range o.GetK8sLabelsWithRegex("^kluctl.io/tag-\\d+$") {
-		iv = append(iv, utils.InclusionEntry{
-			Type:  "tag",
-			Value: v,
-		})
-	}
-
-	if itemDir := o.GetK8sAnnotation("kluctl.io/kustomize_dir"); itemDir != nil {
-		iv = append(iv, utils.InclusionEntry{
-			Type:  "deploymentItemDir",
-			Value: *itemDir,
-		})
-	}
-	return iv
 }
 
 func (c *DeploymentCollection) FindRenderedImages() map[k8s2.ObjectRef][]string {

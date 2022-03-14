@@ -24,10 +24,16 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
-	au := utils2.NewApplyUtil(dew, cmd.c, k, utils2.ApplyUtilOptions{})
+
+	ru := utils2.NewRemoteObjectsUtil(dew)
+	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	if err != nil {
+		return nil, err
+	}
+
+	au := utils2.NewApplyUtil(dew, cmd.c, ru, k, utils2.ApplyUtilOptions{})
 
 	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	var deletedObjects []k8s2.ObjectRef
 
 	for _, d := range cmd.c.Deployments {
 		if !d.CheckInclusionForDeploy() {
@@ -45,7 +51,7 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 			} else {
 				go func() {
 					defer wg.Done()
-					au.ReplaceObject(ref, cmd.c.GetRemoteObject(ref), func(remote *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+					au.ReplaceObject(ref, ru.GetRemoteObject(ref), func(remote *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 						return utils2.DownscaleObject(remote, o)
 					})
 				}()
@@ -54,13 +60,13 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 	}
 	wg.Wait()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, cmd.c.RemoteObjects, appliedObjects)
+	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, appliedObjects)
 	du.Diff(k)
 
 	return &types.CommandResult{
 		NewObjects:     du.NewObjects,
 		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: deletedObjects,
+		DeletedObjects: au.GetDeletedObjectsList(),
 		Errors:         dew.GetErrorsList(),
 		Warnings:       dew.GetWarningsList(),
 		SeenImages:     cmd.c.Images.SeenImages(false),

@@ -5,25 +5,36 @@ import (
 	utils2 "github.com/codablock/kluctl/pkg/deployment/utils"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
+	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/validation"
 )
 
 type ValidateCommand struct {
-	c *deployment.DeploymentCollection
+	c   *deployment.DeploymentCollection
+	dew *utils2.DeploymentErrorsAndWarnings
+	ru  *utils2.RemoteObjectUtils
 }
 
 func NewValidateCommand(c *deployment.DeploymentCollection) *ValidateCommand {
-	return &ValidateCommand{
-		c: c,
+	cmd := &ValidateCommand{
+		c:   c,
+		dew: utils2.NewDeploymentErrorsAndWarnings(),
 	}
+	cmd.ru = utils2.NewRemoteObjectsUtil(cmd.dew)
+	return cmd
 }
 
-func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) *types.ValidateResult {
+func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) (*types.ValidateResult, error) {
 	var result types.ValidateResult
 
-	dew := utils2.NewDeploymentErrorsAndWarnings()
+	cmd.dew.Init()
 
-	a := utils2.NewApplyUtil(dew, cmd.c, k, utils2.ApplyUtilOptions{})
+	err := cmd.ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	if err != nil {
+		return nil, err
+	}
+
+	a := utils2.NewApplyUtil(cmd.dew, cmd.c, cmd.ru, k, utils2.ApplyUtilOptions{})
 	h := utils2.NewHooksUtil(a)
 	for _, d := range cmd.c.Deployments {
 		if !d.CheckInclusionForDeploy() {
@@ -37,7 +48,7 @@ func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) *types.ValidateResult {
 
 			ref := o.GetK8sRef()
 
-			remoteObject := cmd.c.GetRemoteObject(ref)
+			remoteObject := cmd.ru.GetRemoteObject(ref)
 			if remoteObject == nil {
 				result.Errors = append(result.Errors, types.DeploymentError{Ref: ref, Error: "object not found"})
 				continue
@@ -49,8 +60,12 @@ func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) *types.ValidateResult {
 		}
 	}
 
-	result.Warnings = append(result.Warnings, dew.GetWarningsList()...)
-	result.Errors = append(result.Errors, dew.GetErrorsList()...)
+	result.Warnings = append(result.Warnings, cmd.dew.GetWarningsList()...)
+	result.Errors = append(result.Errors, cmd.dew.GetErrorsList()...)
 
-	return &result
+	return &result, nil
+}
+
+func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {
+	cmd.ru.ForgetRemoteObject(ref)
 }

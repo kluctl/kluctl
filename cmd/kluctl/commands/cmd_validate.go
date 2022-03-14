@@ -37,13 +37,15 @@ func (cmd *validateCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		startTime := time.Now()
+		cmd2 := commands.NewValidateCommand(ctx.deploymentCollection)
 		for true {
-			cmd2 := commands.NewValidateCommand(ctx.deploymentCollection)
-
-			result := cmd2.Run(ctx.k)
+			result, err := cmd2.Run(ctx.k)
+			if err != nil {
+				return err
+			}
 			failed := len(result.Errors) != 0 || (cmd.WarningsAsErrors && len(result.Warnings) != 0)
 
-			err := outputValidateResult(cmd.Output, result)
+			err = outputValidateResult(cmd.Output, result)
 			if err != nil {
 				return err
 			}
@@ -61,13 +63,13 @@ func (cmd *validateCmd) Run() error {
 
 			// Need to force re-requesting these objects
 			for _, e := range result.Results {
-				ctx.deploymentCollection.ForgetRemoteObject(e.Ref)
+				cmd2.ForgetRemoteObject(e.Ref)
 			}
 			for _, e := range result.Warnings {
-				ctx.deploymentCollection.ForgetRemoteObject(e.Ref)
+				cmd2.ForgetRemoteObject(e.Ref)
 			}
 			for _, e := range result.Errors {
-				ctx.deploymentCollection.ForgetRemoteObject(e.Ref)
+				cmd2.ForgetRemoteObject(e.Ref)
 			}
 		}
 		return nil

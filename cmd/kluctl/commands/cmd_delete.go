@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 	"github.com/codablock/kluctl/pkg/deployment/utils"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
@@ -39,7 +40,8 @@ func (cmd *deleteCmd) Run() error {
 		dryRunArgs:     &cmd.DryRunFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		objects, err := ctx.deploymentCollection.FindDeleteObjects(ctx.k)
+		cmd2 := commands.NewDeleteCommand(ctx.deploymentCollection)
+		objects, err := cmd2.Run(ctx.k)
 		if err != nil {
 			return err
 		}

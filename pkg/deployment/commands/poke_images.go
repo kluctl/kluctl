@@ -26,6 +26,12 @@ func (cmd *PokeImagesCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, erro
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
+	ru := utils2.NewRemoteObjectsUtil(dew)
+	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	if err != nil {
+		return nil, err
+	}
+
 	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, d := range cmd.c.Deployments {
 		if !d.CheckInclusionForDeploy() {
@@ -61,7 +67,7 @@ func (cmd *PokeImagesCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, erro
 		return o, nil
 	}
 
-	au := utils2.NewApplyUtil(dew, cmd.c, k, utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyUtil(dew, cmd.c, ru, k, utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref
@@ -69,14 +75,14 @@ func (cmd *PokeImagesCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, erro
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			au.ReplaceObject(ref, cmd.c.GetRemoteObject(ref), func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+			au.ReplaceObject(ref, ru.GetRemoteObject(ref), func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 				return doPokeImage(containers, o)
 			})
 		}()
 	}
 	wg.Wait()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, cmd.c.RemoteObjects, au.AppliedObjects)
+	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
 	du.Diff(k)
 
 	return &types.CommandResult{

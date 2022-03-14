@@ -31,6 +31,7 @@ type ApplyUtilOptions struct {
 type ApplyUtil struct {
 	dew                  *DeploymentErrorsAndWarnings
 	deploymentCollection *deployment.DeploymentCollection
+	ru                   *RemoteObjectUtils
 	k                    *k8s.K8sCluster
 	o                    ApplyUtilOptions
 
@@ -43,10 +44,11 @@ type ApplyUtil struct {
 	mutex              sync.Mutex
 }
 
-func NewApplyUtil(dew *DeploymentErrorsAndWarnings, deploymentCollection *deployment.DeploymentCollection, k *k8s.K8sCluster, o ApplyUtilOptions) *ApplyUtil {
+func NewApplyUtil(dew *DeploymentErrorsAndWarnings, deploymentCollection *deployment.DeploymentCollection, ru *RemoteObjectUtils, k *k8s.K8sCluster, o ApplyUtilOptions) *ApplyUtil {
 	return &ApplyUtil{
 		dew:                  dew,
 		deploymentCollection: deploymentCollection,
+		ru:                   ru,
 		k:                    k,
 		o:                    o,
 		AppliedObjects:       map[k8s2.ObjectRef]*uo.UnstructuredObject{},
@@ -223,7 +225,7 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	log2.Debugf("applying object")
 
 	x = a.k.FixObjectForPatch(x)
-	remoteObject := a.deploymentCollection.GetRemoteObject(ref)
+	remoteObject := a.ru.GetRemoteObject(ref)
 
 	if a.o.DryRun && replaced && remoteObject != nil {
 		// Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
@@ -371,7 +373,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 	initialDeploy := true
 	for _, o := range d.Objects {
-		if a.deploymentCollection.GetRemoteObject(o.GetK8sRef()) != nil {
+		if a.ru.GetRemoteObject(o.GetK8sRef()) != nil {
 			initialDeploy = false
 		}
 	}

@@ -18,11 +18,11 @@ type DeploymentErrorsAndWarnings struct {
 
 func NewDeploymentErrorsAndWarnings() *DeploymentErrorsAndWarnings {
 	dew := &DeploymentErrorsAndWarnings{}
-	dew.init()
+	dew.Init()
 	return dew
 }
 
-func (dew *DeploymentErrorsAndWarnings) init() {
+func (dew *DeploymentErrorsAndWarnings) Init() {
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
 	dew.warnings = map[k8s.ObjectRef]map[types.DeploymentError]bool{}

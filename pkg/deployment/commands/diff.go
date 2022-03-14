@@ -27,6 +27,12 @@ func NewDiffCommand(c *deployment.DeploymentCollection) *DiffCommand {
 func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
+	ru := utils.NewRemoteObjectsUtil(dew)
+	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	if err != nil {
+		return nil, err
+	}
+
 	o := utils.ApplyUtilOptions{
 		ForceApply:          cmd.ForceApply,
 		ReplaceOnError:      cmd.ReplaceOnError,
@@ -35,16 +41,16 @@ func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		AbortOnError:        false,
 		HookTimeout:         0,
 	}
-	au := utils.NewApplyUtil(dew, cmd.c, k, o)
+	au := utils.NewApplyUtil(dew, cmd.c, ru, k, o)
 	au.ApplyDeployments()
 
-	du := utils.NewDiffUtil(dew, cmd.c.Deployments, cmd.c.RemoteObjects, au.AppliedObjects)
+	du := utils.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
 	du.Diff(k)
 
-	orphanObjects, err := cmd.c.FindOrphanObjects(k)
+	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {
 		return nil, err
 	}

@@ -15,7 +15,7 @@ type diffUtil struct {
 	dew            *DeploymentErrorsAndWarnings
 	deployments    []*deployment.DeploymentItem
 	appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	remoteObjects  map[k8s2.ObjectRef]*uo.UnstructuredObject
+	ru             *RemoteObjectUtils
 
 	IgnoreTags        bool
 	IgnoreLabels      bool
@@ -27,11 +27,11 @@ type diffUtil struct {
 	mutex             sync.Mutex
 }
 
-func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *diffUtil {
+func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *diffUtil {
 	return &diffUtil{
 		dew:            dew,
 		deployments:    deployments,
-		remoteObjects:  remoteObjects,
+		ru:             ru,
 		appliedObjects: appliedObjects,
 	}
 }
@@ -106,7 +106,7 @@ func (u *diffUtil) diffObject(k *k8s.K8sCluster, lo *uo.UnstructuredObject, ao *
 
 func (u *diffUtil) calcRemoteObjectsForDiff() {
 	u.remoteDiffObjects = make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	for _, o := range u.remoteObjects {
+	for _, o := range u.ru.remoteObjects {
 		diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
 		if diffName == nil {
 			x := o.GetK8sName()

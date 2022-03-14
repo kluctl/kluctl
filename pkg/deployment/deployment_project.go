@@ -121,7 +121,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		return err
 	}
 
-	if len(p.getCommonLabels()) == 0 {
+	if len(p.GetCommonLabels()) == 0 {
 		return fmt.Errorf("no commonLabels in root deployment. This is not allowed")
 	}
 	if len(p.Config.DeleteByLabels) != 0 {
@@ -260,7 +260,7 @@ func (p *DeploymentProject) getRenderSearchDirs() []string {
 	return ret
 }
 
-func (p *DeploymentProject) getCommonLabels() map[string]string {
+func (p *DeploymentProject) GetCommonLabels() map[string]string {
 	ret := make(map[string]string)
 	parents := p.getParents()
 	for i, _ := range parents {

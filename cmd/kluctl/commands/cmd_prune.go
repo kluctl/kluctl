@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 )
 
 type pruneCmd struct {
@@ -39,7 +40,8 @@ func (cmd *pruneCmd) Run() error {
 }
 
 func (cmd *pruneCmd) runCmdPrune(ctx *commandCtx) error {
-	objects, err := ctx.deploymentCollection.FindOrphanObjects(ctx.k)
+	cmd2 := commands.NewPruneCommand(ctx.deploymentCollection)
+	objects, err := cmd2.Run(ctx.k)
 	if err != nil {
 		return err
 	}

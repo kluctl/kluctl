@@ -27,6 +27,12 @@ func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {
 func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
+	ru := utils2.NewRemoteObjectsUtil(dew)
+	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	if err != nil {
+		return nil, err
+	}
+
 	o := utils2.ApplyUtilOptions{
 		ForceApply:          cmd.ForceApply,
 		ReplaceOnError:      cmd.ReplaceOnError,
@@ -35,13 +41,13 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		AbortOnError:        cmd.AbortOnError,
 		HookTimeout:         cmd.HookTimeout,
 	}
-	au := utils2.NewApplyUtil(dew, cmd.c, k, o)
+	au := utils2.NewApplyUtil(dew, cmd.c, ru, k, o)
 	au.ApplyDeployments()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, cmd.c.RemoteObjects, au.AppliedObjects)
+	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
 	du.Diff(k)
 
-	orphanObjects, err := cmd.c.FindOrphanObjects(k)
+	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {
 		return nil, err
 	}

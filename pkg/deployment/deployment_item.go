@@ -79,7 +79,7 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 }
 
 func (di *DeploymentItem) getCommonLabels() map[string]string {
-	l := di.Project.getCommonLabels()
+	l := di.Project.GetCommonLabels()
 	i := 0
 	for _, t := range di.getTags().ListKeys() {
 		l[fmt.Sprintf("kluctl.io/tag-%d", i)] = t
@@ -247,7 +247,7 @@ func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 }
 
 func (di *DeploymentItem) CheckInclusionForDeploy() bool {
-	if di.collection.inclusion == nil {
+	if di.collection.Inclusion == nil {
 		return true
 	}
 	if di.Config.OnlyRender != nil && *di.Config.OnlyRender {
@@ -257,16 +257,16 @@ func (di *DeploymentItem) CheckInclusionForDeploy() bool {
 		return true
 	}
 	values := di.buildInclusionEntries()
-	return di.collection.inclusion.CheckIncluded(values, false)
+	return di.collection.Inclusion.CheckIncluded(values, false)
 }
 
 func (di *DeploymentItem) checkInclusionForDelete() bool {
-	if di.collection.inclusion == nil {
+	if di.collection.Inclusion == nil {
 		return true
 	}
 	skipDeleteIfTags := di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags
 	values := di.buildInclusionEntries()
-	return di.collection.inclusion.CheckIncluded(values, skipDeleteIfTags)
+	return di.collection.Inclusion.CheckIncluded(values, skipDeleteIfTags)
 }
 
 func (di *DeploymentItem) prepareKustomizationYaml() error {
