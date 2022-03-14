@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"regexp"
+	"time"
 )
 
 func (uo *UnstructuredObject) GetK8sGVK() schema.GroupVersionKind {
@@ -209,6 +210,18 @@ func (uo *UnstructuredObject) GetK8sOwnerReferences() []*UnstructuredObject {
 
 func (uo *UnstructuredObject) GetK8sManagedFields() []metav1.ManagedFieldsEntry {
 	return uo.ToUnstructured().GetManagedFields()
+}
+
+func (uo *UnstructuredObject) GetK8sCreationTime() time.Time {
+	v, ok, _ := uo.GetNestedString("metadata", "creationTimestamp")
+	if !ok {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 func (ui *UnstructuredObject) getRegexp(r interface{}) *regexp.Regexp {

@@ -17,11 +17,45 @@ This tag is especially useful and required on resources that would otherwise cau
 do not match the specified inclusion/exclusion tags. Namespaces are the most prominent example of such resources, as
 they most likely don't match exclusion tags, but cascaded deletion would still cause deletion of the excluded resources.
 
+### kluctl.io/diff-name
+This annotation will override the name of the object when looking for the in-cluster version of an object used for
+diffs. This is useful when you are forced to use new names for the same objects whenever the content changes, e.g.
+for all kinds of immutable resource types.
+
+Example (filename job.yml):
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: myjob-{{ load_sha256("job.yml", 6) }}
+  annotations:
+    kluctl.io/diff-name: myjob
+spec:
+  template:
+    spec:
+      containers:
+      - name: hello
+        image: busybox
+        command: ["sh",  "-c", "echo hello"]
+      restartPolicy: Never
+```
+
+Without the `kluctl.io/diff-name` annotation, any change to the `job.yml` would be treated as a new object in resulting
+diffs from various commands. This is due to the inclusion of the file hash in the job name. This would make it very hard
+to figure out what exactly changed in an object.
+
+With the `kluctl.io/diff-name` annotation, kluctl will pick an existing job from the cluster with the same diff-name
+and use it for the diff, making it a lot easier to analyze changes. If multiple objects match, the one with the youngest
+`creationTimestamp` is chosen.
+
+Please note that this will not cause old objects (with the same diff-name) to be prunes. You still have to regularely
+prune the deployment.
+
 ### kluctl.io/downscale-patch
 Describes how a [downscale](./commands.md#downscale) on a resource can be done via a json patch. This is useful on
 CRD based resources where no automatic downscale can be performed by kluctl.
 
-Example:
+Example (filename job.yml):
 ```yaml
 apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana

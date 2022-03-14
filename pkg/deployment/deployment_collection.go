@@ -31,6 +31,7 @@ type DeploymentCollection struct {
 
 	deployments   []*deploymentItem
 	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
+	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 
 	errors   map[k8s2.ObjectRef]map[types.DeploymentError]bool
 	warnings map[k8s2.ObjectRef]map[types.DeploymentError]bool
@@ -45,6 +46,7 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 		RenderDir:     renderDir,
 		forSeal:       forSeal,
 		remoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		remoteDiffObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		errors:        map[k8s2.ObjectRef]map[types.DeploymentError]bool{},
 		warnings:      map[k8s2.ObjectRef]map[types.DeploymentError]bool{},
 	}
@@ -253,7 +255,7 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 	}
 
 	for _, o := range allObjects {
-		c.remoteObjects[o.GetK8sRef()] = o
+		c.addRemoteObject(o)
 	}
 
 	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
@@ -277,14 +279,48 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 			return err
 		}
 		for _, o := range r {
-			c.remoteObjects[o.GetK8sRef()] = o
+			c.addRemoteObject(o)
 		}
 	}
 	return nil
 }
 
+func (c *DeploymentCollection) addRemoteObject(o *uo.UnstructuredObject) {
+	diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
+	if diffName == nil {
+		x := o.GetK8sName()
+		diffName = &x
+	}
+	diffRef := o.GetK8sRef()
+	diffRef.Name = *diffName
+	oldCreationTime := time.Time{}
+	if old, ok := c.remoteDiffObjects[diffRef]; ok {
+		oldCreationTime = old.GetK8sCreationTime()
+	}
+	if oldCreationTime.IsZero() || o.GetK8sCreationTime().After(oldCreationTime) {
+		c.remoteDiffObjects[diffRef] = o
+	}
+	c.remoteObjects[o.GetK8sRef()] = o
+}
+
+func (c *DeploymentCollection) getRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
+	o, _ := c.remoteObjects[ref]
+	return o
+}
+
+func (c *DeploymentCollection) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) *uo.UnstructuredObject {
+	ref := localObject.GetK8sRef()
+	diffName := localObject.GetK8sAnnotation("kluctl.io/diff-name")
+	if diffName != nil {
+		ref.Name = *diffName
+	}
+	o, _ := c.remoteDiffObjects[ref]
+	return o
+}
+
 func (c *DeploymentCollection) ForgetRemoteObject(ref k8s2.ObjectRef) {
 	delete(c.remoteObjects, ref)
+	delete(c.remoteDiffObjects, ref)
 }
 
 func (c *DeploymentCollection) localObjectsByRef() map[k8s2.ObjectRef]bool {
@@ -631,7 +667,7 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2
 				// if we can't even find it in appliedObjects, it probably ran into an error
 				continue
 			}
-			ro := c.getRemoteObject(ref)
+			ro := c.getRemoteObjectForDiff(o)
 
 			if ao != nil && ro == nil {
 				newObjects = append(newObjects, &types.RefAndObject{
@@ -792,11 +828,6 @@ func (c *DeploymentCollection) clearErrorsAndWarnings() {
 	defer c.mutex.Unlock()
 	c.warnings = map[k8s2.ObjectRef]map[types.DeploymentError]bool{}
 	c.errors = map[k8s2.ObjectRef]map[types.DeploymentError]bool{}
-}
-
-func (c *DeploymentCollection) getRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
-	o, _ := c.remoteObjects[ref]
-	return o
 }
 
 func (c *DeploymentCollection) getFilteredRemoteObjects(inclusion *utils.Inclusion) []*uo.UnstructuredObject {
