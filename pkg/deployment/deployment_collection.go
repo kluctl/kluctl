@@ -9,7 +9,6 @@ import (
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"path/filepath"
@@ -301,43 +300,6 @@ func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
 		return err
 	}
 	return nil
-}
-
-func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult {
-	var result types.ValidateResult
-
-	dew := utils2.NewDeploymentErrorsAndWarnings()
-
-	a := utils2.NewApplyUtil(dew, c, k, utils2.ApplyUtilOptions{})
-	h := utils2.NewHooksUtil(a)
-	for _, d := range c.Deployments {
-		if !d.CheckInclusionForDeploy() {
-			continue
-		}
-		for _, o := range d.Objects {
-			hook := h.GetHook(o)
-			if hook != nil && !hook.IsPersistent() {
-				continue
-			}
-
-			ref := o.GetK8sRef()
-
-			remoteObject := c.GetRemoteObject(ref)
-			if remoteObject == nil {
-				result.Errors = append(result.Errors, types.DeploymentError{Ref: ref, Error: "object not found"})
-				continue
-			}
-			r := validation.ValidateObject(remoteObject, true)
-			result.Errors = append(result.Errors, r.Errors...)
-			result.Warnings = append(result.Warnings, r.Warnings...)
-			result.Results = append(result.Results, r.Results...)
-		}
-	}
-
-	result.Warnings = append(result.Warnings, dew.GetWarningsList()...)
-	result.Errors = append(result.Errors, dew.GetErrorsList()...)
-
-	return &result
 }
 
 func (c *DeploymentCollection) FindDeleteObjects(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {

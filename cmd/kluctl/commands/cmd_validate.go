@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment/commands"
 	"os"
 	"time"
 )
@@ -37,7 +38,9 @@ func (cmd *validateCmd) Run() error {
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		startTime := time.Now()
 		for true {
-			result := ctx.deploymentCollection.Validate(ctx.k)
+			cmd2 := commands.NewValidateCommand(ctx.deploymentCollection)
+
+			result := cmd2.Run(ctx.k)
 			failed := len(result.Errors) != 0 || (cmd.WarningsAsErrors && len(result.Warnings) != 0)
 
 			err := outputValidateResult(cmd.Output, result)
