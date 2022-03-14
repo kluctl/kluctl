@@ -33,9 +33,7 @@ type DeploymentCollection struct {
 	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 
-	errors   map[k8s2.ObjectRef]map[types.DeploymentError]bool
-	warnings map[k8s2.ObjectRef]map[types.DeploymentError]bool
-	mutex    sync.Mutex
+	mutex         sync.Mutex
 }
 
 func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
@@ -47,8 +45,6 @@ func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusi
 		forSeal:       forSeal,
 		remoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		remoteDiffObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
-		errors:        map[k8s2.ObjectRef]map[types.DeploymentError]bool{},
-		warnings:      map[k8s2.ObjectRef]map[types.DeploymentError]bool{},
 	}
 
 	indexes := make(map[string]int)
@@ -240,7 +236,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
+func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster, dew *deploymentErrorsAndWarnings) error {
 	if k == nil {
 		return nil
 	}
@@ -248,7 +244,7 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 	log.Infof("Getting remote objects by commonLabels")
 	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", c.project.getCommonLabels(), false)
 	for gvk, aw := range apiWarnings {
-		c.addApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
+		dew.addApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
 	}
 	if err != nil {
 		return err
@@ -273,7 +269,7 @@ func (c *DeploymentCollection) updateRemoteObjects(k *k8s.K8sCluster) error {
 		log.Infof("Getting %d additional remote objects", len(notFoundRefsList))
 		r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
 		for ref, aw := range apiWarnings {
-			c.addApiWarnings(ref, aw)
+			dew.addApiWarnings(ref, aw)
 		}
 		if err != nil {
 			return err
@@ -342,6 +338,8 @@ func (c *DeploymentCollection) localObjectRefs() []k8s2.ObjectRef {
 }
 
 func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
+	dew := NewDeploymentErrorsAndWarnings()
+
 	err := c.RenderDeployments(k)
 	if err != nil {
 		return err
@@ -354,15 +352,19 @@ func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
-	err = c.updateRemoteObjects(k)
+	err = c.updateRemoteObjects(k, dew)
 	if err != nil {
 		return err
+	}
+	if len(dew.errors) != 0 {
+		return dew.getMultiError()
 	}
 	return nil
 }
 
 func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replaceOnError bool, forceReplaceOnError, abortOnError bool, hookTimeout time.Duration) (*types.CommandResult, error) {
-	c.clearErrorsAndWarnings()
+	dew := NewDeploymentErrorsAndWarnings()
+
 	o := applyUtilOptions{
 		forceApply:          forceApply,
 		replaceOnError:      replaceOnError,
@@ -371,7 +373,7 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 		abortOnError:        abortOnError,
 		hookTimeout:         hookTimeout,
 	}
-	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(k, o)
+	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(dew, k, o)
 	if err != nil {
 		return nil, err
 	}
@@ -396,14 +398,15 @@ func (c *DeploymentCollection) Deploy(k *k8s.K8sCluster, forceApply bool, replac
 		DeletedObjects: deletedObjects,
 		HookObjects:    appliedHookObjectsList,
 		OrphanObjects:  orphanObjects,
-		Errors:         c.errorsList(),
-		Warnings:       c.warningsList(),
+		Errors:         dew.getErrorsList(),
+		Warnings:       dew.getWarningsList(),
 		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
 func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceOnError bool, forceReplaceOnError bool, ignoreTags bool, ignoreLabels bool, ignoreAnnotations bool) (*types.CommandResult, error) {
-	c.clearErrorsAndWarnings()
+	dew := NewDeploymentErrorsAndWarnings()
+
 	o := applyUtilOptions{
 		forceApply:          forceApply,
 		replaceOnError:      replaceOnError,
@@ -412,7 +415,7 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 		abortOnError:        false,
 		hookTimeout:         0,
 	}
-	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(k, o)
+	appliedObjects, appliedHookObjects, deletedObjects, err := c.doApply(dew, k, o)
 	if err != nil {
 		return nil, err
 	}
@@ -437,13 +440,15 @@ func (c *DeploymentCollection) Diff(k *k8s.K8sCluster, forceApply bool, replaceO
 		DeletedObjects: deletedObjects,
 		HookObjects:    appliedHookObjectsList,
 		OrphanObjects:  orphanObjects,
-		Errors:         c.errorsList(),
-		Warnings:       c.warningsList(),
+		Errors:         dew.getErrorsList(),
+		Warnings:       dew.getWarningsList(),
 		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
 func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResult, error) {
+	dew := NewDeploymentErrorsAndWarnings()
+
 	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, d := range c.deployments {
 		if !d.checkInclusionForDeploy() {
@@ -458,7 +463,7 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 	for _, fi := range c.images.seenImages {
 		_, ok := allObjects[*fi.Object]
 		if !ok {
-			c.addError(*fi.Object, fmt.Errorf("object not found while trying to associate image with deployed object"))
+			dew.addError(*fi.Object, fmt.Errorf("object not found while trying to associate image with deployed object"))
 			continue
 		}
 
@@ -489,11 +494,11 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 		ref := ref
 		containers := containers
 		wp.Submit(func() error {
-			newObject, err := c.doReplaceObject(k, ref, func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+			newObject, err := c.doReplaceObject(k, dew, ref, func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 				return doPokeImage(containers, o)
 			})
 			if err != nil {
-				c.addError(ref, err)
+				dew.addError(ref, err)
 			} else {
 				mutex.Lock()
 				defer mutex.Unlock()
@@ -514,13 +519,15 @@ func (c *DeploymentCollection) PokeImages(k *k8s.K8sCluster) (*types.CommandResu
 	return &types.CommandResult{
 		NewObjects:     newObjects,
 		ChangedObjects: changedObjects,
-		Errors:         c.errorsList(),
-		Warnings:       c.warningsList(),
+		Errors:         dew.getErrorsList(),
+		Warnings:       dew.getWarningsList(),
 		SeenImages:     c.images.seenImages,
 	}, nil
 }
 
 func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResult, error) {
+	dew := NewDeploymentErrorsAndWarnings()
+
 	wp := utils.NewWorkerPoolWithErrors(8)
 	defer wp.StopWait(false)
 
@@ -538,7 +545,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 			if isDownscaleDelete(o) {
 				wp.Submit(func() error {
 					apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{IgnoreNotFoundError: true})
-					c.addApiWarnings(ref, apiWarnings)
+					dew.addApiWarnings(ref, apiWarnings)
 					if err != nil {
 						return err
 					}
@@ -549,7 +556,7 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 				})
 			} else {
 				wp.Submit(func() error {
-					o2, err := c.doReplaceObject(k, ref, func(remote *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+					o2, err := c.doReplaceObject(k, dew, ref, func(remote *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 						return downscaleObject(remote, o)
 					})
 					if err != nil {
@@ -577,8 +584,8 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 		NewObjects:     newObjects,
 		ChangedObjects: changedObjects,
 		DeletedObjects: deletedObjects,
-		Errors:         c.errorsList(),
-		Warnings:       c.warningsList(),
+		Errors:         dew.getErrorsList(),
+		Warnings:       dew.getWarningsList(),
 		SeenImages:     c.images.seenImages,
 	}, nil
 }
@@ -586,18 +593,9 @@ func (c *DeploymentCollection) Downscale(k *k8s.K8sCluster) (*types.CommandResul
 func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult {
 	var result types.ValidateResult
 
-	for _, m := range c.warnings {
-		for e := range m {
-			result.Warnings = append(result.Warnings, e)
-		}
-	}
-	for _, m := range c.errors {
-		for e := range m {
-			result.Errors = append(result.Errors, e)
-		}
-	}
+	dew := NewDeploymentErrorsAndWarnings()
 
-	a := newApplyUtil(c, k, applyUtilOptions{})
+	a := newApplyUtil(dew, c, k, applyUtilOptions{})
 	h := hooksUtil{a: a}
 	for _, d := range c.deployments {
 		if !d.checkInclusionForDeploy() {
@@ -623,6 +621,9 @@ func (c *DeploymentCollection) Validate(k *k8s.K8sCluster) *types.ValidateResult
 		}
 	}
 
+	result.Warnings = append(result.Warnings, dew.getWarningsList()...)
+	result.Errors = append(result.Errors, dew.getErrorsList()...)
+
 	return &result
 }
 
@@ -635,8 +636,8 @@ func (c *DeploymentCollection) FindOrphanObjects(k *k8s.K8sCluster) ([]k8s2.Obje
 	return FindObjectsForDelete(k, c.getFilteredRemoteObjects(c.inclusion), c.inclusion.HasType("tags"), c.localObjectRefs())
 }
 
-func (c *DeploymentCollection) doApply(k *k8s.K8sCluster, o applyUtilOptions) (map[k8s2.ObjectRef]*uo.UnstructuredObject, map[k8s2.ObjectRef]*uo.UnstructuredObject, []k8s2.ObjectRef, error) {
-	au := newApplyUtil(c, k, o)
+func (c *DeploymentCollection) doApply(dew *deploymentErrorsAndWarnings, k *k8s.K8sCluster, o applyUtilOptions) (map[k8s2.ObjectRef]*uo.UnstructuredObject, map[k8s2.ObjectRef]*uo.UnstructuredObject, []k8s2.ObjectRef, error) {
+	au := newApplyUtil(dew, c, k, o)
 	au.applyDeployments()
 	var deletedObjects []k8s2.ObjectRef
 	for ref := range au.deletedObjects {
@@ -713,7 +714,7 @@ func (c *DeploymentCollection) doDiff(k *k8s.K8sCluster, appliedObjects map[k8s2
 	return newObjects, changedObjects, nil
 }
 
-func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref k8s2.ObjectRef, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) (*uo.UnstructuredObject, error) {
+func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, dew *deploymentErrorsAndWarnings, ref k8s2.ObjectRef, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) (*uo.UnstructuredObject, error) {
 	firstCall := true
 	for true {
 		var remote *uo.UnstructuredObject
@@ -721,7 +722,7 @@ func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref k8s2.Objec
 			remote = c.getRemoteObject(ref)
 		} else {
 			o2, apiWarnings, err := k.GetSingleObject(ref)
-			c.addApiWarnings(ref, apiWarnings)
+			dew.addApiWarnings(ref, apiWarnings)
 			if err != nil && !errors.IsNotFound(err) {
 				return nil, err
 			}
@@ -742,7 +743,7 @@ func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref k8s2.Objec
 		}
 
 		result, apiWarnings, err := k.UpdateObject(modified, k8s.UpdateOptions{})
-		c.addApiWarnings(ref, apiWarnings)
+		dew.addApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsConflict(err) {
 				log.Warningf("Conflict while patching %s. Retrying...", ref.String())
@@ -754,80 +755,6 @@ func (c *DeploymentCollection) doReplaceObject(k *k8s.K8sCluster, ref k8s2.Objec
 		return result, nil
 	}
 	return nil, fmt.Errorf("unexpected end of loop")
-}
-
-func (c *DeploymentCollection) addWarning(ref k8s2.ObjectRef, warning error) {
-	de := types.DeploymentError{
-		Ref:   ref,
-		Error: warning.Error(),
-	}
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	m, ok := c.warnings[ref]
-	if !ok {
-		m = make(map[types.DeploymentError]bool)
-		c.warnings[ref] = m
-	}
-	m[de] = true
-}
-
-func (c *DeploymentCollection) addError(ref k8s2.ObjectRef, err error) {
-	de := types.DeploymentError{
-		Ref:   ref,
-		Error: err.Error(),
-	}
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	m, ok := c.errors[ref]
-	if !ok {
-		m = make(map[types.DeploymentError]bool)
-		c.errors[ref] = m
-	}
-	m[de] = true
-}
-
-func (c *DeploymentCollection) addApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
-	for _, w := range warnings {
-		c.addWarning(ref, fmt.Errorf(w.Text))
-	}
-}
-
-func (c *DeploymentCollection) hadError(ref k8s2.ObjectRef) bool {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	_, ok := c.errors[ref]
-	return ok
-}
-
-func (c *DeploymentCollection) errorsList() []types.DeploymentError {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	var l []types.DeploymentError
-	for _, m := range c.errors {
-		for de := range m {
-			l = append(l, de)
-		}
-	}
-	return l
-}
-
-func (c *DeploymentCollection) warningsList() []types.DeploymentError {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	var l []types.DeploymentError
-	for _, m := range c.warnings {
-		for de := range m {
-			l = append(l, de)
-		}
-	}
-	return l
-}
-
-func (c *DeploymentCollection) clearErrorsAndWarnings() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	c.warnings = map[k8s2.ObjectRef]map[types.DeploymentError]bool{}
-	c.errors = map[k8s2.ObjectRef]map[types.DeploymentError]bool{}
 }
 
 func (c *DeploymentCollection) getFilteredRemoteObjects(inclusion *utils.Inclusion) []*uo.UnstructuredObject {

@@ -26,6 +26,7 @@ type applyUtilOptions struct {
 }
 
 type applyUtil struct {
+	dew                  *deploymentErrorsAndWarnings
 	deploymentCollection *DeploymentCollection
 	k                    *k8s.K8sCluster
 	o                    applyUtilOptions
@@ -39,8 +40,9 @@ type applyUtil struct {
 	mutex              sync.Mutex
 }
 
-func newApplyUtil(deploymentCollection *DeploymentCollection, k *k8s.K8sCluster, o applyUtilOptions) *applyUtil {
+func newApplyUtil(dew *deploymentErrorsAndWarnings, deploymentCollection *DeploymentCollection, k *k8s.K8sCluster, o applyUtilOptions) *applyUtil {
 	return &applyUtil{
+		dew:                  dew,
 		deploymentCollection: deploymentCollection,
 		k:                    k,
 		o:                    o,
@@ -65,11 +67,11 @@ func (a *applyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool
 }
 
 func (a *applyUtil) handleApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
-	a.deploymentCollection.addApiWarnings(ref, warnings)
+	a.dew.addApiWarnings(ref, warnings)
 }
 
 func (a *applyUtil) handleWarning(ref k8s2.ObjectRef, warning error) {
-	a.deploymentCollection.addWarning(ref, warning)
+	a.dew.addWarning(ref, warning)
 }
 
 func (a *applyUtil) handleError(ref k8s2.ObjectRef, err error) {
@@ -80,11 +82,11 @@ func (a *applyUtil) handleError(ref k8s2.ObjectRef, err error) {
 		a.abortSignal = true
 	}
 
-	a.deploymentCollection.addError(ref, err)
+	a.dew.addError(ref, err)
 }
 
 func (a *applyUtil) hadError(ref k8s2.ObjectRef) bool {
-	return a.deploymentCollection.hadError(ref)
+	return a.dew.hadError(ref)
 }
 
 func (a *applyUtil) deleteObject(ref k8s2.ObjectRef, hook bool) bool {
@@ -191,7 +193,7 @@ func (a *applyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 			return
 		}
 		for _, lo := range lostOwnership {
-			a.deploymentCollection.addWarning(ref, fmt.Errorf("%s. Not updating field '%s' as we lost field ownership", lo.Message, lo.Field))
+			a.dew.addWarning(ref, fmt.Errorf("%s. Not updating field '%s' as we lost field ownership", lo.Message, lo.Field))
 		}
 		x2 = x3
 	} else {
