@@ -34,18 +34,16 @@ func downscaleObject(remote *uo.UnstructuredObject, local *uo.UnstructuredObject
 		return ret, nil
 	}
 	var patch jsonpatch.Patch
-	for k, v := range local.GetK8sAnnotations() {
-		if downscaleAnnotationPatchRegex.MatchString(k) {
-			j, err := yaml.ConvertYamlToJson([]byte(v))
-			if err != nil {
-				return nil, fmt.Errorf("invalid jsonpatch json/yaml: %w", err)
-			}
-			p, err := jsonpatch.DecodePatch(j)
-			if err != nil {
-				return nil, fmt.Errorf("invalid jsonpatch: %w", err)
-			}
-			patch = append(patch, p...)
+	for _, v := range local.GetK8sAnnotationsWithRegex(downscaleAnnotationPatchRegex) {
+		j, err := yaml.ConvertYamlToJson([]byte(v))
+		if err != nil {
+			return nil, fmt.Errorf("invalid jsonpatch json/yaml: %w", err)
 		}
+		p, err := jsonpatch.DecodePatch(j)
+		if err != nil {
+			return nil, fmt.Errorf("invalid jsonpatch: %w", err)
+		}
+		patch = append(patch, p...)
 	}
 
 	if len(patch) != 0 {

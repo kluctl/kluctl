@@ -177,14 +177,12 @@ func NormalizeObject(k *k8s.K8sCluster, o_ *uo.UnstructuredObject, ignoreForDiff
 		return &uo.UnstructuredObject{Object: map[string]interface{}{}}
 	}
 
-	for k, v := range localObject.GetK8sAnnotations() {
-		if ignoreDiffFieldAnnotationRegex.MatchString(k) {
-			j, err := uo.NewMyJsonPath(v)
-			if err != nil {
-				continue
-			}
-			_ = j.Del(o.Object)
+	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldAnnotationRegex) {
+		j, err := uo.NewMyJsonPath(v)
+		if err != nil {
+			continue
 		}
+		_ = j.Del(o.Object)
 	}
 
 	return o

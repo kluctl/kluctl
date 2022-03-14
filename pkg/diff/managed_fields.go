@@ -148,10 +148,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 	}
 
 	forceApplyFields := make(map[string]bool)
-	for k, v := range local.GetK8sAnnotations() {
-		if !forceApplyFieldAnnotationRegex.MatchString(k) {
-			continue
-		}
+	for _, v := range local.GetK8sAnnotationsWithRegex(forceApplyFieldAnnotationRegex) {
 		j, err := uo.NewMyJsonPath(v)
 		if err != nil {
 			return nil, nil, err

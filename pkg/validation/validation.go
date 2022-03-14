@@ -5,11 +5,12 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
-const resultAnnotation = "validate-result.kluctl.io/"
+var resultAnnotation = regexp.MustCompile("^validate-result.kluctl.io/.*")
 
 type validationFailed struct {
 }
@@ -52,14 +53,12 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 		}
 	}()
 
-	for k, v := range o.GetK8sAnnotations() {
-		if strings.HasPrefix(k, resultAnnotation) {
-			ret.Results = append(ret.Results, types.ValidateResultEntry{
-				Ref:        ref,
-				Annotation: k,
-				Message:    v,
-			})
-		}
+	for k, v := range o.GetK8sAnnotationsWithRegex(resultAnnotation) {
+		ret.Results = append(ret.Results, types.ValidateResultEntry{
+			Ref:        ref,
+			Annotation: k,
+			Message:    v,
+		})
 	}
 
 	status, ok, _ := o.GetNestedObject("status")

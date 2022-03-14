@@ -145,11 +145,11 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 	ref := o.GetK8sRef()
 	getSet := func(name string) map[string]bool {
 		ret := make(map[string]bool)
-		a, ok := o.GetK8sAnnotations()[name]
-		if !ok {
+		a := o.GetK8sAnnotation(name)
+		if a == nil {
 			return ret
 		}
-		for _, x := range strings.Split(a, ",") {
+		for _, x := range strings.Split(*a, ",") {
 			if x != "" {
 				ret[x] = true
 			}
@@ -184,14 +184,15 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 	helmCompatibility("pre-delete", "pre-delete")
 	helmCompatibility("post-delete", "post-delete")
 
-	weightStr, ok := o.GetK8sAnnotations()["kluctl.io/hook-weight"]
-	if !ok {
-		weightStr, ok = o.GetK8sAnnotations()["helm.sh/hook-weight"]
+	weightStr := o.GetK8sAnnotation("kluctl.io/hook-weight")
+	if weightStr == nil {
+		weightStr = o.GetK8sAnnotation("helm.sh/hook-weight")
 	}
-	if !ok {
-		weightStr = "0"
+	if weightStr == nil {
+		x := "0"
+		weightStr = &x
 	}
-	weight, err := strconv.ParseInt(weightStr, 10, 32)
+	weight, err := strconv.ParseInt(*weightStr, 10, 32)
 	if err != nil {
 		u.a.handleError(ref, fmt.Errorf("failed to parse hook weight: %w", err))
 	}
@@ -210,11 +211,12 @@ func (u *hooksUtil) getHook(o *uo.UnstructuredObject) *hook {
 		}
 	}
 
-	waitStr, ok := o.GetK8sAnnotations()["kluctl.io/hook-wait"]
-	if !ok {
-		waitStr = "true"
+	waitStr := o.GetK8sAnnotation("kluctl.io/hook-wait")
+	if waitStr == nil {
+		x := "true"
+		waitStr = &x
 	}
-	wait, err := strconv.ParseBool(waitStr)
+	wait, err := strconv.ParseBool(*waitStr)
 	if err != nil {
 		u.a.handleError(ref, fmt.Errorf("failed to parse %s as bool", waitStr))
 		wait = true
