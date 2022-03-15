@@ -9,7 +9,9 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
 	diff2 "github.com/r3labs/diff/v2"
+	"log"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -49,60 +51,95 @@ func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([
 
 	var changes []types.Change
 	for _, c := range cl {
-		switch c.Type {
-		case "create":
-			ud, err := buildUnifiedDiff(notPresent, c.To, false)
-			if err != nil {
-				return nil, err
-			}
-			p, err := convertPath(c.Path, newObject.Object)
-			if err != nil {
-				return nil, err
-			}
-			changes = append(changes, types.Change{
-				Type:        "insert",
-				JsonPath:    p,
-				NewValue:    c.To,
-				UnifiedDiff: ud,
-			})
-		case "delete":
-			ud, err := buildUnifiedDiff(c.From, notPresent, false)
-			if err != nil {
-				return nil, err
-			}
-			p, err := convertPath(c.Path, oldObject.Object)
-			if err != nil {
-				return nil, err
-			}
-			changes = append(changes, types.Change{
-				Type:        "delete",
-				JsonPath:    p,
-				OldValue:    c.From,
-				UnifiedDiff: ud,
-			})
-		case "update":
-			showType := false
-			if reflect.TypeOf(c.From) != reflect.TypeOf(c.To) {
-				showType = true
-			}
-			ud, err := buildUnifiedDiff(c.From, c.To, showType)
-			if err != nil {
-				return nil, err
-			}
-			p, err := convertPath(c.Path, newObject.Object)
-			if err != nil {
-				return nil, err
-			}
-			changes = append(changes, types.Change{
-				Type:        "update",
-				JsonPath:    p,
-				NewValue:    c.To,
-				OldValue:    c.From,
-				UnifiedDiff: ud,
-			})
+		c2, err := convertChange(c, oldObject, newObject)
+		if err != nil {
+			return nil, err
 		}
+		changes = append(changes, *c2)
 	}
+
+	// The result of the above diff call is not stable
+	stableSortChanges(changes)
 	return changes, nil
+}
+
+func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) (*types.Change, error) {
+	switch c.Type {
+	case "create":
+		ud, err := buildUnifiedDiff(notPresent, c.To, false)
+		if err != nil {
+			return nil, err
+		}
+		p, err := convertPath(c.Path, newObject.Object)
+		if err != nil {
+			return nil, err
+		}
+		return &types.Change{
+			Type:        "insert",
+			JsonPath:    p,
+			NewValue:    c.To,
+			UnifiedDiff: ud,
+		}, nil
+	case "delete":
+		ud, err := buildUnifiedDiff(c.From, notPresent, false)
+		if err != nil {
+			return nil, err
+		}
+		p, err := convertPath(c.Path, oldObject.Object)
+		if err != nil {
+			return nil, err
+		}
+		return &types.Change{
+			Type:        "delete",
+			JsonPath:    p,
+			OldValue:    c.From,
+			UnifiedDiff: ud,
+		}, nil
+	case "update":
+		showType := false
+		if reflect.TypeOf(c.From) != reflect.TypeOf(c.To) {
+			showType = true
+		}
+		ud, err := buildUnifiedDiff(c.From, c.To, showType)
+		if err != nil {
+			return nil, err
+		}
+		p, err := convertPath(c.Path, newObject.Object)
+		if err != nil {
+			return nil, err
+		}
+		return &types.Change{
+			Type:        "update",
+			JsonPath:    p,
+			NewValue:    c.To,
+			OldValue:    c.From,
+			UnifiedDiff: ud,
+		}, nil
+	}
+	return nil, fmt.Errorf("unknown change type %s", c.Type)
+}
+
+func stableSortChanges(changes []types.Change) {
+	changesStrs := make([]string, len(changes))
+	changesIndexes := make([]int, len(changes))
+	for i, _ := range changes {
+		y, err := yaml.WriteYamlString(changes[i])
+		if err != nil {
+			log.Panic(err)
+		}
+		changesStrs[i] = y
+		changesIndexes[i] = i
+	}
+
+	sort.SliceStable(changesIndexes, func(i, j int) bool {
+		return changesStrs[changesIndexes[i]] < changesStrs[changesIndexes[j]]
+	})
+
+	changesSorted := make([]types.Change, len(changes))
+	for i, _ := range changes {
+		changesSorted[i] = changes[changesIndexes[i]]
+	}
+	copy(changes, changesSorted)
 }
 
 func buildUnifiedDiff(a interface{}, b interface{}, showType bool) (string, error) {
