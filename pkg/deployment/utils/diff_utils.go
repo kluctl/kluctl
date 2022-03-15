@@ -6,6 +6,7 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"sort"
 	"sync"
 	"time"
 )
@@ -64,6 +65,13 @@ func (u *diffUtil) Diff() {
 		}
 	}
 	wg.Wait()
+
+	sort.Slice(u.NewObjects, func(i, j int) bool {
+		return u.NewObjects[i].Ref.String() < u.NewObjects[j].Ref.String()
+	})
+	sort.Slice(u.ChangedObjects, func(i, j int) bool {
+		return u.ChangedObjects[i].Ref.String() < u.ChangedObjects[j].Ref.String()
+	})
 }
 
 func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
