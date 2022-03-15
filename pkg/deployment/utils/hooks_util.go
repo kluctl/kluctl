@@ -223,7 +223,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 	wait, err := strconv.ParseBool(*waitStr)
 	if err != nil {
-		u.a.HandleError(ref, fmt.Errorf("failed to parse %s as bool", waitStr))
+		u.a.HandleError(ref, fmt.Errorf("failed to parse %s as bool", *waitStr))
 		wait = true
 	}
 
