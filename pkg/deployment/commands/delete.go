@@ -8,7 +8,8 @@ import (
 )
 
 type DeleteCommand struct {
-	c *deployment.DeploymentCollection
+	c                      *deployment.DeploymentCollection
+	OverrideDeleteByLabels map[string]string
 }
 
 func NewDeleteCommand(c *deployment.DeploymentCollection) *DeleteCommand {
@@ -21,7 +22,15 @@ func (cmd *DeleteCommand) Run(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(dew)
-	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+
+	var labels map[string]string
+	if len(cmd.OverrideDeleteByLabels) != 0 {
+		labels = cmd.OverrideDeleteByLabels
+	} else {
+		labels = cmd.c.Project.GetCommonLabels()
+	}
+
+	err := ru.UpdateRemoteObjects(k, labels, nil)
 	if err != nil {
 		return nil, err
 	}

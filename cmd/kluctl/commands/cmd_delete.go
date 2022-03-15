@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/deployment"
 	"github.com/codablock/kluctl/pkg/deployment/commands"
 	"github.com/codablock/kluctl/pkg/deployment/utils"
 	"github.com/codablock/kluctl/pkg/k8s"
@@ -20,6 +21,8 @@ type deleteCmd struct {
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
+
+	DeleteByLabel []string `group:"misc" short:"l" help:"Override the labels used to find objects for deletion."`
 }
 
 func (cmd *deleteCmd) Help() string {
@@ -41,6 +44,14 @@ func (cmd *deleteCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		cmd2 := commands.NewDeleteCommand(ctx.deploymentCollection)
+
+		deleteByLabels, err := deployment.ParseArgs(cmd.DeleteByLabel)
+		if err != nil {
+			return err
+		}
+
+		cmd2.OverrideDeleteByLabels = deleteByLabels
+
 		objects, err := cmd2.Run(ctx.k)
 		if err != nil {
 			return err
