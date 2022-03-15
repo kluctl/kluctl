@@ -41,7 +41,7 @@ func (cmd *helmUpdateCmd) Run() error {
 			log.Infof("Chart %s has new version %s available. Old version is %s.", p, newVersion, *chart.Config.ChartVersion)
 
 			if cmd.Upgrade {
-				if chart.Config.SkipUpdate != nil && !*chart.Config.SkipUpdate {
+				if chart.Config.SkipUpdate != nil && *chart.Config.SkipUpdate {
 					log.Infof("NOT upgrading chart %s as skipUpdate was set to true", p)
 					return nil
 				}
