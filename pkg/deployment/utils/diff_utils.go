@@ -3,7 +3,6 @@ package utils
 import (
 	"github.com/codablock/kluctl/pkg/deployment"
 	"github.com/codablock/kluctl/pkg/diff"
-	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
 	"github.com/codablock/kluctl/pkg/utils/uo"
@@ -36,7 +35,7 @@ func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.Dep
 	}
 }
 
-func (u *diffUtil) Diff(k *k8s.K8sCluster) {
+func (u *diffUtil) Diff() {
 	var wg sync.WaitGroup
 
 	u.calcRemoteObjectsForDiff()
@@ -60,14 +59,14 @@ func (u *diffUtil) Diff(k *k8s.K8sCluster) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				u.diffObject(k, o, ao, ro, ignoreForDiffs)
+				u.diffObject(o, ao, ro, ignoreForDiffs)
 			}()
 		}
 	}
 	wg.Wait()
 }
 
-func (u *diffUtil) diffObject(k *k8s.K8sCluster, lo *uo.UnstructuredObject, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
+func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
 	if ao != nil && ro == nil {
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
@@ -82,8 +81,8 @@ func (u *diffUtil) diffObject(k *k8s.K8sCluster, lo *uo.UnstructuredObject, ao *
 		// did not apply? (e.g. in downscale command)
 		return
 	} else {
-		nao := diff.NormalizeObject(k, ao, ignoreForDiffs, lo)
-		nro := diff.NormalizeObject(k, ro, ignoreForDiffs, lo)
+		nao := diff.NormalizeObject(ao, ignoreForDiffs, lo)
+		nro := diff.NormalizeObject(ro, ignoreForDiffs, lo)
 		changes, err := diff.Diff(nro, nao)
 		if err != nil {
 			u.dew.AddError(lo.GetK8sRef(), err)

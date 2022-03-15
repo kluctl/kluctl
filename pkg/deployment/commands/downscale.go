@@ -61,7 +61,7 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 	wg.Wait()
 
 	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, appliedObjects)
-	du.Diff(k)
+	du.Diff()
 
 	return &types.CommandResult{
 		NewObjects:     du.NewObjects,

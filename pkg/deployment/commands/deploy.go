@@ -45,7 +45,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	au.ApplyDeployments()
 
 	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
-	du.Diff(k)
+	du.Diff()
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {

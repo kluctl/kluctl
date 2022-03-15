@@ -48,7 +48,7 @@ func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
-	du.Diff(k)
+	du.Diff()
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {

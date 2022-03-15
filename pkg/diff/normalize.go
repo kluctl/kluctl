@@ -2,7 +2,6 @@ package diff
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
 	"regexp"
@@ -93,9 +92,7 @@ func normalizeServiceAccount(o *uo.UnstructuredObject) {
 	_ = o.SetNestedField(newSecrets, "secrets")
 }
 
-func normalizeMetadata(k *k8s.K8sCluster, o *uo.UnstructuredObject) {
-	k.RemoveNamespaceIfNeeded(o)
-
+func normalizeMetadata(o *uo.UnstructuredObject) {
 	// We don't care about managedFields when diffing (they just produce noise)
 	_ = o.RemoveNestedField("metadata", "managedFields")
 	_ = o.RemoveNestedField("metadata", "annotations", "managedFields", "kubectl.kubernetes.io/last-applied-configuration")
@@ -123,13 +120,13 @@ func normalizeMisc(o *uo.UnstructuredObject) {
 var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field(-\d*)?$`)
 
 // NormalizeObject Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-func NormalizeObject(k *k8s.K8sCluster, o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) *uo.UnstructuredObject {
+func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) *uo.UnstructuredObject {
 	gvk := o_.GetK8sGVK()
 	name := o_.GetK8sName()
 	ns := o_.GetK8sNamespace()
 
 	o := o_.Clone()
-	normalizeMetadata(k, o)
+	normalizeMetadata(o)
 	normalizeMisc(o)
 
 	switch gvk.Kind {
