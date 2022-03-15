@@ -31,7 +31,7 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 		return nil, err
 	}
 
-	au := utils2.NewApplyUtil(dew, cmd.c, ru, k, utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, utils2.ApplyUtilOptions{})
 
 	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 

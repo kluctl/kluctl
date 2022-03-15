@@ -67,7 +67,7 @@ func (cmd *PokeImagesCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, erro
 		return o, nil
 	}
 
-	au := utils2.NewApplyUtil(dew, cmd.c, ru, k, utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref

@@ -29,11 +29,11 @@ type ApplyUtilOptions struct {
 }
 
 type ApplyUtil struct {
-	dew                  *DeploymentErrorsAndWarnings
-	deploymentCollection *deployment.DeploymentCollection
-	ru                   *RemoteObjectUtils
-	k                    *k8s.K8sCluster
-	o                    ApplyUtilOptions
+	dew         *DeploymentErrorsAndWarnings
+	deployments []*deployment.DeploymentItem
+	ru          *RemoteObjectUtils
+	k           *k8s.K8sCluster
+	o           ApplyUtilOptions
 
 	AppliedObjects     map[k8s2.ObjectRef]*uo.UnstructuredObject
 	appliedHookObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
@@ -44,18 +44,18 @@ type ApplyUtil struct {
 	mutex              sync.Mutex
 }
 
-func NewApplyUtil(dew *DeploymentErrorsAndWarnings, deploymentCollection *deployment.DeploymentCollection, ru *RemoteObjectUtils, k *k8s.K8sCluster, o ApplyUtilOptions) *ApplyUtil {
+func NewApplyUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o ApplyUtilOptions) *ApplyUtil {
 	return &ApplyUtil{
-		dew:                  dew,
-		deploymentCollection: deploymentCollection,
-		ru:                   ru,
-		k:                    k,
-		o:                    o,
-		AppliedObjects:       map[k8s2.ObjectRef]*uo.UnstructuredObject{},
-		appliedHookObjects:   map[k8s2.ObjectRef]*uo.UnstructuredObject{},
-		deletedObjects:       map[k8s2.ObjectRef]bool{},
-		deletedHookObjects:   map[k8s2.ObjectRef]bool{},
-		deployedNewCRD:       true, // assume someone deployed CRDs in the meantime
+		dew:                dew,
+		deployments:        deployments,
+		ru:                 ru,
+		k:                  k,
+		o:                  o,
+		AppliedObjects:     map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		appliedHookObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		deletedObjects:     map[k8s2.ObjectRef]bool{},
+		deletedHookObjects: map[k8s2.ObjectRef]bool{},
+		deployedNewCRD:     true, // assume someone deployed CRDs in the meantime
 	}
 }
 
@@ -422,7 +422,7 @@ func (a *ApplyUtil) ApplyDeployments() {
 	defer wp.StopWait(false)
 
 	previousWasBarrier := false
-	for _, d_ := range a.deploymentCollection.Deployments {
+	for _, d_ := range a.deployments {
 		d := d_
 		if a.abortSignal {
 			break
