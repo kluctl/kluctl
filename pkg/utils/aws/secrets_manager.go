@@ -11,10 +11,10 @@ import (
 
 func GetAwsSecretsManagerSecret(profile *string, region *string, secretName string) (string, error) {
 	var opts session.Options
+	opts.SharedConfigState = session.SharedConfigEnable
 	// Environment variable always takes precedence
 	if _, ok := os.LookupEnv("AWS_PROFILE"); !ok && region != nil {
 		opts.Profile = *profile
-		opts.SharedConfigState = session.SharedConfigEnable
 	}
 	s, err := session.NewSessionWithOptions(opts)
 	if err != nil {
