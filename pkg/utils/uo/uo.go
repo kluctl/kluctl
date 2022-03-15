@@ -72,6 +72,14 @@ func FromString(s string) (*UnstructuredObject, error) {
 	return o, nil
 }
 
+func FromStringMust(s string) *UnstructuredObject {
+	o, err := FromString(s)
+	if err != nil {
+		log.Panic(err)
+	}
+	return o
+}
+
 func FromFile(p string) (*UnstructuredObject, error) {
 	o := New()
 	err := yaml.ReadYamlFile(p, &o.Object)
