@@ -113,7 +113,7 @@ func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 	defer wp.StopWait(false)
 
 	for _, d := range c.Deployments {
-		err := d.render(k, wp)
+		err := d.render(k, c.forSeal, wp)
 		if err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 					_ = sem.Acquire(context.Background(), 1)
 					defer sem.Release(1)
 
-					err := d.postprocessAndLoadObjects(k)
+					err := d.postprocessAndLoadObjects(k, c.Images)
 					if err != nil {
 						mutex.Lock()
 						errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed. %w", *d.dir, err))

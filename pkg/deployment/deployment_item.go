@@ -23,7 +23,7 @@ const SealmeExt = ".sealme"
 
 type DeploymentItem struct {
 	Project    *DeploymentProject
-	collection *DeploymentCollection
+	Inclusion  *utils.Inclusion
 	Config     *types.DeploymentItemConfig
 	dir        *string
 	index      int
@@ -41,7 +41,6 @@ type DeploymentItem struct {
 func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
 	di := &DeploymentItem{
 		Project:    project,
-		collection: collection,
 		Config:     config,
 		dir:        dir,
 		index:      index,
@@ -72,7 +71,7 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 			di.relRenderedDir = fmt.Sprintf("%s-%d", di.relRenderedDir, di.index)
 		}
 
-		di.renderedDir = filepath.Join(di.collection.RenderDir, di.relRenderedDir)
+		di.renderedDir = filepath.Join(collection.RenderDir, di.relRenderedDir)
 		di.renderedYamlPath = filepath.Join(di.renderedDir, ".rendered.yml")
 	}
 	return di, nil
@@ -99,7 +98,7 @@ func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	return a
 }
 
-func (di *DeploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) render(k *k8s.K8sCluster, forSeal bool, wp *utils.WorkerPoolWithErrors) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -139,7 +138,7 @@ func (di *DeploymentItem) render(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErro
 		return err
 	}
 
-	if !di.collection.forSeal {
+	if !forSeal {
 		// .sealme files are rendered while sealing and not while deploying
 		excludePatterns = append(excludePatterns, "**.sealme")
 	}
@@ -247,7 +246,7 @@ func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 }
 
 func (di *DeploymentItem) CheckInclusionForDeploy() bool {
-	if di.collection.Inclusion == nil {
+	if di.Inclusion == nil {
 		return true
 	}
 	if di.Config.OnlyRender != nil && *di.Config.OnlyRender {
@@ -257,16 +256,16 @@ func (di *DeploymentItem) CheckInclusionForDeploy() bool {
 		return true
 	}
 	values := di.buildInclusionEntries()
-	return di.collection.Inclusion.CheckIncluded(values, false)
+	return di.Inclusion.CheckIncluded(values, false)
 }
 
 func (di *DeploymentItem) checkInclusionForDelete() bool {
-	if di.collection.Inclusion == nil {
+	if di.Inclusion == nil {
 		return true
 	}
 	skipDeleteIfTags := di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags
 	values := di.buildInclusionEntries()
-	return di.collection.Inclusion.CheckIncluded(values, skipDeleteIfTags)
+	return di.Inclusion.CheckIncluded(values, skipDeleteIfTags)
 }
 
 func (di *DeploymentItem) prepareKustomizationYaml() error {
@@ -338,7 +337,7 @@ func (di *DeploymentItem) buildKustomize() error {
 	return nil
 }
 
-func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
+func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *Images) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -368,7 +367,7 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster) error {
 		o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 		// Resolve image placeholders
-		err = di.collection.Images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
+		err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
 		if err != nil {
 			return err
 		}
