@@ -22,11 +22,11 @@ import (
 const SealmeExt = ".sealme"
 
 type DeploymentItem struct {
-	Project    *DeploymentProject
-	Inclusion  *utils.Inclusion
-	Config     *types.DeploymentItemConfig
-	dir        *string
-	index      int
+	Project   *DeploymentProject
+	Inclusion *utils.Inclusion
+	Config    *types.DeploymentItemConfig
+	dir       *string
+	index     int
 
 	Objects []*uo.UnstructuredObject
 
@@ -40,10 +40,10 @@ type DeploymentItem struct {
 
 func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
 	di := &DeploymentItem{
-		Project:    project,
-		Config:     config,
-		dir:        dir,
-		index:      index,
+		Project: project,
+		Config:  config,
+		dir:     dir,
+		index:   index,
 	}
 
 	var err error
