@@ -30,11 +30,11 @@ func ParseArn(arn string) (Arn, error) {
 	result.Resource = elements[5]
 
 	if strings.Index(result.Resource, "/") != 0 {
-		s := strings.SplitN(result.Resource, "/", 1)
+		s := strings.SplitN(result.Resource, "/", 2)
 		result.ResourceType = s[0]
 		result.Resource = s[1]
 	} else if strings.Index(result.Resource, ":") != 0 {
-		s := strings.SplitN(result.Resource, ":", 1)
+		s := strings.SplitN(result.Resource, ":", 2)
 		result.ResourceType = s[0]
 		result.Resource = s[1]
 	}

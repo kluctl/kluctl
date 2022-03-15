@@ -20,7 +20,7 @@ func ParseArgs(argsList []string) (map[string]string, error) {
 			return nil, fmt.Errorf("invalid --arg argument. Must be --arg=some_var_name=value")
 		}
 
-		s := strings.SplitN(arg, "=", 1)
+		s := strings.SplitN(arg, "=", 2)
 		name := s[0]
 		value := s[1]
 		args[name] = value
