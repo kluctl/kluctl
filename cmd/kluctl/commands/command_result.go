@@ -32,13 +32,13 @@ func formatCommandResultText(cr *types.CommandResult) string {
 		buf.WriteString("\nChanged objects:\n")
 		var refs []k8s.ObjectRef
 		for _, co := range cr.ChangedObjects {
-			refs = append(refs, co.NewObject.GetK8sRef())
+			refs = append(refs, co.Ref)
 		}
 		prettyObjectRefs(buf, refs)
 
 		buf.WriteString("\n")
 		for _, co := range cr.ChangedObjects {
-			prettyChanges(buf, co.NewObject.GetK8sRef(), co.Changes)
+			prettyChanges(buf, co.Ref, co.Changes)
 		}
 	}
 
