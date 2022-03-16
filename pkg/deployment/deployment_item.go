@@ -40,10 +40,11 @@ type DeploymentItem struct {
 
 func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
 	di := &DeploymentItem{
-		Project: project,
-		Config:  config,
-		dir:     dir,
-		index:   index,
+		Project:   project,
+		Inclusion: collection.Inclusion,
+		Config:    config,
+		dir:       dir,
+		index:     index,
 	}
 
 	var err error
