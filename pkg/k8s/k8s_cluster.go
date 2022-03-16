@@ -588,7 +588,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 		o.DryRun = []string{"All"}
 	}
 
-	return k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		err := r.Delete(context.Background(), ref.Name, o)
 		if err != nil {
 			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
@@ -596,21 +596,25 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 			}
 			return err
 		}
-
-		if !dryRun && !options.NoWait {
-			err = k.waitForDeletedObject(r, ref)
-			if err != nil {
-				return err
-			}
-		}
 		return nil
 	})
+	if err != nil {
+		return apiWarnings, err
+	}
+
+	if !dryRun && !options.NoWait {
+		err = k.waitForDeletedObject(ref)
+		if err != nil {
+			return apiWarnings, err
+		}
+	}
+	return apiWarnings, nil
 }
 
-func (k *K8sCluster) waitForDeletedObject(r dynamic.ResourceInterface, ref k8s.ObjectRef) error {
+func (k *K8sCluster) waitForDeletedObject(ref k8s.ObjectRef) error {
 	for true {
-		o := v1.GetOptions{}
-		_, err := r.Get(context.Background(), ref.Name, o)
+		_, _, err := k.GetSingleObject(ref)
+
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return nil
