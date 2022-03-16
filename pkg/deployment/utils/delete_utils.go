@@ -1,11 +1,12 @@
 package utils
 
 import (
+	"context"
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
-	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strconv"
 	"sync"
@@ -134,8 +135,8 @@ func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.Unstructure
 }
 
 func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*types.CommandResult, error) {
-	wp := utils.NewDebuggerAwareWorkerPool(8)
-	defer wp.StopWait(false)
+	var wg sync.WaitGroup
+	sem := semaphore.NewWeighted(8)
 
 	var ret types.CommandResult
 	namespaceNames := make(map[string]bool)
@@ -165,17 +166,18 @@ func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*type
 		ref := ref_
 		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
-			wp.Submit(func() error {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = sem.Acquire(context.Background(), 1)
+				defer sem.Release(1)
+
 				apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 				handleResult(ref, apiWarnings, err)
-				return nil
-			})
+			}()
 		}
 	}
-	err := wp.StopWait(true)
-	if err != nil {
-		return nil, err
-	}
+	wg.Wait()
 
 	for _, ref_ := range refs {
 		ref := ref_
@@ -186,12 +188,17 @@ func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*type
 			// already deleted via namespace
 			continue
 		}
-		wp.Submit(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+
 			apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 			handleResult(ref, apiWarnings, err)
-			return nil
-		})
+		}()
 	}
-	err = wp.StopWait(false)
-	return &ret, err
+	wg.Wait()
+
+	return &ret, nil
 }
