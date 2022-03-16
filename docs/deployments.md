@@ -20,7 +20,7 @@ Some visualized files/directories have links attached, follow them to get more i
 
 <pre>
 -- project-dir/
-   |-- <a href="#deploymentyml">deploymentyml</a>
+   |-- <a href="#deploymentyml">deployment.yml</a>
    |-- .gitignore
    |-- kustomize-deployment1/
    |   |-- kustomization.yml
@@ -64,7 +64,7 @@ inside `deployment.yml`.
 
 Documentation on available variables, methods and filters is available in [jinja2-templating](./jinja2-templating.md)
 
-## Conatainer image versions
+## Container image versions
 
 Please read [images](./images.md) about dynamic image versions.
 
