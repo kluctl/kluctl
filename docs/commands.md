@@ -215,12 +215,14 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-  -y, --yes                                Suppresses 'Are you sure?' questions and proceeds as if you would answer
-                                           'yes'.
-      --dry-run                            Performs all kubernetes API calls in dry-run mode.
-  -o, --output-format=OUTPUT-FORMAT,...    Specify output format and target file, in the format 'format=path'. Format
-                                           can either be 'text' or 'yaml'. Can be specified multiple times. The actual
-                                           format for yaml is currently not documented and subject to change.
+  -y, --yes                                    Suppresses 'Are you sure?' questions and proceeds as if you would answer
+                                               'yes'.
+      --dry-run                                Performs all kubernetes API calls in dry-run mode.
+  -o, --output-format=OUTPUT-FORMAT,...        Specify output format and target file, in the format 'format=path'.
+                                               Format can either be 'text' or 'yaml'. Can be specified multiple times.
+                                               The actual format for yaml is currently not documented and subject to
+                                               change.
+  -l, --delete-by-label=DELETE-BY-LABEL,...    Override the labels used to find objects for deletion.
 
 ```
 <!-- END SECTION -->
