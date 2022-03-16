@@ -621,6 +621,8 @@ func (k *K8sCluster) waitForDeletedObject(ref k8s.ObjectRef) error {
 			}
 			return err
 		}
+
+		time.Sleep(time.Millisecond * 100)
 	}
 	return nil
 }
