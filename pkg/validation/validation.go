@@ -32,6 +32,14 @@ func (c condition) getMessage(def string) string {
 	return c.message
 }
 
+type errorReaction int
+const (
+	reactIgnore errorReaction = iota
+	reactError
+	reactWarning
+	reactNotReady
+)
+
 func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.ValidateResult) {
 	ref := o.GetK8sRef()
 
@@ -87,7 +95,20 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 		ret.Ready = false
 	}
 
-	findConditions := func(typ string, doError bool, doRaise bool) []condition {
+	reactToError := func(err error, er errorReaction, doRaise bool) {
+		if er == reactError {
+			addError(err.Error())
+		} else if er == reactWarning {
+			addWarning(err.Error())
+		} else if er == reactNotReady {
+			addNotReady(err.Error())
+		}
+		if doRaise {
+			panic(&validationFailed{})
+		}
+	}
+
+	findConditions := func(typ string, er errorReaction, doRaise bool) []condition {
 		var ret []condition
 		l, ok, _ := status.GetNestedObjectList("conditions")
 		if ok {
@@ -105,18 +126,14 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 				}
 			}
 		}
-		if len(ret) == 0 && doError {
-			err := fmt.Errorf("%s condition not in status", typ)
-			addError(err.Error())
-			if doRaise {
-				panic(&validationFailed{})
-			}
+		if len(ret) == 0 {
+			reactToError(fmt.Errorf("%s condition not in status", typ), er, doRaise)
 		}
 		return ret
 	}
 
-	getCondition := func(typ string, doError bool, doRaise bool) condition {
-		c := findConditions(typ, doError, doRaise)
+	getCondition := func(typ string, er errorReaction, doRaise bool) condition {
+		c := findConditions(typ, er, doRaise)
 		if len(c) == 0 {
 			return condition{}
 		}
@@ -129,22 +146,18 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 		}
 		return c[0]
 	}
-	getStatusField := func(field string, doError bool, doRaise bool, def interface{}) interface{} {
+	getStatusField := func(field string, er errorReaction, doRaise bool, def interface{}) interface{} {
 		v, ok, _ := status.GetNestedField(field)
-		if !ok && doError {
-			err := fmt.Errorf("%s field not in status or empty", field)
-			addError(err.Error())
-			if doRaise {
-				panic(&validationFailed{})
-			}
+		if !ok {
+			reactToError(fmt.Errorf("%s field not in status or empty", field), er, doRaise)
 		}
 		if !ok {
 			return def
 		}
 		return v
 	}
-	getStatusFieldStr := func(field string, doError bool, doRaise bool, def string) string {
-		v := getStatusField(field, doError, doRaise, def)
+	getStatusFieldStr := func(field string, er errorReaction, doRaise bool, def string) string {
+		v := getStatusField(field, er, doRaise, def)
 		if s, ok := v.(string); ok {
 			return s
 		} else {
@@ -156,8 +169,8 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 		}
 		return def
 	}
-	getStatusFieldInt := func(field string, doError bool, doRaise bool, def int64) int64 {
-		v := getStatusField(field, doError, doRaise, def)
+	getStatusFieldInt := func(field string, er errorReaction, doRaise bool, def int64) int64 {
+		v := getStatusField(field, er, doRaise, def)
 		if i, ok := v.(int64); ok {
 			return i
 		} else if i, ok := v.(uint64); ok {
@@ -166,12 +179,7 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 			return int64(i)
 		} else {
 			err := fmt.Errorf("%s field is not an int", field)
-			if doError {
-				addError(err.Error())
-			}
-			if doRaise {
-				panic(&validationFailed{})
-			}
+			reactToError(err, er, doRaise)
 		}
 		return def
 	}
@@ -208,28 +216,28 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 
 	switch o.GetK8sGVK().GroupKind() {
 	case schema.GroupKind{Group: "", Kind: "Pod"}:
-		c := getCondition("Ready", false, false)
+		c := getCondition("Ready", reactIgnore, false)
 		if c.status != "True" {
 			addNotReady(c.getMessage("Not ready"))
 		}
 	case schema.GroupKind{Group: "batch", Kind: "Job"}:
-		c := getCondition("Failed", false, false)
+		c := getCondition("Failed", reactIgnore, false)
 		if c.status == "True" {
 			addError(c.getMessage("Failed"))
 		} else {
-			c = getCondition("Complete", false, false)
+			c = getCondition("Complete", reactIgnore, false)
 			if c.status != "True" {
 				addNotReady(c.getMessage("Not completed"))
 			}
 		}
 	case schema.GroupKind{Group: "apps", Kind: "Deployment"}:
-		readyReplicas := getStatusFieldInt("readyReplicas", true, true, 0)
-		replicas := getStatusFieldInt("replicas", true, true, 0)
+		readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
+		replicas := getStatusFieldInt("replicas", reactNotReady, true, 0)
 		if readyReplicas < replicas {
 			addNotReady(fmt.Sprintf("readyReplicas (%d) is less then replicas (%d)", readyReplicas, replicas))
 		}
 	case schema.GroupKind{Group: "", Kind: "PersistentVolumeClaim"}:
-		phase := getStatusFieldStr("phase", true, true, "")
+		phase := getStatusFieldStr("phase", reactNotReady, true, "")
 		if phase != "Bound" {
 			addNotReady("Volume is not bound")
 		}
@@ -252,8 +260,8 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 	case schema.GroupKind{Group: "apps", Kind: "DaemonSet"}:
 		updateStrategyType, _, _ := o.GetNestedString("spec", "updateStrategy", "type")
 		if updateStrategyType == "RollingUpdate" {
-			updatedNumberScheduled := getStatusFieldInt("updatedNumberScheduled", true, true, 0)
-			desiredNumberScheduled := getStatusFieldInt("desiredNumberScheduled", true, true, 0)
+			updatedNumberScheduled := getStatusFieldInt("updatedNumberScheduled", reactNotReady, true, 0)
+			desiredNumberScheduled := getStatusFieldInt("desiredNumberScheduled", reactNotReady, true, 0)
 			if updatedNumberScheduled != desiredNumberScheduled {
 				addNotReady(fmt.Sprintf("DaemonSet is not ready. %d out of %d expected pods have been scheduled", updatedNumberScheduled, desiredNumberScheduled))
 			} else {
@@ -266,7 +274,7 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 					maxUnavailable = desiredNumberScheduled
 				}
 				expectedReady := desiredNumberScheduled - maxUnavailable
-				numberReady := getStatusFieldInt("numberReady", true, true, 0)
+				numberReady := getStatusFieldInt("numberReady", reactNotReady, true, 0)
 				if numberReady < expectedReady {
 					addNotReady(fmt.Sprintf("DaemonSet is not ready. %d out of %d expected pods are ready", numberReady, expectedReady))
 				}
@@ -275,9 +283,9 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 	case schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}:
 		// This is based on how Helm check for ready CRDs.
 		// See https://github.com/helm/helm/blob/249d1b5fb98541f5fb89ab11019b6060d6b169f1/pkg/kube/ready.go#L342
-		c := getCondition("Established", false, false)
+		c := getCondition("Established", reactIgnore, false)
 		if c.status != "True" {
-			c = getCondition("NamesAccepted", true, true)
+			c = getCondition("NamesAccepted", reactNotReady, true)
 			if c.status != "False" {
 				addNotReady("CRD is not ready")
 			}
@@ -290,12 +298,12 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 			if !ok {
 				replicas = 1
 			}
-			updatedReplicas := getStatusFieldInt("updatedReplicas", true, true, 0)
+			updatedReplicas := getStatusFieldInt("updatedReplicas", reactNotReady, true, 0)
 			expectedReplicas := replicas - partition
 			if updatedReplicas != expectedReplicas {
 				addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods have been scheduled", updatedReplicas, expectedReplicas))
 			} else {
-				readyReplicas := getStatusFieldInt("readyReplicas", true, true, 0)
+				readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
 				if readyReplicas != replicas {
 					addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods are ready", readyReplicas, replicas))
 				}
