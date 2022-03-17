@@ -328,6 +328,25 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 				}
 			}
 		}
+	case schema.GroupKind{Group: "cluster.x-k8s.io", Kind: "MachineDeployment"}:
+		c := getCondition("Ready", reactNotReady, true)
+		if c.status != "True" {
+			addNotReady(c.getMessage("Not ready"))
+		}
+		c = getCondition("Available", reactNotReady, true)
+		if c.status != "True" {
+			addNotReady(c.getMessage("Not ready"))
+		}
+
+		readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
+		replicas := getStatusFieldInt("replicas", reactNotReady, true, 0)
+		unavailableReplicas := getStatusFieldInt("unavailableReplicas", reactIgnore, false, 0)
+		if readyReplicas < replicas {
+			addNotReady(fmt.Sprintf("readyReplicas (%d) is less then replicas (%d)", readyReplicas, replicas))
+		}
+		if unavailableReplicas != 0 {
+			addNotReady(fmt.Sprintf("unavailableReplicas (%d) != 0", unavailableReplicas))
+		}
 	}
 	return
 }
