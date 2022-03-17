@@ -128,6 +128,7 @@ Misc arguments:
   -o, --output=OUTPUT,...           Specify output target file. Can be specified multiple times
       --render-output-dir=STRING    Specifies the target directory to render the project into. If omitted, a temporary
                                     directory is used.
+      --no-wait                     Don't wait for objects readiness'
 
 ```
 <!-- END SECTION -->
