@@ -279,21 +279,24 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 		return nil
 	}
 
-	var kustomizeYaml map[string]interface{}
-	err := yaml.ReadYamlFile(kustomizeYamlPath, &kustomizeYaml)
+	ky, err := uo.FromFile(kustomizeYamlPath)
 	if err != nil {
 		return err
 	}
 
 	overrideNamespace := di.Project.getOverrideNamespace()
 	if overrideNamespace != nil {
-		if _, ok := kustomizeYaml["namespace"]; !ok {
-			kustomizeYaml["namespace"] = *overrideNamespace
+		_, ok, err := ky.GetNestedString("namespace")
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ky.SetNestedField(*overrideNamespace, "namespace")
 		}
 	}
 
 	// Save modified kustomize.yml
-	err = yaml.WriteYamlFile(kustomizeYamlPath, kustomizeYaml)
+	err = yaml.WriteYamlFile(kustomizeYamlPath, ky)
 	if err != nil {
 		return err
 	}
