@@ -26,6 +26,7 @@ type ApplyUtilOptions struct {
 	DryRun              bool
 	AbortOnError        bool
 	WaitObjectTimeout   time.Duration
+	NoWait              bool
 }
 
 type ApplyUtil struct {
@@ -338,7 +339,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef) bool {
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			log2.Infof("Still waiting for hook to get ready (%s)...", time.Now().Sub(startTime).String())
+			log2.Infof("Still waiting for object to get ready (%s)...", time.Now().Sub(startTime).String())
 			lastLogTime = time.Now()
 		}
 
@@ -408,7 +409,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		}
 
 		waitReadiness := (d.Config.WaitReadiness != nil && *d.Config.WaitReadiness) || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
-		if waitReadiness {
+		if !a.o.NoWait && waitReadiness {
 			a.WaitReadiness(o.GetK8sRef())
 		}
 	}

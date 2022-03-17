@@ -16,6 +16,7 @@ type DeployCommand struct {
 	ForceReplaceOnError bool
 	AbortOnError        bool
 	HookTimeout         time.Duration
+	NoWait              bool
 }
 
 func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {
@@ -40,6 +41,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		DryRun:              k.DryRun,
 		AbortOnError:        cmd.AbortOnError,
 		WaitObjectTimeout:   cmd.HookTimeout,
+		NoWait:              cmd.NoWait,
 	}
 	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()
