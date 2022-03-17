@@ -418,28 +418,27 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 func (a *ApplyUtil) ApplyDeployments() {
 	log.Infof("Running server-side apply for all objects")
 
-	wp := utils.NewDebuggerAwareWorkerPool(16)
-	defer wp.StopWait(false)
+	var wg sync.WaitGroup
 
-	previousWasBarrier := false
 	for _, d_ := range a.deployments {
 		d := d_
 		if a.abortSignal {
 			break
 		}
-		if previousWasBarrier {
-			log.Infof("Waiting on barrier...")
-			_ = wp.StopWait(true)
-		}
 
-		previousWasBarrier = d.Config.Barrier != nil && *d.Config.Barrier
-
-		wp.Submit(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			a.applyDeploymentItem(d)
-			return nil
-		})
+		}()
+
+		barrier := d.Config.Barrier != nil && *d.Config.Barrier
+		if barrier {
+			log.Infof("Waiting on barrier...")
+			wg.Wait()
+		}
 	}
-	_ = wp.StopWait(false)
+	wg.Wait()
 }
 
 func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.UnstructuredObject, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) {
