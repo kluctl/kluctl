@@ -432,7 +432,7 @@ func (a *ApplyUtil) ApplyDeployments() {
 			a.applyDeploymentItem(d)
 		}()
 
-		barrier := d.Config.Barrier != nil && *d.Config.Barrier
+		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
 		if barrier {
 			log.Infof("Waiting on barrier...")
 			wg.Wait()

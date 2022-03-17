@@ -28,6 +28,9 @@ type DeploymentItem struct {
 	dir       *string
 	index     int
 
+	// These values come from the metadata of the kustomization.yml
+	Barrier       bool
+
 	Objects []*uo.UnstructuredObject
 
 	relProjectDir       string
@@ -294,6 +297,8 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 			ky.SetNestedField(*overrideNamespace, "namespace")
 		}
 	}
+
+	di.Barrier = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/barrier"))
 
 	// Save modified kustomize.yml
 	err = yaml.WriteYamlFile(kustomizeYamlPath, ky)

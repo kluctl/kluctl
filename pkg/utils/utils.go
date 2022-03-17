@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 )
 
@@ -41,4 +42,15 @@ func FindStrInSlice(a []string, s string) int {
 		}
 	}
 	return -1
+}
+
+func ParseBoolOrFalse(s *string) bool {
+	if s == nil {
+		return false
+	}
+	b, err := strconv.ParseBool(*s)
+	if err != nil {
+		return false
+	}
+	return b
 }

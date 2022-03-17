@@ -1,4 +1,4 @@
-# Annotations
+# Annotations on object level
 
 kluctl supports multiple annotations that influence individual commands. These are:
 
@@ -124,3 +124,24 @@ are added to the validation result, which is then returned by the validate comma
 The annotation key is dynamic, meaning that all annotations that begin with `validate-result.kluctl.io/` are taken
 into account.
 
+# Annotations on kustomize deployment level
+
+In addition to kluctl.io annotations which can be set on object/resource level, you can also set a few annotations
+inside the kustomization.yml itself.
+
+Example:
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  annotations:
+    kluctl.io/barrier: "true"
+
+resources:
+  - deployment.yml
+```
+
+### kluctl.io/barrier
+If set to `true`, kluctl will wait for all previous objects to be applied (but not necessarily ready). This has the
+same effect as [barrier](./deployments.md#barriers) from deployment projects.
