@@ -39,7 +39,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		ForceReplaceOnError: cmd.ForceReplaceOnError,
 		DryRun:              k.DryRun,
 		AbortOnError:        cmd.AbortOnError,
-		HookTimeout:         cmd.HookTimeout,
+		WaitObjectTimeout:   cmd.HookTimeout,
 	}
 	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()

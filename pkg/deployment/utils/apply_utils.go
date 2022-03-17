@@ -25,7 +25,7 @@ type ApplyUtilOptions struct {
 	ForceReplaceOnError bool
 	DryRun              bool
 	AbortOnError        bool
-	HookTimeout         time.Duration
+	WaitObjectTimeout   time.Duration
 }
 
 type ApplyUtil struct {
@@ -284,13 +284,13 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	return false, err
 }
 
-func (a *ApplyUtil) WaitHook(ref k8s2.ObjectRef) bool {
+func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef) bool {
 	if a.o.DryRun {
 		return true
 	}
 
 	log2 := log.WithField("ref", ref)
-	log2.Debugf("Waiting for hook to get ready")
+	log2.Debugf("Waiting for object to get ready")
 
 	lastLogTime := time.Now()
 	didLog := false
@@ -301,7 +301,7 @@ func (a *ApplyUtil) WaitHook(ref k8s2.ObjectRef) bool {
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if didLog {
-					log2.Warningf("Cancelled waiting for hook as it disappeared while waiting for it")
+					log2.Warningf("Cancelled waiting for object as it disappeared while waiting for it")
 				}
 				a.HandleError(ref, fmt.Errorf("object disappeared while waiting for it to become ready"))
 				return false
@@ -312,13 +312,13 @@ func (a *ApplyUtil) WaitHook(ref k8s2.ObjectRef) bool {
 		v := validation.ValidateObject(o, false)
 		if v.Ready {
 			if didLog {
-				log2.Infof("Finished waiting for hook")
+				log2.Infof("Finished waiting for object")
 			}
 			return true
 		}
 		if len(v.Errors) != 0 {
 			if didLog {
-				log2.Warningf("Cancelled waiting for hook due to errors")
+				log2.Warningf("Cancelled waiting for object due to errors")
 			}
 			for _, e := range v.Errors {
 				a.HandleError(ref, fmt.Errorf(e.Error))
@@ -326,15 +326,15 @@ func (a *ApplyUtil) WaitHook(ref k8s2.ObjectRef) bool {
 			return false
 		}
 
-		if a.o.HookTimeout != 0 && time.Now().Sub(startTime) >= a.o.HookTimeout {
-			err := fmt.Errorf("timed out while waiting for hook")
+		if a.o.WaitObjectTimeout != 0 && time.Now().Sub(startTime) >= a.o.WaitObjectTimeout {
+			err := fmt.Errorf("timed out while waiting for object")
 			log2.Warningf(err.Error())
 			a.HandleError(ref, err)
 			return false
 		}
 
 		if !didLog {
-			log2.Infof("Waiting for hook to get ready...")
+			log2.Infof("Waiting for object to get ready...")
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {

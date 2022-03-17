@@ -116,7 +116,7 @@ func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 		if !h.wait {
 			continue
 		}
-		waitResults[ref] = u.a.WaitHook(ref)
+		waitResults[ref] = u.a.WaitReadiness(ref)
 	}
 
 	var deleteAfterObjects []*hook
