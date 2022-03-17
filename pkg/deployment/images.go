@@ -90,6 +90,9 @@ func (images *Images) GetLatestImageFromRegistry(image string, latestVersion str
 	}
 
 	tags = versions.Filter(lv, tags)
+	if len(tags) == 0 {
+		return nil, fmt.Errorf("no tag matched latest_version: %s", latestVersion)
+	}
 
 	latest := lv.Latest(tags)
 	result := fmt.Sprintf("%s:%s", image, latest)
