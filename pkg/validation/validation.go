@@ -2,8 +2,10 @@ package validation
 
 import (
 	"fmt"
+	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"
 	"strconv"
@@ -33,6 +35,7 @@ func (c condition) getMessage(def string) string {
 }
 
 type errorReaction int
+
 const (
 	reactIgnore errorReaction = iota
 	reactError
@@ -40,7 +43,7 @@ const (
 	reactNotReady
 )
 
-func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.ValidateResult) {
+func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool) (ret types.ValidateResult) {
 	ref := o.GetK8sRef()
 
 	// We assume all is good in case no validation is performed
@@ -69,16 +72,12 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 		})
 	}
 
-	status, ok, _ := o.GetNestedObject("status")
-	if !ok {
-		return
-	}
-
 	addError := func(message string) {
 		ret.Errors = append(ret.Errors, types.DeploymentError{
 			Ref:   ref,
 			Error: message,
 		})
+		ret.Ready = false
 	}
 	addWarning := func(message string) {
 		ret.Warnings = append(ret.Warnings, types.DeploymentError{
@@ -105,6 +104,26 @@ func ValidateObject(o *uo.UnstructuredObject, notReadyIsError bool) (ret types.V
 		}
 		if doRaise {
 			panic(&validationFailed{})
+		}
+	}
+
+	status, _, _ := o.GetNestedObject("status")
+	if status == nil {
+		s, err := k.GetSchemaForGVK(ref.GVK)
+		if err != nil && !errors.IsNotFound(err) {
+			addError(err.Error())
+			return
+		}
+		if s == nil {
+			return
+		} else {
+			_, ok, _ := s.GetNestedObject("properties", "status")
+			if !ok {
+				// it has no status, so all is good
+				return
+			}
+			addNotReady("no status available yet")
+			return
 		}
 	}
 

@@ -45,9 +45,13 @@ type K8sCluster struct {
 
 	ServerVersion *goversion.Version
 
-	allResources       map[schema.GroupVersionKind]v1.APIResource
-	preferredResources map[schema.GroupKind]v1.APIResource
-	mutex              sync.Mutex
+	allResources       map[schema.GroupVersionKind]*v1.APIResource
+	preferredResources map[schema.GroupKind]*v1.APIResource
+	crdCache           map[k8s.ObjectRef]struct {
+		crd *uo.UnstructuredObject
+		err error
+	}
+	mutex sync.Mutex
 }
 
 type parallelClientEntry struct {
@@ -164,8 +168,12 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 		defer k.mutex.Unlock()
 	}
 
-	k.allResources = map[schema.GroupVersionKind]v1.APIResource{}
-	k.preferredResources = map[schema.GroupKind]v1.APIResource{}
+	k.allResources = map[schema.GroupVersionKind]*v1.APIResource{}
+	k.preferredResources = map[schema.GroupKind]*v1.APIResource{}
+	k.crdCache = map[k8s.ObjectRef]struct {
+		crd *uo.UnstructuredObject
+		err error
+	}{}
 
 	_, arls, err := k.discovery.ServerGroupsAndResources()
 	if err != nil {
@@ -197,7 +205,7 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 			if _, ok := k.allResources[gvk]; ok {
 				ok = false
 			}
-			k.allResources[gvk] = ar
+			k.allResources[gvk] = &ar
 		}
 	}
 
@@ -224,7 +232,7 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 			if _, ok := deprecatedResources[gk]; ok {
 				continue
 			}
-			k.preferredResources[gk] = ar
+			k.preferredResources[gk] = &ar
 		}
 	}
 	return nil
@@ -359,6 +367,74 @@ func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVer
 		Version:  ar.Version,
 		Resource: ar.Name,
 	}, ar.Namespaced, nil
+}
+
+func (k *K8sCluster) GetApiResourceForGVK(gvk schema.GroupVersionKind) *v1.APIResource {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	ar, _ := k.allResources[gvk]
+	return ar
+}
+
+func (k *K8sCluster) GetCRDForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
+	ar := k.GetApiResourceForGVK(gvk)
+	if ar == nil {
+		return nil, fmt.Errorf("APIResource for %s not found", gvk.String())
+	}
+
+	crdRef := k8s.ObjectRef{
+		GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
+		Name: fmt.Sprintf("%s.%s", ar.Name, ar.Group),
+	}
+
+	k.mutex.Lock()
+	x, ok := k.crdCache[crdRef]
+	k.mutex.Unlock()
+	if ok {
+		return x.crd, x.err
+	}
+
+	crd, _, err := k.GetSingleObject(crdRef)
+
+	k.mutex.Lock()
+	x.crd = crd
+	x.err = err
+	k.crdCache[crdRef] = x
+	k.mutex.Unlock()
+
+	return crd, err
+}
+
+func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
+	crd, err := k.GetCRDForGVK(gvk)
+	if err != nil {
+		return nil, err
+	}
+
+	versions, ok, err := crd.GetNestedObjectList("spec", "versions")
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("versions not found in CRD")
+	}
+
+	for _, version := range versions {
+		name, _, _ := version.GetNestedString("name")
+		if name != gvk.Version {
+			continue
+		}
+		s, ok, err := version.GetNestedObject("schema", "openAPIV3Schema")
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("version %s has no schema", name)
+		}
+		return s, nil
+	}
+	return nil, fmt.Errorf("schema for %s not found", gvk.String())
 }
 
 func (k *K8sCluster) WithCoreV1(cb func(client *corev1.CoreV1Client) error) error {

@@ -309,7 +309,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef) bool {
 			a.HandleError(ref, err)
 			return false
 		}
-		v := validation.ValidateObject(o, false)
+		v := validation.ValidateObject(a.k, o, false)
 		if v.Ready {
 			if didLog {
 				log2.Infof("Finished waiting for object")
