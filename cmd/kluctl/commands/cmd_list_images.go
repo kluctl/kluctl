@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/codablock/kluctl/cmd/kluctl/args"
+	"github.com/codablock/kluctl/pkg/types"
 )
 
 type listImagesCmd struct {
@@ -31,7 +32,9 @@ func (cmd *listImagesCmd) Run() error {
 		inclusionFlags: cmd.InclusionFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		result := ctx.images.SeenImages(cmd.Simple)
+		result := types.FixedImagesConfig{
+			Images: ctx.images.SeenImages(cmd.Simple),
+		}
 		return outputYamlResult(cmd.Output, result, false)
 	})
 }
