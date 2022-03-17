@@ -109,6 +109,10 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 
 	status, _, _ := o.GetNestedObject("status")
 	if status == nil {
+		if k == nil {
+			// can't really say anything...
+			return
+		}
 		s, err := k.GetSchemaForGVK(ref.GVK)
 		if err != nil && !errors.IsNotFound(err) {
 			addError(err.Error())
