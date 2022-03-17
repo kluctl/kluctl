@@ -137,6 +137,7 @@ kind: Kustomization
 metadata:
   annotations:
     kluctl.io/barrier: "true"
+    kluctl.io/wait-readiness: "true"
 
 resources:
   - deployment.yml
@@ -145,3 +146,7 @@ resources:
 ### kluctl.io/barrier
 If set to `true`, kluctl will wait for all previous objects to be applied (but not necessarily ready). This has the
 same effect as [barrier](./deployments.md#barriers) from deployment projects.
+
+### kluctl.io/wait-readiness
+If set to `true`, kluctl will wait for readiness of all objects from this kustomization project. Readiness is defined
+the same as in [hook readiness](./hooks.md#hook-readiness).

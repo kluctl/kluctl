@@ -30,6 +30,7 @@ type DeploymentItem struct {
 
 	// These values come from the metadata of the kustomization.yml
 	Barrier       bool
+	WaitReadiness bool
 
 	Objects []*uo.UnstructuredObject
 
@@ -299,6 +300,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	}
 
 	di.Barrier = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/barrier"))
+	di.WaitReadiness = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/wait-readiness"))
 
 	// Save modified kustomize.yml
 	err = yaml.WriteYamlFile(kustomizeYamlPath, ky)

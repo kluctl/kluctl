@@ -406,6 +406,11 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			startTime = time.Now()
 			didLog = true
 		}
+
+		waitReadiness := (d.Config.WaitReadiness != nil && *d.Config.WaitReadiness) || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
+		if waitReadiness {
+			a.WaitReadiness(o.GetK8sRef())
+		}
 	}
 
 	if initialDeploy {

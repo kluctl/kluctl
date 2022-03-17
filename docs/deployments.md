@@ -111,11 +111,16 @@ Please see [Kustomize integration](./kustomize-integration.md) for more details.
 Example:
 ```yaml
 deployments:
-- path: path/to/deployment
+- path: path/to/deployment1
+- path: path/to/deployment2
+  waitReadiness: true
 ```
 
 The `path` must point to a directory relative to the directory containing the `deployment.yml`. Only directories
 that are part of the kluctl project are allowed. The directory must contain a valid `kustomization.yml`.
+
+`waitReadiness` is optional and if set to `true` instructs kluctl to wait for readiness of each individual object
+of the kustomize deployment. Readiness is defined the same as in [hook readiness](./hooks.md#hook-readiness).
 
 #### Includes
 
