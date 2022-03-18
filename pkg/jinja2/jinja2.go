@@ -15,6 +15,7 @@ import (
 )
 
 //go:generate bash ./python_src/pip-wheel.sh
+//go:generate go run ../utils/embed_util/packer python_src.tar.gz python_src *
 
 type Jinja2 struct {
 	pj        *pythonJinja2Renderer

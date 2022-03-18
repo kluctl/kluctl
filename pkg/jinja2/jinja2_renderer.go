@@ -30,6 +30,10 @@ func addSrcToPath() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		err = p.AppendSysPath(filepath.Join(pythonSrcExtracted, "wheel"))
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 }
 
