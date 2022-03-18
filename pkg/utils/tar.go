@@ -18,17 +18,21 @@ func ExtractTarGzFile(tarGzPath string, targetPath string) error {
 	}
 	defer f.Close()
 
-	gz, err := gzip.NewReader(f)
+	err = ExtractTarGzStream(f, targetPath)
 	if err != nil {
-		return fmt.Errorf("archive %v could not be opened: %w", tarGzPath, err)
+		return fmt.Errorf("archive %v could not be extracted: %w", tarGzPath, err)
 	}
-	defer gz.Close()
-
-	return ExtractTarGzStream(gz, targetPath)
+	return nil
 }
 
 func ExtractTarGzStream(r io.Reader, targetPath string) error {
-	tarReader := tar.NewReader(r)
+	gz, err := gzip.NewReader(r)
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+
+	tarReader := tar.NewReader(gz)
 	for true {
 		header, err := tarReader.Next()
 		if err == io.EOF {
