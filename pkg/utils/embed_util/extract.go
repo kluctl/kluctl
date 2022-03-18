@@ -2,6 +2,7 @@ package embed_util
 
 import (
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/gofrs/flock"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -16,6 +17,13 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPath string) error 
 	if err != nil {
 		return err
 	}
+
+	fl := flock.New(targetPath + ".lock")
+	err = fl.Lock()
+	if err != nil {
+		return err
+	}
+	defer fl.Unlock()
 
 	needsExtract, expectedTarGzHash, err := checkExtractNeeded(targetPath, string(fileList))
 	if err != nil {
