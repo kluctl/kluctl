@@ -1,16 +1,11 @@
 package python
 
 import (
-	"bytes"
-	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/codablock/kluctl/pkg/utils/embed_util"
 	"github.com/codablock/kluctl/pkg/utils/lib_wrapper"
-	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
 	"unsafe"
@@ -60,39 +55,24 @@ func init() {
 }
 
 func decompressLib() string {
-	tgz, err := pythonLib.ReadFile(fmt.Sprintf("python-lib-%s.tar.gz", runtime.GOOS))
+	tarName := fmt.Sprintf("python-lib-%s.tar.gz", runtime.GOOS)
+	tgz, err := pythonLib.Open(tarName)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer tgz.Close()
+
+	fileList, err := pythonLib.Open(tarName + ".files")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer fileList.Close()
+
+	libPath := filepath.Join(utils.GetTmpBaseDir(), fmt.Sprintf("python-libs-%s", runtime.GOOS))
+	err = embed_util.ExtractTarToTmp(tgz, fileList, libPath)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	hash := sha256.Sum256(tgz)
-	hashStr := hex.EncodeToString(hash[:])
-
-	libPath := filepath.Join(utils.GetTmpBaseDir(), fmt.Sprintf("python-libs-%s-%s", runtime.GOOS, hashStr[:16]))
-	if utils.Exists(libPath) {
-		return libPath
-	}
-
-	g, err := gzip.NewReader(bytes.NewReader(tgz))
-	if err != nil {
-		log.Panic(err)
-	}
-	defer g.Close()
-
-	tmpLibPath, err := ioutil.TempDir(utils.GetTmpBaseDir(), "python-libs-tmp-")
-	if err != nil {
-		log.Panic(err)
-	}
-	defer os.RemoveAll(tmpLibPath)
-
-	err = utils.ExtractTarGzStream(g, tmpLibPath)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	err = os.Rename(tmpLibPath, libPath)
-	if err != nil && !os.IsExist(err) {
-		log.Panic(err)
-	}
 	return libPath
 }
