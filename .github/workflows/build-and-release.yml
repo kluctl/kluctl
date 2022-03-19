@@ -104,11 +104,25 @@ jobs:
         run: |
           export CGO_ENABLED=0
           export GOARCH=amd64
-          GOOS=linux go build -ldflags "-s -w" ./cmd/kluctl
+          export GOOS=linux
+          go generate ./pkg/python
+          go build -ldflags "-s -w" ./cmd/kluctl
           mv kluctl kluctl-linux-amd64
-          GOOS=darwin go build -ldflags "-s -w" ./cmd/kluctl
+      - name: Build kluctl (darwin)
+        run: |
+          export CGO_ENABLED=0
+          export GOARCH=amd64
+          export GOOS=darwin
+          go generate ./pkg/python
+          go build -ldflags "-s -w" ./cmd/kluctl
           mv kluctl kluctl-darwin-amd64
-          GOOS=windows go build -ldflags "-s -w" ./cmd/kluctl
+      - name: Build kluctl (windows)
+        run: |
+          export CGO_ENABLED=0
+          export GOARCH=amd64
+          export GOOS=windows
+          go generate ./pkg/python
+          go build -ldflags "-s -w" ./cmd/kluctl
           mv kluctl.exe kluctl-windows-amd64.exe
       - name: Upload dist artifact
         uses: actions/upload-artifact@v2
