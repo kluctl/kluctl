@@ -23,7 +23,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt install -y git zstd
+          sudo apt install -y git
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -100,12 +100,13 @@ jobs:
       - name: Go Generate
         run: |
           go generate ./...
+          go generate -tags darwin ./pkg/python
+          go generate -tags windows ./pkg/python
       - name: Build kluctl (linux)
         run: |
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=linux
-          go generate ./pkg/python
           go build -ldflags "-s -w" ./cmd/kluctl
           mv kluctl kluctl-linux-amd64
       - name: Build kluctl (darwin)
@@ -113,7 +114,6 @@ jobs:
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=darwin
-          go generate ./pkg/python
           go build -ldflags "-s -w" ./cmd/kluctl
           mv kluctl kluctl-darwin-amd64
       - name: Build kluctl (windows)
@@ -121,7 +121,6 @@ jobs:
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=windows
-          go generate ./pkg/python
           go build -ldflags "-s -w" ./cmd/kluctl
           mv kluctl.exe kluctl-windows-amd64.exe
       - name: Upload dist artifact
