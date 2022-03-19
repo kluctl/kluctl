@@ -74,8 +74,6 @@ jobs:
             binary-suffix: linux-amd64
           - os: macos-10.15
             binary-suffix: darwin-amd64
-          - os: windows-2019
-            binary-suffix: windows-amd64
         os: [ubuntu-18.04, macos-10.15, windows-2019]
     runs-on: ${{ matrix.os }}
     needs:
@@ -96,64 +94,43 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Install dependencies on Linux
-        if: runner.os == 'Linux'
+      - name: Download python
         run: |
-          echo "deb-src http://archive.ubuntu.com/ubuntu/ bionic main restricted" | sudo tee /etc/apt/sources.list.d/deb-src.list
-          sudo apt update
-          sudo apt-get build-dep -y python3
-      - name: Install dependencies on Mac
-        if: runner.os == 'macOS'
-        run: |
-          brew install openssl
-          brew install readline
-      - name: Cache Python build
-        id: python-cache
-        uses: actions/cache@v2
-        with:
-          path: build-python/*/cpython-install
-          key: build-python-${{ runner.os }}-${{ hashFiles('hack/build-python-*') }}
-      - name: Build python (non-Windows)
-        if: runner.os != 'Windows' && steps.python-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          ./hack/build-python-unix.sh
-      - name: Build python (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          ./hack/build-python-windows.sh
+          ./hack/download-python.sh linux
+          ./hack/download-python.sh darwin
+          ./hack/download-python.sh windows
       - name: Write Version to version.go
         run: |
           sed -ibak 's/0.0.0/${{ needs.version.outputs.version }}/g' pkg/version/version.go
           cat pkg/version/version.go
       - name: Go Mod Vendor
-        shell: bash
         run: |
           go mod vendor
       - name: Go Generate
-        shell: bash
         run: |
           go generate ./...
-      - name: Build kluctl
-        shell: bash
+      - name: Build kluctl (linux)
         run: |
-          go build -ldflags "-s -w" ./cmd/kluctl
-          EXE=""
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            EXE=".exe"
-          fi
-          mv kluctl$EXE kluctl-${{ matrix.binary-suffix }}$EXE
+          export CGO_ENABLED=0
+          export GOARCH=amd64
+          GOOS=linux go build -ldflags "-s -w" ./cmd/kluctl
+          mv kluctl kluctl-linux-amd64
+          GOOS=darwin go build -ldflags "-s -w" ./cmd/kluctl
+          mv kluctl kluctl-darwin-amd64
+          GOOS=windows go build -ldflags "-s -w" ./cmd/kluctl
+          mv kluctl.exe kluctl-windows-amd64.exe
       - name: Upload dist artifact
         uses: actions/upload-artifact@v2
         with:
-          name: dist-${{ matrix.binary-suffix }}
+          name: dist
           path: |
-            kluctl-${{ matrix.binary-suffix }}*
+            kluctl-linux-amd64
+            kluctl-darwin-amd64
+            kluctl-windows-amd64.exe
       - name: Upload pkg artifact
         uses: actions/upload-artifact@v2
         with:
-          name: pkg-${{ matrix.binary-suffix }}
+          name: pkg
           path: |
             pkg
 
@@ -258,7 +235,7 @@ jobs:
       - name: Download pkg artifacts
         uses: actions/download-artifact@v2
         with:
-          name: pkg-${{ matrix.binary-suffix }}
+          name: pkg
           path: pkg
       - name: Port-forward docker
         shell: bash

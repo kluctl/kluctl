@@ -8,6 +8,6 @@
 .sealed-secrets
 
 /vendor
-/build-python
+/download-python
 /kluctl
 /kluctl.exe

@@ -1,102 +1,84 @@
 package jinja2
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/codablock/kluctl/pkg/python"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"io"
 	"io/ioutil"
-	"log"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
 type pythonJinja2Renderer struct {
-	p        *python.PythonInterpreter
-	renderer *python.PyObject
-}
+	cmd    *exec.Cmd
+	stdin  io.WriteCloser
+	stdout io.ReadCloser
 
-var addSrcToPathOnce sync.Once
-
-func addSrcToPath() {
-	addSrcToPathOnce.Do(func() {
-		p, err := python.MainPythonInterpreter()
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = p.AppendSysPath(pythonSrcExtracted)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = p.AppendSysPath(filepath.Join(pythonSrcExtracted, "wheel"))
-		if err != nil {
-			log.Fatal(err)
-		}
-	})
+	stdoutReader *bufio.Reader
 }
 
 func newPythonJinja2Renderer() (*pythonJinja2Renderer, error) {
-	addSrcToPath()
-
 	isOk := false
-	p, err := python.MainPythonInterpreter()
-	if err != nil {
-		return nil, err
-	}
+	j := &pythonJinja2Renderer{}
 	defer func() {
 		if !isOk {
-			p.Stop()
+			j.Close()
 		}
 	}()
 
-	j := &pythonJinja2Renderer{
-		p: p,
+	args := []string{filepath.Join(pythonSrcExtracted, "main.py")}
+	j.cmd = python.PythonCmd(args)
+	j.cmd.Stderr = os.Stderr
+	j.cmd.Env = append(j.cmd.Env, fmt.Sprintf("PYTHONPATH=%s/wheel", pythonSrcExtracted))
+
+	stdout, err := j.cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
 	}
+	j.stdout = stdout
 
-	err = p.Run(func() error {
-		mod := python.PythonWrapper.PyImport_ImportModule("jinja2_renderer")
-		if mod == nil {
-			python.PythonWrapper.PyErr_Print()
-			return fmt.Errorf("unexpected error")
-		}
-		defer mod.DecRef()
+	stdin, err := j.cmd.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
+	j.stdin = stdin
 
-		clazz := mod.GetAttrString("Jinja2Renderer")
-		if clazz == nil {
-			python.PythonWrapper.PyErr_Print()
-			return fmt.Errorf("unexpected error")
-		}
-		defer clazz.DecRef()
-
-		renderer := clazz.CallObject(nil)
-		if renderer == nil {
-			python.PythonWrapper.PyErr_Print()
-			return fmt.Errorf("unexpected error")
-		}
-
-		j.renderer = renderer
-		return nil
-	})
+	err = j.cmd.Start()
 	if err != nil {
 		return nil, err
 	}
 
+	j.stdoutReader = bufio.NewReader(j.stdout)
+
 	isOk = true
+
 	return j, nil
 }
 
 func (j *pythonJinja2Renderer) Close() {
-	_ = j.p.Run(func() error {
-		if j.renderer != nil {
-			j.renderer.DecRef()
-			j.renderer = nil
-		}
-		return nil
-	})
+	if j.stdin != nil {
+		args := jinja2Args{Cmd: "exit"}
+		_ = json.NewEncoder(j.stdin).Encode(args)
 
-	j.p.Stop()
+		_ = j.stdin.Close()
+		j.stdin = nil
+	}
+	if j.stdout != nil {
+		_ = j.stdout.Close()
+		j.stdout = nil
+	}
+	if j.cmd != nil {
+		if j.cmd.Process != nil {
+			_ = j.cmd.Process.Kill()
+		}
+		j.cmd = nil
+	}
 }
 
 func (j *pythonJinja2Renderer) isMaybeTemplate(template string, searchDirs []string, isString bool) (bool, *string) {
@@ -121,13 +103,19 @@ func (j *pythonJinja2Renderer) isMaybeTemplate(template string, searchDirs []str
 	return true, nil
 }
 
-func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool) error {
-	return j.p.Run(func() error {
-		return j.renderHelper2(jobs, searchDirs, vars, isString)
-	})
+type jinja2Args struct {
+	Cmd        string   `json:"cmd"`
+	Templates  []string `json:"templates"`
+	SearchDirs []string `json:"searchDirs"`
+	Vars       string   `json:"vars"`
 }
 
-func (j *pythonJinja2Renderer) renderHelper2(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool) error {
+type jinja2Result struct {
+	Result *string `json:"result,omitempty"`
+	Error  *string `json:"error,omitempty"`
+}
+
+func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool) error {
 	varsStr, err := json.Marshal(vars.Object)
 	if err != nil {
 		return err
@@ -135,21 +123,14 @@ func (j *pythonJinja2Renderer) renderHelper2(jobs []*RenderJob, searchDirs []str
 
 	var processedJobs []*RenderJob
 
-	pyTemplates := python.PyList_New(0)
-	pySearchDirs := python.PyList_New(0)
-	pyVars := python.PythonWrapper.PyUnicode_FromString(string(varsStr))
-
-	defer func() {
-		for i := 0; i < pyTemplates.Length(); i++ {
-			pyTemplates.GetItem(i).DecRef()
-		}
-		for i := 0; i < pySearchDirs.Length(); i++ {
-			pySearchDirs.GetItem(i).DecRef()
-		}
-		pyTemplates.DecRef()
-		pySearchDirs.DecRef()
-		pyVars.DecRef()
-	}()
+	var jargs jinja2Args
+	if isString {
+		jargs.Cmd = "render-strings"
+	} else {
+		jargs.Cmd = "render-files"
+	}
+	jargs.Vars = string(varsStr)
+	jargs.SearchDirs = searchDirs
 
 	for _, job := range jobs {
 		if ist, r := j.isMaybeTemplate(job.Template, searchDirs, isString); !ist {
@@ -157,43 +138,50 @@ func (j *pythonJinja2Renderer) renderHelper2(jobs []*RenderJob, searchDirs []str
 			continue
 		}
 		processedJobs = append(processedJobs, job)
-		pyTemplates.Append(python.PythonWrapper.PyUnicode_FromString(job.Template))
+		jargs.Templates = append(jargs.Templates, job.Template)
 	}
 	if len(processedJobs) == 0 {
 		return nil
 	}
 
-	for _, sd := range searchDirs {
-		pySearchDirs.Append(python.PythonWrapper.PyUnicode_FromString(sd))
+	b, err := json.Marshal(jargs)
+	if err != nil {
+		j.Close()
+		return err
+	}
+	b = append(b, '\n')
+
+	_, err = j.stdin.Write(b)
+	if err != nil {
+		j.Close()
+		return err
 	}
 
-	var pyFuncName *python.PyObject
-	var pyResult *python.PyList
-	if isString {
-		pyFuncName = python.PythonWrapper.PyUnicode_FromString("RenderStrings")
-	} else {
-		pyFuncName = python.PythonWrapper.PyUnicode_FromString("RenderFiles")
+	line := bytes.NewBuffer(nil)
+	for true {
+		l, p, err := j.stdoutReader.ReadLine()
+		if err != nil {
+			return err
+		}
+		line.Write(l)
+		if !p {
+			break
+		}
 	}
-	defer pyFuncName.DecRef()
-	pyResult = python.PyList_FromObject(j.renderer.CallMethodObjArgs(pyFuncName, pyTemplates, pySearchDirs, pyVars))
-	if pyResult == nil {
-		python.PythonWrapper.PyErr_Print()
-		return fmt.Errorf("unexpected exception while calling python code: %w", err)
+	var result []jinja2Result
+	err = json.Unmarshal(line.Bytes(), &result)
+	if err != nil {
+		return err
 	}
 
-	for i := 0; i < pyResult.Length(); i++ {
-		item := python.PyDict_FromObject(pyResult.GetItem(i))
-		r := item.GetItemString("result")
-		if r != nil {
-			resultStr := python.PythonWrapper.PyUnicode_AsUTF8(r)
-			processedJobs[i].Result = &resultStr
+	for i, item := range result {
+		if item.Result != nil {
+			processedJobs[i].Result = item.Result
 		} else {
-			e := item.GetItemString("error")
-			if e == nil {
+			if item.Error == nil {
 				return fmt.Errorf("missing result and error from item at index %d", i)
 			}
-			eStr := python.PythonWrapper.PyUnicode_AsUTF8(e)
-			processedJobs[i].Error = &Jinja2Error{eStr}
+			processedJobs[i].Error = &Jinja2Error{*item.Error}
 		}
 	}
 

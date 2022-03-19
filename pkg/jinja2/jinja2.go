@@ -1,6 +1,5 @@
 package jinja2
 
-import "C"
 import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
@@ -17,8 +16,10 @@ import (
 //go:generate bash ./python_src/pip-wheel.sh
 //go:generate go run ../utils/embed_util/packer python_src.tar.gz python_src *
 
+var paralellism = 4
+
 type Jinja2 struct {
-	pj        *pythonJinja2Renderer
+	pj        chan *pythonJinja2Renderer
 	globCache map[string]interface{}
 	mutex     sync.Mutex
 }
@@ -40,33 +41,54 @@ func (m *Jinja2Error) Error() string {
 }
 
 func NewJinja2() (*Jinja2, error) {
-	pj, err := newPythonJinja2Renderer()
-	if err != nil {
-		return nil, err
-	}
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	var err error
 
 	j := &Jinja2{
-		pj:        pj,
+		pj:        make(chan *pythonJinja2Renderer, paralellism),
 		globCache: map[string]interface{}{},
+	}
+
+	for i := 0; i < paralellism; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pj, err2 := newPythonJinja2Renderer()
+			if err2 != nil {
+				mutex.Lock()
+				defer mutex.Unlock()
+				err = err2
+				return
+			}
+			j.pj <- pj
+		}()
+	}
+	wg.Wait()
+	if err != nil {
+		return nil, err
 	}
 
 	return j, nil
 }
 
 func (j *Jinja2) Close() {
-	j.pj.Close()
+	for i := 0; i < paralellism; i++ {
+		pj := <-j.pj
+		pj.Close()
+	}
 }
 
 func (j *Jinja2) RenderStrings(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
-	j.mutex.Lock()
-	defer j.mutex.Unlock()
-	return j.pj.renderHelper(jobs, searchDirs, vars, true)
+	pj := <-j.pj
+	defer func() {j.pj <- pj}()
+	return pj.renderHelper(jobs, searchDirs, vars, true)
 }
 
 func (j *Jinja2) RenderFiles(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
-	j.mutex.Lock()
-	defer j.mutex.Unlock()
-	return j.pj.renderHelper(jobs, searchDirs, vars, false)
+	pj := <-j.pj
+	defer func() {j.pj <- pj}()
+	return pj.renderHelper(jobs, searchDirs, vars, false)
 }
 
 func (j *Jinja2) RenderString(template string, searchDirs []string, vars *uo.UnstructuredObject) (string, error) {

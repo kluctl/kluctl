@@ -2,10 +2,10 @@
 
 DIR=$(cd $(dirname $0) && pwd)
 
+rm -rf $DIR/wheel
 mkdir -p $DIR/wheel
 cd $DIR/wheel
 
-rm *.whl
 pip3 wheel -r ../requirements.txt
 
 for f in *.whl; do

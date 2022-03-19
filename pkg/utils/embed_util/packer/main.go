@@ -10,6 +10,7 @@ import (
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/gobwas/glob"
 	log "github.com/sirupsen/logrus"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,12 +18,12 @@ import (
 	"strings"
 )
 
-func main()  {
+func main() {
 	out := os.Args[1]
 	dir := os.Args[2]
-	pattern := os.Args[3]
+	patterns := os.Args[3:]
 
-	fileList, tgz := writeTar(dir, pattern)
+	fileList, tgz := writeTar(dir, patterns)
 
 	hash := sha256.Sum256(tgz)
 	err := ioutil.WriteFile(out, tgz, 0o600)
@@ -32,34 +33,47 @@ func main()  {
 
 	fileListStr := strings.Join(fileList, "\n")
 	fileListStr = hex.EncodeToString(hash[:]) + "\n" + fileListStr
-	err = ioutil.WriteFile(out + ".files", []byte(fileListStr), 0o600)
+	err = ioutil.WriteFile(out+".files", []byte(fileListStr), 0o600)
 	if err != nil {
 		log.Panic(err)
 	}
 }
 
-func writeTar(dir string, pattern string) ([]string, []byte) {
+func writeTar(dir string, patterns []string) ([]string, []byte) {
 	b := bytes.NewBuffer(nil)
 	gz := gzip.NewWriter(b)
 	t := tar.NewWriter(gz)
 
+	var globs []glob.Glob
+	for _, p := range patterns {
+		globs = append(globs, glob.MustCompile(p, '/'))
+	}
+
 	var rootNames []string
-	dirs, err := os.ReadDir(dir)
-	if err != nil {
-		log.Panic(err)
-	}
-	p := glob.MustCompile(pattern)
-	for _, d := range dirs {
-		if p.Match(d.Name()) {
-			rootNames = append(rootNames, d.Name())
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
 		}
-	}
+		match := false
+		for _, p := range globs {
+			if p.Match(rel) {
+				match = true
+				break
+			}
+		}
+		if match {
+			rootNames = append(rootNames, rel)
+		}
+		return nil
+	})
 	sort.Strings(rootNames)
 
 	excludes := []glob.Glob{
 		glob.MustCompile("__pycache__"),
 		glob.MustCompile("**/__pycache__"),
 		glob.MustCompile("**.a"),
+		glob.MustCompile("**.pdb"),
 	}
 
 	var fileList []string

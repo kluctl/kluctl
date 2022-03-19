@@ -34,7 +34,7 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPath string) error 
 	}
 
 	tmpTargetPath := targetPath + ".tmp"
-	err = os.MkdirAll(tmpTargetPath , 0o700)
+	err = os.MkdirAll(tmpTargetPath, 0o700)
 	if err != nil {
 		return err
 	}
