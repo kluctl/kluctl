@@ -45,17 +45,18 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 
 		header.Name = strings.ReplaceAll(header.Name, "/", string(os.PathSeparator))
 
+		p := filepath.Join(targetPath, header.Name)
+		err = os.MkdirAll(filepath.Dir(p), 0755)
+		if err != nil {
+			return err
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(filepath.Join(targetPath, header.Name), 0755); err != nil {
+			if err := os.MkdirAll(p, 0755); err != nil {
 				return fmt.Errorf("ExtractTarGz: Mkdir() failed: %w", err)
 			}
 		case tar.TypeReg:
-			p := filepath.Join(targetPath, header.Name)
-			err := os.MkdirAll(filepath.Dir(p), 0755)
-			if err != nil {
-				return err
-			}
 			outFile, err := os.Create(p)
 			if err != nil {
 				return fmt.Errorf("ExtractTarGz: Create() failed: %w", err)
@@ -70,7 +71,7 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 				return fmt.Errorf("ExtractTarGz: Chmod() failed: %w", err)
 			}
 		case tar.TypeSymlink:
-			if err := os.Symlink(header.Linkname, filepath.Join(targetPath, header.Name)); err != nil {
+			if err := os.Symlink(header.Linkname, p); err != nil {
 				return fmt.Errorf("ExtractTarGz: Symlink() failed: %w", err)
 			}
 		default:
