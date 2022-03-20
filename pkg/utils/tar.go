@@ -81,7 +81,7 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 }
 
 func AddToTar(tw *tar.Writer, pth string, name string, filter func(h *tar.Header) (*tar.Header, error)) error {
-	fi, err := os.Stat(pth)
+	fi, err := os.Lstat(pth)
 	if err != nil {
 		return err
 	}
