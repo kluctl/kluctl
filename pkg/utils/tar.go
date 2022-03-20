@@ -70,7 +70,7 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 				return fmt.Errorf("ExtractTarGz: Chmod() failed: %w", err)
 			}
 		case tar.TypeSymlink:
-			if err := os.Symlink(filepath.Join(targetPath, header.Name), header.Linkname); err != nil {
+			if err := os.Symlink(header.Linkname, filepath.Join(targetPath, header.Name)); err != nil {
 				return fmt.Errorf("ExtractTarGz: Symlink() failed: %w", err)
 			}
 		default:
