@@ -11,7 +11,7 @@ import (
 func PythonCmd(args []string) *exec.Cmd {
 	var exePath string
 	if runtime.GOOS == "windows" {
-		exePath = filepath.Join(embeddedPythonPath, "python3.exe")
+		exePath = filepath.Join(embeddedPythonPath, "python.exe")
 	} else {
 		exePath = filepath.Join(embeddedPythonPath, "bin/python3")
 	}
