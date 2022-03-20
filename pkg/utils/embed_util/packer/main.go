@@ -79,18 +79,14 @@ func writeTar(dir string, patterns []string) ([]string, []byte) {
 	var fileList []string
 
 	for _, d := range rootNames {
-		err := utils.AddToTar(t, filepath.Join(dir, d), d, func(h *tar.Header) (*tar.Header, error) {
+		err := utils.AddToTar(t, filepath.Join(dir, d), d, func(h *tar.Header, size int64) (*tar.Header, error) {
 			for _, e := range excludes {
 				if e.Match(h.Name) {
 					return nil, nil
 				}
 			}
 
-			s := h.Size
-			if h.FileInfo().IsDir() {
-				s = 0
-			}
-			fileList = append(fileList, fmt.Sprintf("%s: %d", h.Name, s))
+			fileList = append(fileList, fmt.Sprintf("%s: %d", h.Name, size))
 			return h, nil
 		})
 		if err != nil {

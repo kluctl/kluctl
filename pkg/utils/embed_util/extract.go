@@ -89,7 +89,7 @@ func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, er
 
 	existingFiles := make(map[string]int64)
 	err = filepath.Walk(targetPath, func(path string, info fs.FileInfo, err error) error {
-		if !info.Mode().IsRegular() && !info.IsDir() {
+		if !info.Mode().IsRegular() && info.Mode().Type() != fs.ModeSymlink && info.Mode().Type() != fs.ModeDir {
 			return nil
 		}
 		relPath, err := filepath.Rel(targetPath, path)

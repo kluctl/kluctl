@@ -218,7 +218,7 @@ func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, metadataPath
 	tw := tar.NewWriter(gz)
 	defer tw.Close()
 
-	filter := func(h *tar.Header) (*tar.Header, error) {
+	filter := func(h *tar.Header, size int64) (*tar.Header, error) {
 		if strings.HasSuffix(strings.ToLower(h.Name), ".git") {
 			return nil, nil
 		}
