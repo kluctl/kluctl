@@ -9,6 +9,8 @@ def main():
 
     while True:
         args = sys.stdin.readline()
+        if not args:
+            break
         args = json.loads(args)
 
         if args["cmd"] == "render-strings":
