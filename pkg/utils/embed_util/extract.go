@@ -1,6 +1,7 @@
 package embed_util
 
 import (
+	"fmt"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/gofrs/flock"
 	"io"
@@ -12,11 +13,13 @@ import (
 	"strings"
 )
 
-func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPath string) error {
+func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) error {
 	fileList, err := ioutil.ReadAll(fileListR)
 	if err != nil {
 		return err
 	}
+
+	targetPath := fmt.Sprintf("%s-%s", utils.Sha256Bytes(fileList)[:16])
 
 	fl := flock.New(targetPath + ".lock")
 	err = fl.Lock()
@@ -76,9 +79,10 @@ func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, er
 
 	tarFilesMap := make(map[string]int64)
 	for _, l := range fileList {
-		s := strings.Split(l, ":")
+		s := strings.SplitN(l, ":", 2)
 		fname := strings.TrimSpace(s[0])
-		size, err := strconv.ParseInt(strings.TrimSpace(s[1]), 10, 64)
+		sh := strings.SplitN(strings.TrimSpace(s[1]), " ", 2)
+		size, err := strconv.ParseInt(strings.TrimSpace(sh[0]), 10, 64)
 		if err != nil {
 			return false, expectedHash, err
 		}

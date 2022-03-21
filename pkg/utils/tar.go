@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,4 +152,32 @@ func AddToTar(tw *tar.Writer, pth string, name string, filter func(h *tar.Header
 	} else {
 		return fmt.Errorf("unsupported file type/mode %s", fi.Mode().String())
 	}
+}
+
+func HashTarEntry(dir string, name string) (string, error) {
+	p := filepath.Join(dir, strings.ReplaceAll(name, "/", string(os.PathSeparator)))
+	st, err := os.Lstat(p)
+	if err != nil {
+		return "", err
+	}
+	var hashData []byte
+	if st.Mode().Type() == fs.ModeDir {
+		hashData = []byte(strings.ReplaceAll(name, string(os.PathSeparator), "/"))
+	} else if st.Mode().Type() == fs.ModeSymlink {
+		l, err := os.Readlink(p)
+		if err != nil {
+			return "", err
+		}
+		hashData = []byte(l)
+	} else if st.Mode().IsRegular() {
+		var err error
+		hashData, err = ioutil.ReadFile(p)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		return "", fmt.Errorf("unknown type %s", st.Mode().Type())
+	}
+	hashStr := Sha256Bytes(hashData)
+	return hashStr, nil
 }

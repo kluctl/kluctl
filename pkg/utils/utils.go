@@ -25,7 +25,11 @@ func GetTmpBaseDir() string {
 }
 
 func Sha256String(data string) string {
-	h := sha256.Sum256([]byte(data))
+	return Sha256Bytes([]byte(data))
+}
+
+func Sha256Bytes(data []byte) string {
+	h := sha256.Sum256(data)
 	return hex.EncodeToString(h[:])
 }
 

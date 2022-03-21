@@ -86,7 +86,12 @@ func writeTar(dir string, patterns []string) ([]string, []byte) {
 				}
 			}
 
-			fileList = append(fileList, fmt.Sprintf("%s: %d", h.Name, size))
+			hashStr, err := utils.HashTarEntry(dir, h.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			fileList = append(fileList, fmt.Sprintf("%s: %d %s", h.Name, size, hashStr))
 			return h, nil
 		})
 		if err != nil {
