@@ -55,7 +55,7 @@ func (s *Server) findService(req *http.Request) (*service, string) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Info("request", r.Method+" "+r.Host+r.URL.String())
+	log.Debugf("request %s", r.Method+" "+r.Host+r.URL.String())
 
 	// Find the git subservice to handle the request
 	svc, repoUrlPath := s.findService(r)
