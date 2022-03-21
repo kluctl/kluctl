@@ -192,6 +192,7 @@ jobs:
           else
             TOOLS_OS=linux
           fi
+          echo "TOOLS_EXE=$TOOLS_EXE" >> $GITHUB_ENV
           echo "TOOLS_OS=$TOOLS_OS" >> $GITHUB_ENV
           echo "TOOLS_TARGET_DIR=$TOOLS_TARGET_DIR" >> $GITHUB_ENV
           echo "$TOOLS_TARGET_DIR" >> $GITHUB_PATH
