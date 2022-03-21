@@ -152,6 +152,57 @@ jobs:
             e2e.test-darwin-amd64
             e2e.test-windows-amd64.exe
 
+  docker-host:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install zerotier
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y gpg jq
+          curl -s https://install.zerotier.com | sudo bash
+      - name: Stop docker
+        run: |
+          # Ensure docker is down and that the test jobs can wait for it to be available again after joining the network.
+          # Otherwise they might join and then docker restarts
+          sudo systemctl stop docker
+      - name: Create network
+        run: |
+          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
+          ./hack/zerotier-create-network.sh $GITHUB_RUN_ID
+      - name: Join network
+        run: |
+          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
+          ./hack/zerotier-join-network.sh $GITHUB_RUN_ID docker
+      - name: Restart ssh
+        run: |
+          sudo systemctl restart ssh
+      - name: Restart docker
+        run: |
+          sudo sed -i 's|-H fd://|-H fd:// -H tcp://0.0.0.0:2375|g' /lib/systemd/system/docker.service
+          sudo systemctl daemon-reload
+          sudo systemctl start docker
+      - name: Wait for other jobs to finish
+        run: |
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          while true; do
+            JOBS=$(gh api /repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs | jq '.jobs[] | select(.name | startswith("tests "))')
+            NON_COMPLETED=$(echo $JOBS | jq '. | select(.status != "completed")')
+            if [ "$NON_COMPLETED" == "" ]; then
+              break
+            fi
+            sleep 5
+          done
+      - name: Delete network
+        if: always()
+        run: |
+          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
+          ./hack/zerotier-delete-network.sh $GITHUB_RUN_ID
+
   tests:
     if: "!startsWith(github.ref, 'refs/tags/')"
     strategy:
@@ -165,7 +216,6 @@ jobs:
             binary-suffix: windows-amd64
         os: [ubuntu-18.04, macos-10.15, windows-2019]
       fail-fast: false
-    concurrency: docker.ci.kluctl.io-${{ matrix.binary-suffix }}
     needs:
       - version
       - build
@@ -173,6 +223,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Install zerotier (linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y gpg jq
+          curl -s https://install.zerotier.com | sudo bash
+      - name: Install zerotier (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install zerotier-one
+      - name: Install zerotier (windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install zerotier-one
+          echo "#!/usr/bin/env bash" > /usr/bin/zerotier-cli
+          echo '/c/ProgramData/ZeroTier/One/zerotier-one_x64.exe -q "$@"' >> /usr/bin/zerotier-cli
+          chmod +x /usr/bin/zerotier-cli
+
+          choco install netcat
+          echo /c/ProgramData/chocolatey/bin >> $GITHUB_PATH
+      - name: Join network
+        shell: bash
+        run: |
+          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
+          ./hack/zerotier-join-network.sh $GITHUB_RUN_ID ${{ matrix.binary-suffix }}
+      - name: Determine DOCKER_HOST
+        shell: bash
+        run: |
+          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
+          ./hack/zerotier-setup-docker-host.sh $GITHUB_RUN_ID
       - name: Setup TOOLS envs
         shell: bash
         run: |
@@ -242,14 +323,6 @@ jobs:
           kubectl version || true
           kind version || true
           helm version || true
-      - name: Port-forward docker
-        shell: bash
-        run: |
-          echo "${{ secrets.CI_SSH_KEY }}" > kluctl-ci.pem
-          chmod og-rwx kluctl-ci.pem
-          ls -lah kluctl-ci.pem
-          ./hack/setup-docker-port-forward.sh
-          echo "DOCKER_HOST=localhost:2375" >> $GITHUB_ENV
       - name: Start kind cluster
         shell: bash
         run: |
@@ -264,7 +337,7 @@ jobs:
           echo "KIND_CLUSTER_NAME=$KIND_CLUSTER_NAME" >> $GITHUB_ENV
           echo "KIND_KUBECONFIG=$(pwd)/kind-kubeconfig" >> $GITHUB_ENV
 
-          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$PORT"
+          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$DOCKER_IP" "$PORT"
       - name: Download dist artifacts
         uses: actions/download-artifact@v2
       - name: Run e2e tests

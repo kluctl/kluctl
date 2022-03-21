@@ -3,7 +3,8 @@
 set -e
 
 NAME=$1
-PORT=$2
+IP=$2
+PORT=$3
 
 cat << EOF > kind-cluster.yml
 kind: Cluster
@@ -18,10 +19,8 @@ export KUBECONFIG=$KIND_KUBECONFIG
 kind delete cluster --name $NAME || true
 kind create cluster --config kind-cluster.yml --name $NAME
 
-# Rewrite cluster info to point to docker.ci.kluctl.io
+# Rewrite cluster info to point to docker host
 # This also fully disables TLS verification
-IP=$(nslookup docker.ci.kluctl.io | grep Address | tail -n1 | sed 's/Address://g' | awk '{print $1}')
-echo IP=$IP
 kubectl config view -ojson --raw \
   | jq ".clusters[0].cluster.\"insecure-skip-tls-verify\"=true" \
   | jq "del(.clusters[0].cluster.\"certificate-authority-data\")" \
