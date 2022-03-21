@@ -19,7 +19,7 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) erro
 		return err
 	}
 
-	targetPath := fmt.Sprintf("%s-%s", utils.Sha256Bytes(fileList)[:16])
+	targetPath := fmt.Sprintf("%s-%s", targetPrefix, utils.Sha256Bytes(fileList)[:16])
 
 	fl := flock.New(targetPath + ".lock")
 	err = fl.Lock()
