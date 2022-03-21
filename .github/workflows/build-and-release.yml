@@ -269,7 +269,7 @@ jobs:
       - name: Run e2e tests
         shell: bash
         run: |
-          ./e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
+          ./dist/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
       - name: Delete kind cluster
         shell: bash
         run: |
@@ -296,6 +296,6 @@ jobs:
           draft: true
           body_path: changelog/CHANGELOG.md
           files: |
-            dist-*/kluctl-linux-*
-            dist-*/kluctl-darwin-*
-            dist-*/kluctl-windows-*
+            dist/kluctl-linux-*
+            dist/kluctl-darwin-*
+            dist/kluctl-windows-*
