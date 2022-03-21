@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
 	"github.com/codablock/kluctl/pkg/deployment/commands"
+	"github.com/codablock/kluctl/pkg/utils"
 )
 
 type pokeImagesCmd struct {
@@ -36,7 +37,7 @@ func (cmd *pokeImagesCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !AskForConfirmation(fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", ctx.k.Context())) {
+			if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", ctx.k.Context())) {
 				return fmt.Errorf("aborted")
 			}
 		}

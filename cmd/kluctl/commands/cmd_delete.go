@@ -9,6 +9,7 @@ import (
 	"github.com/codablock/kluctl/pkg/k8s"
 	"github.com/codablock/kluctl/pkg/types"
 	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
+	utils2 "github.com/codablock/kluctl/pkg/utils"
 	"os"
 )
 
@@ -78,7 +79,7 @@ func confirmedDeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun boo
 			_, _ = os.Stderr.WriteString(fmt.Sprintf("  %s\n", ref.String()))
 		}
 		if !forceYes && !dryRun {
-			if !AskForConfirmation(fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
+			if !utils2.AskForConfirmation(fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
 				return nil, fmt.Errorf("aborted")
 			}
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/cmd/kluctl/args"
 	"github.com/codablock/kluctl/pkg/deployment/commands"
+	"github.com/codablock/kluctl/pkg/utils"
 )
 
 type deployCmd struct {
@@ -48,7 +49,7 @@ func (cmd *deployCmd) Run() error {
 
 func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	if !cmd.Yes && !cmd.DryRun {
-		if !AskForConfirmation(fmt.Sprintf("Do you really want to deploy to the context/cluster %s?", ctx.k.Context())) {
+		if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to deploy to the context/cluster %s?", ctx.k.Context())) {
 			return fmt.Errorf("aborted")
 		}
 	}
