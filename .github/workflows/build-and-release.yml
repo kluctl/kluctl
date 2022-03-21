@@ -97,6 +97,11 @@ jobs:
       - name: Go Mod Vendor
         run: |
           go mod vendor
+      - name: Go Generate
+        run: |
+          go generate ./...
+          go generate -tags darwin ./pkg/python
+          go generate -tags windows ./pkg/python
       - name: Check docs
         run: |
           go run ./hack/replace-commands-help --commands-md ./docs/commands.md
@@ -105,11 +110,6 @@ jobs:
             echo "commands.md is not up-to-date. Run "./hack/replace-commands-help --commands-md ./docs/commands.md" to fix this!"
             exit 1
           fi
-      - name: Go Generate
-        run: |
-          go generate ./...
-          go generate -tags darwin ./pkg/python
-          go generate -tags windows ./pkg/python
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v
