@@ -97,32 +97,49 @@ jobs:
       - name: Go Mod Vendor
         run: |
           go mod vendor
+      - name: Check docs
+        run: |
+          go run ./hack/replace-commands-help --commands-md ./docs/commands.md
+
+          if [ "$(git status --porcelain -- docs)" != "" ]; then
+            echo "commands.md is not up-to-date. Run "./hack/replace-commands-help --commands-md ./docs/commands.md" to fix this!"
+            exit 1
+          fi
       - name: Go Generate
         run: |
           go generate ./...
           go generate -tags darwin ./pkg/python
           go generate -tags windows ./pkg/python
+      - name: Run unit tests
+        run: |
+          go test ./cmd/... ./pkg/... -v
       - name: Build kluctl (linux)
         run: |
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=linux
           go build -ldflags "-s -w" ./cmd/kluctl
+          go test -c ./e2e
           mv kluctl kluctl-linux-amd64
+          mv e2e.test e2e.test-linux-amd64
       - name: Build kluctl (darwin)
         run: |
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=darwin
           go build -ldflags "-s -w" ./cmd/kluctl
+          go test -c ./e2e
           mv kluctl kluctl-darwin-amd64
+          mv e2e.test e2e.test-darwin-amd64
       - name: Build kluctl (windows)
         run: |
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=windows
           go build -ldflags "-s -w" ./cmd/kluctl
+          go test -c ./e2e
           mv kluctl.exe kluctl-windows-amd64.exe
+          mv e2e.test e2e.test-windows-amd64.exe
       - name: Upload dist artifact
         uses: actions/upload-artifact@v2
         with:
@@ -131,12 +148,9 @@ jobs:
             kluctl-linux-amd64
             kluctl-darwin-amd64
             kluctl-windows-amd64.exe
-      - name: Upload pkg artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: pkg
-          path: |
-            pkg
+            e2e.test-linux-amd64
+            e2e.test-darwin-amd64
+            e2e.test-windows-amd64.exe
 
   tests:
     if: "!startsWith(github.ref, 'refs/tags/')"
@@ -159,15 +173,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
-        with:
-          go-version: '1.17.6'
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
       - name: Setup TOOLS envs
         shell: bash
         run: |
@@ -236,11 +241,6 @@ jobs:
           kubectl version || true
           kind version || true
           helm version || true
-      - name: Download pkg artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: pkg
-          path: pkg
       - name: Port-forward docker
         shell: bash
         run: |
@@ -264,32 +264,16 @@ jobs:
           echo "KIND_KUBECONFIG=$(pwd)/kind-kubeconfig" >> $GITHUB_ENV
 
           ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$PORT"
-      - name: Go Mod Vendor
-        shell: bash
-        run: |
-          go mod vendor
-      - name: Run tests
-        shell: bash
-        run: |
-          go test ./cmd/... ./pkg/... -v
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v2
       - name: Run e2e tests
         shell: bash
         run: |
-          go test ./e2e/... -parallel 4 -v
+          ./e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
       - name: Delete kind cluster
         shell: bash
         run: |
           kind delete cluster --name $KIND_CLUSTER_NAME
-      - name: Check docs
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          go run ./hack/replace-commands-help --commands-md ./docs/commands.md
-
-          if [ "$(git status --porcelain -- docs)" != "" ]; then
-            echo "commands.md is not up-to-date. Run "./hack/replace-commands-help --commands-md ./docs/commands.md" to fix this!"
-            exit 1
-          fi
 
   release:
     runs-on: ubuntu-latest
