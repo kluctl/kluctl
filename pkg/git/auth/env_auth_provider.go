@@ -44,7 +44,7 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 			if err != nil {
 				log.Debugf("Failed to parse private key %s: %v", ssh_key, err)
 			} else {
-				a.HostKeyCallback = getHostKeyCallback()
+				a.HostKeyCallback = verifyHost
 				return a
 			}
 		}

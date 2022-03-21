@@ -4,17 +4,13 @@ import (
 	"fmt"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	git_ssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	log "github.com/sirupsen/logrus"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
-	"net"
-	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 )
 
 type GitSshAuthProvider struct {
@@ -39,28 +35,8 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 		User: a.user,
 		Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(a.Signers)},
 	}
-	cc.HostKeyCallback = getHostKeyCallback()
+	cc.HostKeyCallback = verifyHost
 	return cc, nil
-}
-
-func getHostKeyCallback() ssh.HostKeyCallback {
-	hostKeyChecking := true
-	if x, ok := os.LookupEnv("KLUCTL_SSH_DISABLE_STRICT_HOST_KEY_CHECKING"); ok {
-		if b, err := strconv.ParseBool(x); err == nil && b {
-			hostKeyChecking = false
-		}
-	}
-	if hostKeyChecking {
-		cb, err := git_ssh.NewKnownHostsCallback()
-		if err != nil {
-			return nil
-		}
-		return cb
-	} else {
-		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil
-		}
-	}
 }
 
 func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
