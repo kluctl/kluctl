@@ -30,7 +30,7 @@ func decompressPython() string {
 	defer fileList.Close()
 
 	path := filepath.Join(utils.GetTmpBaseDir(), fmt.Sprintf("python-%s", runtime.GOOS))
-	err = embed_util.ExtractTarToTmp(tgz, fileList, path)
+	path, err = embed_util.ExtractTarToTmp(tgz, fileList, path)
 	if err != nil {
 		log.Panic(err)
 	}

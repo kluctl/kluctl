@@ -81,13 +81,13 @@ func (j *Jinja2) Close() {
 
 func (j *Jinja2) RenderStrings(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
 	pj := <-j.pj
-	defer func() {j.pj <- pj}()
+	defer func() { j.pj <- pj }()
 	return pj.renderHelper(jobs, searchDirs, vars, true)
 }
 
 func (j *Jinja2) RenderFiles(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
 	pj := <-j.pj
-	defer func() {j.pj <- pj}()
+	defer func() { j.pj <- pj }()
 	return pj.renderHelper(jobs, searchDirs, vars, false)
 }
 

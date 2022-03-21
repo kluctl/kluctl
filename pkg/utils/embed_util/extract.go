@@ -13,10 +13,10 @@ import (
 	"strings"
 )
 
-func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) error {
+func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) (string, error) {
 	fileList, err := ioutil.ReadAll(fileListR)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	targetPath := fmt.Sprintf("%s-%s", targetPrefix, utils.Sha256Bytes(fileList)[:16])
@@ -24,39 +24,39 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) erro
 	fl := flock.New(targetPath + ".lock")
 	err = fl.Lock()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer fl.Unlock()
 
 	needsExtract, expectedTarGzHash, err := checkExtractNeeded(targetPath, string(fileList))
 	if err != nil {
-		return err
+		return "", err
 	}
 	if !needsExtract {
-		return nil
+		return targetPath, nil
 	}
 
 	err = os.RemoveAll(targetPath)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return "", err
 	}
 
 	err = os.MkdirAll(targetPath, 0o700)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = utils.ExtractTarGzStream(r, targetPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = ioutil.WriteFile(filepath.Join(targetPath, ".tar-gz-hash"), []byte(expectedTarGzHash), 0o600)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return targetPath, nil
 }
 
 func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, error) {

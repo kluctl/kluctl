@@ -34,7 +34,7 @@ func extractSource() (string, error) {
 	defer fileList.Close()
 
 	libPath := filepath.Join(utils.GetTmpBaseDir(), "jinja2-src")
-	err = embed_util.ExtractTarToTmp(tgz, fileList, libPath)
+	libPath, err = embed_util.ExtractTarToTmp(tgz, fileList, libPath)
 	if err != nil {
 		return "", err
 	}
