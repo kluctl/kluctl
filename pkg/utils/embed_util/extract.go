@@ -98,6 +98,7 @@ func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, er
 		if err != nil {
 			return err
 		}
+		relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
 		if info.IsDir() {
 			existingFiles[relPath] = 0
 		} else {
