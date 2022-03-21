@@ -33,24 +33,22 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPath string) error 
 		return nil
 	}
 
-	tmpTargetPath := targetPath + ".tmp"
-	err = os.MkdirAll(tmpTargetPath, 0o700)
+	err = os.RemoveAll(targetPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	err = os.MkdirAll(targetPath, 0o700)
 	if err != nil {
 		return err
 	}
 
-	err = utils.ExtractTarGzStream(r, tmpTargetPath)
+	err = utils.ExtractTarGzStream(r, targetPath)
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(filepath.Join(tmpTargetPath, ".tar-gz-hash"), []byte(expectedTarGzHash), 0o600)
-	if err != nil {
-		return err
-	}
-
-	_ = os.RemoveAll(targetPath)
-	err = os.Rename(tmpTargetPath, targetPath)
+	err = ioutil.WriteFile(filepath.Join(targetPath, ".tar-gz-hash"), []byte(expectedTarGzHash), 0o600)
 	if err != nil {
 		return err
 	}
