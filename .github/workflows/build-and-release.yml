@@ -270,6 +270,7 @@ jobs:
       - name: Run e2e tests
         shell: bash
         run: |
+          chmod +x ./dist/*
           ./dist/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
       - name: Delete kind cluster
         shell: bash
