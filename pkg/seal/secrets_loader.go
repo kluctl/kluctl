@@ -30,7 +30,7 @@ func (s *SecretsLoader) LoadSecrets(source *types.SecretSource) (*uo.Unstructure
 	} else if source.SystemEnvVars != nil {
 		return s.loadSecretsSystemEnvs(source)
 	} else if source.AwsSecretsManager != nil {
-		return s.loadSecretsAwsSecertsManager(source)
+		return s.loadSecretsAwsSecretsManager(source)
 	} else {
 		return nil, fmt.Errorf("invalid secrets entry")
 	}
@@ -92,7 +92,7 @@ func (s *SecretsLoader) loadSecretsSystemEnvs(source *types.SecretSource) (*uo.U
 	return secrets, nil
 }
 
-func (s *SecretsLoader) loadSecretsAwsSecertsManager(source *types.SecretSource) (*uo.UnstructuredObject, error) {
+func (s *SecretsLoader) loadSecretsAwsSecretsManager(source *types.SecretSource) (*uo.UnstructuredObject, error) {
 	secret, err := aws.GetAwsSecretsManagerSecret(source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
 	if err != nil {
 		return nil, err
