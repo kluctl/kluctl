@@ -3,7 +3,9 @@ package auth
 import (
 	"fmt"
 	git_url "github.com/codablock/kluctl/pkg/git/git-url"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/go-git/go-git/v5/plumbing/transport"
+	git_ssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	log "github.com/sirupsen/logrus"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
@@ -17,6 +19,7 @@ type GitSshAuthProvider struct {
 }
 
 type sshDefaultIdentityAndAgent struct {
+	hostname        string
 	user            string
 	defaultIdentity ssh.Signer
 	agent           agent.Agent
@@ -41,6 +44,16 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 
 func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 	var ret []ssh.Signer
+	identityFromConfig := git_ssh.DefaultSSHConfig.Get(a.hostname, "IdentityFile")
+	if identityFromConfig != "" {
+		identityFromConfig = utils.ExpandPath(identityFromConfig)
+		signer, err := readKey(identityFromConfig)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, signer)
+		return ret, nil
+	}
 	if a.defaultIdentity != nil {
 		ret = append(ret, a.defaultIdentity)
 	}
@@ -63,6 +76,7 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 	}
 
 	auth := &sshDefaultIdentityAndAgent{
+		hostname: gitUrl.Hostname(),
 		user: gitUrl.User.Username(),
 	}
 
@@ -70,14 +84,10 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 	if err != nil {
 		log.Debugf("No current user: %v", err)
 	} else {
-		pemBytes, err := ioutil.ReadFile(filepath.Join(u.HomeDir, ".ssh", "id_rsa"))
+		signer, err := readKey(filepath.Join(u.HomeDir, ".ssh", "id_rsa"))
 		if err != nil {
 			log.Debugf("Failed to read default identity file for url %s: %v", gitUrl.String(), err)
-		} else {
-			signer, err := ssh.ParsePrivateKey(pemBytes)
-			if err != nil {
-				log.Debugf("Failed to parse default identity for url %s: %v", gitUrl.String(), err)
-			}
+		} else if signer != nil {
 			auth.defaultIdentity = signer
 		}
 	}
@@ -90,4 +100,17 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 	}
 
 	return auth
+}
+
+func readKey(path string) (ssh.Signer, error) {
+	pemBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	} else {
+		signer, err := ssh.ParsePrivateKey(pemBytes)
+		if err != nil {
+			return nil, err
+		}
+		return signer, nil
+	}
 }

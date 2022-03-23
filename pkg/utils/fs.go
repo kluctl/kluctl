@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"k8s.io/client-go/util/homedir"
 	"os"
 	"path"
 	"path/filepath"
@@ -118,4 +119,11 @@ func FsCopyDir(srcFs fs.FS, src string, dst string) error {
 
 func CopyDir(src string, dst string) error {
 	return FsCopyDir(os.DirFS(src), ".", dst)
+}
+
+func ExpandPath(p string) string {
+	if strings.HasPrefix(p, "~/") {
+		p = homedir.HomeDir() + p[1:]
+	}
+	return p
 }
