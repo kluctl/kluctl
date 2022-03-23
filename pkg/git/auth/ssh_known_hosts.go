@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/codablock/kluctl/pkg/git/auth/goph"
 	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/mattn/go-isatty"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 	"net"
 	"os"
@@ -65,11 +63,6 @@ func verifyHost(host string, remote net.Addr, key ssh.PublicKey) error {
 }
 
 func askIsHostTrusted(host string, key ssh.PublicKey) bool {
-	if !isatty.IsTerminal(os.Stderr.Fd()) {
-		log.Warningf("Not a terminal, suppressed prompt for unknown host")
-		return false
-	}
-
 	prompt := fmt.Sprintf("Unknown Host: %s\nFingerprint: %s\nWould you like to add it? ", host, ssh.FingerprintSHA256(key))
 	return utils.AskForConfirmation(prompt)
 }

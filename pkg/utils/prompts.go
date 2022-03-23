@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
 	"os"
 )
@@ -12,6 +13,11 @@ import (
 // until it gets a valid response from the user. Typically, you should use fmt to print out a question
 // before calling askForConfirmation. E.g. fmt.Println("WARNING: Are you sure? (yes/no)")
 func AskForConfirmation(prompt string) bool {
+	if !isatty.IsTerminal(os.Stderr.Fd()) {
+		log.Warningf("Not a terminal, suppressed prompt: %s", prompt)
+		return false
+	}
+
 	_, err := os.Stderr.WriteString(prompt + " (y/N) ")
 	if err != nil {
 		log.Fatal(err)

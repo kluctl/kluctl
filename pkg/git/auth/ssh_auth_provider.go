@@ -77,7 +77,7 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 
 	auth := &sshDefaultIdentityAndAgent{
 		hostname: gitUrl.Hostname(),
-		user: gitUrl.User.Username(),
+		user:     gitUrl.User.Username(),
 	}
 
 	u, err := user.Current()
