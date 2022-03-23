@@ -6,12 +6,6 @@ on:
       - '*'
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      debug_enabled:
-        description: 'Run the build with tmate debugging enabled (https://github.com/marketplace/actions/debugging-with-tmate)'
-        required: false
-        default: false
 
 jobs:
   version:
@@ -282,12 +276,6 @@ jobs:
         shell: bash
         run: |
           choco install openssh
-      # Enable tmate debugging of manually-triggered workflows if the input option was provided
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled }}
-        with:
-          limit-access-to-actor: true
       - name: Provide required tools versions
         shell: bash
         run: |
