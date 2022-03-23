@@ -67,9 +67,8 @@ func (a *ApplyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool
 	ref := appliedObject.GetK8sRef()
 	if hook {
 		a.appliedHookObjects[ref] = appliedObject
-	} else {
-		a.AppliedObjects[ref] = appliedObject
 	}
+	a.AppliedObjects[ref] = appliedObject
 }
 
 func (a *ApplyUtil) handleApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
@@ -228,11 +227,15 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	x = a.k.FixObjectForPatch(x)
 	remoteObject := a.ru.GetRemoteObject(ref)
 
+	usesDummyName := false
 	if a.o.DryRun && replaced && remoteObject != nil {
-		// Let's simulate that this object was deleted in dry-run mode. If we'd actually try a dry-run apply with
-		// this object, it might fail as it is expected to not exist.
-		a.handleResult(x, hook)
-		return
+		// The object got deleted before, which was however only simulated when in dry-run mode. This means, that
+		// trying to patch it will either fail or give different results then when actually re-creating it. To simulate
+		// re-creation, we use a temporary name for the dry-run patch and then undo the rename after getting the patch
+		// result
+		usesDummyName = true
+		x = x.Clone()
+		x.SetK8sName(fmt.Sprintf("%s-%s", x.GetK8sName(), utils.RandomString(8)))
 	}
 
 	options := k8s.PatchOptions{
@@ -242,6 +245,12 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	retry, err := a.handleNewCRDs(r, err)
 	if retry {
 		r, apiWarnings, err = a.k.PatchObject(x, options)
+	}
+	if r != nil && usesDummyName {
+		tmpName := r.GetK8sName()
+		realName := remoteObject.GetK8sName()
+		_ = r.ReplaceKeys(tmpName, realName)
+		_ = r.ReplaceValues(tmpName, realName)
 	}
 	a.handleApiWarnings(ref, apiWarnings)
 	if err == nil {

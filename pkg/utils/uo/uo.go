@@ -6,6 +6,7 @@ import (
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
 )
 
 type UnstructuredObject struct {
@@ -138,4 +139,55 @@ func (uo *UnstructuredObject) NewIterator() *ObjectIterator {
 
 func (uo *UnstructuredObject) Clear() {
 	uo.Object = make(map[string]interface{})
+}
+
+type uoParentKeyValue struct {
+	parent interface{}
+	key    interface{}
+	value  interface{}
+}
+
+func (uo *UnstructuredObject) ReplaceKeys(oldKey string, newKey string) error {
+	var toDelete []uoParentKeyValue
+	var toSet []uoParentKeyValue
+	err := uo.NewIterator().IterateLeafs(func(it *ObjectIterator) error {
+		keyStr, ok := it.Key().(string)
+		if ok && keyStr == oldKey {
+			toDelete = append(toDelete, uoParentKeyValue{
+				parent: it.Parent(),
+				key:    it.Key(),
+			})
+			toSet = append(toSet, uoParentKeyValue{
+				parent: it.Parent(),
+				key:    newKey,
+				value:  it.Value(),
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, p := range toDelete {
+		delete(p.parent.(map[string]interface{}), p.key.(string))
+	}
+	for _, p := range toSet {
+		err = SetChild(p.parent, p.key, p.value)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (uo *UnstructuredObject) ReplaceValues(oldValue interface{}, newValue interface{}) error {
+	return uo.NewIterator().IterateLeafs(func(it *ObjectIterator) error {
+		if reflect.DeepEqual(it.Value(), oldValue) {
+			err := it.SetValue(newValue)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
