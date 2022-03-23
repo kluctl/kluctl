@@ -85,7 +85,7 @@ deployments:
 
 commonLabels:
   my.prefix/environment: "{{ args.environment }}"
-  my.prefix/deployment-project: k8s-deployment-airsea
+  my.prefix/deployment-project: my-deployment-project
 
 args:
 - name: environment
