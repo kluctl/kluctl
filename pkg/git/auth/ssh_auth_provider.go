@@ -2,15 +2,16 @@ package auth
 
 import (
 	"fmt"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	git_ssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	"github.com/kluctl/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
+	"os"
 	"os/user"
 	"path/filepath"
 )
@@ -48,11 +49,13 @@ func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 	if identityFromConfig != "" {
 		identityFromConfig = utils.ExpandPath(identityFromConfig)
 		signer, err := readKey(identityFromConfig)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
-		ret = append(ret, signer)
-		return ret, nil
+		if err == nil {
+			ret = append(ret, signer)
+			return ret, nil
+		}
 	}
 	if a.defaultIdentity != nil {
 		ret = append(ret, a.defaultIdentity)
