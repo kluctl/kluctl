@@ -129,7 +129,7 @@ func (di *DeploymentItem) render(k *k8s.K8sCluster, forSeal bool, wp *utils.Work
 			if err != nil {
 				return err
 			}
-			if utils.IsFile(filepath.Join(p, "helm-chart.yml")) {
+			if yaml.Exists(filepath.Join(p, "helm-chart.yml")) {
 				// never try to render helm charts
 				ep := filepath.Join(di.RelToProjectItemDir, relDir, "charts/**")
 				ep = strings.ReplaceAll(ep, string(os.PathSeparator), "/")
@@ -161,7 +161,7 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 	}
 
 	err := filepath.Walk(di.renderedDir, func(p string, info fs.FileInfo, err error) error {
-		if !strings.HasSuffix(p, "helm-chart.yml") {
+		if !strings.HasSuffix(p, "helm-chart.yml") && !strings.HasSuffix(p, "helm-chart.yaml") {
 			return nil
 		}
 
@@ -190,7 +190,7 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 	sealedSecretsDir := di.Project.getSealedSecretsDir()
 	baseSourcePath := di.Project.SealedSecretsDir
 
-	y, err := uo.FromFile(filepath.Join(di.renderedDir, "kustomization.yml"))
+	y, err := uo.FromFile(yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml")))
 	if err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 		return nil
 	}
 
-	kustomizeYamlPath := filepath.Join(di.renderedDir, "kustomization.yml")
+	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml"))
 	if !utils.IsFile(kustomizeYamlPath) {
 		return nil
 	}

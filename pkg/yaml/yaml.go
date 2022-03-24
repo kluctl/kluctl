@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/goccy/go-yaml"
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -165,4 +167,34 @@ func ConvertYamlToJson(b []byte) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func FixNameExt(dir string, name string) string {
+	p := filepath.Join(dir, name)
+	p = FixPathExt(p)
+	return filepath.Base(p)
+}
+
+func FixPathExt(p string) string {
+	if utils.Exists(p) {
+		return p
+	}
+	var p2 string
+	if strings.HasSuffix(p, ".yml") {
+		p2 = p[:len(p)-4] + ".yaml"
+	} else if strings.HasSuffix(p, ".yaml") {
+		p2 = p[:len(p)-5] + ".yml"
+	} else {
+		return p
+	}
+
+	if utils.Exists(p2) {
+		return p2
+	}
+	return p
+}
+
+func Exists(p string) bool {
+	p = FixPathExt(p)
+	return utils.Exists(p)
 }

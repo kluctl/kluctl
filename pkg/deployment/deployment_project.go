@@ -7,6 +7,7 @@ import (
 	"github.com/codablock/kluctl/pkg/types"
 	"github.com/codablock/kluctl/pkg/utils"
 	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/codablock/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"path/filepath"
 	"reflect"
@@ -62,14 +63,14 @@ func (p *DeploymentProject) MergeSecretsIntoAllChildren(vars *uo.UnstructuredObj
 
 func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	configPath := filepath.Join(p.dir, "deployment.yml")
-	if !utils.Exists(configPath) {
-		if utils.Exists(filepath.Join(p.dir, "kustomization.yml")) {
+	if !yaml.Exists(configPath) {
+		if yaml.Exists(filepath.Join(p.dir, "kustomization.yml")) {
 			return fmt.Errorf("deployment.yml not found but folder %s contains a kustomization.yml", p.dir)
 		}
 		return fmt.Errorf("%s not found", p.dir)
 	}
 
-	err := p.VarsCtx.RenderYamlFile("deployment.yml", p.getRenderSearchDirs(), &p.Config)
+	err := p.VarsCtx.RenderYamlFile(yaml.FixNameExt(p.dir, "deployment.yml"), p.getRenderSearchDirs(), &p.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}
@@ -170,9 +171,9 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 		}
 
 		if di.Path != nil {
-			pth = filepath.Join(diDir, "kustomization.yml")
+			pth = yaml.FixPathExt(filepath.Join(diDir, "kustomization.yml"))
 		} else {
-			pth = filepath.Join(diDir, "deployment.yml")
+			pth = yaml.FixPathExt(filepath.Join(diDir, "deployment.yml"))
 		}
 		if !utils.IsFile(pth) {
 			return fmt.Errorf("%s not found or not a file", pth)

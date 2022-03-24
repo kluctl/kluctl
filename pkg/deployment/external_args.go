@@ -47,14 +47,14 @@ func CheckRequiredDeployArgs(dir string, varsCtx *jinja2.VarsCtx, deployArgs *uo
 
 	var conf types.DeploymentProjectConfig
 
-	err := yaml.ReadYamlFile(filepath.Join(dir, "deployment.yml"), &conf)
+	err := yaml.ReadYamlFile(yaml.FixPathExt(filepath.Join(dir, "deployment.yml")), &conf)
 	if err != nil {
 		// If that failed, it might be that conditional jinja blocks are present in the config, so lets try loading
 		// the config in rendered form. If it fails due to missing args now, we can't help much with better error
 		// messages anymore.
 		varsCtx2 := varsCtx.Copy()
 		varsCtx2.UpdateChild("args", deployArgs)
-		err = varsCtx2.RenderYamlFile("deployment.yml", []string{dir}, &conf)
+		err = varsCtx2.RenderYamlFile(yaml.FixNameExt(dir,"deployment.yml"), []string{dir}, &conf)
 		if err != nil {
 			return err
 		}

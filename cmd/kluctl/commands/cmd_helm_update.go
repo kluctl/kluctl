@@ -26,7 +26,7 @@ func (cmd *helmUpdateCmd) Run() error {
 	}
 	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
-		if fname == "helm-chart.yml" {
+		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
 			chart, err := deployment.NewHelmChart(p)
 			if err != nil {
 				return err

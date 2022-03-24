@@ -307,7 +307,7 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 		return &target, nil
 	}
 
-	configFile := "target-config.yml"
+	configFile := yaml.FixNameExt(targetInfo.dir, "target-config.yml")
 	if targetInfo.baseTarget.TargetConfig.File != nil {
 		configFile = *targetInfo.baseTarget.TargetConfig.File
 	}

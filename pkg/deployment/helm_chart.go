@@ -157,7 +157,7 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	}
 	dir := filepath.Dir(c.configFile)
 	chartDir := filepath.Join(dir, "charts", chartName)
-	valuesPath := filepath.Join(dir, "helm-values.yml")
+	valuesPath := yaml.FixPathExt(filepath.Join(dir, "helm-values.yml"))
 	outputPath := filepath.Join(dir, c.Config.Output)
 
 	args := []string{"template", c.Config.ReleaseName, chartDir}

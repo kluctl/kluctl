@@ -46,7 +46,7 @@ func (c *KluctlProjectContext) mergeClustersDirs(mergedClustersDir string, clust
 func (c *KluctlProjectContext) getConfigPath(projectDir string) string {
 	configPath := c.loadArgs.ProjectConfig
 	if configPath == "" {
-		p := filepath.Join(projectDir, ".kluctl.yml")
+		p := yaml.FixPathExt(filepath.Join(projectDir, ".kluctl.yml"))
 		if utils.IsFile(p) {
 			configPath = p
 		}
@@ -185,7 +185,7 @@ func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string) (*K
 	if args.FromArchiveMetadata != "" {
 		metdataPath = args.FromArchiveMetadata
 	} else {
-		metdataPath = filepath.Join(dir, "metadata.yml")
+		metdataPath = yaml.FixPathExt(filepath.Join(dir, "metadata.yml"))
 	}
 
 	var metadata types2.ArchiveMetadata
@@ -196,7 +196,7 @@ func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string) (*K
 
 	p := NewKluctlProjectContext(
 		LoadKluctlProjectArgs{
-			ProjectConfig:      filepath.Join(dir, ".kluctl.yml"),
+			ProjectConfig:      yaml.FixPathExt(filepath.Join(dir, ".kluctl.yml")),
 			LocalClusters:      filepath.Join(dir, "clusters"),
 			LocalDeployment:    filepath.Join(dir, "deployment"),
 			LocalSealedSecrets: filepath.Join(dir, "sealed-secrets"),
@@ -261,7 +261,7 @@ func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, metadataPath
 		}
 	}
 
-	if err = utils.AddToTar(tw, c.getConfigPath(c.ProjectDir), ".kluctl.yml", filter); err != nil {
+	if err = utils.AddToTar(tw, c.getConfigPath(c.ProjectDir), yaml.FixNameExt(c.ProjectDir,".kluctl.yml"), filter); err != nil {
 		return err
 	}
 	if err = utils.AddToTar(tw, c.ProjectDir, "kluctl-project", filter); err != nil {
