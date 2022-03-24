@@ -114,7 +114,7 @@ jobs:
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=linux
-          go build -ldflags "-s -w" ./cmd/kluctl
+          go build ./cmd/kluctl
           go test -c ./e2e
           mv kluctl kluctl-linux-amd64
           mv e2e.test e2e.test-linux-amd64
@@ -123,7 +123,7 @@ jobs:
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=darwin
-          go build -ldflags "-s -w" ./cmd/kluctl
+          go build ./cmd/kluctl
           go test -c ./e2e
           mv kluctl kluctl-darwin-amd64
           mv e2e.test e2e.test-darwin-amd64
@@ -132,7 +132,7 @@ jobs:
           export CGO_ENABLED=0
           export GOARCH=amd64
           export GOOS=windows
-          go build -ldflags "-s -w" ./cmd/kluctl
+          go build ./cmd/kluctl
           go test -c ./e2e
           mv kluctl.exe kluctl-windows-amd64.exe
           mv e2e.test.exe e2e.test-windows-amd64.exe
