@@ -54,7 +54,7 @@ func CheckRequiredDeployArgs(dir string, varsCtx *jinja2.VarsCtx, deployArgs *uo
 		// messages anymore.
 		varsCtx2 := varsCtx.Copy()
 		varsCtx2.UpdateChild("args", deployArgs)
-		err = varsCtx2.RenderYamlFile(yaml.FixNameExt(dir,"deployment.yml"), []string{dir}, &conf)
+		err = varsCtx2.RenderYamlFile(yaml.FixNameExt(dir, "deployment.yml"), []string{dir}, &conf)
 		if err != nil {
 			return err
 		}

@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/deployment"
 	"github.com/go-git/go-git/v5"
+	"github.com/kluctl/kluctl/pkg/deployment"
 	log "github.com/sirupsen/logrus"
 	"io/fs"
 	"path/filepath"

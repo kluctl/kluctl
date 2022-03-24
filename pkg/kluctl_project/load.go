@@ -261,7 +261,7 @@ func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, metadataPath
 		}
 	}
 
-	if err = utils.AddToTar(tw, c.getConfigPath(c.ProjectDir), yaml.FixNameExt(c.ProjectDir,".kluctl.yml"), filter); err != nil {
+	if err = utils.AddToTar(tw, c.getConfigPath(c.ProjectDir), yaml.FixNameExt(c.ProjectDir, ".kluctl.yml"), filter); err != nil {
 		return err
 	}
 	if err = utils.AddToTar(tw, c.ProjectDir, "kluctl-project", filter); err != nil {

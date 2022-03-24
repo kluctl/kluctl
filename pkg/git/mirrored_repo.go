@@ -2,12 +2,12 @@ package git
 
 import (
 	"fmt"
-	auth2 "github.com/kluctl/kluctl/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	auth2 "github.com/kluctl/kluctl/pkg/git/auth"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	"github.com/kluctl/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"

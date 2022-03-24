@@ -2,8 +2,8 @@ package embed_util
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/gofrs/flock"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"io"
 	"io/fs"
 	"io/ioutil"

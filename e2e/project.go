@@ -3,11 +3,11 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5"
 	http_server "github.com/kluctl/kluctl/pkg/git/http-server"
 	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"github.com/kluctl/kluctl/pkg/yaml"
-	"github.com/go-git/go-git/v5"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net"

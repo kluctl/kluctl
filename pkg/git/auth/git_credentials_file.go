@@ -2,10 +2,10 @@ package auth
 
 import (
 	"bufio"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	"github.com/kluctl/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	giturls "github.com/whilp/git-urls"
 	"os"

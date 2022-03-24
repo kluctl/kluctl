@@ -1,9 +1,9 @@
 package types
 
 import (
+	"github.com/go-playground/validator/v10"
 	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
 	"github.com/kluctl/kluctl/pkg/yaml"
-	"github.com/go-playground/validator/v10"
 	"strings"
 )
 

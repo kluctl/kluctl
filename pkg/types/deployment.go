@@ -1,9 +1,9 @@
 package types
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"github.com/kluctl/kluctl/pkg/yaml"
-	"github.com/go-playground/validator/v10"
 )
 
 type DeploymentItemConfig struct {

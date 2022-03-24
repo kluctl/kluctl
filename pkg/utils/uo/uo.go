@@ -2,8 +2,8 @@ package uo
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/yaml"
 	"github.com/jinzhu/copier"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
