@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"flag"
-	"github.com/codablock/kluctl/cmd/kluctl/commands"
+	"github.com/kluctl/kluctl/cmd/kluctl/commands"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"

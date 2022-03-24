@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/deployment"
-	"github.com/codablock/kluctl/pkg/seal"
+	"github.com/kluctl/kluctl/pkg/deployment"
+	"github.com/kluctl/kluctl/pkg/seal"
 	"io/fs"
 	"path/filepath"
 	"strings"

@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"

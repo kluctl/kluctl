@@ -1,11 +1,11 @@
 package utils
 
 import (
-	"github.com/codablock/kluctl/pkg/deployment"
-	"github.com/codablock/kluctl/pkg/diff"
-	"github.com/codablock/kluctl/pkg/types"
-	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/deployment"
+	"github.com/kluctl/kluctl/pkg/diff"
+	"github.com/kluctl/kluctl/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"sort"
 	"sync"
 	"time"

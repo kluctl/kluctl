@@ -12,7 +12,7 @@ import (
     "strings"
     "syscall"
 
-    "github.com/codablock/kluctl/cmd/kluctl/commands"
+    "github.com/kluctl/kluctl/cmd/kluctl/commands"
 )
 
 var commandsMDPath = flag.String("commands-md", "", "Path to commands.md")

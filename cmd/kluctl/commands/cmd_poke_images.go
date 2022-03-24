@@ -2,9 +2,9 @@ package commands
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/deployment/commands"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/pkg/utils"
 )
 
 type pokeImagesCmd struct {

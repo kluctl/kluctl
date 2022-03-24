@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"testing"
 	"time"
 )

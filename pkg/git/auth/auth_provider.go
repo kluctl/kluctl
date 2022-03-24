@@ -1,7 +1,7 @@
 package auth
 
 import (
-	git_url "github.com/codablock/kluctl/pkg/git/git-url"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 )
 

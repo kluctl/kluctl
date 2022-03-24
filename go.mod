@@ -1,4 +1,4 @@
-module github.com/codablock/kluctl
+module github.com/kluctl/kluctl
 
 go 1.17
 

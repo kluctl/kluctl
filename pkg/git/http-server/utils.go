@@ -2,7 +2,7 @@ package http_server
 
 import (
 	"fmt"
-	process2 "github.com/codablock/kluctl/pkg/utils/process"
+	process2 "github.com/kluctl/kluctl/pkg/utils/process"
 	"io"
 	"log"
 	"net/http"

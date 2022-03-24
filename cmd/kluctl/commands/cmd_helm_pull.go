@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/codablock/kluctl/pkg/deployment"
+	"github.com/kluctl/kluctl/pkg/deployment"
 	log "github.com/sirupsen/logrus"
 	"io/fs"
 	"path/filepath"

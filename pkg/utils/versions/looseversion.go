@@ -1,7 +1,7 @@
 package versions
 
 import (
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"regexp"
 	"sort"
 	"strconv"

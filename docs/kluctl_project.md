@@ -13,18 +13,18 @@ An example .kluctl.yml looks like this:
 # This is optional. If omitted, the same directory where `.kluctl.yml` is located will be used as root deployment
 deployment:
   project:
-    url: https://github.com/codablock/kluctl-example
+    url: https://github.com/kluctl/kluctl-example
 
 # This is optional. If omitted, `<baseDirOfKluctlYml>/clusters` will be used
 clusters:
   project:
-    url: https://github.com/codablock/kluctl-example-clusters
+    url: https://github.com/kluctl/kluctl-example-clusters
     subdir: clusters
 
 # This is optional. If omitted, `<baseDirOfKluctlYml>/.sealed-secrets` will be used
 sealedSecrets:
   project:
-    url: https://github.com/codablock/kluctl-example
+    url: https://github.com/kluctl/kluctl-example
     subdir: .sealed-secrets
 
 targets:

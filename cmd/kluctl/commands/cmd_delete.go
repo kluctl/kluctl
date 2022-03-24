@@ -2,14 +2,14 @@ package commands
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/deployment"
-	"github.com/codablock/kluctl/pkg/deployment/commands"
-	"github.com/codablock/kluctl/pkg/deployment/utils"
-	"github.com/codablock/kluctl/pkg/k8s"
-	"github.com/codablock/kluctl/pkg/types"
-	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
-	utils2 "github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/pkg/deployment"
+	"github.com/kluctl/kluctl/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/pkg/deployment/utils"
+	"github.com/kluctl/kluctl/pkg/k8s"
+	"github.com/kluctl/kluctl/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/pkg/types/k8s"
+	utils2 "github.com/kluctl/kluctl/pkg/utils"
 	"os"
 )
 

@@ -2,10 +2,10 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/git"
-	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	types2 "github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/git"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	types2 "github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"

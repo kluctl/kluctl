@@ -2,8 +2,8 @@ package auth
 
 import (
 	"bufio"
-	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	"github.com/codablock/kluctl/pkg/utils"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	log "github.com/sirupsen/logrus"

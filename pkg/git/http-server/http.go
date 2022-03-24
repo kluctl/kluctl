@@ -4,7 +4,7 @@ package http_server
 import (
 	"compress/gzip"
 	"fmt"
-	process2 "github.com/codablock/kluctl/pkg/utils/process"
+	process2 "github.com/kluctl/kluctl/pkg/utils/process"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"

@@ -2,10 +2,10 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/git"
-	git_url "github.com/codablock/kluctl/pkg/git/git-url"
-	"github.com/codablock/kluctl/pkg/jinja2"
-	"github.com/codablock/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/git"
+	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	"github.com/kluctl/kluctl/pkg/jinja2"
+	"github.com/kluctl/kluctl/pkg/types"
 	"regexp"
 )
 

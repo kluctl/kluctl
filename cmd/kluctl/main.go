@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/codablock/kluctl/cmd/kluctl/commands"
+import "github.com/kluctl/kluctl/cmd/kluctl/commands"
 
 func main() {
 	commands.Execute()

@@ -2,8 +2,8 @@ package utils
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	jsonpatch "github.com/evanphx/json-patch"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"

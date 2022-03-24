@@ -2,7 +2,7 @@ package embed_util
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/gofrs/flock"
 	"io"
 	"io/fs"

@@ -7,7 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/gobwas/glob"
 	log "github.com/sirupsen/logrus"
 	"io/fs"

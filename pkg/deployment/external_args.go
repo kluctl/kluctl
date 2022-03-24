@@ -2,10 +2,10 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/jinja2"
-	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/jinja2"
+	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	"path/filepath"
 	"regexp"
 	"strings"

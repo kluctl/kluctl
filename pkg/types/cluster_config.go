@@ -2,9 +2,9 @@ package types
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	"path/filepath"
 )
 

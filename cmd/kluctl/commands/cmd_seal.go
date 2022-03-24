@@ -2,12 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/deployment/commands"
-	"github.com/codablock/kluctl/pkg/kluctl_project"
-	"github.com/codablock/kluctl/pkg/seal"
-	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/pkg/seal"
+	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 )
 

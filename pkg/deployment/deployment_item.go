@@ -2,11 +2,11 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/k8s"
-	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/k8s"
+	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	"io/fs"
 	"io/ioutil"
 	"os"

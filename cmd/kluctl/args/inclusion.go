@@ -2,7 +2,7 @@ package args
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"os"
 	"path/filepath"
 	"strings"

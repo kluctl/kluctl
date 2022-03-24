@@ -2,7 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/deployment"
+	"github.com/kluctl/kluctl/pkg/deployment"
 	"github.com/go-git/go-git/v5"
 	log "github.com/sirupsen/logrus"
 	"io/fs"

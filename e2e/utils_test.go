@@ -1,8 +1,8 @@
 package e2e
 
 import (
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/validation"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/validation"
 	"os/exec"
 	"reflect"
 	"strings"

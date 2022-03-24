@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/codablock/kluctl/pkg/types/k8s"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 )
 
 type Change struct {

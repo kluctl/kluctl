@@ -1,11 +1,11 @@
 package commands
 
 import (
-	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/registries"
-	"github.com/codablock/kluctl/pkg/types/k8s"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/versions"
+	"github.com/kluctl/kluctl/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/pkg/registries"
+	"github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/versions"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"regexp"

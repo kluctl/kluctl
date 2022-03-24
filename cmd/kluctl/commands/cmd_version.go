@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/codablock/kluctl/pkg/version"
+	"github.com/kluctl/kluctl/pkg/version"
 	"os"
 )
 

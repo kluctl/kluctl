@@ -2,8 +2,8 @@ package diff
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"regexp"
 	"strconv"
 	"strings"

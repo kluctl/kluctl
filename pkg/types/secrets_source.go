@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"github.com/go-playground/validator/v10"
 )
 

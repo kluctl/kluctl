@@ -2,11 +2,11 @@ package jinja2
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/k8s"
-	"github.com/codablock/kluctl/pkg/types"
-	k8s2 "github.com/codablock/kluctl/pkg/types/k8s"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/k8s"
+	"github.com/kluctl/kluctl/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/yaml"
 )
 
 type VarsCtx struct {

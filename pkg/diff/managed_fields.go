@@ -3,7 +3,7 @@ package diff
 import (
 	"bytes"
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"

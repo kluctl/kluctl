@@ -2,8 +2,8 @@ package args
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	"strings"
 )
 

@@ -17,11 +17,11 @@ package commands
 
 import (
 	"github.com/alecthomas/kong"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/uo"
-	"github.com/codablock/kluctl/pkg/utils/versions"
-	"github.com/codablock/kluctl/pkg/version"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/utils/versions"
+	"github.com/kluctl/kluctl/pkg/version"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-const latestReleaseUrl = "https://api.github.com/repos/codablock/kluctl/releases/latest"
+const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/latest"
 
 type cli struct {
 	Verbosity     string `group:"global" short:"v" help:"Log level (debug, info, warn, error, fatal, panic)." default:"info"`

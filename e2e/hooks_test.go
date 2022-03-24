@@ -3,7 +3,7 @@ package e2e
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"testing"
 )
 

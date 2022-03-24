@@ -2,11 +2,11 @@ package seal
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/kluctl_project"
-	"github.com/codablock/kluctl/pkg/types"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/aws"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/aws"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"os"
 	"path/filepath"
 	"strings"

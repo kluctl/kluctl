@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 )

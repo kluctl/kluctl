@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/codablock/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/goccy/go-yaml"
 	yaml3 "gopkg.in/yaml.v3"
 	"io"

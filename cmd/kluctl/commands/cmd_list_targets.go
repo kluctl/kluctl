@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"github.com/codablock/kluctl/cmd/kluctl/args"
-	"github.com/codablock/kluctl/pkg/kluctl_project"
-	"github.com/codablock/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/pkg/types"
 )
 
 type listTargetsCmd struct {

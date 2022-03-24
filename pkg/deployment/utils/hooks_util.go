@@ -2,10 +2,10 @@ package utils
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/deployment"
-	"github.com/codablock/kluctl/pkg/types/k8s"
-	"github.com/codablock/kluctl/pkg/utils"
-	"github.com/codablock/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/pkg/deployment"
+	"github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	"sort"
 	"strconv"

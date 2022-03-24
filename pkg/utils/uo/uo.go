@@ -2,7 +2,7 @@ package uo
 
 import (
 	"fmt"
-	"github.com/codablock/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/pkg/yaml"
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
