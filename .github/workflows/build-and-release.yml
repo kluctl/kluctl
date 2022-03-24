@@ -333,10 +333,6 @@ jobs:
         run: |
           chmod +x ./dist/*
           ./dist/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
-      - name: Delete kind cluster
-        shell: bash
-        run: |
-          kind delete cluster --name $KIND_CLUSTER_NAME
 
   release:
     runs-on: ubuntu-latest

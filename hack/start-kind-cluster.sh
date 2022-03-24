@@ -16,7 +16,6 @@ EOF
 
 rm -f $(pwd)/kind-kubeconfig
 export KUBECONFIG=$KIND_KUBECONFIG
-kind delete cluster --name $NAME || true
 kind create cluster --config kind-cluster.yml --name $NAME
 
 # Rewrite cluster info to point to docker host
