@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/term"
 	"os"
+	"strings"
+	"syscall"
 )
 
 // AskForConfirmation uses Scanln to parse user input. A user must type in "yes" or "no" and
@@ -38,4 +41,26 @@ func AskForConfirmation(prompt string) bool {
 		fmt.Println("Please type yes or no and then press enter:")
 		return AskForConfirmation(prompt)
 	}
+}
+
+func AskForPassword(prompt string) (string, error) {
+	if !isatty.IsTerminal(os.Stderr.Fd()) {
+		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
+		log.Warning(err)
+		return "", err
+	}
+
+	_, err := fmt.Fprintf(os.Stderr, "%s: ", prompt)
+	if err != nil {
+		return "", err
+	}
+
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	_, _ = fmt.Fprintf(os.Stderr, "\n")
+	if err != nil {
+		return "", err
+	}
+
+	password := string(bytePassword)
+	return strings.TrimSpace(password), nil
 }
