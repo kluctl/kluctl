@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -20,10 +19,9 @@ type GitSshAuthProvider struct {
 }
 
 type sshDefaultIdentityAndAgent struct {
-	hostname        string
-	user            string
-	defaultIdentity ssh.Signer
-	agent           agent.Agent
+	hostname string
+	user     string
+	signers  []ssh.Signer
 }
 
 func (a *sshDefaultIdentityAndAgent) String() string {
@@ -44,28 +42,47 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 }
 
 func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
-	var ret []ssh.Signer
-	for _, id := range ssh_config.GetAll(a.hostname, "IdentityFile") {
+	return a.signers, nil
+}
+
+func (a *sshDefaultIdentityAndAgent) addDefaultIdentity(gitUrl git_url.GitUrl) {
+	u, err := user.Current()
+	if err != nil {
+		log.Debugf("No current user: %v", err)
+	} else {
+		signer, err := readKey(filepath.Join(u.HomeDir, ".ssh", "id_rsa"))
+		if err != nil {
+			log.Debugf("Failed to read default identity file for url %s: %v", gitUrl.String(), err)
+		} else if signer != nil {
+			a.signers = append(a.signers, signer)
+		}
+	}
+}
+
+func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) {
+	for _, id := range ssh_config.GetAll(gitUrl.Hostname(), "IdentityFile") {
 		id = utils.ExpandPath(id)
 		signer, err := readKey(id)
 		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		if err == nil {
-			ret = append(ret, signer)
+			log.Debugf("Failed to read key %s for url %s: %v", id, gitUrl.String(), err)
+		} else if err == nil {
+			a.signers = append(a.signers, signer)
 		}
 	}
-	if a.defaultIdentity != nil {
-		ret = append(ret, a.defaultIdentity)
-	}
-	if a.agent != nil {
-		s, err := a.agent.Signers()
+}
+
+func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
+	agent, _, err := sshagent.New()
+	if err != nil {
+		log.Debugf("Failed to connect to ssh agent for url %s: %v", gitUrl.String(), err)
+	} else {
+		signers, err := agent.Signers()
 		if err != nil {
-			return nil, err
+			log.Debugf("Failed to get signers from ssh agent for url %s: %v", gitUrl.String(), err)
+			return
 		}
-		ret = append(ret, s...)
+		a.signers = append(a.signers, signers...)
 	}
-	return ret, nil
 }
 
 func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
@@ -81,24 +98,9 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 		user:     gitUrl.User.Username(),
 	}
 
-	u, err := user.Current()
-	if err != nil {
-		log.Debugf("No current user: %v", err)
-	} else {
-		signer, err := readKey(filepath.Join(u.HomeDir, ".ssh", "id_rsa"))
-		if err != nil {
-			log.Debugf("Failed to read default identity file for url %s: %v", gitUrl.String(), err)
-		} else if signer != nil {
-			auth.defaultIdentity = signer
-		}
-	}
-
-	agent, _, err := sshagent.New()
-	if err != nil {
-		log.Debugf("Failed to connect to ssh agent for url %s: %v", gitUrl.String(), err)
-	} else {
-		auth.agent = agent
-	}
+	auth.addDefaultIdentity(gitUrl)
+	auth.addConfigIdentities(gitUrl)
+	auth.addAgentIdentities(gitUrl)
 
 	return auth
 }
