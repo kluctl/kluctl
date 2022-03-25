@@ -30,7 +30,7 @@ func (c *KluctlProjectContext) updateGitCaches() error {
 	doUpdateRepo := func(repo *git.MirroredGitRepo) error {
 		return repo.WithLock(func() error {
 			if !repo.HasUpdated() {
-				return repo.Update()
+				return repo.Update(c.gitAuthProviders)
 			}
 			return nil
 		})
@@ -155,7 +155,7 @@ func (c *KluctlProjectContext) cloneGitProject(gitProject types2.ExternalProject
 
 	err = mr.MaybeWithLock(doLock, func() error {
 		if !mr.HasUpdated() {
-			err = mr.Update()
+			err = mr.Update(c.gitAuthProviders)
 			if err != nil {
 				return err
 			}

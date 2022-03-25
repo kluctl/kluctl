@@ -124,14 +124,14 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) update(repoDir string) error {
+func (g *MirroredGitRepo) update(repoDir string, authProviders *auth2.GitAuthProviders) error {
 	log.Infof("Updating mirror repo: url='%v'", g.url.String())
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		return err
 	}
 
-	auth := auth2.BuildAuth(g.url)
+	auth := authProviders.BuildAuth(g.url)
 
 	remote, err := r.Remote("origin")
 	if err != nil {
@@ -195,10 +195,10 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 	return nil
 }
 
-func (g *MirroredGitRepo) cloneOrUpdate() error {
+func (g *MirroredGitRepo) cloneOrUpdate(authProviders *auth2.GitAuthProviders) error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	if utils.IsFile(initMarker) {
-		return g.update(g.mirrorDir)
+		return g.update(g.mirrorDir, authProviders)
 	}
 	err := g.cleanupMirrorDir()
 	if err != nil {
@@ -230,7 +230,7 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 		return err
 	}
 
-	err = g.update(tmpMirrorDir)
+	err = g.update(tmpMirrorDir, authProviders)
 	if err != nil {
 		return err
 	}
@@ -252,8 +252,8 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) Update() error {
-	err := g.cloneOrUpdate()
+func (g *MirroredGitRepo) Update(authProviders *auth2.GitAuthProviders) error {
+	err := g.cloneOrUpdate(authProviders)
 	if err != nil {
 		return err
 	}

@@ -9,14 +9,16 @@ type GitAuthProvider interface {
 	BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod
 }
 
-var authProviders []GitAuthProvider
-
-func RegisterAuthProvider(p GitAuthProvider) {
-	authProviders = append(authProviders, p)
+type GitAuthProviders struct {
+	authProviders []GitAuthProvider
 }
 
-func BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
-	for _, p := range authProviders {
+func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider) {
+	a.authProviders = append(a.authProviders, p)
+}
+
+func (a *GitAuthProviders) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
+	for _, p := range a.authProviders {
 		auth := p.BuildAuth(gitUrl)
 		if auth != nil {
 			return auth
@@ -25,8 +27,10 @@ func BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
 	return nil
 }
 
-func init() {
-	RegisterAuthProvider(&GitEnvAuthProvider{})
-	RegisterAuthProvider(&GitCredentialsFileAuthProvider{})
-	RegisterAuthProvider(&GitSshAuthProvider{})
+func NewDefaultAuthProviders() *GitAuthProviders {
+	a := &GitAuthProviders{}
+	a.RegisterAuthProvider(&GitEnvAuthProvider{})
+	a.RegisterAuthProvider(&GitCredentialsFileAuthProvider{})
+	a.RegisterAuthProvider(&GitSshAuthProvider{})
+	return a
 }

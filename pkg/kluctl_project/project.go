@@ -3,6 +3,7 @@ package kluctl_project
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/pkg/git"
+	auth2 "github.com/kluctl/kluctl/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
 	"github.com/kluctl/kluctl/pkg/jinja2"
 	"github.com/kluctl/kluctl/pkg/types"
@@ -33,8 +34,9 @@ type KluctlProjectContext struct {
 	ClustersDir      string
 	SealedSecretsDir string
 
-	involvedRepos  map[string][]types.InvolvedRepo
-	DynamicTargets []*types.DynamicTarget
+	gitAuthProviders *auth2.GitAuthProviders
+	involvedRepos    map[string][]types.InvolvedRepo
+	DynamicTargets   []*types.DynamicTarget
 
 	mirroredRepos map[string]*git.MirroredGitRepo
 
@@ -43,11 +45,12 @@ type KluctlProjectContext struct {
 
 func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string) *KluctlProjectContext {
 	o := &KluctlProjectContext{
-		loadArgs:      loadArgs,
-		TmpDir:        tmpDir,
-		involvedRepos: make(map[string][]types.InvolvedRepo),
-		mirroredRepos: make(map[string]*git.MirroredGitRepo),
-		J2:            loadArgs.J2,
+		loadArgs:         loadArgs,
+		TmpDir:           tmpDir,
+		gitAuthProviders: auth2.NewDefaultAuthProviders(),
+		involvedRepos:    make(map[string][]types.InvolvedRepo),
+		mirroredRepos:    make(map[string]*git.MirroredGitRepo),
+		J2:               loadArgs.J2,
 	}
 	return o
 }
