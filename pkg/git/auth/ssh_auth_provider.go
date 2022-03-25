@@ -3,7 +3,7 @@ package auth
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	git_ssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/kevinburke/ssh_config"
 	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
 	"github.com/kluctl/kluctl/pkg/utils"
 	log "github.com/sirupsen/logrus"
@@ -45,16 +45,14 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 
 func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 	var ret []ssh.Signer
-	identityFromConfig := git_ssh.DefaultSSHConfig.Get(a.hostname, "IdentityFile")
-	if identityFromConfig != "" {
-		identityFromConfig = utils.ExpandPath(identityFromConfig)
-		signer, err := readKey(identityFromConfig)
+	for _, id := range ssh_config.GetAll(a.hostname, "IdentityFile") {
+		id = utils.ExpandPath(id)
+		signer, err := readKey(id)
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
 		if err == nil {
 			ret = append(ret, signer)
-			return ret, nil
 		}
 	}
 	if a.defaultIdentity != nil {
