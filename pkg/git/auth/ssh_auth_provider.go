@@ -50,32 +50,39 @@ func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 }
 
 func (a *sshDefaultIdentityAndAgent) addDefaultIdentity(gitUrl git_url.GitUrl) {
+	log.Debugf("trying to add default identity")
 	u, err := user.Current()
 	if err != nil {
 		log.Debugf("No current user: %v", err)
 	} else {
-		signer, err := a.authProvider.readKey(filepath.Join(u.HomeDir, ".ssh", "id_rsa"))
+		path := filepath.Join(u.HomeDir, ".ssh", "id_rsa")
+		signer, err := a.authProvider.readKey(path)
 		if err != nil && !os.IsNotExist(err) {
 			log.Warningf("Failed to read default identity file for url %s: %v", gitUrl.String(), err)
 		} else if signer != nil {
+			log.Debugf("...added '%s' as default identity", path)
 			a.signers = append(a.signers, signer)
 		}
 	}
 }
 
 func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) {
+	log.Debugf("trying to add identities from ssh config")
 	for _, id := range ssh_config.GetAll(gitUrl.Hostname(), "IdentityFile") {
-		id = utils.ExpandPath(id)
-		signer, err := a.authProvider.readKey(id)
+		expanded := utils.ExpandPath(id)
+		log.Debugf("...trying '%s' (expanded: '%s')", id, expanded)
+		signer, err := a.authProvider.readKey(expanded)
 		if err != nil && !os.IsNotExist(err) {
 			log.Warningf("Failed to read key %s for url %s: %v", id, gitUrl.String(), err)
 		} else if err == nil {
+			log.Debugf("...added '%s' from ssh config", expanded)
 			a.signers = append(a.signers, signer)
 		}
 	}
 }
 
 func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
+	log.Debugf("trying to add agent keys")
 	agent, _, err := sshagent.New()
 	if err != nil {
 		log.Warningf("Failed to connect to ssh agent for url %s: %v", gitUrl.String(), err)
@@ -85,6 +92,7 @@ func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
 			log.Warningf("Failed to get signers from ssh agent for url %s: %v", gitUrl.String(), err)
 			return
 		}
+		log.Debugf("...added %d agent keys", len(signers))
 		a.signers = append(a.signers, signers...)
 	}
 }
