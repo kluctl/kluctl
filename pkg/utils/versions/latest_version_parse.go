@@ -160,7 +160,7 @@ func parsePrefixFilter(p *preparsed) (LatestVersionFilter, error) {
 }
 
 func parseNumberFilter(p *preparsed) (LatestVersionFilter, error) {
-	return NewNumberVersionFilter()
+	return NewNumberVersionFilter(), nil
 }
 
 type arg struct {

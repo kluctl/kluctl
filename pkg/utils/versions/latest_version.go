@@ -3,6 +3,7 @@ package versions
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/pkg/utils"
+	"log"
 	"regexp"
 	"strconv"
 )
@@ -37,6 +38,14 @@ func NewRegexVersionFilter(pattern string) (LatestVersionFilter, error) {
 		patternStr: pattern,
 		pattern:    p,
 	}, nil
+}
+
+func NewRegexVersionFilterMust(pattern string) LatestVersionFilter {
+	ret, err := NewRegexVersionFilter(pattern)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ret
 }
 
 func (f *regexVersionFilter) Match(version string) bool {
@@ -102,6 +111,14 @@ func NewPrefixVersionFilter(prefix string, suffix LatestVersionFilter) (LatestVe
 	}, nil
 }
 
+func NewPrefixVersionFilterMust(prefix string, suffix LatestVersionFilter) LatestVersionFilter {
+	ret, err := NewPrefixVersionFilter(prefix, suffix)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return ret
+}
+
 func (f *prefixVersionFilter) Match(version string) bool {
 	groups := f.pattern.FindStringSubmatch(version)
 	if groups == nil {
@@ -134,9 +151,9 @@ type numberVersionFilter struct {
 	LatestVersionFilter
 }
 
-func NewNumberVersionFilter() (LatestVersionFilter, error) {
+func NewNumberVersionFilter() LatestVersionFilter {
 	f, _ := NewRegexVersionFilter("[0-9]+")
-	return &numberVersionFilter{f}, nil
+	return &numberVersionFilter{f}
 }
 
 func (f *numberVersionFilter) String() string {
