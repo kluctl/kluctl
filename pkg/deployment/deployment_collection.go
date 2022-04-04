@@ -178,7 +178,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 					err := d.postprocessAndLoadObjects(k, c.Images)
 					if err != nil {
 						mutex.Lock()
-						errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed. %w", *d.dir, err))
+						errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed: %w", *d.dir, err))
 						mutex.Unlock()
 					}
 					wg.Done()

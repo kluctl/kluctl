@@ -9,12 +9,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -22,6 +24,14 @@ import (
 	"sync"
 	"time"
 )
+
+type noAuthRetryError struct {
+	msg string
+}
+
+func (e *noAuthRetryError) Error() string {
+	return e.msg
+}
 
 func ListImageTags(image string) ([]string, error) {
 	var nameOpts []name.Option
@@ -40,7 +50,18 @@ func ListImageTags(image string) ([]string, error) {
 		repo, err = name.NewRepository(image, nameOpts...)
 	}
 
-	return remote.List(repo, remoteOpts...)
+	ret, err := remote.List(repo, remoteOpts...)
+	if e, ok := err.(*transport.Error); ok && (e.StatusCode == http.StatusUnauthorized || e.StatusCode == http.StatusForbidden) {
+		return nil, fmt.Errorf("failed to authenticate against image registry %s, " +
+			"please make sure that you provided credentials, e.g. via 'docker login' or via environment variables: %w", repo.Registry, err)
+	}
+	if e, ok := err.(*url.Error); ok {
+		if _, ok := e.Err.(*noAuthRetryError); ok {
+			// we explicitly ignore these errors as we assume that the original auth error is handled by another request
+			return nil, nil
+		}
+	}
+	return ret, err
 }
 
 var globalMyKeychain myKeychain
@@ -276,7 +297,7 @@ func (kc *myKeychain) RoundTrip(req *http.Request) (*http.Response, error) {
 	kc.mutex.Unlock()
 
 	if isAuthError {
-		return nil, fmt.Errorf("previous auth request for %s gave an error, we won't retry", realm)
+		return nil, &noAuthRetryError{fmt.Sprintf("previous auth request for %s gave an error, we won't retry", realm)}
 	}
 
 	if isAuthRealm {
