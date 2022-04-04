@@ -2,10 +2,10 @@ package versions
 
 import (
 	"fmt"
+	scanner "github.com/kluctl/kluctl/pkg/utils/python_scanner"
 	log "github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
-	"text/scanner"
 )
 
 type tokenAndText struct {
