@@ -256,36 +256,17 @@ func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) bool {
 	return r.Namespaced
 }
 
-func (k *K8sCluster) ShouldRemoveNamespace(ref k8s.ObjectRef) bool {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-	r, ok := k.allResources[ref.GVK]
-	if !ok {
-		// we don't know, so don't remove the NS
-		return false
-	}
-	if ref.Namespace == "" {
-		return false
-	}
-	if r.Namespaced {
-		return false
-	}
-	return true
-}
-
 func (k *K8sCluster) RemoveNamespaceIfNeeded(o *uo.UnstructuredObject) {
 	ref := o.GetK8sRef()
-	if !k.ShouldRemoveNamespace(ref) {
-		return
+	if !k.IsNamespaced(ref.GVK) && ref.Namespace != "" {
+		o.SetK8sNamespace("")
 	}
-	o.SetK8sNamespace("")
 }
 
 func (k *K8sCluster) RemoveNamespaceFromRefIfNeeded(ref k8s.ObjectRef) k8s.ObjectRef {
-	if !k.ShouldRemoveNamespace(ref) {
-		return ref
+	if !k.IsNamespaced(ref.GVK) && ref.Namespace != "" {
+		ref.Namespace = ""
 	}
-	ref.Namespace = ""
 	return ref
 }
 
