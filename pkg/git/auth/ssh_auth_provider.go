@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -103,11 +104,114 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 		user:     gitUrl.User.Username(),
 	}
 
+	// Try agent identities first. They might be unencrypted already, making passphrase prompts unnecessary
+	auth.addAgentIdentities(gitUrl)
 	auth.addDefaultIdentity(gitUrl)
 	auth.addConfigIdentities(gitUrl)
-	auth.addAgentIdentities(gitUrl)
 
 	return auth
+}
+
+// we defer asking for passphrase so that we don't unnecessarily ask for passphrases for keys that are already provided
+// by ssh-agent
+type deferredPassphraseKey struct {
+	a *GitSshAuthProvider
+	path string
+	err error
+	parsed ssh.Signer
+	mutex sync.Mutex
+}
+
+func (k *deferredPassphraseKey) getPassphrase() ([]byte, error) {
+	k.a.passphrasesMutex.Lock()
+	defer k.a.passphrasesMutex.Unlock()
+
+	if k.a.passphrases == nil {
+		k.a.passphrases = map[string][]byte{}
+	}
+
+	passphrase, ok := k.a.passphrases[k.path]
+	if ok {
+		return passphrase, nil
+	}
+
+	passphraseStr, err := utils.AskForPassword(fmt.Sprintf("Enter passphrase for key '%s'", k.path))
+	if err != nil {
+		k.a.passphrases[k.path] = nil
+		return nil, err
+	}
+	k.a.passphrases[k.path] = passphrase
+	return []byte(passphraseStr), nil
+}
+
+func (k *deferredPassphraseKey) parse() {
+	passphrase, err := k.getPassphrase()
+	if err != nil {
+		k.err = err
+		log.Warningf("Failed to parse key %s: %v", k.path, err)
+		return
+	}
+
+	pemBytes, err := ioutil.ReadFile(k.path)
+	if err != nil {
+		k.err = err
+		log.Warningf("Failed to parse key %s: %v", k.path, err)
+		return
+	}
+
+	s, err := ssh.ParsePrivateKeyWithPassphrase(pemBytes, passphrase)
+	if err != nil {
+		k.err = err
+		log.Warningf("Failed to parse key %s: %v", k.path, err)
+		return
+	}
+	k.parsed = s
+}
+
+type dummyPublicKey struct {
+}
+
+func (k *dummyPublicKey) Type() string {
+	return "dummy"
+}
+
+// Marshal returns the serialized key data in SSH wire format,
+// with the name prefix. To unmarshal the returned data, use
+// the ParsePublicKey function.
+func (k *dummyPublicKey) Marshal() []byte {
+	return []byte{}
+}
+
+// Verify that sig is a signature on the given data using this
+// key. This function will hash the data appropriately first.
+func (k *dummyPublicKey) Verify(data []byte, sig *ssh.Signature) error {
+	return fmt.Errorf("this is a dummy key")
+}
+
+func (k *deferredPassphraseKey) PublicKey() ssh.PublicKey {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	if k.parsed == nil && k.err == nil {
+		k.parse()
+	}
+	if k.err != nil {
+		return &dummyPublicKey{}
+	}
+	return k.parsed.PublicKey()
+}
+
+func (k *deferredPassphraseKey) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	if k.parsed == nil && k.err == nil {
+		k.parse()
+	}
+	if k.err != nil {
+		return nil, k.err
+	}
+	return k.parsed.Sign(rand, data)
 }
 
 func (a *GitSshAuthProvider) readKey(path string) (ssh.Signer, error) {
@@ -121,36 +225,12 @@ func (a *GitSshAuthProvider) readKey(path string) (ssh.Signer, error) {
 		}
 
 		if _, ok := err.(*ssh.PassphraseMissingError); ok {
-			passphrase := a.getPassphrase(path)
-			if passphrase == nil {
-				return nil, err
+			signer = &deferredPassphraseKey{
+				a:      a,
+				path:   path,
 			}
-			return ssh.ParsePrivateKeyWithPassphrase(pemBytes, passphrase)
 		}
 
 		return signer, nil
 	}
-}
-
-func (a *GitSshAuthProvider) getPassphrase(path string) []byte {
-	a.passphrasesMutex.Lock()
-	defer a.passphrasesMutex.Unlock()
-
-	if a.passphrases == nil {
-		a.passphrases = map[string][]byte{}
-	}
-
-	passphrase, ok := a.passphrases[path]
-	if ok {
-		return passphrase
-	}
-
-	passphraseStr, err := utils.AskForPassword(fmt.Sprintf("Enter passphrase for key '%s'", path))
-	if err != nil {
-		log.Warning(err)
-		a.passphrases[path] = nil
-		return nil
-	}
-	a.passphrases[path] = passphrase
-	return []byte(passphraseStr)
 }
