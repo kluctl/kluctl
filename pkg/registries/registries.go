@@ -52,7 +52,7 @@ func ListImageTags(image string) ([]string, error) {
 
 	ret, err := remote.List(repo, remoteOpts...)
 	if e, ok := err.(*transport.Error); ok && (e.StatusCode == http.StatusUnauthorized || e.StatusCode == http.StatusForbidden) {
-		return nil, fmt.Errorf("failed to authenticate against image registry %s, " +
+		return nil, fmt.Errorf("failed to authenticate against image registry %s, "+
 			"please make sure that you provided credentials, e.g. via 'docker login' or via environment variables: %w", repo.Registry, err)
 	}
 	if e, ok := err.(*url.Error); ok {

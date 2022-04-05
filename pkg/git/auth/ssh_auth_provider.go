@@ -18,7 +18,7 @@ import (
 )
 
 type GitSshAuthProvider struct {
-	passphrases map[string][]byte
+	passphrases      map[string][]byte
 	passphrasesMutex sync.Mutex
 }
 
@@ -100,8 +100,8 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 
 	auth := &sshDefaultIdentityAndAgent{
 		authProvider: a,
-		hostname: gitUrl.Hostname(),
-		user:     gitUrl.User.Username(),
+		hostname:     gitUrl.Hostname(),
+		user:         gitUrl.User.Username(),
 	}
 
 	// Try agent identities first. They might be unencrypted already, making passphrase prompts unnecessary
@@ -115,11 +115,11 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 // we defer asking for passphrase so that we don't unnecessarily ask for passphrases for keys that are already provided
 // by ssh-agent
 type deferredPassphraseKey struct {
-	a *GitSshAuthProvider
-	path string
-	err error
+	a      *GitSshAuthProvider
+	path   string
+	err    error
 	parsed ssh.Signer
-	mutex sync.Mutex
+	mutex  sync.Mutex
 }
 
 func (k *deferredPassphraseKey) getPassphrase() ([]byte, error) {
@@ -226,8 +226,8 @@ func (a *GitSshAuthProvider) readKey(path string) (ssh.Signer, error) {
 
 		if _, ok := err.(*ssh.PassphraseMissingError); ok {
 			signer = &deferredPassphraseKey{
-				a:      a,
-				path:   path,
+				a:    a,
+				path: path,
 			}
 		}
 

@@ -9,9 +9,9 @@ import (
 func TestParse(t *testing.T) {
 
 	type testCase struct {
-		s string
+		s              string
 		expectedFilter LatestVersionFilter
-		expectedErr error
+		expectedErr    error
 	}
 
 	testCases := []testCase{
