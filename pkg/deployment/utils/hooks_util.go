@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var supportedKluctlHooks = []string{
@@ -46,6 +47,7 @@ type hook struct {
 	weight         int
 	deletePolicies map[string]bool
 	wait           bool
+	timeout        time.Duration
 }
 
 func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
@@ -116,7 +118,7 @@ func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 		if !h.wait {
 			continue
 		}
-		waitResults[ref] = u.a.WaitReadiness(ref)
+		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout)
 	}
 
 	var deleteAfterObjects []*hook
@@ -227,6 +229,17 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		wait = true
 	}
 
+	timeoutStr := o.GetK8sAnnotation("kluctl.io/hook-timeout")
+	var timeout time.Duration
+	if timeoutStr != nil {
+		t, err := time.ParseDuration(*timeoutStr)
+		if err != nil {
+			u.a.HandleError(ref, fmt.Errorf("failed to parse duration: %w", err))
+		} else {
+			timeout = t
+		}
+	}
+
 	if len(hooks) == 0 {
 		return nil
 	}
@@ -237,6 +250,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		weight:         int(weight),
 		deletePolicies: deletePolicy,
 		wait:           wait,
+		timeout:        timeout,
 	}
 }
 

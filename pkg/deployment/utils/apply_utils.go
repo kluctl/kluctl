@@ -294,12 +294,16 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	return false, err
 }
 
-func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef) bool {
+func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) bool {
 	if a.o.DryRun {
 		return true
 	}
 
-	log2 := log.WithField("ref", ref)
+	if timeout == 0 {
+		timeout = a.o.WaitObjectTimeout
+	}
+
+	log2 := log.WithField("ref", ref).WithField("timeout", timeout.String())
 	log2.Debugf("Waiting for object to get ready")
 
 	lastLogTime := time.Now()
@@ -336,7 +340,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef) bool {
 			return false
 		}
 
-		if a.o.WaitObjectTimeout != 0 && time.Now().Sub(startTime) >= a.o.WaitObjectTimeout {
+		if timeout > 0 && time.Now().Sub(startTime) >= timeout {
 			err := fmt.Errorf("timed out while waiting for object")
 			log2.Warningf(err.Error())
 			a.HandleError(ref, err)
@@ -419,7 +423,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 		waitReadiness := (d.Config.WaitReadiness != nil && *d.Config.WaitReadiness) || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
 		if !a.o.NoWait && waitReadiness {
-			a.WaitReadiness(o.GetK8sRef())
+			a.WaitReadiness(o.GetK8sRef(), 0)
 		}
 	}
 
