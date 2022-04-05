@@ -537,6 +537,12 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 			}
 		}
 		kluctlExe = "kluctl"
+	} else {
+		p, err := filepath.Abs(kluctlExe)
+		if err != nil {
+			return "", "", err
+		}
+		kluctlExe = p
 	}
 
 	cmd := exec.Command(kluctlExe, args...)
