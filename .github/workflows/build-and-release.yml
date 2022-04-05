@@ -117,8 +117,11 @@ jobs:
           name: dist
           path: |
             kluctl-linux-amd64
+            kluctl-linux-amd64.sha256
             kluctl-darwin-amd64
+            kluctl-darwin-amd64.sha256
             kluctl-windows-amd64.exe
+            kluctl-windows-amd64.exe.sha256
             e2e.test-linux-amd64
             e2e.test-darwin-amd64
             e2e.test-windows-amd64.exe
