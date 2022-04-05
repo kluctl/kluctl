@@ -310,12 +310,14 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	didLog := false
 	startTime := time.Now()
 	for true {
+		log3 := log2.WithField("elapsed", (time.Second * time.Duration(time.Now().Sub(startTime).Seconds())).String())
+
 		o, apiWarnings, err := a.k.GetSingleObject(ref)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if didLog {
-					log2.Warningf("Cancelled waiting for object as it disappeared while waiting for it")
+					log3.Warningf("Cancelled waiting for object as it disappeared while waiting for it")
 				}
 				a.HandleError(ref, fmt.Errorf("object disappeared while waiting for it to become ready"))
 				return false
@@ -326,13 +328,13 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		v := validation.ValidateObject(a.k, o, false)
 		if v.Ready {
 			if didLog {
-				log2.Infof("Finished waiting for object")
+				log3.Infof("Finished waiting for object")
 			}
 			return true
 		}
 		if len(v.Errors) != 0 {
 			if didLog {
-				log2.Warningf("Cancelled waiting for object due to errors")
+				log3.Warningf("Cancelled waiting for object due to errors")
 			}
 			for _, e := range v.Errors {
 				a.HandleError(ref, fmt.Errorf(e.Error))
@@ -342,17 +344,17 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 
 		if timeout > 0 && time.Now().Sub(startTime) >= timeout {
 			err := fmt.Errorf("timed out while waiting for object")
-			log2.Warningf(err.Error())
+			log3.Warningf(err.Error())
 			a.HandleError(ref, err)
 			return false
 		}
 
 		if !didLog {
-			log2.Infof("Waiting for object to get ready...")
+			log3.Infof("Waiting for object to get ready...")
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			log2.Infof("Still waiting for object to get ready (%s)...", time.Now().Sub(startTime).String())
+			log3.Infof("Still waiting for object to get ready...")
 			lastLogTime = time.Now()
 		}
 
