@@ -95,6 +95,9 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 	}
 
 	reactToError := func(err error, er errorReaction, doRaise bool) {
+		if err == nil {
+			return
+		}
 		if er == reactError {
 			addError(err.Error())
 		} else if er == reactWarning {
@@ -239,10 +242,25 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 
 	switch o.GetK8sGVK().GroupKind() {
 	case schema.GroupKind{Group: "", Kind: "Pod"}:
-		c := getCondition("Ready", reactIgnore, false)
-		if c.status != "True" {
-			addNotReady(c.getMessage("Not ready"))
+		containerStatuses, _, err := status.GetNestedObjectList("containerStatuses")
+		reactToError(err, reactError, true)
+		for _, cs := range containerStatuses {
+			containerName, _, err := cs.GetNestedString("name")
+			reactToError(err, reactError, true)
+			terminateReason, ok, err := cs.GetNestedString("state", "terminated", "reason")
+			reactToError(err, reactError, true)
+			if ok && terminateReason == "Error" {
+				addError(fmt.Sprintf("container %s exited with error", containerName))
+			}
 		}
+
+		rc := getCondition("Ready", reactNotReady, false)
+		if rc.status == "False" && rc.reason == "PodCompleted" {
+			// pod exited
+			return
+		}
+		// pod is still running, so it is not ready
+		addNotReady("Not ready")
 	case schema.GroupKind{Group: "batch", Kind: "Job"}:
 		c := getCondition("Failed", reactIgnore, false)
 		if c.status == "True" {
