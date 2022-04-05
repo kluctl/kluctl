@@ -306,6 +306,7 @@ jobs:
         shell: bash
         run: |
           chmod +x ./dist/*
+          export KLUCTL_EXE=./dist/kluctl-${{ matrix.binary-suffix }}$TOOLS_EXE
           ./dist/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
 
   release:

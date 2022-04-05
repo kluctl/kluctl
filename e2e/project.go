@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -526,7 +527,23 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 
 	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
-	stdout, stderr, err := runWrappedCmd(p.t, "TestKluctlWrapper", cwd, env, args)
+	kluctlExe := os.Getenv("KLUCTL_EXE")
+	if kluctlExe == "" {
+		curDir, _ := os.Getwd()
+		for i, p := range env {
+			x := strings.SplitN(p, "=", 2)
+			if x[0] == "PATH" {
+				env[i] = fmt.Sprintf("PATH=%s%c%s%c%s", curDir, os.PathListSeparator, filepath.Join(curDir, ".."), os.PathListSeparator, x[1])
+			}
+		}
+		kluctlExe = "kluctl"
+	}
+
+	cmd := exec.Command(kluctlExe, args...)
+	cmd.Dir = cwd
+	cmd.Env = env
+
+	stdout, stderr, err := runHelper(p.t, cmd)
 	return stdout, stderr, err
 }
 

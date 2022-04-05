@@ -1,8 +1,11 @@
 package e2e
 
 import (
+	"bufio"
+	"bytes"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"github.com/kluctl/kluctl/pkg/validation"
+	"io"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -84,6 +87,36 @@ func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected in
 	if !reflect.DeepEqual(v, expected) {
 		t.Fatalf("%v != %v", v, expected)
 	}
+}
+
+func runHelper(t *testing.T, cmd *exec.Cmd) (string, string, error) {
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", "", err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		_ = stdoutPipe.Close()
+		return "", "", err
+	}
+
+	stdReader := func(testLogPrefix string, buf io.StringWriter, pipe io.Reader) {
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			l := scanner.Text()
+			t.Log(testLogPrefix + l)
+			_, _ = buf.WriteString(l + "\n")
+		}
+	}
+
+	stdoutBuf := bytes.NewBuffer(nil)
+	stderrBuf := bytes.NewBuffer(nil)
+
+	go stdReader("stdout: ", stdoutBuf, stdoutPipe)
+	go stdReader("stderr: ", stderrBuf, stderrPipe)
+
+	err = cmd.Run()
+	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
 func init() {
