@@ -89,6 +89,7 @@ jobs:
           go build ./cmd/kluctl
           go test -c ./e2e
           mv kluctl kluctl-linux-amd64
+          sha256sum -z kluctl-linux-amd64 > kluctl-linux-amd64.sha256
           mv e2e.test e2e.test-linux-amd64
       - name: Build kluctl (darwin)
         run: |
@@ -98,6 +99,7 @@ jobs:
           go build ./cmd/kluctl
           go test -c ./e2e
           mv kluctl kluctl-darwin-amd64
+          sha256sum -z kluctl-darwin-amd64 > kluctl-darwin-amd64.sha256
           mv e2e.test e2e.test-darwin-amd64
       - name: Build kluctl (windows)
         run: |
@@ -107,6 +109,7 @@ jobs:
           go build ./cmd/kluctl
           go test -c ./e2e
           mv kluctl.exe kluctl-windows-amd64.exe
+          sha256sum -z kluctl-windows-amd64.exe > kluctl-windows-amd64.exe.sha256
           mv e2e.test.exe e2e.test-windows-amd64.exe
       - name: Upload dist artifact
         uses: actions/upload-artifact@v2
@@ -328,3 +331,4 @@ jobs:
             dist/kluctl-linux-*
             dist/kluctl-darwin-*
             dist/kluctl-windows-*
+            dist/*.sha256
