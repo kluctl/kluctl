@@ -84,7 +84,11 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 	if len(limitWidths) < cols {
 		tw := getTermWidth()
 		// last column should use all remaining space
-		widths[len(limitWidths)] = tw - widthSum - (cols-1)*3 - 4
+		tw = tw - widthSum - (cols-1)*3 - 4
+		if tw <= 0 {
+			tw = 1
+		}
+		widths[len(limitWidths)] = tw
 	}
 
 	hsep := "+-"
