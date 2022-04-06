@@ -11,7 +11,7 @@ from jinja2 import BytecodeCache
 from jinja2.bccache import Bucket
 
 def get_tmp_base_dir():
-    dir = os.path.join(tempfile.gettempdir(), "kluctl-j2-server")
+    dir = os.path.join(tempfile.gettempdir(), "kluctl")
     os.makedirs(dir, exist_ok=True)
     return dir
 
