@@ -151,6 +151,12 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 
 	varsCtx.UpdateChild("args", allArgs)
 
+	targetVars, err := uo.FromStruct(target)
+	if err != nil {
+		return err
+	}
+	varsCtx.UpdateChild("target", targetVars)
+
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
 		tmpDir, err := ioutil.TempDir(p.TmpDir, "rendered")
