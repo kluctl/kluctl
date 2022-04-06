@@ -563,7 +563,7 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 			} else {
 				l, apiWarnings, err = k.ListObjects(gvk, namespace, labels)
 			}
-			if err != nil {
+			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
 			mutex.Lock()
