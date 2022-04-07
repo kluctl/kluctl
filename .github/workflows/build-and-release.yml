@@ -108,12 +108,13 @@ jobs:
           go test -c ./e2e
           mv kluctl.exe kluctl-windows-amd64.exe
           mv e2e.test.exe e2e.test-windows-amd64.exe
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v2
+      - name: Build checksums.txt
         run: |
           sha256sum kluctl-linux-amd64 > checksums.txt
           sha256sum kluctl-darwin-amd64 >> checksums.txt
           sha256sum kluctl-windows-amd64.exe >> checksums.txt
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v2
         with:
           name: dist
           path: |
@@ -334,3 +335,4 @@ jobs:
             dist/kluctl-darwin-*
             dist/kluctl-windows-*
             dist/checksums.txt
+
