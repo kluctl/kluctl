@@ -1,5 +1,0 @@
-targets:
-  - name: dev
-    cluster: kind
-    args:
-      environment: dev
