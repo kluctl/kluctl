@@ -70,14 +70,6 @@ jobs:
           go generate ./...
           go generate -tags darwin ./pkg/python
           go generate -tags windows ./pkg/python
-      - name: Check docs
-        run: |
-          go run ./hack/replace-commands-help --commands-md ./docs/commands.md
-
-          if [ "$(git status --porcelain -- docs)" != "" ]; then
-            echo "commands.md is not up-to-date. Run "./hack/replace-commands-help --commands-md ./docs/commands.md" to fix this!"
-            exit 1
-          fi
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v
