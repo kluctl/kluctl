@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/kluctl/kluctl/pkg/deployment"
+	git2 "github.com/kluctl/kluctl/pkg/git"
 	log "github.com/sirupsen/logrus"
 	"io/fs"
 	"path/filepath"
@@ -24,7 +25,12 @@ func (cmd *helmUpdateCmd) Run() error {
 	if cmd.LocalDeployment != "" {
 		rootPath = cmd.LocalDeployment
 	}
-	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
+	gitRootPath, err := git2.DetectGitRepositoryRoot(rootPath)
+	if err != nil {
+		return err
+	}
+
+	err = filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
 			chart, err := deployment.NewHelmChart(p)
@@ -89,7 +95,7 @@ func (cmd *helmUpdateCmd) Run() error {
 				if cmd.Commit {
 					msg := fmt.Sprintf("Updated helm chart %s from %s to %s", filepath.Dir(p), oldVersion, newVersion)
 					log.Infof("Committing: %s", msg)
-					r, err := git.PlainOpen(rootPath)
+					r, err := git.PlainOpen(gitRootPath)
 					if err != nil {
 						return err
 					}
@@ -98,7 +104,15 @@ func (cmd *helmUpdateCmd) Run() error {
 						return err
 					}
 					for p := range gitFiles {
-						_, err = wt.Add(p)
+						absPath, err := filepath.Abs(filepath.Join(rootPath, p))
+						if err != nil {
+							return err
+						}
+						relToGit, err := filepath.Rel(gitRootPath, absPath)
+						if err != nil {
+							return err
+						}
+						_, err = wt.Add(relToGit)
 						if err != nil {
 							return err
 						}
