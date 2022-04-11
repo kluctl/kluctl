@@ -1,0 +1,56 @@
+name: Feature
+description: Create a feature request
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, please take a look if your feature is already requested in the issues.
+
+        ---
+
+        Thank you for taking the time to create a feature request. We try to divide the work that needs to be done with the help of [user stories](https://www.agilealliance.org/glossary/user-stories/).
+        In order to help us with this, we kindly ask you to answer the questions below.
+  - type: checkboxes
+    id: command
+    attributes:
+      label: Command
+      description: Which command will be affected by the feature request
+      options:
+        - archive
+        - check-image-updates
+        - delete
+        - deploy
+        - diff
+        - downscale
+        - helm-pull
+        - helm-update
+        - list-images
+        - list-targets
+        - poke-images
+        - prune
+        - render
+        - seal
+        - validate
+        - version
+        - None of the above (e.g. new command)
+  - type: input
+    id: persona
+    attributes:
+      label: Who are you?
+      description: In order to help us understand for whom we are implementing the feature, please tell us a little bit about you. For example, "Max, 25, Platform Engineer at Company"
+    validations:
+      required: false
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want to do?
+      description: Now tell us what your intent is. What would you like to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why do you need that?
+      description: Now tell us why do you need that feature? What is the overall benefit of the feature?
+    validations:
+      required: true
