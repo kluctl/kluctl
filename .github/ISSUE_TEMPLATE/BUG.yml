@@ -1,0 +1,69 @@
+name: Bug
+description: File a bug report
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a bug report, please take a look if your finding is already reported in the issues.
+
+        ---
+
+        Thank you for taking the time to file a bug report. To address this bug as fast as possible, we need some information.
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: "Which operating system do you use? Please provide the version as well."
+      placeholder: "Ubuntu 20.04, macOS Big Sur 11.5.2"
+    validations:
+      required: true
+  - type: input
+    id: kluctl
+    attributes:
+      label: Kluctl Version
+      description: "Please provide the full kluctl version. (Output of `kluctl version`)"
+      placeholder: "2.4.2"
+    validations:
+      required: true
+  - type: input
+    id: kubernetes
+    attributes:
+      label: Kubernetes Version
+      description: "Please provide the full kubernetes version. (Output of `kubectl version`-> Server Version)"
+      placeholder: "v1.22.0"
+    validations:
+      required: true
+  - type: input
+    id: kubectl
+    attributes:
+      label: kubectl Version
+      description: "Please provide the full kubectl version. (Output of `kubectl version` -> Client Version)"
+      placeholder: "v1.22.0"
+    validations:
+      required: true
+  - type: input
+    id: helm
+    attributes:
+      label: Helm Version
+      description: "Please provide the full Helm version. (Output of `helm version`)"
+      placeholder: "v3.6.3"
+    validations:
+      required: true
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug description
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Which steps do we need to take to reproduce this error?
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: If applicable, provide relevant log output. No need for backticks here (`kluctl -v debug`).
+      render: shell
