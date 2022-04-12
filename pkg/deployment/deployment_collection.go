@@ -143,7 +143,7 @@ func (c *DeploymentCollection) resolveSealedSecrets() error {
 	}
 
 	for _, d := range c.Deployments {
-		err := d.resolveSealedSecrets()
+		err := d.resolveSealedSecrets("")
 		if err != nil {
 			return err
 		}

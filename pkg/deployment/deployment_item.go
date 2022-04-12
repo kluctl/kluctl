@@ -180,7 +180,7 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 	return nil
 }
 
-func (di *DeploymentItem) resolveSealedSecrets() error {
+func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -190,7 +190,9 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 	sealedSecretsDir := di.Project.getSealedSecretsDir()
 	baseSourcePath := di.Project.SealedSecretsDir
 
-	y, err := uo.FromFile(yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml")))
+	renderedDir := filepath.Join(di.renderedDir, subdir)
+
+	y, err := uo.FromFile(yaml.FixPathExt(filepath.Join(renderedDir, "kustomization.yml")))
 	if err != nil {
 		return err
 	}
@@ -199,11 +201,18 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 		return err
 	}
 	for _, resource := range l {
-		p := filepath.Join(di.renderedDir, resource)
+		p := filepath.Join(renderedDir, resource)
+		if utils.IsDirectory(p) {
+			err = di.resolveSealedSecrets(filepath.Join(subdir, resource))
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		if utils.Exists(p) || !utils.Exists(p+SealmeExt) {
 			continue
 		}
-		relDir, err := filepath.Rel(di.renderedDir, filepath.Dir(p))
+		relDir, err := filepath.Rel(renderedDir, filepath.Dir(p))
 		if err != nil {
 			return err
 		}
@@ -213,8 +222,8 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 		if sealedSecretsDir == nil {
 			return fmt.Errorf("%s. Sealed secrets dir could not be determined", baseError)
 		}
-		sourcePath := filepath.Clean(filepath.Join(baseSourcePath, di.relRenderedDir, relDir, *sealedSecretsDir, fname))
-		targetPath := filepath.Join(di.renderedDir, relDir, fname)
+		sourcePath := filepath.Clean(filepath.Join(baseSourcePath, filepath.Join(di.relRenderedDir, subdir), relDir, *sealedSecretsDir, fname))
+		targetPath := filepath.Join(renderedDir, relDir, fname)
 		if !utils.IsFile(sourcePath) {
 			return fmt.Errorf("%s. %s not found. You might need to seal it first", baseError, sourcePath)
 		}
