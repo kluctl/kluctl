@@ -58,7 +58,7 @@ func (c *KluctlProjectContext) updateGitCaches() error {
 		return nil
 	}
 	doUpdateExternalProject := func(p *types2.ExternalProject) error {
-		if p == nil {
+		if p == nil || p.Project == nil {
 			return nil
 		}
 		return doUpdateGitProject(p.Project.Url)
@@ -200,7 +200,7 @@ func (c *KluctlProjectContext) cloneKluctlProject() (gitProjectInfo, error) {
 		return c.localProject(p), err
 	}
 	return c.cloneGitProject(types2.ExternalProject{
-		Project: types2.GitProject{
+		Project: &types2.GitProject{
 			Url: *c.loadArgs.ProjectUrl,
 			Ref: c.loadArgs.ProjectRef,
 		},

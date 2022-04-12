@@ -241,7 +241,7 @@ func (c *KluctlProjectContext) cloneDynamicTargets(dynamicTargets []*dynamicTarg
 		uniqueClones[targetInfo.dir] = nil
 
 		wp.Submit(func() error {
-			ep := types.ExternalProject{Project: *targetInfo.gitProject}
+			ep := types.ExternalProject{Project: targetInfo.gitProject}
 			ep.Project.Ref = *targetInfo.ref
 
 			gi, err := c.cloneGitProject(ep, "", false, false)

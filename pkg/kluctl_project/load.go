@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"github.com/kluctl/kluctl/pkg/git"
 	types2 "github.com/kluctl/kluctl/pkg/types"
 	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/yaml"
@@ -80,10 +81,32 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 		if localDir != "" {
 			return c.localProject(localDir), nil
 		}
-		if ep == nil {
+		if ep == nil || ep.Project == nil {
 			p := kluctlProjectInfo.dir
-			if defaultGitSubDir != "" {
-				p = filepath.Join(p, defaultGitSubDir)
+			if ep != nil {
+				if filepath.IsAbs(*ep.Path) {
+					return gitProjectInfo{}, fmt.Errorf("only paths relative to the git project root are allowed")
+				}
+				// we only allow relative paths pointing into the root git project
+				gitRoot, err := git.DetectGitRepositoryRoot(p)
+				if err != nil {
+					return gitProjectInfo{}, fmt.Errorf("could not determine git project root: %w", err)
+				}
+				gitRoot, err = filepath.Abs(gitRoot)
+				if err != nil {
+					return gitProjectInfo{}, err
+				}
+				p, err = filepath.Abs(filepath.Join(p, *ep.Path))
+				if err != nil {
+					return gitProjectInfo{}, err
+				}
+				if !strings.HasPrefix(p, gitRoot) {
+					return gitProjectInfo{}, fmt.Errorf("path '%s' is not inside git project root '%s'", *ep.Path, gitRoot)
+				}
+			} else {
+				if defaultGitSubDir != "" {
+					p = filepath.Join(p, defaultGitSubDir)
+				}
 			}
 			return c.localProject(p), nil
 		}

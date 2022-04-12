@@ -30,7 +30,17 @@ func ValidateGitProject(sl validator.StructLevel) {
 }
 
 type ExternalProject struct {
-	Project GitProject `yaml:"project"`
+	Project *GitProject `yaml:"project,omitempty"`
+	Path *string `yaml:"path,omitempty"`
+}
+
+func ValidateExternalProject(sl validator.StructLevel) {
+	p := sl.Current().Interface().(ExternalProject)
+	if p.Project == nil && p.Path == nil {
+		sl.ReportError(p, ".", ".", "empty", "either project or path must be set")
+	} else if p.Project != nil && p.Path != nil {
+		sl.ReportError(p, ".", ".", "empty", "only one of project or path can be set")
+	}
 }
 
 type ExternalProjects struct {
@@ -50,4 +60,5 @@ func (gp *ExternalProjects) UnmarshalYAML(unmarshal func(interface{}) error) err
 
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
+	yaml.Validator.RegisterStructValidation(ValidateExternalProject, ExternalProject{})
 }
