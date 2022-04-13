@@ -16,22 +16,22 @@ body:
       label: Command
       description: Which command will be affected by the feature request? (If you want to propose a new command, just leave all unchecked)
       options:
-        - archive
-        - check-image-updates
-        - delete
-        - deploy
-        - diff
-        - downscale
-        - helm-pull
-        - helm-update
-        - list-images
-        - list-targets
-        - poke-images
-        - prune
-        - render
-        - seal
-        - validate
-        - version
+        - "archive"
+        - "check-image-updates"
+        - "delete"
+        - "deploy"
+        - "diff"
+        - "downscale"
+        - "helm-pull"
+        - "helm-update"
+        - "list-images"
+        - "list-targets"
+        - "poke-images"
+        - "prune"
+        - "render"
+        - "seal"
+        - "validate"
+        - "version"
   - type: input
     id: persona
     attributes:
