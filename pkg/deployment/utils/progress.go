@@ -10,36 +10,41 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 type progressCtx struct {
-	bar    *mpb.Bar
-	total  int64
-	name   string
-	status string
-	mutex  sync.Mutex
+	bar       *mpb.Bar
+	total     int64
+	name      string
+	status    string
+	startTime time.Time
+	mutex     sync.Mutex
 }
 
 func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int) *progressCtx {
 	pctx := &progressCtx{
-		status: "Initializing...",
-		total:  -1,
-		name:   name,
+		status:    "Initializing...",
+		total:     -1,
+		name:      name,
+		startTime: time.Now(),
 	}
 	if !isatty.IsTerminal(os.Stderr.Fd()) || name == "" {
 		return pctx
 	}
 
 	name += ":"
-	if len(name) < maxNameWidth + 1 {
-		name += strings.Repeat(" ", maxNameWidth - len(name) + 1)
+	if len(name) < maxNameWidth+1 {
+		name += strings.Repeat(" ", maxNameWidth-len(name)+1)
 	}
+	name += " "
 
 	if p != nil {
 		pctx.bar = p.AddBar(-1,
 			mpb.BarWidth(40),
 			mpb.PrependDecorators(decor.Name(name)),
-			mpb.AppendDecorators(decor.Any(pctx.DecorFunc)),
+			mpb.PrependDecorators(decor.Any(pctx.ElapsedDecorFunc)),
+			mpb.AppendDecorators(decor.Any(pctx.StatusDecorFunc)),
 		)
 	}
 	return pctx
@@ -80,10 +85,18 @@ func (ctx *progressCtx) SetStatus(s string) {
 	ctx.status = s
 }
 
-func (ctx *progressCtx) DecorFunc(st decor.Statistics) string {
+func (ctx *progressCtx) StatusDecorFunc(st decor.Statistics) string {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	return ctx.status
+}
+
+func (ctx *progressCtx) ElapsedDecorFunc(st decor.Statistics) string {
+	s := fmt.Sprintf("%.3fs", time.Now().Sub(ctx.startTime).Seconds())
+	if len(s) < 8 {
+		s = strings.Repeat(" ", 8 - len(s)) + s
+	}
+	return s
 }
 
 func (ctx *progressCtx) SetTotal(total int64) {

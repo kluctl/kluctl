@@ -391,7 +391,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			return false
 		}
 
-		a.pctx.SetStatus(fmt.Sprintf("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed))
+		a.pctx.SetStatus(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
 
 		if !didLog {
 			a.pctx.Infof("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
@@ -562,19 +562,18 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			bpctx.SetTotal(1)
 
 			bpctx.InfofAndStatus("Waiting on barrier...")
-			startTime := time.Now()
 			stopCh := make(chan int)
 			doneCh := make(chan int)
 			go func() {
 				for {
 					select {
 					case <-stopCh:
-						bpctx.SetStatus(fmt.Sprintf("Finished waiting (%ds elapsed)", int(time.Now().Sub(startTime).Seconds())))
+						bpctx.SetStatus(fmt.Sprintf("Finished waiting"))
 						bpctx.Finish()
 						doneCh <- 1
 						return
 					case <-time.After(time.Second):
-						bpctx.SetStatus(fmt.Sprintf("Waiting on barrier... (%ds elapsed)", int(time.Now().Sub(startTime).Seconds())))
+						bpctx.SetStatus(fmt.Sprintf("Waiting on barrier..."))
 					}
 				}
 			}()
