@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	errors2 "errors"
 	"fmt"
 	"github.com/kluctl/kluctl/pkg/deployment"
@@ -12,9 +13,13 @@ import (
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"github.com/kluctl/kluctl/pkg/validation"
 	log "github.com/sirupsen/logrus"
+	"github.com/vbauerster/mpb/v7"
+	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 )
@@ -294,7 +299,7 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	return false, err
 }
 
-func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) bool {
+func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration, pctx *progressCtx) bool {
 	if a.o.DryRun {
 		return true
 	}
@@ -303,23 +308,22 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		timeout = a.o.WaitObjectTimeout
 	}
 
-	log2 := log.WithField("ref", ref).WithField("timeout", timeout.String())
-	log2.Debugf("Waiting for object to get ready")
+	pctx.Debugf("Waiting for %s to get ready", ref.String())
 
 	lastLogTime := time.Now()
 	didLog := false
 	startTime := time.Now()
 	for true {
-		log3 := log2.WithField("elapsed", (time.Second * time.Duration(time.Now().Sub(startTime).Seconds())).String())
+		elapsed := time.Second * time.Duration(time.Now().Sub(startTime).Seconds())
 
 		o, apiWarnings, err := a.k.GetSingleObject(ref)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if didLog {
-					log3.Warningf("Cancelled waiting for object as it disappeared while waiting for it")
+					pctx.Warningf("Cancelled waiting for %s as it disappeared while waiting for it (%ss elapsed)", ref.String(), elapsed)
 				}
-				a.HandleError(ref, fmt.Errorf("object disappeared while waiting for it to become ready"))
+				a.HandleError(ref, fmt.Errorf("%s disappeared while waiting for it to become ready", ref.String()))
 				return false
 			}
 			a.HandleError(ref, err)
@@ -328,13 +332,13 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		v := validation.ValidateObject(a.k, o, false)
 		if v.Ready {
 			if didLog {
-				log3.Infof("Finished waiting for object")
+				pctx.Infof("Finished waiting for %s (%ss elapsed)", ref.String(), elapsed)
 			}
 			return true
 		}
 		if len(v.Errors) != 0 {
 			if didLog {
-				log3.Warningf("Cancelled waiting for object due to errors")
+				pctx.Warningf("Cancelled waiting for %s due to errors (%ss elapsed)", ref.String(), elapsed)
 			}
 			for _, e := range v.Errors {
 				a.HandleError(ref, fmt.Errorf(e.Error))
@@ -343,18 +347,20 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		}
 
 		if timeout > 0 && time.Now().Sub(startTime) >= timeout {
-			err := fmt.Errorf("timed out while waiting for object")
-			log3.Warningf(err.Error())
+			err := fmt.Errorf("timed out while waiting for %s", ref.String())
+			pctx.Warningf("%s (%ss elapsed)", err.Error(), elapsed)
 			a.HandleError(ref, err)
 			return false
 		}
 
+		pctx.SetStatus(fmt.Sprintf("Waiting for %s to get ready... (%ss elapsed)", ref.String(), elapsed))
+
 		if !didLog {
-			log3.Infof("Waiting for object to get ready...")
+			pctx.Infof("Waiting for %s to get ready... (%ss elapsed)", ref.String(), elapsed)
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			log3.Infof("Still waiting for object to get ready...")
+			pctx.Infof("Still waiting for %s to get ready... (%ss elapsed)", ref.String(), elapsed)
 			lastLogTime = time.Now()
 		}
 
@@ -363,12 +369,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	return false
 }
 
-func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
-	if !d.CheckInclusionForDeploy() {
-		a.DoLog(d, log.InfoLevel, "Skipping")
-		return
-	}
-
+func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem, pctx *progressCtx) {
 	var toDelete []k8s2.ObjectRef
 	for _, x := range d.Config.DeleteObjects {
 		for _, gvk := range a.k.GetGVKs(x.Group, x.Version, x.Kind) {
@@ -380,26 +381,14 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			toDelete = append(toDelete, ref)
 		}
 	}
-	if len(toDelete) != 0 {
-		log.Infof("Deleting %d objects", len(toDelete))
-		for _, ref := range toDelete {
-			a.DeleteObject(ref, false)
-		}
-	}
+
+	h := HooksUtil{a: a}
 
 	initialDeploy := true
 	for _, o := range d.Objects {
 		if a.ru.GetRemoteObject(o.GetK8sRef()) != nil {
 			initialDeploy = false
 		}
-	}
-
-	h := HooksUtil{a: a}
-
-	if initialDeploy {
-		h.RunHooks(d, []string{"pre-deploy-initial", "pre-deploy"})
-	} else {
-		h.RunHooks(d, []string{"pre-deploy-upgrade", "pre-deploy"})
 	}
 
 	var applyObjects []*uo.UnstructuredObject
@@ -410,36 +399,96 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		applyObjects = append(applyObjects, o)
 	}
 
+	var preHooks []*hook
+	var postHooks []*hook
+	if initialDeploy {
+		preHooks = h.DetermineHooks(d, []string{"pre-deploy-initial", "pre-deploy"})
+		postHooks = h.DetermineHooks(d, []string{"post-deploy-initial", "post-deploy"})
+	} else {
+		postHooks = h.DetermineHooks(d, []string{"pre-deploy-upgrade", "pre-deploy"})
+		postHooks = h.DetermineHooks(d, []string{"post-deploy-upgrade", "post-deploy"})
+	}
+
+	total := len(applyObjects) + len(preHooks) + len(postHooks)
+	pctx.SetTotal(int64(total))
+	if !d.CheckInclusionForDeploy() {
+		pctx.InfofAndStatus("Skipped")
+		pctx.Finish()
+		return
+	}
+
+	if len(toDelete) != 0 {
+		pctx.Infof("Deleting %d objects", len(toDelete))
+		for i, ref := range toDelete {
+			pctx.SetStatus(fmt.Sprintf("Deleting object %s (%d of %d)", ref.String(), i+1, len(toDelete)))
+			a.DeleteObject(ref, false)
+			pctx.Increment()
+		}
+	}
+
+	h.RunHooks(preHooks, pctx)
+
 	if len(applyObjects) != 0 {
-		a.DoLog(d, log.InfoLevel, "Applying %d objects", len(applyObjects))
+		pctx.Infof("Applying %d objects", len(applyObjects))
 	}
 	startTime := time.Now()
 	didLog := false
 	for i, o := range applyObjects {
+		if a.abortSignal {
+			break
+		}
+
+		ref := o.GetK8sRef()
+		pctx.SetStatus(fmt.Sprintf("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects)))
 		a.ApplyObject(o, false, false)
+		pctx.Increment()
 		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
-			a.DoLog(d, log.InfoLevel, "...applied %d of %d objects", i+1, len(applyObjects))
+			pctx.Infof("...applied %d of %d objects", i+1, len(applyObjects))
 			startTime = time.Now()
 			didLog = true
 		}
 
 		waitReadiness := (d.Config.WaitReadiness != nil && *d.Config.WaitReadiness) || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
 		if !a.o.NoWait && waitReadiness {
-			a.WaitReadiness(o.GetK8sRef(), 0)
+			a.WaitReadiness(o.GetK8sRef(), 0, pctx)
 		}
 	}
 
-	if initialDeploy {
-		h.RunHooks(d, []string{"post-deploy-initial", "post-deploy"})
-	} else {
-		h.RunHooks(d, []string{"post-deploy-upgrade", "post-deploy"})
+	h.RunHooks(postHooks, pctx)
+
+	finalStatus := ""
+	if len(a.AppliedObjects) != 0 {
+		finalStatus += fmt.Sprintf(" Applied %d objects.", len(a.AppliedObjects))
 	}
+	if len(a.appliedHookObjects) != 0 {
+		finalStatus += fmt.Sprintf(" Applied %d hooks.", len(a.appliedHookObjects))
+	}
+	if len(a.deletedObjects) != 0 {
+		finalStatus += fmt.Sprintf(" Deleted %d objects.", len(a.deletedObjects))
+	}
+	if len(a.deletedHookObjects) != 0 {
+		finalStatus += fmt.Sprintf(" Deleted %d hooks.", len(a.deletedHookObjects))
+	}
+	if a.dew.ErrorCount() != 0 {
+		finalStatus += fmt.Sprintf(" Encountered %d errors.", a.dew.ErrorCount())
+	}
+	if a.dew.WarningCount() != 0 {
+		finalStatus += fmt.Sprintf(" Encountered %d warnings.", a.dew.WarningCount())
+	}
+
+	pctx.SetStatus(strings.TrimSpace(finalStatus))
+	pctx.Finish()
 }
 
 func (a *ApplyUtil) ApplyDeployments() {
 	log.Infof("Running server-side apply for all objects")
 
 	var wg sync.WaitGroup
+	sem := semaphore.NewWeighted(8)
+	p := mpb.New(
+		mpb.WithWidth(utils.GetTermWidth()),
+		mpb.WithOutput(os.Stderr),
+	)
 
 	for _, d_ := range a.deployments {
 		d := d_
@@ -447,10 +496,15 @@ func (a *ApplyUtil) ApplyDeployments() {
 			break
 		}
 
+		pctx := newProgressCtx(p, d.RelToProjectItemDir)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			a.applyDeploymentItem(d)
+			_ = sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+
+			a.applyDeploymentItem(d, pctx)
 		}()
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
@@ -460,6 +514,7 @@ func (a *ApplyUtil) ApplyDeployments() {
 		}
 	}
 	wg.Wait()
+	p.Wait()
 }
 
 func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.UnstructuredObject, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) {
@@ -509,11 +564,6 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 		return
 	}
 	a.HandleError(ref, fmt.Errorf("unexpected end of loop"))
-}
-
-func (a *ApplyUtil) DoLog(d *deployment.DeploymentItem, level log.Level, s string, f ...interface{}) {
-	s = fmt.Sprintf("%s: %s", d.RelToProjectItemDir, fmt.Sprintf(s, f...))
-	log.StandardLogger().Logf(level, s)
 }
 
 func (a *ApplyUtil) GetDeletedObjectsList() []k8s2.ObjectRef {

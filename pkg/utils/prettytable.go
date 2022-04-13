@@ -25,7 +25,7 @@ func (t *PrettyTable) SortRows(col int) {
 	})
 }
 
-func getTermWidth() int {
+func GetTermWidth() int {
 	if c, ok := os.LookupEnv("COLUMNS"); ok {
 		tw, err := strconv.ParseInt(c, 10, 32)
 		if err == nil {
@@ -82,7 +82,7 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 	}
 
 	if len(limitWidths) < cols {
-		tw := getTermWidth()
+		tw := GetTermWidth()
 		// last column should use all remaining space
 		tw = tw - widthSum - (cols-1)*3 - 4
 		if tw <= 0 {

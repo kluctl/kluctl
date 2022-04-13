@@ -25,7 +25,7 @@ func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {
 	}
 }
 
-func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func (diffResult *types.CommandResult) error) (*types.CommandResult, error) {
+func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *types.CommandResult) error) (*types.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(dew)

@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/kluctl/pkg/types/k8s"
 	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,11 +49,7 @@ type hook struct {
 	timeout        time.Duration
 }
 
-func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
-	doLog := func(level log.Level, s string, f ...interface{}) {
-		u.a.DoLog(d, level, s, f...)
-	}
-
+func (u *HooksUtil) DetermineHooks(d *deployment.DeploymentItem, hooks []string) []*hook {
 	var l []*hook
 	for _, h := range u.getSortedHooksList(d.Objects) {
 		for h2 := range h.hooks {
@@ -64,18 +59,14 @@ func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 			}
 		}
 	}
+	return l
+}
 
-	if len(l) != 0 && log.IsLevelEnabled(log.DebugLevel) {
-		doLog(log.DebugLevel, "Sorted hooks:")
-		for _, h := range l {
-			doLog(log.DebugLevel, "  %s", h.object.GetK8sRef().String())
-		}
-	}
-
+func (u *HooksUtil) RunHooks(hooks []*hook, pctx *progressCtx) {
 	var deleteBeforeObjects []*hook
 	var applyObjects []*hook
 
-	for _, h := range l {
+	for _, h := range hooks {
 		if u.a.abortSignal {
 			return
 		}
@@ -85,32 +76,33 @@ func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 		applyObjects = append(applyObjects, h)
 	}
 
-	doDeleteForPolicy := func(h *hook) bool {
+	doDeleteForPolicy := func(h *hook, i int, cnt int) bool {
 		ref := h.object.GetK8sRef()
 		var dpStr []string
 		for p := range h.deletePolicies {
 			dpStr = append(dpStr, p)
 		}
-		doLog(log.DebugLevel, "Deleting hook %s due to hook-delete-policy %s", ref.String(), strings.Join(dpStr, ","))
+		pctx.InfofAndStatus("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
 		return u.a.DeleteObject(ref, true)
 	}
 
 	if len(deleteBeforeObjects) != 0 {
-		doLog(log.InfoLevel, "Deleting %d hooks before hook execution", len(deleteBeforeObjects))
+		pctx.Infof("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
 	}
-	for _, h := range deleteBeforeObjects {
-		doDeleteForPolicy(h)
+	for i, h := range deleteBeforeObjects {
+		doDeleteForPolicy(h, i, len(deleteBeforeObjects))
 	}
 
 	waitResults := make(map[k8s.ObjectRef]bool)
 	if len(applyObjects) != 0 {
-		doLog(log.InfoLevel, "Applying %d hooks", len(applyObjects))
+		pctx.Infof("Applying %d hooks", len(applyObjects))
 	}
-	for _, h := range applyObjects {
+	for i, h := range applyObjects {
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
-		doLog(log.DebugLevel, "Applying hook %s", ref.String())
+		pctx.DebugfAndStatus("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
 		u.a.ApplyObject(h.object, replaced, true)
+		pctx.Increment()
 
 		if u.a.HadError(ref) {
 			continue
@@ -118,7 +110,7 @@ func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 		if !h.wait {
 			continue
 		}
-		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout)
+		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout, pctx)
 	}
 
 	var deleteAfterObjects []*hook
@@ -141,10 +133,10 @@ func (u *HooksUtil) RunHooks(d *deployment.DeploymentItem, hooks []string) {
 	}
 
 	if len(deleteAfterObjects) != 0 {
-		doLog(log.InfoLevel, "Deleting %d hooks after hook execution", len(deleteAfterObjects))
+		pctx.Infof("Deleting %d hooks after hook execution", len(deleteAfterObjects))
 	}
-	for _, h := range deleteAfterObjects {
-		doDeleteForPolicy(h)
+	for i, h := range deleteAfterObjects {
+		doDeleteForPolicy(h, i, len(deleteAfterObjects))
 	}
 }
 

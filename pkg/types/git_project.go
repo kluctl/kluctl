@@ -31,7 +31,7 @@ func ValidateGitProject(sl validator.StructLevel) {
 
 type ExternalProject struct {
 	Project *GitProject `yaml:"project,omitempty"`
-	Path *string `yaml:"path,omitempty"`
+	Path    *string     `yaml:"path,omitempty"`
 }
 
 func ValidateExternalProject(sl validator.StructLevel) {

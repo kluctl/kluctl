@@ -132,7 +132,7 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 			}
 
 			age := time.Now().Sub(o.GetK8sCreationTime())
-			if age > 15 * time.Second {
+			if age > 15*time.Second {
 				// TODO this is a hack for CRDs that pretend that a status should be there but the corresponding
 				// controllers/operators don't set it for whatever reason (e.g. cilium)
 				return

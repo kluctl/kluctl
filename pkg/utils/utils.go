@@ -58,3 +58,7 @@ func ParseBoolOrFalse(s *string) bool {
 	}
 	return b
 }
+
+func StrPtr(s string) *string {
+	return &s
+}
