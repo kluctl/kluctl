@@ -14,7 +14,7 @@ body:
     id: command
     attributes:
       label: Command
-      description: Which command will be affected by the feature request
+      description: Which command will be affected by the feature request? (If you want to propose a new command, just leave all unchecked)
       options:
         - archive
         - check-image-updates
@@ -32,7 +32,6 @@ body:
         - seal
         - validate
         - version
-        - None of the above (e.g. new command)
   - type: input
     id: persona
     attributes:
