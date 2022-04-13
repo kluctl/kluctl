@@ -166,14 +166,15 @@ func (a *ApplyUtil) DeleteObject(ref k8s2.ObjectRef, hook bool) bool {
 
 func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, applyError error) {
 	ref := x.GetK8sRef()
-	log2 := log.WithField("ref", ref)
 
 	if !a.o.ForceReplaceOnError {
 		a.HandleError(ref, applyError)
 		return
 	}
 
-	log2.Warningf("Patching failed, retrying by deleting and re-applying")
+	warn := fmt.Errorf("patching %s failed, retrying by deleting and re-applying", ref.String())
+	a.HandleWarning(ref, warn)
+	a.pctx.Warningf(warn.Error())
 
 	if !a.DeleteObject(ref, hook) {
 		return
@@ -197,14 +198,15 @@ func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 
 func (a *ApplyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
-	log2 := log.WithField("ref", ref)
 
 	if !a.o.ReplaceOnError || remoteObject == nil {
 		a.HandleError(ref, applyError)
 		return
 	}
 
-	log2.Warningf("Patching failed, retrying with replace instead of patch")
+	warn := fmt.Errorf("patching %s failed, retrying with replace instead of patch", ref.String())
+	a.HandleWarning(ref, warn)
+	a.pctx.Warningf(warn.Error())
 
 	rv := remoteObject.GetK8sResourceVersion()
 	x2 := x.Clone()
@@ -268,8 +270,6 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 
 func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bool) {
 	ref := x.GetK8sRef()
-	log2 := log.WithField("ref", ref)
-	log2.Debugf("applying object")
 
 	x = a.k.FixObjectForPatch(x)
 	remoteObject := a.ru.GetRemoteObject(ref)
@@ -611,7 +611,7 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 		a.dew.AddApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsConflict(err) {
-				log.Warningf("Conflict while patching %s. Retrying...", ref.String())
+				log.Debugf("Conflict while patching %s. Retrying...", ref.String())
 				continue
 			} else {
 				a.HandleError(ref, err)
