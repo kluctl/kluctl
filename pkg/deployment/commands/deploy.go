@@ -35,7 +35,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *t
 	}
 
 	// prepare for a diff
-	o := utils2.ApplyUtilOptions{
+	o := &utils2.ApplyUtilOptions{
 		ForceApply:          cmd.ForceApply,
 		ReplaceOnError:      cmd.ReplaceOnError,
 		ForceReplaceOnError: cmd.ForceReplaceOnError,
@@ -46,16 +46,16 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *t
 	}
 
 	if diffResultCb != nil {
-		au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
+		au := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, o)
 		au.ApplyDeployments()
 
-		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
+		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
 		du.Diff()
 
 		diffResult := &types.CommandResult{
 			NewObjects:     du.NewObjects,
 			ChangedObjects: du.ChangedObjects,
-			DeletedObjects: au.GetDeletedObjectsList(),
+			DeletedObjects: au.GetDeletedObjects(),
 			HookObjects:    au.GetAppliedHookObjects(),
 			Errors:         dew.GetErrorsList(),
 			Warnings:       dew.GetWarningsList(),
@@ -75,10 +75,10 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *t
 	o.DryRun = k.DryRun
 	o.AbortOnError = cmd.AbortOnError
 
-	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
+	au := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
+	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
 	du.Diff()
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
@@ -88,7 +88,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *t
 	return &types.CommandResult{
 		NewObjects:     du.NewObjects,
 		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjectsList(),
+		DeletedObjects: au.GetDeletedObjects(),
 		HookObjects:    au.GetAppliedHookObjects(),
 		OrphanObjects:  orphanObjects,
 		Errors:         dew.GetErrorsList(),

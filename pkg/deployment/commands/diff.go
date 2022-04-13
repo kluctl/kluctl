@@ -33,7 +33,7 @@ func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		return nil, err
 	}
 
-	o := utils.ApplyUtilOptions{
+	o := &utils.ApplyUtilOptions{
 		ForceApply:          cmd.ForceApply,
 		ReplaceOnError:      cmd.ReplaceOnError,
 		ForceReplaceOnError: cmd.ForceReplaceOnError,
@@ -41,10 +41,10 @@ func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		AbortOnError:        false,
 		WaitObjectTimeout:   0,
 	}
-	au := utils.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
+	au := utils.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()
 
-	du := utils.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
+	du := utils.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
@@ -57,7 +57,7 @@ func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 	return &types.CommandResult{
 		NewObjects:     du.NewObjects,
 		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjectsList(),
+		DeletedObjects: au.GetDeletedObjects(),
 		HookObjects:    au.GetAppliedHookObjects(),
 		OrphanObjects:  orphanObjects,
 		Errors:         dew.GetErrorsList(),

@@ -31,7 +31,7 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 		return nil, err
 	}
 
-	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, utils2.ApplyUtilOptions{})
+	ad := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
 
 	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 
@@ -39,6 +39,8 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 		if !d.CheckInclusionForDeploy() {
 			continue
 		}
+		pctx := utils2.NewProgressCtx(nil, d.RelToProjectItemDir)
+		au := ad.NewApplyUtil(pctx)
 		for _, o := range d.Objects {
 			o := o
 			ref := o.GetK8sRef()
@@ -66,7 +68,7 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 	return &types.CommandResult{
 		NewObjects:     du.NewObjects,
 		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjectsList(),
+		DeletedObjects: ad.GetDeletedObjects(),
 		Errors:         dew.GetErrorsList(),
 		Warnings:       dew.GetWarningsList(),
 		SeenImages:     cmd.c.Images.SeenImages(false),

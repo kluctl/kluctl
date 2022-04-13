@@ -19,7 +19,7 @@ type progressCtx struct {
 	mutex  sync.Mutex
 }
 
-func newProgressCtx(p *mpb.Progress, name string) *progressCtx {
+func NewProgressCtx(p *mpb.Progress, name string) *progressCtx {
 	pctx := &progressCtx{
 		status: "Initializing...",
 		total:  -1,
@@ -28,11 +28,13 @@ func newProgressCtx(p *mpb.Progress, name string) *progressCtx {
 	if !isatty.IsTerminal(os.Stderr.Fd()) || name == "" {
 		return pctx
 	}
-	pctx.bar = p.AddBar(-1,
-		mpb.BarWidth(40),
-		mpb.PrependDecorators(decor.Name(name+": ", decor.WCSyncSpaceR)),
-		mpb.AppendDecorators(decor.Any(pctx.DecorFunc)),
-	)
+	if p != nil {
+		pctx.bar = p.AddBar(-1,
+			mpb.BarWidth(40),
+			mpb.PrependDecorators(decor.Name(name+": ", decor.WCSyncSpaceR)),
+			mpb.AppendDecorators(decor.Any(pctx.DecorFunc)),
+		)
+	}
 	return pctx
 }
 

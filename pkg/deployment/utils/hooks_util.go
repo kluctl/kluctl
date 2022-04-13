@@ -62,12 +62,12 @@ func (u *HooksUtil) DetermineHooks(d *deployment.DeploymentItem, hooks []string)
 	return l
 }
 
-func (u *HooksUtil) RunHooks(hooks []*hook, pctx *progressCtx) {
+func (u *HooksUtil) RunHooks(hooks []*hook) {
 	var deleteBeforeObjects []*hook
 	var applyObjects []*hook
 
 	for _, h := range hooks {
-		if u.a.abortSignal {
+		if u.a.abortSignal.Load().(bool) {
 			return
 		}
 		if _, ok := h.deletePolicies["before-hook-creation"]; ok {
@@ -82,12 +82,12 @@ func (u *HooksUtil) RunHooks(hooks []*hook, pctx *progressCtx) {
 		for p := range h.deletePolicies {
 			dpStr = append(dpStr, p)
 		}
-		pctx.InfofAndStatus("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
+		u.a.pctx.InfofAndStatus("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
 		return u.a.DeleteObject(ref, true)
 	}
 
 	if len(deleteBeforeObjects) != 0 {
-		pctx.Infof("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
+		u.a.pctx.Infof("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
 	}
 	for i, h := range deleteBeforeObjects {
 		doDeleteForPolicy(h, i, len(deleteBeforeObjects))
@@ -95,14 +95,14 @@ func (u *HooksUtil) RunHooks(hooks []*hook, pctx *progressCtx) {
 
 	waitResults := make(map[k8s.ObjectRef]bool)
 	if len(applyObjects) != 0 {
-		pctx.Infof("Applying %d hooks", len(applyObjects))
+		u.a.pctx.Infof("Applying %d hooks", len(applyObjects))
 	}
 	for i, h := range applyObjects {
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
-		pctx.DebugfAndStatus("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
+		u.a.pctx.DebugfAndStatus("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
 		u.a.ApplyObject(h.object, replaced, true)
-		pctx.Increment()
+		u.a.pctx.Increment()
 
 		if u.a.HadError(ref) {
 			continue
@@ -110,7 +110,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook, pctx *progressCtx) {
 		if !h.wait {
 			continue
 		}
-		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout, pctx)
+		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout)
 	}
 
 	var deleteAfterObjects []*hook
@@ -133,7 +133,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook, pctx *progressCtx) {
 	}
 
 	if len(deleteAfterObjects) != 0 {
-		pctx.Infof("Deleting %d hooks after hook execution", len(deleteAfterObjects))
+		u.a.pctx.Infof("Deleting %d hooks after hook execution", len(deleteAfterObjects))
 	}
 	for i, h := range deleteAfterObjects {
 		doDeleteForPolicy(h, i, len(deleteAfterObjects))

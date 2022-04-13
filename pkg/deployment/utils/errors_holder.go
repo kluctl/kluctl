@@ -72,26 +72,6 @@ func (dew *DeploymentErrorsAndWarnings) HadError(ref k8s.ObjectRef) bool {
 	return ok
 }
 
-func (dew *DeploymentErrorsAndWarnings) ErrorCount() int {
-	dew.mutex.Lock()
-	defer dew.mutex.Unlock()
-	count := 0
-	for _, m := range dew.errors {
-		count += len(m)
-	}
-	return count
-}
-
-func (dew *DeploymentErrorsAndWarnings) WarningCount() int {
-	dew.mutex.Lock()
-	defer dew.mutex.Unlock()
-	count := 0
-	for _, m := range dew.warnings {
-		count += len(m)
-	}
-	return count
-}
-
 func (dew *DeploymentErrorsAndWarnings) GetErrorsList() []types.DeploymentError {
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()

@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -35,34 +36,66 @@ type ApplyUtilOptions struct {
 }
 
 type ApplyUtil struct {
+	dew                *DeploymentErrorsAndWarnings
+	errorCount         int
+	warningCount       int
+	appliedObjects     map[k8s2.ObjectRef]*uo.UnstructuredObject
+	appliedHookObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
+	deletedObjects     map[k8s2.ObjectRef]bool
+	deletedHookObjects map[k8s2.ObjectRef]bool
+	mutex              sync.Mutex
+
+	abortSignal    *atomic.Value
+	deployedNewCRD *atomic.Value
+
+	ru   *RemoteObjectUtils
+	k    *k8s.K8sCluster
+	o    *ApplyUtilOptions
+	pctx *progressCtx
+}
+
+type ApplyDeploymentsUtil struct {
 	dew         *DeploymentErrorsAndWarnings
 	deployments []*deployment.DeploymentItem
 	ru          *RemoteObjectUtils
 	k           *k8s.K8sCluster
-	o           ApplyUtilOptions
+	o           *ApplyUtilOptions
 
-	AppliedObjects     map[k8s2.ObjectRef]*uo.UnstructuredObject
-	appliedHookObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	deletedObjects     map[k8s2.ObjectRef]bool
-	deletedHookObjects map[k8s2.ObjectRef]bool
-	abortSignal        bool
-	deployedNewCRD     bool
-	mutex              sync.Mutex
+	abortSignal    atomic.Value
+	deployedNewCRD atomic.Value
+
+	results []*ApplyUtil
 }
 
-func NewApplyUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o ApplyUtilOptions) *ApplyUtil {
-	return &ApplyUtil{
-		dew:                dew,
-		deployments:        deployments,
-		ru:                 ru,
-		k:                  k,
-		o:                  o,
-		AppliedObjects:     map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+func NewApplyDeploymentsUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
+	ret := &ApplyDeploymentsUtil{
+		dew:         dew,
+		deployments: deployments,
+		ru:          ru,
+		k:           k,
+		o:           o,
+	}
+	ret.abortSignal.Store(false)
+	ret.deployedNewCRD.Store(false)
+	return ret
+}
+
+func (ad *ApplyDeploymentsUtil) NewApplyUtil(pctx *progressCtx) *ApplyUtil {
+	ret := &ApplyUtil{
+		dew:                ad.dew,
+		appliedObjects:     map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		appliedHookObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		deletedObjects:     map[k8s2.ObjectRef]bool{},
 		deletedHookObjects: map[k8s2.ObjectRef]bool{},
-		deployedNewCRD:     true, // assume someone deployed CRDs in the meantime
+		abortSignal:        &ad.abortSignal,
+		deployedNewCRD:     &ad.deployedNewCRD,
+		ru:                 ad.ru,
+		k:                  ad.k,
+		o:                  ad.o,
+		pctx:               pctx,
 	}
+	ad.results = append(ad.results, ret)
+	return ret
 }
 
 func (a *ApplyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool) {
@@ -73,26 +106,35 @@ func (a *ApplyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool
 	if hook {
 		a.appliedHookObjects[ref] = appliedObject
 	}
-	a.AppliedObjects[ref] = appliedObject
+	a.appliedObjects[ref] = appliedObject
 }
 
 func (a *ApplyUtil) handleApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	a.dew.AddApiWarnings(ref, warnings)
+	a.warningCount += len(warnings)
 }
 
 func (a *ApplyUtil) HandleWarning(ref k8s2.ObjectRef, warning error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	a.dew.AddWarning(ref, warning)
+	a.warningCount++
 }
 
 func (a *ApplyUtil) HandleError(ref k8s2.ObjectRef, err error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if a.o.AbortOnError {
-		a.abortSignal = true
+	if a.o.AbortOnError && a.abortSignal != nil {
+		a.abortSignal.Store(true)
 	}
 
 	a.dew.AddError(ref, err)
+	a.errorCount++
 }
 
 func (a *ApplyUtil) HadError(ref k8s2.ObjectRef) bool {
@@ -275,10 +317,8 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	if err != nil && meta.IsNoMatchError(err) {
 		// maybe this was a resource for which the CRD was only deployed recently, so we should do rediscovery and then
 		// retry the patch
-		a.mutex.Lock()
-		defer a.mutex.Unlock()
-		if a.deployedNewCRD {
-			a.deployedNewCRD = false
+		if a.deployedNewCRD.Load().(bool) {
+			a.deployedNewCRD.Store(false)
 			err = a.k.RediscoverResources()
 			if err != nil {
 				return false, err
@@ -289,9 +329,7 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 		ref := x.GetK8sRef()
 		if ref.GVK.Group == "apiextensions.k8s.io" && ref.GVK.Kind == "CustomResourceDefinition" {
 			// this is a freshly deployed CRD, so we must perform rediscovery in case an api resource can't be found
-			a.mutex.Lock()
-			defer a.mutex.Unlock()
-			a.deployedNewCRD = true
+			a.deployedNewCRD.Store(true)
 			return true, nil
 		}
 		return false, nil
@@ -299,7 +337,7 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 	return false, err
 }
 
-func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration, pctx *progressCtx) bool {
+func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) bool {
 	if a.o.DryRun {
 		return true
 	}
@@ -308,20 +346,20 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration, pct
 		timeout = a.o.WaitObjectTimeout
 	}
 
-	pctx.Debugf("Waiting for %s to get ready", ref.String())
+	a.pctx.Debugf("Waiting for %s to get ready", ref.String())
 
 	lastLogTime := time.Now()
 	didLog := false
 	startTime := time.Now()
 	for true {
-		elapsed := time.Second * time.Duration(time.Now().Sub(startTime).Seconds())
+		elapsed := int(time.Now().Sub(startTime).Seconds())
 
 		o, apiWarnings, err := a.k.GetSingleObject(ref)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if didLog {
-					pctx.Warningf("Cancelled waiting for %s as it disappeared while waiting for it (%ss elapsed)", ref.String(), elapsed)
+					a.pctx.Warningf("Cancelled waiting for %s as it disappeared while waiting for it (%ds elapsed)", ref.String(), elapsed)
 				}
 				a.HandleError(ref, fmt.Errorf("%s disappeared while waiting for it to become ready", ref.String()))
 				return false
@@ -332,13 +370,13 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration, pct
 		v := validation.ValidateObject(a.k, o, false)
 		if v.Ready {
 			if didLog {
-				pctx.Infof("Finished waiting for %s (%ss elapsed)", ref.String(), elapsed)
+				a.pctx.Infof("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
 			}
 			return true
 		}
 		if len(v.Errors) != 0 {
 			if didLog {
-				pctx.Warningf("Cancelled waiting for %s due to errors (%ss elapsed)", ref.String(), elapsed)
+				a.pctx.Warningf("Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
 			}
 			for _, e := range v.Errors {
 				a.HandleError(ref, fmt.Errorf(e.Error))
@@ -348,19 +386,19 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration, pct
 
 		if timeout > 0 && time.Now().Sub(startTime) >= timeout {
 			err := fmt.Errorf("timed out while waiting for %s", ref.String())
-			pctx.Warningf("%s (%ss elapsed)", err.Error(), elapsed)
+			a.pctx.Warningf("%s (%ds elapsed)", err.Error(), elapsed)
 			a.HandleError(ref, err)
 			return false
 		}
 
-		pctx.SetStatus(fmt.Sprintf("Waiting for %s to get ready... (%ss elapsed)", ref.String(), elapsed))
+		a.pctx.SetStatus(fmt.Sprintf("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed))
 
 		if !didLog {
-			pctx.Infof("Waiting for %s to get ready... (%ss elapsed)", ref.String(), elapsed)
+			a.pctx.Infof("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			pctx.Infof("Still waiting for %s to get ready... (%ss elapsed)", ref.String(), elapsed)
+			a.pctx.Infof("Still waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			lastLogTime = time.Now()
 		}
 
@@ -369,7 +407,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration, pct
 	return false
 }
 
-func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem, pctx *progressCtx) {
+func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	var toDelete []k8s2.ObjectRef
 	for _, x := range d.Config.DeleteObjects {
 		for _, gvk := range a.k.GetGVKs(x.Group, x.Version, x.Kind) {
@@ -410,55 +448,55 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem, pctx *prog
 	}
 
 	total := len(applyObjects) + len(preHooks) + len(postHooks)
-	pctx.SetTotal(int64(total))
+	a.pctx.SetTotal(int64(total))
 	if !d.CheckInclusionForDeploy() {
-		pctx.InfofAndStatus("Skipped")
-		pctx.Finish()
+		a.pctx.InfofAndStatus("Skipped")
+		a.pctx.Finish()
 		return
 	}
 
 	if len(toDelete) != 0 {
-		pctx.Infof("Deleting %d objects", len(toDelete))
+		a.pctx.Infof("Deleting %d objects", len(toDelete))
 		for i, ref := range toDelete {
-			pctx.SetStatus(fmt.Sprintf("Deleting object %s (%d of %d)", ref.String(), i+1, len(toDelete)))
+			a.pctx.SetStatus(fmt.Sprintf("Deleting object %s (%d of %d)", ref.String(), i+1, len(toDelete)))
 			a.DeleteObject(ref, false)
-			pctx.Increment()
+			a.pctx.Increment()
 		}
 	}
 
-	h.RunHooks(preHooks, pctx)
+	h.RunHooks(preHooks)
 
 	if len(applyObjects) != 0 {
-		pctx.Infof("Applying %d objects", len(applyObjects))
+		a.pctx.Infof("Applying %d objects", len(applyObjects))
 	}
 	startTime := time.Now()
 	didLog := false
 	for i, o := range applyObjects {
-		if a.abortSignal {
+		if a.abortSignal.Load().(bool) {
 			break
 		}
 
 		ref := o.GetK8sRef()
-		pctx.SetStatus(fmt.Sprintf("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects)))
+		a.pctx.SetStatus(fmt.Sprintf("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects)))
 		a.ApplyObject(o, false, false)
-		pctx.Increment()
+		a.pctx.Increment()
 		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
-			pctx.Infof("...applied %d of %d objects", i+1, len(applyObjects))
+			a.pctx.Infof("...applied %d of %d objects", i+1, len(applyObjects))
 			startTime = time.Now()
 			didLog = true
 		}
 
 		waitReadiness := (d.Config.WaitReadiness != nil && *d.Config.WaitReadiness) || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
 		if !a.o.NoWait && waitReadiness {
-			a.WaitReadiness(o.GetK8sRef(), 0, pctx)
+			a.WaitReadiness(o.GetK8sRef(), 0)
 		}
 	}
 
-	h.RunHooks(postHooks, pctx)
+	h.RunHooks(postHooks)
 
 	finalStatus := ""
-	if len(a.AppliedObjects) != 0 {
-		finalStatus += fmt.Sprintf(" Applied %d objects.", len(a.AppliedObjects))
+	if len(a.appliedObjects) != 0 {
+		finalStatus += fmt.Sprintf(" Applied %d objects.", len(a.appliedObjects))
 	}
 	if len(a.appliedHookObjects) != 0 {
 		finalStatus += fmt.Sprintf(" Applied %d hooks.", len(a.appliedHookObjects))
@@ -469,18 +507,18 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem, pctx *prog
 	if len(a.deletedHookObjects) != 0 {
 		finalStatus += fmt.Sprintf(" Deleted %d hooks.", len(a.deletedHookObjects))
 	}
-	if a.dew.ErrorCount() != 0 {
-		finalStatus += fmt.Sprintf(" Encountered %d errors.", a.dew.ErrorCount())
+	if a.errorCount != 0 {
+		finalStatus += fmt.Sprintf(" Encountered %d errors.", a.errorCount)
 	}
-	if a.dew.WarningCount() != 0 {
-		finalStatus += fmt.Sprintf(" Encountered %d warnings.", a.dew.WarningCount())
+	if a.warningCount != 0 {
+		finalStatus += fmt.Sprintf(" Encountered %d warnings.", a.warningCount)
 	}
 
-	pctx.SetStatus(strings.TrimSpace(finalStatus))
-	pctx.Finish()
+	a.pctx.SetStatus(strings.TrimSpace(finalStatus))
+	a.pctx.Finish()
 }
 
-func (a *ApplyUtil) ApplyDeployments() {
+func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 	log.Infof("Running server-side apply for all objects")
 
 	var wg sync.WaitGroup
@@ -492,11 +530,12 @@ func (a *ApplyUtil) ApplyDeployments() {
 
 	for _, d_ := range a.deployments {
 		d := d_
-		if a.abortSignal {
+		if a.abortSignal.Load().(bool) {
 			break
 		}
 
-		pctx := newProgressCtx(p, d.RelToProjectItemDir)
+		pctx := NewProgressCtx(p, d.RelToProjectItemDir)
+		a2 := a.NewApplyUtil(pctx)
 
 		wg.Add(1)
 		go func() {
@@ -504,7 +543,7 @@ func (a *ApplyUtil) ApplyDeployments() {
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 
-			a.applyDeploymentItem(d, pctx)
+			a2.applyDeploymentItem(d)
 		}()
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
@@ -566,21 +605,50 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 	a.HandleError(ref, fmt.Errorf("unexpected end of loop"))
 }
 
-func (a *ApplyUtil) GetDeletedObjectsList() []k8s2.ObjectRef {
-	var ret []k8s2.ObjectRef
-	for ref := range a.deletedObjects {
-		ret = append(ret, ref)
+func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
+	var ret []*types.RefAndObject
+	for _, a := range ad.results {
+		for _, o := range a.appliedObjects {
+			ret = append(ret, &types.RefAndObject{
+				Ref:    o.GetK8sRef(),
+				Object: o,
+			})
+		}
 	}
 	return ret
 }
 
-func (a *ApplyUtil) GetAppliedHookObjects() []*types.RefAndObject {
+func (ad *ApplyDeploymentsUtil) GetAppliedObjectsMap() map[k8s2.ObjectRef]*uo.UnstructuredObject {
+	ret := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
+	for _, ro := range ad.GetAppliedObjects() {
+		ret[ro.Ref] = ro.Object
+	}
+	return ret
+}
+
+func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*types.RefAndObject {
 	var ret []*types.RefAndObject
-	for _, o := range a.appliedHookObjects {
-		ret = append(ret, &types.RefAndObject{
-			Ref:    o.GetK8sRef(),
-			Object: o,
-		})
+	for _, a := range ad.results {
+		for _, o := range a.appliedHookObjects {
+			ret = append(ret, &types.RefAndObject{
+				Ref:    o.GetK8sRef(),
+				Object: o,
+			})
+		}
+	}
+	return ret
+}
+
+func (ad *ApplyDeploymentsUtil) GetDeletedObjects() []k8s2.ObjectRef {
+	var ret []k8s2.ObjectRef
+	m := make(map[k8s2.ObjectRef]bool)
+	for _, a := range ad.results {
+		for ref := range a.deletedObjects {
+			if _, ok := m[ref]; !ok {
+				ret = append(ret, ref)
+				m[ref] = true
+			}
+		}
 	}
 	return ret
 }

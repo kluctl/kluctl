@@ -34,12 +34,13 @@ func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) (*types.ValidateResult, error
 		return nil, err
 	}
 
-	a := utils2.NewApplyUtil(cmd.dew, cmd.c.Deployments, cmd.ru, k, utils2.ApplyUtilOptions{})
-	h := utils2.NewHooksUtil(a)
+	ad := utils2.NewApplyDeploymentsUtil(cmd.dew, cmd.c.Deployments, cmd.ru, k, &utils2.ApplyUtilOptions{})
 	for _, d := range cmd.c.Deployments {
 		if !d.CheckInclusionForDeploy() {
 			continue
 		}
+		au := ad.NewApplyUtil(utils2.NewProgressCtx(nil, d.RelToProjectItemDir))
+		h := utils2.NewHooksUtil(au)
 		for _, o := range d.Objects {
 			hook := h.GetHook(o)
 			if hook != nil && !hook.IsPersistent() {
