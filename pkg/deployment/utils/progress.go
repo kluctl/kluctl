@@ -94,7 +94,7 @@ func (ctx *progressCtx) StatusDecorFunc(st decor.Statistics) string {
 func (ctx *progressCtx) ElapsedDecorFunc(st decor.Statistics) string {
 	s := fmt.Sprintf("%.3fs", time.Now().Sub(ctx.startTime).Seconds())
 	if len(s) < 8 {
-		s = strings.Repeat(" ", 8 - len(s)) + s
+		s = strings.Repeat(" ", 8-len(s)) + s
 	}
 	return s
 }

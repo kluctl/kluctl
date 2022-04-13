@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"reflect"
 	"strings"
@@ -276,10 +275,7 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	remoteObject := a.ru.GetRemoteObject(ref)
 	var remoteNamespace *uo.UnstructuredObject
 	if ref.Namespace != "" {
-		remoteNamespace = a.ru.GetRemoteObject(k8s2.ObjectRef{
-			GVK:  schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
-			Name: ref.Namespace,
-		})
+		remoteNamespace = a.ru.GetRemoteNamespace(ref.Namespace)
 	}
 
 	usesDummyName := false

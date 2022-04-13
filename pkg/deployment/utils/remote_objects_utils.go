@@ -11,15 +11,17 @@ import (
 )
 
 type RemoteObjectUtils struct {
-	dew           *DeploymentErrorsAndWarnings
-	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	mutex         sync.Mutex
+	dew              *DeploymentErrorsAndWarnings
+	remoteObjects    map[k8s2.ObjectRef]*uo.UnstructuredObject
+	remoteNamespaces map[string]*uo.UnstructuredObject
+	mutex            sync.Mutex
 }
 
 func NewRemoteObjectsUtil(dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
 	return &RemoteObjectUtils{
-		dew:           dew,
-		remoteObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		dew:              dew,
+		remoteObjects:    map[k8s2.ObjectRef]*uo.UnstructuredObject{},
+		remoteNamespaces: map[string]*uo.UnstructuredObject{},
 	}
 }
 
@@ -80,7 +82,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		return err
 	}
 	for _, o := range r {
-		u.remoteObjects[o.GetK8sRef()] = o
+		u.remoteNamespaces[o.GetK8sName()] = o
 	}
 	return nil
 }
@@ -89,6 +91,13 @@ func (u *RemoteObjectUtils) GetRemoteObject(ref k8s2.ObjectRef) *uo.Unstructured
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	o, _ := u.remoteObjects[ref]
+	return o
+}
+
+func (u *RemoteObjectUtils) GetRemoteNamespace(name string) *uo.UnstructuredObject {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	o, _ := u.remoteNamespaces[name]
 	return o
 }
 
