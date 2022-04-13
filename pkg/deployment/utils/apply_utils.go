@@ -447,7 +447,8 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		postHooks = h.DetermineHooks(d, []string{"post-deploy-upgrade", "post-deploy"})
 	}
 
-	total := len(applyObjects) + len(preHooks) + len(postHooks)
+	// +1 to ensure that we don't prematurely complete the bar (which would happen as we don't count for waiting)
+	total := len(applyObjects) + len(preHooks) + len(postHooks) + 1
 	a.pctx.SetTotal(int64(total))
 	if !d.CheckInclusionForDeploy() {
 		a.pctx.InfofAndStatus("Skipped")
@@ -534,13 +535,14 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			break
 		}
 
+		_ = sem.Acquire(context.Background(), 1)
+
 		pctx := NewProgressCtx(p, d.RelToProjectItemDir)
 		a2 := a.NewApplyUtil(pctx)
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 
 			a2.applyDeploymentItem(d)
@@ -553,13 +555,14 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			bpctx.InfofAndStatus("Waiting on barrier...")
 			startTime := time.Now()
 			stopCh := make(chan int)
+			doneCh := make(chan int)
 			go func() {
 				for {
 					select {
 					case <-stopCh:
 						bpctx.SetStatus(fmt.Sprintf("Finished waiting (%ds elapsed)", int(time.Now().Sub(startTime).Seconds())))
-						bpctx.Increment()
-						stopCh <- 1
+						bpctx.Finish()
+						doneCh <- 1
 						return
 					case <-time.After(time.Second):
 						bpctx.SetStatus(fmt.Sprintf("Waiting on barrier... (%ds elapsed)", int(time.Now().Sub(startTime).Seconds())))
@@ -568,7 +571,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			}()
 			wg.Wait()
 			stopCh <- 1
-			<-stopCh
+			<-doneCh
 		}
 	}
 	wg.Wait()
