@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/pkg/types"
 	"github.com/kluctl/kluctl/pkg/utils"
 )
 
@@ -48,12 +49,6 @@ func (cmd *deployCmd) Run() error {
 }
 
 func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
-	if !cmd.Yes && !cmd.DryRun {
-		if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to deploy to the context/cluster %s?", ctx.k.Context())) {
-			return fmt.Errorf("aborted")
-		}
-	}
-
 	cmd2 := commands.NewDeployCommand(ctx.deploymentCollection)
 	cmd2.ForceApply = cmd.ForceApply
 	cmd2.ReplaceOnError = cmd.ReplaceOnError
@@ -62,7 +57,12 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	cmd2.HookTimeout = cmd.HookTimeout
 	cmd2.NoWait = cmd.NoWait
 
-	result, err := cmd2.Run(ctx.k)
+	cb := cmd.diffResultCb
+	if cmd.Yes || cmd.DryRun {
+		cb = nil
+	}
+
+	result, err := cmd2.Run(ctx.k, cb)
 	if err != nil {
 		return err
 	}
@@ -72,6 +72,26 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	}
 	if len(result.Errors) != 0 {
 		return fmt.Errorf("command failed")
+	}
+	return nil
+}
+
+func (cmd *deployCmd) diffResultCb(diffResult *types.CommandResult) error {
+	err := outputCommandResult(nil, diffResult)
+	if err != nil {
+		return err
+	}
+	if cmd.Yes || cmd.DryRun {
+		return nil
+	}
+	if len(diffResult.Errors) != 0 {
+		if !utils.AskForConfirmation("\nThe diff resulted in errors, do you still want to proceed?") {
+			return fmt.Errorf("aborted")
+		}
+	} else {
+		if !utils.AskForConfirmation("\nThe diff succeeded, do you want to proceed?") {
+			return fmt.Errorf("aborted")
+		}
 	}
 	return nil
 }

@@ -25,7 +25,7 @@ func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {
 	}
 }
 
-func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func (diffResult *types.CommandResult) error) (*types.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(dew)
@@ -34,15 +34,47 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		return nil, err
 	}
 
+	// prepare for a diff
 	o := utils2.ApplyUtilOptions{
 		ForceApply:          cmd.ForceApply,
 		ReplaceOnError:      cmd.ReplaceOnError,
 		ForceReplaceOnError: cmd.ForceReplaceOnError,
-		DryRun:              k.DryRun,
-		AbortOnError:        cmd.AbortOnError,
+		DryRun:              true,
+		AbortOnError:        false,
 		WaitObjectTimeout:   cmd.HookTimeout,
 		NoWait:              cmd.NoWait,
 	}
+
+	if diffResultCb != nil {
+		au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
+		au.ApplyDeployments()
+
+		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.AppliedObjects)
+		du.Diff()
+
+		diffResult := &types.CommandResult{
+			NewObjects:     du.NewObjects,
+			ChangedObjects: du.ChangedObjects,
+			DeletedObjects: au.GetDeletedObjectsList(),
+			HookObjects:    au.GetAppliedHookObjects(),
+			Errors:         dew.GetErrorsList(),
+			Warnings:       dew.GetWarningsList(),
+			SeenImages:     cmd.c.Images.SeenImages(false),
+		}
+
+		err := diffResultCb(diffResult)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// clear errors and warnings
+	dew.Init()
+
+	// modify options to become a deploy
+	o.DryRun = k.DryRun
+	o.AbortOnError = cmd.AbortOnError
+
 	au := utils2.NewApplyUtil(dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()
 
