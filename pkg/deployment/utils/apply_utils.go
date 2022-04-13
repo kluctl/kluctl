@@ -443,7 +443,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		preHooks = h.DetermineHooks(d, []string{"pre-deploy-initial", "pre-deploy"})
 		postHooks = h.DetermineHooks(d, []string{"post-deploy-initial", "post-deploy"})
 	} else {
-		postHooks = h.DetermineHooks(d, []string{"pre-deploy-upgrade", "pre-deploy"})
+		preHooks = h.DetermineHooks(d, []string{"pre-deploy-upgrade", "pre-deploy"})
 		postHooks = h.DetermineHooks(d, []string{"post-deploy-upgrade", "post-deploy"})
 	}
 
