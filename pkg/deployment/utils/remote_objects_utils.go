@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )
 
@@ -67,6 +68,19 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 			u.remoteObjects[o.GetK8sRef()] = o
 		}
 		u.mutex.Unlock()
+	}
+
+	log.Infof("Getting namespaces")
+	r, _, err := k.ListObjects(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Namespace",
+	}, "", nil)
+	if err != nil {
+		return err
+	}
+	for _, o := range r {
+		u.remoteObjects[o.GetK8sRef()] = o
 	}
 	return nil
 }

@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"reflect"
 	"strings"
@@ -273,6 +274,13 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 
 	x = a.k.FixObjectForPatch(x)
 	remoteObject := a.ru.GetRemoteObject(ref)
+	var remoteNamespace *uo.UnstructuredObject
+	if ref.Namespace != "" {
+		remoteNamespace = a.ru.GetRemoteObject(k8s2.ObjectRef{
+			GVK:  schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			Name: ref.Namespace,
+		})
+	}
 
 	usesDummyName := false
 	if a.o.DryRun && replaced && remoteObject != nil {
@@ -282,7 +290,13 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		// result
 		usesDummyName = true
 		x = x.Clone()
-		x.SetK8sName(fmt.Sprintf("%s-%s", x.GetK8sName(), utils.RandomString(8)))
+		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+	} else if a.o.DryRun && remoteNamespace == nil && ref.Namespace != "" {
+		// The namespace does not exist, so let's pretend we deploy it to the default namespace with a dummy name
+		usesDummyName = true
+		x = x.Clone()
+		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+		x.SetK8sNamespace("default")
 	}
 
 	options := k8s.PatchOptions{
@@ -295,9 +309,9 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	}
 	if r != nil && usesDummyName {
 		tmpName := r.GetK8sName()
-		realName := remoteObject.GetK8sName()
-		_ = r.ReplaceKeys(tmpName, realName)
-		_ = r.ReplaceValues(tmpName, realName)
+		_ = r.ReplaceKeys(tmpName, ref.Name)
+		_ = r.ReplaceValues(tmpName, ref.Name)
+		r.SetK8sNamespace(ref.Namespace)
 	}
 	a.handleApiWarnings(ref, apiWarnings)
 	if err == nil {
