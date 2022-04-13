@@ -530,6 +530,13 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 		mpb.PopCompletedMode(),
 	)
 
+	maxNameLen := 0
+	for _, d := range a.deployments {
+		if len(d.RelToProjectItemDir) > maxNameLen {
+			maxNameLen = len(d.RelToProjectItemDir)
+		}
+	}
+
 	for _, d_ := range a.deployments {
 		d := d_
 		if a.abortSignal.Load().(bool) {
@@ -538,7 +545,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		_ = sem.Acquire(context.Background(), 1)
 
-		pctx := NewProgressCtx(p, d.RelToProjectItemDir)
+		pctx := NewProgressCtx(p, d.RelToProjectItemDir, maxNameLen)
 		a2 := a.NewApplyUtil(pctx)
 
 		wg.Add(1)
@@ -551,8 +558,9 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
 		if barrier {
-			bpctx := NewProgressCtx(p, "<barrier>")
+			bpctx := NewProgressCtx(p, "<barrier>", maxNameLen)
 			bpctx.SetTotal(1)
+
 			bpctx.InfofAndStatus("Waiting on barrier...")
 			startTime := time.Now()
 			stopCh := make(chan int)

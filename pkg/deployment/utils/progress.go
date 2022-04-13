@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -19,7 +20,7 @@ type progressCtx struct {
 	mutex  sync.Mutex
 }
 
-func NewProgressCtx(p *mpb.Progress, name string) *progressCtx {
+func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int) *progressCtx {
 	pctx := &progressCtx{
 		status: "Initializing...",
 		total:  -1,
@@ -28,10 +29,16 @@ func NewProgressCtx(p *mpb.Progress, name string) *progressCtx {
 	if !isatty.IsTerminal(os.Stderr.Fd()) || name == "" {
 		return pctx
 	}
+
+	name += ":"
+	if len(name) < maxNameWidth + 1 {
+		name += strings.Repeat(" ", maxNameWidth - len(name) + 1)
+	}
+
 	if p != nil {
 		pctx.bar = p.AddBar(-1,
 			mpb.BarWidth(40),
-			mpb.PrependDecorators(decor.Name(name+": ", decor.WCSyncSpaceR)),
+			mpb.PrependDecorators(decor.Name(name)),
 			mpb.AppendDecorators(decor.Any(pctx.DecorFunc)),
 		)
 	}
@@ -76,11 +83,7 @@ func (ctx *progressCtx) SetStatus(s string) {
 func (ctx *progressCtx) DecorFunc(st decor.Statistics) string {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
-	fillerLen := st.AvailableWidth - len(ctx.status) - 40
-	if fillerLen < 0 {
-		fillerLen = 0
-	}
-	return fmt.Sprintf("%s%s", ctx.status, strings.Repeat(" ", fillerLen))
+	return ctx.status
 }
 
 func (ctx *progressCtx) SetTotal(total int64) {
