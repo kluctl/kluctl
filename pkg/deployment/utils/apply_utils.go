@@ -527,6 +527,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 	p := mpb.New(
 		mpb.WithWidth(utils.GetTermWidth()),
 		mpb.WithOutput(os.Stderr),
+		mpb.PopCompletedMode(),
 	)
 
 	for _, d_ := range a.deployments {

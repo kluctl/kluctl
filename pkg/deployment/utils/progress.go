@@ -99,6 +99,8 @@ func (ctx *progressCtx) Increment() {
 
 func (ctx *progressCtx) Finish() {
 	if ctx.bar != nil {
+		// make sure that the bar es rendered on top so that it can be properly popped
+		ctx.bar.SetPriority(math.MinInt)
 		ctx.bar.SetCurrent(ctx.total)
 	}
 }
