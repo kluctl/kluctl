@@ -548,8 +548,27 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
 		if barrier {
-			log.Infof("Waiting on barrier...")
+			bpctx := NewProgressCtx(p, "<barrier>")
+			bpctx.SetTotal(1)
+			bpctx.InfofAndStatus("Waiting on barrier...")
+			startTime := time.Now()
+			stopCh := make(chan int)
+			go func() {
+				for {
+					select {
+					case <-stopCh:
+						bpctx.SetStatus(fmt.Sprintf("Finished waiting (%ds elapsed)", int(time.Now().Sub(startTime).Seconds())))
+						bpctx.Increment()
+						stopCh <- 1
+						return
+					case <-time.After(time.Second):
+						bpctx.SetStatus(fmt.Sprintf("Waiting on barrier... (%ds elapsed)", int(time.Now().Sub(startTime).Seconds())))
+					}
+				}
+			}()
 			wg.Wait()
+			stopCh <- 1
+			<-stopCh
 		}
 	}
 	wg.Wait()
