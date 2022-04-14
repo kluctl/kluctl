@@ -377,17 +377,23 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 	}
 
 	for _, o := range di.Objects {
-		if k != nil {
-			k.FixNamespace(o, "default")
-		}
-
-		// Set common labels/annotations
-		o.SetK8sLabels(uo.CopyMergeStrMap(o.GetK8sLabels(), di.getCommonLabels()))
+		commonLabels := di.getCommonLabels()
 		commonAnnotations := di.getCommonAnnotations()
-		o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
-		// Resolve image placeholders
-		err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
+		err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
+			k.FixNamespace(o, "default")
+
+			// Set common labels/annotations
+			o.SetK8sLabels(uo.CopyMergeStrMap(o.GetK8sLabels(), commonLabels))
+			o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
+
+			// Resolve image placeholders
+			err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
+			if err != nil {
+				return err
+			}
+			return nil
+		})
 		if err != nil {
 			return err
 		}
