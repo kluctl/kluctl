@@ -204,9 +204,12 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 
 		// "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
 		// add the necessary namespace in the rendered resources
-		ns := o.GetK8sNamespace()
-		if ns == "" && k.IsNamespaced(o.GetK8sGVK()) {
-			o.SetK8sNamespace(namespace)
+		err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
+			k.FixNamespace(o, namespace)
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 	}
 	rendered, err = yaml.WriteYamlAllBytes(parsed)

@@ -378,7 +378,7 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 
 	for _, o := range di.Objects {
 		if k != nil {
-			k.FixNamespace(o)
+			k.FixNamespace(o, "default")
 		}
 
 		// Set common labels/annotations

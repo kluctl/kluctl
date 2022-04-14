@@ -256,13 +256,13 @@ func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) bool {
 	return r.Namespaced
 }
 
-func (k *K8sCluster) FixNamespace(o *uo.UnstructuredObject) {
+func (k *K8sCluster) FixNamespace(o *uo.UnstructuredObject, def string) {
 	ref := o.GetK8sRef()
 	namespaced := k.IsNamespaced(ref.GVK)
 	if !namespaced && ref.Namespace != "" {
 		o.SetK8sNamespace("")
 	} else if namespaced && ref.Namespace == "" {
-		o.SetK8sNamespace("default")
+		o.SetK8sNamespace(def)
 	}
 }
 
