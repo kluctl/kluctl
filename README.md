@@ -15,7 +15,7 @@ Use kluctl to:
 * Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration
 * Manage multiple target clusters (in multiple clouds or bare-metal if you want)
 * Manage encrypted secrets for multiple target environments and clusters (based on [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets))
-* Integrate it into your CI/CI pipelines and avoid putting too much logic into your shell scripts
+* Integrate it into your CI/CD pipelines and avoid putting too much logic into your shell scripts
 
 kluctl tries to be as flexible as possible, while keeping it as simple as possible. It reuses established
 tools (e.g. kustomize and Helm), making it possible to re-use a large set of available third-party deployments.
