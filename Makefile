@@ -42,7 +42,8 @@ build-go: check-env ## Build your project and put the output binary in out/bin/
 clean: ## Remove build related file
 	rm -fr ./bin
 	rm -fr ./out
-	rm -f ./junit-report.xml checkstyle-report.xml ./coverage.xml ./profile.cov yamllint-checkstyle.xml
+	rm -fr ./reports
+	rm -fr ./download-python
 
 vendor: ## Copy of all packages needed to support builds and tests in the vendor directory
 	$(GOCMD) mod vendor
