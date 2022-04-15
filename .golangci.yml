@@ -1,0 +1,26 @@
+run:
+  concurrency: 4
+  timeout: 5m
+  issues-exit-code: 2
+output:
+  format: "colored-line-number"
+linters:
+  disable-all: true
+  enable:
+    - deadcode
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
+    - goconst
+    - gofmt
+    - goheader
+    - goimports
+    - gomnd
+    - gosec
+    - wsl
