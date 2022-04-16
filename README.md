@@ -6,6 +6,13 @@ kluctl is the missing glue that puts together your (and any third-party) deploym
 Kubernetes deployment, while making it fully manageable (deploy, diff, prune, delete, ...) via one unified command
 line interface.
 
+kluctl tries to be as flexible as possible, while remaining as simple as possible. It reuses established
+tools (e.g. kustomize and Helm), making it possible to re-use a large set of available third-party deployments.
+
+kluctl works completely locally, on the same machines that `kubectl` runs on. kluctl does not rely on any operators or other cluster-side components.
+As long as the target cluster's kubeconfig is present locally, you are able to execute it from everywhere, including your
+CI/CD pipelines or your laptop.
+
 Use kluctl to:
 * Organize large and complex deployments, consisting of many Helm charts and kustomize deployments
 * Do the same for small and simple deployments, as the overhead is small
@@ -15,14 +22,7 @@ Use kluctl to:
 * Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration
 * Manage multiple target clusters (in multiple clouds or bare-metal if you want)
 * Manage encrypted secrets for multiple target environments and clusters (based on [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets))
-* Integrate it into your CI/CI pipelines and avoid putting too much logic into your shell scripts
-
-kluctl tries to be as flexible as possible, while keeping it as simple as possible. It reuses established
-tools (e.g. kustomize and Helm), making it possible to re-use a large set of available third-party deployments.
-
-kluctl works completely local. In its simplest form, there is no need for any operators or other server-side components.
-As long as the target cluster kubeconfig is present locally, you are able to execute it from everywhere, including your
-CI/CD pipelines or your laptop.
+* Integrate it into your CI/CD pipelines and avoid putting too much logic into your shell scripts
 
 ![](https://kluctl.io/asciinema/kluctl.gif)
 
