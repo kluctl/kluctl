@@ -321,6 +321,7 @@ jobs:
         uses: actions/download-artifact@v2
       - name: Build checksums.txt
         run: |
+          cd dist
           sha256sum kluctl-linux-amd64 > checksums.txt
           sha256sum kluctl-darwin-amd64 >> checksums.txt
           sha256sum kluctl-windows-amd64.exe >> checksums.txt
@@ -333,5 +334,4 @@ jobs:
             dist/kluctl-linux-*
             dist/kluctl-darwin-*
             dist/kluctl-windows-*
-            checksums.txt
-
+            dist/checksums.txt
