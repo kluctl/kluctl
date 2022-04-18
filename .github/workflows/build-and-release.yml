@@ -311,6 +311,12 @@ jobs:
         uses: actions/checkout@v2
       - name: Download artifacts
         uses: actions/download-artifact@v2
+      - name: Build checksums.txt
+        run: |
+          cd dist
+          sha256sum kluctl-linux-amd64 > checksums.txt
+          sha256sum kluctl-darwin-amd64 >> checksums.txt
+          sha256sum kluctl-windows-amd64.exe >> checksums.txt
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -320,3 +326,4 @@ jobs:
             dist/kluctl-linux-*
             dist/kluctl-darwin-*
             dist/kluctl-windows-*
+            dist/checksums.txt
