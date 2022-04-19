@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"github.com/kluctl/kluctl/pkg/git"
+	"github.com/kluctl/kluctl/pkg/jinja2"
 	types2 "github.com/kluctl/kluctl/pkg/types"
 	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/yaml"
@@ -158,41 +159,35 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 	return nil
 }
 
-func LoadKluctlProject(args LoadKluctlProjectArgs, cb func(ctx *KluctlProjectContext) error) error {
-	tmpDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "project-")
-	if err != nil {
-		return fmt.Errorf("creating temporary project directory failed: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
+func LoadKluctlProject(args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*KluctlProjectContext, error) {
 	if args.FromArchive != "" {
 		if args.ProjectUrl != nil || args.ProjectRef != "" || args.ProjectConfig != "" || args.LocalClusters != "" || args.LocalDeployment != "" || args.LocalSealedSecrets != "" {
-			return fmt.Errorf("--from-archive can not be combined with any other project related option")
+			return nil, fmt.Errorf("--from-archive can not be combined with any other project related option")
 		}
-		project, err := loadKluctlProjectFromArchive(args, tmpDir)
+		project, err := loadKluctlProjectFromArchive(args, tmpDir, j2)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = project.load(false)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return cb(project)
+		return project, nil
 	} else {
-		p := NewKluctlProjectContext(args, tmpDir)
-		err = p.load(true)
+		p := NewKluctlProjectContext(args, tmpDir, j2)
+		err := p.load(true)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = p.loadTargets()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return cb(p)
+		return p, nil
 	}
 }
 
-func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string) (*KluctlProjectContext, error) {
+func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*KluctlProjectContext, error) {
 	var dir string
 	if utils.IsFile(args.FromArchive) {
 		err := utils.ExtractTarGzFile(args.FromArchive, tmpDir)
@@ -217,14 +212,12 @@ func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string) (*K
 		return nil, err
 	}
 
-	p := NewKluctlProjectContext(
-		LoadKluctlProjectArgs{
-			ProjectConfig:      yaml.FixPathExt(filepath.Join(dir, ".kluctl.yml")),
-			LocalClusters:      filepath.Join(dir, "clusters"),
-			LocalDeployment:    filepath.Join(dir, "deployment"),
-			LocalSealedSecrets: filepath.Join(dir, "sealed-secrets"),
-			J2:                 args.J2,
-		}, dir)
+	p := NewKluctlProjectContext(LoadKluctlProjectArgs{
+		ProjectConfig:      yaml.FixPathExt(filepath.Join(dir, ".kluctl.yml")),
+		LocalClusters:      filepath.Join(dir, "clusters"),
+		LocalDeployment:    filepath.Join(dir, "deployment"),
+		LocalSealedSecrets: filepath.Join(dir, "sealed-secrets"),
+	}, dir, j2)
 	p.involvedRepos = metadata.InvolvedRepos
 	p.DynamicTargets = metadata.Targets
 	return p, nil

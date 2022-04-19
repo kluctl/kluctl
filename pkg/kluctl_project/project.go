@@ -19,8 +19,6 @@ type LoadKluctlProjectArgs struct {
 	LocalSealedSecrets  string
 	FromArchive         string
 	FromArchiveMetadata string
-
-	J2 *jinja2.Jinja2
 }
 
 type KluctlProjectContext struct {
@@ -43,14 +41,14 @@ type KluctlProjectContext struct {
 	J2 *jinja2.Jinja2
 }
 
-func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string) *KluctlProjectContext {
+func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) *KluctlProjectContext {
 	o := &KluctlProjectContext{
 		loadArgs:         loadArgs,
 		TmpDir:           tmpDir,
 		gitAuthProviders: auth2.NewDefaultAuthProviders(),
 		involvedRepos:    make(map[string][]types.InvolvedRepo),
 		mirroredRepos:    make(map[string]*git.MirroredGitRepo),
-		J2:               loadArgs.J2,
+		J2:               j2,
 	}
 	return o
 }

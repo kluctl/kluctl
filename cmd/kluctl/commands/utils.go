@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/pkg/k8s"
 	"github.com/kluctl/kluctl/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/pkg/utils"
 	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"io/ioutil"
 	"os"
@@ -24,6 +25,13 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 			return err
 		}
 	}
+
+	tmpDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "project-")
+	if err != nil {
+		return fmt.Errorf("creating temporary project directory failed: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	j2, err := jinja2.NewJinja2()
 	if err != nil {
 		return err
@@ -39,9 +47,13 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		LocalSealedSecrets:  projectFlags.LocalSealedSecrets,
 		FromArchive:         projectFlags.FromArchive,
 		FromArchiveMetadata: projectFlags.FromArchiveMetadata,
-		J2:                  j2,
 	}
-	return kluctl_project.LoadKluctlProject(loadArgs, cb)
+
+	p, err := kluctl_project.LoadKluctlProject(loadArgs, tmpDir, j2)
+	if err != nil {
+		return err
+	}
+	return cb(p)
 }
 
 type projectTargetCommandArgs struct {
