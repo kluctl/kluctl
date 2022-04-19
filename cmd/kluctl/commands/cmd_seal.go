@@ -29,7 +29,7 @@ If no '--target' is specified, sealing is performed for all targets.`
 }
 
 func findSecretsEntry(ctx *commandCtx, name string) (*types.SecretSet, error) {
-	for _, e := range ctx.kluctlProject.Config.SecretsConfig.SecretSets {
+	for _, e := range ctx.targetCtx.KluctlProject.Config.SecretsConfig.SecretSets {
 		if e.Name == name {
 			return &e, nil
 		}
@@ -46,7 +46,7 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 		}
 		for _, source := range secretEntry.Sources {
 			var renderedSource types.SecretSource
-			err = ctx.kluctlProject.J2.RenderStruct(&renderedSource, &source, ctx.deploymentProject.VarsCtx.Vars)
+			err = ctx.targetCtx.KluctlProject.J2.RenderStruct(&renderedSource, &source, ctx.targetCtx.DeploymentProject.VarsCtx.Vars)
 			if err != nil {
 				return err
 			}
@@ -57,25 +57,26 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 			secrets.Merge(s)
 		}
 	}
-	ctx.deploymentProject.MergeSecretsIntoAllChildren(secrets)
+	ctx.targetCtx.DeploymentProject.MergeSecretsIntoAllChildren(secrets)
 	return nil
 }
 
-func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, target *types.Target, secretsLoader *seal.SecretsLoader) error {
-	log.Infof("Sealing for target %s", target.Name)
+func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, targetName string, secretsLoader *seal.SecretsLoader) error {
+	log.Infof("Sealing for target %s", targetName)
 
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,
 	}
+	ptArgs.targetFlags.Target = targetName
 
 	// pass forSeal=True so that .sealme files are rendered as well
-	return withProjectTargetCommandContext(ptArgs, p, target, true, func(ctx *commandCtx) error {
-		err := loadSecrets(ctx, target, secretsLoader)
+	return withProjectTargetCommandContext(ptArgs, p, true, func(ctx *commandCtx) error {
+		err := loadSecrets(ctx, ctx.targetCtx.Target, secretsLoader)
 		if err != nil {
 			return err
 		}
-		err = ctx.deploymentCollection.RenderDeployments(ctx.k)
+		err = ctx.targetCtx.DeploymentCollection.RenderDeployments(ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}
@@ -91,22 +92,22 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, 
 			}
 		}
 		if p.Config.SecretsConfig == nil || p.Config.SecretsConfig.SealedSecrets == nil || p.Config.SecretsConfig.SealedSecrets.Bootstrap == nil || *p.Config.SecretsConfig.SealedSecrets.Bootstrap {
-			err = seal.BootstrapSealedSecrets(ctx.k, sealedSecretsNamespace)
+			err = seal.BootstrapSealedSecrets(ctx.targetCtx.K, sealedSecretsNamespace)
 			if err != nil {
 				return err
 			}
 		}
 
-		clusterConfig, err := p.LoadClusterConfig(target.Cluster)
+		clusterConfig, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster)
 		if err != nil {
 			return err
 		}
-		sealer, err := seal.NewSealer(ctx.k, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
+		sealer, err := seal.NewSealer(ctx.targetCtx.K, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
 		if err != nil {
 			return err
 		}
 
-		cmd2 := commands.NewSealCommand(ctx.deploymentCollection)
+		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection)
 		err = cmd2.Run(sealer)
 
 		if err != nil {
@@ -153,7 +154,7 @@ func (cmd *sealCmd) Run() error {
 				sealTarget = baseTarget
 			}
 
-			err := cmd.runCmdSealForTarget(p, sealTarget, secretsLoader)
+			err := cmd.runCmdSealForTarget(p, sealTarget.Name, secretsLoader)
 			if err != nil {
 				log.Warningf("Sealing for target %s failed: %v", sealTarget.Name, err)
 				hadError = true

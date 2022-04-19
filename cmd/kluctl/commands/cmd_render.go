@@ -37,7 +37,7 @@ func (cmd *renderCmd) Run() error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		log.Infof("Rendered into %s", ctx.deploymentCollection.RenderDir)
+		log.Infof("Rendered into %s", ctx.targetCtx.DeploymentCollection.RenderDir)
 		return nil
 	})
 }

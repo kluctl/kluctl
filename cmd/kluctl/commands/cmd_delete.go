@@ -44,7 +44,7 @@ func (cmd *deleteCmd) Run() error {
 		dryRunArgs:     &cmd.DryRunFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		cmd2 := commands.NewDeleteCommand(ctx.deploymentCollection)
+		cmd2 := commands.NewDeleteCommand(ctx.targetCtx.DeploymentCollection)
 
 		deleteByLabels, err := deployment.ParseArgs(cmd.DeleteByLabel)
 		if err != nil {
@@ -53,11 +53,11 @@ func (cmd *deleteCmd) Run() error {
 
 		cmd2.OverrideDeleteByLabels = deleteByLabels
 
-		objects, err := cmd2.Run(ctx.k)
+		objects, err := cmd2.Run(ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}
-		result, err := confirmedDeleteObjects(ctx.k, objects, cmd.DryRun, cmd.Yes)
+		result, err := confirmedDeleteObjects(ctx.targetCtx.K, objects, cmd.DryRun, cmd.Yes)
 		if err != nil {
 			return err
 		}

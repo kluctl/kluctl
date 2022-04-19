@@ -36,14 +36,14 @@ func (cmd *diffCmd) Run() error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		cmd2 := commands.NewDiffCommand(ctx.deploymentCollection)
+		cmd2 := commands.NewDiffCommand(ctx.targetCtx.DeploymentCollection)
 		cmd2.ForceApply = cmd.ForceApply
 		cmd2.ReplaceOnError = cmd.ReplaceOnError
 		cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
 		cmd2.IgnoreTags = cmd.IgnoreTags
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
-		result, err := cmd2.Run(ctx.k)
+		result, err := cmd2.Run(ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}

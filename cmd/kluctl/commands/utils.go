@@ -6,14 +6,10 @@ import (
 	"github.com/kluctl/kluctl/pkg/deployment"
 	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
 	"github.com/kluctl/kluctl/pkg/jinja2"
-	"github.com/kluctl/kluctl/pkg/k8s"
 	"github.com/kluctl/kluctl/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/pkg/types"
 	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 )
 
 func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl_project.KluctlProjectContext) error) error {
@@ -67,62 +63,27 @@ type projectTargetCommandArgs struct {
 }
 
 type commandCtx struct {
-	kluctlProject        *kluctl_project.KluctlProjectContext
-	target               *types.Target
-	clusterConfig        *types.ClusterConfig
-	k                    *k8s.K8sCluster
-	images               *deployment.Images
-	deploymentProject    *deployment.DeploymentProject
-	deploymentCollection *deployment.DeploymentCollection
+	targetCtx *kluctl_project.TargetContext
+	images    *deployment.Images
 }
 
 func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
 	return withKluctlProjectFromArgs(args.projectFlags, func(p *kluctl_project.KluctlProjectContext) error {
-		var target *types.Target
-		if args.targetFlags.Target != "" {
-			t, err := p.FindDynamicTarget(args.targetFlags.Target)
-			if err != nil {
-				return err
-			}
-			target = t.Target
-		}
-		return withProjectTargetCommandContext(args, p, target, false, cb)
+		return withProjectTargetCommandContext(args, p, false, cb)
 	})
 }
 
-func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, target *types.Target, forSeal bool, cb func(ctx *commandCtx) error) error {
-	deploymentDir, err := filepath.Abs(p.DeploymentDir)
-	if err != nil {
-		return err
-	}
-
-	clusterName := args.projectFlags.Cluster
-	if clusterName == "" {
-		if target == nil {
-			return fmt.Errorf("you must specify an existing --cluster when not providing a --target")
-		}
-		clusterName = target.Cluster
-	}
-
-	clusterConfig, err := p.LoadClusterConfig(clusterName)
-	if err != nil {
-		return err
-	}
-
-	k, err := k8s.NewK8sCluster(clusterConfig.Cluster.Context, args.dryRunArgs == nil || args.dryRunArgs.DryRun)
-	if err != nil {
-		return err
-	}
-
-	varsCtx := jinja2.NewVarsCtx(p.J2)
-	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
-	if err != nil {
-		return err
-	}
-
+func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, forSeal bool, cb func(ctx *commandCtx) error) error {
 	images, err := deployment.NewImages(args.imageFlags.UpdateImages)
 	if err != nil {
 		return err
+	}
+	fixedImages, err := args.imageFlags.LoadFixedImagesFromArgs()
+	if err != nil {
+		return err
+	}
+	for _, fi := range fixedImages {
+		images.AddFixedImage(fi)
 	}
 
 	inclusion, err := args.inclusionFlags.ParseInclusionFromArgs()
@@ -130,44 +91,10 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 		return err
 	}
 
-	allArgs := uo.New()
-
 	optionArgs, err := deployment.ParseArgs(args.argsFlags.Arg)
 	if err != nil {
 		return err
 	}
-	if target != nil {
-		for argName, argValue := range optionArgs {
-			err = p.CheckDynamicArg(target, argName, argValue)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	allArgs.Merge(deployment.ConvertArgsToVars(optionArgs))
-	if target != nil {
-		if target.Args != nil {
-			allArgs.Merge(target.Args)
-		}
-		if forSeal {
-			if target.SealingConfig.Args != nil {
-				allArgs.Merge(target.SealingConfig.Args)
-			}
-		}
-	}
-
-	err = deployment.CheckRequiredDeployArgs(deploymentDir, varsCtx, allArgs)
-	if err != nil {
-		return err
-	}
-
-	varsCtx.UpdateChild("args", allArgs)
-
-	targetVars, err := uo.FromStruct(target)
-	if err != nil {
-		return err
-	}
-	varsCtx.UpdateChild("target", targetVars)
 
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
@@ -179,44 +106,25 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 		renderOutputDir = tmpDir
 	}
 
-	d, err := deployment.NewDeploymentProject(k, varsCtx, deploymentDir, p.SealedSecretsDir, nil)
+	ctx, err := p.NewTargetContext(args.targetFlags.Target, args.projectFlags.Cluster,
+		args.dryRunArgs == nil || args.dryRunArgs.DryRun,
+		optionArgs, forSeal, images, inclusion,
+		renderOutputDir)
 	if err != nil {
 		return err
-	}
-	c, err := deployment.NewDeploymentCollection(d, images, inclusion, renderOutputDir, forSeal)
-	if err != nil {
-		return err
-	}
-
-	fixedImages, err := args.imageFlags.LoadFixedImagesFromArgs()
-	if err != nil {
-		return err
-	}
-	if target != nil {
-		for _, fi := range target.Images {
-			images.AddFixedImage(fi)
-		}
-	}
-	for _, fi := range fixedImages.Images {
-		images.AddFixedImage(fi)
 	}
 
 	if !forSeal {
-		err = c.Prepare(k)
+		err = ctx.DeploymentCollection.Prepare(ctx.K)
 		if err != nil {
 			return err
 		}
 	}
 
-	ctx := &commandCtx{
-		kluctlProject:        p,
-		target:               target,
-		clusterConfig:        clusterConfig,
-		k:                    k,
-		images:               images,
-		deploymentProject:    d,
-		deploymentCollection: c,
+	cmdCtx := &commandCtx{
+		targetCtx: ctx,
+		images:    images,
 	}
 
-	return cb(ctx)
+	return cb(cmdCtx)
 }

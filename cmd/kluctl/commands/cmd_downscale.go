@@ -37,14 +37,14 @@ func (cmd *downscaleCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.k.Context())) {
+			if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.targetCtx.K.Context())) {
 				return fmt.Errorf("aborted")
 			}
 		}
 
-		cmd2 := commands.NewDownscaleCommand(ctx.deploymentCollection)
+		cmd2 := commands.NewDownscaleCommand(ctx.targetCtx.DeploymentCollection)
 
-		result, err := cmd2.Run(ctx.k)
+		result, err := cmd2.Run(ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}

@@ -49,7 +49,7 @@ func (cmd *deployCmd) Run() error {
 }
 
 func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
-	cmd2 := commands.NewDeployCommand(ctx.deploymentCollection)
+	cmd2 := commands.NewDeployCommand(ctx.targetCtx.DeploymentCollection)
 	cmd2.ForceApply = cmd.ForceApply
 	cmd2.ReplaceOnError = cmd.ReplaceOnError
 	cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
@@ -62,7 +62,7 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 		cb = nil
 	}
 
-	result, err := cmd2.Run(ctx.k, cb)
+	result, err := cmd2.Run(ctx.targetCtx.K, cb)
 	if err != nil {
 		return err
 	}

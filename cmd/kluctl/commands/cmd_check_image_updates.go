@@ -30,7 +30,7 @@ func (cmd *checkImageUpdatesCmd) Run() error {
 		targetFlags:  cmd.TargetFlags,
 	}
 	err := withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		renderedImages = ctx.deploymentCollection.FindRenderedImages()
+		renderedImages = ctx.targetCtx.DeploymentCollection.FindRenderedImages()
 		return nil
 	})
 	if err != nil {

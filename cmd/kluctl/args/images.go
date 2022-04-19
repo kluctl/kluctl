@@ -13,7 +13,7 @@ type ImageFlags struct {
 	UpdateImages    bool     `group:"images" short:"u" help:"This causes kluctl to prefer the latest image found in registries, based on the 'latest_image' filters provided to 'images.get_image(...)' calls. Use this flag if you want to update to the latest versions/tags of all images. '-u' takes precedence over '--fixed-image/--fixed-images-file', meaning that the latest images are used even if an older image is given via fixed images."`
 }
 
-func (args *ImageFlags) LoadFixedImagesFromArgs() (*types.FixedImagesConfig, error) {
+func (args *ImageFlags) LoadFixedImagesFromArgs() ([]types.FixedImage, error) {
 	var ret types.FixedImagesConfig
 
 	if args.FixedImagesFile != "" {
@@ -31,7 +31,7 @@ func (args *ImageFlags) LoadFixedImagesFromArgs() (*types.FixedImagesConfig, err
 		ret.Images = append(ret.Images, *e)
 	}
 
-	return &ret, nil
+	return ret.Images, nil
 }
 
 func buildFixedImageEntryFromArg(arg string) (*types.FixedImage, error) {
