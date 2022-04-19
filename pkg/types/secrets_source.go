@@ -2,7 +2,7 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
 type SecretSourceAwsSecretsManager struct {

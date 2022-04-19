@@ -3,8 +3,8 @@ package utils
 import (
 	"fmt"
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"
 	"strconv"

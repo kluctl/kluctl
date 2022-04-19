@@ -2,7 +2,7 @@ package auth
 
 import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 )
 
 type GitAuthProvider interface {

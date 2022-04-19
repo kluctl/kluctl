@@ -3,7 +3,7 @@ package git
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
-	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"path/filepath"
 )
 

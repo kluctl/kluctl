@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/kluctl/kluctl/cmd/kluctl/commands"
+import "github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
 
 func main() {
 	commands.Execute()

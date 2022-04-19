@@ -2,8 +2,8 @@ package args
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"strings"
 )
 

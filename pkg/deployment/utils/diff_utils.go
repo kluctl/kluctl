@@ -1,11 +1,11 @@
 package utils
 
 import (
-	"github.com/kluctl/kluctl/pkg/deployment"
-	"github.com/kluctl/kluctl/pkg/diff"
-	"github.com/kluctl/kluctl/pkg/types"
-	k8s2 "github.com/kluctl/kluctl/pkg/types/k8s"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/diff"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sort"
 	"sync"
 	"time"

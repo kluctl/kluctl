@@ -2,12 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/pkg/seal"
-	"github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/seal"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	log "github.com/sirupsen/logrus"
 )
 

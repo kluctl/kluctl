@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/kluctl/kluctl/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 )
 
 type archiveCmd struct {

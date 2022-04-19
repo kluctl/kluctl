@@ -2,14 +2,14 @@ package commands
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/pkg/deployment"
-	"github.com/kluctl/kluctl/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/pkg/k8s"
-	"github.com/kluctl/kluctl/pkg/types"
-	k8s2 "github.com/kluctl/kluctl/pkg/types/k8s"
-	utils2 "github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	utils2 "github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 )
 

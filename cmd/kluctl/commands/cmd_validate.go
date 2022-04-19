@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"os"
 	"time"
 )

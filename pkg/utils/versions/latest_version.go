@@ -2,7 +2,7 @@ package versions
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"log"
 	"regexp"
 	"strconv"

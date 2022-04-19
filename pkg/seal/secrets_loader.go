@@ -2,11 +2,11 @@ package seal
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/aws"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/aws"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"path/filepath"
 	"strings"

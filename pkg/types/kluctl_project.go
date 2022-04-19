@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type DynamicArg struct {

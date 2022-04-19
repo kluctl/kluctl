@@ -2,10 +2,10 @@ package utils
 
 import (
 	"context"
-	"github.com/kluctl/kluctl/pkg/k8s"
-	"github.com/kluctl/kluctl/pkg/types"
-	k8s2 "github.com/kluctl/kluctl/pkg/types/k8s"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strconv"

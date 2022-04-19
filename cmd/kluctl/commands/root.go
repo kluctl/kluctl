@@ -17,11 +17,11 @@ package commands
 
 import (
 	"github.com/alecthomas/kong"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/utils/versions"
-	"github.com/kluctl/kluctl/pkg/version"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
+	"github.com/kluctl/kluctl/v2/pkg/version"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"

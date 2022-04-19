@@ -2,11 +2,11 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/k8s"
-	"github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"io/ioutil"
 	"os"

@@ -2,11 +2,11 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/git"
-	auth2 "github.com/kluctl/kluctl/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/jinja2"
-	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/git"
+	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"regexp"
 )
 

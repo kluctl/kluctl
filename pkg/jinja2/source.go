@@ -2,8 +2,8 @@ package jinja2
 
 import (
 	"embed"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/embed_util"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/embed_util"
 	log "github.com/sirupsen/logrus"
 	"path/filepath"
 )

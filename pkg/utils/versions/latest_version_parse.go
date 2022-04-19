@@ -2,7 +2,7 @@ package versions
 
 import (
 	"fmt"
-	scanner "github.com/kluctl/kluctl/pkg/utils/python_scanner"
+	scanner "github.com/kluctl/kluctl/v2/pkg/utils/python_scanner"
 	log "github.com/sirupsen/logrus"
 	"strconv"
 	"strings"

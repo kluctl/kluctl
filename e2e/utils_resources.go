@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"bytes"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"text/template"
 )
 

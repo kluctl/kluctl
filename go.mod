@@ -1,4 +1,4 @@
-module github.com/kluctl/kluctl
+module github.com/kluctl/kluctl/v2
 
 go 1.17
 

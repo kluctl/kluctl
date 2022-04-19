@@ -2,12 +2,12 @@ package commands
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/pkg/deployment"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/jinja2"
-	"github.com/kluctl/kluctl/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"io/ioutil"
 	"os"
 )

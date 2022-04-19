@@ -1,7 +1,7 @@
 package k8s
 
 import (
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 

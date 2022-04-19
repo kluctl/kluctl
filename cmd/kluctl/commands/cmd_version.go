@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/kluctl/kluctl/pkg/version"
+	"github.com/kluctl/kluctl/v2/pkg/version"
 	"os"
 )
 

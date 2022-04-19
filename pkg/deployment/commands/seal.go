@@ -2,8 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/deployment"
-	"github.com/kluctl/kluctl/pkg/seal"
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"io/fs"
 	"path/filepath"
 	"strings"

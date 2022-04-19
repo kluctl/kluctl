@@ -5,7 +5,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	v12 "k8s.io/api/core/v1"

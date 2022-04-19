@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"

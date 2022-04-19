@@ -3,8 +3,8 @@ package jinja2
 import (
 	"fmt"
 	"github.com/gobwas/glob"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io/fs"
 	"io/ioutil"
 	"os"

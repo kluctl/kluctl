@@ -1,7 +1,7 @@
 package uo
 
 import (
-	"github.com/kluctl/kluctl/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

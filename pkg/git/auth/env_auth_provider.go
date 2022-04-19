@@ -4,8 +4,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/utils"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"strings"
 )

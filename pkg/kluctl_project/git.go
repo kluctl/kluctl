@@ -2,10 +2,10 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/git"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	types2 "github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/git"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"

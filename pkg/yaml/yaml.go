@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goccy/go-yaml"
-	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"

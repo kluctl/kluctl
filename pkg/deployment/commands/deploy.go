@@ -1,10 +1,10 @@
 package commands
 
 import (
-	"github.com/kluctl/kluctl/pkg/deployment"
-	utils2 "github.com/kluctl/kluctl/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/pkg/k8s"
-	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"time"
 )
 

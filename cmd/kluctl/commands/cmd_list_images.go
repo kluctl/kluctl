@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/kluctl/kluctl/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/pkg/types"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
 type listImagesCmd struct {

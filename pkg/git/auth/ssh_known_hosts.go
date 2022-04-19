@@ -2,8 +2,8 @@ package auth
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/pkg/git/auth/goph"
-	"github.com/kluctl/kluctl/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/git/auth/goph"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/crypto/ssh"
 	"net"
 	"os"

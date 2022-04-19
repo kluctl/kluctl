@@ -3,8 +3,8 @@ package e2e
 import (
 	"bufio"
 	"bytes"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/validation"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/validation"
 	"io"
 	"os/exec"
 	"reflect"

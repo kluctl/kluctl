@@ -2,12 +2,12 @@ package kluctl_project
 
 import (
 	"fmt"
-	git_url "github.com/kluctl/kluctl/pkg/git/git-url"
-	"github.com/kluctl/kluctl/pkg/jinja2"
-	"github.com/kluctl/kluctl/pkg/types"
-	"github.com/kluctl/kluctl/pkg/utils"
-	"github.com/kluctl/kluctl/pkg/utils/uo"
-	"github.com/kluctl/kluctl/pkg/yaml"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"path/filepath"
 	"reflect"
