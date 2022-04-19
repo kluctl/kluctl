@@ -14,14 +14,11 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-.PHONY: all test build vendor check-env check-kubectl check-helm check-kind
+.PHONY: all test build vendor check-kubectl check-helm check-kind
 
 all: help
 
 ## Check:
-check-env: ## Checks if required environment variables are set
-	 @test $${GOOS?Please set environment variable GOOS}
-	 @test $${GOARCH?Please set environment variable GOARCH}
 
 check-kubectl: ## Checks if kubectl is installed
 	kubectl version --client=true
@@ -35,9 +32,9 @@ check-kind: ## Checks if kind is installed
 ## Build:
 build: vendor python generate build-go ## Run the complete build pipeline
 
-build-go: check-env ## Build your project and put the output binary in out/bin/
+build-go:  ## Build your project and put the output binary in out/bin/
 	mkdir -p out/bin
-	CGO_ENBALED=0 GO111MODULE=on GOARCH=$(GOARCH) GOOS=$(GOOS) $(GOCMD) build -mod vendor -o out/bin/$(BINARY_NAME) ./cmd/kluctl
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -mod vendor -o out/bin/$(BINARY_NAME) ./cmd/kluctl
 
 clean: ## Remove build related file
 	rm -fr ./bin
@@ -48,18 +45,20 @@ clean: ## Remove build related file
 vendor: ## Copy of all packages needed to support builds and tests in the vendor directory
 	$(GOCMD) mod vendor
 
-python: check-env ## Download python for Jinja2 support
-	./hack/download-python.sh $(GOARCH)
+python:  ## Download python for Jinja2 support
+	./hack/download-python.sh linux
+	./hack/download-python.sh windows
+	./hack/download-python.sh darwin
 
 generate: ## Generating Jinja2 support
 	$(GOCMD) generate ./...
-	$(GOCMD) generate -tags $(GOOS) ./pkg/python
+	$(GOCMD) generate ./pkg/python
 
 ## Test:
 test: test-unit test-e2e ## Runs the complete test suite
 
-test-e2e: check-env check-kubectl check-helm check-kind ## Runs the end to end tests
-	CGO_ENBALED=0 GO111MODULE=on GOARCH=$(GOARCH) GOOS=$(GOOS) $(GOCMD) test -o out/bin/$(TEST_BINARY_NAME) ./e2e
+test-e2e: check-kubectl check-helm check-kind ## Runs the end to end tests
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o out/bin/$(TEST_BINARY_NAME) ./e2e
 
 test-unit: ## Run the unit tests of the project
 ifeq ($(EXPORT_RESULT), true)
