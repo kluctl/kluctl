@@ -8,7 +8,7 @@ type ProjectFlags struct {
 	LocalClusters       string `group:"project" help:"Local clusters directory. Overrides the project from .kluctl.yml" type:"existingdir"`
 	LocalDeployment     string `group:"project" help:"Local deployment directory. Overrides the project from .kluctl.yml" type:"existingdir"`
 	LocalSealedSecrets  string `group:"project" help:"Local sealed-secrets directory. Overrides the project from .kluctl.yml" type:"existingdir"`
-	FromArchive         string `group:"project" help:"Load project (.kluctl.yml, cluster, ...) from archive. Given path can either be an archive file or a directory with the extracted contents." type:"existingfile"`
+	FromArchive         string `group:"project" help:"Load project (.kluctl.yml, cluster, ...) from archive. Given path can either be an archive file or a directory with the extracted contents." type:"existing"`
 	FromArchiveMetadata string `group:"project" help:"Specify where to load metadata (targets, ...) from. If not specified, metadata is assumed to be part of the archive." type:"existingfile"`
 	Cluster             string `group:"project" help:"Specify/Override cluster"`
 }
