@@ -15,7 +15,7 @@ type pokeImagesCmd struct {
 	args.InclusionFlags
 	args.YesFlags
 	args.DryRunFlags
-	args.OutputFlags
+	args.OutputFormatFlags
 	args.RenderOutputDirFlags
 }
 
@@ -48,7 +48,7 @@ func (cmd *pokeImagesCmd) Run() error {
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(cmd.Output, result)
+		err = outputCommandResult(cmd.OutputFormat, result)
 		if err != nil {
 			return err
 		}

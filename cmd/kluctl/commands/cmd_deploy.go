@@ -20,7 +20,7 @@ type deployCmd struct {
 	args.ReplaceOnErrorFlags
 	args.AbortOnErrorFlags
 	args.HookFlags
-	args.OutputFlags
+	args.OutputFormatFlags
 	args.RenderOutputDirFlags
 
 	NoWait bool `group:"misc" help:"Don't wait for objects readiness'"`
@@ -66,7 +66,7 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmd.Output, result)
+	err = outputCommandResult(cmd.OutputFormat, result)
 	if err != nil {
 		return err
 	}
