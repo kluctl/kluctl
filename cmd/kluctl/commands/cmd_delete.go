@@ -22,6 +22,7 @@ type deleteCmd struct {
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
+	args.RenderOutputDirFlags
 
 	DeleteByLabel []string `group:"misc" short:"l" help:"Override the labels used to find objects for deletion."`
 }
@@ -36,12 +37,13 @@ take the local target/state into account!`
 
 func (cmd *deleteCmd) Run() error {
 	ptArgs := projectTargetCommandArgs{
-		projectFlags:   cmd.ProjectFlags,
-		targetFlags:    cmd.TargetFlags,
-		argsFlags:      cmd.ArgsFlags,
-		imageFlags:     cmd.ImageFlags,
-		inclusionFlags: cmd.InclusionFlags,
-		dryRunArgs:     &cmd.DryRunFlags,
+		projectFlags:         cmd.ProjectFlags,
+		targetFlags:          cmd.TargetFlags,
+		argsFlags:            cmd.ArgsFlags,
+		imageFlags:           cmd.ImageFlags,
+		inclusionFlags:       cmd.InclusionFlags,
+		dryRunArgs:           &cmd.DryRunFlags,
+		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		cmd2 := commands.NewDeleteCommand(ctx.targetCtx.DeploymentCollection)

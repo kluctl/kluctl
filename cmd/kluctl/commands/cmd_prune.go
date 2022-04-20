@@ -15,6 +15,7 @@ type pruneCmd struct {
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
+	args.RenderOutputDirFlags
 }
 
 func (cmd *pruneCmd) Help() string {
@@ -27,12 +28,13 @@ func (cmd *pruneCmd) Help() string {
 
 func (cmd *pruneCmd) Run() error {
 	ptArgs := projectTargetCommandArgs{
-		projectFlags:   cmd.ProjectFlags,
-		targetFlags:    cmd.TargetFlags,
-		argsFlags:      cmd.ArgsFlags,
-		imageFlags:     cmd.ImageFlags,
-		inclusionFlags: cmd.InclusionFlags,
-		dryRunArgs:     &cmd.DryRunFlags,
+		projectFlags:         cmd.ProjectFlags,
+		targetFlags:          cmd.TargetFlags,
+		argsFlags:            cmd.ArgsFlags,
+		imageFlags:           cmd.ImageFlags,
+		inclusionFlags:       cmd.InclusionFlags,
+		dryRunArgs:           &cmd.DryRunFlags,
+		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		return cmd.runCmdPrune(ctx)

@@ -12,6 +12,7 @@ type listImagesCmd struct {
 	args.ImageFlags
 	args.InclusionFlags
 	args.OutputFlags
+	args.RenderOutputDirFlags
 
 	Simple bool `group:"misc" help:"Output a simplified version of the images list"`
 }
@@ -25,11 +26,12 @@ as described in for the deploy command.`
 
 func (cmd *listImagesCmd) Run() error {
 	ptArgs := projectTargetCommandArgs{
-		projectFlags:   cmd.ProjectFlags,
-		targetFlags:    cmd.TargetFlags,
-		argsFlags:      cmd.ArgsFlags,
-		imageFlags:     cmd.ImageFlags,
-		inclusionFlags: cmd.InclusionFlags,
+		projectFlags:         cmd.ProjectFlags,
+		targetFlags:          cmd.TargetFlags,
+		argsFlags:            cmd.ArgsFlags,
+		imageFlags:           cmd.ImageFlags,
+		inclusionFlags:       cmd.InclusionFlags,
+		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		result := types.FixedImagesConfig{
