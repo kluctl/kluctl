@@ -1,11 +1,9 @@
-name: build
+name: tests
 
 on:
   push:
     branches:
       - '*'
-    tags:
-      - 'v*'
 
 jobs:
   build:
@@ -67,10 +65,10 @@ jobs:
           go test -c ./e2e
           mv kluctl.exe kluctl-windows-amd64.exe
           mv e2e.test.exe e2e.test-windows-amd64.exe
-      - name: Upload dist artifact
+      - name: Upload binaries
         uses: actions/upload-artifact@v2
         with:
-          name: dist
+          name: binaries
           path: |
             kluctl-linux-amd64
             kluctl-darwin-amd64
@@ -259,12 +257,11 @@ jobs:
           echo "KIND_KUBECONFIG=$(pwd)/kind-kubeconfig" >> $GITHUB_ENV
 
           ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$DOCKER_IP" "$PORT"
-      - name: Download dist artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v2
       - name: Run e2e tests
         shell: bash
         run: |
-          chmod +x ./dist/*
-          export KLUCTL_EXE=./dist/kluctl-${{ matrix.binary-suffix }}$TOOLS_EXE
-          ./dist/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
-
+          chmod +x ./binaries/*
+          export KLUCTL_EXE=./binaries/kluctl-${{ matrix.binary-suffix }}$TOOLS_EXE
+          ./binaries/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
