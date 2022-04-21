@@ -62,3 +62,17 @@ docker_manifests:
     image_templates:
       - "ghcr.io/kluctl/kluctl:{{ .Version }}-amd64"
       - "ghcr.io/kluctl/kluctl:{{ .Version }}-arm64"
+
+brews:
+  - name: kluctl
+    tap:
+      owner: kluctl
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    folder: Formula
+    homepage: "https://kluctl.io/"
+    description: "kluctl"
+    install: |
+      bin.install "kluctl"
+    test: |
+      system "#{bin}/kluctl version"
