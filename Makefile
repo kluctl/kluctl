@@ -46,9 +46,7 @@ vendor: ## Copy of all packages needed to support builds and tests in the vendor
 	$(GOCMD) mod vendor
 
 python:  ## Download python for Jinja2 support
-	./hack/download-python.sh linux
-	./hack/download-python.sh windows
-	./hack/download-python.sh darwin
+	./hack/download-python.sh
 
 generate: ## Generating Jinja2 support
 	$(GOCMD) generate ./...
