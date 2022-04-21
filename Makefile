@@ -34,7 +34,7 @@ build: vendor generate build-go ## Run the complete build pipeline
 
 build-go:  ## Build your project and put the output binary in out/bin/
 	mkdir -p out/bin
-	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -mod vendor -o out/bin/$(BINARY_NAME) ./cmd/kluctl
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -mod vendor -o out/bin/$(BINARY_NAME)
 
 clean: ## Remove build related file
 	rm -fr ./bin
