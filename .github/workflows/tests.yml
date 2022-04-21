@@ -295,29 +295,3 @@ jobs:
           export KLUCTL_EXE=./dist/kluctl-${{ matrix.binary-suffix }}$TOOLS_EXE
           ./dist/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
 
-  release:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    needs:
-      - build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-      - name: Build checksums.txt
-        run: |
-          cd dist
-          sha256sum kluctl-linux-amd64 > checksums.txt
-          sha256sum kluctl-darwin-amd64 >> checksums.txt
-          sha256sum kluctl-windows-amd64.exe >> checksums.txt
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          draft: true
-          body_path: changelog/CHANGELOG.md
-          files: |
-            dist/kluctl-linux-*
-            dist/kluctl-darwin-*
-            dist/kluctl-windows-*
-            dist/checksums.txt

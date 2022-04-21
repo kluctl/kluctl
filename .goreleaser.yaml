@@ -1,0 +1,67 @@
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+    - go generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
+builds:
+  - id: kluctl-unix
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+  - id: kluctl-windows
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  draft: true
+  prerelease: auto
+  name_template: "{{.ProjectName}}-v{{.Version}}"
+
+dockers:
+  - id: linux-amd64
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--platform=linux/amd64"
+    image_templates:
+      - "ghcr.io/kluctl/kluctl:{{ .Version }}-amd64"
+  - id: linux-arm64
+    goos: linux
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64"
+    image_templates:
+      - "ghcr.io/kluctl/kluctl:{{ .Version }}-arm64"
+
+docker_manifests:
+  - name_template: ghcr.io/kluctl/kluctl:{{ .Version }}
+    image_templates:
+      - "ghcr.io/kluctl/kluctl:{{ .Version }}-amd64"
+      - "ghcr.io/kluctl/kluctl:{{ .Version }}-arm64"
