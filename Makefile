@@ -30,7 +30,7 @@ check-kind: ## Checks if kind is installed
 	kind version
 
 ## Build:
-build: vendor python generate build-go ## Run the complete build pipeline
+build: vendor generate build-go ## Run the complete build pipeline
 
 build-go:  ## Build your project and put the output binary in out/bin/
 	mkdir -p out/bin
