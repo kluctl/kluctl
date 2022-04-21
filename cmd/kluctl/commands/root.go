@@ -81,7 +81,7 @@ func (c *cli) checkNewVersion() {
 	if c.NoUpdateCheck {
 		return
 	}
-	if version.Version == "0.0.0" {
+	if version.GetVersion() == "(devel)" {
 		return
 	}
 
@@ -119,7 +119,7 @@ func (c *cli) checkNewVersion() {
 		latestVersionStr = latestVersionStr[1:]
 	}
 	latestVersion := versions.LooseVersion(latestVersionStr)
-	localVersion := versions.LooseVersion(version.Version)
+	localVersion := versions.LooseVersion(version.GetVersion())
 	if localVersion.Less(latestVersion, true) {
 		log.Warningf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion, latestVersion)
 	}

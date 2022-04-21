@@ -10,8 +10,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -32,31 +30,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Get Version
-        id: get_version
-        run: |
-          go install github.com/bvieira/sv4git/v2/cmd/git-sv@v2.7.0
-          KLUCTL_VERSION="$(git sv next-version)"
-          if [[ "${{ github.ref }}" != refs/tags/* ]]; then
-            KLUCTL_VERSION="$KLUCTL_VERSION-dev-$(git rev-parse --short HEAD)"
-          fi
-          echo "KLUCTL_VERSION=$KLUCTL_VERSION"
-          echo "KLUCTL_VERSION=$KLUCTL_VERSION" >> $GITHUB_ENV
-          echo "::set-output name=version::$VERSION"
-      - name: Generate Changelog
-        id: gen_changelog
-        run: |
-          git sv changelog -n 1 > CHANGELOG.md
-      - name: Upload Changelog
-        uses: actions/upload-artifact@v2
-        with:
-          name: changelog
-          path: |
-            CHANGELOG.md
-      - name: Write Version to version.go
-        run: |
-          sed -ibak "s/0.0.0/$KLUCTL_VERSION/g" pkg/version/version.go
-          cat pkg/version/version.go
       - name: Go Mod Vendor
         run: |
           go mod vendor

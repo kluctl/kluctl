@@ -9,6 +9,6 @@ type versionCmd struct {
 }
 
 func (cmd *versionCmd) Run() error {
-	_, err := os.Stdout.WriteString(version.Version + "\n")
+	_, err := os.Stdout.WriteString(version.GetVersion() + "\n")
 	return err
 }

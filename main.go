@@ -15,8 +15,14 @@ limitations under the License.
 */
 package main
 
-import "github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
+import (
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
+	version2 "github.com/kluctl/kluctl/v2/pkg/version"
+)
+
+var version = "0.0.0"
 
 func main() {
+	version2.SetVersion(version)
 	commands.Execute()
 }
