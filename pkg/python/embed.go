@@ -16,7 +16,7 @@ func init() {
 }
 
 func decompressPython() string {
-	tarName := fmt.Sprintf("python-%s.tar.gz", runtime.GOOS)
+	tarName := fmt.Sprintf("python-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
 	tgz, err := pythonLib.Open(tarName)
 	if err != nil {
 		log.Panic(err)
