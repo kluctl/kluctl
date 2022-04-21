@@ -34,7 +34,7 @@ jobs:
       - name: Go Generate
         run: |
           go generate ./...
-          go generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
+          go generate -tags linux,darwin,windows,amd64 ./pkg/python
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v
