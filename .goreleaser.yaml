@@ -45,6 +45,13 @@ dockers:
     goos: linux
     goarch: amd64
     build_flag_templates:
+      - "--pull"
+      - "--build-arg=ARCH=linux/amd64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.name={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
       - "--platform=linux/amd64"
     image_templates:
       - "ghcr.io/kluctl/kluctl:{{ .Version }}-amd64"
@@ -52,6 +59,13 @@ dockers:
     goos: linux
     goarch: arm64
     build_flag_templates:
+      - "--pull"
+      - "--build-arg=ARCH=linux/arm64"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.name={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source={{ .GitURL }}"
       - "--platform=linux/arm64"
     image_templates:
       - "ghcr.io/kluctl/kluctl:{{ .Version }}-arm64"
