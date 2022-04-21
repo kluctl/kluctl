@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -69,6 +70,9 @@ func (c *KluctlProjectContext) loadTargets() error {
 			})
 		}
 	}
+	sort.SliceStable(c.DynamicTargets, func(i, j int) bool {
+		return c.DynamicTargets[i].Target.Name < c.DynamicTargets[j].Target.Name
+	})
 	return nil
 }
 

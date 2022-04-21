@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -223,5 +224,9 @@ func (c *KluctlProjectContext) addInvolvedRepo(u git_url.GitUrl, refPattern stri
 	}
 	if !found {
 		c.involvedRepos[repoKey] = append(c.involvedRepos[repoKey], *e)
+		s := c.involvedRepos[repoKey]
+		sort.SliceStable(s, func(i, j int) bool {
+			return s[i].RefPattern < s[j].RefPattern
+		})
 	}
 }
