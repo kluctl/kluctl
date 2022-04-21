@@ -33,7 +33,11 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 	}
 	defer gz.Close()
 
-	tarReader := tar.NewReader(gz)
+	return ExtractTarStream(gz, targetPath)
+}
+
+func ExtractTarStream(r io.Reader, targetPath string) error {
+	tarReader := tar.NewReader(r)
 	for true {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -41,7 +45,7 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 		}
 
 		if err != nil {
-			return fmt.Errorf("ExtractTarGz: Next() failed: %w", err)
+			return fmt.Errorf("ExtractTarStream: Next() failed: %w", err)
 		}
 
 		header.Name = strings.ReplaceAll(header.Name, "/", string(os.PathSeparator))
@@ -55,28 +59,28 @@ func ExtractTarGzStream(r io.Reader, targetPath string) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(p, 0755); err != nil {
-				return fmt.Errorf("ExtractTarGz: Mkdir() failed: %w", err)
+				return fmt.Errorf("ExtractTarStream: Mkdir() failed: %w", err)
 			}
 		case tar.TypeReg:
 			outFile, err := os.Create(p)
 			if err != nil {
-				return fmt.Errorf("ExtractTarGz: Create() failed: %w", err)
+				return fmt.Errorf("ExtractTarStream: Create() failed: %w", err)
 			}
 			_, err = io.Copy(outFile, tarReader)
 			_ = outFile.Close()
 			if err != nil {
-				return fmt.Errorf("ExtractTarGz: Copy() failed: %w", err)
+				return fmt.Errorf("ExtractTarStream: Copy() failed: %w", err)
 			}
 			err = os.Chmod(p, header.FileInfo().Mode())
 			if err != nil {
-				return fmt.Errorf("ExtractTarGz: Chmod() failed: %w", err)
+				return fmt.Errorf("ExtractTarStream: Chmod() failed: %w", err)
 			}
 		case tar.TypeSymlink:
 			if err := os.Symlink(header.Linkname, p); err != nil {
-				return fmt.Errorf("ExtractTarGz: Symlink() failed: %w", err)
+				return fmt.Errorf("ExtractTarStream: Symlink() failed: %w", err)
 			}
 		default:
-			return fmt.Errorf("ExtractTarGz: uknown type %v in %v", header.Typeflag, header.Name)
+			return fmt.Errorf("ExtractTarStream: uknown type %v in %v", header.Typeflag, header.Name)
 		}
 	}
 	return nil

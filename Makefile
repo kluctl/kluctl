@@ -45,12 +45,9 @@ clean: ## Remove build related file
 vendor: ## Copy of all packages needed to support builds and tests in the vendor directory
 	$(GOCMD) mod vendor
 
-python:  ## Download python for Jinja2 support
-	./hack/download-python.sh
-
-generate: ## Generating Jinja2 support
+generate: ## Generating Python and Jinja2 support
 	$(GOCMD) generate ./...
-	$(GOCMD) generate ./pkg/python
+	$(GOCMD) generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
 
 ## Test:
 test: test-unit test-e2e ## Runs the complete test suite

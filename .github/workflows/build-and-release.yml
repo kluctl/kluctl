@@ -32,11 +32,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Download python
-        run: |
-          ./hack/download-python.sh linux
-          ./hack/download-python.sh darwin
-          ./hack/download-python.sh windows
       - name: Get Version
         id: get_version
         run: |
@@ -68,8 +63,7 @@ jobs:
       - name: Go Generate
         run: |
           go generate ./...
-          go generate -tags darwin ./pkg/python
-          go generate -tags windows ./pkg/python
+          go generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v

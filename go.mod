@@ -20,6 +20,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/jinzhu/copier v0.3.5
 	github.com/kevinburke/ssh_config v1.2.0
+	github.com/klauspost/compress v1.13.6
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/ohler55/ojg v1.14.0

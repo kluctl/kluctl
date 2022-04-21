@@ -23,6 +23,7 @@ func main() {
 	dir := os.Args[2]
 	patterns := os.Args[3:]
 
+	log.Infof("writing tar %s", out)
 	fileList, tgz := writeTar(dir, patterns)
 
 	hash := sha256.Sum256(tgz)
