@@ -4,22 +4,19 @@ before:
     - go generate ./...
     - go generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
 builds:
-  - id: kluctl-unix
+  - id: kluctl
     env:
       - CGO_ENABLED=0
     goos:
       - linux
       - darwin
-    goarch:
-      - amd64
-      - arm64
-  - id: kluctl-windows
-    env:
-      - CGO_ENABLED=0
-    goos:
       - windows
     goarch:
       - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
 archives:
   - replacements:
       darwin: Darwin
