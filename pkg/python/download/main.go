@@ -56,14 +56,23 @@ func main() {
 	}
 
 	downloadPath := download(osName, arch, dist)
+	archiveBytes, _ := ioutil.ReadFile(downloadPath)
+	hash := utils.Sha256Bytes(archiveBytes)
 
-	os.RemoveAll(extractPath)
-	decompress(downloadPath, extractPath)
+	if utils.Exists(filepath.Join(extractPath, hash)) {
+		log.Infof("skipping extract")
+		return
+	}
+
+	_ = os.RemoveAll(extractPath)
+	extract(downloadPath, extractPath)
 
 	for _, lib := range removeLibs {
 		_ = os.RemoveAll(filepath.Join(extractPath, "python", "install", "lib", fmt.Sprintf("python%s", pythonVersionBase), lib))
 		_ = os.RemoveAll(filepath.Join(extractPath, "python", "install", "Lib", lib))
 	}
+
+	_ = utils.Touch(filepath.Join(extractPath, hash))
 }
 
 func download(osName, arch, dist string) string {
@@ -106,7 +115,7 @@ func download(osName, arch, dist string) string {
 	return downloadPath
 }
 
-func decompress(archivePath string, targetPath string) string {
+func extract(archivePath string, targetPath string) string {
 	f, err := os.Open(archivePath)
 	if err != nil {
 		log.Errorf("opening file failed: %v", err)
