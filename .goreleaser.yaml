@@ -38,7 +38,7 @@ changelog:
 
 release:
   prerelease: auto
-  name_template: "{{.ProjectName}}-v{{.Version}}"
+  name_template: "{{.ProjectName}}-{{.Tag}}"
 
 dockers:
   - id: linux-amd64
@@ -54,7 +54,7 @@ dockers:
       - "--label=org.opencontainers.image.source={{ .GitURL }}"
       - "--platform=linux/amd64"
     image_templates:
-      - "ghcr.io/kluctl/kluctl:{{ .Version }}-amd64"
+      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-amd64"
   - id: linux-arm64
     goos: linux
     goarch: arm64
@@ -68,13 +68,13 @@ dockers:
       - "--label=org.opencontainers.image.source={{ .GitURL }}"
       - "--platform=linux/arm64"
     image_templates:
-      - "ghcr.io/kluctl/kluctl:{{ .Version }}-arm64"
+      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-arm64"
 
 docker_manifests:
-  - name_template: ghcr.io/kluctl/kluctl:{{ .Version }}
+  - name_template: ghcr.io/kluctl/kluctl:{{ .Tag }}
     image_templates:
-      - "ghcr.io/kluctl/kluctl:{{ .Version }}-amd64"
-      - "ghcr.io/kluctl/kluctl:{{ .Version }}-arm64"
+      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-amd64"
+      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-arm64"
 
 brews:
   - name: kluctl
