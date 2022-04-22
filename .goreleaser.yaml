@@ -72,7 +72,7 @@ dockers:
     goarch: amd64
     build_flag_templates:
       - "--pull"
-      - "--build-arg=ARCH=linux/amd64"
+      - "--build-arg=ARCH=linux-amd64"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -86,7 +86,7 @@ dockers:
     goarch: arm64
     build_flag_templates:
       - "--pull"
-      - "--build-arg=ARCH=linux/arm64"
+      - "--build-arg=ARCH=linux-arm64"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
