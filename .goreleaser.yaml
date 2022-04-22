@@ -4,26 +4,44 @@ before:
     - go generate ./...
     - go generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
 builds:
-  - id: kluctl
-    env:
-      - CGO_ENABLED=0
+  - <<: &build_defaults
+      binary: kluctl
+      env:
+        - CGO_ENABLED=0
+    id: linux
     goos:
       - linux
-      - darwin
-      - windows
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: windows
-        goarch: arm64
+    goarm:
+      - 7
+  - <<: *build_defaults
+    id: darwin
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+  - <<: *build_defaults
+    id: windows
+    goos:
+      - windows
+    goarch:
+      - amd64
 archives:
-  - replacements:
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
+  - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    id: nix
+    builds: [linux, darwin]
+    format: tar.gz
+    files:
+      - none*
+  - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    id: windows
+    builds: [windows]
+    format: zip
+    files:
+      - none*
 sboms:
   - id: source
     artifacts: source
@@ -59,7 +77,7 @@ dockers:
       - "--label=org.opencontainers.image.source={{ .GitURL }}"
       - "--platform=linux/amd64"
     image_templates:
-      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-amd64"
+      - "ghcr.io/kluctl/kluctl:v{{ .Version }}-amd64"
   - id: linux-arm64
     goos: linux
     goarch: arm64
@@ -73,13 +91,13 @@ dockers:
       - "--label=org.opencontainers.image.source={{ .GitURL }}"
       - "--platform=linux/arm64"
     image_templates:
-      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-arm64"
+      - "ghcr.io/kluctl/kluctl:v{{ .Version }}-arm64"
 
 docker_manifests:
   - name_template: ghcr.io/kluctl/kluctl:{{ .Tag }}
     image_templates:
-      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-amd64"
-      - "ghcr.io/kluctl/kluctl:{{ .Tag }}-arm64"
+      - "ghcr.io/kluctl/kluctl:v{{ .Version }}-amd64"
+      - "ghcr.io/kluctl/kluctl:v{{ .Version }}-arm64"
 
 brews:
   - name: kluctl
