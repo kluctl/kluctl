@@ -32,9 +32,9 @@ check-kind: ## Checks if kind is installed
 ## Build:
 build: vendor generate build-go ## Run the complete build pipeline
 
-build-go:  ## Build your project and put the output binary in out/bin/
-	mkdir -p out/bin
-	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -mod vendor -o out/bin/$(BINARY_NAME)
+build-go:  ## Build your project and put the output binary in ./bin/
+	mkdir -p ./bin
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -mod vendor -o ./bin/$(BINARY_NAME)
 
 clean: ## Remove build related file
 	rm -fr ./bin
@@ -53,7 +53,7 @@ generate: ## Generating Python and Jinja2 support
 test: test-unit test-e2e ## Runs the complete test suite
 
 test-e2e: check-kubectl check-helm check-kind ## Runs the end to end tests
-	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o out/bin/$(TEST_BINARY_NAME) ./e2e
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o ./bin/$(TEST_BINARY_NAME) ./e2e
 
 test-unit: ## Run the unit tests of the project
 ifeq ($(EXPORT_RESULT), true)
