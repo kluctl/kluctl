@@ -42,6 +42,9 @@ archives:
     format: zip
     files:
       - none*
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}_v{{ .Version }}_source_code'
 sboms:
   - id: source
     artifacts: source
