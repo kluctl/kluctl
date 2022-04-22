@@ -51,7 +51,7 @@ sboms:
     documents:
       - "{{ .ProjectName }}_v{{ .Version }}_sbom.spdx.json"
 checksum:
-  name_template: 'checksums.txt'
+  name_template: '{{ .ProjectName }}_v{{ .Version }}_checksums.txt'
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
