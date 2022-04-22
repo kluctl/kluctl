@@ -6,7 +6,7 @@ Binaries for macOS and Linux AMD64 are available for download on the
 To install the latest release run:
 
 ```bash
-curl -s https://raw.githubusercontent.com/kluctl/kluctl/main/install/kluctl.sh | sudo bash
+curl -s https://raw.githubusercontent.com/kluctl/kluctl/main/install/kluctl.sh | bash
 ```
 
 The install script does the following:
