@@ -14,7 +14,7 @@ import (
 var createTmpBaseDirOnce sync.Once
 
 func GetTmpBaseDir() string {
-	dir := filepath.Join(os.TempDir(), "kluctl")
+	dir := filepath.Join(os.TempDir(), "kluctl-workdir")
 	createTmpBaseDirOnce.Do(func() {
 		err := os.MkdirAll(dir, 0o700)
 		if err != nil {
