@@ -17,7 +17,7 @@ The install script does the following:
 
 ## Alternative installation methods
 
-See https://kluctl.io/getting-started/installation for alternative installation methods.
+See https://kluctl.io/docs/installation for alternative installation methods.
 
 ## Build from source
 

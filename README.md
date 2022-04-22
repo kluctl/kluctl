@@ -2,30 +2,52 @@
 
 <img alt="kluctl" src="logo/kluctl.svg" width="200"/>
 
-kluctl is the missing glue that puts together your (and any third-party) deployments into one large declarative
+<!-- copied from https://kluctl.io/docs -->
+
+Kluctl is the missing glue that puts together your (and any third-party) deployments into one large declarative
 Kubernetes deployment, while making it fully manageable (deploy, diff, prune, delete, ...) via one unified command
 line interface.
 
-kluctl tries to be as flexible as possible, while remaining as simple as possible. It reuses established
-tools (e.g. kustomize and Helm), making it possible to re-use a large set of available third-party deployments.
+Kluctl tries to be as flexible as possible, while remaining as simple as possible. It reuses established
+tools (e.g. Kustomize and Helm), making it possible to re-use a large set of available third-party deployments.
 
-kluctl works completely locally, on the same machines that `kubectl` runs on. kluctl does not rely on any operators or other cluster-side components.
-As long as the target cluster's kubeconfig is present locally, you are able to execute it from everywhere, including your
-CI/CD pipelines or your laptop.
+Kluctl is centered around "targets", which can be a cluster or a specific environment (e.g. test, dev, prod, ...) on one
+or multiple clusters. Targets can be deployed, diffed, pruned, deleted, and so on. The idea is to have the same set of
+operations for every target, no matter how simple or complex the deployment and/or target is.
 
-Use kluctl to:
-* Organize large and complex deployments, consisting of many Helm charts and kustomize deployments
-* Do the same for small and simple deployments, as the overhead is small
-* Always know what the state of your deployments is by being able to run diffs on the whole deployment
-* Always know what you actually changed after performing a deployment
-* Keep your clusters clean by issuing regular prune calls
-* Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration
-* Manage multiple target clusters (in multiple clouds or bare-metal if you want)
-* Manage encrypted secrets for multiple target environments and clusters (based on [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets))
-* Integrate it into your CI/CD pipelines and avoid putting too much logic into your shell scripts
+Kluctl does not depend on external operators/controllers and allows to use the same deployment wherever you want,
+as long as access to the kluctl project and clusters is available. This means, that you can use it from your
+local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
 
-![](https://kluctl.io/asciinema/kluctl.gif)
+Flux support is in development and will come soon.
+
+## Installation
+
+See [installation](./install).
 
 ## Documentation
 
-Documentation can be found here: https://kluctl.io
+Documentation can be found here: https://kluctl.io/docs
+
+## Kluctl in Short
+
+<!-- copied from https://kluctl.io/docs -->
+
+|     |     |
+| --- | --- |
+| 💪 Kluctl handles all your deployments | You can manage all your deployments with Kluctl, including infrastructure related and your applications. |
+| 🪶 Complex or simple, all the same | You can manage complex and simple deployments with Kluctl. Simple deployments are lightweight while complex deployment are easily manageable. |
+| 🤖 Native git support | Kluctl has native Git support integrated, meaning that it can easily deploy remote Kluctl projects or externalize parts (e.g. cluster configs) of your Kluctl project. |
+| 🪐 Multiple environments | Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration. |
+| 🌌 Multiple clusters | Manage multiple target clusters (in multiple clouds or bare-metal if you want). |
+| 🔩 Configuration and Templating | Kluctl allows to use templating in nearly all places, making it easy to have dynamic configuration. |
+| ⎈ Helm and Kustomize | The Helm and Kustomize integrations allow you to reuse plenty of third-party charts and kustomizations. |
+| 🔍 See what's different | Always know what the state of your deployments is by being able to run diffs on the whole deployment. |
+| 🔎 See what happened | Always know what you actually changed after performing a deployment. |
+| 💥 Know what went wrong | Kluctl will show you what part of your deployment failed and why. |
+| 👐 Live and let live | Kluctl tries to not interfere with any other tools or operators. This is possible due to it's use of server-side-apply. |
+| 🧹 Keep it clean | Keep your clusters clean by issuing regular prune calls. |
+| 🔐 Encrypted Secrets | Manage encrypted secrets for multiple target environments and clusters. |
+
+## Demo
+![](https://kluctl.io/asciinema/kluctl.gif)
