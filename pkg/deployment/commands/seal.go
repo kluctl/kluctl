@@ -20,7 +20,7 @@ func NewSealCommand(c *deployment.DeploymentCollection) *SealCommand {
 }
 
 func (cmd *SealCommand) Run(sealer *seal.Sealer) error {
-	if cmd.c.Project.Config.SealedSecrets.OutputPattern == nil {
+	if cmd.c.Project.Config.SealedSecrets == nil || cmd.c.Project.Config.SealedSecrets.OutputPattern == nil {
 		return fmt.Errorf("sealedSecrets.outputPattern is not defined")
 	}
 
