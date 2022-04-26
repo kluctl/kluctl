@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
 	"os"
 )
@@ -48,6 +49,17 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 	p, err := kluctl_project.LoadKluctlProject(loadArgs, tmpDir, j2)
 	if err != nil {
 		return err
+	}
+	if projectFlags.OutputMetadata != "" {
+		md := p.GetMetadata()
+		b, err := yaml.WriteYamlBytes(md)
+		if err != nil {
+			return err
+		}
+		err = ioutil.WriteFile(projectFlags.OutputMetadata, b, 0o640)
+		if err != nil {
+			return err
+		}
 	}
 	return cb(p)
 }

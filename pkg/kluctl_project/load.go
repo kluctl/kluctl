@@ -206,7 +206,7 @@ func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string, j2 
 		metdataPath = yaml.FixPathExt(filepath.Join(dir, "metadata.yml"))
 	}
 
-	var metadata types2.ArchiveMetadata
+	var metadata types2.ProjectMetadata
 	err := yaml.ReadYamlFile(metdataPath, &metadata)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,15 @@ func loadKluctlProjectFromArchive(args LoadKluctlProjectArgs, tmpDir string, j2 
 	return p, nil
 }
 
-func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, metadataPath string) error {
+func (c *KluctlProjectContext) GetMetadata() *types2.ProjectMetadata {
+	md := &types2.ProjectMetadata{
+		InvolvedRepos: c.involvedRepos,
+		Targets:       c.DynamicTargets,
+	}
+	return md
+}
+
+func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, embedMetadata bool) error {
 	f, err := os.Create(archivePath)
 	if err != nil {
 		return err
@@ -248,23 +256,15 @@ func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, metadataPath
 		return h, nil
 	}
 
-	md := types2.ArchiveMetadata{
-		InvolvedRepos: c.involvedRepos,
-		Targets:       c.DynamicTargets,
-	}
-	mdStr, err := yaml.WriteYamlBytes(md)
-	if err != nil {
-		return err
-	}
-
-	if metadataPath != "" {
-		err = ioutil.WriteFile(metadataPath, mdStr, 0o666)
+	if embedMetadata {
+		md := c.GetMetadata()
+		mdStr, err := yaml.WriteYamlBytes(md)
 		if err != nil {
 			return err
 		}
-	} else {
+
 		err = tw.WriteHeader(&tar.Header{
-			Name: "metadata.yml",
+			Name: "metadata.yaml",
 			Size: int64(len(mdStr)),
 			Mode: 0o666 | tar.TypeReg,
 		})

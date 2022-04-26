@@ -10,6 +10,7 @@ type ProjectFlags struct {
 	LocalSealedSecrets  string `group:"project" help:"Local sealed-secrets directory. Overrides the project from .kluctl.yml" type:"existingdir"`
 	FromArchive         string `group:"project" help:"Load project (.kluctl.yml, cluster, ...) from archive. Given path can either be an archive file or a directory with the extracted contents." type:"existing"`
 	FromArchiveMetadata string `group:"project" help:"Specify where to load metadata (targets, ...) from. If not specified, metadata is assumed to be part of the archive." type:"existingfile"`
+	OutputMetadata      string `group:"project" help:"Specify the output path for the project metadata to be written to. When used with the 'archive' command, it will also cause the archive to not include the metadata.yaml file." type:"file"`
 	Cluster             string `group:"project" help:"Specify/Override cluster"`
 }
 

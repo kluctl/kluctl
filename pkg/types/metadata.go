@@ -5,7 +5,7 @@ type InvolvedRepo struct {
 	Refs       map[string]string `yaml:"refs"`
 }
 
-type ArchiveMetadata struct {
+type ProjectMetadata struct {
 	InvolvedRepos map[string][]InvolvedRepo `yaml:"involvedRepos"`
 	Targets       []*DynamicTarget          `yaml:"targets"`
 }
