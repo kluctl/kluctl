@@ -107,7 +107,7 @@ func ReadFileList(fileListStr string) (string, map[string]int64, error) {
 		}
 		tarFilesMap[fname] = size
 	}
-	return "", tarFilesMap, nil
+	return expectedHash, tarFilesMap, nil
 }
 
 func BuildFileList(targetPath string) (map[string]int64, error) {

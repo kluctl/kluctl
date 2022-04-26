@@ -93,6 +93,7 @@ func findFiles(dir string, patterns []string) (map[string]int64, error) {
 		glob.MustCompile("**/__pycache__"),
 		glob.MustCompile("**.a"),
 		glob.MustCompile("**.pdb"),
+		glob.MustCompile("**.pyc"),
 	}
 
 	fileList := make(map[string]int64)
