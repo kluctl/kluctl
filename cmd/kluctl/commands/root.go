@@ -81,7 +81,7 @@ func (c *cli) checkNewVersion() {
 	if c.NoUpdateCheck {
 		return
 	}
-	if version.GetVersion() == "(devel)" {
+	if version.GetVersion() == "0.0.0" {
 		return
 	}
 
