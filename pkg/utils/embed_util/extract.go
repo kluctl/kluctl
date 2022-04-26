@@ -60,9 +60,10 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) (str
 }
 
 func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, error) {
-	fileList := strings.Split(fileListStr, "\n")
-	expectedHash := fileList[0]
-	fileList = fileList[1:]
+	expectedHash, tarFilesMap, err := ReadFileList(fileListStr)
+	if err != nil {
+		return false, "", err
+	}
 
 	if !utils.Exists(targetPath) {
 		return true, expectedHash, nil
@@ -77,6 +78,24 @@ func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, er
 		return true, expectedHash, nil
 	}
 
+	existingFiles, err := BuildFileList(targetPath)
+	if err != nil {
+		return false, "", err
+	}
+
+	for fname, size := range tarFilesMap {
+		if s, ok := existingFiles[fname]; !ok || s != size {
+			return true, expectedHash, nil
+		}
+	}
+	return false, expectedHash, nil
+}
+
+func ReadFileList(fileListStr string) (string, map[string]int64, error) {
+	fileList := strings.Split(fileListStr, "\n")
+	expectedHash := fileList[0]
+	fileList = fileList[1:]
+
 	tarFilesMap := make(map[string]int64)
 	for _, l := range fileList {
 		s := strings.SplitN(l, ":", 2)
@@ -84,13 +103,16 @@ func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, er
 		sh := strings.SplitN(strings.TrimSpace(s[1]), " ", 2)
 		size, err := strconv.ParseInt(strings.TrimSpace(sh[0]), 10, 64)
 		if err != nil {
-			return false, expectedHash, err
+			return expectedHash, tarFilesMap, err
 		}
 		tarFilesMap[fname] = size
 	}
+	return "", tarFilesMap, nil
+}
 
+func BuildFileList(targetPath string) (map[string]int64, error) {
 	existingFiles := make(map[string]int64)
-	err = filepath.Walk(targetPath, func(path string, info fs.FileInfo, err error) error {
+	err := filepath.Walk(targetPath, func(path string, info fs.FileInfo, err error) error {
 		if !info.Mode().IsRegular() && info.Mode().Type() != fs.ModeSymlink && info.Mode().Type() != fs.ModeDir {
 			return nil
 		}
@@ -107,13 +129,7 @@ func checkExtractNeeded(targetPath string, fileListStr string) (bool, string, er
 		return nil
 	})
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
-
-	for fname, size := range tarFilesMap {
-		if s, ok := existingFiles[fname]; !ok || s != size {
-			return true, expectedHash, nil
-		}
-	}
-	return false, expectedHash, nil
+	return existingFiles, nil
 }

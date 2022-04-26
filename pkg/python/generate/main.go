@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"github.com/klauspost/compress/zstd"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/embed_util/packer"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 const (
@@ -18,14 +20,14 @@ const (
 )
 
 var pythonDists = map[string]string{
-	"linux": "unknown-linux-gnu-lto-full",
-	"darwin": "apple-darwin-lto-full",
+	"linux":   "unknown-linux-gnu-lto-full",
+	"darwin":  "apple-darwin-lto-full",
 	"windows": "pc-windows-msvc-shared-pgo-full",
 }
 
 var archMapping = map[string]string{
 	"amd64": "x86_64",
-	"386": "i686",
+	"386":   "i686",
 	"arm64": "aarch64",
 }
 
@@ -45,11 +47,49 @@ var removeLibs = []string{
 	"unittest",
 }
 
-func main() {
-	osName := os.Args[1]
-	arch := os.Args[2]
-	extractPath := os.Args[3]
+var downloadLock sync.Mutex
 
+func main() {
+	var wg sync.WaitGroup
+
+	nixPatterns := []string{
+		"bin",
+		"lib/*.so*",
+		"lib/*.dylib",
+		"lib/python3.*",
+	}
+	winPatterns := []string{
+		"Lib",
+		"DLLs",
+		"*.dll",
+		"*.exe",
+	}
+	type job struct {
+		os         string
+		arch       string
+		packSubDir string
+		out        string
+		patterns   []string
+	}
+	jobs := []job{
+		{"linux", "amd64", "python/install", "embed/python-linux-amd64.tar.gz", nixPatterns},
+		{"linux", "arm64", "python/install", "embed/python-linux-arm64.tar.gz", nixPatterns},
+		{"darwin", "amd64", "python/install", "embed/python-darwin-amd64.tar.gz", nixPatterns},
+		{"darwin", "arm64", "python/install", "embed/python-darwin-arm64.tar.gz", nixPatterns},
+		{"windows", "amd64", "python/install", "embed/python-windows-amd64.tar.gz", winPatterns},
+	}
+	for _, j := range jobs {
+		j := j
+		wg.Add(1)
+		go func() {
+			downloadAndPack(j.os, j.arch, j.packSubDir, j.out, j.patterns)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
+func downloadAndPack(osName string, arch string, packSubdir string, out string, patterns []string) {
 	dist, ok := pythonDists[osName]
 	if !ok {
 		log.Panicf("no dist for %s", osName)
@@ -59,8 +99,10 @@ func main() {
 	archiveBytes, _ := ioutil.ReadFile(downloadPath)
 	hash := utils.Sha256Bytes(archiveBytes)
 
+	extractPath := downloadPath + ".extracted"
 	if utils.Exists(filepath.Join(extractPath, hash)) {
-		log.Infof("skipping extract")
+		log.Infof("skipping extract of %s", extractPath)
+		pack(out, filepath.Join(extractPath, packSubdir), patterns)
 		return
 	}
 
@@ -73,9 +115,21 @@ func main() {
 	}
 
 	_ = utils.Touch(filepath.Join(extractPath, hash))
+
+	pack(out, filepath.Join(extractPath, packSubdir), patterns)
+}
+
+func pack(out string, dir string, patterns []string) {
+	err := packer.Pack(out, dir, patterns...)
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 func download(osName, arch, dist string) string {
+	downloadLock.Lock()
+	defer downloadLock.Unlock()
+
 	pythonArch, ok := archMapping[arch]
 	if !ok {
 		log.Errorf("arch %s not supported", arch)

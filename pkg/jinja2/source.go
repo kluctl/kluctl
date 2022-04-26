@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 )
 
-//go:embed python_src.tar.gz python_src.tar.gz.files
+//go:generate go run ./generate
+
+//go:embed embed/python_src.*
 var pythonSrc embed.FS
 var pythonSrcExtracted string
 
@@ -21,13 +23,13 @@ func init() {
 }
 
 func extractSource() (string, error) {
-	tgz, err := pythonSrc.Open("python_src.tar.gz")
+	tgz, err := pythonSrc.Open("embed/python_src.tar.gz")
 	if err != nil {
 		return "", err
 	}
 	defer tgz.Close()
 
-	fileList, err := pythonSrc.Open("python_src.tar.gz.files")
+	fileList, err := pythonSrc.Open("embed/python_src.tar.gz.files")
 	if err != nil {
 		return "", err
 	}
