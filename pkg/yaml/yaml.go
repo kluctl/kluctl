@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"github.com/goccy/go-yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"
@@ -18,8 +20,9 @@ func newYamlDecoder(r io.Reader) *yaml.Decoder {
 	return yaml.NewDecoder(r, yaml.Strict(), yaml.Validator(Validator))
 }
 
-func newYamlEncoder(w io.Writer) *yaml.Encoder {
-	return yaml.NewEncoder(w)
+func newUnicodeReader(r io.Reader) io.Reader {
+	utf16bom := unicode.BOMOverride(unicode.UTF8.NewDecoder())
+	return transform.NewReader(r, utf16bom)
 }
 
 func ReadYamlFile(p string, o interface{}) error {
@@ -45,6 +48,8 @@ func ReadYamlBytes(b []byte, o interface{}) error {
 }
 
 func ReadYamlStream(r io.Reader, o interface{}) error {
+	r = newUnicodeReader(r)
+
 	var err error
 	if _, ok := o.(*map[string]interface{}); ok {
 		// much faster
@@ -80,6 +85,8 @@ func ReadYamlAllBytes(b []byte) ([]interface{}, error) {
 }
 
 func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
+	r = newUnicodeReader(r)
+
 	// yaml.v3 is much faster then go-yaml
 	d := yaml3.NewDecoder(r)
 
