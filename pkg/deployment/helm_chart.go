@@ -162,6 +162,18 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
+	err = c.doRender(k)
+	if err != nil {
+		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", chartName, c.Config.ReleaseName, err)
+	}
+	return nil
+}
+
+func (c *helmChart) doRender(k *k8s.K8sCluster) error {
+	chartName, err := c.GetChartName()
+	if err != nil {
+		return err
+	}
 	dir := filepath.Dir(c.configFile)
 	chartDir := filepath.Join(dir, "charts", chartName)
 	valuesPath := yaml.FixPathExt(filepath.Join(dir, "helm-values.yml"))
