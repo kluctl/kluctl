@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/kevinburke/ssh_config"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -42,7 +41,7 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 		User: a.user,
 		Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(a.Signers)},
 	}
-	cc.HostKeyCallback = verifyHost
+	cc.HostKeyCallback = buildVerifyHostCallback(nil)
 	return cc, nil
 }
 
@@ -90,12 +89,12 @@ func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
 	}
 }
 
-func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
+func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 	if !gitUrl.IsSsh() {
-		return nil
+		return AuthMethodAndCA{}
 	}
 	if gitUrl.User == nil {
-		return nil
+		return AuthMethodAndCA{}
 	}
 
 	auth := &sshDefaultIdentityAndAgent{
@@ -109,7 +108,9 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 	auth.addDefaultIdentity(gitUrl)
 	auth.addConfigIdentities(gitUrl)
 
-	return auth
+	return AuthMethodAndCA{
+		AuthMethod: auth,
+	}
 }
 
 // we defer asking for passphrase so that we don't unnecessarily ask for passphrases for keys that are already provided

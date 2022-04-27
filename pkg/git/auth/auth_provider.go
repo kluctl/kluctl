@@ -5,8 +5,13 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 )
 
+type AuthMethodAndCA struct {
+	AuthMethod transport.AuthMethod
+	CABundle   []byte
+}
+
 type GitAuthProvider interface {
-	BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod
+	BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA
 }
 
 type GitAuthProviders struct {
@@ -21,14 +26,14 @@ func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider, last bool) {
 	}
 }
 
-func (a *GitAuthProviders) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
+func (a *GitAuthProviders) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 	for _, p := range a.authProviders {
 		auth := p.BuildAuth(gitUrl)
-		if auth != nil {
+		if auth.AuthMethod != nil {
 			return auth
 		}
 	}
-	return nil
+	return AuthMethodAndCA{}
 }
 
 func NewDefaultAuthProviders() *GitAuthProviders {

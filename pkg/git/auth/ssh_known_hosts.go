@@ -11,7 +11,13 @@ import (
 	"strconv"
 )
 
-func verifyHost(host string, remote net.Addr, key ssh.PublicKey) error {
+func buildVerifyHostCallback(knownHosts []byte) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		return verifyHost(hostname, remote, key, knownHosts)
+	}
+}
+
+func verifyHost(host string, remote net.Addr, key ssh.PublicKey, knownHosts []byte) error {
 	hostKeyChecking := true
 	if x, ok := os.LookupEnv("KLUCTL_SSH_DISABLE_STRICT_HOST_KEY_CHECKING"); ok {
 		if b, err := strconv.ParseBool(x); err == nil && b {
@@ -23,23 +29,36 @@ func verifyHost(host string, remote net.Addr, key ssh.PublicKey) error {
 	}
 
 	allowAdd := false
-	files := filepath.SplitList(os.Getenv("SSH_KNOWN_HOSTS"))
-	if len(files) == 0 {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-
-		f := filepath.Join(home, ".ssh", "known_hosts")
-		if !utils.Exists(filepath.Dir(f)) {
-			err = os.MkdirAll(filepath.Dir(f), 0o700)
+	var files []string
+	if knownHosts == nil {
+		files = filepath.SplitList(os.Getenv("SSH_KNOWN_HOSTS"))
+		if len(files) == 0 {
+			home, err := os.UserHomeDir()
 			if err != nil {
 				return err
 			}
-		}
 
-		files = append(files, f)
-		allowAdd = true
+			f := filepath.Join(home, ".ssh", "known_hosts")
+			if !utils.Exists(filepath.Dir(f)) {
+				err = os.MkdirAll(filepath.Dir(f), 0o700)
+				if err != nil {
+					return err
+				}
+			}
+
+			files = append(files, f)
+			allowAdd = true
+		}
+	} else {
+		tmpFile, err := os.CreateTemp(utils.GetTmpBaseDir(), "known_hosts-")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
+		}()
+		files = append(files, tmpFile.Name())
 	}
 
 	for _, f := range files {

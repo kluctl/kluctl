@@ -139,7 +139,8 @@ func (g *MirroredGitRepo) update(repoDir string, authProviders *auth2.GitAuthPro
 	}
 
 	g.remoteRefs, err = remote.List(&git.ListOptions{
-		Auth: auth,
+		Auth:     auth.AuthMethod,
+		CABundle: auth.CABundle,
 	})
 	if err != nil {
 		return err
@@ -150,7 +151,8 @@ func (g *MirroredGitRepo) update(repoDir string, authProviders *auth2.GitAuthPro
 	}
 
 	err = remote.Fetch(&git.FetchOptions{
-		Auth:     auth,
+		Auth:     auth.AuthMethod,
+		CABundle: auth.CABundle,
 		Progress: os.Stdout,
 		Tags:     git.AllTags,
 		Force:    true,

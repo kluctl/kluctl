@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	log "github.com/sirupsen/logrus"
@@ -11,7 +10,7 @@ import (
 type GitEnvAuthProvider struct {
 }
 
-func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
+func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 	var la ListAuthProvider
 
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_GIT") {
@@ -30,6 +29,16 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 				log.Debugf("Failed to read key %s: %v", ssh_key_path, err)
 			} else {
 				e.SshKey = b
+			}
+		}
+		ca_bundle_path := m["CA_BUNDLE"]
+		if ca_bundle_path != "" {
+			ca_bundle_path = utils.ExpandPath(ca_bundle_path)
+			b, err := ioutil.ReadFile(ca_bundle_path)
+			if err != nil {
+				log.Debugf("Failed to read ca bundle %s: %v", ca_bundle_path, err)
+			} else {
+				e.CABundle = b
 			}
 		}
 		la.AddEntry(e)
