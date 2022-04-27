@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -44,6 +45,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		LocalSealedSecrets:  projectFlags.LocalSealedSecrets,
 		FromArchive:         projectFlags.FromArchive,
 		FromArchiveMetadata: projectFlags.FromArchiveMetadata,
+		GitAuthProviders:    auth.NewDefaultAuthProviders(),
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(loadArgs, tmpDir, j2)

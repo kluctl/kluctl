@@ -19,6 +19,8 @@ type LoadKluctlProjectArgs struct {
 	LocalSealedSecrets  string
 	FromArchive         string
 	FromArchiveMetadata string
+
+	GitAuthProviders *auth2.GitAuthProviders
 }
 
 type KluctlProjectContext struct {
@@ -32,9 +34,8 @@ type KluctlProjectContext struct {
 	ClustersDir      string
 	SealedSecretsDir string
 
-	gitAuthProviders *auth2.GitAuthProviders
-	involvedRepos    map[string][]types.InvolvedRepo
-	DynamicTargets   []*types.DynamicTarget
+	involvedRepos  map[string][]types.InvolvedRepo
+	DynamicTargets []*types.DynamicTarget
 
 	mirroredRepos map[string]*git.MirroredGitRepo
 
@@ -43,12 +44,11 @@ type KluctlProjectContext struct {
 
 func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) *KluctlProjectContext {
 	o := &KluctlProjectContext{
-		loadArgs:         loadArgs,
-		TmpDir:           tmpDir,
-		gitAuthProviders: auth2.NewDefaultAuthProviders(),
-		involvedRepos:    make(map[string][]types.InvolvedRepo),
-		mirroredRepos:    make(map[string]*git.MirroredGitRepo),
-		J2:               j2,
+		loadArgs:      loadArgs,
+		TmpDir:        tmpDir,
+		involvedRepos: make(map[string][]types.InvolvedRepo),
+		mirroredRepos: make(map[string]*git.MirroredGitRepo),
+		J2:            j2,
 	}
 	return o
 }
