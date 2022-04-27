@@ -27,7 +27,7 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMeth
 			ssh_key_path = utils.ExpandPath(ssh_key_path)
 			b, err := ioutil.ReadFile(ssh_key_path)
 			if err != nil {
-				log.Debugf("Failed to read key %s: %w", ssh_key_path, err)
+				log.Debugf("Failed to read key %s: %v", ssh_key_path, err)
 			} else {
 				e.SshKey = b
 			}
