@@ -2,52 +2,37 @@ package auth
 
 import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	log "github.com/sirupsen/logrus"
-	"strings"
+	"io/ioutil"
 )
 
 type GitEnvAuthProvider struct {
 }
 
 func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
+	var la ListAuthProvider
+
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_GIT") {
-		host, _ := m["HOST"]
-		pathPrefix, _ := m["PATH_PREFIX"]
-		username, _ := m["USERNAME"]
-		password, _ := m["PASSWORD"]
-		ssh_key, _ := m["SSH_KEY"]
-
-		if host != gitUrl.Hostname() {
-			continue
-		}
-		if !strings.HasPrefix(gitUrl.Path, pathPrefix) {
-			continue
-		}
-		if username == "" {
-			continue
-		}
-		if gitUrl.User != nil && gitUrl.User.Username() != "" && gitUrl.User.Username() != username {
-			continue
+		e := AuthEntry{
+			Host:       m["HOST"],
+			PathPrefix: m["PATH_PREFIX"],
+			Username:   m["USERNAME"],
+			Password:   m["PASSWORD"],
 		}
 
-		if !gitUrl.IsSsh() && password != "" {
-			return &http.BasicAuth{
-				Username: username,
-				Password: password,
-			}
-		} else if gitUrl.IsSsh() && ssh_key != "" {
-			a, err := ssh.NewPublicKeysFromFile(username, ssh_key, "")
+		ssh_key_path, _ := m["SSH_KEY"]
+		if ssh_key_path != "" {
+			ssh_key_path = utils.ExpandPath(ssh_key_path)
+			b, err := ioutil.ReadFile(ssh_key_path)
 			if err != nil {
-				log.Debugf("Failed to parse private key %s: %v", ssh_key, err)
+				log.Debugf("Failed to read key %s: %w", ssh_key_path, err)
 			} else {
-				a.HostKeyCallback = verifyHost
-				return a
+				e.SshKey = b
 			}
 		}
+		la.AddEntry(e)
 	}
-	return nil
+	return la.BuildAuth(gitUrl)
 }
