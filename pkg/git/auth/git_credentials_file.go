@@ -25,7 +25,7 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMe
 		return AuthMethodAndCA{}
 	}
 	auth := a.tryBuildAuth(gitUrl, filepath.Join(home, ".git-credentials"))
-	if auth.AuthMethod != nil {
+	if auth != nil {
 		return *auth
 	}
 
