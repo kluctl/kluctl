@@ -41,14 +41,6 @@ body:
       placeholder: "v1.22.0"
     validations:
       required: true
-  - type: input
-    id: helm
-    attributes:
-      label: Helm Version
-      description: "Please provide the full Helm version. (Output of `helm version`)"
-      placeholder: "v3.6.3"
-    validations:
-      required: true
   - type: textarea
     id: bug-description
     attributes:

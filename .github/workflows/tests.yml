@@ -211,7 +211,6 @@ jobs:
         run: |
           echo "KUBECTL_VERSION=1.21.5" >> $GITHUB_ENV
           echo "KIND_VERSION=0.11.1" >> $GITHUB_ENV
-          echo "HELM_VERSION=3.6.3" >> $GITHUB_ENV
           echo "DOCKER_VERSION=20.10.9" >> $GITHUB_ENV
       - name: Download required tools
         shell: bash
@@ -220,9 +219,6 @@ jobs:
               $SUDO mv kubectl$TOOLS_EXE "$TOOLS_TARGET_DIR/"
           curl -L -o kind$TOOLS_EXE https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${TOOLS_OS}-amd64 && \
               $SUDO mv kind$TOOLS_EXE "$TOOLS_TARGET_DIR/"
-          curl -L -o helm.tar.gz https://get.helm.sh/helm-v$HELM_VERSION-${TOOLS_OS}-amd64.tar.gz && \
-              tar xzf helm.tar.gz && \
-              $SUDO mv ${TOOLS_OS}-amd64/helm$TOOLS_EXE "$TOOLS_TARGET_DIR/"
           if [ "${{ runner.os }}" == "macOS" ]; then
             curl -L -o docker.tar.gz https://download.docker.com/mac/static/stable/x86_64/docker-$DOCKER_VERSION.tgz
             tar xzf docker.tar.gz
@@ -240,7 +236,6 @@ jobs:
         run: |
           kubectl version || true
           kind version || true
-          helm version || true
       - name: Start kind cluster
         shell: bash
         run: |
