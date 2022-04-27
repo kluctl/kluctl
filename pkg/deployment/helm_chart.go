@@ -4,13 +4,23 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -36,35 +46,8 @@ func NewHelmChart(configFile string) (*helmChart, error) {
 	return hc, nil
 }
 
-func (c *helmChart) withRepoContext(cb func(repoName string) error) error {
-	needRepo := false
-	repoName := "stable"
-
-	if c.Config.Repo != nil && *c.Config.Repo != "stable" {
-		needRepo = true
-		repoName = fmt.Sprintf("kluctl-%s", utils.Sha256String(*c.Config.Repo))[:16]
-	}
-
-	if needRepo {
-		_, _ = c.doHelm([]string{"repo", "remove", repoName}, true)
-		_, err := c.doHelm([]string{"repo", "add", repoName, *c.Config.Repo}, false)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			_, _ = c.doHelm([]string{"repo", "remove", repoName}, true)
-		}()
-	} else {
-		_, err := c.doHelm([]string{"repo", "update"}, false)
-		if err != nil {
-			return err
-		}
-	}
-	return cb(repoName)
-}
-
 func (c *helmChart) GetChartName() (string, error) {
-	if c.Config.Repo != nil && strings.HasPrefix(*c.Config.Repo, "oci://") {
+	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
 		s := strings.Split(*c.Config.Repo, "/")
 		chartName := s[len(s)-1]
 		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
@@ -78,6 +61,16 @@ func (c *helmChart) GetChartName() (string, error) {
 	return *c.Config.ChartName, nil
 }
 
+func (c *helmChart) buildHelmConfig() (*action.Configuration, error) {
+	rc, err := registry.NewClient()
+	if err != nil {
+		return nil, err
+	}
+	return &action.Configuration{
+		RegistryClient: rc,
+	}, nil
+}
+
 func (c *helmChart) Pull() error {
 	chartName, err := c.GetChartName()
 	if err != nil {
@@ -89,25 +82,37 @@ func (c *helmChart) Pull() error {
 	rmDir := filepath.Join(targetDir, chartName)
 	_ = os.RemoveAll(rmDir)
 
-	var args []string
-	if c.Config.Repo != nil && strings.HasPrefix(*c.Config.Repo, "oci://") {
-		args = []string{"pull", *c.Config.Repo, "--destination", targetDir, "--untar"}
-		args = append(args, "--version")
-		args = append(args, *c.Config.ChartVersion)
-		_, err = c.doHelm(args, false)
+	cfg, err := c.buildHelmConfig()
+	if err != nil {
 		return err
-	} else {
-		return c.withRepoContext(func(repoName string) error {
-			args = []string{"pull", fmt.Sprintf("%s/%s", repoName, chartName), "--destination", targetDir, "--untar"}
-			args = append(args, "--version", *c.Config.ChartVersion)
-			_, err = c.doHelm(args, false)
-			return err
-		})
 	}
+	a := action.NewPullWithOpts(action.WithConfig(cfg))
+	a.Settings = cli.New()
+	a.Untar = true
+	a.DestDir = targetDir
+	a.Version = *c.Config.ChartVersion
+
+	var out string
+	if registry.IsOCI(*c.Config.Repo) {
+		out, err = a.Run(*c.Config.Repo)
+	} else {
+		a.RepoURL = *c.Config.Repo
+		out, err = a.Run(chartName)
+	}
+	// a bug in the Pull command causes this directory to be created by accident
+	_ = os.RemoveAll(rmDir + fmt.Sprintf("-%s.tar.gz", a.Version))
+	_ = os.RemoveAll(rmDir + fmt.Sprintf("-%s.tgz", a.Version))
+	if out != "" {
+		log.Info(out)
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *helmChart) CheckUpdate() (string, bool, error) {
-	if c.Config.Repo != nil && strings.HasPrefix(*c.Config.Repo, "oci://") {
+	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
 		return "", false, nil
 	}
 	chartName, err := c.GetChartName()
@@ -115,37 +120,39 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 		return "", false, err
 	}
 	var latestVersion string
-	err = c.withRepoContext(func(repoName string) error {
-		chartName := fmt.Sprintf("%s/%s", repoName, chartName)
-		args := []string{"search", "repo", chartName, "-oyaml", "-l"}
-		stdout, err := c.doHelm(args, false)
-		if err != nil {
-			return err
-		}
-		// ensure we didn't get partial matches
-		var lm []map[string]string
-		var ls versions.LooseVersionSlice
-		err = yaml.ReadYamlBytes(stdout, &lm)
-		if err != nil {
-			return err
-		}
-		for _, x := range lm {
-			if n, ok := x["name"]; ok && n == chartName {
-				if v, ok := x["version"]; ok {
-					ls = append(ls, versions.LooseVersion(v))
-				}
-			}
-		}
-		if len(ls) == 0 {
-			return fmt.Errorf("helm chart %s not found in repository", chartName)
-		}
-		sort.Sort(ls)
-		latestVersion = string(ls[len(ls)-1])
-		return nil
-	})
+
+	settings := cli.New()
+	e := repo.Entry{
+		URL:  *c.Config.Repo,
+		Name: chartName,
+	}
+	r, err := repo.NewChartRepository(&e, getter.All(settings))
 	if err != nil {
 		return "", false, err
 	}
+
+	indexFile, err := r.DownloadIndexFile()
+	if err != nil {
+		return "", false, err
+	}
+
+	index, err := repo.LoadIndexFile(indexFile)
+	if err != nil {
+		return "", false, err
+	}
+
+	indexEntry, ok := index.Entries[*c.Config.ChartName]
+	if !ok || len(indexEntry) == 0 {
+		return "", false, fmt.Errorf("helm chart %s not found in repo index", *c.Config.ChartName)
+	}
+
+	var ls versions.LooseVersionSlice
+	for _, x := range indexEntry {
+		ls = append(ls, versions.LooseVersion(x.Version))
+	}
+	sort.Stable(ls)
+	latestVersion = string(ls[len(ls)-1])
+
 	updated := latestVersion != *c.Config.ChartVersion
 	return latestVersion, updated, nil
 }
@@ -160,48 +167,109 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	valuesPath := yaml.FixPathExt(filepath.Join(dir, "helm-values.yml"))
 	outputPath := filepath.Join(dir, c.Config.Output)
 
-	args := []string{"template", c.Config.ReleaseName, chartDir}
+	gvs, err := k.GetAllGroupVersions()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := c.buildHelmConfig()
+	if err != nil {
+		return err
+	}
+
+	settings := cli.New()
+	valueOpts := values.Options{
+		ValueFiles: []string{valuesPath},
+	}
+
+	kubeVersion, err := chartutil.ParseKubeVersion(k.ServerVersion.String())
+	if err != nil {
+		return err
+	}
 
 	namespace := "default"
 	if c.Config.Namespace != nil {
 		namespace = *c.Config.Namespace
 	}
 
-	if utils.Exists(valuesPath) {
-		args = append(args, "-f", valuesPath)
-	}
-	args = append(args, "-n", namespace)
+	client := action.NewInstall(cfg)
+	client.DryRun = true
+	client.Namespace = namespace
+	client.ReleaseName = c.Config.ReleaseName
+	client.Replace = true
+	client.ClientOnly = true
+	client.KubeVersion = kubeVersion
 
 	if c.Config.SkipCRDs != nil && *c.Config.SkipCRDs {
-		args = append(args, "--skip-crds")
+		client.SkipCRDs = true
 	} else {
-		args = append(args, "--include-crds")
-	}
-	args = append(args, "--skip-tests")
-
-	gvs, err := k.GetAllGroupVersions()
-	if err != nil {
-		return err
+		client.IncludeCRDs = true
 	}
 	for _, gv := range gvs {
-		args = append(args, fmt.Sprintf("--api-versions=%s", gv))
+		client.APIVersions = append(client.APIVersions, gv)
 	}
-	args = append(args, fmt.Sprintf("--kube-version=%s", k.ServerVersion.String()))
 
-	rendered, err := c.doHelm(args, false)
+	p := getter.All(settings)
+	vals, err := valueOpts.MergeValues(p)
 	if err != nil {
 		return err
 	}
 
-	parsed, err := yaml.ReadYamlAllBytes(rendered)
+	// Check chart dependencies to make sure all are present in /charts
+	chartRequested, err := loader.Load(chartDir)
+	if err != nil {
+		return err
+	}
 
-	for _, o := range parsed {
-		m, ok := o.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("object is not a map")
+	if err := checkIfInstallable(chartRequested); err != nil {
+		return err
+	}
+
+	if chartRequested.Metadata.Deprecated {
+		log.Warningf("Chart %s is deprecated", *c.Config.ChartName)
+	}
+
+	rel, err := client.Run(chartRequested, vals)
+	if err != nil {
+		return err
+	}
+
+	var parsed []*uo.UnstructuredObject
+
+	doParse := func(s string) error {
+		m, err := yaml.ReadYamlAllString(s)
+		if err != nil {
+			return err
 		}
-		o := uo.FromMap(m)
+		for _, x := range m {
+			x2, ok := x.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("yaml object is not a map")
+			}
+			parsed = append(parsed, uo.FromMap(x2))
+		}
+		return nil
+	}
 
+	err = doParse(rel.Manifest)
+	if err != nil {
+		return err
+	}
+
+	if !client.DisableHooks {
+		for _, m := range rel.Hooks {
+			if isTestHook(m) {
+				continue
+			}
+			err = doParse(m.Manifest)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	var fixed []interface{}
+	for _, o := range parsed {
 		// "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
 		// add the necessary namespace in the rendered resources
 		err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
@@ -211,8 +279,9 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 		if err != nil {
 			return err
 		}
+		fixed = append(fixed, o)
 	}
-	rendered, err = yaml.WriteYamlAllBytes(parsed)
+	rendered, err := yaml.WriteYamlAllBytes(fixed)
 	if err != nil {
 		return err
 	}
@@ -224,51 +293,21 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *helmChart) doHelm(args []string, ignoreStdErr bool) ([]byte, error) {
-	cmd := exec.Command("helm", args...)
-	cmd.Env = append(os.Environ(), "HELM_EXPERIMENTAL_OCI=true")
+func checkIfInstallable(ch *chart.Chart) error {
+	switch ch.Metadata.Type {
+	case "", "application":
+		return nil
+	}
+	return errors.Errorf("%s charts are not installable", ch.Metadata.Type)
+}
 
-	if ignoreStdErr {
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return nil, err
+func isTestHook(h *release.Hook) bool {
+	for _, e := range h.Events {
+		if e == release.HookTest {
+			return true
 		}
-		go func() {
-			buf := make([]byte, 1024)
-			for true {
-				n, err := stderrPipe.Read(buf)
-				if err != nil || n == 0 {
-					return
-				}
-			}
-		}()
-	} else {
-		cmd.Stderr = os.Stderr
 	}
-
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	err = cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-	defer cmd.Process.Kill()
-
-	stdout, err := ioutil.ReadAll(stdoutPipe)
-	if err != nil {
-		return nil, err
-	}
-	ps, err := cmd.Process.Wait()
-	if err != nil {
-		return nil, err
-	}
-	if ps.ExitCode() != 0 {
-		return nil, fmt.Errorf("helm returned non-zero exit code %d", ps.ExitCode())
-	}
-	return stdout, nil
+	return false
 }
 
 func (c *helmChart) Save() error {
