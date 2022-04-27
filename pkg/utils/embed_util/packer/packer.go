@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/fs"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -74,7 +75,7 @@ func findFiles(dir string, patterns []string) (map[string]int64, error) {
 		}
 		match := false
 		for _, p := range globs {
-			if p.Match(rel) {
+			if p.Match(strings.ReplaceAll(rel, string(os.PathSeparator), "/")) {
 				match = true
 				break
 			}
