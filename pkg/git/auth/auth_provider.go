@@ -13,8 +13,12 @@ type GitAuthProviders struct {
 	authProviders []GitAuthProvider
 }
 
-func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider) {
-	a.authProviders = append(a.authProviders, p)
+func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider, last bool) {
+	if last {
+		a.authProviders = append(a.authProviders, p)
+	} else {
+		a.authProviders = append([]GitAuthProvider{p}, a.authProviders...)
+	}
 }
 
 func (a *GitAuthProviders) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod {
@@ -29,8 +33,8 @@ func (a *GitAuthProviders) BuildAuth(gitUrl git_url.GitUrl) transport.AuthMethod
 
 func NewDefaultAuthProviders() *GitAuthProviders {
 	a := &GitAuthProviders{}
-	a.RegisterAuthProvider(&GitEnvAuthProvider{})
-	a.RegisterAuthProvider(&GitCredentialsFileAuthProvider{})
-	a.RegisterAuthProvider(&GitSshAuthProvider{})
+	a.RegisterAuthProvider(&GitEnvAuthProvider{}, true)
+	a.RegisterAuthProvider(&GitCredentialsFileAuthProvider{}, true)
+	a.RegisterAuthProvider(&GitSshAuthProvider{}, true)
 	return a
 }
