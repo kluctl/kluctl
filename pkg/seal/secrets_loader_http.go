@@ -1,7 +1,9 @@
 package seal
 
 import (
+	"crypto/tls"
 	"fmt"
+	"github.com/Azure/go-ntlmssp"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -14,7 +16,14 @@ import (
 )
 
 func (s *SecretsLoader) doHttp(httpSource *types.SecretSourceHttp, username string, password string) (*http.Response, string, error) {
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: ntlmssp.Negotiator{
+			RoundTripper: &http.Transport{
+				// This disables HTTP2.0 support, as it does not play well together with NTLM
+				TLSNextProto: make(map[string]func(string, *tls.Conn) http.RoundTripper),
+			},
+		},
+	}
 
 	method := "GET"
 	if httpSource.Method != nil {
