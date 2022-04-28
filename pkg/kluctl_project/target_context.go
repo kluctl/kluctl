@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"k8s.io/client-go/rest"
 	"path/filepath"
 )
 
@@ -20,7 +21,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *KluctlProjectContext) NewTargetContext(targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *KluctlProjectContext) NewTargetContext(clientConfigGetter func(context string) (*rest.Config, error), targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -51,7 +52,12 @@ func (p *KluctlProjectContext) NewTargetContext(targetName string, clusterName s
 		return nil, err
 	}
 
-	k, err := k8s.NewK8sCluster(clusterConfig.Cluster.Context, dryRun)
+	clientConfig, err := clientConfigGetter(clusterConfig.Cluster.Context)
+	if err != nil {
+		return nil, err
+	}
+
+	k, err := k8s.NewK8sCluster(clientConfig, dryRun)
 	if err != nil {
 		return nil, err
 	}

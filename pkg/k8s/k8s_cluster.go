@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -37,8 +36,7 @@ var (
 )
 
 type K8sCluster struct {
-	context string
-	DryRun  bool
+	DryRun bool
 
 	restConfig *rest.Config
 	discovery  *disk.CachedDiscoveryClient
@@ -78,30 +76,22 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 	})
 }
 
-func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
+func NewK8sCluster(configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
 	k := &K8sCluster{
-		context: context,
-		DryRun:  dryRun,
+		DryRun: dryRun,
 	}
 
-	configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
+	k.restConfig = rest.CopyConfig(configIn)
+	k.restConfig.QPS = 10
+	k.restConfig.Burst = 20
 
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	config.QPS = 10
-	config.Burst = 20
-	k.restConfig = config
-
-	apiHost, err := url.Parse(config.Host)
+	apiHost, err := url.Parse(k.restConfig.Host)
 	if err != nil {
 		return nil, err
 	}
 	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
 	httpCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/http", apiHost.Hostname())
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), discoveryCacheDir, httpCacheDir, time.Hour*24)
+	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(k.restConfig), discoveryCacheDir, httpCacheDir, time.Hour*24)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +101,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	k.clientPool = make(chan *parallelClientEntry, parallelClients)
 	for i := 0; i < parallelClients; i++ {
 		p := &parallelClientEntry{}
+		config := rest.CopyConfig(k.restConfig)
 		config.WarningHandler = p
 
 		p.http, err = rest.HTTPClientFor(config)
@@ -158,10 +149,6 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 	k2 := *k
 	k2.DryRun = false
 	return &k2
-}
-
-func (k *K8sCluster) Context() string {
-	return k.context
 }
 
 func (k *K8sCluster) GetCA() []byte {

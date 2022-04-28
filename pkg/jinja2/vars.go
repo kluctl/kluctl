@@ -97,7 +97,7 @@ func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref k8s2.ObjectRef, 
 		return err
 	}
 	if !found {
-		return fmt.Errorf("key %s not found in %s on cluster %s", key, ref.String(), k.Context())
+		return fmt.Errorf("key %s not found in %s on cluster", key, ref.String())
 	}
 
 	err = vc.loadVarsFromString(value)

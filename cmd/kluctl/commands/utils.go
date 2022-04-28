@@ -12,6 +12,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"time"
 )
@@ -130,7 +132,13 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 		renderOutputDir = tmpDir
 	}
 
-	ctx, err := p.NewTargetContext(args.targetFlags.Target, args.projectFlags.Cluster,
+	clientConfigGetter := func(context string) (*rest.Config, error) {
+		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
+		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
+	}
+
+	ctx, err := p.NewTargetContext(clientConfigGetter, args.targetFlags.Target, args.projectFlags.Cluster,
 		args.dryRunArgs == nil || args.dryRunArgs.DryRun,
 		optionArgs, forSeal, images, inclusion,
 		renderOutputDir)
