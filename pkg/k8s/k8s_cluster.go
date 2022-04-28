@@ -40,6 +40,7 @@ type K8sCluster struct {
 	context string
 	DryRun  bool
 
+	restConfig *rest.Config
 	discovery  *disk.CachedDiscoveryClient
 	clientPool chan *parallelClientEntry
 
@@ -92,6 +93,7 @@ func NewK8sCluster(context string, dryRun bool) (*K8sCluster, error) {
 	}
 	config.QPS = 10
 	config.Burst = 20
+	k.restConfig = config
 
 	apiHost, err := url.Parse(config.Host)
 	if err != nil {
@@ -160,6 +162,10 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 
 func (k *K8sCluster) Context() string {
 	return k.context
+}
+
+func (k *K8sCluster) GetCA() []byte {
+	return k.restConfig.CAData
 }
 
 func (k *K8sCluster) updateResources(doLock bool) error {

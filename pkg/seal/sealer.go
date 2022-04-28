@@ -15,6 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/scrypt"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
@@ -61,15 +62,26 @@ func getClusterId(k *k8s.K8sCluster) (string, error) {
 		Name:      "kube-root-ca.crt",
 		Namespace: "kube-system",
 	})
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
 	}
-	kubeRootCA, ok, err := o.GetNestedString("data", "ca.crt")
-	if err != nil {
-		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
-	}
-	if !ok {
-		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: ca.crt key is missing")
+
+	var kubeRootCA string
+	if o != nil {
+		x, ok, err := o.GetNestedString("data", "ca.crt")
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
+		}
+		if !ok {
+			return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: ca.crt key is missing")
+		}
+		kubeRootCA = x
+	} else {
+		// fall-back to CA from kubeconfig
+		ca := k.GetCA()
+		if ca != nil {
+			kubeRootCA = string(ca)
+		}
 	}
 	return utils.Sha256String(kubeRootCA), nil
 }
