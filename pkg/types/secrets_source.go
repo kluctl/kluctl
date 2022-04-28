@@ -5,6 +5,14 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
+type SecretSourceHttp struct {
+	Url      YamlUrl           `yaml:"url,omitempty" validate:"required"`
+	Method   *string           `yaml:"method,omitempty"`
+	Body     *string           `yaml:"body,omitempty"`
+	Headers  map[string]string `yaml:"headers,omitempty"`
+	JsonPath *string           `yaml:"jsonPath,omitempty"`
+}
+
 type SecretSourceAwsSecretsManager struct {
 	// Name or ARN of the secret. In case a name is given, the region must be specified as well
 	SecretName string `yaml:"secretName" validate:"required"`
@@ -17,6 +25,7 @@ type SecretSourceAwsSecretsManager struct {
 type SecretSource struct {
 	Path              *string                        `yaml:"path,omitempty"`
 	SystemEnvVars     *uo.UnstructuredObject         `yaml:"systemEnvVars,omitempty"`
+	Http              *SecretSourceHttp              `yaml:"http,omitempty"`
 	AwsSecretsManager *SecretSourceAwsSecretsManager `yaml:"awsSecretsManager,omitempty"`
 }
 
@@ -27,6 +36,9 @@ func ValidateSecretSource(sl validator.StructLevel) {
 		count += 1
 	}
 	if s.SystemEnvVars != nil {
+		count += 1
+	}
+	if s.Http != nil {
 		count += 1
 	}
 	if s.AwsSecretsManager != nil {

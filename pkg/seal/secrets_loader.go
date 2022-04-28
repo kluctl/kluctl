@@ -12,15 +12,23 @@ import (
 	"strings"
 )
 
+type usernamePassword struct {
+	username string
+	password string
+}
+
 type SecretsLoader struct {
 	project    *kluctl_project.KluctlProjectContext
 	secretsDir string
+
+	credentialsCache map[string]usernamePassword
 }
 
 func NewSecretsLoader(p *kluctl_project.KluctlProjectContext, secretsDir string) *SecretsLoader {
 	return &SecretsLoader{
 		project:    p,
 		secretsDir: secretsDir,
+		credentialsCache: map[string]usernamePassword{},
 	}
 }
 
@@ -29,6 +37,8 @@ func (s *SecretsLoader) LoadSecrets(source *types.SecretSource) (*uo.Unstructure
 		return s.loadSecretsFile(source)
 	} else if source.SystemEnvVars != nil {
 		return s.loadSecretsSystemEnvs(source)
+	} else if source.Http != nil {
+		return s.loadSecretsHttp(source)
 	} else if source.AwsSecretsManager != nil {
 		return s.loadSecretsAwsSecretsManager(source)
 	} else {

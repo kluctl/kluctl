@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/mattn/go-isatty"
 	log "github.com/sirupsen/logrus"
@@ -63,4 +64,32 @@ func AskForPassword(prompt string) (string, error) {
 
 	password := string(bytePassword)
 	return strings.TrimSpace(password), nil
+}
+
+func AskForCredentials(prompt string) (string, string, error) {
+	if !isatty.IsTerminal(os.Stderr.Fd()) {
+		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
+		log.Warning(err)
+		return "", "", err
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	_, err := fmt.Fprintf(os.Stderr, prompt+"\n")
+	if err != nil {
+		return "", "", err
+	}
+
+	fmt.Fprint(os.Stderr, "Enter Username: ")
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		return "", "", err
+	}
+
+	password, err := AskForPassword("Enter Password")
+	if err != nil {
+		return "", "", err
+	}
+
+	return strings.TrimSpace(username), strings.TrimSpace(password), nil
 }
