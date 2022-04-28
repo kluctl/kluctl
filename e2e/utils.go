@@ -48,7 +48,7 @@ func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource s
 				}
 				errTxt += fmt.Sprintf("%s: %s", e.Ref.String(), e.Error)
 			}
-			log.Debugf("validation failed. errors:\n%s", errTxt)
+			log.Debugf("validation failed for %s/%s. errors:\n%s", namespace, resource, errTxt)
 		}
 		time.Sleep(1 * time.Second)
 	}
