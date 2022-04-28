@@ -3,8 +3,10 @@ package e2e
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"os/exec"
 	"reflect"
@@ -37,6 +39,18 @@ func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource s
 		if v.Ready {
 			return true
 		}
+
+		if log.IsLevelEnabled(log.DebugLevel) {
+			errTxt := ""
+			for _, e := range v.Errors {
+				if errTxt != "" {
+					errTxt += "\n"
+				}
+				errTxt += fmt.Sprintf("%s: %s", e.Ref.String(), e.Error)
+			}
+			log.Debugf("validation failed. errors:\n%s", errTxt)
+		}
+		time.Sleep(1 * time.Second)
 	}
 	return false
 }
