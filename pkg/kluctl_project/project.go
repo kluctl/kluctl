@@ -11,6 +11,7 @@ import (
 )
 
 type LoadKluctlProjectArgs struct {
+	ProjectDir          string
 	ProjectUrl          *git_url.GitUrl
 	ProjectRef          string
 	ProjectConfig       string

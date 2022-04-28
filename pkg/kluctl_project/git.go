@@ -195,11 +195,7 @@ func (c *KluctlProjectContext) localProject(dir string) gitProjectInfo {
 
 func (c *KluctlProjectContext) cloneKluctlProject(ctx context.Context) (gitProjectInfo, error) {
 	if c.loadArgs.ProjectUrl == nil {
-		p, err := os.Getwd()
-		if err != nil {
-			return gitProjectInfo{}, err
-		}
-		return c.localProject(p), err
+		return c.localProject(c.loadArgs.ProjectDir), nil
 	}
 	return c.cloneGitProject(ctx, types2.ExternalProject{
 		Project: &types2.GitProject{

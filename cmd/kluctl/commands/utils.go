@@ -38,7 +38,13 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 	}
 	defer j2.Close()
 
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
+		ProjectDir:          cwd,
 		ProjectUrl:          url,
 		ProjectRef:          projectFlags.ProjectRef,
 		ProjectConfig:       projectFlags.ProjectConfig,
