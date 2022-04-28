@@ -57,9 +57,11 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - '^doc.*:'
+      - '^test.*:'
       - '^chore:'
+      - '^build:'
+      - '^refactor:'
 
 release:
   prerelease: auto
