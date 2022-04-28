@@ -287,11 +287,15 @@ func (c *KluctlProjectContext) CreateTGZArchive(archivePath string, embedMetadat
 	if err = utils.AddToTar(tw, c.DeploymentDir, "deployment", filter); err != nil {
 		return err
 	}
-	if err = utils.AddToTar(tw, c.ClustersDir, "clusters", filter); err != nil {
-		return err
+	if utils.Exists(c.ClustersDir) {
+		if err = utils.AddToTar(tw, c.ClustersDir, "clusters", filter); err != nil {
+			return err
+		}
 	}
-	if err = utils.AddToTar(tw, c.SealedSecretsDir, "sealed-secrets", filter); err != nil {
-		return err
+	if utils.Exists(c.SealedSecretsDir) {
+		if err = utils.AddToTar(tw, c.SealedSecretsDir, "sealed-secrets", filter); err != nil {
+			return err
+		}
 	}
 
 	return nil
