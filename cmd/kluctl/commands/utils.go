@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
@@ -12,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl_project.KluctlProjectContext) error) error {
@@ -48,7 +50,9 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		GitAuthProviders:    auth.NewDefaultAuthProviders(),
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(loadArgs, tmpDir, j2)
+	loadCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(projectFlags.LoadTimeout))
+	defer cancel()
+	p, err := kluctl_project.LoadKluctlProject(loadCtx, loadArgs, tmpDir, j2)
 	if err != nil {
 		return err
 	}

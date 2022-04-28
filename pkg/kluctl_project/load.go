@@ -3,6 +3,7 @@ package kluctl_project
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
@@ -56,8 +57,8 @@ func (c *KluctlProjectContext) getConfigPath(projectDir string) string {
 	return configPath
 }
 
-func (c *KluctlProjectContext) load(allowGit bool) error {
-	kluctlProjectInfo, err := c.cloneKluctlProject()
+func (c *KluctlProjectContext) load(ctx context.Context, allowGit bool) error {
+	kluctlProjectInfo, err := c.cloneKluctlProject(ctx)
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 	}
 
 	if allowGit {
-		err = c.updateGitCaches()
+		err = c.updateGitCaches(ctx)
 		if err != nil {
 			return err
 		}
@@ -115,7 +116,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 			return gitProjectInfo{}, fmt.Errorf("tried to load something from git while it was not allowed")
 		}
 
-		return c.cloneGitProject(*ep, defaultGitSubDir, true, true)
+		return c.cloneGitProject(ctx, *ep, defaultGitSubDir, true, true)
 	}
 
 	deploymentInfo, err := doClone(c.Config.Deployment, "", c.loadArgs.LocalDeployment)
@@ -159,7 +160,7 @@ func (c *KluctlProjectContext) load(allowGit bool) error {
 	return nil
 }
 
-func LoadKluctlProject(args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*KluctlProjectContext, error) {
+func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*KluctlProjectContext, error) {
 	if args.FromArchive != "" {
 		if args.ProjectUrl != nil || args.ProjectRef != "" || args.ProjectConfig != "" || args.LocalClusters != "" || args.LocalDeployment != "" || args.LocalSealedSecrets != "" {
 			return nil, fmt.Errorf("--from-archive can not be combined with any other project related option")
@@ -168,18 +169,18 @@ func LoadKluctlProject(args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jin
 		if err != nil {
 			return nil, err
 		}
-		err = project.load(false)
+		err = project.load(ctx, false)
 		if err != nil {
 			return nil, err
 		}
 		return project, nil
 	} else {
 		p := NewKluctlProjectContext(args, tmpDir, j2)
-		err := p.load(true)
+		err := p.load(ctx, true)
 		if err != nil {
 			return nil, err
 		}
-		err = p.loadTargets()
+		err = p.loadTargets(ctx)
 		if err != nil {
 			return nil, err
 		}

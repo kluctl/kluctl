@@ -1,5 +1,7 @@
 package args
 
+import "time"
+
 type ProjectFlags struct {
 	ProjectUrl string `group:"project" short:"p" help:"Git url of the kluctl project. If not specified, the current directory will be used instead of a remote Git project"`
 	ProjectRef string `group:"project" short:"b" help:"Git ref of the kluctl project. Only used when --project-url was given."`
@@ -12,6 +14,8 @@ type ProjectFlags struct {
 	FromArchiveMetadata string `group:"project" help:"Specify where to load metadata (targets, ...) from. If not specified, metadata is assumed to be part of the archive." type:"existingfile"`
 	OutputMetadata      string `group:"project" help:"Specify the output path for the project metadata to be written to. When used with the 'archive' command, it will also cause the archive to not include the metadata.yaml file." type:"file"`
 	Cluster             string `group:"project" help:"Specify/Override cluster"`
+
+	LoadTimeout time.Duration `group:"project" help:"Specify timeout for project loading. This will especially limit the time spent in git operations." default:"1m"`
 }
 
 type ArgsFlags struct {

@@ -1,6 +1,7 @@
 package kluctl_project
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -15,7 +16,7 @@ import (
 	"sync"
 )
 
-func (c *KluctlProjectContext) updateGitCaches() error {
+func (c *KluctlProjectContext) updateGitCaches(ctx context.Context) error {
 	var waitGroup sync.WaitGroup
 	var firstError error
 	var firstErrorLock sync.Mutex
@@ -29,9 +30,9 @@ func (c *KluctlProjectContext) updateGitCaches() error {
 	}
 
 	doUpdateRepo := func(repo *git.MirroredGitRepo) error {
-		return repo.WithLock(func() error {
+		return repo.WithLock(ctx, func() error {
 			if !repo.HasUpdated() {
-				return repo.Update(c.loadArgs.GitAuthProviders)
+				return repo.Update(ctx, c.loadArgs.GitAuthProviders)
 			}
 			return nil
 		})
@@ -120,7 +121,7 @@ func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (stri
 	return cloneDir, nil
 }
 
-func (c *KluctlProjectContext) cloneGitProject(gitProject types2.ExternalProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
+func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject types2.ExternalProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
 	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
@@ -147,21 +148,21 @@ func (c *KluctlProjectContext) cloneGitProject(gitProject types2.ExternalProject
 			return
 		}
 		c.mirroredRepos[gitProject.Project.Url.NormalizedRepoKey()] = mr
-		err = mr.Lock()
+		err = mr.Lock(ctx)
 		if err != nil {
 			return
 		}
 		defer mr.Unlock()
 	}
 
-	err = mr.MaybeWithLock(doLock, func() error {
+	err = mr.MaybeWithLock(ctx, doLock, func() error {
 		if !mr.HasUpdated() {
-			err = mr.Update(c.loadArgs.GitAuthProviders)
+			err = mr.Update(ctx, c.loadArgs.GitAuthProviders)
 			if err != nil {
 				return err
 			}
 		}
-		return mr.CloneProject(gitProject.Project.Ref, targetDir)
+		return mr.CloneProject(ctx, gitProject.Project.Ref, targetDir)
 	})
 	if err != nil {
 		return
@@ -192,7 +193,7 @@ func (c *KluctlProjectContext) localProject(dir string) gitProjectInfo {
 	}
 }
 
-func (c *KluctlProjectContext) cloneKluctlProject() (gitProjectInfo, error) {
+func (c *KluctlProjectContext) cloneKluctlProject(ctx context.Context) (gitProjectInfo, error) {
 	if c.loadArgs.ProjectUrl == nil {
 		p, err := os.Getwd()
 		if err != nil {
@@ -200,7 +201,7 @@ func (c *KluctlProjectContext) cloneKluctlProject() (gitProjectInfo, error) {
 		}
 		return c.localProject(p), err
 	}
-	return c.cloneGitProject(types2.ExternalProject{
+	return c.cloneGitProject(ctx, types2.ExternalProject{
 		Project: &types2.GitProject{
 			Url: *c.loadArgs.ProjectUrl,
 			Ref: c.loadArgs.ProjectRef,
