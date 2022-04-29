@@ -3,6 +3,8 @@ package registries
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"crypto/x509"
 	"fmt"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/golang-jwt/jwt/v4"
@@ -33,21 +35,27 @@ func (e *noAuthRetryError) Error() string {
 	return e.msg
 }
 
+type transportKeyType int
+
+var transportKey transportKeyType
+
 type RegistryHelper struct {
 	authEntries []AuthEntry
 
-	cachedAuth      utils.ThreadSafeCache
-	cachedResponses utils.ThreadSafeMultiCache
-	authRealms      map[string]bool
-	authErrors      map[string]bool
-	init            sync.Once
-	mutex           sync.Mutex
+	cachedTransports utils.ThreadSafeCache
+	cachedAuth       utils.ThreadSafeCache
+	cachedResponses  utils.ThreadSafeMultiCache
+	authRealms       map[string]bool
+	authErrors       map[string]bool
+	init             sync.Once
+	mutex            sync.Mutex
 }
 
 type AuthEntry struct {
 	Registry string
 	Username string
 	Password string
+	CABundle []byte
 	Insecure bool
 }
 
@@ -57,14 +65,20 @@ func NewRegistryHelper() *RegistryHelper {
 
 func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
 	var nameOpts []name.Option
-	remoteOpts := []remote.Option{
-		remote.WithAuthFromKeychain(rh),
-		remote.WithTransport(rh),
-	}
-
 	repo, err := name.NewRepository(image, nameOpts...)
 	if err != nil {
 		return nil, err
+	}
+
+	t, err := rh.buildTransport(repo.RegistryStr())
+	if err != nil {
+		return nil, err
+	}
+
+	remoteOpts := []remote.Option{
+		remote.WithAuthFromKeychain(rh),
+		remote.WithTransport(rh),
+		remote.WithContext(context.WithValue(context.Background(), transportKey, t)),
 	}
 
 	e := rh.findAuthEntry(repo.RegistryStr())
@@ -117,6 +131,17 @@ func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
 			e.Insecure = !tlsverify
 		}
 
+		ca_bundle_path := m["CA_BUNDLE"]
+		if ca_bundle_path != "" {
+			ca_bundle_path = utils.ExpandPath(ca_bundle_path)
+			b, err := ioutil.ReadFile(ca_bundle_path)
+			if err != nil {
+				return fmt.Errorf("failed to read ca bundle %s: %w", ca_bundle_path, err)
+			} else {
+				e.CABundle = b
+			}
+		}
+
 		rh.AddAuthEntry(e)
 	}
 	return nil
@@ -129,6 +154,45 @@ func (rh *RegistryHelper) findAuthEntry(registry string) *AuthEntry {
 		}
 	}
 	return nil
+}
+
+func (rh *RegistryHelper) loadCA(registry string) (*x509.CertPool, error) {
+	e := rh.findAuthEntry(registry)
+	if e == nil || e.CABundle == nil {
+		return nil, nil
+	}
+
+	p := x509.NewCertPool()
+	if !p.AppendCertsFromPEM(e.CABundle) {
+		return nil, fmt.Errorf("failed to load CA for %s", registry)
+	}
+
+	return p, nil
+}
+
+func (rh *RegistryHelper) buildTransport(registry string) (http.RoundTripper, error) {
+	ret, err := rh.cachedTransports.Get(registry, func() (interface{}, error) {
+		ca, err := rh.loadCA(registry)
+		if err != nil {
+			return nil, err
+		}
+		if ca == nil {
+			return remote.DefaultTransport, nil
+		}
+
+		t := remote.DefaultTransport.Clone()
+		t.TLSClientConfig.RootCAs = ca
+		return t, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.(http.RoundTripper), nil
+}
+
+func (rh *RegistryHelper) getTransport(req *http.Request) http.RoundTripper {
+	t := req.Context().Value(transportKey).(http.RoundTripper)
+	return t
 }
 
 func (rh *RegistryHelper) doResolve(resource authn.Resource) (authn.Authenticator, error) {
@@ -253,7 +317,7 @@ func (rh *RegistryHelper) RoundTripCached(req *http.Request, extraKey string, on
 
 		b := rh.readCachedResponse(key)
 		if b == nil {
-			res, err := remote.DefaultTransport.RoundTrip(req)
+			res, err := rh.getTransport(req).RoundTrip(req)
 			if err != nil {
 				return nil, err
 			}
@@ -354,6 +418,5 @@ func (rh *RegistryHelper) RoundTrip(req *http.Request) (*http.Response, error) {
 		return rh.RoundTripAuth(req)
 	}
 
-	resp, err := remote.DefaultTransport.RoundTrip(req)
-	return resp, err
+	return rh.getTransport(req).RoundTrip(req)
 }
