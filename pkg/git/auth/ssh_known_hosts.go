@@ -65,6 +65,10 @@ func verifyHost(host string, remote net.Addr, key ssh.PublicKey, knownHosts []by
 			_ = tmpFile.Close()
 			_ = os.Remove(tmpFile.Name())
 		}()
+		_, err = tmpFile.Write(knownHosts)
+		if err != nil {
+			return err
+		}
 		files = append(files, tmpFile.Name())
 	}
 
