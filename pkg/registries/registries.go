@@ -33,11 +33,24 @@ func (e *noAuthRetryError) Error() string {
 	return e.msg
 }
 
-func ListImageTags(image string) ([]string, error) {
+type RegistryHelper struct {
+	cachedAuth      utils.ThreadSafeCache
+	cachedResponses utils.ThreadSafeMultiCache
+	authRealms      map[string]bool
+	authErrors      map[string]bool
+	init            sync.Once
+	mutex           sync.Mutex
+}
+
+func NewRegistryHelper() *RegistryHelper {
+	return &RegistryHelper{}
+}
+
+func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
 	var nameOpts []name.Option
 	remoteOpts := []remote.Option{
-		remote.WithAuthFromKeychain(&globalMyKeychain),
-		remote.WithTransport(&globalMyKeychain),
+		remote.WithAuthFromKeychain(rh),
+		remote.WithTransport(rh),
 	}
 
 	repo, err := name.NewRepository(image, nameOpts...)
@@ -64,18 +77,7 @@ func ListImageTags(image string) ([]string, error) {
 	return ret, err
 }
 
-var globalMyKeychain myKeychain
-
-type myKeychain struct {
-	cachedAuth      utils.ThreadSafeCache
-	cachedResponses utils.ThreadSafeMultiCache
-	authRealms      map[string]bool
-	authErrors      map[string]bool
-	init            sync.Once
-	mutex           sync.Mutex
-}
-
-func (kc *myKeychain) doResolve(resource authn.Resource) (authn.Authenticator, error) {
+func (rh *RegistryHelper) doResolve(resource authn.Resource) (authn.Authenticator, error) {
 	registry := resource.RegistryStr()
 
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_REGISTRY") {
@@ -93,11 +95,11 @@ func (kc *myKeychain) doResolve(resource authn.Resource) (authn.Authenticator, e
 	return authn.DefaultKeychain.Resolve(resource)
 }
 
-func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+func (rh *RegistryHelper) Resolve(resource authn.Resource) (authn.Authenticator, error) {
 	registry := resource.RegistryStr()
 
-	ret, err := kc.cachedAuth.Get(registry, func() (interface{}, error) {
-		return kc.doResolve(resource)
+	ret, err := rh.cachedAuth.Get(registry, func() (interface{}, error) {
+		return rh.doResolve(resource)
 	})
 	if err != nil {
 		return nil, err
@@ -105,15 +107,15 @@ func (kc *myKeychain) Resolve(resource authn.Resource) (authn.Authenticator, err
 	return ret.(authn.Authenticator), nil
 }
 
-func (kc *myKeychain) realmFromRequest(req *http.Request) string {
+func (rh *RegistryHelper) realmFromRequest(req *http.Request) string {
 	return fmt.Sprintf("%s://%s%s", req.URL.Scheme, req.URL.Host, req.URL.Path)
 }
 
-func (kc *myKeychain) getCachePath(key string) string {
+func (rh *RegistryHelper) getCachePath(key string) string {
 	return filepath.Join(utils.GetTmpBaseDir(), "registries-cache", key[0:2], key[2:4], key)
 }
 
-func (kc *myKeychain) checkInvalidToken(resBody []byte) bool {
+func (rh *RegistryHelper) checkInvalidToken(resBody []byte) bool {
 	j, err := uo.FromString(string(resBody))
 	if err != nil {
 		return false
@@ -139,8 +141,8 @@ func (kc *myKeychain) checkInvalidToken(resBody []byte) bool {
 	return false
 }
 
-func (kc *myKeychain) readCachedResponse(key string) []byte {
-	cachePath := kc.getCachePath(key)
+func (rh *RegistryHelper) readCachedResponse(key string) []byte {
+	cachePath := rh.getCachePath(key)
 	st, err := os.Stat(cachePath)
 
 	if err != nil {
@@ -163,7 +165,7 @@ func (kc *myKeychain) readCachedResponse(key string) []byte {
 		if err != nil {
 			return nil
 		}
-		if kc.checkInvalidToken(jb) {
+		if rh.checkInvalidToken(jb) {
 			return nil
 		}
 	}
@@ -171,8 +173,8 @@ func (kc *myKeychain) readCachedResponse(key string) []byte {
 	return b
 }
 
-func (kc *myKeychain) writeCachedResponse(key string, data []byte) {
-	cachePath := kc.getCachePath(key)
+func (rh *RegistryHelper) writeCachedResponse(key string, data []byte) {
+	cachePath := rh.getCachePath(key)
 	if !utils.Exists(filepath.Dir(cachePath)) {
 		err := os.MkdirAll(filepath.Dir(cachePath), 0o700)
 		if err != nil {
@@ -193,15 +195,15 @@ func (kc *myKeychain) writeCachedResponse(key string, data []byte) {
 	}
 }
 
-func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew func(res *http.Response) error) (*http.Response, error) {
+func (rh *RegistryHelper) RoundTripCached(req *http.Request, extraKey string, onNew func(res *http.Response) error) (*http.Response, error) {
 	key := fmt.Sprintf("%s\n%s\n%s\n", req.Host, req.URL.Path, extraKey)
 	key = utils.Sha256String(key)
 
 	isNew := false
-	resI, err := kc.cachedResponses.Get(req.Host, key, func() (interface{}, error) {
+	resI, err := rh.cachedResponses.Get(req.Host, key, func() (interface{}, error) {
 		isNew = true
 
-		b := kc.readCachedResponse(key)
+		b := rh.readCachedResponse(key)
 		if b == nil {
 			res, err := remote.DefaultTransport.RoundTrip(req)
 			if err != nil {
@@ -213,7 +215,7 @@ func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew 
 			}
 
 			if res.StatusCode < 500 {
-				kc.writeCachedResponse(key, b)
+				rh.writeCachedResponse(key, b)
 			}
 		}
 
@@ -240,22 +242,22 @@ func (kc *myKeychain) RoundTripCached(req *http.Request, extraKey string, onNew 
 	return res, err
 }
 
-func (kc *myKeychain) RoundTripInfoReq(req *http.Request) (*http.Response, error) {
-	return kc.RoundTripCached(req, "info", func(res *http.Response) error {
-		kc.mutex.Lock()
-		defer kc.mutex.Unlock()
+func (rh *RegistryHelper) RoundTripInfoReq(req *http.Request) (*http.Response, error) {
+	return rh.RoundTripCached(req, "info", func(res *http.Response) error {
+		rh.mutex.Lock()
+		defer rh.mutex.Unlock()
 
 		chgs := challenge.ResponseChallenges(res)
 		for _, chg := range chgs {
 			if realm, ok := chg.Parameters["realm"]; ok {
-				kc.authRealms[realm] = true
+				rh.authRealms[realm] = true
 			}
 		}
 		return nil
 	})
 }
 
-func (kc *myKeychain) RoundTripAuth(req *http.Request) (*http.Response, error) {
+func (rh *RegistryHelper) RoundTripAuth(req *http.Request) (*http.Response, error) {
 	b := bytes.NewBuffer(nil)
 	err := req.Header.Write(b)
 	if err != nil {
@@ -266,42 +268,42 @@ func (kc *myKeychain) RoundTripAuth(req *http.Request) (*http.Response, error) {
 
 	hash := utils.Sha256String(b.String())
 
-	return kc.RoundTripCached(req, hash, func(res *http.Response) error {
-		kc.mutex.Lock()
-		defer kc.mutex.Unlock()
+	return rh.RoundTripCached(req, hash, func(res *http.Response) error {
+		rh.mutex.Lock()
+		defer rh.mutex.Unlock()
 
 		if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
 			// if auth fails once for a registry, we must not retry any auth on that registry as we could easily run
 			// into an IP block
-			kc.authErrors[kc.realmFromRequest(req)] = true
+			rh.authErrors[rh.realmFromRequest(req)] = true
 		}
 
 		return nil
 	})
 }
 
-func (kc *myKeychain) RoundTrip(req *http.Request) (*http.Response, error) {
-	kc.init.Do(func() {
-		kc.authRealms = make(map[string]bool)
-		kc.authErrors = make(map[string]bool)
+func (rh *RegistryHelper) RoundTrip(req *http.Request) (*http.Response, error) {
+	rh.init.Do(func() {
+		rh.authRealms = make(map[string]bool)
+		rh.authErrors = make(map[string]bool)
 	})
 
 	if req.URL.Path == "/v2/" {
-		return kc.RoundTripInfoReq(req)
+		return rh.RoundTripInfoReq(req)
 	}
 
-	kc.mutex.Lock()
-	realm := kc.realmFromRequest(req)
-	_, isAuthRealm := kc.authRealms[realm]
-	_, isAuthError := kc.authErrors[realm]
-	kc.mutex.Unlock()
+	rh.mutex.Lock()
+	realm := rh.realmFromRequest(req)
+	_, isAuthRealm := rh.authRealms[realm]
+	_, isAuthError := rh.authErrors[realm]
+	rh.mutex.Unlock()
 
 	if isAuthError {
 		return nil, &noAuthRetryError{fmt.Sprintf("previous auth request for %s gave an error, we won't retry", realm)}
 	}
 
 	if isAuthRealm {
-		return kc.RoundTripAuth(req)
+		return rh.RoundTripAuth(req)
 	}
 
 	resp, err := remote.DefaultTransport.RoundTrip(req)

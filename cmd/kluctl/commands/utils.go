@@ -9,6 +9,7 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
@@ -100,7 +101,8 @@ func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *comma
 }
 
 func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, forSeal bool, cb func(ctx *commandCtx) error) error {
-	images, err := deployment.NewImages(args.imageFlags.UpdateImages)
+	rh := registries.NewRegistryHelper()
+	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages)
 	if err != nil {
 		return err
 	}

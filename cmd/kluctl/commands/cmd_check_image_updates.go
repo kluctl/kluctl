@@ -37,6 +37,8 @@ func (cmd *checkImageUpdatesCmd) Run() error {
 		return err
 	}
 
+	rh := registries.NewRegistryHelper()
+
 	wg := utils.NewWorkerPoolWithErrors(8)
 	defer wg.StopWait(false)
 
@@ -52,7 +54,7 @@ func (cmd *checkImageUpdatesCmd) Run() error {
 			repo := s[0]
 			if _, ok := imageTags[repo]; !ok {
 				wg.Submit(func() error {
-					tags, err := registries.ListImageTags(repo)
+					tags, err := rh.ListImageTags(repo)
 					mutex.Lock()
 					defer mutex.Unlock()
 					if err != nil {

@@ -18,6 +18,7 @@ import (
 )
 
 type Images struct {
+	rh           *registries.RegistryHelper
 	updateImages bool
 	fixedImages  []types.FixedImage
 	seenImages   []types.FixedImage
@@ -26,8 +27,9 @@ type Images struct {
 	registryCache utils.ThreadSafeMultiCache
 }
 
-func NewImages(updateImages bool) (*Images, error) {
+func NewImages(rh *registries.RegistryHelper, updateImages bool) (*Images, error) {
 	return &Images{
+		rh:           rh,
 		updateImages: updateImages,
 	}, nil
 }
@@ -73,7 +75,7 @@ func (images *Images) GetFixedImage(image string, namespace string, deployment s
 
 func (images *Images) GetLatestImageFromRegistry(image string, latestVersion string) (*string, error) {
 	ret, err := images.registryCache.Get(image, "tag", func() (interface{}, error) {
-		return registries.ListImageTags(image)
+		return images.rh.ListImageTags(image)
 	})
 	if err != nil {
 		return nil, err
