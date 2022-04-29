@@ -102,6 +102,10 @@ func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *comma
 
 func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, forSeal bool, cb func(ctx *commandCtx) error) error {
 	rh := registries.NewRegistryHelper()
+	err := rh.ParseAuthEntriesFromEnv()
+	if err != nil {
+		return fmt.Errorf("failed to parse registry auth from environment: %w", err)
+	}
 	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages)
 	if err != nil {
 		return err

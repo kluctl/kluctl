@@ -34,12 +34,21 @@ func (e *noAuthRetryError) Error() string {
 }
 
 type RegistryHelper struct {
+	authEntries []AuthEntry
+
 	cachedAuth      utils.ThreadSafeCache
 	cachedResponses utils.ThreadSafeMultiCache
 	authRealms      map[string]bool
 	authErrors      map[string]bool
 	init            sync.Once
 	mutex           sync.Mutex
+}
+
+type AuthEntry struct {
+	Registry string
+	Username string
+	Password string
+	Insecure bool
 }
 
 func NewRegistryHelper() *RegistryHelper {
@@ -58,7 +67,8 @@ func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
 		return nil, err
 	}
 
-	if isRegistryInsecure(repo.RegistryStr()) {
+	e := rh.findAuthEntry(repo.RegistryStr())
+	if e != nil && e.Insecure {
 		nameOpts = append(nameOpts, name.Insecure)
 		repo, err = name.NewRepository(image, nameOpts...)
 	}
@@ -77,19 +87,57 @@ func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
 	return ret, err
 }
 
-func (rh *RegistryHelper) doResolve(resource authn.Resource) (authn.Authenticator, error) {
-	registry := resource.RegistryStr()
+func (rh *RegistryHelper) AddAuthEntry(e AuthEntry) {
+	rh.authEntries = append(rh.authEntries, e)
+}
+
+func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
+	defaultTlsVerify := true
+	if x, ok := os.LookupEnv("KLUCTL_REGISTRY_DEFAULT_TLSVERIFY"); ok {
+		b, err := strconv.ParseBool(x)
+		if err != nil {
+			return fmt.Errorf("failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %w", err)
+		}
+		defaultTlsVerify = b
+	}
 
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_REGISTRY") {
-		host, _ := m["HOST"]
-		if host == registry {
-			username, _ := m["USERNAME"]
-			password, _ := m["PASSWORD"]
-			return authn.FromConfig(authn.AuthConfig{
-				Username: username,
-				Password: password,
-			}), nil
+		e := AuthEntry{
+			Registry: m["HOST"],
+			Username: m["USERNAME"],
+			Password: m["PASSWORD"],
+			Insecure: !defaultTlsVerify,
 		}
+		tlsverifyStr, ok := m["TLSVERIFY"]
+		if ok {
+			tlsverify, err := strconv.ParseBool(tlsverifyStr)
+			if err != nil {
+				return fmt.Errorf("failed to parse TLSVERIFY from env: %w", err)
+			}
+			e.Insecure = !tlsverify
+		}
+
+		rh.AddAuthEntry(e)
+	}
+	return nil
+}
+
+func (rh *RegistryHelper) findAuthEntry(registry string) *AuthEntry {
+	for _, e := range rh.authEntries {
+		if e.Registry == "*" || e.Registry == registry {
+			return &e
+		}
+	}
+	return nil
+}
+
+func (rh *RegistryHelper) doResolve(resource authn.Resource) (authn.Authenticator, error) {
+	e := rh.findAuthEntry(resource.RegistryStr())
+	if e != nil {
+		return authn.FromConfig(authn.AuthConfig{
+			Username: e.Username,
+			Password: e.Password,
+		}), nil
 	}
 
 	return authn.DefaultKeychain.Resolve(resource)
@@ -308,26 +356,4 @@ func (rh *RegistryHelper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	resp, err := remote.DefaultTransport.RoundTrip(req)
 	return resp, err
-}
-
-func isRegistryInsecure(registry string) bool {
-	for _, m := range utils.ParseEnvConfigSets("KLUCTL_REGISTRY") {
-		host, _ := m["HOST"]
-		if host == registry {
-			tlsverifyStr, ok := m["TLSVERIFY"]
-			if ok {
-				tlsverify, err := strconv.ParseBool(tlsverifyStr)
-				if err == nil {
-					return !tlsverify
-				}
-			}
-		}
-	}
-
-	if x, ok := os.LookupEnv("KLUCTL_REGISTRY_DEFAULT_TLSVERIFY"); ok {
-		if b, err := strconv.ParseBool(x); err == nil {
-			return !b
-		}
-	}
-	return false
 }
