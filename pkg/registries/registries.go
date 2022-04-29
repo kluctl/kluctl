@@ -55,6 +55,7 @@ type AuthEntry struct {
 	Registry string
 	Username string
 	Password string
+	Auth     string
 	CABundle []byte
 	Insecure bool
 }
@@ -120,6 +121,7 @@ func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
 			Registry: m["HOST"],
 			Username: m["USERNAME"],
 			Password: m["PASSWORD"],
+			Auth:     m["AUTH"],
 			Insecure: !defaultTlsVerify,
 		}
 		tlsverifyStr, ok := m["TLSVERIFY"]
@@ -201,6 +203,7 @@ func (rh *RegistryHelper) doResolve(resource authn.Resource) (authn.Authenticato
 		return authn.FromConfig(authn.AuthConfig{
 			Username: e.Username,
 			Password: e.Password,
+			Auth:     e.Auth,
 		}), nil
 	}
 
