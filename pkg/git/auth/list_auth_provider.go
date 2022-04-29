@@ -53,7 +53,7 @@ func (a *ListAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 			username = e.Username
 		}
 
-		if e.Username == "*" {
+		if username == "*" {
 			// can't use "*" as username
 			continue
 		}
