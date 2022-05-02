@@ -44,5 +44,5 @@ type OutputFlags struct {
 }
 
 type RenderOutputDirFlags struct {
-	RenderOutputDir string `group:"misc" help:"Specifies the target directory to render the project into. If omitted, a temporary directory is used." type:"path"`
+	RenderOutputDir pathType `group:"misc" help:"Specifies the target directory to render the project into. If omitted, a temporary directory is used."`
 }

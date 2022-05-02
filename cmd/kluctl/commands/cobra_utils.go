@@ -1,0 +1,305 @@
+package commands
+
+import (
+	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+)
+
+type helpProvider interface {
+	Help() string
+}
+
+type runProvider interface {
+	Run() error
+}
+
+type rootCommand struct {
+	rootCmd    *commandAndGroups
+	groupInfos []groupInfo
+}
+
+type commandAndGroups struct {
+	parent *commandAndGroups
+	cmd    *cobra.Command
+	groups map[string]string
+}
+
+type groupInfo struct {
+	group       string
+	title       string
+	description string
+}
+
+func buildRootCobraCmd(cmdStruct interface{}, name string, short string, long string, groupInfos []groupInfo) (*cobra.Command, error) {
+	c := &rootCommand{
+		groupInfos: groupInfos,
+	}
+
+	cmd, err := c.buildCobraCmd(nil, cmdStruct, name, short, long)
+	if err != nil {
+		return nil, err
+	}
+	c.rootCmd = cmd
+
+	return cmd.cmd, nil
+}
+
+func (c *rootCommand) buildCobraCmd(parent *commandAndGroups, cmdStruct interface{}, name string, short string, long string) (*commandAndGroups, error) {
+	cg := &commandAndGroups{
+		parent: parent,
+		groups: map[string]string{},
+		cmd: &cobra.Command{
+			Use:   name,
+			Short: short,
+			Long:  long,
+		},
+	}
+
+	runP, ok := cmdStruct.(runProvider)
+	if ok {
+		cg.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+			return runP.Run()
+		}
+	}
+
+	err := c.buildCobraSubCommands(cg, cmdStruct)
+	if err != nil {
+		return nil, err
+	}
+	err = c.buildCobraArgs(cg, cmdStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	cg.cmd.SetHelpFunc(func(command *cobra.Command, i []string) {
+		c.helpFunc(cg)
+	})
+
+	return cg, nil
+}
+
+func (c *rootCommand) buildCobraSubCommands(cg *commandAndGroups, cmdStruct interface{}) error {
+	v := reflect.ValueOf(cmdStruct).Elem()
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		v2 := v.Field(i).Addr().Interface()
+		name := buildCobraName(f.Name)
+
+		if _, ok := f.Tag.Lookup("cmd"); ok {
+			// subcommand
+			shortHelp := f.Tag.Get("help")
+			longHelp := ""
+			if hp, ok := v2.(helpProvider); ok {
+				longHelp = hp.Help()
+			}
+
+			c2, err := c.buildCobraCmd(cg, v2, name, shortHelp, longHelp)
+			if err != nil {
+				return err
+			}
+			cg.cmd.AddCommand(c2.cmd)
+		}
+	}
+	return nil
+}
+
+func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}) error {
+	v := reflect.ValueOf(cmdStruct).Elem()
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if _, ok := f.Tag.Lookup("cmd"); ok {
+			continue
+		}
+
+		err := c.buildCobraArg(cg, f, v.Field(i))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField, v reflect.Value) error {
+	v2 := v.Addr().Interface()
+	name := buildCobraName(f.Name)
+
+	help := f.Tag.Get("help")
+	shortFlag := f.Tag.Get("short")
+	defaultValue := f.Tag.Get("default")
+
+	group := f.Tag.Get("group")
+	if group != "" {
+		cg.groups[name] = group
+	}
+
+	switch v2.(type) {
+	case pflag.Value:
+		cg.cmd.PersistentFlags().VarPF(v2.(pflag.Value), name, shortFlag, help)
+	case *string:
+		cg.cmd.PersistentFlags().StringVarP(v2.(*string), name, shortFlag, defaultValue, help)
+	case *[]string:
+		if defaultValue != "" {
+			return fmt.Errorf("default not supported for slices")
+		}
+		cg.cmd.PersistentFlags().StringSliceVarP(v2.(*[]string), name, shortFlag, nil, help)
+	case *bool:
+		parsedDefault := false
+		if defaultValue != "" {
+			x, err := strconv.ParseBool(defaultValue)
+			if err != nil {
+				return err
+			}
+			parsedDefault = x
+		}
+		cg.cmd.PersistentFlags().BoolVarP(v2.(*bool), name, shortFlag, parsedDefault, help)
+	case *time.Duration:
+		var parsedDefault time.Duration
+		if defaultValue != "" {
+			x, err := time.ParseDuration(defaultValue)
+			if err != nil {
+				return err
+			}
+			parsedDefault = x
+		}
+		cg.cmd.PersistentFlags().DurationVarP(v2.(*time.Duration), name, shortFlag, parsedDefault, help)
+	default:
+		if f.Anonymous {
+			return c.buildCobraArgs(cg, v2)
+		}
+		return fmt.Errorf("unknown type %s", f.Type.Name())
+	}
+
+	return nil
+}
+
+func copyViperValuesToCobraCmd(cmd *cobra.Command) error {
+	for cmd != nil {
+		err := copyViperValuesToCobraFlags(cmd.PersistentFlags())
+		if err != nil {
+			return err
+		}
+		cmd = cmd.Parent()
+	}
+	return nil
+}
+
+func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
+	var retErr []error
+	flags.VisitAll(func(flag *pflag.Flag) {
+		if flag.Changed {
+			return
+		}
+		v := viper.Get(flag.Name)
+		if v != nil {
+			s, ok := v.(string)
+			if !ok {
+				retErr = append(retErr, fmt.Errorf("viper flag %s is not a string", flag.Name))
+				return
+			}
+			err := flag.Value.Set(s)
+			if err != nil {
+				retErr = append(retErr, err)
+			}
+		}
+	})
+	return utils.NewErrorListOrNil(retErr)
+}
+
+func (c *rootCommand) helpFunc(cg *commandAndGroups) {
+	cmd := cg.cmd
+
+	termWidth := utils.GetTermWidth()
+
+	h := "Usage: "
+	if cmd.Runnable() {
+		h += cmd.UseLine()
+	}
+	if cmd.HasAvailableSubCommands() {
+		h += fmt.Sprintf("%s [command]", cmd.CommandPath())
+	}
+
+	h += "\n\n"
+	if cmd.Short != "" {
+		h += strings.TrimRightFunc(cmd.Short, unicode.IsSpace) + "\n"
+	}
+	if cmd.Long != "" {
+		h += strings.TrimRightFunc(cmd.Long, unicode.IsSpace) + "\n"
+	}
+
+	flagsByGroups := c.buildGroupedFlagSets(cg)
+
+	for _, g := range c.groupInfos {
+		fl, ok := flagsByGroups[g.group]
+		if !ok {
+			continue
+		}
+		h += "\n"
+		h += g.title + "\n"
+		if g.description != "" {
+			h += "  " + g.description + "\n\n"
+		}
+		usages := fl.FlagUsagesWrapped(termWidth)
+		usages = strings.TrimRightFunc(usages, unicode.IsSpace)
+		usages += "\n"
+		h += usages
+	}
+
+	if cmd.HasAvailableSubCommands() {
+		h += "\nCommands:\n"
+		for _, subCmd := range cmd.Commands() {
+			h += "  " + rpad(subCmd.Name(), subCmd.NamePadding()) + " " + subCmd.Short + "\n"
+		}
+		h += fmt.Sprintf("\nUse \"%s [command] --help\" for more information about a command.\n", cmd.CommandPath())
+	}
+
+	_, _ = cmd.OutOrStdout().Write([]byte(h))
+}
+
+func (c *rootCommand) buildGroupedFlagSets(cg *commandAndGroups) map[string]*pflag.FlagSet {
+	flagsByGroups := make(map[string]*pflag.FlagSet)
+
+	x := cg
+	for x != nil {
+		x.cmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+			group, ok := x.groups[flag.Name]
+			if !ok {
+				log.Panicf("group for %s not found", flag.Name)
+			}
+			fl, ok := flagsByGroups[group]
+			if !ok {
+				fl = pflag.NewFlagSet(group, pflag.PanicOnError)
+				flagsByGroups[group] = fl
+			}
+			fl.AddFlag(flag)
+		})
+		x = x.parent
+	}
+
+	return flagsByGroups
+}
+
+func rpad(s string, padding int) string {
+	template := fmt.Sprintf("%%-%ds", padding)
+	return fmt.Sprintf(template, s)
+}
+
+var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
+var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+func buildCobraName(fieldName string) string {
+	n := matchFirstCap.ReplaceAllString(fieldName, "${1}-${2}")
+	n = matchAllCap.ReplaceAllString(n, "${1}-${2}")
+	return strings.ToLower(n)
+}

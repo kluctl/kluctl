@@ -8,16 +8,16 @@ import (
 )
 
 type ImageFlags struct {
-	FixedImage      []string `group:"images" short:"F" help:"Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'"`
-	FixedImagesFile string   `group:"images" help:"Use .yml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format" type:"existingfile"`
-	UpdateImages    bool     `group:"images" short:"u" help:"This causes kluctl to prefer the latest image found in registries, based on the 'latest_image' filters provided to 'images.get_image(...)' calls. Use this flag if you want to update to the latest versions/tags of all images. '-u' takes precedence over '--fixed-image/--fixed-images-file', meaning that the latest images are used even if an older image is given via fixed images."`
+	FixedImage      []string         `group:"images" short:"F" help:"Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'"`
+	FixedImagesFile existingFileType `group:"images" help:"Use .yml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format"`
+	UpdateImages    bool             `group:"images" short:"u" help:"This causes kluctl to prefer the latest image found in registries, based on the 'latest_image' filters provided to 'images.get_image(...)' calls. Use this flag if you want to update to the latest versions/tags of all images. '-u' takes precedence over '--fixed-image/--fixed-images-file', meaning that the latest images are used even if an older image is given via fixed images."`
 }
 
 func (args *ImageFlags) LoadFixedImagesFromArgs() ([]types.FixedImage, error) {
 	var ret types.FixedImagesConfig
 
 	if args.FixedImagesFile != "" {
-		err := yaml.ReadYamlFile(args.FixedImagesFile, &ret)
+		err := yaml.ReadYamlFile(args.FixedImagesFile.String(), &ret)
 		if err != nil {
 			return nil, err
 		}

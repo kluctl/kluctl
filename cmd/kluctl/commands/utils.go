@@ -50,12 +50,12 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		ProjectDir:          cwd,
 		ProjectUrl:          url,
 		ProjectRef:          projectFlags.ProjectRef,
-		ProjectConfig:       projectFlags.ProjectConfig,
-		LocalClusters:       projectFlags.LocalClusters,
-		LocalDeployment:     projectFlags.LocalDeployment,
-		LocalSealedSecrets:  projectFlags.LocalSealedSecrets,
-		FromArchive:         projectFlags.FromArchive,
-		FromArchiveMetadata: projectFlags.FromArchiveMetadata,
+		ProjectConfig:       projectFlags.ProjectConfig.String(),
+		LocalClusters:       projectFlags.LocalClusters.String(),
+		LocalDeployment:     projectFlags.LocalDeployment.String(),
+		LocalSealedSecrets:  projectFlags.LocalSealedSecrets.String(),
+		FromArchive:         projectFlags.FromArchive.String(),
+		FromArchiveMetadata: projectFlags.FromArchiveMetadata.String(),
 		GitAuthProviders:    auth.NewDefaultAuthProviders(),
 	}
 
@@ -71,7 +71,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		if err != nil {
 			return err
 		}
-		err = ioutil.WriteFile(projectFlags.OutputMetadata, b, 0o640)
+		err = ioutil.WriteFile(projectFlags.OutputMetadata.String(), b, 0o640)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 		return err
 	}
 
-	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
+	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir.String()
 	if renderOutputDir == "" {
 		tmpDir, err := ioutil.TempDir(p.TmpDir, "rendered")
 		if err != nil {

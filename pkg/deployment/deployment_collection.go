@@ -190,10 +190,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 	}
 	wg.Wait()
 
-	if len(errs) != 0 {
-		return utils.NewErrorList(errs)
-	}
-	return nil
+	return utils.NewErrorListOrNil(errs)
 }
 
 func (c *DeploymentCollection) LocalObjectsByRef() map[k8s2.ObjectRef]bool {

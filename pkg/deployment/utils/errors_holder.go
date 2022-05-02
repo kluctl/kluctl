@@ -106,8 +106,5 @@ func (dew *DeploymentErrorsAndWarnings) getPlainErrorsList() []error {
 
 func (dew *DeploymentErrorsAndWarnings) GetMultiError() error {
 	l := dew.getPlainErrorsList()
-	if len(l) == 0 {
-		return nil
-	}
-	return utils.NewErrorList(l)
+	return utils.NewErrorListOrNil(l)
 }

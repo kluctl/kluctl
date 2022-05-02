@@ -70,7 +70,7 @@ func (wp *WorkerPoolWithErrors) StopWait(restart bool) error {
 	if len(wp.errors) == 0 {
 		return nil
 	}
-	err := NewErrorList(wp.errors)
+	err := NewErrorListOrNil(wp.errors)
 	wp.errors = nil
 	return err
 }

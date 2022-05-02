@@ -4,7 +4,10 @@ type errorList struct {
 	errors []error
 }
 
-func NewErrorList(errors []error) *errorList {
+func NewErrorListOrNil(errors []error) error {
+	if len(errors) == 0 {
+		return nil
+	}
 	return &errorList{errors: errors}
 }
 

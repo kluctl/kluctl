@@ -161,7 +161,7 @@ func (j *Jinja2) RenderStruct(dst interface{}, src interface{}, vars *uo.Unstruc
 		}
 	}
 	if len(errors) != 0 {
-		return utils.NewErrorList(errors)
+		return utils.NewErrorListOrNil(errors)
 	}
 
 	err = m.ToStruct(dst)
@@ -277,9 +277,5 @@ func (j *Jinja2) RenderDirectory(rootDir string, searchDirs []string, relSourceD
 			return err
 		}
 	}
-	if len(errors) != 0 {
-		return utils.NewErrorList(errors)
-	}
-
-	return nil
+	return utils.NewErrorListOrNil(errors)
 }

@@ -16,13 +16,14 @@ limitations under the License.
 package commands
 
 import (
-	"github.com/alecthomas/kong"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -55,12 +56,12 @@ type cli struct {
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
 
-var flagGroups = []kong.Group{
-	{Key: "project", Title: "Project arguments:", Description: "Define where and how to load the kluctl project and its components from."},
-	{Key: "images", Title: "Image arguments:", Description: "Control fixed images and update behaviour."},
-	{Key: "inclusion", Title: "Inclusion/Exclusion arguments:", Description: "Control inclusion/exclusion."},
-	{Key: "misc", Title: "Misc arguments:", Description: "Command specific arguments."},
-	{Key: "global", Title: "Global arguments:"},
+var flagGroups = []groupInfo{
+	{group: "global", title: "Global arguments:"},
+	{group: "project", title: "Project arguments:", description: "Define where and how to load the kluctl project and its components from."},
+	{group: "images", title: "Image arguments:", description: "Control fixed images and update behaviour."},
+	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
+	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 }
 var globalFlagGroup = &flagGroups[len(flagGroups)-1]
 
@@ -125,7 +126,7 @@ func (c *cli) checkNewVersion() {
 	}
 }
 
-func (c *cli) AfterApply() error {
+func (c *cli) preRun() error {
 	if err := c.setupLogs(); err != nil {
 		return err
 	}
@@ -133,50 +134,50 @@ func (c *cli) AfterApply() error {
 	return nil
 }
 
-func (c *cli) Help() string {
-	return `
-Deploy and manage complex deployments on Kubernetes
-
-The missing glue to put together large Kubernetes deployments,
-composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unified way.`
-}
-
-func ParseArgs(args []string, options ...kong.Option) (*kong.Kong, *kong.Context, error) {
-	var cli cli
-
-	helpOption := kong.HelpOptions{
-		Compact:        true,
-		Summary:        true,
-		WrapUpperBound: 120,
+func initViper() {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("/etc/kluctl/")
+	viper.AddConfigPath("$HOME/.kluctl")
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			log.Error(err)
+			os.Exit(1)
+		}
 	}
 
-	var options2 []kong.Option
-	options2 = append(options2, helpOption)
-	options2 = append(options2, kong.ExplicitGroups(flagGroups))
-	options2 = append(options2, kong.ShortUsageOnError())
-	options2 = append(options2, kong.Name("kluctl"))
-	options2 = append(options2, options...)
-
-	parser, err := kong.New(&cli, options2...)
-	if err != nil {
-		panic(err)
-	}
-	parser.Model.HelpFlag.Group = globalFlagGroup
-	ctx, err := parser.Parse(args)
-	return parser, ctx, err
+	viper.SetEnvPrefix("kluctl")
+	viper.AutomaticEnv()
 }
 
 func Execute() {
-	confOption := kong.Configuration(kong.JSON, "/etc/kluctl.json", "~/.kluctl/config.json")
-	envOption := kong.DefaultEnvars("KLUCTL")
-	parser, _, err := ExecuteWithArgs(os.Args[1:], confOption, envOption)
-	parser.FatalIfErrorf(err)
-}
+	root := cli{}
+	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
+		"Deploy and manage complex deployments on Kubernetes",
+		`The missing glue to put together large Kubernetes deployments,
+composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unified way.`,
+		flagGroups)
 
-func ExecuteWithArgs(args []string, options ...kong.Option) (*kong.Kong, *kong.Context, error) {
-	parser, ctx, err := ParseArgs(args, options...)
 	if err != nil {
-		return parser, ctx, err
+		log.Fatal(err)
 	}
-	return parser, ctx, ctx.Run()
+
+	rootCmd.Version = version.GetVersion()
+	rootCmd.SilenceUsage = true
+
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		err := copyViperValuesToCobraCmd(cmd)
+		if err != nil {
+			return err
+		}
+		return root.preRun()
+	}
+
+	initViper()
+
+	err = rootCmd.Execute()
+	if err != nil {
+		log.Errorf("%v", err)
+		os.Exit(1)
+	}
 }
