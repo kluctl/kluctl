@@ -151,7 +151,19 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 
 	switch v2.(type) {
 	case pflag.Value:
-		cg.cmd.PersistentFlags().VarPF(v2.(pflag.Value), name, shortFlag, help)
+		v3 := v2.(pflag.Value)
+		cg.cmd.PersistentFlags().VarP(v3, name, shortFlag, help)
+		switch v3.Type() {
+		case "existingfile":
+			exts := strings.Split(f.Tag.Get("exts"), ",")
+			_ = cg.cmd.MarkPersistentFlagFilename(name, exts...)
+		case "existingdir":
+			_ = cg.cmd.MarkPersistentFlagDirname(name)
+		case "existingpath":
+			exts := strings.Split(f.Tag.Get("exts"), ",")
+			_ = cg.cmd.MarkPersistentFlagFilename(name, exts...)
+			_ = cg.cmd.MarkPersistentFlagDirname(name)
+		}
 	case *string:
 		cg.cmd.PersistentFlags().StringVarP(v2.(*string), name, shortFlag, defaultValue, help)
 	case *[]string:
