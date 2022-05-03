@@ -17,6 +17,7 @@ var paralellism = 4
 
 type Jinja2 struct {
 	pj        chan *pythonJinja2Renderer
+	strict    bool
 	globCache map[string]interface{}
 	mutex     sync.Mutex
 }
@@ -44,6 +45,7 @@ func NewJinja2() (*Jinja2, error) {
 
 	j := &Jinja2{
 		pj:        make(chan *pythonJinja2Renderer, paralellism),
+		strict:    true,
 		globCache: map[string]interface{}{},
 	}
 
@@ -76,16 +78,20 @@ func (j *Jinja2) Close() {
 	}
 }
 
+func (j *Jinja2) SetStrict(strict bool) {
+	j.strict = strict
+}
+
 func (j *Jinja2) RenderStrings(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
 	pj := <-j.pj
 	defer func() { j.pj <- pj }()
-	return pj.renderHelper(jobs, searchDirs, vars, true)
+	return pj.renderHelper(jobs, searchDirs, vars, true, j.strict)
 }
 
 func (j *Jinja2) RenderFiles(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject) error {
 	pj := <-j.pj
 	defer func() { j.pj <- pj }()
-	return pj.renderHelper(jobs, searchDirs, vars, false)
+	return pj.renderHelper(jobs, searchDirs, vars, false, j.strict)
 }
 
 func (j *Jinja2) RenderString(template string, searchDirs []string, vars *uo.UnstructuredObject) (string, error) {

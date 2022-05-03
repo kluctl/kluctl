@@ -14,9 +14,9 @@ def main():
         args = json.loads(args)
 
         if args["cmd"] == "render-strings":
-            result = r.RenderStrings(args["templates"], args["searchDirs"] or [], args["vars"])
+            result = r.RenderStrings(args["templates"], args["searchDirs"] or [], args["vars"], args["strict"])
         elif args["cmd"] == "render-files":
-            result = r.RenderFiles(args["templates"], args["searchDirs"] or [], args["vars"])
+            result = r.RenderFiles(args["templates"], args["searchDirs"] or [], args["vars"], args["strict"])
         elif args["cmd"] == "exit":
             break
         else:

@@ -108,6 +108,7 @@ type jinja2Args struct {
 	Templates  []string `json:"templates"`
 	SearchDirs []string `json:"searchDirs"`
 	Vars       string   `json:"vars"`
+	Strict     bool     `json:"strict"`
 }
 
 type jinja2Result struct {
@@ -115,7 +116,7 @@ type jinja2Result struct {
 	Error  *string `json:"error,omitempty"`
 }
 
-func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool) error {
+func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool, strict bool) error {
 	varsStr, err := json.Marshal(vars.Object)
 	if err != nil {
 		return err
@@ -131,6 +132,7 @@ func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []stri
 	}
 	jargs.Vars = string(varsStr)
 	jargs.SearchDirs = searchDirs
+	jargs.Strict = strict
 
 	for _, job := range jobs {
 		if ist, r := j.isMaybeTemplate(job.Template, searchDirs, isString); !ist {

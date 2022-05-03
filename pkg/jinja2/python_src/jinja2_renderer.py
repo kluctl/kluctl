@@ -1,7 +1,7 @@
 import base64
 import json
 
-from jinja2 import StrictUndefined, FileSystemLoader
+from jinja2 import StrictUndefined, FileSystemLoader, ChainableUndefined
 
 from dict_utils import merge_dict
 from jinja2_cache import KluctlBytecodeCache
@@ -12,6 +12,21 @@ jinja2_cache = KluctlBytecodeCache(max_cache_files=10000)
 begin_placeholder = "XXXXXbegin_get_image_"
 end_placeholder = "_end_get_imageXXXXX"
 
+
+class NullUndefined(ChainableUndefined):
+    def _return_self(self, other):
+        return self
+
+    __add__ = __radd__ = __sub__ = __rsub__ = _return_self
+    __mul__ = __rmul__ = __div__ = __rdiv__ = _return_self
+    __truediv__ = __rtruediv__ = _return_self
+    __floordiv__ = __rfloordiv__ = _return_self
+    __mod__ = __rmod__ = _return_self
+    __pos__ = __neg__ = _return_self
+    __call__ = __getitem__ = _return_self
+    __lt__ = __le__ = __gt__ = __ge__ = _return_self
+    __int__ = __float__ = __complex__ = _return_self
+    __pow__ = __rpow__ = _return_self
 
 class Jinja2Renderer:
 
@@ -53,12 +68,13 @@ class Jinja2Renderer:
         }
         return vars
 
-    def build_env(self, vars_str, search_dirs):
+    def build_env(self, vars_str, search_dirs, strict):
         vars = json.loads(vars_str)
         image_vars = self.build_images_vars()
         merge_dict(vars, image_vars, clone=False)
 
-        environment = KluctlJinja2Environment(loader=FileSystemLoader(search_dirs), undefined=StrictUndefined,
+        environment = KluctlJinja2Environment(loader=FileSystemLoader(search_dirs),
+                                              undefined=StrictUndefined if strict else NullUndefined,
                                               cache_size=10000,
                                               bytecode_cache=jinja2_cache, auto_reload=False)
         merge_dict(environment.globals, vars, clone=False)
@@ -66,8 +82,8 @@ class Jinja2Renderer:
         add_jinja2_filters(environment)
         return environment
 
-    def render_helper(self, templates, search_dirs, vars, is_string):
-        env = self.build_env(vars, search_dirs)
+    def render_helper(self, templates, search_dirs, vars, is_string, strict):
+        env = self.build_env(vars, search_dirs, strict)
 
         result = []
 
@@ -87,17 +103,17 @@ class Jinja2Renderer:
 
         return result
 
-    def RenderStrings(self, templates, search_dirs, vars):
+    def RenderStrings(self, templates, search_dirs, vars, strict):
         try:
-            return self.render_helper(templates, search_dirs, vars, True)
+            return self.render_helper(templates, search_dirs, vars, True, strict)
         except Exception as e:
             return [{
                 "error": str(e)
             }] * len(templates)
 
-    def RenderFiles(self, templates, search_dirs, vars):
+    def RenderFiles(self, templates, search_dirs, vars, strict):
         try:
-            return self.render_helper(templates, search_dirs, vars, False)
+            return self.render_helper(templates, search_dirs, vars, False, strict)
         except Exception as e:
             return [{
                 "error": str(e)
