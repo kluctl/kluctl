@@ -148,36 +148,54 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 	if err != nil {
 		return err
 	}
-	remoteRefsMap := make(map[plumbing.ReferenceName]bool)
+	remoteRefsMap := make(map[plumbing.ReferenceName]*plumbing.Reference)
 	for _, reference := range g.remoteRefs {
-		remoteRefsMap[reference.Name()] = true
-	}
-
-	err = remote.FetchContext(ctx, &git.FetchOptions{
-		Auth:     auth.AuthMethod,
-		CABundle: auth.CABundle,
-		Progress: os.Stdout,
-		Tags:     git.AllTags,
-		Force:    true,
-	})
-	if err != nil && err != git.NoErrAlreadyUpToDate {
-		return err
+		remoteRefsMap[reference.Name()] = reference
 	}
 
 	localRemoteRefs, err := r.References()
 	if err != nil {
 		return err
 	}
-	var toDelete []plumbing.Reference
-	err = localRemoteRefs.ForEach(func(reference *plumbing.Reference) error {
-		if _, ok := remoteRefsMap[reference.Name()]; !ok {
-			toDelete = append(toDelete, *reference)
-		}
+
+	localRemoteRefsMap := make(map[plumbing.ReferenceName]*plumbing.Reference)
+	_ = localRemoteRefs.ForEach(func(reference *plumbing.Reference) error {
+		localRemoteRefsMap[reference.Name()] = reference
 		return nil
 	})
-	if err != nil {
-		return err
+
+	var toDelete []*plumbing.Reference
+	changed := false
+	for name, ref := range remoteRefsMap {
+		if name.String() != "HEAD" && !strings.HasPrefix(name.String(), "refs/heads/") && !strings.HasPrefix(name.String(), "refs/tags/") {
+			// we only fetch branches and tags
+			continue
+		}
+		if x, ok := localRemoteRefsMap[name]; !ok {
+			changed = true
+		} else if *x != *ref {
+			changed = true
+		}
 	}
+	for name, ref := range localRemoteRefsMap {
+		if _, ok := remoteRefsMap[name]; !ok {
+			toDelete = append(toDelete, ref)
+		}
+	}
+
+	if changed {
+		err = remote.FetchContext(ctx, &git.FetchOptions{
+			Auth:     auth.AuthMethod,
+			CABundle: auth.CABundle,
+			Progress: os.Stdout,
+			Tags:     git.AllTags,
+			Force:    true,
+		})
+		if err != nil && err != git.NoErrAlreadyUpToDate {
+			return err
+		}
+	}
+
 	for _, ref := range toDelete {
 		err = r.Storer.RemoveReference(ref.Name())
 		if err != nil {
