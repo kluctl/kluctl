@@ -21,6 +21,12 @@ func (it *ObjectIterator) KeyPath() []interface{} {
 	return it.keys
 }
 
+func (it *ObjectIterator) KeyPathCopy() []interface{} {
+	ret := make([]interface{}, len(it.keys))
+	copy(ret, it.keys)
+	return ret
+}
+
 func (it *ObjectIterator) Key() interface{} {
 	if len(it.keys) == 0 {
 		return nil

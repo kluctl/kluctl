@@ -114,8 +114,12 @@ type placeHolder struct {
 	Image         string `yaml:"image"`
 	LatestVersion string `yaml:"latestVersion"`
 
-	startOffset int
-	endOffset   int
+	Container string
+
+	FieldPath   []interface{}
+	FieldValue  string
+	StartOffset int
+	EndOffset   int
 }
 
 func (images *Images) parsePlaceholder(s string, offset int) (*placeHolder, error) {
@@ -137,8 +141,9 @@ func (images *Images) parsePlaceholder(s string, offset int) (*placeHolder, erro
 	if err != nil {
 		return nil, err
 	}
-	ph.startOffset = start
-	ph.endOffset = end + len(endPlaceholder)
+	ph.FieldValue = s
+	ph.StartOffset = start
+	ph.EndOffset = end + len(endPlaceholder)
 
 	return &ph, nil
 }
@@ -155,19 +160,15 @@ func (images *Images) extractContainerName(parent interface{}) string {
 	return ""
 }
 
-func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string) error {
-	ref := o.GetK8sRef()
-	deployment := fmt.Sprintf("%s/%s", ref.GVK.Kind, ref.Name)
-
-	var remoteObject *uo.UnstructuredObject
-	triedRemoteObject := false
+func (images *Images) FindPlaceholders(o *uo.UnstructuredObject) ([]placeHolder, error) {
+	var ret []placeHolder
 
 	err := uo.NewObjectIterator(o.Object).IterateLeafs(func(it *uo.ObjectIterator) error {
 		s, ok := it.Value().(string)
 		if !ok {
 			return nil
 		}
-		newS := ""
+
 		container := images.extractContainerName(it.Parent())
 
 		offset := 0
@@ -177,54 +178,76 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredO
 				return err
 			}
 			if ph == nil {
-				newS += s[offset:]
 				break
-			} else {
-				newS += s[offset:ph.startOffset]
 			}
+			ph.FieldPath = it.KeyPathCopy()
+			ph.Container = container
+			ret = append(ret, *ph)
+			offset = ph.EndOffset
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
 
-			if !triedRemoteObject {
-				triedRemoteObject = true
+func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string) error {
+	placeholders, err := images.FindPlaceholders(o)
+	if err != nil {
+		return err
+	}
+
+	ref := o.GetK8sRef()
+	deployment := fmt.Sprintf("%s/%s", ref.GVK.Kind, ref.Name)
+
+	var remoteObject *uo.UnstructuredObject
+	triedRemoteObject := false
+
+	// iterate backwards so that replacements are easy
+	for i := len(placeholders) - 1; i >= 0; i-- {
+		ph := placeholders[i]
+
+		if !triedRemoteObject {
+			triedRemoteObject = true
+			if k != nil {
 				remoteObject, _, err = k.GetSingleObject(o.GetK8sRef())
 				if err != nil && !errors.IsNotFound(err) {
 					return err
 				}
 			}
+		}
 
-			var deployed *string
-			if remoteObject != nil && ph.startOffset == 0 && ph.endOffset == len(s) {
-				x, found, _ := remoteObject.GetNestedField(it.KeyPath()...)
-				if found {
-					if y, ok := x.(string); ok {
-						deployed = &y
-					}
+		var deployed *string
+		if remoteObject != nil && ph.StartOffset == 0 && ph.EndOffset == len(ph.FieldValue) {
+			x, found, _ := remoteObject.GetNestedField(ph.FieldPath...)
+			if found {
+				if y, ok := x.(string); ok {
+					deployed = &y
 				}
 			}
-
-			resultImage, err := images.resolveImage(ph, ref, deployment, container, deployed, deploymentDir, tags)
-			if err != nil {
-				return err
-			}
-			if resultImage == nil {
-				return fmt.Errorf("failed to find image for %s and latest version %s", ph.Image, ph.LatestVersion)
-			}
-			newS += *resultImage
-
-			offset = ph.endOffset
-			if offset >= len(s) {
-				break
-			}
 		}
-		return it.SetValue(newS)
-	})
-	if err != nil {
-		return err
+
+		resultImage, err := images.resolveImage(ph, ref, deployment, deployed, deploymentDir, tags)
+		if err != nil {
+			return err
+		}
+		if resultImage == nil {
+			return fmt.Errorf("failed to find image for %s and latest version %s", ph.Image, ph.LatestVersion)
+		}
+
+		ph.FieldValue = ph.FieldValue[:ph.StartOffset] + *resultImage + ph.FieldValue[ph.EndOffset:]
+		err = o.SetNestedField(ph.FieldValue, ph.FieldPath...)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (images *Images) resolveImage(ph *placeHolder, ref k8s2.ObjectRef, deployment string, container string, deployed *string, deploymentDir string, tags []string) (*string, error) {
-	fixed := images.GetFixedImage(ph.Image, ref.Namespace, deployment, container)
+func (images *Images) resolveImage(ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string) (*string, error) {
+	fixed := images.GetFixedImage(ph.Image, ref.Namespace, deployment, ph.Container)
 
 	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)
 	if err != nil {
