@@ -239,23 +239,23 @@ func (images *Images) resolveImage(ph *placeHolder, ref k8s2.ObjectRef, deployme
 		result = fixed
 	}
 
-	if result != nil {
-		si := types.FixedImage{
-			Image:         ph.Image,
-			ResultImage:   *result,
-			DeployedImage: deployed,
-			RegistryImage: registry,
-			Namespace:     &ref.Namespace,
-			Object:        &ref,
-			Deployment:    &deployment,
-			Container:     &container,
-			VersionFilter: &ph.LatestVersion,
-			DeployTags:    tags,
-			DeploymentDir: &deploymentDir,
-		}
-		images.mutex.Lock()
-		images.seenImages = append(images.seenImages, si)
-		images.mutex.Unlock()
+	si := types.FixedImage{
+		Image:         ph.Image,
+		DeployedImage: deployed,
+		RegistryImage: registry,
+		Namespace:     &ref.Namespace,
+		Object:        &ref,
+		Deployment:    &deployment,
+		Container:     &ph.Container,
+		VersionFilter: &ph.LatestVersion,
+		DeployTags:    tags,
+		DeploymentDir: &deploymentDir,
 	}
+	if result != nil {
+		si.ResultImage = *result
+	}
+	images.mutex.Lock()
+	images.seenImages = append(images.seenImages, si)
+	images.mutex.Unlock()
 	return result, nil
 }
