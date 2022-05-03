@@ -16,7 +16,7 @@ func (cmd *listTargetsCmd) Help() string {
 }
 
 func (cmd *listTargetsCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, func(p *kluctl_project.KluctlProjectContext) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.KluctlProjectContext) error {
 		var result []*types.Target
 		for _, t := range p.DynamicTargets {
 			result = append(result, t.Target)

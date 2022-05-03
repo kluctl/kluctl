@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl_project.KluctlProjectContext) error) error {
+func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, cb func(p *kluctl_project.KluctlProjectContext) error) error {
 	var url *git_url.GitUrl
 	if projectFlags.ProjectUrl != "" {
 		var err error
@@ -40,6 +40,8 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		return err
 	}
 	defer j2.Close()
+
+	j2.SetStrict(strictTemplates)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -99,7 +101,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(args.projectFlags, func(p *kluctl_project.KluctlProjectContext) error {
+	return withKluctlProjectFromArgs(args.projectFlags, true, func(p *kluctl_project.KluctlProjectContext) error {
 		return withProjectTargetCommandContext(args, p, cb)
 	})
 }

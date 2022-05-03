@@ -119,7 +119,7 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, 
 }
 
 func (cmd *sealCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, func(p *kluctl_project.KluctlProjectContext) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.KluctlProjectContext) error {
 		hadError := false
 
 		secretsLoader := seal.NewSecretsLoader(p, cmd.SecretsDir)
