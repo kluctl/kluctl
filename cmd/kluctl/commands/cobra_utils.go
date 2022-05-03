@@ -81,6 +81,11 @@ func (c *rootCommand) buildCobraCmd(parent *commandAndGroups, cmdStruct interfac
 		return nil, err
 	}
 
+	err = RegisterFlagCompletionFuncs(cmdStruct, cg.cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	cg.cmd.SetHelpFunc(func(command *cobra.Command, i []string) {
 		c.helpFunc(cg)
 	})
