@@ -33,9 +33,10 @@ type DeploymentItem struct {
 	WaitReadiness bool
 
 	Objects []*uo.UnstructuredObject
+	Tags    *utils.OrderedMap
 
 	relProjectDir       string
-	relToRootItemDir    string
+	RelToRootItemDir    string
 	RelToProjectItemDir string
 	relRenderedDir      string
 	renderedDir         string
@@ -53,6 +54,10 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 
 	var err error
 
+	// collect tags
+	di.Tags = di.Project.getTags()
+	di.Tags.SetMultiple(di.Config.Tags, true)
+
 	rootProject := di.Project.getRootProject()
 
 	di.relProjectDir, err = filepath.Rel(rootProject.dir, di.Project.dir)
@@ -61,17 +66,17 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 	}
 
 	if di.dir != nil {
-		di.relToRootItemDir, err = filepath.Rel(rootProject.dir, *di.dir)
+		di.RelToRootItemDir, err = filepath.Rel(rootProject.dir, *di.dir)
 		if err != nil {
 			return nil, err
 		}
 
-		di.RelToProjectItemDir, err = filepath.Rel(di.relProjectDir, di.relToRootItemDir)
+		di.RelToProjectItemDir, err = filepath.Rel(di.relProjectDir, di.RelToRootItemDir)
 		if err != nil {
 			return nil, err
 		}
 
-		di.relRenderedDir = di.relToRootItemDir
+		di.relRenderedDir = di.RelToRootItemDir
 		if di.index != 0 {
 			di.relRenderedDir = fmt.Sprintf("%s-%d", di.relRenderedDir, di.index)
 		}
@@ -85,7 +90,7 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 func (di *DeploymentItem) getCommonLabels() map[string]string {
 	l := di.Project.GetCommonLabels()
 	i := 0
-	for _, t := range di.getTags().ListKeys() {
+	for _, t := range di.Tags.ListKeys() {
 		l[fmt.Sprintf("kluctl.io/tag-%d", i)] = t
 		i += 1
 	}
@@ -95,7 +100,7 @@ func (di *DeploymentItem) getCommonLabels() map[string]string {
 func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	// TODO change it to kluctl.io/deployment_dir
 	a := map[string]string{
-		"kluctl.io/kustomize_dir": strings.ReplaceAll(di.relToRootItemDir, string(os.PathSeparator), "/"),
+		"kluctl.io/kustomize_dir": strings.ReplaceAll(di.RelToRootItemDir, string(os.PathSeparator), "/"),
 	}
 	if di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags {
 		a["kluctl.io/skip-delete-if-tags"] = "true"
@@ -239,21 +244,13 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 	return nil
 }
 
-func (di *DeploymentItem) getTags() *utils.OrderedMap {
-	tags := di.Project.getTags()
-	for _, t := range di.Config.Tags {
-		tags.Set(t, true)
-	}
-	return tags
-}
-
 func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 	var values []utils.InclusionEntry
-	for _, t := range di.getTags().ListKeys() {
+	for _, t := range di.Tags.ListKeys() {
 		values = append(values, utils.InclusionEntry{Type: "tag", Value: t})
 	}
 	if di.dir != nil {
-		dir := strings.ReplaceAll(di.relToRootItemDir, string(os.PathSeparator), "/")
+		dir := strings.ReplaceAll(di.RelToRootItemDir, string(os.PathSeparator), "/")
 		values = append(values, utils.InclusionEntry{Type: "deploymentItemDir", Value: dir})
 	}
 	return values
@@ -388,7 +385,7 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 			o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 			// Resolve image placeholders
-			err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.getTags().ListKeys())
+			err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.Tags.ListKeys())
 			if err != nil {
 				return err
 			}

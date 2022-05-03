@@ -284,13 +284,9 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap {
 	var tags utils.OrderedMap
 	for _, e := range p.getParents() {
 		if e.inc != nil {
-			for _, t := range e.inc.Tags {
-				tags.Set(t, true)
-			}
+			tags.SetMultiple(e.inc.Tags, true)
 		}
-		for _, t := range e.p.Config.Tags {
-			tags.Set(t, true)
-		}
+		tags.SetMultiple(e.p.Config.Tags, true)
 	}
 	return &tags
 }

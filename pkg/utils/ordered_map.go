@@ -23,6 +23,12 @@ func (s *OrderedMap) Set(k string, v interface{}) bool {
 	return true
 }
 
+func (s *OrderedMap) SetMultiple(k []string, v interface{}) {
+	for _, x := range k {
+		s.Set(x, v)
+	}
+}
+
 func (s *OrderedMap) Has(v string) bool {
 	_, ok := s.m[v]
 	return ok
@@ -50,4 +56,10 @@ func (s *OrderedMap) ListValues() []interface{} {
 		l[i] = e.v
 	}
 	return l
+}
+
+func (s *OrderedMap) Merge(other *OrderedMap) {
+	for _, e := range other.l {
+		s.Set(e.k, e.v)
+	}
 }

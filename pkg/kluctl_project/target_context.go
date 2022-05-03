@@ -57,9 +57,12 @@ func (p *KluctlProjectContext) NewTargetContext(clientConfigGetter func(context 
 		return nil, err
 	}
 
-	k, err := k8s.NewK8sCluster(clientConfig, dryRun)
-	if err != nil {
-		return nil, err
+	var k *k8s.K8sCluster
+	if clientConfig != nil {
+		k, err = k8s.NewK8sCluster(clientConfig, dryRun)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	varsCtx := jinja2.NewVarsCtx(p.J2)

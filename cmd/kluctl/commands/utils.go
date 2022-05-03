@@ -88,6 +88,9 @@ type projectTargetCommandArgs struct {
 	inclusionFlags       args.InclusionFlags
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
+
+	forSeal       bool
+	forCompletion bool
 }
 
 type commandCtx struct {
@@ -97,11 +100,11 @@ type commandCtx struct {
 
 func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
 	return withKluctlProjectFromArgs(args.projectFlags, func(p *kluctl_project.KluctlProjectContext) error {
-		return withProjectTargetCommandContext(args, p, false, cb)
+		return withProjectTargetCommandContext(args, p, cb)
 	})
 }
 
-func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, forSeal bool, cb func(ctx *commandCtx) error) error {
+func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, cb func(ctx *commandCtx) error) error {
 	rh := registries.NewRegistryHelper()
 	err := rh.ParseAuthEntriesFromEnv()
 	if err != nil {
@@ -140,20 +143,23 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 	}
 
 	clientConfigGetter := func(context string) (*rest.Config, error) {
+		if args.forCompletion {
+			return nil, nil
+		}
 		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
 		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
 	}
 
 	ctx, err := p.NewTargetContext(clientConfigGetter, args.targetFlags.Target, args.projectFlags.Cluster,
-		args.dryRunArgs == nil || args.dryRunArgs.DryRun,
-		optionArgs, forSeal, images, inclusion,
+		args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
+		optionArgs, args.forSeal, images, inclusion,
 		renderOutputDir)
 	if err != nil {
 		return err
 	}
 
-	if !forSeal {
+	if !args.forSeal && !args.forCompletion {
 		err = ctx.DeploymentCollection.Prepare(ctx.K)
 		if err != nil {
 			return err

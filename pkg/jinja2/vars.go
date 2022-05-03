@@ -87,6 +87,10 @@ func (vc *VarsCtx) loadVarsFile(p string, searchDirs []string) error {
 }
 
 func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref k8s2.ObjectRef, key string) error {
+	if k == nil {
+		return nil
+	}
+
 	o, _, err := k.GetSingleObject(ref)
 	if err != nil {
 		return err

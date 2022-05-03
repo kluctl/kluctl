@@ -67,11 +67,12 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, 
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,
+		forSeal:      true,
 	}
 	ptArgs.targetFlags.Target = targetName
 
 	// pass forSeal=True so that .sealme files are rendered as well
-	return withProjectTargetCommandContext(ptArgs, p, true, func(ctx *commandCtx) error {
+	return withProjectTargetCommandContext(ptArgs, p, func(ctx *commandCtx) error {
 		err := loadSecrets(ctx, ctx.targetCtx.Target, secretsLoader)
 		if err != nil {
 			return err
