@@ -373,12 +373,15 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 		di.Objects = append(di.Objects, uo.FromMap(m))
 	}
 
+	var errList []error
 	for _, o := range di.Objects {
 		commonLabels := di.getCommonLabels()
 		commonAnnotations := di.getCommonAnnotations()
 
-		err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-			k.FixNamespace(o, "default")
+		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
+			if k != nil {
+				k.FixNamespace(o, "default")
+			}
 
 			// Set common labels/annotations
 			o.SetK8sLabels(uo.CopyMergeStrMap(o.GetK8sLabels(), commonLabels))
@@ -387,13 +390,14 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 			// Resolve image placeholders
 			err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.Tags.ListKeys())
 			if err != nil {
-				return err
+				errList = append(errList, err)
 			}
 			return nil
 		})
-		if err != nil {
-			return err
-		}
+	}
+
+	if len(errList) != 0 {
+		return utils.NewErrorListOrNil(errList)
 	}
 
 	// Need to write it back to disk in case it is needed externally
