@@ -157,7 +157,10 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 		targetConfigRef = defaultBranch
 	}
 
-	refs := mr.RemoteRefHashesMap()
+	refs, err := mr.RemoteRefHashesMap()
+	if err != nil {
+		return nil, err
+	}
 
 	if targetConfigRef != nil {
 		if _, ok := refs[fmt.Sprintf("refs/heads/%s", *targetConfigRef)]; !ok {

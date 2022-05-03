@@ -15,7 +15,8 @@ type ProjectFlags struct {
 	OutputMetadata      pathType         `group:"project" help:"Specify the output path for the project metadata to be written to. When used with the 'archive' command, it will also cause the archive to not include the metadata.yaml file."`
 	Cluster             string           `group:"project" help:"Specify/Override cluster"`
 
-	LoadTimeout time.Duration `group:"project" help:"Specify timeout for project loading. This will especially limit the time spent in git operations." default:"1m"`
+	LoadTimeout            time.Duration `group:"project" help:"Specify timeout for project loading. This will especially limit the time spent in git operations." default:"1m"`
+	GitCacheUpdateInterval time.Duration `group:"project" help:"Specify the time to wait between git cache updates. Defaults to not wait at all and always updating caches."`
 }
 
 type ArgsFlags struct {

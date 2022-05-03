@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"regexp"
+	"time"
 )
 
 type LoadKluctlProjectArgs struct {
@@ -22,6 +23,8 @@ type LoadKluctlProjectArgs struct {
 	FromArchiveMetadata string
 
 	GitAuthProviders *auth2.GitAuthProviders
+
+	GitUpdateInterval time.Duration
 }
 
 type KluctlProjectContext struct {

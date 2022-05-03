@@ -14,7 +14,19 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
+
+func (c *KluctlProjectContext) updateGitCache(ctx context.Context, mr *git.MirroredGitRepo) error {
+	if mr.HasUpdated() {
+		return nil
+	}
+	if time.Now().Sub(mr.LastUpdateTime()) <= c.loadArgs.GitUpdateInterval {
+		mr.SetUpdated(true)
+		return nil
+	}
+	return mr.Update(ctx, c.loadArgs.GitAuthProviders)
+}
 
 func (c *KluctlProjectContext) updateGitCaches(ctx context.Context) error {
 	var waitGroup sync.WaitGroup
@@ -31,10 +43,7 @@ func (c *KluctlProjectContext) updateGitCaches(ctx context.Context) error {
 
 	doUpdateRepo := func(repo *git.MirroredGitRepo) error {
 		return repo.WithLock(ctx, func() error {
-			if !repo.HasUpdated() {
-				return repo.Update(ctx, c.loadArgs.GitAuthProviders)
-			}
-			return nil
+			return c.updateGitCache(ctx, repo)
 		})
 	}
 	doUpdateGitProject := func(u git_url.GitUrl) error {
@@ -156,11 +165,9 @@ func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject t
 	}
 
 	err = mr.MaybeWithLock(ctx, doLock, func() error {
-		if !mr.HasUpdated() {
-			err = mr.Update(ctx, c.loadArgs.GitAuthProviders)
-			if err != nil {
-				return err
-			}
+		err := c.updateGitCache(ctx, mr)
+		if err != nil {
+			return err
 		}
 		return mr.CloneProject(ctx, gitProject.Project.Ref, targetDir)
 	})

@@ -26,8 +26,6 @@ type MirroredGitRepo struct {
 
 	hasUpdated bool
 	fileLock   *flock.Flock
-
-	remoteRefs []*plumbing.Reference
 }
 
 func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
@@ -49,6 +47,10 @@ func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
 
 func (g *MirroredGitRepo) HasUpdated() bool {
 	return g.hasUpdated
+}
+
+func (g *MirroredGitRepo) SetUpdated(u bool) {
+	g.hasUpdated = u
 }
 
 func (g *MirroredGitRepo) Lock(ctx context.Context) error {
@@ -87,24 +89,62 @@ func (g *MirroredGitRepo) MaybeWithLock(ctx context.Context, lock bool, cb func(
 	return cb()
 }
 
-func (g *MirroredGitRepo) RemoteRefHashesMap() map[string]string {
-	refs := make(map[string]string)
-	for _, r := range g.remoteRefs {
-		refs[r.Name().String()] = r.Hash().String()
+func (g *MirroredGitRepo) LastUpdateTime() time.Time {
+	s, err := ioutil.ReadFile(filepath.Join(g.mirrorDir, ".update-time"))
+	if err != nil {
+		return time.Time{}
 	}
-	return refs
+	t, err := time.Parse(time.RFC3339Nano, string(s))
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+func (g *MirroredGitRepo) RemoteRefHashesMap() (map[string]string, error) {
+	r, err := git.PlainOpen(g.mirrorDir)
+	if err != nil {
+		return nil, err
+	}
+
+	localRemoteRefs, err := r.References()
+	if err != nil {
+		return nil, err
+	}
+
+	refs := make(map[string]string)
+	err = localRemoteRefs.ForEach(func(reference *plumbing.Reference) error {
+		name := reference.Name().String()
+		hash := reference.Hash().String()
+		if reference.Hash().IsZero() {
+			reference, err = r.Reference(reference.Name(), true)
+			if err != nil {
+				return err
+			}
+			hash = reference.Hash().String()
+		}
+		refs[name] = hash
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return refs, nil
 }
 
 func (g *MirroredGitRepo) DefaultRef() *string {
-	for _, ref := range g.remoteRefs {
-		if ref.Name() == "HEAD" {
-			if ref.Type() == plumbing.SymbolicReference {
-				s := string(ref.Target())
-				return &s
-			}
-		}
+	r, err := git.PlainOpen(g.mirrorDir)
+	if err != nil {
+		return nil
 	}
-	return nil
+
+	ref, err := r.Reference("HEAD", false)
+	if err != nil {
+		return nil
+	}
+
+	s := ref.Target().String()
+	return &s
 }
 
 func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {
@@ -141,7 +181,7 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 		return err
 	}
 
-	g.remoteRefs, err = remote.ListContext(ctx, &git.ListOptions{
+	remoteRefs, err := remote.ListContext(ctx, &git.ListOptions{
 		Auth:     auth.AuthMethod,
 		CABundle: auth.CABundle,
 	})
@@ -149,7 +189,7 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 		return err
 	}
 	remoteRefsMap := make(map[plumbing.ReferenceName]*plumbing.Reference)
-	for _, reference := range g.remoteRefs {
+	for _, reference := range remoteRefs {
 		remoteRefsMap[reference.Name()] = reference
 	}
 
@@ -205,7 +245,7 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 
 	// update default branch, referenced via HEAD
 	// we assume that HEAD is a symbolic ref and don't care about old git versions
-	for _, ref := range g.remoteRefs {
+	for _, ref := range remoteRefs {
 		if ref.Name() == "HEAD" {
 			err = r.Storer.SetReference(ref)
 			if err != nil {
@@ -214,6 +254,8 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 			break
 		}
 	}
+
+	_ = ioutil.WriteFile(filepath.Join(g.mirrorDir, ".update-time"), []byte(time.Now().Format(time.RFC3339Nano)), 0644)
 
 	return nil
 }

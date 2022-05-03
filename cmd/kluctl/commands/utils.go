@@ -57,6 +57,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, cb func(p *kluctl
 		FromArchive:         projectFlags.FromArchive.String(),
 		FromArchiveMetadata: projectFlags.FromArchiveMetadata.String(),
 		GitAuthProviders:    auth.NewDefaultAuthProviders(),
+		GitUpdateInterval:   projectFlags.GitCacheUpdateInterval,
 	}
 
 	loadCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(projectFlags.LoadTimeout))
