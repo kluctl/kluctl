@@ -49,13 +49,13 @@ func buildFixedImageEntryFromArg(arg string) (*types.FixedImage, error) {
 	}
 
 	if len(s) >= 2 {
-		e.Namespace = &s[2]
+		e.Namespace = &s[1]
 	}
 	if len(s) >= 3 {
-		e.Deployment = &s[3]
+		e.Deployment = &s[2]
 	}
 	if len(s) >= 4 {
-		e.Container = &s[4]
+		e.Container = &s[3]
 	}
 	if len(s) >= 5 {
 		return nil, fmt.Errorf("--fixed-image expects 'image<:namespace:deployment:container>=result'")
