@@ -179,11 +179,13 @@ func (c *helmChart) doRender(k *k8s.K8sCluster) error {
 	valuesPath := yaml.FixPathExt(filepath.Join(dir, "helm-values.yml"))
 	outputPath := filepath.Join(dir, c.Config.Output)
 
-	gvs, err := k.GetAllGroupVersions()
-	if err != nil {
-		return err
+	var gvs []string
+	if k != nil {
+		gvs, err = k.GetAllGroupVersions()
+		if err != nil {
+			return err
+		}
 	}
-
 	cfg, err := c.buildHelmConfig()
 	if err != nil {
 		return err
@@ -194,9 +196,12 @@ func (c *helmChart) doRender(k *k8s.K8sCluster) error {
 		ValueFiles: []string{valuesPath},
 	}
 
-	kubeVersion, err := chartutil.ParseKubeVersion(k.ServerVersion.String())
-	if err != nil {
-		return err
+	var kubeVersion *chartutil.KubeVersion
+	if k != nil {
+		kubeVersion, err = chartutil.ParseKubeVersion(k.ServerVersion.String())
+		if err != nil {
+			return err
+		}
 	}
 
 	namespace := "default"
@@ -284,12 +289,14 @@ func (c *helmChart) doRender(k *k8s.K8sCluster) error {
 	for _, o := range parsed {
 		// "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
 		// add the necessary namespace in the rendered resources
-		err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-			k.FixNamespace(o, namespace)
-			return nil
-		})
-		if err != nil {
-			return err
+		if k != nil {
+			err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
+				k.FixNamespace(o, namespace)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
 		}
 		fixed = append(fixed, o)
 	}

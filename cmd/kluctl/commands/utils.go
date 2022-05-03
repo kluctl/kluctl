@@ -110,7 +110,7 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 	if err != nil {
 		return fmt.Errorf("failed to parse registry auth from environment: %w", err)
 	}
-	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages)
+	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages, args.forCompletion)
 	if err != nil {
 		return err
 	}

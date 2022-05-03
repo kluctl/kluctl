@@ -20,6 +20,7 @@ import (
 type Images struct {
 	rh           *registries.RegistryHelper
 	updateImages bool
+	offline      bool
 	fixedImages  []types.FixedImage
 	seenImages   []types.FixedImage
 	mutex        sync.Mutex
@@ -27,10 +28,11 @@ type Images struct {
 	registryCache utils.ThreadSafeMultiCache
 }
 
-func NewImages(rh *registries.RegistryHelper, updateImages bool) (*Images, error) {
+func NewImages(rh *registries.RegistryHelper, updateImages bool, offline bool) (*Images, error) {
 	return &Images{
 		rh:           rh,
 		updateImages: updateImages,
+		offline:      offline,
 	}, nil
 }
 
@@ -74,6 +76,10 @@ func (images *Images) GetFixedImage(image string, namespace string, deployment s
 }
 
 func (images *Images) GetLatestImageFromRegistry(image string, latestVersion string) (*string, error) {
+	if images.offline {
+		return nil, nil
+	}
+
 	ret, err := images.registryCache.Get(image, "tag", func() (interface{}, error) {
 		return images.rh.ListImageTags(image)
 	})
