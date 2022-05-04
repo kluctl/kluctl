@@ -529,6 +529,17 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	a.pctx.Finish()
 }
 
+func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *string {
+	if d.RelToProjectItemDir != "" {
+		return &d.RelToProjectItemDir
+	}
+	if len(d.Config.DeleteObjects) != 0 {
+		s := "<delete>"
+		return &s
+	}
+	return nil
+}
+
 func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 	log.Infof("Running server-side apply for all objects")
 
@@ -542,8 +553,11 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 	maxNameLen := 0
 	for _, d := range a.deployments {
-		if len(d.RelToProjectItemDir) > maxNameLen {
-			maxNameLen = len(d.RelToProjectItemDir)
+		name := a.buildProgressName(d)
+		if name != nil {
+			if len(*name) > maxNameLen {
+				maxNameLen = len(*name)
+			}
 		}
 	}
 
@@ -555,7 +569,13 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		_ = sem.Acquire(context.Background(), 1)
 
-		pctx := NewProgressCtx(p, d.RelToProjectItemDir, maxNameLen)
+		progressName := a.buildProgressName(d)
+		var pctx *progressCtx
+		if progressName != nil {
+			pctx = NewProgressCtx(p, *progressName, maxNameLen, true)
+		} else {
+			pctx = NewProgressCtx(nil, "", 0, false)
+		}
 		a2 := a.NewApplyUtil(pctx)
 
 		wg.Add(1)
@@ -568,7 +588,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
 		if barrier {
-			bpctx := NewProgressCtx(p, "<barrier>", maxNameLen)
+			bpctx := NewProgressCtx(p, "<barrier>", maxNameLen, true)
 			bpctx.SetTotal(1)
 
 			bpctx.InfofAndStatus("Waiting on barrier...")

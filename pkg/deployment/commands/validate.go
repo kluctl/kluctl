@@ -39,7 +39,7 @@ func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) (*types.ValidateResult, error
 		if !d.CheckInclusionForDeploy() {
 			continue
 		}
-		au := ad.NewApplyUtil(utils2.NewProgressCtx(nil, d.RelToProjectItemDir, 0))
+		au := ad.NewApplyUtil(utils2.NewProgressCtx(nil, d.RelToProjectItemDir, 0, true))
 		h := utils2.NewHooksUtil(au)
 		for _, o := range d.Objects {
 			hook := h.GetHook(o)

@@ -15,6 +15,7 @@ import (
 
 type progressCtx struct {
 	bar       *mpb.Bar
+	doLog     bool
 	total     int64
 	name      string
 	status    string
@@ -22,14 +23,15 @@ type progressCtx struct {
 	mutex     sync.Mutex
 }
 
-func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int) *progressCtx {
+func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int, doLog bool) *progressCtx {
 	pctx := &progressCtx{
 		status:    "Initializing...",
 		total:     -1,
 		name:      name,
 		startTime: time.Now(),
 	}
-	if !isatty.IsTerminal(os.Stderr.Fd()) || name == "" {
+	if !isatty.IsTerminal(os.Stderr.Fd()) || p == nil {
+		pctx.doLog = doLog
 		return pctx
 	}
 
@@ -51,7 +53,7 @@ func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int) *progressCtx
 }
 
 func (ctx *progressCtx) Logf(level log.Level, s string, args ...interface{}) {
-	if ctx.bar == nil {
+	if ctx.doLog {
 		s = fmt.Sprintf("%s: %s", ctx.name, s)
 		log.StandardLogger().Logf(level, s, args...)
 	}
