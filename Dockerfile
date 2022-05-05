@@ -9,7 +9,8 @@ RUN wget -O helm.tar.gz https://get.helm.sh/helm-$HELM_VERSION-$ARCH.tar.gz && \
     tar xzf helm.tar.gz && \
     mv $ARCH/helm /
 
-FROM alpine
+# We must use a glibc based distro due to embedded python not supporting musl libc for aarch64
+FROM debian:bullseye-slim
 COPY --from=builder /helm /usr/bin
 COPY kluctl /usr/bin/
 ENTRYPOINT ["/usr/bin/kluctl"]
