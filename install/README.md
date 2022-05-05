@@ -28,7 +28,7 @@ git clone https://github.com/kluctl/kluctl
 cd kluctl
 ```
 
-Build the `kluctl` binary (requires go >= 1.17 and python >= 3.10):
+Build the `kluctl` binary (requires go >= 1.18 and python >= 3.10):
 
 ```bash
 make build
