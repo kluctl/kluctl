@@ -3,6 +3,7 @@ package commands
 import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"sort"
 )
 
 type listImagesCmd struct {
@@ -14,6 +15,7 @@ type listImagesCmd struct {
 	args.OutputFlags
 	args.RenderOutputDirFlags
 
+	Sort   bool `group:"misc" help:"Sort Output of the image list"`
 	Simple bool `group:"misc" help:"Output a simplified version of the images list"`
 }
 
@@ -36,6 +38,12 @@ func (cmd *listImagesCmd) Run() error {
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		result := types.FixedImagesConfig{
 			Images: ctx.images.SeenImages(cmd.Simple),
+		}
+		if cmd.Sort {
+			sort.Slice(result.Images, func(i, j int) bool {
+				return result.Images[i].Image < result.Images[j].Image
+			})
+
 		}
 		return outputYamlResult(cmd.Output, result, false)
 	})
