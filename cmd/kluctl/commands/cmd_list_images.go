@@ -43,7 +43,6 @@ func (cmd *listImagesCmd) Run() error {
 			sort.Slice(result.Images, func(i, j int) bool {
 				return result.Images[i].Image < result.Images[j].Image
 			})
-
 		}
 		return outputYamlResult(cmd.Output, result, false)
 	})
