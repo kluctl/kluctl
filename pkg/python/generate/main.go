@@ -15,8 +15,8 @@ import (
 
 const (
 	pythonVersionBase       = "3.10"
-	pythonVersionFull       = "3.10.3"
-	pythonStandaloneVersion = "20220318"
+	pythonVersionFull       = "3.10.4"
+	pythonStandaloneVersion = "20220502"
 )
 
 var pythonDists = map[string]string{
