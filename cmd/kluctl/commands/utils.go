@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
@@ -12,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -48,7 +50,13 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		return err
 	}
 
+	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
+	if err != nil {
+		log.Warning("Failed to detect git project root. This might cause follow-up errors")
+	}
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
+		RepoRoot:            repoRoot,
 		ProjectDir:          cwd,
 		ProjectUrl:          url,
 		ProjectRef:          projectFlags.ProjectRef,

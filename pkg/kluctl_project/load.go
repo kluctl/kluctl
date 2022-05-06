@@ -5,8 +5,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -84,43 +82,43 @@ func (c *KluctlProjectContext) load(ctx context.Context, allowGit bool) error {
 		if localDir != "" {
 			return c.localProject(localDir), nil
 		}
-		if ep == nil || ep.Project == nil {
-			// the ExternalProject is pointing to the same repo that the root project is located in
+
+		if ep == nil {
+			// no ExternalProject provided, so we point into the kluctl project + defaultGitSubDir
 			p := kluctlProjectInfo.dir
-			if ep != nil {
-				if filepath.IsAbs(*ep.Path) {
-					return gitProjectInfo{}, fmt.Errorf("only paths relative to the git project root are allowed")
-				}
-				// we only allow relative paths pointing into the root git project
-				gitRoot, err := git.DetectGitRepositoryRoot(p)
-				if err != nil {
-					return gitProjectInfo{}, fmt.Errorf("could not determine git project root: %w", err)
-				}
-				gitRoot, err = filepath.Abs(gitRoot)
-				if err != nil {
-					return gitProjectInfo{}, err
-				}
-				relToGitRoot, err := filepath.Rel(gitRoot, p)
-				if err != nil {
-					return gitProjectInfo{}, err
-				}
-				relToGitRoot = filepath.Join(relToGitRoot, *ep.Path)
-				p, err = securejoin.SecureJoin(gitRoot, relToGitRoot)
-				if err != nil {
-					return gitProjectInfo{}, fmt.Errorf("path '%s' is not inside git project root '%s': %w", relToGitRoot, gitRoot, err)
-				}
-			} else {
-				if defaultGitSubDir != "" {
-					p = filepath.Join(p, defaultGitSubDir)
-				}
+			if defaultGitSubDir != "" {
+				p = filepath.Join(p, defaultGitSubDir)
 			}
 			return c.localProject(p), nil
 		}
-		if !allowGit {
-			return gitProjectInfo{}, fmt.Errorf("tried to load something from git while it was not allowed")
+
+		if ep.Project != nil {
+			// pointing to an actual external project, so let's try to clone it
+			if !allowGit {
+				return gitProjectInfo{}, fmt.Errorf("tried to load something from git while it was not allowed")
+			}
+			return c.cloneGitProject(ctx, ep.Project, defaultGitSubDir, true, true)
 		}
 
-		return c.cloneGitProject(ctx, *ep, defaultGitSubDir, true, true)
+		// ExternalProject was provided but without an external repo url, so point into the kluctl project.
+		// We also allow to leave the kluctl project dir in case RepoRoot is provided via loadArgs, as long as
+		// the pointed to directory does not leave the RepoRoot
+
+		repoRoot := c.loadArgs.RepoRoot
+		if repoRoot == "" {
+			// don't allow to leave the project dir
+			repoRoot = kluctlProjectInfo.dir
+		}
+
+		p := filepath.Join(kluctlProjectInfo.dir, *ep.Path)
+		err = utils.CheckInDir(repoRoot, p)
+		if err != nil {
+			if c.loadArgs.RepoRoot == "" {
+				return gitProjectInfo{}, fmt.Errorf("it looks like your kluctl project is not part of a Git repository, which means you are not allowed to use paths that leave your kluctl project")
+			}
+			return gitProjectInfo{}, fmt.Errorf("path '%s' is not inside git project root '%s': %w", p, repoRoot, err)
+		}
+		return c.localProject(p), nil
 	}
 
 	deploymentInfo, err := doClone(c.Config.Deployment, "", c.loadArgs.LocalDeployment)

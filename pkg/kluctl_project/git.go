@@ -134,18 +134,18 @@ func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (stri
 	return cloneDir, nil
 }
 
-func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject types2.ExternalProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
+func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject *types2.GitProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
 	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
 	}
 
-	targetDir, err := c.buildCloneDir(gitProject.Project.Url, gitProject.Project.Ref)
+	targetDir, err := c.buildCloneDir(gitProject.Url, gitProject.Ref)
 	if err != nil {
 		return
 	}
 
-	subDir := gitProject.Project.SubDir
+	subDir := gitProject.SubDir
 	if subDir == "" {
 		subDir = defaultGitSubDir
 	}
@@ -157,13 +157,13 @@ func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject t
 		}
 	}
 
-	mr, ok := c.mirroredRepos[gitProject.Project.Url.NormalizedRepoKey()]
+	mr, ok := c.mirroredRepos[gitProject.Url.NormalizedRepoKey()]
 	if !ok {
-		mr, err = git.NewMirroredGitRepo(gitProject.Project.Url)
+		mr, err = git.NewMirroredGitRepo(gitProject.Url)
 		if err != nil {
 			return
 		}
-		c.mirroredRepos[gitProject.Project.Url.NormalizedRepoKey()] = mr
+		c.mirroredRepos[gitProject.Url.NormalizedRepoKey()] = mr
 		err = mr.Lock(ctx)
 		if err != nil {
 			return
@@ -176,7 +176,7 @@ func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject t
 		if err != nil {
 			return err
 		}
-		return mr.CloneProject(ctx, gitProject.Project.Ref, targetDir)
+		return mr.CloneProject(ctx, gitProject.Ref, targetDir)
 	})
 	if err != nil {
 		return
@@ -187,7 +187,7 @@ func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject t
 		return
 	}
 
-	result.url = gitProject.Project.Url
+	result.url = gitProject.Url
 	result.ref = ri.CheckedOutRef
 	result.commit = ri.CheckedOutCommit
 	result.dir = dir
@@ -211,11 +211,9 @@ func (c *KluctlProjectContext) cloneKluctlProject(ctx context.Context) (gitProje
 	if c.loadArgs.ProjectUrl == nil {
 		return c.localProject(c.loadArgs.ProjectDir), nil
 	}
-	return c.cloneGitProject(ctx, types2.ExternalProject{
-		Project: &types2.GitProject{
-			Url: *c.loadArgs.ProjectUrl,
-			Ref: c.loadArgs.ProjectRef,
-		},
+	return c.cloneGitProject(ctx, &types2.GitProject{
+		Url: *c.loadArgs.ProjectUrl,
+		Ref: c.loadArgs.ProjectRef,
 	}, "", true, true)
 }
 
