@@ -47,16 +47,6 @@ func CheckInDir(root string, path string) error {
 		return err
 	}
 
-	absRoot, err = filepath.EvalSymlinks(absRoot)
-	if err != nil {
-		return err
-	}
-
-	absPath, err = filepath.EvalSymlinks(absPath)
-	if err != nil {
-		return err
-	}
-
 	if absRoot == absPath {
 		return nil
 	}
