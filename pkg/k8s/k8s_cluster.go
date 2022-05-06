@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -168,7 +169,7 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 	}{}
 
 	_, arls, err := k.discovery.ServerGroupsAndResources()
-	if err != nil {
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return err
 	}
 	for _, arl := range arls {
@@ -202,6 +203,9 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 	}
 
 	arls, err = k.discovery.ServerPreferredResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return err
+	}
 	for _, arl := range arls {
 		for _, ar := range arl.APIResources {
 			if strings.Index(ar.Name, "/") != -1 {
