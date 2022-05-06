@@ -15,7 +15,6 @@ type listImagesCmd struct {
 	args.OutputFlags
 	args.RenderOutputDirFlags
 
-	Sort   bool `group:"misc" help:"Sort Output of the image list"`
 	Simple bool `group:"misc" help:"Output a simplified version of the images list"`
 }
 
@@ -39,7 +38,7 @@ func (cmd *listImagesCmd) Run() error {
 		result := types.FixedImagesConfig{
 			Images: ctx.images.SeenImages(cmd.Simple),
 		}
-		if cmd.Sort {
+		if result.Images != nil && len(result.Images) > 1 {
 			sort.Slice(result.Images, func(i, j int) bool {
 				return result.Images[i].Image < result.Images[j].Image
 			})
