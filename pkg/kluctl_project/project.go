@@ -3,62 +3,42 @@ package kluctl_project
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
-	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"regexp"
-	"time"
 )
 
-type LoadKluctlProjectArgs struct {
-	RepoRoot            string
-	ProjectDir          string
-	ProjectUrl          *git_url.GitUrl
-	ProjectRef          string
-	ProjectConfig       string
-	LocalClusters       string
-	LocalDeployment     string
-	LocalSealedSecrets  string
-	FromArchive         string
-	FromArchiveMetadata string
-
-	GitAuthProviders *auth2.GitAuthProviders
-
-	GitUpdateInterval time.Duration
-}
-
-type KluctlProjectContext struct {
+type LoadedKluctlProject struct {
 	loadArgs LoadKluctlProjectArgs
 
-	TmpDir string
-	Config types.KluctlProject
+	TmpDir     string
+	archiveDir string
 
-	ProjectDir       string
+	projectRootDir string
+	ProjectDir     string
+
 	DeploymentDir    string
 	ClustersDir      string
-	SealedSecretsDir string
+	sealedSecretsDir string
 
-	involvedRepos  map[string][]types.InvolvedRepo
-	DynamicTargets []*types.DynamicTarget
-
+	involvedRepos map[string][]types2.InvolvedRepo
 	mirroredRepos map[string]*git.MirroredGitRepo
+
+	Config         types2.KluctlProject
+	DynamicTargets []*types2.DynamicTarget
 
 	J2 *jinja2.Jinja2
 }
 
-func NewKluctlProjectContext(loadArgs LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) *KluctlProjectContext {
-	o := &KluctlProjectContext{
-		loadArgs:      loadArgs,
-		TmpDir:        tmpDir,
-		involvedRepos: make(map[string][]types.InvolvedRepo),
-		mirroredRepos: make(map[string]*git.MirroredGitRepo),
-		J2:            j2,
+func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {
+	md := &types2.ProjectMetadata{
+		InvolvedRepos: c.involvedRepos,
+		Targets:       c.DynamicTargets,
 	}
-	return o
+	return md
 }
 
-func (c *KluctlProjectContext) FindBaseTarget(name string) (*types.Target, error) {
+func (c *LoadedKluctlProject) FindBaseTarget(name string) (*types2.Target, error) {
 	for _, target := range c.Config.Targets {
 		if target.Name == name {
 			return target, nil
@@ -67,7 +47,7 @@ func (c *KluctlProjectContext) FindBaseTarget(name string) (*types.Target, error
 	return nil, fmt.Errorf("target %s not existent in kluctl project config", name)
 }
 
-func (c *KluctlProjectContext) FindDynamicTarget(name string) (*types.DynamicTarget, error) {
+func (c *LoadedKluctlProject) FindDynamicTarget(name string) (*types2.DynamicTarget, error) {
 	for _, target := range c.DynamicTargets {
 		if target.Target.Name == name {
 			return target, nil
@@ -76,12 +56,12 @@ func (c *KluctlProjectContext) FindDynamicTarget(name string) (*types.DynamicTar
 	return nil, fmt.Errorf("target %s not existent in kluctl project config", name)
 }
 
-func (c *KluctlProjectContext) LoadClusterConfig(clusterName string) (*types.ClusterConfig, error) {
-	return types.LoadClusterConfig(c.ClustersDir, clusterName)
+func (c *LoadedKluctlProject) LoadClusterConfig(clusterName string) (*types2.ClusterConfig, error) {
+	return types2.LoadClusterConfig(c.ClustersDir, clusterName)
 }
 
-func (c *KluctlProjectContext) CheckDynamicArg(target *types.Target, argName string, argValue string) error {
-	var dynArg *types.DynamicArg
+func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName string, argValue string) error {
+	var dynArg *types2.DynamicArg
 	for _, x := range target.DynamicArgs {
 		if x.Name == argName {
 			dynArg = &x

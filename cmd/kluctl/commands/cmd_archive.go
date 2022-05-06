@@ -16,7 +16,7 @@ func (cmd *archiveCmd) Help() string {
 }
 
 func (cmd *archiveCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.KluctlProjectContext) error {
-		return p.CreateTGZArchive(cmd.OutputArchive, cmd.ProjectFlags.OutputMetadata == "")
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
+		return p.WriteArchive(cmd.OutputArchive, cmd.ProjectFlags.OutputMetadata == "")
 	})
 }

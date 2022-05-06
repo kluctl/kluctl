@@ -3,12 +3,10 @@ package kluctl_project
 import (
 	"context"
 	"fmt"
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -18,7 +16,7 @@ import (
 	"time"
 )
 
-func (c *KluctlProjectContext) updateGitCache(ctx context.Context, mr *git.MirroredGitRepo) error {
+func (c *LoadedKluctlProject) updateGitCache(ctx context.Context, mr *git.MirroredGitRepo) error {
 	if mr.HasUpdated() {
 		return nil
 	}
@@ -29,7 +27,7 @@ func (c *KluctlProjectContext) updateGitCache(ctx context.Context, mr *git.Mirro
 	return mr.Update(ctx, c.loadArgs.GitAuthProviders)
 }
 
-func (c *KluctlProjectContext) updateGitCaches(ctx context.Context) error {
+func (c *LoadedKluctlProject) updateGitCaches(ctx context.Context) error {
 	var waitGroup sync.WaitGroup
 	var firstError error
 	var firstErrorLock sync.Mutex
@@ -110,51 +108,10 @@ func (c *KluctlProjectContext) updateGitCaches(ctx context.Context) error {
 	return firstError
 }
 
-type gitProjectInfo struct {
-	url    git_url.GitUrl
-	ref    string
-	commit string
-	dir    string
-}
-
-func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (string, error) {
-	if ref == "" {
-		ref = "HEAD"
-	}
-	ref = strings.ReplaceAll(ref, "/", "-")
-	ref = strings.ReplaceAll(ref, "\\", "-")
-	urlPath := filepath.FromSlash(u.Path)
-	baseName := filepath.Base(urlPath)
-	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))[:16]
-	cloneDir, err := securejoin.SecureJoin(c.TmpDir, filepath.Join(fmt.Sprintf("%s-%s", baseName, urlHash), ref))
-	if err != nil {
-		return "", err
-	}
-	log.Tracef("buildCloneDir: ref=%s, urlPath=%s, baseName=%s, urlHash=%s, cloneDir=%s", ref, urlPath, baseName, urlHash, cloneDir)
-	return cloneDir, nil
-}
-
-func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject *types2.GitProject, defaultGitSubDir string, doAddInvolvedRepo bool, doLock bool) (result gitProjectInfo, err error) {
+func (c *LoadedKluctlProject) cloneGitProject(ctx context.Context, gitProject *types2.GitProject, targetDir string, doLock bool) (info git.GitRepoInfo, err error) {
 	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
-	}
-
-	targetDir, err := c.buildCloneDir(gitProject.Url, gitProject.Ref)
-	if err != nil {
-		return
-	}
-
-	subDir := gitProject.SubDir
-	if subDir == "" {
-		subDir = defaultGitSubDir
-	}
-	dir := targetDir
-	if subDir != "" {
-		dir, err = securejoin.SecureJoin(dir, subDir)
-		if err != nil {
-			return gitProjectInfo{}, err
-		}
 	}
 
 	mr, ok := c.mirroredRepos[gitProject.Url.NormalizedRepoKey()]
@@ -182,42 +139,35 @@ func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject *
 		return
 	}
 
-	ri, err := git.GetGitRepoInfo(targetDir)
-	if err != nil {
-		return
-	}
-
-	result.url = gitProject.Url
-	result.ref = ri.CheckedOutRef
-	result.commit = ri.CheckedOutCommit
-	result.dir = dir
-
-	if doAddInvolvedRepo {
-		c.addInvolvedRepo(result.url, result.ref, map[string]string{
-			result.ref: result.commit,
-		})
-	}
-
+	info, err = git.GetGitRepoInfo(targetDir)
 	return
 }
 
-func (c *KluctlProjectContext) localProject(dir string) gitProjectInfo {
-	return gitProjectInfo{
-		dir: dir,
+func (c *LoadedKluctlProject) buildCloneDir(u git_url.GitUrl, ref string) (string, error) {
+	baseDir := c.TmpDir
+	if c.archiveDir != "" {
+		baseDir = c.archiveDir
 	}
+	baseDir = filepath.Join(baseDir, "git")
+
+	if ref == "" {
+		ref = "HEAD"
+	}
+	ref = strings.ReplaceAll(ref, "/", "-")
+	ref = strings.ReplaceAll(ref, "\\", "-")
+	urlPath := filepath.FromSlash(u.Path)
+	baseName := filepath.Base(urlPath)
+	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))[:16]
+	cloneDir := filepath.Join(fmt.Sprintf("%s-%s", baseName, urlHash), ref)
+	cloneDir = filepath.Join(baseDir, cloneDir)
+	err := utils.CheckInDir(baseDir, cloneDir)
+	if err != nil {
+		return "", err
+	}
+	return cloneDir, nil
 }
 
-func (c *KluctlProjectContext) cloneKluctlProject(ctx context.Context) (gitProjectInfo, error) {
-	if c.loadArgs.ProjectUrl == nil {
-		return c.localProject(c.loadArgs.ProjectDir), nil
-	}
-	return c.cloneGitProject(ctx, &types2.GitProject{
-		Url: *c.loadArgs.ProjectUrl,
-		Ref: c.loadArgs.ProjectRef,
-	}, "", true, true)
-}
-
-func (c *KluctlProjectContext) addInvolvedRepo(u git_url.GitUrl, refPattern string, refs map[string]string) {
+func (c *LoadedKluctlProject) addInvolvedRepo(u git_url.GitUrl, refPattern string, refs map[string]string) {
 	repoKey := u.NormalizedRepoKey()
 	irs, _ := c.involvedRepos[repoKey]
 	e := &types2.InvolvedRepo{

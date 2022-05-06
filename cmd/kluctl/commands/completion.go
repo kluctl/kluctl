@@ -47,10 +47,10 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	return nil
 }
 
-func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(p *kluctl_project.KluctlProjectContext) error) error {
+func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	// let's not update git caches too often
 	projectArgs.GitCacheUpdateInterval = time.Second * 60
-	return withKluctlProjectFromArgs(*projectArgs, false, func(p *kluctl_project.KluctlProjectContext) error {
+	return withKluctlProjectFromArgs(*projectArgs, false, func(p *kluctl_project.LoadedKluctlProject) error {
 		return cb(p)
 	})
 }
@@ -58,7 +58,7 @@ func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(p *kluctl_
 func buildClusterCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var ret []string
-		err := withProjectForCompletion(projectArgs, func(p *kluctl_project.KluctlProjectContext) error {
+		err := withProjectForCompletion(projectArgs, func(p *kluctl_project.LoadedKluctlProject) error {
 			dents, err := os.ReadDir(p.ClustersDir)
 			if err != nil {
 				return err
@@ -86,7 +86,7 @@ func buildClusterCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.
 func buildTargetCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var ret []string
-		err := withProjectForCompletion(projectArgs, func(p *kluctl_project.KluctlProjectContext) error {
+		err := withProjectForCompletion(projectArgs, func(p *kluctl_project.LoadedKluctlProject) error {
 			for _, t := range p.DynamicTargets {
 				ret = append(ret, t.Target.Name)
 			}
@@ -132,7 +132,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 		var deploymentItemDirs utils.OrderedMap
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(&ptArgs.projectFlags, func(p *kluctl_project.KluctlProjectContext) error {
+		err := withProjectForCompletion(&ptArgs.projectFlags, func(p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.DynamicTargets {
@@ -186,7 +186,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 		var images utils.OrderedMap
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(&ptArgs.projectFlags, func(p *kluctl_project.KluctlProjectContext) error {
+		err := withProjectForCompletion(&ptArgs.projectFlags, func(p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.DynamicTargets {

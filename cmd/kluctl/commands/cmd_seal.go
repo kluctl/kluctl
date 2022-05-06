@@ -61,7 +61,7 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 	return nil
 }
 
-func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, targetName string, secretsLoader *seal.SecretsLoader) error {
+func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.LoadedKluctlProject, targetName string, secretsLoader *seal.SecretsLoader) error {
 	log.Infof("Sealing for target %s", targetName)
 
 	ptArgs := projectTargetCommandArgs{
@@ -119,7 +119,7 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.KluctlProjectContext, 
 }
 
 func (cmd *sealCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.KluctlProjectContext) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
 		secretsLoader := seal.NewSecretsLoader(p, cmd.SecretsDir)

@@ -13,7 +13,7 @@ import (
 )
 
 type TargetContext struct {
-	KluctlProject        *KluctlProjectContext
+	KluctlProject        *LoadedKluctlProject
 	Target               *types.Target
 	ClusterConfig        *types.ClusterConfig
 	K                    *k8s.K8sCluster
@@ -21,7 +21,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *KluctlProjectContext) NewTargetContext(clientConfigGetter func(context string) (*rest.Config, error), targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(clientConfigGetter func(context string) (*rest.Config, error), targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (p *KluctlProjectContext) NewTargetContext(clientConfigGetter func(context 
 	}
 	varsCtx.UpdateChild("target", targetVars)
 
-	d, err := deployment.NewDeploymentProject(k, varsCtx, deploymentDir, p.SealedSecretsDir, nil)
+	d, err := deployment.NewDeploymentProject(k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
 	if err != nil {
 		return nil, err
 	}

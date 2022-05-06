@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, cb func(p *kluctl_project.KluctlProjectContext) error) error {
+func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
 	var url *git_url.GitUrl
 	if projectFlags.ProjectUrl != "" {
 		var err error
@@ -51,7 +51,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	}
 
 	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
-	if err != nil {
+	if err != nil && projectFlags.FromArchive == "" {
 		log.Warning("Failed to detect git project root. This might cause follow-up errors")
 	}
 
@@ -66,6 +66,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		LocalSealedSecrets:  projectFlags.LocalSealedSecrets.String(),
 		FromArchive:         projectFlags.FromArchive.String(),
 		FromArchiveMetadata: projectFlags.FromArchiveMetadata.String(),
+		AllowGitClone:       projectFlags.FromArchive == "",
 		GitAuthProviders:    auth.NewDefaultAuthProviders(),
 		GitUpdateInterval:   projectFlags.GitCacheUpdateInterval,
 	}
@@ -109,12 +110,12 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(args.projectFlags, true, func(p *kluctl_project.KluctlProjectContext) error {
+	return withKluctlProjectFromArgs(args.projectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(args, p, cb)
 	})
 }
 
-func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.KluctlProjectContext, cb func(ctx *commandCtx) error) error {
+func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(ctx *commandCtx) error) error {
 	rh := registries.NewRegistryHelper()
 	err := rh.ParseAuthEntriesFromEnv()
 	if err != nil {

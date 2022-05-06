@@ -27,7 +27,7 @@ type dynamicTargetInfo struct {
 	defaultBranch string
 }
 
-func (c *KluctlProjectContext) loadTargets(ctx context.Context) error {
+func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 	targetNames := make(map[string]bool)
 	c.DynamicTargets = nil
 
@@ -77,7 +77,7 @@ func (c *KluctlProjectContext) loadTargets(ctx context.Context) error {
 	return nil
 }
 
-func (c *KluctlProjectContext) renderTarget(target *types.Target) (*types.Target, error) {
+func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target, error) {
 	// Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
 	// to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
 
@@ -111,7 +111,7 @@ func (c *KluctlProjectContext) renderTarget(target *types.Target) (*types.Target
 	return curTarget, nil
 }
 
-func (c *KluctlProjectContext) prepareDynamicTargets(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
+func (c *LoadedKluctlProject) prepareDynamicTargets(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
 	if baseTarget.TargetConfig != nil && baseTarget.TargetConfig.Project != nil {
 		return c.prepareDynamicTargetsExternal(baseTarget)
 	} else {
@@ -119,7 +119,7 @@ func (c *KluctlProjectContext) prepareDynamicTargets(baseTarget *types.Target) (
 	}
 }
 
-func (c *KluctlProjectContext) prepareDynamicTargetsSimple(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
+func (c *LoadedKluctlProject) prepareDynamicTargetsSimple(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
 	if baseTarget.TargetConfig != nil {
 		if baseTarget.TargetConfig.Ref != nil || baseTarget.TargetConfig.RefPattern != nil {
 			return nil, fmt.Errorf("'ref' and/or 'refPattern' are not allowed for non-external dynamic targets")
@@ -134,7 +134,7 @@ func (c *KluctlProjectContext) prepareDynamicTargetsSimple(baseTarget *types.Tar
 	return dynamicTargets, nil
 }
 
-func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
+func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
 	mr, ok := c.mirroredRepos[baseTarget.TargetConfig.Project.Url.NormalizedRepoKey()]
 	if !ok {
 		return nil, fmt.Errorf("repo not found in mirroredRepos, this is unexpected and probably a bug")
@@ -196,7 +196,7 @@ func (c *KluctlProjectContext) prepareDynamicTargetsExternal(baseTarget *types.T
 	return dynamicTargets, nil
 }
 
-func (c *KluctlProjectContext) matchRef(s string, pattern string) (bool, string, error) {
+func (c *LoadedKluctlProject) matchRef(s string, pattern string) (bool, string, error) {
 	if strings.HasPrefix(pattern, "refs/") {
 		p, err := regexp.Compile(fmt.Sprintf("^%s$", pattern))
 		if err != nil {
@@ -221,7 +221,7 @@ func (c *KluctlProjectContext) matchRef(s string, pattern string) (bool, string,
 	}
 }
 
-func (c *KluctlProjectContext) cloneDynamicTargets(ctx context.Context, dynamicTargets []*dynamicTargetInfo) error {
+func (c *LoadedKluctlProject) cloneDynamicTargets(ctx context.Context, dynamicTargets []*dynamicTargetInfo) error {
 	wp := utils.NewDebuggerAwareWorkerPool(8)
 	defer wp.StopWait(false)
 
@@ -252,7 +252,7 @@ func (c *KluctlProjectContext) cloneDynamicTargets(ctx context.Context, dynamicT
 			gitProject := *targetInfo.gitProject
 			gitProject.Ref = *targetInfo.ref
 
-			gi, err := c.cloneGitProject(ctx, &gitProject, "", false, false)
+			gi, err := c.loadGitProject(ctx, &gitProject, "", false, false)
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {
@@ -305,7 +305,7 @@ func (c *KluctlProjectContext) cloneDynamicTargets(ctx context.Context, dynamicT
 	return nil
 }
 
-func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo) (*types.Target, error) {
+func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) (*types.Target, error) {
 	var target types.Target
 	err := utils.DeepCopy(&target, targetInfo.baseTarget)
 	if err != nil {

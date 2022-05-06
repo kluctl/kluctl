@@ -18,13 +18,13 @@ type usernamePassword struct {
 }
 
 type SecretsLoader struct {
-	project    *kluctl_project.KluctlProjectContext
+	project    *kluctl_project.LoadedKluctlProject
 	secretsDir string
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewSecretsLoader(p *kluctl_project.KluctlProjectContext, secretsDir string) *SecretsLoader {
+func NewSecretsLoader(p *kluctl_project.LoadedKluctlProject, secretsDir string) *SecretsLoader {
 	return &SecretsLoader{
 		project:          p,
 		secretsDir:       secretsDir,

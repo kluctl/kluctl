@@ -1,6 +1,7 @@
 package yaml
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -159,6 +160,27 @@ func WriteYamlAllStream(w io.Writer, l []interface{}) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func WriteYamlToTar(tw *tar.Writer, o interface{}, name string) error {
+	str, err := WriteYamlBytes(o)
+	if err != nil {
+		return err
+	}
+
+	err = tw.WriteHeader(&tar.Header{
+		Name: name,
+		Size: int64(len(str)),
+		Mode: 0o666 | tar.TypeReg,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = tw.Write(str)
+	if err != nil {
+		return err
 	}
 	return nil
 }
