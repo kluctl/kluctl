@@ -37,6 +37,36 @@ func IsDirectory(path string) bool {
 	return fileInfo.IsDir()
 }
 
+func CheckInDir(root string, path string) error {
+	absRoot, err := filepath.Abs(filepath.Clean(root))
+	if err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		return err
+	}
+
+	absRoot, err = filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return err
+	}
+
+	absPath, err = filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return err
+	}
+
+	if absRoot == absPath {
+		return nil
+	}
+
+	if !strings.HasPrefix(absPath, absRoot+string(os.PathSeparator)) {
+		return fmt.Errorf("path %s is not inside directory %s", path, root)
+	}
+	return nil
+}
+
 func Touch(path string) error {
 	f, err := os.Create(path)
 	if err != nil {

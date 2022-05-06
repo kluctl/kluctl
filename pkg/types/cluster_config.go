@@ -64,8 +64,13 @@ func LoadClusterConfig(clusterDir string, clusterName string) (*ClusterConfig, e
 		return nil, fmt.Errorf("cluster config for %s not found", clusterName)
 	}
 
+	err := utils.CheckInDir(clusterDir, p)
+	if err != nil {
+		return nil, fmt.Errorf("cluster config for %s is not in cluster dir", clusterName)
+	}
+
 	var config ClusterConfig
-	err := yaml.ReadYamlFile(p, &config)
+	err = yaml.ReadYamlFile(p, &config)
 	if err != nil {
 		return nil, err
 	}

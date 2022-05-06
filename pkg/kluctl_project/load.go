@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
@@ -84,6 +85,7 @@ func (c *KluctlProjectContext) load(ctx context.Context, allowGit bool) error {
 			return c.localProject(localDir), nil
 		}
 		if ep == nil || ep.Project == nil {
+			// the ExternalProject is pointing to the same repo that the root project is located in
 			p := kluctlProjectInfo.dir
 			if ep != nil {
 				if filepath.IsAbs(*ep.Path) {
@@ -98,12 +100,14 @@ func (c *KluctlProjectContext) load(ctx context.Context, allowGit bool) error {
 				if err != nil {
 					return gitProjectInfo{}, err
 				}
-				p, err = filepath.Abs(filepath.Join(p, *ep.Path))
+				relToGitRoot, err := filepath.Rel(gitRoot, p)
 				if err != nil {
 					return gitProjectInfo{}, err
 				}
-				if !strings.HasPrefix(p, gitRoot) {
-					return gitProjectInfo{}, fmt.Errorf("path '%s' is not inside git project root '%s'", *ep.Path, gitRoot)
+				relToGitRoot = filepath.Join(relToGitRoot, *ep.Path)
+				p, err = securejoin.SecureJoin(gitRoot, relToGitRoot)
+				if err != nil {
+					return gitProjectInfo{}, fmt.Errorf("path '%s' is not inside git project root '%s': %w", relToGitRoot, gitRoot, err)
 				}
 			} else {
 				if defaultGitSubDir != "" {

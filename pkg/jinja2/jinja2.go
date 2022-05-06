@@ -2,6 +2,7 @@ package jinja2
 
 import (
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -213,11 +214,14 @@ func (j *Jinja2) needsRender(path string, excludedPatterns []string) bool {
 }
 
 func (j *Jinja2) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string, vars *uo.UnstructuredObject) error {
-	walkDir := filepath.Join(rootDir, relSourceDir, subdir)
+	walkDir, err := securejoin.SecureJoin(rootDir, filepath.Join(relSourceDir, subdir))
+	if err != nil {
+		return err
+	}
 
 	var jobs []*RenderJob
 
-	err := filepath.WalkDir(walkDir, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(walkDir, func(p string, d fs.DirEntry, err error) error {
 		relPath, err := filepath.Rel(walkDir, p)
 		if err != nil {
 			return err

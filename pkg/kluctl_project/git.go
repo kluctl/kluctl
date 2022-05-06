@@ -3,6 +3,7 @@ package kluctl_project
 import (
 	"context"
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
@@ -125,7 +126,10 @@ func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (stri
 	urlPath := filepath.FromSlash(u.Path)
 	baseName := filepath.Base(urlPath)
 	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))[:16]
-	cloneDir := filepath.Join(c.TmpDir, fmt.Sprintf("%s-%s", baseName, urlHash), ref)
+	cloneDir, err := securejoin.SecureJoin(c.TmpDir, filepath.Join(fmt.Sprintf("%s-%s", baseName, urlHash), ref))
+	if err != nil {
+		return "", err
+	}
 	log.Tracef("buildCloneDir: ref=%s, urlPath=%s, baseName=%s, urlHash=%s, cloneDir=%s", ref, urlPath, baseName, urlHash, cloneDir)
 	return cloneDir, nil
 }
@@ -147,7 +151,10 @@ func (c *KluctlProjectContext) cloneGitProject(ctx context.Context, gitProject t
 	}
 	dir := targetDir
 	if subDir != "" {
-		dir = filepath.Join(dir, subDir)
+		dir, err = securejoin.SecureJoin(dir, subDir)
+		if err != nil {
+			return gitProjectInfo{}, err
+		}
 	}
 
 	mr, ok := c.mirroredRepos[gitProject.Project.Url.NormalizedRepoKey()]

@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -190,12 +191,16 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 		return nil
 	}
 
-	// TODO check for bootstrap
-
 	sealedSecretsDir := di.Project.getSealedSecretsDir()
 	baseSourcePath := di.Project.SealedSecretsDir
 
 	renderedDir := filepath.Join(di.renderedDir, subdir)
+
+	// ensure we're not leaving the project
+	_, err := securejoin.SecureJoin(di.Project.getRootProject().dir, subdir)
+	if err != nil {
+		return err
+	}
 
 	y, err := uo.FromFile(yaml.FixPathExt(filepath.Join(renderedDir, "kustomization.yml")))
 	if err != nil {
@@ -227,7 +232,12 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 		if sealedSecretsDir == nil {
 			return fmt.Errorf("%s. Sealed secrets dir could not be determined", baseError)
 		}
-		sourcePath := filepath.Clean(filepath.Join(baseSourcePath, filepath.Join(di.relRenderedDir, subdir), relDir, *sealedSecretsDir, fname))
+		// ensure we're not leaving the .sealed-secrets dir
+		sourcePath, err := securejoin.SecureJoin(baseSourcePath, filepath.Join(di.relRenderedDir, subdir, relDir, *sealedSecretsDir, fname))
+		if err != nil {
+			return err
+		}
+		sourcePath = filepath.Clean(sourcePath)
 		targetPath := filepath.Join(renderedDir, relDir, fname)
 		if !utils.IsFile(sourcePath) {
 			return fmt.Errorf("%s. %s not found. You might need to seal it first", baseError, sourcePath)

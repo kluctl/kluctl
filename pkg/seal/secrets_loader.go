@@ -2,6 +2,7 @@ package seal
 
 import (
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -9,7 +10,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type usernamePassword struct {
@@ -26,8 +26,8 @@ type SecretsLoader struct {
 
 func NewSecretsLoader(p *kluctl_project.KluctlProjectContext, secretsDir string) *SecretsLoader {
 	return &SecretsLoader{
-		project:    p,
-		secretsDir: secretsDir,
+		project:          p,
+		secretsDir:       secretsDir,
 		credentialsCache: map[string]usernamePassword{},
 	}
 }
@@ -48,21 +48,24 @@ func (s *SecretsLoader) LoadSecrets(source *types.SecretSource) (*uo.Unstructure
 
 func (s *SecretsLoader) loadSecretsFile(source *types.SecretSource) (*uo.UnstructuredObject, error) {
 	var p string
+	var err error
 	if utils.Exists(filepath.Join(s.project.DeploymentDir, *source.Path)) {
-		p = filepath.Join(s.project.DeploymentDir, *source.Path)
+		p, err = securejoin.SecureJoin(s.project.DeploymentDir, *source.Path)
+		if err != nil {
+			return nil, err
+		}
 	} else if utils.Exists(filepath.Join(s.secretsDir, *source.Path)) {
-		p = filepath.Join(s.secretsDir, *source.Path)
-	}
-	if p == "" || !utils.Exists(p) {
+		p, err = securejoin.SecureJoin(s.secretsDir, *source.Path)
+		if err != nil {
+			return nil, err
+		}
+	} else {
 		return nil, fmt.Errorf("secrets file %s does not exist", *source.Path)
 	}
 
-	abs, err := filepath.Abs(p)
+	err = utils.CheckInDir(s.project.DeploymentDir, p)
 	if err != nil {
-		return nil, err
-	}
-	if !strings.HasPrefix(abs, s.project.DeploymentDir) {
-		return nil, fmt.Errorf("secrets file %s is not part of the deployment project", *source.Path)
+		return nil, fmt.Errorf("secrets file %s is not part of the deployment project: %w", *source.Path, err)
 	}
 
 	secrets, err := uo.FromFile(p)

@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -61,6 +62,22 @@ func (c *helmChart) GetChartName() (string, error) {
 	return *c.Config.ChartName, nil
 }
 
+func (c *helmChart) GetChartDir() (string, error) {
+	chartName, err := c.GetChartName()
+	if err != nil {
+		return "", err
+	}
+
+	dir := filepath.Dir(c.configFile)
+	targetDir := filepath.Join(dir, "charts")
+	return securejoin.SecureJoin(targetDir, chartName)
+}
+
+func (c *helmChart) GetOutputPath() (string, error) {
+	dir := filepath.Dir(c.configFile)
+	return securejoin.SecureJoin(dir, c.Config.Output)
+}
+
 func (c *helmChart) buildHelmConfig() (*action.Configuration, error) {
 	rc, err := registry.NewClient()
 	if err != nil {
@@ -77,10 +94,13 @@ func (c *helmChart) Pull() error {
 		return err
 	}
 
-	dir := filepath.Dir(c.configFile)
-	targetDir := filepath.Join(dir, "charts")
-	rmDir := filepath.Join(targetDir, chartName)
-	_ = os.RemoveAll(rmDir)
+	chartDir, err := c.GetChartDir()
+	if err != nil {
+		return err
+	}
+
+	targetDir := filepath.Join(filepath.Dir(c.configFile), "charts")
+	_ = os.RemoveAll(chartDir)
 
 	cfg, err := c.buildHelmConfig()
 	if err != nil {
@@ -100,8 +120,8 @@ func (c *helmChart) Pull() error {
 		out, err = a.Run(chartName)
 	}
 	// a bug in the Pull command causes this directory to be created by accident
-	_ = os.RemoveAll(rmDir + fmt.Sprintf("-%s.tar.gz", a.Version))
-	_ = os.RemoveAll(rmDir + fmt.Sprintf("-%s.tgz", a.Version))
+	_ = os.RemoveAll(chartDir + fmt.Sprintf("-%s.tar.gz", a.Version))
+	_ = os.RemoveAll(chartDir + fmt.Sprintf("-%s.tgz", a.Version))
 	if out != "" {
 		log.Info(out)
 	}
@@ -170,14 +190,15 @@ func (c *helmChart) Render(k *k8s.K8sCluster) error {
 }
 
 func (c *helmChart) doRender(k *k8s.K8sCluster) error {
-	chartName, err := c.GetChartName()
+	chartDir, err := c.GetChartDir()
 	if err != nil {
 		return err
 	}
-	dir := filepath.Dir(c.configFile)
-	chartDir := filepath.Join(dir, "charts", chartName)
-	valuesPath := yaml.FixPathExt(filepath.Join(dir, "helm-values.yml"))
-	outputPath := filepath.Join(dir, c.Config.Output)
+	outputPath, err := c.GetOutputPath()
+	if err != nil {
+		return err
+	}
+	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(c.configFile), "helm-values.yml"))
 
 	var gvs []string
 	if k != nil {

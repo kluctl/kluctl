@@ -3,6 +3,7 @@ package kluctl_project
 import (
 	"context"
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -10,7 +11,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -320,7 +320,10 @@ func (c *KluctlProjectContext) buildDynamicTarget(targetInfo *dynamicTargetInfo)
 	if targetInfo.baseTarget.TargetConfig.File != nil {
 		configFile = *targetInfo.baseTarget.TargetConfig.File
 	}
-	configPath := filepath.Join(targetInfo.dir, configFile)
+	configPath, err := securejoin.SecureJoin(targetInfo.dir, configFile)
+	if err != nil {
+		return nil, err
+	}
 	if !utils.IsFile(configPath) {
 		return nil, fmt.Errorf("no target config file with name %s found in target", configFile)
 	}

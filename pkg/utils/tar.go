@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -49,7 +50,10 @@ func ExtractTarStream(r io.Reader, targetPath string) error {
 
 		header.Name = filepath.FromSlash(header.Name)
 
-		p := filepath.Join(targetPath, header.Name)
+		p, err := securejoin.SecureJoin(targetPath, header.Name)
+		if err != nil {
+			return err
+		}
 		err = os.MkdirAll(filepath.Dir(p), 0755)
 		if err != nil {
 			return err

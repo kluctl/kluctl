@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"io/fs"
@@ -33,8 +34,11 @@ func (cmd *SealCommand) Run(sealer *seal.Sealer) error {
 		if err != nil {
 			return err
 		}
-		targetDir := filepath.Join(cmd.c.Project.SealedSecretsDir, filepath.Dir(relPath))
-		targetFile := filepath.Join(targetDir, *cmd.c.Project.Config.SealedSecrets.OutputPattern, filepath.Base(p))
+		relTargetFile := filepath.Join(filepath.Dir(relPath), *cmd.c.Project.Config.SealedSecrets.OutputPattern, filepath.Base(p))
+		targetFile, err := securejoin.SecureJoin(cmd.c.Project.SealedSecretsDir, relTargetFile)
+		if err != nil {
+			return err
+		}
 		targetFile = targetFile[:len(targetFile)-len(deployment.SealmeExt)]
 		err = sealer.SealFile(p, targetFile)
 		if err != nil {

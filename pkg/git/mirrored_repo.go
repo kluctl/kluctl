@@ -342,6 +342,8 @@ func (g *MirroredGitRepo) CloneProject(ctx context.Context, ref string, targetDi
 
 func buildMirrorRepoName(u git_url.GitUrl) string {
 	r := filepath.Base(u.Path)
+	r = strings.ReplaceAll(r, "/", "-")
+	r = strings.ReplaceAll(r, "\\", "-")
 	if strings.HasSuffix(r, ".git") {
 		r = r[:len(r)-len(".git")]
 	}
