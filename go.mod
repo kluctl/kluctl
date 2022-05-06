@@ -6,6 +6,7 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e
 	github.com/aws/aws-sdk-go v1.44.1
 	github.com/bitnami-labs/sealed-secrets v0.17.5
+	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/gammazero/workerpool v1.1.2
@@ -84,7 +85,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
 	github.com/containerd/containerd v1.6.3 // indirect
-	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.14+incompatible // indirect
 	github.com/docker/docker v20.10.14+incompatible // indirect
