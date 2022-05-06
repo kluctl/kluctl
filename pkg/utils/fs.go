@@ -58,7 +58,7 @@ func CopyFile(src string, dst string) error {
 }
 
 func FsCopyFile(srcFs fs.FS, src, dst string) error {
-	src = strings.ReplaceAll(src, string(os.PathSeparator), "/")
+	src = filepath.ToSlash(src)
 	source, err := srcFs.Open(src)
 	if err != nil {
 		return err
@@ -92,7 +92,7 @@ func FsCopyDir(srcFs fs.FS, src string, dst string) error {
 	var err error
 	var fds []fs.DirEntry
 
-	src = strings.ReplaceAll(src, string(os.PathSeparator), "/")
+	src = filepath.ToSlash(src)
 
 	if fds, err = fs.ReadDir(srcFs, src); err != nil {
 		return err

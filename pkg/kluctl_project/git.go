@@ -122,7 +122,7 @@ func (c *KluctlProjectContext) buildCloneDir(u git_url.GitUrl, ref string) (stri
 	}
 	ref = strings.ReplaceAll(ref, "/", "-")
 	ref = strings.ReplaceAll(ref, "\\", "-")
-	urlPath := strings.ReplaceAll(u.Path, "/", string(os.PathSeparator))
+	urlPath := filepath.FromSlash(u.Path)
 	baseName := filepath.Base(urlPath)
 	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))[:16]
 	cloneDir := filepath.Join(c.TmpDir, fmt.Sprintf("%s-%s", baseName, urlHash), ref)

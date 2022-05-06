@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func ExtractTarGzFile(tarGzPath string, targetPath string) error {
@@ -48,7 +47,7 @@ func ExtractTarStream(r io.Reader, targetPath string) error {
 			return fmt.Errorf("ExtractTarStream: Next() failed: %w", err)
 		}
 
-		header.Name = strings.ReplaceAll(header.Name, "/", string(os.PathSeparator))
+		header.Name = filepath.FromSlash(header.Name)
 
 		p := filepath.Join(targetPath, header.Name)
 		err = os.MkdirAll(filepath.Dir(p), 0755)
@@ -105,7 +104,7 @@ func AddToTar(tw *tar.Writer, pth string, name string, filter func(h *tar.Header
 	if err != nil {
 		return err
 	}
-	h.Name = strings.ReplaceAll(name, string(os.PathSeparator), "/")
+	h.Name = filepath.ToSlash(name)
 
 	if filter != nil {
 		s := fi.Size()
@@ -159,14 +158,14 @@ func AddToTar(tw *tar.Writer, pth string, name string, filter func(h *tar.Header
 }
 
 func HashTarEntry(dir string, name string) (string, error) {
-	p := filepath.Join(dir, strings.ReplaceAll(name, "/", string(os.PathSeparator)))
+	p := filepath.Join(dir, filepath.FromSlash(name))
 	st, err := os.Lstat(p)
 	if err != nil {
 		return "", err
 	}
 	var hashData []byte
 	if st.Mode().Type() == fs.ModeDir {
-		hashData = []byte(strings.ReplaceAll(name, string(os.PathSeparator), "/"))
+		hashData = []byte(filepath.ToSlash(name))
 	} else if st.Mode().Type() == fs.ModeSymlink {
 		l, err := os.Readlink(p)
 		if err != nil {

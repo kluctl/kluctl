@@ -3,9 +3,7 @@ package args
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"os"
 	"path/filepath"
-	"strings"
 )
 
 type InclusionFlags struct {
@@ -27,13 +25,13 @@ func (args *InclusionFlags) ParseInclusionFromArgs() (*utils.Inclusion, error) {
 		if filepath.IsAbs(dir) {
 			return nil, fmt.Errorf("--include-deployment-dir path must be relative")
 		}
-		inclusion.AddInclude("deploymentItemDir", strings.ReplaceAll(dir, string(os.PathSeparator), "/"))
+		inclusion.AddInclude("deploymentItemDir", filepath.ToSlash(dir))
 	}
 	for _, dir := range args.ExcludeDeploymentDir {
 		if filepath.IsAbs(dir) {
 			return nil, fmt.Errorf("--exclude-deployment-dir path must be relative")
 		}
-		inclusion.AddExclude("deploymentItemDir", strings.ReplaceAll(dir, string(os.PathSeparator), "/"))
+		inclusion.AddExclude("deploymentItemDir", filepath.ToSlash(dir))
 	}
 	return inclusion, nil
 }

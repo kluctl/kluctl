@@ -198,7 +198,7 @@ func (j *Jinja2) getGlob(pattern string) (glob.Glob, error) {
 	return g.(glob.Glob), nil
 }
 func (j *Jinja2) needsRender(path string, excludedPatterns []string) bool {
-	path = strings.ReplaceAll(path, string(os.PathSeparator), "/")
+	path = filepath.ToSlash(path)
 
 	for _, p := range excludedPatterns {
 		g, err := j.getGlob(p)

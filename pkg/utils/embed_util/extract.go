@@ -120,7 +120,7 @@ func BuildFileList(targetPath string) (map[string]int64, error) {
 		if err != nil {
 			return err
 		}
-		relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
+		relPath = filepath.ToSlash(relPath)
 		if info.IsDir() {
 			existingFiles[relPath] = 0
 		} else {

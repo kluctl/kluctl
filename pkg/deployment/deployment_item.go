@@ -100,7 +100,7 @@ func (di *DeploymentItem) getCommonLabels() map[string]string {
 func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	// TODO change it to kluctl.io/deployment_dir
 	a := map[string]string{
-		"kluctl.io/kustomize_dir": strings.ReplaceAll(di.RelToRootItemDir, string(os.PathSeparator), "/"),
+		"kluctl.io/kustomize_dir": filepath.ToSlash(di.RelToRootItemDir),
 	}
 	if di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags {
 		a["kluctl.io/skip-delete-if-tags"] = "true"
@@ -137,7 +137,7 @@ func (di *DeploymentItem) render(k *k8s.K8sCluster, forSeal bool, wp *utils.Work
 			if yaml.Exists(filepath.Join(p, "helm-chart.yml")) {
 				// never try to render helm charts
 				ep := filepath.Join(di.RelToProjectItemDir, relDir, "charts/**")
-				ep = strings.ReplaceAll(ep, string(os.PathSeparator), "/")
+				ep = filepath.ToSlash(ep)
 				excludePatterns = append(excludePatterns, ep)
 				return filepath.SkipDir
 			}
@@ -250,7 +250,7 @@ func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 		values = append(values, utils.InclusionEntry{Type: "tag", Value: t})
 	}
 	if di.dir != nil {
-		dir := strings.ReplaceAll(di.RelToRootItemDir, string(os.PathSeparator), "/")
+		dir := filepath.ToSlash(di.RelToRootItemDir)
 		values = append(values, utils.InclusionEntry{Type: "deploymentItemDir", Value: dir})
 	}
 	return values
