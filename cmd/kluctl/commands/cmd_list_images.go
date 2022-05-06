@@ -37,12 +37,10 @@ func (cmd *listImagesCmd) Run() error {
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		result := types.FixedImagesConfig{
 			Images: ctx.images.SeenImages(cmd.Simple),
-		}
-		if result.Images != nil && len(result.Images) > 1 {
-			sort.Slice(result.Images, func(i, j int) bool {
-				return result.Images[i].Image < result.Images[j].Image
-			})
-		}
+		}	
+		sort.Slice(result.Images, func(i, j int) bool {
+		   return result.Images[i].Image < result.Images[j].Image
+		})
 		return outputYamlResult(cmd.Output, result, false)
 	})
 }
