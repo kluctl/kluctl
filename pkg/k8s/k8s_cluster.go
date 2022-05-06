@@ -90,8 +90,7 @@ func NewK8sCluster(configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
 		return nil, err
 	}
 	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
-	httpCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/http", apiHost.Hostname())
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(k.restConfig), discoveryCacheDir, httpCacheDir, time.Hour*24)
+	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(k.restConfig), discoveryCacheDir, "", time.Hour*24)
 	if err != nil {
 		return nil, err
 	}
