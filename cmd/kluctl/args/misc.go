@@ -22,7 +22,7 @@ type ReplaceOnErrorFlags struct {
 }
 
 type HookFlags struct {
-	HookTimeout time.Duration `group:"misc" help:"Maximum time to wait for hook readiness. The timeout is meant per-hook. Timeouts are in the duration format (1s, 1m, 1h, ...). If not specified, a default timeout of 5m is used." default:"5m"`
+	ReadinessTimeout time.Duration `group:"misc" help:"Maximum time to wait for object readiness. The timeout is meant per-object. Timeouts are in the duration format (1s, 1m, 1h, ...). If not specified, a default timeout of 5m is used." default:"5m"`
 }
 
 type IgnoreFlags struct {

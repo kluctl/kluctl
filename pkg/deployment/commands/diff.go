@@ -40,7 +40,7 @@ func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.Comm
 		ForceReplaceOnError: cmd.ForceReplaceOnError,
 		DryRun:              true,
 		AbortOnError:        false,
-		WaitObjectTimeout:   0,
+		ReadinessTimeout:    0,
 	}
 	au := utils.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()

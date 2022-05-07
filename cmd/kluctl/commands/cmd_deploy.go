@@ -54,7 +54,7 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	cmd2.ReplaceOnError = cmd.ReplaceOnError
 	cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
 	cmd2.AbortOnError = cmd.AbortOnError
-	cmd2.HookTimeout = cmd.HookTimeout
+	cmd2.ReadinessTimeout = cmd.ReadinessTimeout
 	cmd2.NoWait = cmd.NoWait
 
 	cb := cmd.diffResultCb

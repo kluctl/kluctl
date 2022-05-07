@@ -16,7 +16,7 @@ type DeployCommand struct {
 	ReplaceOnError      bool
 	ForceReplaceOnError bool
 	AbortOnError        bool
-	HookTimeout         time.Duration
+	ReadinessTimeout    time.Duration
 	NoWait              bool
 }
 
@@ -42,7 +42,7 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 		ForceReplaceOnError: cmd.ForceReplaceOnError,
 		DryRun:              true,
 		AbortOnError:        false,
-		WaitObjectTimeout:   cmd.HookTimeout,
+		ReadinessTimeout:    cmd.ReadinessTimeout,
 		NoWait:              cmd.NoWait,
 	}
 

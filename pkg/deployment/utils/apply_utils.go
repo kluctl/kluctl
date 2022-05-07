@@ -31,11 +31,13 @@ type ApplyUtilOptions struct {
 	ForceReplaceOnError bool
 	DryRun              bool
 	AbortOnError        bool
-	WaitObjectTimeout   time.Duration
+	ReadinessTimeout    time.Duration
 	NoWait              bool
 }
 
 type ApplyUtil struct {
+	ctx context.Context
+
 	dew                *DeploymentErrorsAndWarnings
 	errorCount         int
 	warningCount       int
@@ -83,8 +85,9 @@ func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnin
 	return ret
 }
 
-func (ad *ApplyDeploymentsUtil) NewApplyUtil(pctx *progressCtx) *ApplyUtil {
+func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, pctx *progressCtx) *ApplyUtil {
 	ret := &ApplyUtil{
+		ctx:                ctx,
 		dew:                ad.dew,
 		appliedObjects:     map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		appliedHookObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
@@ -131,6 +134,10 @@ func (a *ApplyUtil) HandleWarning(ref k8s2.ObjectRef, warning error) {
 func (a *ApplyUtil) HandleError(ref k8s2.ObjectRef, err error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+
+	if errors2.Is(err, context.DeadlineExceeded) || errors2.Is(err, context.Canceled) {
+		a.abortSignal.Store(true)
+	}
 
 	if a.o.AbortOnError && a.abortSignal != nil {
 		a.abortSignal.Store(true)
@@ -356,8 +363,9 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	}
 
 	if timeout == 0 {
-		timeout = a.o.WaitObjectTimeout
+		timeout = a.o.ReadinessTimeout
 	}
+	timeoutTimer := time.NewTimer(timeout)
 
 	a.pctx.Debugf("Waiting for %s to get ready", ref.String())
 
@@ -397,13 +405,6 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			return false
 		}
 
-		if timeout > 0 && time.Now().Sub(startTime) >= timeout {
-			err := fmt.Errorf("timed out while waiting for %s", ref.String())
-			a.pctx.Warningf("%s (%ds elapsed)", err.Error(), elapsed)
-			a.HandleError(ref, err)
-			return false
-		}
-
 		a.pctx.SetStatus(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
 
 		if !didLog {
@@ -415,7 +416,20 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			lastLogTime = time.Now()
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-time.After(500 * time.Millisecond):
+			continue
+		case <-timeoutTimer.C:
+			err := fmt.Errorf("timed out while waiting for readiness of %s", ref.String())
+			a.pctx.Warningf("%s (%ds elapsed)", err.Error(), elapsed)
+			a.HandleError(ref, err)
+			return false
+		case <-a.ctx.Done():
+			err := fmt.Errorf("failed waiting for readiness of %s: %w", ref.String(), err)
+			a.pctx.Warningf("%s (%ds elapsed)", err.Error(), elapsed)
+			a.HandleError(ref, err)
+			return false
+		}
 	}
 	return false
 }
@@ -505,6 +519,9 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			a.WaitReadiness(o.GetK8sRef(), 0)
 		}
 	}
+	if a.abortSignal.Load().(bool) {
+		return
+	}
 
 	h.RunHooks(postHooks)
 
@@ -579,7 +596,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 		} else {
 			pctx = NewProgressCtx(nil, "", 0, false)
 		}
-		a2 := a.NewApplyUtil(pctx)
+		a2 := a.NewApplyUtil(a.ctx, pctx)
 
 		wg.Add(1)
 		go func() {
@@ -587,6 +604,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			defer sem.Release(1)
 
 			a2.applyDeploymentItem(d)
+			pctx.Finish()
 		}()
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
@@ -622,6 +640,11 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.UnstructuredObject, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) {
 	firstCall := true
 	for true {
+		if a.ctx.Err() != nil {
+			a.HandleError(ref, fmt.Errorf("failed replacing %s: %w", ref.String(), a.ctx.Err()))
+			return
+		}
+
 		var remote *uo.UnstructuredObject
 		if firstCall && firstVersion != nil {
 			remote = firstVersion
