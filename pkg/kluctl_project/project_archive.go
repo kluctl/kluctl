@@ -3,7 +3,6 @@ package kluctl_project
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context"
 	"fmt"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -14,7 +13,7 @@ import (
 	"time"
 )
 
-func (c *LoadedKluctlProject) loadFromArchive(ctx context.Context) error {
+func (c *LoadedKluctlProject) loadFromArchive() error {
 	var dir string
 	if utils.IsFile(c.loadArgs.FromArchive) {
 		dir = filepath.Join(c.TmpDir, "archive")
@@ -61,7 +60,7 @@ func (c *LoadedKluctlProject) loadFromArchive(ctx context.Context) error {
 	c.involvedRepos = pmd.InvolvedRepos
 	c.DynamicTargets = pmd.Targets
 
-	err = c.loadKluctlProject(ctx)
+	err = c.loadKluctlProject()
 	if err != nil {
 		return err
 	}

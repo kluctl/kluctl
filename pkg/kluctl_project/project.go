@@ -1,6 +1,7 @@
 package kluctl_project
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
@@ -9,6 +10,8 @@ import (
 )
 
 type LoadedKluctlProject struct {
+	ctx context.Context
+
 	loadArgs LoadKluctlProjectArgs
 
 	TmpDir     string

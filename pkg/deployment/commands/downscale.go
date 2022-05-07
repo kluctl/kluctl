@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -20,7 +21,7 @@ func NewDownscaleCommand(c *deployment.DeploymentCollection) *DownscaleCommand {
 	}
 }
 
-func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *DownscaleCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
@@ -31,7 +32,7 @@ func (cmd *DownscaleCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error
 		return nil, err
 	}
 
-	ad := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
+	ad := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
 
 	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 

@@ -40,6 +40,8 @@ type transportKeyType int
 var transportKey transportKeyType
 
 type RegistryHelper struct {
+	ctx context.Context
+
 	authEntries []AuthEntry
 
 	cachedTransports utils.ThreadSafeCache
@@ -60,8 +62,10 @@ type AuthEntry struct {
 	Insecure bool
 }
 
-func NewRegistryHelper() *RegistryHelper {
-	return &RegistryHelper{}
+func NewRegistryHelper(ctx context.Context) *RegistryHelper {
+	return &RegistryHelper{
+		ctx: ctx,
+	}
 }
 
 func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
@@ -79,7 +83,7 @@ func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
 	remoteOpts := []remote.Option{
 		remote.WithAuthFromKeychain(rh),
 		remote.WithTransport(rh),
-		remote.WithContext(context.WithValue(context.Background(), transportKey, t)),
+		remote.WithContext(context.WithValue(rh.ctx, transportKey, t)),
 	}
 
 	e := rh.findAuthEntry(repo.RegistryStr())

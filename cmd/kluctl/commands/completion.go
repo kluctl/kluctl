@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -47,18 +48,18 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	return nil
 }
 
-func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
+func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	// let's not update git caches too often
 	projectArgs.GitCacheUpdateInterval = time.Second * 60
-	return withKluctlProjectFromArgs(*projectArgs, false, func(p *kluctl_project.LoadedKluctlProject) error {
-		return cb(p)
+	return withKluctlProjectFromArgs(*projectArgs, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		return cb(ctx, p)
 	})
 }
 
 func buildClusterCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var ret []string
-		err := withProjectForCompletion(projectArgs, func(p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(projectArgs, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			dents, err := os.ReadDir(p.ClustersDir)
 			if err != nil {
 				return err
@@ -86,7 +87,7 @@ func buildClusterCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.
 func buildTargetCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var ret []string
-		err := withProjectForCompletion(projectArgs, func(p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(projectArgs, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			for _, t := range p.DynamicTargets {
 				ret = append(ret, t.Target.Name)
 			}
@@ -132,7 +133,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 		var deploymentItemDirs utils.OrderedMap
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(&ptArgs.projectFlags, func(p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(&ptArgs.projectFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.DynamicTargets {
@@ -148,7 +149,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 				ptArgs.targetFlags.Target = t
 				wg.Add(1)
 				go func() {
-					_ = withProjectTargetCommandContext(ptArgs, p, func(ctx *commandCtx) error {
+					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
 						mutex.Lock()
 						defer mutex.Unlock()
 						for _, di := range ctx.targetCtx.DeploymentCollection.Deployments {
@@ -186,7 +187,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 		var images utils.OrderedMap
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(&ptArgs.projectFlags, func(p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(&ptArgs.projectFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.DynamicTargets {
@@ -202,7 +203,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 				ptArgs.targetFlags.Target = t
 				wg.Add(1)
 				go func() {
-					_ = withProjectTargetCommandContext(ptArgs, p, func(ctx *commandCtx) error {
+					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
 						err := ctx.targetCtx.DeploymentCollection.Prepare(nil)
 						if err != nil {
 							log.Error(err)

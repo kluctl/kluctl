@@ -44,7 +44,7 @@ func (cmd *downscaleCmd) Run() error {
 
 		cmd2 := commands.NewDownscaleCommand(ctx.targetCtx.DeploymentCollection)
 
-		result, err := cmd2.Run(ctx.targetCtx.K)
+		result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}

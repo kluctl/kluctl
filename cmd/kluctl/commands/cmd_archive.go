@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 )
@@ -16,7 +17,7 @@ func (cmd *archiveCmd) Help() string {
 }
 
 func (cmd *archiveCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return p.WriteArchive(cmd.OutputArchive, cmd.ProjectFlags.OutputMetadata == "")
 	})
 }

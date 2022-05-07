@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
@@ -21,7 +22,7 @@ func NewPokeImagesCommand(c *deployment.DeploymentCollection) *PokeImagesCommand
 	}
 }
 
-func (cmd *PokeImagesCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
@@ -67,7 +68,7 @@ func (cmd *PokeImagesCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, erro
 		return o, nil
 	}
 
-	ad := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
+	ad := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref

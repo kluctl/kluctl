@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -16,7 +17,7 @@ func (cmd *listTargetsCmd) Help() string {
 }
 
 func (cmd *listTargetsCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		var result []*types.Target
 		for _, t := range p.DynamicTargets {
 			result = append(result, t.Target)

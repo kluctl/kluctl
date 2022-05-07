@@ -10,6 +10,7 @@ import (
 
 func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*LoadedKluctlProject, error) {
 	p := &LoadedKluctlProject{
+		ctx:      ctx,
 		loadArgs: args,
 		TmpDir:   tmpDir,
 		J2:       j2,
@@ -22,17 +23,17 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 		if args.ProjectUrl != nil || args.ProjectRef != "" || args.ProjectConfig != "" || args.LocalClusters != "" || args.LocalDeployment != "" || args.LocalSealedSecrets != "" {
 			return nil, fmt.Errorf("--from-archive can not be combined with any other project related option")
 		}
-		err := p.loadFromArchive(ctx)
+		err := p.loadFromArchive()
 		if err != nil {
 			return nil, err
 		}
 		return p, nil
 	} else {
-		err := p.loadKluctlProject(ctx)
+		err := p.loadKluctlProject()
 		if err != nil {
 			return nil, err
 		}
-		err = p.loadTargets(ctx)
+		err = p.loadTargets()
 		if err != nil {
 			return nil, err
 		}

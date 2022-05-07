@@ -21,6 +21,8 @@ import "github.com/gofrs/flock"
 var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
 type MirroredGitRepo struct {
+	ctx context.Context
+
 	url       git_url.GitUrl
 	mirrorDir string
 
@@ -28,9 +30,10 @@ type MirroredGitRepo struct {
 	fileLock   *flock.Flock
 }
 
-func NewMirroredGitRepo(u git_url.GitUrl) (*MirroredGitRepo, error) {
+func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl) (*MirroredGitRepo, error) {
 	mirrorRepoName := buildMirrorRepoName(u)
 	o := &MirroredGitRepo{
+		ctx:       ctx,
 		url:       u,
 		mirrorDir: filepath.Join(cacheBaseDir, mirrorRepoName),
 	}
@@ -53,8 +56,8 @@ func (g *MirroredGitRepo) SetUpdated(u bool) {
 	g.hasUpdated = u
 }
 
-func (g *MirroredGitRepo) Lock(ctx context.Context) error {
-	ok, err := g.fileLock.TryLockContext(ctx, time.Millisecond*100)
+func (g *MirroredGitRepo) Lock() error {
+	ok, err := g.fileLock.TryLockContext(g.ctx, time.Millisecond*100)
 	if err != nil {
 		return fmt.Errorf("locking of %s failed: %w", g.fileLock.Path(), err)
 	}
@@ -73,8 +76,8 @@ func (g *MirroredGitRepo) Unlock() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) WithLock(ctx context.Context, cb func() error) error {
-	err := g.Lock(ctx)
+func (g *MirroredGitRepo) WithLock(cb func() error) error {
+	err := g.Lock()
 	if err != nil {
 		return err
 	}
@@ -82,9 +85,9 @@ func (g *MirroredGitRepo) WithLock(ctx context.Context, cb func() error) error {
 	return cb()
 }
 
-func (g *MirroredGitRepo) MaybeWithLock(ctx context.Context, lock bool, cb func() error) error {
+func (g *MirroredGitRepo) MaybeWithLock(lock bool, cb func() error) error {
 	if lock {
-		return g.WithLock(ctx, cb)
+		return g.WithLock(cb)
 	}
 	return cb()
 }
@@ -167,7 +170,7 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProviders *auth2.GitAuthProviders) error {
+func (g *MirroredGitRepo) update(repoDir string, authProviders *auth2.GitAuthProviders) error {
 	log.Infof("Updating mirror repo: url='%v'", g.url.String())
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
@@ -181,7 +184,7 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 		return err
 	}
 
-	remoteRefs, err := remote.ListContext(ctx, &git.ListOptions{
+	remoteRefs, err := remote.ListContext(g.ctx, &git.ListOptions{
 		Auth:     auth.AuthMethod,
 		CABundle: auth.CABundle,
 	})
@@ -224,7 +227,7 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 	}
 
 	if changed {
-		err = remote.FetchContext(ctx, &git.FetchOptions{
+		err = remote.FetchContext(g.ctx, &git.FetchOptions{
 			Auth:     auth.AuthMethod,
 			CABundle: auth.CABundle,
 			Progress: os.Stdout,
@@ -260,10 +263,10 @@ func (g *MirroredGitRepo) update(ctx context.Context, repoDir string, authProvid
 	return nil
 }
 
-func (g *MirroredGitRepo) cloneOrUpdate(ctx context.Context, authProviders *auth2.GitAuthProviders) error {
+func (g *MirroredGitRepo) cloneOrUpdate(authProviders *auth2.GitAuthProviders) error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	if utils.IsFile(initMarker) {
-		return g.update(ctx, g.mirrorDir, authProviders)
+		return g.update(g.mirrorDir, authProviders)
 	}
 	err := g.cleanupMirrorDir()
 	if err != nil {
@@ -295,7 +298,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(ctx context.Context, authProviders *auth
 		return err
 	}
 
-	err = g.update(ctx, tmpMirrorDir, authProviders)
+	err = g.update(tmpMirrorDir, authProviders)
 	if err != nil {
 		return err
 	}
@@ -317,8 +320,8 @@ func (g *MirroredGitRepo) cloneOrUpdate(ctx context.Context, authProviders *auth
 	return nil
 }
 
-func (g *MirroredGitRepo) Update(ctx context.Context, authProviders *auth2.GitAuthProviders) error {
-	err := g.cloneOrUpdate(ctx, authProviders)
+func (g *MirroredGitRepo) Update(authProviders *auth2.GitAuthProviders) error {
+	err := g.cloneOrUpdate(authProviders)
 	if err != nil {
 		return err
 	}
@@ -326,7 +329,7 @@ func (g *MirroredGitRepo) Update(ctx context.Context, authProviders *auth2.GitAu
 	return nil
 }
 
-func (g *MirroredGitRepo) CloneProject(ctx context.Context, ref string, targetDir string) error {
+func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 	if !g.fileLock.Locked() || !g.hasUpdated {
 		log.Fatalf("tried to clone from a project that is not locked/updated")
 	}

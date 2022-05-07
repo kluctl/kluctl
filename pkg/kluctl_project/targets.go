@@ -1,7 +1,6 @@
 package kluctl_project
 
 import (
-	"context"
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -27,7 +26,7 @@ type dynamicTargetInfo struct {
 	defaultBranch string
 }
 
-func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
+func (c *LoadedKluctlProject) loadTargets() error {
 	targetNames := make(map[string]bool)
 	c.DynamicTargets = nil
 
@@ -40,7 +39,7 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 		targetInfos = append(targetInfos, l...)
 	}
 
-	err := c.cloneDynamicTargets(ctx, targetInfos)
+	err := c.cloneDynamicTargets(targetInfos)
 	if err != nil {
 		return err
 	}
@@ -221,13 +220,13 @@ func (c *LoadedKluctlProject) matchRef(s string, pattern string) (bool, string, 
 	}
 }
 
-func (c *LoadedKluctlProject) cloneDynamicTargets(ctx context.Context, dynamicTargets []*dynamicTargetInfo) error {
+func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTargetInfo) error {
 	wp := utils.NewDebuggerAwareWorkerPool(8)
 	defer wp.StopWait(false)
 
 	// lock all involved repos first
 	for _, mr := range c.mirroredRepos {
-		err := mr.Lock(ctx)
+		err := mr.Lock()
 		if err != nil {
 			return err
 		}
@@ -252,7 +251,7 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(ctx context.Context, dynamicTa
 			gitProject := *targetInfo.gitProject
 			gitProject.Ref = *targetInfo.ref
 
-			gi, err := c.loadGitProject(ctx, &gitProject, "", false, false)
+			gi, err := c.loadGitProject(&gitProject, "", false, false)
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {

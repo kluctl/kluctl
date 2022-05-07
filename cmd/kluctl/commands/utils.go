@@ -18,10 +18,9 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
-	"time"
 )
 
-func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	var url *git_url.GitUrl
 	if projectFlags.ProjectUrl != "" {
 		var err error
@@ -71,9 +70,10 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		GitUpdateInterval:   projectFlags.GitCacheUpdateInterval,
 	}
 
-	loadCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(projectFlags.LoadTimeout))
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, projectFlags.Timeout)
 	defer cancel()
-	p, err := kluctl_project.LoadKluctlProject(loadCtx, loadArgs, tmpDir, j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 			return err
 		}
 	}
-	return cb(p)
+	return cb(ctx, p)
 }
 
 type projectTargetCommandArgs struct {
@@ -105,18 +105,19 @@ type projectTargetCommandArgs struct {
 }
 
 type commandCtx struct {
+	ctx       context.Context
 	targetCtx *kluctl_project.TargetContext
 	images    *deployment.Images
 }
 
 func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(args.projectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
-		return withProjectTargetCommandContext(args, p, cb)
+	return withKluctlProjectFromArgs(args.projectFlags, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
 
-func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(ctx *commandCtx) error) error {
-	rh := registries.NewRegistryHelper()
+func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(ctx *commandCtx) error) error {
+	rh := registries.NewRegistryHelper(ctx)
 	err := rh.ParseAuthEntriesFromEnv()
 	if err != nil {
 		return fmt.Errorf("failed to parse registry auth from environment: %w", err)
@@ -162,7 +163,7 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
 	}
 
-	ctx, err := p.NewTargetContext(clientConfigGetter, args.targetFlags.Target, args.projectFlags.Cluster,
+	targetCtx, err := p.NewTargetContext(ctx, clientConfigGetter, args.targetFlags.Target, args.projectFlags.Cluster,
 		args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
 		optionArgs, args.forSeal, images, inclusion,
 		renderOutputDir)
@@ -171,14 +172,15 @@ func withProjectTargetCommandContext(args projectTargetCommandArgs, p *kluctl_pr
 	}
 
 	if !args.forSeal && !args.forCompletion {
-		err = ctx.DeploymentCollection.Prepare(ctx.K)
+		err = targetCtx.DeploymentCollection.Prepare(targetCtx.K)
 		if err != nil {
 			return err
 		}
 	}
 
 	cmdCtx := &commandCtx{
-		targetCtx: ctx,
+		ctx:       ctx,
+		targetCtx: targetCtx,
 		images:    images,
 	}
 

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -24,7 +25,7 @@ func NewValidateCommand(c *deployment.DeploymentCollection) *ValidateCommand {
 	return cmd
 }
 
-func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) (*types.ValidateResult, error) {
+func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.ValidateResult, error) {
 	var result types.ValidateResult
 
 	cmd.dew.Init()
@@ -34,7 +35,7 @@ func (cmd *ValidateCommand) Run(k *k8s.K8sCluster) (*types.ValidateResult, error
 		return nil, err
 	}
 
-	ad := utils2.NewApplyDeploymentsUtil(cmd.dew, cmd.c.Deployments, cmd.ru, k, &utils2.ApplyUtilOptions{})
+	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.c.Deployments, cmd.ru, k, &utils2.ApplyUtilOptions{})
 	for _, d := range cmd.c.Deployments {
 		if !d.CheckInclusionForDeploy() {
 			continue

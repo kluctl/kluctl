@@ -43,7 +43,7 @@ func (cmd *diffCmd) Run() error {
 		cmd2.IgnoreTags = cmd.IgnoreTags
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
-		result, err := cmd2.Run(ctx.targetCtx.K)
+		result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ package commands
 import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
-	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	log "github.com/sirupsen/logrus"
@@ -24,20 +23,19 @@ func (cmd *checkImageUpdatesCmd) Help() string {
 }
 
 func (cmd *checkImageUpdatesCmd) Run() error {
-	var renderedImages map[k8s.ObjectRef][]string
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,
 	}
-	err := withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		renderedImages = ctx.targetCtx.DeploymentCollection.FindRenderedImages()
-		return nil
+	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+		return runCheckImageUpdates(ctx)
 	})
-	if err != nil {
-		return err
-	}
+}
 
-	rh := registries.NewRegistryHelper()
+func runCheckImageUpdates(ctx *commandCtx) error {
+	renderedImages := ctx.targetCtx.DeploymentCollection.FindRenderedImages()
+
+	rh := registries.NewRegistryHelper(ctx.ctx)
 
 	wg := utils.NewWorkerPoolWithErrors(8)
 	defer wg.StopWait(false)
@@ -67,7 +65,7 @@ func (cmd *checkImageUpdatesCmd) Run() error {
 			}
 		}
 	}
-	err = wg.StopWait(false)
+	err := wg.StopWait(false)
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
 package kluctl_project
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
@@ -59,7 +58,7 @@ func (c *LoadedKluctlProject) localProject(dir string) gitProjectInfo {
 	}
 }
 
-func (c *LoadedKluctlProject) loadGitProject(ctx context.Context, gitProject *types2.GitProject, defaultSubDir string, doLock bool, doAddInvolvedRepo bool) (ret gitProjectInfo, err error) {
+func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defaultSubDir string, doLock bool, doAddInvolvedRepo bool) (ret gitProjectInfo, err error) {
 	cloneDir, err := c.buildCloneDir(gitProject.Url, gitProject.Ref)
 	if err != nil {
 		return
@@ -82,7 +81,7 @@ func (c *LoadedKluctlProject) loadGitProject(ctx context.Context, gitProject *ty
 		}
 
 		var ri git.GitRepoInfo
-		ri, err = c.cloneGitProject(ctx, gitProject, cloneDir, doLock)
+		ri, err = c.cloneGitProject(gitProject, cloneDir, doLock)
 		if err != nil {
 			return
 		}
@@ -120,7 +119,7 @@ func (c *LoadedKluctlProject) loadGitProject(ctx context.Context, gitProject *ty
 	return
 }
 
-func (c *LoadedKluctlProject) loadExternalProject(ctx context.Context, ep *types2.ExternalProject, defaultGitSubDir string, localDir string) (gitProjectInfo, error) {
+func (c *LoadedKluctlProject) loadExternalProject(ep *types2.ExternalProject, defaultGitSubDir string, localDir string) (gitProjectInfo, error) {
 	if localDir != "" {
 		return c.localProject(localDir), nil
 	}
@@ -133,7 +132,7 @@ func (c *LoadedKluctlProject) loadExternalProject(ctx context.Context, ep *types
 
 	if ep.Project != nil {
 		// pointing to an actual external project, so let's try to clone it
-		return c.loadGitProject(ctx, ep.Project, defaultGitSubDir, true, true)
+		return c.loadGitProject(ep.Project, defaultGitSubDir, true, true)
 	}
 
 	// ExternalProject was provided but without an external repo url, so point into the kluctl project.
@@ -147,7 +146,7 @@ func (c *LoadedKluctlProject) loadExternalProject(ctx context.Context, ep *types
 	return c.localProject(p), nil
 }
 
-func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
+func (c *LoadedKluctlProject) loadKluctlProject() error {
 	var err error
 
 	if c.loadArgs.ProjectUrl == nil {
@@ -158,7 +157,7 @@ func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
 			return err
 		}
 	} else {
-		gi, err := c.loadGitProject(ctx, &types2.GitProject{
+		gi, err := c.loadGitProject(&types2.GitProject{
 			Url: *c.loadArgs.ProjectUrl,
 			Ref: c.loadArgs.ProjectRef,
 		}, "", true, true)
@@ -184,17 +183,17 @@ func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
 			return err
 		}
 
-		err = c.updateGitCaches(ctx)
+		err = c.updateGitCaches()
 		if err != nil {
 			return err
 		}
 	}
 
-	deploymentInfo, err := c.loadExternalProject(ctx, c.Config.Deployment, "", c.loadArgs.LocalDeployment)
+	deploymentInfo, err := c.loadExternalProject(c.Config.Deployment, "", c.loadArgs.LocalDeployment)
 	if err != nil {
 		return err
 	}
-	sealedSecretsInfo, err := c.loadExternalProject(ctx, c.Config.SealedSecrets, ".sealed-secrets", c.loadArgs.LocalSealedSecrets)
+	sealedSecretsInfo, err := c.loadExternalProject(c.Config.SealedSecrets, ".sealed-secrets", c.loadArgs.LocalSealedSecrets)
 	if err != nil {
 		return err
 	}
@@ -203,14 +202,14 @@ func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
 		clustersInfos = append(clustersInfos, c.localProject(c.loadArgs.LocalClusters))
 	} else if len(c.Config.Clusters.Projects) != 0 {
 		for _, ep := range c.Config.Clusters.Projects {
-			info, err := c.loadExternalProject(ctx, &ep, "clusters", "")
+			info, err := c.loadExternalProject(&ep, "clusters", "")
 			if err != nil {
 				return err
 			}
 			clustersInfos = append(clustersInfos, info)
 		}
 	} else {
-		ci, err := c.loadExternalProject(ctx, nil, "clusters", "")
+		ci, err := c.loadExternalProject(nil, "clusters", "")
 		if err != nil {
 			return err
 		}

@@ -55,6 +55,8 @@ type ApplyUtil struct {
 }
 
 type ApplyDeploymentsUtil struct {
+	ctx context.Context
+
 	dew         *DeploymentErrorsAndWarnings
 	deployments []*deployment.DeploymentItem
 	ru          *RemoteObjectUtils
@@ -67,8 +69,9 @@ type ApplyDeploymentsUtil struct {
 	results []*ApplyUtil
 }
 
-func NewApplyDeploymentsUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
+func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
 	ret := &ApplyDeploymentsUtil{
+		ctx:         ctx,
 		dew:         dew,
 		deployments: deployments,
 		ru:          ru,

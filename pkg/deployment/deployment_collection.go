@@ -14,6 +14,8 @@ import (
 )
 
 type DeploymentCollection struct {
+	ctx context.Context
+
 	Project   *DeploymentProject
 	Images    *Images
 	Inclusion *utils.Inclusion
@@ -24,8 +26,9 @@ type DeploymentCollection struct {
 	mutex       sync.Mutex
 }
 
-func NewDeploymentCollection(project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
+func NewDeploymentCollection(ctx context.Context, project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
 	dc := &DeploymentCollection{
+		ctx:       ctx,
 		Project:   project,
 		Images:    images,
 		Inclusion: inclusion,

@@ -1,7 +1,6 @@
 package kluctl_project
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -16,7 +15,7 @@ import (
 	"time"
 )
 
-func (c *LoadedKluctlProject) updateGitCache(ctx context.Context, mr *git.MirroredGitRepo) error {
+func (c *LoadedKluctlProject) updateGitCache(mr *git.MirroredGitRepo) error {
 	if mr.HasUpdated() {
 		return nil
 	}
@@ -24,10 +23,10 @@ func (c *LoadedKluctlProject) updateGitCache(ctx context.Context, mr *git.Mirror
 		mr.SetUpdated(true)
 		return nil
 	}
-	return mr.Update(ctx, c.loadArgs.GitAuthProviders)
+	return mr.Update(c.loadArgs.GitAuthProviders)
 }
 
-func (c *LoadedKluctlProject) updateGitCaches(ctx context.Context) error {
+func (c *LoadedKluctlProject) updateGitCaches() error {
 	var waitGroup sync.WaitGroup
 	var firstError error
 	var firstErrorLock sync.Mutex
@@ -41,8 +40,8 @@ func (c *LoadedKluctlProject) updateGitCaches(ctx context.Context) error {
 	}
 
 	doUpdateRepo := func(repo *git.MirroredGitRepo) error {
-		return repo.WithLock(ctx, func() error {
-			return c.updateGitCache(ctx, repo)
+		return repo.WithLock(func() error {
+			return c.updateGitCache(repo)
 		})
 	}
 	doUpdateGitProject := func(u git_url.GitUrl) error {
@@ -50,7 +49,7 @@ func (c *LoadedKluctlProject) updateGitCaches(ctx context.Context) error {
 		if ok {
 			return nil
 		}
-		mr, err := git.NewMirroredGitRepo(u)
+		mr, err := git.NewMirroredGitRepo(c.ctx, u)
 		if err != nil {
 			return err
 		}
@@ -108,7 +107,7 @@ func (c *LoadedKluctlProject) updateGitCaches(ctx context.Context) error {
 	return firstError
 }
 
-func (c *LoadedKluctlProject) cloneGitProject(ctx context.Context, gitProject *types2.GitProject, targetDir string, doLock bool) (info git.GitRepoInfo, err error) {
+func (c *LoadedKluctlProject) cloneGitProject(gitProject *types2.GitProject, targetDir string, doLock bool) (info git.GitRepoInfo, err error) {
 	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
@@ -116,24 +115,24 @@ func (c *LoadedKluctlProject) cloneGitProject(ctx context.Context, gitProject *t
 
 	mr, ok := c.mirroredRepos[gitProject.Url.NormalizedRepoKey()]
 	if !ok {
-		mr, err = git.NewMirroredGitRepo(gitProject.Url)
+		mr, err = git.NewMirroredGitRepo(c.ctx, gitProject.Url)
 		if err != nil {
 			return
 		}
 		c.mirroredRepos[gitProject.Url.NormalizedRepoKey()] = mr
-		err = mr.Lock(ctx)
+		err = mr.Lock()
 		if err != nil {
 			return
 		}
 		defer mr.Unlock()
 	}
 
-	err = mr.MaybeWithLock(ctx, doLock, func() error {
-		err := c.updateGitCache(ctx, mr)
+	err = mr.MaybeWithLock(doLock, func() error {
+		err := c.updateGitCache(mr)
 		if err != nil {
 			return err
 		}
-		return mr.CloneProject(ctx, gitProject.Ref, targetDir)
+		return mr.CloneProject(gitProject.Ref, targetDir)
 	})
 	if err != nil {
 		return

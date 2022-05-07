@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +38,8 @@ var (
 )
 
 type K8sCluster struct {
+	ctx context.Context
+
 	DryRun bool
 
 	restConfig *rest.Config
@@ -77,8 +80,9 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 	})
 }
 
-func NewK8sCluster(configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
+func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
 	k := &K8sCluster{
+		ctx:    ctx,
 		DryRun: dryRun,
 	}
 
@@ -168,10 +172,34 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 		err error
 	}{}
 
-	_, arls, err := k.discovery.ServerGroupsAndResources()
-	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-		return err
+	// the discovery client doesn't support cancellation, so we need to run it in the background and wait for it
+	var arls []*v1.APIResourceList
+	var preferredArls []*v1.APIResourceList
+	finished := make(chan error)
+	go func() {
+		var err error
+		_, arls, err = k.discovery.ServerGroupsAndResources()
+		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+			finished <- err
+			return
+		}
+		preferredArls, err = k.discovery.ServerPreferredResources()
+		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+			finished <- err
+			return
+		}
+		finished <- nil
+	}()
+
+	select {
+	case err := <-finished:
+		if err != nil {
+			return err
+		}
+	case <-k.ctx.Done():
+		return fmt.Errorf("failed listing api resources: %w", k.ctx.Err())
 	}
+
 	for _, arl := range arls {
 		for _, ar := range arl.APIResources {
 			if strings.Index(ar.Name, "/") != -1 {
@@ -202,11 +230,7 @@ func (k *K8sCluster) updateResources(doLock bool) error {
 		}
 	}
 
-	arls, err = k.discovery.ServerPreferredResources()
-	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-		return err
-	}
-	for _, arl := range arls {
+	for _, arl := range preferredArls {
 		for _, ar := range arl.APIResources {
 			if strings.Index(ar.Name, "/") != -1 {
 				// skip subresources
@@ -420,50 +444,46 @@ func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.Unstructu
 	return nil, fmt.Errorf("schema for %s not found", gvk.String())
 }
 
-func (k *K8sCluster) WithCoreV1(cb func(client *corev1.CoreV1Client) error) error {
-	p := <-k.clientPool
-	defer func() { k.clientPool <- p }()
-	return cb(p.corev1)
+func (k *K8sCluster) withClientFromPool(cb func(p *parallelClientEntry) error) ([]ApiWarning, error) {
+	select {
+	case p := <-k.clientPool:
+		defer func() { k.clientPool <- p }()
+		p.warnings = nil
+		err := cb(p)
+		return append([]ApiWarning(nil), p.warnings...), err
+	case <-k.ctx.Done():
+		return nil, fmt.Errorf("failed waiting for free client: %w", k.ctx.Err())
+	}
 }
 
 func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
-	gvr, namespaced, err := k.getGVRForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
+	return k.withClientFromPool(func(p *parallelClientEntry) error {
+		gvr, namespaced, err := k.getGVRForGVK(gvk)
+		if err != nil {
+			return err
+		}
 
-	p := <-k.clientPool
-	defer func() { k.clientPool <- p }()
-
-	p.warnings = nil
-
-	if namespaced && namespace != "" {
-		err = cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
-		return append([]ApiWarning(nil), p.warnings...), err
-	} else {
-		err = cb(p.dynamicClient.Resource(*gvr))
-		return append([]ApiWarning(nil), p.warnings...), err
-	}
+		if namespaced && namespace != "" {
+			return cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
+		} else {
+			return cb(p.dynamicClient.Resource(*gvr))
+		}
+	})
 }
 
 func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
-	gvr, namespaced, err := k.getGVRForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
+	return k.withClientFromPool(func(p *parallelClientEntry) error {
+		gvr, namespaced, err := k.getGVRForGVK(gvk)
+		if err != nil {
+			return err
+		}
 
-	p := <-k.clientPool
-	defer func() { k.clientPool <- p }()
-
-	p.warnings = nil
-
-	if namespaced && namespace != "" {
-		err = cb(p.metadataClient.Resource(*gvr).Namespace(namespace))
-		return append([]ApiWarning(nil), p.warnings...), err
-	} else {
-		err = cb(p.metadataClient.Resource(*gvr))
-		return append([]ApiWarning(nil), p.warnings...), err
-	}
+		if namespaced && namespace != "" {
+			return cb(p.metadataClient.Resource(*gvr).Namespace(namespace))
+		} else {
+			return cb(p.metadataClient.Resource(*gvr))
+		}
+	})
 }
 
 func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
@@ -485,7 +505,7 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 		o := v1.ListOptions{
 			LabelSelector: k.buildLabelSelector(labels),
 		}
-		x, err := r.List(context.Background(), o)
+		x, err := r.List(k.ctx, o)
 		if err != nil {
 			return err
 		}
@@ -504,7 +524,7 @@ func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace 
 		o := v1.ListOptions{
 			LabelSelector: k.buildLabelSelector(labels),
 		}
-		x, err := r.List(context.Background(), o)
+		x, err := r.List(k.ctx, o)
 		if err != nil {
 			return err
 		}
@@ -585,7 +605,7 @@ func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject,
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.GetOptions{}
-		x, err := r.Get(context.Background(), ref.Name, o)
+		x, err := r.Get(k.ctx, ref.Name, o)
 		if err != nil {
 			return err
 		}
@@ -648,7 +668,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 	}
 
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
-		err := r.Delete(context.Background(), ref.Name, o)
+		err := r.Delete(k.ctx, ref.Name, o)
 		if err != nil {
 			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
 				return nil
@@ -681,7 +701,12 @@ func (k *K8sCluster) waitForDeletedObject(ref k8s.ObjectRef) error {
 			return err
 		}
 
-		time.Sleep(time.Millisecond * 100)
+		select {
+		case <-time.After(500 * time.Millisecond):
+			continue
+		case <-k.ctx.Done():
+			return fmt.Errorf("failed waiting for deletion of %s: %w", ref.String(), k.ctx.Err())
+		}
 	}
 	return nil
 }
@@ -800,7 +825,7 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 	log2.Debugf("patching")
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Patch(context.Background(), ref.Name, types.ApplyPatchType, data, po)
+		x, err := r.Patch(k.ctx, ref.Name, types.ApplyPatchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
 		}
@@ -829,7 +854,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	log2.Debugf("updating")
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Update(context.Background(), o.ToUnstructured(), updateOpts)
+		x, err := r.Update(k.ctx, o.ToUnstructured(), updateOpts)
 		if err != nil {
 			return err
 		}
@@ -837,4 +862,16 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 		return nil
 	})
 	return result, apiWarnings, err
+}
+
+func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params map[string]string) (io.ReadCloser, error) {
+	var ret rest.ResponseWrapper
+	_, err := k.withClientFromPool(func(p *parallelClientEntry) error {
+		ret = p.corev1.Services(namespace).ProxyGet(scheme, name, port, path, params)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.Stream(k.ctx)
 }

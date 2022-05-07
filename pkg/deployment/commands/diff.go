@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -24,7 +25,7 @@ func NewDiffCommand(c *deployment.DeploymentCollection) *DiffCommand {
 	}
 }
 
-func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
 	ru := utils.NewRemoteObjectsUtil(dew)
@@ -41,7 +42,7 @@ func (cmd *DiffCommand) Run(k *k8s.K8sCluster) (*types.CommandResult, error) {
 		AbortOnError:        false,
 		WaitObjectTimeout:   0,
 	}
-	au := utils.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, o)
+	au := utils.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()
 
 	du := utils.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())

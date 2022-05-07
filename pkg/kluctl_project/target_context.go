@@ -1,6 +1,7 @@
 package kluctl_project
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
@@ -21,7 +22,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(clientConfigGetter func(context string) (*rest.Config, error), targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfigGetter func(context string) (*rest.Config, error), targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func (p *LoadedKluctlProject) NewTargetContext(clientConfigGetter func(context s
 
 	var k *k8s.K8sCluster
 	if clientConfig != nil {
-		k, err = k8s.NewK8sCluster(clientConfig, dryRun)
+		k, err = k8s.NewK8sCluster(ctx, clientConfig, dryRun)
 		if err != nil {
 			return nil, err
 		}
@@ -110,12 +111,12 @@ func (p *LoadedKluctlProject) NewTargetContext(clientConfigGetter func(context s
 	if err != nil {
 		return nil, err
 	}
-	c, err := deployment.NewDeploymentCollection(d, images, inclusion, renderOutputDir, forSeal)
+	c, err := deployment.NewDeploymentCollection(ctx, d, images, inclusion, renderOutputDir, forSeal)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := &TargetContext{
+	targetCtx := &TargetContext{
 		KluctlProject:        p,
 		Target:               target,
 		ClusterConfig:        clusterConfig,
@@ -124,5 +125,5 @@ func (p *LoadedKluctlProject) NewTargetContext(clientConfigGetter func(context s
 		DeploymentCollection: c,
 	}
 
-	return ctx, nil
+	return targetCtx, nil
 }

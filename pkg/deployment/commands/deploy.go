@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -25,7 +26,7 @@ func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {
 	}
 }
 
-func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *types.CommandResult) error) (*types.CommandResult, error) {
+func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *types.CommandResult) error) (*types.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(dew)
@@ -46,7 +47,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *t
 	}
 
 	if diffResultCb != nil {
-		au := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, o)
+		au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
 		au.ApplyDeployments()
 
 		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
@@ -75,7 +76,7 @@ func (cmd *DeployCommand) Run(k *k8s.K8sCluster, diffResultCb func(diffResult *t
 	o.DryRun = k.DryRun
 	o.AbortOnError = cmd.AbortOnError
 
-	au := utils2.NewApplyDeploymentsUtil(dew, cmd.c.Deployments, ru, k, o)
+	au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
 	au.ApplyDeployments()
 
 	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())

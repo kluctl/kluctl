@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -61,7 +62,7 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 	return nil
 }
 
-func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.LoadedKluctlProject, targetName string, secretsLoader *seal.SecretsLoader) error {
+func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject, targetName string, secretsLoader *seal.SecretsLoader) error {
 	log.Infof("Sealing for target %s", targetName)
 
 	ptArgs := projectTargetCommandArgs{
@@ -72,7 +73,7 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.LoadedKluctlProject, t
 	ptArgs.targetFlags.Target = targetName
 
 	// pass forSeal=True so that .sealme files are rendered as well
-	return withProjectTargetCommandContext(ptArgs, p, func(ctx *commandCtx) error {
+	return withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
 		err := loadSecrets(ctx, ctx.targetCtx.Target, secretsLoader)
 		if err != nil {
 			return err
@@ -119,7 +120,7 @@ func (cmd *sealCmd) runCmdSealForTarget(p *kluctl_project.LoadedKluctlProject, t
 }
 
 func (cmd *sealCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
 		secretsLoader := seal.NewSecretsLoader(p, cmd.SecretsDir)
@@ -155,7 +156,7 @@ func (cmd *sealCmd) Run() error {
 				sealTarget = baseTarget
 			}
 
-			err := cmd.runCmdSealForTarget(p, sealTarget.Name, secretsLoader)
+			err := cmd.runCmdSealForTarget(ctx, p, sealTarget.Name, secretsLoader)
 			if err != nil {
 				log.Warningf("Sealing for target %s failed: %v", sealTarget.Name, err)
 				hadError = true
