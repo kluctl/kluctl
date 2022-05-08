@@ -181,6 +181,16 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 			parsedDefault = x
 		}
 		cg.cmd.PersistentFlags().BoolVarP(v2.(*bool), name, shortFlag, parsedDefault, help)
+	case *int:
+		parsedDefault := 0
+		if defaultValue != "" {
+			x, err := strconv.ParseInt(defaultValue, 0, 32)
+			if err != nil {
+				return err
+			}
+			parsedDefault = int(x)
+		}
+		cg.cmd.PersistentFlags().IntVarP(v2.(*int), name, shortFlag, parsedDefault, help)
 	case *time.Duration:
 		var parsedDefault time.Duration
 		if defaultValue != "" {
