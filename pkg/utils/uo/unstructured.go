@@ -2,19 +2,7 @@ package uo
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-func CopyUnstructured(u *unstructured.Unstructured) *unstructured.Unstructured {
-	var ret unstructured.Unstructured
-	err := utils.DeepCopy(&ret.Object, &u.Object)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return &ret
-}
 
 func MergeStrMap(a map[string]string, b map[string]string) {
 	for k, v := range b {
