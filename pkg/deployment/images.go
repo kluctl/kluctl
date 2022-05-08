@@ -13,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -52,6 +53,9 @@ func (images *Images) SeenImages(simple bool) []types.FixedImage {
 			ret = append(ret, fi)
 		}
 	}
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Image < ret[j].Image
+	})
 	return ret
 }
 
