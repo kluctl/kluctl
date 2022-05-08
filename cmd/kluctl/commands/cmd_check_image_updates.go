@@ -3,9 +3,9 @@ package commands
 import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"regexp"
 	"sort"
@@ -80,7 +80,7 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 		for _, image := range images {
 			s := strings.SplitN(image, ":", 2)
 			if len(s) == 1 {
-				log.Warningf("%s: Ignoring image %s as it doesn't specify a tag", ref.String(), image)
+				status.Warning(ctx.ctx, "%s: Ignoring image %s as it doesn't specify a tag", ref.String(), image)
 				continue
 			}
 			repo := s[0]
@@ -88,7 +88,7 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 			repoTags, _ := imageTags[repo].([]string)
 			err, _ := imageTags[repo].(error)
 			if err != nil {
-				log.Warningf("%s: Failed to list tags for %s. %v", ref.String(), repo, err)
+				status.Warning(ctx.ctx, "%s: Failed to list tags for %s. %v", ref.String(), repo, err)
 				continue
 			}
 

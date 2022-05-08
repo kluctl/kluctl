@@ -107,7 +107,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfig
 	}
 	varsCtx.UpdateChild("target", targetVars)
 
-	d, err := deployment.NewDeploymentProject(k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
+	d, err := deployment.NewDeploymentProject(ctx, k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
 	if err != nil {
 		return nil, err
 	}

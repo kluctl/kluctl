@@ -176,7 +176,7 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 			if err != nil {
 				return err
 			}
-			return chart.Render(k)
+			return chart.Render(di.Project.ctx, k)
 		})
 		return nil
 	})

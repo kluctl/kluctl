@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	goversion "github.com/hashicorp/go-version"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -531,11 +531,11 @@ func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace 
 		for _, o := range x.Items {
 			b, err := json.Marshal(o)
 			if err != nil {
-				log.Panic(err)
+				panic(err)
 			}
 			u, err := uo.FromString(string(b))
 			if err != nil {
-				log.Panic(err)
+				panic(err)
 			}
 			u.SetK8sGVK(gvk)
 			result = append(result, u)
@@ -805,7 +805,6 @@ type PatchOptions struct {
 func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 	ref := o.GetK8sRef()
-	log2 := log.WithField("ref", ref)
 
 	data, err := yaml.WriteYamlBytes(o)
 	if err != nil {
@@ -822,7 +821,8 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 		po.Force = &options.ForceApply
 	}
 
-	log2.Debugf("patching")
+	status.Trace(k.ctx, "patching %s", ref.String())
+
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(k.ctx, ref.Name, types.ApplyPatchType, data, po)
@@ -842,7 +842,6 @@ type UpdateOptions struct {
 func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 	ref := o.GetK8sRef()
-	log2 := log.WithField("ref", ref)
 
 	updateOpts := v1.UpdateOptions{
 		FieldManager: "kluctl",
@@ -851,7 +850,8 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 		updateOpts.DryRun = []string{"All"}
 	}
 
-	log2.Debugf("updating")
+	status.Trace(k.ctx, "updating %s", ref.String())
+
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Update(k.ctx, o.ToUnstructured(), updateOpts)

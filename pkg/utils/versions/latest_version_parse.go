@@ -3,7 +3,6 @@ package versions
 import (
 	"fmt"
 	scanner "github.com/kluctl/kluctl/v2/pkg/utils/python_scanner"
-	log "github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
 )
@@ -27,7 +26,7 @@ func (p *preparsed) CurToken() rune {
 
 func (p *preparsed) CurTokenText() string {
 	if p.nextPos > len(p.tokens) {
-		log.Panicf("CurTokenText at EOF")
+		panic("CurTokenText at EOF")
 	}
 	return p.tokens[p.nextPos-1].text
 }

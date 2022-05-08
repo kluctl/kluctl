@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/jinzhu/copier"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 )
@@ -76,7 +75,7 @@ func FromString(s string) (*UnstructuredObject, error) {
 func FromStringMust(s string) *UnstructuredObject {
 	o, err := FromString(s)
 	if err != nil {
-		log.Panic(err)
+		panic(err)
 	}
 	return o
 }
@@ -112,7 +111,7 @@ func (uo *UnstructuredObject) Clone() *UnstructuredObject {
 		DeepCopy: true,
 	})
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return FromMap(c)
 }

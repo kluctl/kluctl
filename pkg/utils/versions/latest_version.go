@@ -3,7 +3,6 @@ package versions
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"log"
 	"regexp"
 	"strconv"
 )
@@ -43,7 +42,7 @@ func NewRegexVersionFilter(pattern string) (LatestVersionFilter, error) {
 func NewRegexVersionFilterMust(pattern string) LatestVersionFilter {
 	ret, err := NewRegexVersionFilter(pattern)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return ret
 }
@@ -114,7 +113,7 @@ func NewPrefixVersionFilter(prefix string, suffix LatestVersionFilter) (LatestVe
 func NewPrefixVersionFilterMust(prefix string, suffix LatestVersionFilter) LatestVersionFilter {
 	ret, err := NewPrefixVersionFilter(prefix, suffix)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return ret
 }

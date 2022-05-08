@@ -5,10 +5,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -237,7 +237,7 @@ func (c *LoadedKluctlProject) mergeClustersDirs(mergedClustersDir string, cluste
 
 	for _, ci := range clustersInfos {
 		if !utils.IsDirectory(ci.dir) {
-			log.Warningf("Cluster dir '%s' does not exist", ci.dir)
+			status.Warning(c.ctx, "Cluster dir '%s' does not exist", ci.dir)
 			continue
 		}
 		files, err := ioutil.ReadDir(ci.dir)

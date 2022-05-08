@@ -43,7 +43,7 @@ func (cmd *pruneCmd) Run() error {
 
 func (cmd *pruneCmd) runCmdPrune(ctx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(ctx.targetCtx.DeploymentCollection)
-	objects, err := cmd2.Run(ctx.targetCtx.K)
+	objects, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
 	if err != nil {
 		return err
 	}

@@ -2,8 +2,8 @@ package commands
 
 import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 )
 
@@ -37,7 +37,7 @@ func (cmd *renderCmd) Run() error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		log.Infof("Rendered into %s", ctx.targetCtx.DeploymentCollection.RenderDir)
+		status.Info(ctx.ctx, "Rendered into %s", ctx.targetCtx.DeploymentCollection.RenderDir)
 		return nil
 	})
 }

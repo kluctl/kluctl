@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"regexp"
@@ -192,7 +191,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 		}
 		remoteValue, found, err := remote.GetNestedField(p...)
 		if !found {
-			log.Fatalf("field '%s' not found in remote object...which can't be!", cause.Field)
+			panic(fmt.Sprintf("field '%s' not found in remote object...which can't be!", cause.Field))
 		}
 
 		overwrite := true

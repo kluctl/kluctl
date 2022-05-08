@@ -55,7 +55,7 @@ func (cmd *deleteCmd) Run() error {
 
 		cmd2.OverrideDeleteByLabels = deleteByLabels
 
-		objects, err := cmd2.Run(ctx.targetCtx.K)
+		objects, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
 		if err != nil {
 			return err
 		}

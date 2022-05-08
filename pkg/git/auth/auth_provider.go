@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 )
@@ -11,7 +12,7 @@ type AuthMethodAndCA struct {
 }
 
 type GitAuthProvider interface {
-	BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA
+	BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA
 }
 
 type GitAuthProviders struct {
@@ -26,9 +27,9 @@ func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider, last bool) {
 	}
 }
 
-func (a *GitAuthProviders) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
 	for _, p := range a.authProviders {
-		auth := p.BuildAuth(gitUrl)
+		auth := p.BuildAuth(ctx, gitUrl)
 		if auth.AuthMethod != nil {
 			return auth
 		}

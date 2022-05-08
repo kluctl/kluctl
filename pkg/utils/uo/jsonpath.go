@@ -3,7 +3,6 @@ package uo
 import (
 	"fmt"
 	"github.com/ohler55/ojg/jp"
-	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strings"
 )
@@ -58,7 +57,7 @@ func NewMyJsonPath(p string) (*MyJsonPath, error) {
 func NewMyJsonPathMust(p string) *MyJsonPath {
 	j, err := NewMyJsonPath(p)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return j
 }

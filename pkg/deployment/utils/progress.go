@@ -1,9 +1,10 @@
 package utils
 
 import (
+	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/mattn/go-isatty"
-	log "github.com/sirupsen/logrus"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
 	"math"
@@ -14,6 +15,7 @@ import (
 )
 
 type progressCtx struct {
+	ctx       context.Context
 	bar       *mpb.Bar
 	doLog     bool
 	total     int64
@@ -23,8 +25,9 @@ type progressCtx struct {
 	mutex     sync.Mutex
 }
 
-func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int, doLog bool) *progressCtx {
+func NewProgressCtx(ctx context.Context, p *mpb.Progress, name string, maxNameWidth int, doLog bool) *progressCtx {
 	pctx := &progressCtx{
+		ctx:       ctx,
 		status:    "Initializing...",
 		total:     -1,
 		name:      name,
@@ -52,23 +55,22 @@ func NewProgressCtx(p *mpb.Progress, name string, maxNameWidth int, doLog bool) 
 	return pctx
 }
 
-func (ctx *progressCtx) Logf(level log.Level, s string, args ...interface{}) {
+func (ctx *progressCtx) Infof(s string, args ...interface{}) {
 	if ctx.doLog {
-		s = fmt.Sprintf("%s: %s", ctx.name, s)
-		log.StandardLogger().Logf(level, s, args...)
+		status.Info(ctx.ctx, s, args...)
 	}
 }
 
-func (ctx *progressCtx) Infof(s string, args ...interface{}) {
-	ctx.Logf(log.InfoLevel, s, args...)
-}
-
 func (ctx *progressCtx) Warningf(s string, args ...interface{}) {
-	ctx.Logf(log.WarnLevel, s, args...)
+	if ctx.doLog {
+		status.Warning(ctx.ctx, s, args...)
+	}
 }
 
 func (ctx *progressCtx) Debugf(s string, args ...interface{}) {
-	ctx.Logf(log.DebugLevel, s, args...)
+	if ctx.doLog {
+		status.Trace(ctx.ctx, s, args...)
+	}
 }
 
 func (ctx *progressCtx) InfofAndStatus(s string, args ...interface{}) {

@@ -1,15 +1,16 @@
 package deployment
 
 import (
+	"context"
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -88,7 +89,7 @@ func (c *helmChart) buildHelmConfig() (*action.Configuration, error) {
 	}, nil
 }
 
-func (c *helmChart) Pull() error {
+func (c *helmChart) Pull(ctx context.Context) error {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return err
@@ -123,7 +124,7 @@ func (c *helmChart) Pull() error {
 	_ = os.RemoveAll(chartDir + fmt.Sprintf("-%s.tar.gz", a.Version))
 	_ = os.RemoveAll(chartDir + fmt.Sprintf("-%s.tgz", a.Version))
 	if out != "" {
-		log.Info(out)
+		status.PlainText(ctx, out)
 	}
 	if err != nil {
 		return err
@@ -177,19 +178,19 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 	return latestVersion, updated, nil
 }
 
-func (c *helmChart) Render(k *k8s.K8sCluster) error {
+func (c *helmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return err
 	}
-	err = c.doRender(k)
+	err = c.doRender(ctx, k)
 	if err != nil {
 		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", chartName, c.Config.ReleaseName, err)
 	}
 	return nil
 }
 
-func (c *helmChart) doRender(k *k8s.K8sCluster) error {
+func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	chartDir, err := c.GetChartDir()
 	if err != nil {
 		return err
@@ -264,7 +265,7 @@ func (c *helmChart) doRender(k *k8s.K8sCluster) error {
 	}
 
 	if chartRequested.Metadata.Deprecated {
-		log.Warningf("Chart %s is deprecated", *c.Config.ChartName)
+		status.Warning(ctx, "Chart %s is deprecated", *c.Config.ChartName)
 	}
 
 	rel, err := client.Run(chartRequested, vals)

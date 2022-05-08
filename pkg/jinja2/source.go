@@ -4,7 +4,6 @@ import (
 	"embed"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/embed_util"
-	log "github.com/sirupsen/logrus"
 	"path/filepath"
 )
 
@@ -17,7 +16,7 @@ var pythonSrcExtracted string
 func init() {
 	srcDir, err := extractSource()
 	if err != nil {
-		log.Panic(err)
+		panic(err)
 	}
 	pythonSrcExtracted = srcDir
 }

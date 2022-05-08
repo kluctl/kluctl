@@ -1,24 +1,27 @@
 package utils
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )
 
 type RemoteObjectUtils struct {
+	ctx              context.Context
 	dew              *DeploymentErrorsAndWarnings
 	remoteObjects    map[k8s2.ObjectRef]*uo.UnstructuredObject
 	remoteNamespaces map[string]*uo.UnstructuredObject
 	mutex            sync.Mutex
 }
 
-func NewRemoteObjectsUtil(dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
+func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
 	return &RemoteObjectUtils{
+		ctx:              ctx,
 		dew:              dew,
 		remoteObjects:    map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		remoteNamespaces: map[string]*uo.UnstructuredObject{},
@@ -30,7 +33,8 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		return nil
 	}
 
-	log.Infof("Getting remote objects by commonLabels")
+	status.Info(u.ctx, "Getting remote objects by commonLabels")
+
 	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels, false)
 	for gvk, aw := range apiWarnings {
 		u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
@@ -57,7 +61,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 	u.mutex.Unlock()
 
 	if len(notFoundRefsList) != 0 {
-		log.Infof("Getting %d additional remote objects", len(notFoundRefsList))
+		status.Info(u.ctx, "Getting %d additional remote objects", len(notFoundRefsList))
 		r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
 		for ref, aw := range apiWarnings {
 			u.dew.AddApiWarnings(ref, aw)
@@ -72,7 +76,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		u.mutex.Unlock()
 	}
 
-	log.Infof("Getting namespaces")
+	status.Info(u.ctx, "Getting namespaces")
 	r, _, err := k.ListObjects(schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",

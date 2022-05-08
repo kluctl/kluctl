@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"path/filepath"
 	"sync"
@@ -52,7 +52,7 @@ func (c *DeploymentCollection) createBarrierDummy(project *DeploymentProject) *D
 	}
 	di, err := NewDeploymentItem(project, c, tmpDiConfig, nil, 0)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return di
 }
@@ -67,7 +67,7 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		// we pre-checked directories, so this should not happen
-		log.Fatal(err)
+		panic(err)
 	}
 
 	if _, ok := indexes[absDir]; !ok {
@@ -86,7 +86,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 		if diConfig.Include != nil {
 			includedProject, ok := project.includes[i]
 			if !ok {
-				log.Fatalf("Did not find find index %d in project.includes", i)
+				panic(fmt.Sprintf("Did not find find index %d in project.includes", i))
 			}
 			ret2, err := c.collectDeployments(includedProject, indexes)
 			if err != nil {
@@ -110,7 +110,8 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 }
 
 func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
-	log.Infof("Rendering templates and Helm charts")
+	s := status.Start(c.ctx, "Rendering templates")
+	defer s.Failed()
 
 	wp := utils.NewDebuggerAwareWorkerPool(16)
 	defer wp.StopWait(false)
@@ -125,6 +126,10 @@ func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
+	s.Success()
+
+	s = status.Start(c.ctx, "Rendering Helm Charts")
+	defer s.Failed()
 
 	for _, d := range c.Deployments {
 		err := d.renderHelmCharts(k, wp)
@@ -137,6 +142,7 @@ func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 		return err
 	}
 
+	s.Success()
 	return nil
 }
 
@@ -155,7 +161,8 @@ func (c *DeploymentCollection) resolveSealedSecrets() error {
 }
 
 func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
-	log.Infof("Building kustomize objects")
+	s := status.Start(c.ctx, "Building kustomize objects")
+	defer s.Failed()
 
 	var wg sync.WaitGroup
 	var errs []error
@@ -192,6 +199,10 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 		}()
 	}
 	wg.Wait()
+
+	if len(errs) == 0 {
+		s.Success()
+	}
 
 	return utils.NewErrorListOrNil(errs)
 }

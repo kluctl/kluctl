@@ -1,15 +1,16 @@
 package seal
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	certUtil "k8s.io/client-go/util/cert"
@@ -21,7 +22,7 @@ const sealedSecretsKeyLabel = "sealedsecrets.bitnami.com/sealed-secrets-key"
 const secretName = "sealed-secrets-key-kluctl-bootstrap"
 const configMapName = "sealed-secrets-key-kluctl-bootstrap"
 
-func BootstrapSealedSecrets(k *k8s.K8sCluster, namespace string) error {
+func BootstrapSealedSecrets(ctx context.Context, k *k8s.K8sCluster, namespace string) error {
 	existing, _, err := k.GetSingleObject(k8s2.ObjectRef{
 		GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
 		Name: "sealedsecrets.bitnami.com",
@@ -41,7 +42,7 @@ func BootstrapSealedSecrets(k *k8s.K8sCluster, namespace string) error {
 		return nil
 	}
 
-	log.Infof("Bootstrapping sealed-secrets with a self-generated key")
+	status.Info(ctx, "Bootstrapping sealed-secrets with a self-generated key")
 
 	key, cert, err := crypto.GeneratePrivateKeyAndCert(2048, 10*365*24*time.Hour, "bootstrap.kluctl.io")
 	if err != nil {

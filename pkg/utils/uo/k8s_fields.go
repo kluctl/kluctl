@@ -1,8 +1,8 @@
 package uo
 
 import (
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
@@ -13,15 +13,15 @@ import (
 func (uo *UnstructuredObject) GetK8sGVK() schema.GroupVersionKind {
 	kind, _, err := uo.GetNestedString("kind")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	apiVersion, _, err := uo.GetNestedString("apiVersion")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	gv, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return schema.GroupVersionKind{
 		Group:   gv.Group,
@@ -33,11 +33,11 @@ func (uo *UnstructuredObject) GetK8sGVK() schema.GroupVersionKind {
 func (uo *UnstructuredObject) SetK8sGVK(gvk schema.GroupVersionKind) {
 	err := uo.SetNestedField(gvk.GroupVersion().String(), "apiVersion")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	err = uo.SetNestedField(gvk.Kind, "kind")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -48,7 +48,7 @@ func (uo *UnstructuredObject) SetK8sGVKs(g string, v string, k string) {
 func (uo *UnstructuredObject) GetK8sName() string {
 	s, _, err := uo.GetNestedString("metadata", "name")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return s
 }
@@ -56,14 +56,14 @@ func (uo *UnstructuredObject) GetK8sName() string {
 func (uo *UnstructuredObject) SetK8sName(name string) {
 	err := uo.SetNestedField(name, "metadata", "name")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
 func (uo *UnstructuredObject) GetK8sNamespace() string {
 	s, _, err := uo.GetNestedString("metadata", "namespace")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return s
 }
@@ -72,12 +72,12 @@ func (uo *UnstructuredObject) SetK8sNamespace(namespace string) {
 	if namespace != "" {
 		err := uo.SetNestedField(namespace, "metadata", "namespace")
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	} else {
 		err := uo.RemoveNestedField("metadata", "namespace")
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 
@@ -94,7 +94,7 @@ func (uo *UnstructuredObject) GetK8sRef() k8s.ObjectRef {
 func (uo *UnstructuredObject) GetK8sLabels() map[string]string {
 	ret, ok, err := uo.GetNestedStringMapCopy("metadata", "labels")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if !ok {
 		return map[string]string{}
@@ -112,7 +112,7 @@ func (uo *UnstructuredObject) SetK8sLabels(labels map[string]string) {
 func (uo *UnstructuredObject) GetK8sLabel(name string) *string {
 	ret, ok, err := uo.GetNestedString("metadata", "labels", name)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if !ok {
 		return nil
@@ -123,7 +123,7 @@ func (uo *UnstructuredObject) GetK8sLabel(name string) *string {
 func (uo *UnstructuredObject) SetK8sLabel(name string, value string) {
 	err := uo.SetNestedField(value, "metadata", "labels", name)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -142,7 +142,7 @@ func (uo *UnstructuredObject) GetK8sLabelsWithRegex(r interface{}) map[string]st
 func (uo *UnstructuredObject) GetK8sAnnotations() map[string]string {
 	ret, ok, err := uo.GetNestedStringMapCopy("metadata", "annotations")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if !ok {
 		return map[string]string{}
@@ -153,7 +153,7 @@ func (uo *UnstructuredObject) GetK8sAnnotations() map[string]string {
 func (uo *UnstructuredObject) GetK8sAnnotation(name string) *string {
 	ret, ok, err := uo.GetNestedString("metadata", "annotations", name)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	if !ok {
 		return nil
@@ -171,7 +171,7 @@ func (uo *UnstructuredObject) SetK8sAnnotations(annotations map[string]string) {
 func (uo *UnstructuredObject) SetK8sAnnotation(name string, value string) {
 	err := uo.SetNestedField(value, "metadata", "annotations", name)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }
 
@@ -198,7 +198,7 @@ func (uo *UnstructuredObject) SetK8sResourceVersion(rv string) {
 	} else {
 		err := uo.SetNestedField(rv, "metadata", "resourceVersion")
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 }
@@ -232,6 +232,6 @@ func (ui *UnstructuredObject) getRegexp(r interface{}) *regexp.Regexp {
 			return regexp.MustCompile(x)
 		}
 	}
-	log.Panicf("unknown type %s", reflect.TypeOf(r).String())
+	panic(fmt.Sprintf("unknown type %s", reflect.TypeOf(r).String()))
 	return nil
 }

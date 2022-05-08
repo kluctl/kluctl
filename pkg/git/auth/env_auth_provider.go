@@ -1,16 +1,17 @@
 package auth
 
 import (
+	"context"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 )
 
 type GitEnvAuthProvider struct {
 }
 
-func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
 	var la ListAuthProvider
 
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_GIT") {
@@ -26,7 +27,7 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 			ssh_key_path = utils.ExpandPath(ssh_key_path)
 			b, err := ioutil.ReadFile(ssh_key_path)
 			if err != nil {
-				log.Debugf("Failed to read key %s: %v", ssh_key_path, err)
+				status.Trace(ctx, "Failed to read key %s: %v", ssh_key_path, err)
 			} else {
 				e.SshKey = b
 			}
@@ -36,12 +37,12 @@ func (a *GitEnvAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 			ca_bundle_path = utils.ExpandPath(ca_bundle_path)
 			b, err := ioutil.ReadFile(ca_bundle_path)
 			if err != nil {
-				log.Debugf("Failed to read ca bundle %s: %v", ca_bundle_path, err)
+				status.Trace(ctx, "Failed to read ca bundle %s: %v", ca_bundle_path, err)
 			} else {
 				e.CABundle = b
 			}
 		}
 		la.AddEntry(e)
 	}
-	return la.BuildAuth(gitUrl)
+	return la.BuildAuth(ctx, gitUrl)
 }

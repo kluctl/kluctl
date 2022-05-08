@@ -16,12 +16,12 @@ type ValidateCommand struct {
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(c *deployment.DeploymentCollection) *ValidateCommand {
+func NewValidateCommand(ctx context.Context, c *deployment.DeploymentCollection) *ValidateCommand {
 	cmd := &ValidateCommand{
 		c:   c,
 		dew: utils2.NewDeploymentErrorsAndWarnings(),
 	}
-	cmd.ru = utils2.NewRemoteObjectsUtil(cmd.dew)
+	cmd.ru = utils2.NewRemoteObjectsUtil(ctx, cmd.dew)
 	return cmd
 }
 
@@ -40,7 +40,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 		if !d.CheckInclusionForDeploy() {
 			continue
 		}
-		au := ad.NewApplyUtil(ctx, utils2.NewProgressCtx(nil, d.RelToProjectItemDir, 0, true))
+		au := ad.NewApplyUtil(ctx, utils2.NewProgressCtx(ctx, nil, d.RelToProjectItemDir, 0, true))
 		h := utils2.NewHooksUtil(au)
 		for _, o := range d.Objects {
 			hook := h.GetHook(o)

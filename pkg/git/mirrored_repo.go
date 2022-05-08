@@ -8,8 +8,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -70,7 +70,7 @@ func (g *MirroredGitRepo) Lock() error {
 func (g *MirroredGitRepo) Unlock() error {
 	err := g.fileLock.Unlock()
 	if err != nil {
-		log.Warningf("Unlock of %s failed: %v", g.fileLock.Path(), err)
+		status.Warning(g.ctx, "Unlock of %s failed: %v", g.fileLock.Path(), err)
 		return err
 	}
 	return nil
@@ -170,14 +170,13 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) update(repoDir string, authProviders *auth2.GitAuthProviders) error {
-	log.Infof("Updating mirror repo: url='%v'", g.url.String())
+func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string, authProviders *auth2.GitAuthProviders) error {
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		return err
 	}
 
-	auth := authProviders.BuildAuth(g.url)
+	auth := authProviders.BuildAuth(g.ctx, g.url)
 
 	remote, err := r.Remote("origin")
 	if err != nil {
@@ -260,20 +259,19 @@ func (g *MirroredGitRepo) update(repoDir string, authProviders *auth2.GitAuthPro
 
 	_ = ioutil.WriteFile(filepath.Join(g.mirrorDir, ".update-time"), []byte(time.Now().Format(time.RFC3339Nano)), 0644)
 
+	s.Success()
 	return nil
 }
 
-func (g *MirroredGitRepo) cloneOrUpdate(authProviders *auth2.GitAuthProviders) error {
+func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext, authProviders *auth2.GitAuthProviders) error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	if utils.IsFile(initMarker) {
-		return g.update(g.mirrorDir, authProviders)
+		return g.update(s, g.mirrorDir, authProviders)
 	}
 	err := g.cleanupMirrorDir()
 	if err != nil {
 		return err
 	}
-
-	log.Infof("Cloning mirror repo at %v", g.mirrorDir)
 
 	tmpMirrorDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "mirror-")
 	if err != nil {
@@ -298,7 +296,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(authProviders *auth2.GitAuthProviders) e
 		return err
 	}
 
-	err = g.update(tmpMirrorDir, authProviders)
+	err = g.update(s, tmpMirrorDir, authProviders)
 	if err != nil {
 		return err
 	}
@@ -321,20 +319,23 @@ func (g *MirroredGitRepo) cloneOrUpdate(authProviders *auth2.GitAuthProviders) e
 }
 
 func (g *MirroredGitRepo) Update(authProviders *auth2.GitAuthProviders) error {
-	err := g.cloneOrUpdate(authProviders)
+	s := status.Start(g.ctx, "Updating git cache for %s", g.url.String())
+	err := g.cloneOrUpdate(s, authProviders)
 	if err != nil {
+		s.FailedWithMessage(err.Error())
 		return err
 	}
 	g.hasUpdated = true
+	s.Success()
 	return nil
 }
 
 func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 	if !g.fileLock.Locked() || !g.hasUpdated {
-		log.Fatalf("tried to clone from a project that is not locked/updated")
+		panic("tried to clone from a project that is not locked/updated")
 	}
 
-	log.Debugf("Cloning git project: url='%s', ref='%s', target='%s'", g.url.String(), ref, targetDir)
+	status.Trace(g.ctx, "Cloning git project: url='%s', ref='%s', target='%s'", g.url.String(), ref, targetDir)
 
 	err := PoorMansClone(g.mirrorDir, targetDir, ref)
 	if err != nil {

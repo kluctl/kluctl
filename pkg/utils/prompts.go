@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/mattn/go-isatty"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 	"os"
 	"strings"
 	"syscall"
 )
+
+func doWarn(f string, args ...any) {
+	_, _ = fmt.Fprintf(os.Stderr, f, args...)
+}
 
 // AskForConfirmation uses Scanln to parse user input. A user must type in "yes" or "no" and
 // then press enter. It has fuzzy matching, so "y", "Y", "yes", "YES", and "Yes" all count as
@@ -18,13 +21,13 @@ import (
 // before calling askForConfirmation. E.g. fmt.Println("WARNING: Are you sure? (yes/no)")
 func AskForConfirmation(prompt string) bool {
 	if !isatty.IsTerminal(os.Stderr.Fd()) {
-		log.Warningf("Not a terminal, suppressed prompt: %s", prompt)
+		doWarn("Not a terminal, suppressed prompt: %s", prompt)
 		return false
 	}
 
 	_, err := os.Stderr.WriteString(prompt + " (y/N) ")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	var response string
@@ -47,7 +50,7 @@ func AskForConfirmation(prompt string) bool {
 func AskForPassword(prompt string) (string, error) {
 	if !isatty.IsTerminal(os.Stderr.Fd()) {
 		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
-		log.Warning(err)
+		doWarn(err.Error())
 		return "", err
 	}
 
@@ -69,7 +72,7 @@ func AskForPassword(prompt string) (string, error) {
 func AskForCredentials(prompt string) (string, string, error) {
 	if !isatty.IsTerminal(os.Stderr.Fd()) {
 		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
-		log.Warning(err)
+		doWarn(err.Error())
 		return "", "", err
 	}
 

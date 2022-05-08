@@ -37,7 +37,7 @@ func (cmd *validateCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		startTime := time.Now()
-		cmd2 := commands.NewValidateCommand(ctx.targetCtx.DeploymentCollection)
+		cmd2 := commands.NewValidateCommand(ctx.ctx, ctx.targetCtx.DeploymentCollection)
 		for true {
 			result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
 			if err != nil {

@@ -1,14 +1,15 @@
 package deployment
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -17,6 +18,8 @@ import (
 var warnOnce utils.OnceByKey
 
 type DeploymentProject struct {
+	ctx context.Context
+
 	VarsCtx          *jinja2.VarsCtx
 	dir              string
 	SealedSecretsDir string
@@ -29,8 +32,9 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(k *k8s.K8sCluster, varsCtx *jinja2.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsCtx *jinja2.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
+		ctx:              ctx,
 		VarsCtx:          varsCtx.Copy(),
 		dir:              dir,
 		SealedSecretsDir: sealedSecretsDir,
@@ -86,14 +90,14 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	}
 	if len(p.Config.KustomizeDirs) != 0 {
 		warnOnce.Do("kustomizeDirs", func() {
-			log.Warningf("'kustomizeDirs' is deprecated, use 'deployments' instead")
+			status.Warning(p.ctx, "'kustomizeDirs' is deprecated, use 'deployments' instead")
 		})
 		p.Config.Deployments = p.Config.KustomizeDirs
 		p.Config.KustomizeDirs = nil
 	}
 	if len(p.Config.Includes) != 0 {
 		warnOnce.Do("includes", func() {
-			log.Warningf("'includes' is deprecated, use 'deployments' instead")
+			status.Warning(p.ctx, "'includes' is deprecated, use 'deployments' instead")
 		})
 		for _, inc := range p.Config.Includes {
 			c := *inc
@@ -127,7 +131,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	}
 	if len(p.Config.DeleteByLabels) != 0 {
 		warnOnce.Do("deleteByLabels", func() {
-			log.Warningf("'deleteByLabels' is deprecated and ignored from now on")
+			status.Warning(p.ctx, "'deleteByLabels' is deprecated and ignored from now on")
 		})
 		if !reflect.DeepEqual(p.Config.CommonLabels, p.Config.DeleteByLabels) {
 			return fmt.Errorf("commonLabels and deleteByLabels do not match")
@@ -196,7 +200,7 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 			return err
 		}
 
-		newProject, err := NewDeploymentProject(k, varsCtx, incDir, p.SealedSecretsDir, p)
+		newProject, err := NewDeploymentProject(p.ctx, k, varsCtx, incDir, p.SealedSecretsDir, p)
 		if err != nil {
 			return err
 		}

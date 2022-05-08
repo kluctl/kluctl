@@ -1,10 +1,11 @@
 package auth
 
 import (
+	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	log "github.com/sirupsen/logrus"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"strings"
 )
 
@@ -28,7 +29,7 @@ func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 	a.entries = append(a.entries, e)
 }
 
-func (a *ListAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
 	for _, e := range a.entries {
 		if e.Host != "*" && e.Host != gitUrl.Hostname() {
 			continue
@@ -64,7 +65,7 @@ func (a *ListAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 			}
 			a, err := ssh.NewPublicKeys(username, e.SshKey, "")
 			if err != nil {
-				log.Debugf("Failed to parse private key: %v", err)
+				status.Trace(ctx, "Failed to parse private key: %v", err)
 			} else {
 				a.HostKeyCallback = buildVerifyHostCallback(e.KnownHosts)
 				return AuthMethodAndCA{

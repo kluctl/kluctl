@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
@@ -77,7 +77,7 @@ func buildClusterCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.
 			return nil
 		})
 		if err != nil {
-			log.Error(err)
+			status.Error(cliCtx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		return ret, cobra.ShellCompDirectiveDefault
@@ -94,7 +94,7 @@ func buildTargetCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.C
 			return nil
 		})
 		if err != nil {
-			log.Error(err)
+			status.Error(cliCtx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		return ret, cobra.ShellCompDirectiveDefault
@@ -165,7 +165,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 			return nil
 		})
 		if err != nil {
-			log.Error(err)
+			status.Error(cliCtx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		if forDirs {
@@ -206,7 +206,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
 						err := ctx.targetCtx.DeploymentCollection.Prepare(nil)
 						if err != nil {
-							log.Error(err)
+							status.Error(cliCtx, err.Error())
 						}
 
 						mutex.Lock()
@@ -233,7 +233,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 			return nil
 		})
 		if err != nil {
-			log.Error(err)
+			status.Error(cliCtx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		return images.ListKeys(), cobra.ShellCompDirectiveNoSpace

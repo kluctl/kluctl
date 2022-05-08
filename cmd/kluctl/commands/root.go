@@ -16,12 +16,14 @@ limitations under the License.
 package commands
 
 import (
+	"context"
+	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"net/http"
@@ -34,8 +36,8 @@ import (
 const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/latest"
 
 type cli struct {
-	Verbosity     string `group:"global" short:"v" help:"Log level (debug, info, warn, error, fatal, panic)." default:"info"`
-	NoUpdateCheck bool   `group:"global" help:"Disable update check on startup"`
+	Debug         bool `group:"global" help:"Enable debug logging"`
+	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
 
 	Archive           archiveCmd           `cmd:"" help:"Write project and all related components into single tgz"`
 	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
@@ -63,14 +65,12 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 }
-var globalFlagGroup = &flagGroups[len(flagGroups)-1]
 
-func (c *cli) setupLogs() error {
-	lvl, err := log.ParseLevel(c.Verbosity)
-	if err != nil {
-		return err
-	}
-	log.SetLevel(lvl)
+var cliCtx = context.Background()
+
+func (c *cli) setupStatusHandler() error {
+	sh := status.NewMultiLineStatusHandler(os.Stderr, c.Debug)
+	cliCtx = status.NewContext(cliCtx, sh)
 	return nil
 }
 
@@ -98,7 +98,8 @@ func (c *cli) checkNewVersion() {
 	versionCheckState.LastVersionCheck = time.Now()
 	_ = yaml.WriteYamlFile(versionCheckPath, &versionCheckState)
 
-	log.Debugf("Checking for new kluctl version")
+	s := status.Start(cliCtx, "Checking for new kluctl version")
+	defer s.Failed()
 
 	r, err := http.Get(latestReleaseUrl)
 	if err != nil {
@@ -122,12 +123,15 @@ func (c *cli) checkNewVersion() {
 	latestVersion := versions.LooseVersion(latestVersionStr)
 	localVersion := versions.LooseVersion(version.GetVersion())
 	if localVersion.Less(latestVersion, true) {
-		log.Warningf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion, latestVersion)
+		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion, latestVersion))
+	} else {
+		s.Update("Your kluctl version is up-to-date")
 	}
+	s.Success()
 }
 
 func (c *cli) preRun() error {
-	if err := c.setupLogs(); err != nil {
+	if err := c.setupStatusHandler(); err != nil {
 		return err
 	}
 	c.checkNewVersion()
@@ -141,7 +145,7 @@ func initViper() {
 	viper.AddConfigPath("$HOME/.kluctl")
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			log.Error(err)
+			status.Error(cliCtx, err.Error())
 			os.Exit(1)
 		}
 	}
@@ -160,7 +164,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		flagGroups)
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
 	rootCmd.Version = version.GetVersion()
@@ -178,7 +182,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	err = rootCmd.Execute()
 	if err != nil {
-		log.Errorf("%v", err)
+		status.Error(cliCtx, err.Error())
 		os.Exit(1)
 	}
 }

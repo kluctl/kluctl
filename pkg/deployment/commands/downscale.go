@@ -26,7 +26,7 @@ func (cmd *DownscaleCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	ru := utils2.NewRemoteObjectsUtil(dew)
+	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
 	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (cmd *DownscaleCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types
 		if !d.CheckInclusionForDeploy() {
 			continue
 		}
-		au := ad.NewApplyUtil(ctx, utils2.NewProgressCtx(nil, d.RelToProjectItemDir, 0, true))
+		au := ad.NewApplyUtil(ctx, utils2.NewProgressCtx(ctx, nil, d.RelToProjectItemDir, 0, true))
 		for _, o := range d.Objects {
 			o := o
 			ref := o.GetK8sRef()

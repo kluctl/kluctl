@@ -28,7 +28,7 @@ func NewDiffCommand(c *deployment.DeploymentCollection) *DiffCommand {
 func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
-	ru := utils.NewRemoteObjectsUtil(dew)
+	ru := utils.NewRemoteObjectsUtil(ctx, dew)
 	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
 	if err != nil {
 		return nil, err

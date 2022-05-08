@@ -9,7 +9,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	diff2 "github.com/r3labs/diff/v2"
-	"log"
 	"reflect"
 	"sort"
 	"strconv"
@@ -125,7 +124,7 @@ func stableSortChanges(changes []types.Change) {
 	for i, _ := range changes {
 		y, err := yaml.WriteYamlString(changes[i])
 		if err != nil {
-			log.Panic(err)
+			panic(err)
 		}
 		changesStrs[i] = y
 		changesIndexes[i] = i

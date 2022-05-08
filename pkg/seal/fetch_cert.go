@@ -1,31 +1,32 @@
 package seal
 
 import (
+	"context"
 	"crypto/rsa"
 	"errors"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/cert"
 )
 
-func fetchCert(k *k8s.K8sCluster, namespace string, controllerName string) (*rsa.PublicKey, error) {
+func fetchCert(ctx context.Context, k *k8s.K8sCluster, namespace string, controllerName string) (*rsa.PublicKey, error) {
 	certData, err := openCertFromController(k, namespace, controllerName)
 	if err != nil {
 		if controllerName == "sealed-secrets-controller" {
 			s2, err2 := openCertFromController(k, namespace, "sealed-secrets")
 			if err2 == nil {
-				log.Warningf("Looks like you have sealed-secrets controller installed with name 'sealed-secrets', which comes from a legacy kluctl version that deployed it with a non-default name. Please consider re-deploying sealed-secrets operator manually.")
+				status.Warning(ctx, "Looks like you have sealed-secrets controller installed with name 'sealed-secrets', which comes from a legacy kluctl version that deployed it with a non-default name. Please consider re-deploying sealed-secrets operator manually.")
 				err = nil
 				certData = s2
 			}
 		}
 
 		if err != nil {
-			log.Warningf("Failed to retrieve public certificate from sealed-secrets-controller, re-trying with bootstrap secret")
+			status.Warning(ctx, "Failed to retrieve public certificate from sealed-secrets-controller, re-trying with bootstrap secret")
 			certData, err = openCertFromBootstrap(k, namespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve sealed secrets public key: %w", err)

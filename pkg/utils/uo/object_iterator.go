@@ -1,9 +1,5 @@
 package uo
 
-import (
-	log "github.com/sirupsen/logrus"
-)
-
 type ObjectIteratorFunc func(it *ObjectIterator) error
 type ObjectIterator struct {
 	path []interface{}
@@ -72,7 +68,7 @@ func (it *ObjectIterator) iterateInterface() error {
 func (it *ObjectIterator) iterateMap() error {
 	m, ok := it.Value().(map[string]interface{})
 	if !ok {
-		log.Fatalf("!ok")
+		panic("!ok")
 	}
 
 	for k, v := range m {
@@ -92,7 +88,7 @@ func (it *ObjectIterator) iterateMap() error {
 func (it *ObjectIterator) iterateList() error {
 	l, ok := it.Value().([]interface{})
 	if !ok {
-		log.Fatalf("!ok")
+		panic("!ok")
 	}
 
 	for i, e := range l {

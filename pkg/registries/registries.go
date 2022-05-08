@@ -12,9 +12,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
@@ -297,19 +297,19 @@ func (rh *RegistryHelper) writeCachedResponse(key string, data []byte) {
 	if !utils.Exists(filepath.Dir(cachePath)) {
 		err := os.MkdirAll(filepath.Dir(cachePath), 0o700)
 		if err != nil {
-			log.Warningf("writeCachedResponse failed: %v", err)
+			status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 			return
 		}
 	}
 
 	err := ioutil.WriteFile(cachePath+".tmp", data, 0o600)
 	if err != nil {
-		log.Warningf("writeCachedResponse failed: %v", err)
+		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 		return
 	}
 	err = os.Rename(cachePath+".tmp", cachePath)
 	if err != nil {
-		log.Warningf("writeCachedResponse failed: %v", err)
+		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 		return
 	}
 }

@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"regexp"
 	"strconv"
@@ -18,7 +17,7 @@ func ParseEnvConfigSets(prefix string) map[int]map[string]string {
 	for _, e := range os.Environ() {
 		eq := strings.Index(e, "=")
 		if eq == -1 {
-			log.Panicf("unexpected env var %s", e)
+			panic(fmt.Sprintf("unexpected env var %s", e))
 		}
 		n := e[:eq]
 		v := e[eq+1:]

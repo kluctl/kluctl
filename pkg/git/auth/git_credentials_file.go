@@ -2,10 +2,11 @@ package auth
 
 import (
 	"bufio"
+	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	giturls "github.com/whilp/git-urls"
 	"os"
 	"path/filepath"
@@ -14,28 +15,28 @@ import (
 type GitCredentialsFileAuthProvider struct {
 }
 
-func (a *GitCredentialsFileAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
 	if gitUrl.Scheme != "http" && gitUrl.Scheme != "https" {
 		return AuthMethodAndCA{}
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Warningf("Could not determine home directory: %v", err)
+		status.Warning(ctx, "Could not determine home directory: %v", err)
 		return AuthMethodAndCA{}
 	}
-	auth := a.tryBuildAuth(gitUrl, filepath.Join(home, ".git-credentials"))
+	auth := a.tryBuildAuth(ctx, gitUrl, filepath.Join(home, ".git-credentials"))
 	if auth != nil {
 		return *auth
 	}
 
 	if xdgHome, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgHome != "" {
-		auth = a.tryBuildAuth(gitUrl, filepath.Join(xdgHome, ".git-credentials"))
+		auth = a.tryBuildAuth(ctx, gitUrl, filepath.Join(xdgHome, ".git-credentials"))
 		if auth != nil {
 			return *auth
 		}
 	} else {
-		auth = a.tryBuildAuth(gitUrl, filepath.Join(home, ".config/.git-credentials"))
+		auth = a.tryBuildAuth(ctx, gitUrl, filepath.Join(home, ".config/.git-credentials"))
 		if auth != nil {
 			return *auth
 		}
@@ -43,14 +44,14 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMe
 	return AuthMethodAndCA{}
 }
 
-func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
+func (a *GitCredentialsFileAuthProvider) tryBuildAuth(ctx context.Context, gitUrl git_url.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
 	if !utils.IsFile(gitCredentialsPath) {
 		return nil
 	}
 
 	f, err := os.Open(gitCredentialsPath)
 	if err != nil {
-		log.Warningf("Failed to open %s: %v", gitCredentialsPath, err)
+		status.Warning(ctx, "Failed to open %s: %v", gitCredentialsPath, err)
 		return nil
 	}
 	defer f.Close()

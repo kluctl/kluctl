@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -17,10 +18,10 @@ func NewPruneCommand(c *deployment.DeploymentCollection) *PruneCommand {
 	}
 }
 
-func (cmd *PruneCommand) Run(k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
+func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	ru := utils2.NewRemoteObjectsUtil(dew)
+	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
 	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), nil)
 	if err != nil {
 		return nil, err

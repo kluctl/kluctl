@@ -7,12 +7,12 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
-	log "github.com/sirupsen/logrus"
 	"github.com/vbauerster/mpb/v7"
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -561,7 +561,7 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 }
 
 func (a *ApplyDeploymentsUtil) ApplyDeployments() {
-	log.Infof("Running server-side apply for all objects")
+	status.Info(a.ctx, "Running server-side apply for all objects")
 
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(8)
@@ -592,9 +592,9 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 		progressName := a.buildProgressName(d)
 		var pctx *progressCtx
 		if progressName != nil {
-			pctx = NewProgressCtx(p, *progressName, maxNameLen, true)
+			pctx = NewProgressCtx(a.ctx, p, *progressName, maxNameLen, true)
 		} else {
-			pctx = NewProgressCtx(nil, "", 0, false)
+			pctx = NewProgressCtx(a.ctx, nil, "", 0, false)
 		}
 		a2 := a.NewApplyUtil(a.ctx, pctx)
 
@@ -609,7 +609,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
 		if barrier {
-			bpctx := NewProgressCtx(p, "<barrier>", maxNameLen, true)
+			bpctx := NewProgressCtx(a.ctx, p, "<barrier>", maxNameLen, true)
 			bpctx.SetTotal(1)
 
 			bpctx.InfofAndStatus("Waiting on barrier...")
@@ -678,7 +678,7 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 		a.dew.AddApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsConflict(err) {
-				log.Debugf("Conflict while patching %s. Retrying...", ref.String())
+				status.Trace(a.ctx, "Conflict while patching %s. Retrying...", ref.String())
 				continue
 			} else {
 				a.HandleError(ref, err)

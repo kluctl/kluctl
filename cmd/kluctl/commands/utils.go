@@ -11,9 +11,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -51,7 +51,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 
 	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
 	if err != nil && projectFlags.FromArchive == "" {
-		log.Warning("Failed to detect git project root. This might cause follow-up errors")
+		status.Warning(cliCtx, "", "Failed to detect git project root. This might cause follow-up errors")
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -70,8 +70,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		GitUpdateInterval:   projectFlags.GitCacheUpdateInterval,
 	}
 
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, projectFlags.Timeout)
+	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
 	defer cancel()
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
 	if err != nil {

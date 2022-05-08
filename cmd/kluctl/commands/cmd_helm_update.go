@@ -1,11 +1,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
-	log "github.com/sirupsen/logrus"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"io/fs"
 	"path/filepath"
 )
@@ -20,7 +21,7 @@ func (cmd *helmUpdateCmd) Help() string {
 	return `Optionally performs the actual upgrade and/or add a commit to version control.`
 }
 
-func (cmd *helmUpdateCmd) Run() error {
+func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	rootPath := "."
 	if cmd.LocalDeployment != "" {
 		rootPath = cmd.LocalDeployment
@@ -37,6 +38,11 @@ func (cmd *helmUpdateCmd) Run() error {
 			if err != nil {
 				return err
 			}
+
+			statusPrefix := filepath.Base(p)
+			s := status.Start(ctx, "%s: Checking for updates", statusPrefix)
+			defer s.Failed()
+
 			newVersion, updated, err := chart.CheckUpdate()
 			if err != nil {
 				return err
@@ -44,11 +50,12 @@ func (cmd *helmUpdateCmd) Run() error {
 			if !updated {
 				return nil
 			}
-			log.Infof("Chart %s has new version %s available. Old version is %s.", p, newVersion, *chart.Config.ChartVersion)
+			s.Update(fmt.Sprintf("Chart has new version %s available. Old version is %s.", newVersion, *chart.Config.ChartVersion))
 
 			if cmd.Upgrade {
 				if chart.Config.SkipUpdate != nil && *chart.Config.SkipUpdate {
-					log.Infof("NOT upgrading chart %s as skipUpdate was set to true", p)
+					s.Update("%s: NOT upgrading chart as skipUpdate was set to true", statusPrefix)
+					s.Success()
 					return nil
 				}
 
@@ -75,8 +82,10 @@ func (cmd *helmUpdateCmd) Run() error {
 					return err
 				}
 
-				log.Infof("Pulling for %s", p)
-				err = chart.Pull()
+				s.Update("%s: Pulling new version", statusPrefix)
+				defer s.Failed()
+
+				err = chart.Pull(ctx)
 				if err != nil {
 					return err
 				}
@@ -93,8 +102,10 @@ func (cmd *helmUpdateCmd) Run() error {
 				}
 
 				if cmd.Commit {
-					msg := fmt.Sprintf("Updated helm chart %s from %s to %s", filepath.Dir(p), oldVersion, newVersion)
-					log.Infof("Committing: %s", msg)
+					commitMsg := fmt.Sprintf("Updated helm chart %s from %s to %s", filepath.Dir(p), oldVersion, newVersion)
+
+					s.Update(fmt.Sprintf("%s: Updating chart from %s to %s", statusPrefix, oldVersion, newVersion))
+
 					r, err := git.PlainOpen(gitRootPath)
 					if err != nil {
 						return err
@@ -117,11 +128,12 @@ func (cmd *helmUpdateCmd) Run() error {
 							return err
 						}
 					}
-					_, err = wt.Commit(msg, &git.CommitOptions{})
+					_, err = wt.Commit(commitMsg, &git.CommitOptions{})
 					if err != nil {
 						return err
 					}
 				}
+				s.Success()
 			}
 		}
 		return nil

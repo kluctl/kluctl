@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/embed_util/packer"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,12 +22,12 @@ func pipWheel() {
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		log.Panic(err)
+		panic(err)
 	}
 
 	wheels, err := os.ReadDir("python_src/wheel")
 	if err != nil {
-		log.Panic(err)
+		panic(err)
 	}
 	for _, w := range wheels {
 		if !strings.HasSuffix(w.Name(), ".whl") {
@@ -40,17 +39,17 @@ func pipWheel() {
 
 		err = cmd.Run()
 		if err != nil {
-			log.Panic(err)
+			panic(err)
 		}
 
 		err = os.Remove(filepath.Join("python_src/wheel", w.Name()))
 		if err != nil {
-			log.Panic(err)
+			panic(err)
 		}
 	}
 
 	err = packer.Pack("embed/python_src.tar.gz", "python_src", "*")
 	if err != nil {
-		log.Panic(err)
+		panic(err)
 	}
 }

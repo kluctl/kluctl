@@ -5,11 +5,11 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"reflect"
 	"regexp"
 	"sort"
@@ -51,7 +51,7 @@ func (c *LoadedKluctlProject) loadTargets() error {
 			if targetInfo.refPattern == nil {
 				return err
 			}
-			log.Warningf("Failed to load dynamic target config for project: %v", err)
+			status.Warning(c.ctx, "Failed to load dynamic target config for project: %v", err)
 			continue
 		}
 
@@ -61,7 +61,7 @@ func (c *LoadedKluctlProject) loadTargets() error {
 		}
 
 		if _, ok := targetNames[target.Name]; ok {
-			log.Warningf("Duplicate target %s", target.Name)
+			status.Warning(c.ctx, "Duplicate target %s", target.Name)
 		} else {
 			targetNames[target.Name] = true
 			c.DynamicTargets = append(c.DynamicTargets, &types.DynamicTarget{

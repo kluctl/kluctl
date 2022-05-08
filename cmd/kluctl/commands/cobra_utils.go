@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -302,7 +301,7 @@ func (c *rootCommand) buildGroupedFlagSets(cg *commandAndGroups) map[string]*pfl
 		x.cmd.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
 			group, ok := x.groups[flag.Name]
 			if !ok {
-				log.Panicf("group for %s not found", flag.Name)
+				panic(fmt.Sprintf("group for %s not found", flag.Name))
 			}
 			fl, ok := flagsByGroups[group]
 			if !ok {

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"github.com/jinzhu/copier"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,7 +17,7 @@ func GetTmpBaseDir() string {
 	createTmpBaseDirOnce.Do(func() {
 		err := os.MkdirAll(dir, 0o700)
 		if err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	})
 	return dir

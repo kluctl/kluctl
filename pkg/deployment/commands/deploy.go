@@ -29,7 +29,7 @@ func NewDeployCommand(c *deployment.DeploymentCollection) *DeployCommand {
 func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *types.CommandResult) error) (*types.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	ru := utils2.NewRemoteObjectsUtil(dew)
+	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
 	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
 	if err != nil {
 		return nil, err

@@ -1,11 +1,12 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/kevinburke/ssh_config"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	log "github.com/sirupsen/logrus"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -22,6 +23,7 @@ type GitSshAuthProvider struct {
 }
 
 type sshDefaultIdentityAndAgent struct {
+	ctx          context.Context
 	authProvider *GitSshAuthProvider
 	hostname     string
 	user         string
@@ -50,54 +52,54 @@ func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 }
 
 func (a *sshDefaultIdentityAndAgent) addDefaultIdentity(gitUrl git_url.GitUrl) {
-	log.Debugf("trying to add default identity")
+	status.Trace(a.ctx, "trying to add default identity")
 	u, err := user.Current()
 	if err != nil {
-		log.Debugf("No current user: %v", err)
+		status.Trace(a.ctx, "No current user: %v", err)
 	} else {
 		path := filepath.Join(u.HomeDir, ".ssh", "id_rsa")
-		signer, err := a.authProvider.readKey(path)
+		signer, err := a.authProvider.readKey(a.ctx, path)
 		if err != nil && !os.IsNotExist(err) {
-			log.Warningf("Failed to read default identity file for url %s: %v", gitUrl.String(), err)
+			status.Warning(a.ctx, "Failed to read default identity file for url %s: %v", gitUrl.String(), err)
 		} else if signer != nil {
-			log.Debugf("...added '%s' as default identity", path)
+			status.Trace(a.ctx, "...added '%s' as default identity", path)
 			a.signers = append(a.signers, signer)
 		}
 	}
 }
 
 func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) {
-	log.Debugf("trying to add identities from ssh config")
+	status.Trace(a.ctx, "trying to add identities from ssh config")
 	for _, id := range ssh_config.GetAll(gitUrl.Hostname(), "IdentityFile") {
 		expanded := utils.ExpandPath(id)
-		log.Debugf("...trying '%s' (expanded: '%s')", id, expanded)
-		signer, err := a.authProvider.readKey(expanded)
+		status.Trace(a.ctx, "...trying '%s' (expanded: '%s')", id, expanded)
+		signer, err := a.authProvider.readKey(a.ctx, expanded)
 		if err != nil && !os.IsNotExist(err) {
-			log.Warningf("Failed to read key %s for url %s: %v", id, gitUrl.String(), err)
+			status.Warning(a.ctx, "Failed to read key %s for url %s: %v", id, gitUrl.String(), err)
 		} else if err == nil {
-			log.Debugf("...added '%s' from ssh config", expanded)
+			status.Trace(a.ctx, "...added '%s' from ssh config", expanded)
 			a.signers = append(a.signers, signer)
 		}
 	}
 }
 
 func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
-	log.Debugf("trying to add agent keys")
+	status.Trace(a.ctx, "trying to add agent keys")
 	agent, _, err := sshagent.New()
 	if err != nil {
-		log.Warningf("Failed to connect to ssh agent for url %s: %v", gitUrl.String(), err)
+		status.Warning(a.ctx, "Failed to connect to ssh agent for url %s: %v", gitUrl.String(), err)
 	} else {
 		signers, err := agent.Signers()
 		if err != nil {
-			log.Warningf("Failed to get signers from ssh agent for url %s: %v", gitUrl.String(), err)
+			status.Warning(a.ctx, "Failed to get signers from ssh agent for url %s: %v", gitUrl.String(), err)
 			return
 		}
-		log.Debugf("...added %d agent keys", len(signers))
+		status.Trace(a.ctx, "...added %d agent keys", len(signers))
 		a.signers = append(a.signers, signers...)
 	}
 }
 
-func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
 	if !gitUrl.IsSsh() {
 		return AuthMethodAndCA{}
 	}
@@ -106,6 +108,7 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 	}
 
 	auth := &sshDefaultIdentityAndAgent{
+		ctx:          ctx,
 		authProvider: a,
 		hostname:     gitUrl.Hostname(),
 		user:         gitUrl.User.Username(),
@@ -124,6 +127,7 @@ func (a *GitSshAuthProvider) BuildAuth(gitUrl git_url.GitUrl) AuthMethodAndCA {
 // we defer asking for passphrase so that we don't unnecessarily ask for passphrases for keys that are already provided
 // by ssh-agent
 type deferredPassphraseKey struct {
+	ctx    context.Context
 	a      *GitSshAuthProvider
 	path   string
 	err    error
@@ -157,21 +161,21 @@ func (k *deferredPassphraseKey) parse() {
 	passphrase, err := k.getPassphrase()
 	if err != nil {
 		k.err = err
-		log.Warningf("Failed to parse key %s: %v", k.path, err)
+		status.Warning(k.ctx, "Failed to parse key %s: %v", k.path, err)
 		return
 	}
 
 	pemBytes, err := ioutil.ReadFile(k.path)
 	if err != nil {
 		k.err = err
-		log.Warningf("Failed to parse key %s: %v", k.path, err)
+		status.Warning(k.ctx, "Failed to parse key %s: %v", k.path, err)
 		return
 	}
 
 	s, err := ssh.ParsePrivateKeyWithPassphrase(pemBytes, passphrase)
 	if err != nil {
 		k.err = err
-		log.Warningf("Failed to parse key %s: %v", k.path, err)
+		status.Warning(k.ctx, "Failed to parse key %s: %v", k.path, err)
 		return
 	}
 	k.parsed = s
@@ -223,7 +227,7 @@ func (k *deferredPassphraseKey) Sign(rand io.Reader, data []byte) (*ssh.Signatur
 	return k.parsed.Sign(rand, data)
 }
 
-func (a *GitSshAuthProvider) readKey(path string) (ssh.Signer, error) {
+func (a *GitSshAuthProvider) readKey(ctx context.Context, path string) (ssh.Signer, error) {
 	pemBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -235,6 +239,7 @@ func (a *GitSshAuthProvider) readKey(path string) (ssh.Signer, error) {
 
 		if _, ok := err.(*ssh.PassphraseMissingError); ok {
 			signer = &deferredPassphraseKey{
+				ctx:  ctx,
 				a:    a,
 				path: path,
 			}

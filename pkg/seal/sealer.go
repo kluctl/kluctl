@@ -1,6 +1,7 @@
 package seal
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
@@ -8,12 +9,12 @@ import (
 	"fmt"
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/scrypt"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,18 +28,20 @@ const hashAnnotation = "kluctl.io/sealedsecret-hashes"
 const clusterIdAnnotation = "kluctl.io/sealedsecret-cluster-id"
 
 type Sealer struct {
+	ctx           context.Context
 	clusterConfig *types.ClusterConfig2
 	forceReseal   bool
 	cert          *rsa.PublicKey
 	clusterId     string
 }
 
-func NewSealer(k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, clusterConfig *types.ClusterConfig2, forceReseal bool) (*Sealer, error) {
+func NewSealer(ctx context.Context, k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, clusterConfig *types.ClusterConfig2, forceReseal bool) (*Sealer, error) {
 	s := &Sealer{
+		ctx:           ctx,
 		clusterConfig: clusterConfig,
 		forceReseal:   forceReseal,
 	}
-	cert, err := fetchCert(k, sealedSecretsNamespace, sealedSecretsControllerName)
+	cert, err := fetchCert(ctx, k, sealedSecretsNamespace, sealedSecretsControllerName)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +99,7 @@ func (s *Sealer) doHash(key string, secret []byte, secretName string, secretName
 	}
 	h, err := scrypt.Key(secret, []byte(salt), 1<<14, 8, 1, 64)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	return hex.EncodeToString(h)
 }
@@ -242,10 +245,10 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	resealAll := false
 	if s.forceReseal {
 		resealAll = true
-		log.Infof("Forcing reseal of secrets in %s", secretName)
+		status.Info(s.ctx, "Forcing reseal of secrets in %s", secretName)
 	} else if existingClusterId != s.clusterId {
 		resealAll = true
-		log.Infof("Target cluster for secret %s has changed, forcing reseal", secretName)
+		status.Info(s.ctx, "Target cluster for secret %s has changed, forcing reseal", secretName)
 	}
 
 	for k, v := range secrets {
@@ -254,19 +257,19 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 
 		doEncrypt := resealAll
 		if !doEncrypt && hash != existingHash {
-			log.Infof("Secret %s and key %s has changed, resealing", secretName, k)
+			status.Info(s.ctx, "Secret %s and key %s has changed, resealing", secretName, k)
 			doEncrypt = true
 		}
 
 		if !doEncrypt {
 			e, ok, _ := existingContent.GetNestedString("spec", "encryptedData", k)
 			if ok {
-				log.Debugf("Secret %s and key %s is unchanged", secretName, k)
+				status.Trace(s.ctx, "Secret %s and key %s is unchanged", secretName, k)
 				result.SetNestedField(e, "spec", "encryptedData", k)
 				resultSecretHashes[k] = hash
 				continue
 			} else {
-				log.Infof("Old encrypted secret %s and key %s not found", secretName, k)
+				status.Info(s.ctx, "Old encrypted secret %s and key %s not found", secretName, k)
 				doEncrypt = true
 			}
 		}
@@ -287,7 +290,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	result.SetK8sAnnotation(clusterIdAnnotation, s.clusterId)
 
 	if reflect.DeepEqual(existingContent, result) {
-		log.Infof("Skipped %s as it did not change", baseName)
+		status.Info(s.ctx, "Skipped %s as it did not change", baseName)
 		return nil
 	}
 

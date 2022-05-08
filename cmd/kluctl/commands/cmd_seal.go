@@ -7,9 +7,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	log "github.com/sirupsen/logrus"
 )
 
 type sealCmd struct {
@@ -63,7 +63,13 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 }
 
 func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject, targetName string, secretsLoader *seal.SecretsLoader) error {
-	log.Infof("Sealing for target %s", targetName)
+	s := status.Start(ctx, "%s: Sealing for target", targetName)
+	defer s.FailedWithMessage("%s: Sealing failed", targetName)
+
+	doFail := func(err error) error {
+		s.FailedWithMessage(fmt.Sprintf("Sealing failed: %v", err))
+		return err
+	}
 
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
@@ -76,11 +82,11 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	return withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
 		err := loadSecrets(ctx, ctx.targetCtx.Target, secretsLoader)
 		if err != nil {
-			return err
+			return doFail(err)
 		}
 		err = ctx.targetCtx.DeploymentCollection.RenderDeployments(ctx.targetCtx.K)
 		if err != nil {
-			return err
+			return doFail(err)
 		}
 
 		sealedSecretsNamespace := "kube-system"
@@ -94,28 +100,29 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			}
 		}
 		if p.Config.SecretsConfig == nil || p.Config.SecretsConfig.SealedSecrets == nil || p.Config.SecretsConfig.SealedSecrets.Bootstrap == nil || *p.Config.SecretsConfig.SealedSecrets.Bootstrap {
-			err = seal.BootstrapSealedSecrets(ctx.targetCtx.K, sealedSecretsNamespace)
+			err = seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.K, sealedSecretsNamespace)
 			if err != nil {
-				return err
+				return doFail(err)
 			}
 		}
 
 		clusterConfig, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster)
 		if err != nil {
-			return err
+			return doFail(err)
 		}
-		sealer, err := seal.NewSealer(ctx.targetCtx.K, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
+		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.K, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
 		if err != nil {
-			return err
+			return doFail(err)
 		}
 
 		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection)
 		err = cmd2.Run(sealer)
 
 		if err != nil {
-			return err
+			return doFail(err)
 		}
-		return err
+		s.Success()
+		return nil
 	})
 }
 
@@ -135,7 +142,7 @@ func (cmd *sealCmd) Run() error {
 				continue
 			}
 			if target.Target.SealingConfig == nil {
-				log.Infof("Target %s has no sealingConfig", target.Target.Name)
+				status.Info(ctx, "Target %s has no sealingConfig", target.Target.Name)
 				continue
 			}
 			noTargetMatch = false
@@ -158,7 +165,6 @@ func (cmd *sealCmd) Run() error {
 
 			err := cmd.runCmdSealForTarget(ctx, p, sealTarget.Name, secretsLoader)
 			if err != nil {
-				log.Warningf("Sealing for target %s failed: %v", sealTarget.Name, err)
 				hadError = true
 			}
 		}
