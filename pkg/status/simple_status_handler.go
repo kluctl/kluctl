@@ -1,24 +1,17 @@
 package status
 
-import (
-	"fmt"
-	"io"
-)
-
 type simpleStatusHandler struct {
-	out    io.Writer
-	trace  bool
-	prefix string
+	cb    func(message string)
+	trace bool
 }
 
 type simpleStatusLine struct {
 }
 
-func NewSimpleStatusHandler(out io.Writer, trace bool, prefix string) StatusHandler {
+func NewSimpleStatusHandler(cb func(message string), trace bool) StatusHandler {
 	return &simpleStatusHandler{
-		out:    out,
-		trace:  trace,
-		prefix: prefix,
+		cb:    cb,
+		trace: trace,
 	}
 }
 
@@ -33,11 +26,7 @@ func (s *simpleStatusHandler) StartStatus(total int, message string) StatusLine 
 }
 
 func (s *simpleStatusHandler) Info(message string) {
-	if s.prefix == "" {
-		fmt.Fprintf(s.out, "%s\n", message)
-	} else {
-		fmt.Fprintf(s.out, "%s: %s\n", s.prefix, message)
-	}
+	s.cb(message)
 }
 
 func (s *simpleStatusHandler) Warning(message string) {
@@ -55,7 +44,7 @@ func (s *simpleStatusHandler) Trace(message string) {
 }
 
 func (s *simpleStatusHandler) PlainText(text string) {
-	_, _ = io.WriteString(s.out, text)
+	s.Info(text)
 }
 
 func (s *simpleStatusHandler) InfoFallback(message string) {

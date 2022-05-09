@@ -75,7 +75,9 @@ func (c *cli) setupStatusHandler() error {
 	if isatty.IsTerminal(os.Stderr.Fd()) {
 		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, c.Debug)
 	} else {
-		sh = status.NewSimpleStatusHandler(os.Stderr, c.Debug, "")
+		sh = status.NewSimpleStatusHandler(func(message string) {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message)
+		}, c.Debug)
 	}
 	cliCtx = status.NewContext(cliCtx, sh)
 
