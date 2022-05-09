@@ -76,7 +76,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			au := ad.NewApplyUtil(ctx, utils2.NewProgressCtx(ctx, nil, ref.String(), 0, true))
+			au := ad.NewApplyUtil(ctx, nil)
 			au.ReplaceObject(ref, ru.GetRemoteObject(ref), func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 				return doPokeImage(containers, o)
 			})

@@ -12,15 +12,24 @@ type StatusContext struct {
 	sl       StatusLine
 	finished bool
 	failed   bool
+
+	prefix        string
+	startMessage  string
+	startPriority int
+	startTotal    int
+	disableLogs   bool
 }
 
 type StatusLine interface {
+	SetTotal(total int)
+	Increment()
+
 	Update(message string)
 	End(success bool)
 }
 
 type StatusHandler interface {
-	StartStatus(message string) StatusLine
+	StartStatus(total int, message string) StatusLine
 
 	Info(message string)
 	Warning(message string)
@@ -28,6 +37,7 @@ type StatusHandler interface {
 	Trace(message string)
 
 	PlainText(text string)
+	InfoFallback(sprintf string)
 }
 
 type contextKey struct{}
@@ -44,23 +54,109 @@ func FromContext(ctx context.Context) StatusHandler {
 	return v.(StatusHandler)
 }
 
-func Start(ctx context.Context, status string, args ...any) *StatusContext {
+type Option func(s *StatusContext)
+
+func WithPrefix(prefix string) Option {
+	return func(s *StatusContext) {
+		s.prefix = prefix
+	}
+}
+
+func WithStatus(message string, args ...any) Option {
+	return func(s *StatusContext) {
+		s.startMessage = fmt.Sprintf(message, args...)
+	}
+}
+
+func WithPriority(p int) Option {
+	return func(s *StatusContext) {
+		s.startPriority = p
+	}
+}
+
+func WithTotal(t int) Option {
+	return func(s *StatusContext) {
+		s.startTotal = t
+	}
+}
+
+func WithDisableLogs() Option {
+	return func(s *StatusContext) {
+		s.disableLogs = true
+	}
+}
+
+func StartWithOptions(ctx context.Context, opts ...Option) *StatusContext {
 	sh := FromContext(ctx)
 	s := &StatusContext{
 		ctx: ctx,
 		sh:  sh,
 	}
 
-	s.sl = sh.StartStatus(fmt.Sprintf(status, args...))
+	for _, o := range opts {
+		o(s)
+	}
+
+	s.sl = sh.StartStatus(s.startTotal, s.buildMessage(s.startMessage))
 
 	return s
 }
 
+func Start(ctx context.Context, status string, args ...any) *StatusContext {
+	return StartWithOptions(ctx,
+		WithTotal(1),
+		WithStatus(status, args...),
+	)
+}
+
+func (s *StatusContext) buildMessage(message string, args ...any) string {
+	m := fmt.Sprintf(message, args...)
+	if s.prefix == "" {
+		return m
+	}
+	return fmt.Sprintf("%s: %s", s.prefix, m)
+}
+
+func (s *StatusContext) SetTotal(total int) {
+	if s == nil {
+		return
+	}
+	s.sl.SetTotal(total)
+}
+
+func (s *StatusContext) Increment() {
+	if s == nil {
+		return
+	}
+	s.sl.Increment()
+}
+
 func (s *StatusContext) Update(message string, args ...any) {
-	s.sl.Update(fmt.Sprintf(message, args...))
+	if s == nil {
+		return
+	}
+	s.sl.Update(s.buildMessage(message, args...))
+}
+
+func (s *StatusContext) InfoFallback(message string, args ...any) {
+	if s == nil {
+		return
+	}
+	InfoFallback(s.ctx, s.buildMessage(message, args...))
+}
+
+func (s *StatusContext) UpdateAndInfoFallback(message string, args ...any) {
+	if s == nil {
+		return
+	}
+	s.Update(message, args...)
+	s.InfoFallback(message, args...)
 }
 
 func (s *StatusContext) Failed() {
+	if s == nil {
+		return
+	}
 	if s.finished {
 		return
 	}
@@ -69,6 +165,9 @@ func (s *StatusContext) Failed() {
 }
 
 func (s *StatusContext) FailedWithMessage(msg string, args ...any) {
+	if s == nil {
+		return
+	}
 	if s.finished {
 		return
 	}
@@ -77,6 +176,9 @@ func (s *StatusContext) FailedWithMessage(msg string, args ...any) {
 }
 
 func (s *StatusContext) Success() {
+	if s == nil {
+		return
+	}
 	s.sl.End(true)
 	s.finished = true
 }
@@ -89,6 +191,11 @@ func PlainText(ctx context.Context, text string) {
 func Info(ctx context.Context, status string, args ...any) {
 	slh := FromContext(ctx)
 	slh.Info(fmt.Sprintf(status, args...))
+}
+
+func InfoFallback(ctx context.Context, status string, args ...any) {
+	slh := FromContext(ctx)
+	slh.InfoFallback(fmt.Sprintf(status, args...))
 }
 
 func Warning(ctx context.Context, status string, args ...any) {

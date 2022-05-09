@@ -40,7 +40,7 @@ func (cmd *DownscaleCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types
 		if !d.CheckInclusionForDeploy() {
 			continue
 		}
-		au := ad.NewApplyUtil(ctx, utils2.NewProgressCtx(ctx, nil, d.RelToProjectItemDir, 0, true))
+		au := ad.NewApplyUtil(ctx, nil)
 		for _, o := range d.Objects {
 			o := o
 			ref := o.GetK8sRef()

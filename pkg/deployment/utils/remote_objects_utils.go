@@ -33,7 +33,8 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		return nil
 	}
 
-	status.Info(u.ctx, "Getting remote objects by commonLabels")
+	s := status.Start(u.ctx, "Getting remote objects by commonLabels")
+	defer s.Failed()
 
 	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels, false)
 	for gvk, aw := range apiWarnings {
@@ -61,7 +62,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 	u.mutex.Unlock()
 
 	if len(notFoundRefsList) != 0 {
-		status.Info(u.ctx, "Getting %d additional remote objects", len(notFoundRefsList))
+		s.UpdateAndInfoFallback("Getting %d additional remote objects", len(notFoundRefsList))
 		r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
 		for ref, aw := range apiWarnings {
 			u.dew.AddApiWarnings(ref, aw)
@@ -76,7 +77,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		u.mutex.Unlock()
 	}
 
-	status.Info(u.ctx, "Getting namespaces")
+	s.UpdateAndInfoFallback("Getting namespaces")
 	r, _, err := k.ListObjects(schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",
@@ -88,6 +89,9 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 	for _, o := range r {
 		u.remoteNamespaces[o.GetK8sName()] = o
 	}
+
+	s.Success()
+
 	return nil
 }
 
