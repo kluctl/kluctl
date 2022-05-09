@@ -69,7 +69,7 @@ var flagGroups = []groupInfo{
 var cliCtx = context.Background()
 
 func (c *cli) setupStatusHandler() error {
-	sh := status.NewMultiLineStatusHandler(os.Stderr, c.Debug)
+	sh := status.NewMultiLineStatusHandler(cliCtx, os.Stderr, c.Debug)
 	cliCtx = status.NewContext(cliCtx, sh)
 	return nil
 }
