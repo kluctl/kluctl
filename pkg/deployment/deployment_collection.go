@@ -161,14 +161,12 @@ func (c *DeploymentCollection) resolveSealedSecrets() error {
 }
 
 func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
-	s := status.Start(c.ctx, "Building kustomize objects")
-	defer s.Failed()
-
 	var wg sync.WaitGroup
 	var errs []error
 	var mutex sync.Mutex
 	sem := semaphore.NewWeighted(16)
 
+	s := status.Start(c.ctx, "Building kustomize objects")
 	for _, d_ := range c.Deployments {
 		d := d_
 
@@ -179,20 +177,32 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 				mutex.Lock()
 				errs = append(errs, fmt.Errorf("building kustomize objects for %s failed. %w", *d.dir, err))
 				mutex.Unlock()
-			} else {
-				wg.Add(1)
-				go func() {
-					_ = sem.Acquire(context.Background(), 1)
-					defer sem.Release(1)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 
-					err := d.postprocessAndLoadObjects(k, c.Images)
-					if err != nil {
-						mutex.Lock()
-						errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed: %w", *d.dir, err))
-						mutex.Unlock()
-					}
-					wg.Done()
-				}()
+	if len(errs) != 0 {
+		s.Failed()
+		return utils.NewErrorListOrNil(errs)
+	}
+	s.Success()
+
+	s = status.Start(c.ctx, "Postprocessing objects")
+	for _, d_ := range c.Deployments {
+		d := d_
+
+		wg.Add(1)
+		go func() {
+			_ = sem.Acquire(context.Background(), 1)
+			defer sem.Release(1)
+
+			err := d.postprocessAndLoadObjects(k, c.Images)
+			if err != nil {
+				mutex.Lock()
+				errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed: %w", *d.dir, err))
+				mutex.Unlock()
 			}
 
 			wg.Done()

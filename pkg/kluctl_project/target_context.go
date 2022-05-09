@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -60,10 +61,13 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfig
 
 	var k *k8s.K8sCluster
 	if clientConfig != nil {
+		s := status.Start(ctx, "Initializing k8s client")
 		k, err = k8s.NewK8sCluster(ctx, clientConfig, dryRun)
 		if err != nil {
+			s.Failed()
 			return nil, err
 		}
+		s.Success()
 	}
 
 	varsCtx := jinja2.NewVarsCtx(p.J2)

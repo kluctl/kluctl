@@ -189,6 +189,9 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 		}
 	}
 
+	s := status.Start(c.ctx, "Loading kluctl project")
+	defer s.Failed()
+
 	deploymentInfo, err := c.loadExternalProject(c.Config.Deployment, "", c.loadArgs.LocalDeployment)
 	if err != nil {
 		return err
@@ -225,6 +228,8 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	c.DeploymentDir = deploymentInfo.dir
 	c.ClustersDir = mergedClustersDir
 	c.sealedSecretsDir = sealedSecretsInfo.dir
+
+	s.Success()
 
 	return nil
 }
