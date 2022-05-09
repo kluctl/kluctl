@@ -20,12 +20,20 @@ type StatusContext struct {
 	disableLogs   bool
 }
 
+type EndResult int
+
+const (
+	EndSuccess EndResult = iota
+	EndWarning
+	EndError
+)
+
 type StatusLine interface {
 	SetTotal(total int)
 	Increment()
 
 	Update(message string)
-	End(success bool)
+	End(result EndResult)
 }
 
 type StatusHandler interface {
@@ -161,7 +169,7 @@ func (s *StatusContext) Failed() {
 	if s.finished {
 		return
 	}
-	s.sl.End(false)
+	s.sl.End(EndError)
 	s.failed = true
 }
 
@@ -180,7 +188,15 @@ func (s *StatusContext) Success() {
 	if s == nil {
 		return
 	}
-	s.sl.End(true)
+	s.sl.End(EndSuccess)
+	s.finished = true
+}
+
+func (s *StatusContext) Warning() {
+	if s == nil {
+		return
+	}
+	s.sl.End(EndWarning)
 	s.finished = true
 }
 

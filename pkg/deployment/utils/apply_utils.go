@@ -477,7 +477,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	a.sctx.SetTotal(total)
 	if !d.CheckInclusionForDeploy() {
 		a.sctx.UpdateAndInfoFallback("Skipped")
-		a.sctx.Success()
+		a.sctx.Warning()
 		return
 	}
 

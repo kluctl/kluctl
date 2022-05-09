@@ -87,7 +87,8 @@ func (sl *statusLine) Fill(w io.Writer, reqWidth int, stat decor.Statistics) {
 }
 
 func (s *MultiLineStatusHandler) Info(message string) {
-	s.startStatus(1, message, math.MinInt, "ⓘ").end("ⓘ")
+	o := withColor("green", "ⓘ")
+	s.startStatus(1, message, math.MinInt, o).end(o)
 }
 
 func (s *MultiLineStatusHandler) InfoFallback(message string) {
@@ -95,11 +96,13 @@ func (s *MultiLineStatusHandler) InfoFallback(message string) {
 }
 
 func (s *MultiLineStatusHandler) Warning(message string) {
-	s.startStatus(1, message, math.MinInt, "⚠").end("⚠")
+	o := withColor("yellow", "⚠")
+	s.startStatus(1, message, math.MinInt, o).end(o)
 }
 
 func (s *MultiLineStatusHandler) Error(message string) {
-	s.startStatus(1, message, math.MinInt, "✗").end("✗")
+	o := withColor("red", "✗")
+	s.startStatus(1, message, math.MinInt, o).end(o)
 }
 
 func (s *MultiLineStatusHandler) Trace(message string) {
@@ -133,10 +136,13 @@ func (sl *statusLine) end(barOverride string) {
 	sl.bar.SetCurrent(int64(sl.total))
 }
 
-func (sl *statusLine) End(success bool) {
-	if success {
-		sl.end("✓")
-	} else {
-		sl.end("✗")
+func (sl *statusLine) End(result EndResult) {
+	switch result {
+	case EndSuccess:
+		sl.end(withColor("green", "✓"))
+	case EndWarning:
+		sl.end(withColor("yellow", "⚠"))
+	case EndError:
+		sl.end(withColor("red", "✗"))
 	}
 }
