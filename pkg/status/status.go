@@ -46,7 +46,7 @@ type StatusHandler interface {
 	Trace(message string)
 
 	PlainText(text string)
-	InfoFallback(sprintf string)
+	InfoFallback(message string)
 }
 
 type contextKey struct{}
@@ -119,6 +119,9 @@ func Start(ctx context.Context, status string, args ...any) *StatusContext {
 }
 
 func (s *StatusContext) buildMessage(message string, args ...any) string {
+	if message == "" {
+		return ""
+	}
 	m := fmt.Sprintf(message, args...)
 	if s.prefix == "" {
 		return m

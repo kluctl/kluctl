@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -22,7 +23,7 @@ type diffTestConfig struct {
 }
 
 func (dtc *diffTestConfig) newRemoteObjects(dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
-	ru := NewRemoteObjectsUtil(dew)
+	ru := NewRemoteObjectsUtil(context.TODO(), dew)
 	for _, ro := range dtc.ro {
 		ru.remoteObjects[ro.GetK8sRef()] = ro
 	}

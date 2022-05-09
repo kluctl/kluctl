@@ -594,7 +594,6 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			sctx = status.StartWithOptions(a.ctx,
 				status.WithTotal(-1),
 				status.WithPrefix(*progressName),
-				status.WithStatus("Initializing..."),
 			)
 		}
 		a2 := a.NewApplyUtil(a.ctx, sctx)
@@ -612,8 +611,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 
 		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
 		if barrier {
-			sctx := status.Start(a.ctx, "", status.WithTotal(1))
-			sctx.UpdateAndInfoFallback("Waiting on barrier...")
+			sctx := status.StartWithOptions(a.ctx, status.WithStatus("Waiting on barrier..."), status.WithTotal(1))
 			wg.Wait()
 			sctx.UpdateAndInfoFallback(fmt.Sprintf("Finished waiting"))
 			sctx.Success()

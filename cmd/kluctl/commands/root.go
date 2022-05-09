@@ -24,6 +24,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
@@ -70,7 +71,12 @@ var flagGroups = []groupInfo{
 var cliCtx = context.Background()
 
 func (c *cli) setupStatusHandler() error {
-	sh := status.NewMultiLineStatusHandler(cliCtx, os.Stderr, c.Debug)
+	var sh status.StatusHandler
+	if isatty.IsTerminal(os.Stderr.Fd()) {
+		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, c.Debug)
+	} else {
+		sh = status.NewSimpleStatusHandler(os.Stderr, c.Debug, "")
+	}
 	cliCtx = status.NewContext(cliCtx, sh)
 
 	klog.LogToStderr(false)
