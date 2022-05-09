@@ -29,6 +29,7 @@ type StatusLine interface {
 }
 
 type StatusHandler interface {
+	Stop()
 	StartStatus(total int, message string) StatusLine
 
 	Info(message string)

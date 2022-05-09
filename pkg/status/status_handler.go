@@ -43,6 +43,10 @@ func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, trace bool) *
 	return sh
 }
 
+func (s *MultiLineStatusHandler) Stop() {
+	s.progress.Wait()
+}
+
 func (s *MultiLineStatusHandler) StartStatus(total int, message string) StatusLine {
 	return s.startStatus(total, message, 0, "")
 }

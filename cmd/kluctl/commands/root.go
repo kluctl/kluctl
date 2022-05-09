@@ -186,6 +186,10 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	initViper()
 
 	err = rootCmd.Execute()
+
+	sh := status.FromContext(cliCtx)
+	sh.Stop()
+
 	if err != nil {
 		status.Error(cliCtx, err.Error())
 		os.Exit(1)
