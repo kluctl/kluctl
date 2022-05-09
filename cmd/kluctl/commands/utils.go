@@ -51,7 +51,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 
 	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
 	if err != nil && projectFlags.FromArchive == "" {
-		status.Warning(cliCtx, "", "Failed to detect git project root. This might cause follow-up errors")
+		status.Warning(cliCtx, "Failed to detect git project root. This might cause follow-up errors")
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
