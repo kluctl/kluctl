@@ -229,7 +229,6 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string, authPr
 		err = remote.FetchContext(g.ctx, &git.FetchOptions{
 			Auth:     auth.AuthMethod,
 			CABundle: auth.CABundle,
-			Progress: os.Stdout,
 			Tags:     git.AllTags,
 			Force:    true,
 		})
@@ -259,7 +258,6 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string, authPr
 
 	_ = ioutil.WriteFile(filepath.Join(g.mirrorDir, ".update-time"), []byte(time.Now().Format(time.RFC3339Nano)), 0644)
 
-	s.Success()
 	return nil
 }
 
