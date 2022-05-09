@@ -196,10 +196,11 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	err = rootCmd.Execute()
 
 	sh := status.FromContext(cliCtx)
-	sh.Stop()
 
 	if err != nil {
 		status.Error(cliCtx, err.Error())
+		sh.Stop()
 		os.Exit(1)
 	}
+	sh.Stop()
 }
