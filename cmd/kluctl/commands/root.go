@@ -26,6 +26,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/klog/v2"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -71,6 +72,10 @@ var cliCtx = context.Background()
 func (c *cli) setupStatusHandler() error {
 	sh := status.NewMultiLineStatusHandler(cliCtx, os.Stderr, c.Debug)
 	cliCtx = status.NewContext(cliCtx, sh)
+
+	klog.LogToStderr(false)
+	klog.SetOutput(status.NewLineRedirector(sh.Info))
+
 	return nil
 }
 
