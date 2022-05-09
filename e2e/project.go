@@ -520,7 +520,7 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 	sep := ":"
 	if runtime.GOOS == "windows" {
 		sep = ";"
-		args = append(args, "-vdebug")
+		args = append(args, "--debug")
 	}
 	env := os.Environ()
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", strings.Join(p.kubeconfigs, sep)))
