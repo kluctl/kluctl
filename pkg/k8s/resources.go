@@ -219,6 +219,25 @@ func (k *k8sResources) GetAllGroupVersions() ([]schema.GroupVersion, error) {
 	return l, nil
 }
 
+func (k *k8sResources) GetFilteredGVKs(filter func(ar *v1.APIResource) bool) []schema.GroupVersionKind {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	var ret []schema.GroupVersionKind
+	for _, ar := range k.allResources {
+		if !filter(ar) {
+			continue
+		}
+		gvk := schema.GroupVersionKind{
+			Group:   ar.Group,
+			Version: ar.Version,
+			Kind:    ar.Kind,
+		}
+		ret = append(ret, gvk)
+	}
+	return ret
+}
+
 func (k *k8sResources) GetFilteredPreferredGVKs(filter func(ar *v1.APIResource) bool) []schema.GroupVersionKind {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
@@ -238,24 +257,19 @@ func (k *k8sResources) GetFilteredPreferredGVKs(filter func(ar *v1.APIResource) 
 	return ret
 }
 
-func (k *k8sResources) GetGVKs(group *string, version *string, kind *string) []schema.GroupVersionKind {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	var ret []schema.GroupVersionKind
-	for gvk := range k.allResources {
-		if group != nil && *group != gvk.Group {
-			continue
+func BuildGVKFilter(group *string, version *string, kind *string) func(ar *v1.APIResource) bool {
+	return func(ar *v1.APIResource) bool {
+		if group != nil && *group != ar.Group {
+			return false
 		}
-		if version != nil && *version != gvk.Version {
-			continue
+		if version != nil && *version != ar.Version {
+			return false
 		}
-		if kind != nil && *kind != gvk.Kind {
-			continue
+		if kind != nil && *kind != ar.Kind {
+			return false
 		}
-		ret = append(ret, gvk)
+		return true
 	}
-	return ret
 }
 
 func (k *k8sResources) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {

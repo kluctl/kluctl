@@ -435,7 +435,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	var toDelete []k8s2.ObjectRef
 	for _, x := range d.Config.DeleteObjects {
-		for _, gvk := range a.k.Resources.GetGVKs(x.Group, x.Version, x.Kind) {
+		for _, gvk := range a.k.Resources.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, x.Version, x.Kind)) {
 			ref := k8s2.ObjectRef{
 				GVK:       gvk,
 				Name:      x.Name,
