@@ -16,17 +16,12 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"net/http"
-	"net/url"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -43,19 +38,11 @@ type K8sCluster struct {
 	DryRun bool
 
 	restConfig *rest.Config
-	discovery  *disk.CachedDiscoveryClient
 	clientPool chan *parallelClientEntry
 
 	ServerVersion *goversion.Version
 
-	allResources        map[schema.GroupVersionKind]*v1.APIResource
-	preferredResources  map[schema.GroupKind]*v1.APIResource
-	namespacedResources map[schema.GroupKind]bool
-	crdCache            map[k8s.ObjectRef]struct {
-		crd *uo.UnstructuredObject
-		err error
-	}
-	mutex sync.Mutex
+	Resources *k8sResources
 }
 
 type parallelClientEntry struct {
@@ -84,33 +71,28 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 const parallelClients = 16
 
 func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
+	restConfig := rest.CopyConfig(configIn)
+	restConfig.QPS = 10
+	restConfig.Burst = 20
+
+	resources, err := newK8sResources(ctx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	k := &K8sCluster{
-		ctx:                 ctx,
-		DryRun:              dryRun,
-		namespacedResources: map[schema.GroupKind]bool{},
+		ctx:        ctx,
+		DryRun:     dryRun,
+		restConfig: restConfig,
+		Resources:  resources,
 	}
-
-	k.restConfig = rest.CopyConfig(configIn)
-	k.restConfig.QPS = 10
-	k.restConfig.Burst = 20
-
-	apiHost, err := url.Parse(k.restConfig.Host)
-	if err != nil {
-		return nil, err
-	}
-	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(k.restConfig), discoveryCacheDir, "", time.Hour*24)
-	if err != nil {
-		return nil, err
-	}
-	k.discovery = discovery2
 
 	err = k.initClientPool()
 	if err != nil {
 		return nil, err
 	}
 
-	v, err := k.discovery.ServerVersion()
+	v, err := k.Resources.discovery.ServerVersion()
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +102,7 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 	}
 	k.ServerVersion = v2
 
-	err = k.updateResources(true)
+	err = k.Resources.updateResources(true)
 	if err != nil {
 		return nil, err
 	}
@@ -179,299 +161,6 @@ func (k *K8sCluster) GetCA() []byte {
 	return k.restConfig.CAData
 }
 
-func (k *K8sCluster) updateResources(doLock bool) error {
-	if doLock {
-		k.mutex.Lock()
-		defer k.mutex.Unlock()
-	}
-
-	k.allResources = map[schema.GroupVersionKind]*v1.APIResource{}
-	k.preferredResources = map[schema.GroupKind]*v1.APIResource{}
-	k.crdCache = map[k8s.ObjectRef]struct {
-		crd *uo.UnstructuredObject
-		err error
-	}{}
-
-	// the discovery client doesn't support cancellation, so we need to run it in the background and wait for it
-	var arls []*v1.APIResourceList
-	var preferredArls []*v1.APIResourceList
-	finished := make(chan error)
-	go func() {
-		var err error
-		_, arls, err = k.discovery.ServerGroupsAndResources()
-		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-			finished <- err
-			return
-		}
-		preferredArls, err = k.discovery.ServerPreferredResources()
-		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-			finished <- err
-			return
-		}
-		finished <- nil
-	}()
-
-	select {
-	case err := <-finished:
-		if err != nil {
-			return err
-		}
-	case <-k.ctx.Done():
-		return fmt.Errorf("failed listing api resources: %w", k.ctx.Err())
-	}
-
-	for _, arl := range arls {
-		for _, ar := range arl.APIResources {
-			if strings.Index(ar.Name, "/") != -1 {
-				// skip subresources
-				continue
-			}
-			gv, err := schema.ParseGroupVersion(arl.GroupVersion)
-			if err != nil {
-				continue
-			}
-
-			ar := ar
-			ar.Group = gv.Group
-			ar.Version = gv.Version
-
-			gvk := schema.GroupVersionKind{
-				Group:   ar.Group,
-				Version: ar.Version,
-				Kind:    ar.Kind,
-			}
-			if _, ok := deprecatedResources[gvk.GroupKind()]; ok {
-				continue
-			}
-			if _, ok := k.allResources[gvk]; ok {
-				ok = false
-			}
-			k.allResources[gvk] = &ar
-		}
-	}
-
-	for _, arl := range preferredArls {
-		for _, ar := range arl.APIResources {
-			if strings.Index(ar.Name, "/") != -1 {
-				// skip subresources
-				continue
-			}
-			gv, err := schema.ParseGroupVersion(arl.GroupVersion)
-			if err != nil {
-				continue
-			}
-
-			ar := ar
-			ar.Group = gv.Group
-			ar.Version = gv.Version
-
-			gk := schema.GroupKind{
-				Group: ar.Group,
-				Kind:  ar.Kind,
-			}
-			if _, ok := deprecatedResources[gk]; ok {
-				continue
-			}
-			k.preferredResources[gk] = &ar
-		}
-	}
-	return nil
-}
-
-func (k *K8sCluster) RediscoverResources() error {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	k.discovery.Invalidate()
-	return k.updateResources(false)
-}
-
-func (k *K8sCluster) SetNamespaced(gv schema.GroupKind, namespaced bool) {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-	k.namespacedResources[gv] = namespaced
-}
-
-func (k *K8sCluster) IsNamespaced(gv schema.GroupKind) bool {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	r, ok := k.preferredResources[gv]
-	if !ok {
-		n, _ := k.namespacedResources[gv]
-		return n
-	}
-	return r.Namespaced
-}
-
-func (k *K8sCluster) FixNamespace(o *uo.UnstructuredObject, def string) {
-	ref := o.GetK8sRef()
-	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
-	if !namespaced && ref.Namespace != "" {
-		o.SetK8sNamespace("")
-	} else if namespaced && ref.Namespace == "" {
-		o.SetK8sNamespace(def)
-	}
-}
-
-func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
-	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
-	if !namespaced && ref.Namespace != "" {
-		ref.Namespace = ""
-	} else if namespaced && ref.Namespace == "" {
-		ref.Namespace = "default"
-	}
-	return ref
-}
-
-func (k *K8sCluster) GetAllGroupVersions() ([]string, error) {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	m := make(map[string]bool)
-	var l []string
-
-	for gvk, _ := range k.allResources {
-		gv := gvk.GroupVersion().String()
-		if _, ok := m[gv]; !ok {
-			m[gv] = true
-			l = append(l, gv)
-		}
-	}
-	return l, nil
-}
-
-func (k *K8sCluster) GetFilteredGKs(filters []string) []schema.GroupKind {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	m := make(map[schema.GroupKind]bool)
-	var l []schema.GroupKind
-	for gk, ar := range k.preferredResources {
-		found := len(filters) == 0
-		for _, f := range filters {
-			if ar.Name == f || ar.Group == f || ar.Kind == f {
-				found = true
-				break
-			}
-		}
-		if found {
-			if _, ok := m[gk]; !ok {
-				m[gk] = true
-				l = append(l, gk)
-			}
-		}
-	}
-	return l
-}
-
-func (k *K8sCluster) GetGVKs(group *string, version *string, kind *string) []schema.GroupVersionKind {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	var ret []schema.GroupVersionKind
-	for gvk := range k.allResources {
-		if group != nil && *group != gvk.Group {
-			continue
-		}
-		if version != nil && *version != gvk.Version {
-			continue
-		}
-		if kind != nil && *kind != gvk.Kind {
-			continue
-		}
-		ret = append(ret, gvk)
-	}
-	return ret
-}
-
-func (k *K8sCluster) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	ar, ok := k.allResources[gvk]
-	if !ok {
-		return nil, false, &meta.NoKindMatchError{
-			GroupKind:        gvk.GroupKind(),
-			SearchedVersions: []string{gvk.Version},
-		}
-	}
-
-	return &schema.GroupVersionResource{
-		Group:    ar.Group,
-		Version:  ar.Version,
-		Resource: ar.Name,
-	}, ar.Namespaced, nil
-}
-
-func (k *K8sCluster) GetApiResourceForGVK(gvk schema.GroupVersionKind) *v1.APIResource {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	ar, _ := k.allResources[gvk]
-	return ar
-}
-
-func (k *K8sCluster) GetCRDForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	ar := k.GetApiResourceForGVK(gvk)
-	if ar == nil {
-		return nil, fmt.Errorf("APIResource for %s not found", gvk.String())
-	}
-
-	crdRef := k8s.ObjectRef{
-		GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
-		Name: fmt.Sprintf("%s.%s", ar.Name, ar.Group),
-	}
-
-	k.mutex.Lock()
-	x, ok := k.crdCache[crdRef]
-	k.mutex.Unlock()
-	if ok {
-		return x.crd, x.err
-	}
-
-	crd, _, err := k.GetSingleObject(crdRef)
-
-	k.mutex.Lock()
-	x.crd = crd
-	x.err = err
-	k.crdCache[crdRef] = x
-	k.mutex.Unlock()
-
-	return crd, err
-}
-
-func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	crd, err := k.GetCRDForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
-
-	versions, ok, err := crd.GetNestedObjectList("spec", "versions")
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, fmt.Errorf("versions not found in CRD")
-	}
-
-	for _, version := range versions {
-		name, _, _ := version.GetNestedString("name")
-		if name != gvk.Version {
-			continue
-		}
-		s, ok, err := version.GetNestedObject("schema", "openAPIV3Schema")
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, fmt.Errorf("version %s has no schema", name)
-		}
-		return s, nil
-	}
-	return nil, fmt.Errorf("schema for %s not found", gvk.String())
-}
-
 func (k *K8sCluster) withClientFromPool(cb func(p *parallelClientEntry) error) ([]ApiWarning, error) {
 	select {
 	case p := <-k.clientPool:
@@ -486,7 +175,7 @@ func (k *K8sCluster) withClientFromPool(cb func(p *parallelClientEntry) error) (
 
 func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
 	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		gvr, namespaced, err := k.getGVRForGVK(gvk)
+		gvr, namespaced, err := k.Resources.getGVRForGVK(gvk)
 		if err != nil {
 			return err
 		}
@@ -501,7 +190,7 @@ func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namesp
 
 func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
 	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		gvr, namespaced, err := k.getGVRForGVK(gvk)
+		gvr, namespaced, err := k.Resources.getGVRForGVK(gvk)
 		if err != nil {
 			return err
 		}
@@ -581,8 +270,7 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 	retApiWarnings := make(map[schema.GroupVersionKind][]ApiWarning)
 	var mutex sync.Mutex
 
-	k.mutex.Lock()
-	for _, ar := range k.preferredResources {
+	filter := func(ar *v1.APIResource) bool {
 		foundVerb := false
 		for _, v := range verbs {
 			if utils.FindStrInSlice(ar.Verbs, v) != -1 {
@@ -590,14 +278,10 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 				break
 			}
 		}
-		if !foundVerb {
-			continue
-		}
-		gvk := schema.GroupVersionKind{
-			Group:   ar.Group,
-			Version: ar.Version,
-			Kind:    ar.Kind,
-		}
+		return foundVerb
+	}
+
+	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filter) {
 		wp.Submit(func() error {
 			var l []*uo.UnstructuredObject
 			var apiWarnings []ApiWarning
@@ -619,8 +303,6 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 			return nil
 		})
 	}
-	// release it early and let the goroutines finish (deadlocking otherwise)
-	k.mutex.Unlock()
 
 	err := wp.StopWait(false)
 	if err != nil {

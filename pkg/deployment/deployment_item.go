@@ -415,7 +415,7 @@ func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
 			return err
 		}
 
-		k.SetNamespaced(schema.GroupKind{Group: group, Kind: kind}, namespaced)
+		k.Resources.SetNamespaced(schema.GroupKind{Group: group, Kind: kind}, namespaced)
 	}
 	return nil
 }
@@ -434,7 +434,7 @@ func (di *DeploymentItem) postprocessObjects(k *k8s.K8sCluster, images *Images) 
 
 		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
 			if k != nil {
-				k.FixNamespace(o, "default")
+				k.Resources.FixNamespace(o, "default")
 			}
 
 			// Set common labels/annotations

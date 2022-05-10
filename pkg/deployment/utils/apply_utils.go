@@ -337,7 +337,7 @@ func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, er
 		// retry the patch
 		if a.deployedNewCRD.Load().(bool) {
 			a.deployedNewCRD.Store(false)
-			err = a.k.RediscoverResources()
+			err = a.k.Resources.RediscoverResources()
 			if err != nil {
 				return false, err
 			}
@@ -435,7 +435,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	var toDelete []k8s2.ObjectRef
 	for _, x := range d.Config.DeleteObjects {
-		for _, gvk := range a.k.GetGVKs(x.Group, x.Version, x.Kind) {
+		for _, gvk := range a.k.Resources.GetGVKs(x.Group, x.Version, x.Kind) {
 			ref := k8s2.ObjectRef{
 				GVK:       gvk,
 				Name:      x.Name,

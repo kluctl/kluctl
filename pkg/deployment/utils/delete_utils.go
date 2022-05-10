@@ -41,14 +41,14 @@ var deleteOrder = [][]string{
 }
 
 func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef {
-	ref = k.FixNamespaceInRef(ref)
+	ref = k.Resources.FixNamespaceInRef(ref)
 	ref.GVK.Version = ""
 	return ref
 }
 
 func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusionHasTags bool, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
 	filteredResources := make(map[schema.GroupKind]bool)
-	for _, gk := range k.GetFilteredGKs(apiFilter) {
+	for _, gk := range k.Resources.GetFilteredGKs(apiFilter) {
 		filteredResources[gk] = true
 	}
 

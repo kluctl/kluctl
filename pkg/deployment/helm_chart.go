@@ -203,7 +203,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 
 	var gvs []string
 	if k != nil {
-		gvs, err = k.GetAllGroupVersions()
+		gvs, err = k.Resources.GetAllGroupVersions()
 		if err != nil {
 			return err
 		}
@@ -313,7 +313,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 		// add the necessary namespace in the rendered resources
 		if k != nil {
 			err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-				k.FixNamespace(o, namespace)
+				k.Resources.FixNamespace(o, namespace)
 				return nil
 			})
 			if err != nil {
