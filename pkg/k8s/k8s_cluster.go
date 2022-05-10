@@ -80,6 +80,8 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 	})
 }
 
+const parallelClients = 16
+
 func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
 	k := &K8sCluster{
 		ctx:    ctx,
@@ -101,34 +103,9 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 	}
 	k.discovery = discovery2
 
-	parallelClients := 16
-	k.clientPool = make(chan *parallelClientEntry, parallelClients)
-	for i := 0; i < parallelClients; i++ {
-		p := &parallelClientEntry{}
-		config := rest.CopyConfig(k.restConfig)
-		config.WarningHandler = p
-
-		p.http, err = rest.HTTPClientFor(config)
-		if err != nil {
-			return nil, err
-		}
-
-		p.corev1, err = corev1.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return nil, err
-		}
-
-		p.dynamicClient, err = dynamic.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return nil, err
-		}
-
-		p.metadataClient, err = metadata.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return nil, err
-		}
-
-		k.clientPool <- p
+	err = k.initClientPool()
+	if err != nil {
+		return nil, err
 	}
 
 	v, err := k.discovery.ServerVersion()
@@ -147,6 +124,47 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 	}
 
 	return k, nil
+}
+
+func (k *K8sCluster) initClientPool() error {
+	var err error
+
+	if k.clientPool != nil {
+		for i := 0; i < parallelClients; i++ {
+			p := <-k.clientPool
+			p.http.CloseIdleConnections()
+		}
+	}
+
+	k.clientPool = make(chan *parallelClientEntry, parallelClients)
+	for i := 0; i < parallelClients; i++ {
+		p := &parallelClientEntry{}
+		config := rest.CopyConfig(k.restConfig)
+		config.WarningHandler = p
+
+		p.http, err = rest.HTTPClientFor(config)
+		if err != nil {
+			return err
+		}
+
+		p.corev1, err = corev1.NewForConfigAndClient(config, p.http)
+		if err != nil {
+			return err
+		}
+
+		p.dynamicClient, err = dynamic.NewForConfigAndClient(config, p.http)
+		if err != nil {
+			return err
+		}
+
+		p.metadataClient, err = metadata.NewForConfigAndClient(config, p.http)
+		if err != nil {
+			return err
+		}
+
+		k.clientPool <- p
+	}
+	return nil
 }
 
 func (k *K8sCluster) ReadWrite() *K8sCluster {
