@@ -190,6 +190,7 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 	}
 
 	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filter) {
+		gvk := gvk
 		wp.Submit(func() error {
 			var l []*uo.UnstructuredObject
 			var apiWarnings []ApiWarning
