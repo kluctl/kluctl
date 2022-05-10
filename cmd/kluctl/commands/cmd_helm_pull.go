@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"io/fs"
@@ -18,7 +17,7 @@ func (cmd *helmPullCmd) Help() string {
 pulling is only needed when really required (e.g. when the chart version changes).`
 }
 
-func (cmd *helmPullCmd) Run(ctx context.Context) error {
+func (cmd *helmPullCmd) Run() error {
 	rootPath := "."
 	if cmd.LocalDeployment != "" {
 		rootPath = cmd.LocalDeployment
@@ -26,13 +25,13 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
-			s := status.Start(ctx, "Pulling for %s", p)
+			s := status.Start(cliCtx, "Pulling for %s", p)
 			chart, err := deployment.NewHelmChart(p)
 			if err != nil {
 				s.FailedWithMessage(err.Error())
 				return err
 			}
-			err = chart.Pull(ctx)
+			err = chart.Pull(cliCtx)
 			if err != nil {
 				s.FailedWithMessage(err.Error())
 				return err

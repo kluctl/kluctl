@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
@@ -21,7 +20,7 @@ func (cmd *helmUpdateCmd) Help() string {
 	return `Optionally performs the actual upgrade and/or add a commit to version control.`
 }
 
-func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
+func (cmd *helmUpdateCmd) Run() error {
 	rootPath := "."
 	if cmd.LocalDeployment != "" {
 		rootPath = cmd.LocalDeployment
@@ -40,7 +39,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			}
 
 			statusPrefix := filepath.Base(p)
-			s := status.Start(ctx, "%s: Checking for updates", statusPrefix)
+			s := status.Start(cliCtx, "%s: Checking for updates", statusPrefix)
 			defer s.Failed()
 
 			newVersion, updated, err := chart.CheckUpdate()
@@ -85,7 +84,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 				s.Update("%s: Pulling new version", statusPrefix)
 				defer s.Failed()
 
-				err = chart.Pull(ctx)
+				err = chart.Pull(cliCtx)
 				if err != nil {
 					return err
 				}

@@ -151,6 +151,10 @@ func (c *cli) preRun() error {
 	return nil
 }
 
+func (c *cli) Run() error {
+	return nil
+}
+
 func initViper() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
