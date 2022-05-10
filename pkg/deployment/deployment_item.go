@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/kustomize/api/filesys"
@@ -364,7 +365,7 @@ func (di *DeploymentItem) buildKustomize() error {
 	return nil
 }
 
-func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *Images) error {
+func (di *DeploymentItem) loadObjects() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -382,6 +383,49 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 		}
 		di.Objects = append(di.Objects, uo.FromMap(m))
 	}
+	return nil
+}
+
+var crdGV = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
+
+// postprocessCRDs will set namespace overrides into the K8sCluster so that future IsNamespaced return the correct
+// value even if the CRD is not deployed yet.
+func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
+	if di.dir == nil {
+		return nil
+	}
+
+	for _, o := range di.Objects {
+		gvk := o.GetK8sGVK()
+		if gvk.GroupKind() != crdGV {
+			continue
+		}
+
+		scope, _, err := o.GetNestedString("spec", "scope")
+		if err != nil {
+			return err
+		}
+		namespaced := strings.ToLower(scope) == "namespaced"
+		group, _, err := o.GetNestedString("spec", "group")
+		if err != nil {
+			return err
+		}
+		kind, _, err := o.GetNestedString("spec", "names", "kind")
+		if err != nil {
+			return err
+		}
+
+		k.SetNamespaced(schema.GroupKind{Group: group, Kind: kind}, namespaced)
+	}
+	return nil
+}
+
+func (di *DeploymentItem) postprocessObjects(k *k8s.K8sCluster, images *Images) error {
+	if di.dir == nil {
+		return nil
+	}
+
+	var objects []interface{}
 
 	var errList []error
 	for _, o := range di.Objects {
@@ -398,12 +442,14 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 			o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 			// Resolve image placeholders
-			err = images.ResolvePlaceholders(k, o, di.relRenderedDir, di.Tags.ListKeys())
+			err := images.ResolvePlaceholders(k, o, di.relRenderedDir, di.Tags.ListKeys())
 			if err != nil {
 				errList = append(errList, err)
 			}
 			return nil
 		})
+
+		objects = append(objects, o.Object)
 	}
 
 	if len(errList) != 0 {
@@ -411,7 +457,7 @@ func (di *DeploymentItem) postprocessAndLoadObjects(k *k8s.K8sCluster, images *I
 	}
 
 	// Need to write it back to disk in case it is needed externally
-	err = yaml.WriteYamlAllFile(di.renderedYamlPath, objects)
+	err := yaml.WriteYamlAllFile(di.renderedYamlPath, objects)
 	if err != nil {
 		return err
 	}

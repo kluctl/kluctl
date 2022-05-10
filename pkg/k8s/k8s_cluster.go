@@ -48,9 +48,10 @@ type K8sCluster struct {
 
 	ServerVersion *goversion.Version
 
-	allResources       map[schema.GroupVersionKind]*v1.APIResource
-	preferredResources map[schema.GroupKind]*v1.APIResource
-	crdCache           map[k8s.ObjectRef]struct {
+	allResources        map[schema.GroupVersionKind]*v1.APIResource
+	preferredResources  map[schema.GroupKind]*v1.APIResource
+	namespacedResources map[schema.GroupKind]bool
+	crdCache            map[k8s.ObjectRef]struct {
 		crd *uo.UnstructuredObject
 		err error
 	}
@@ -84,8 +85,9 @@ const parallelClients = 16
 
 func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
 	k := &K8sCluster{
-		ctx:    ctx,
-		DryRun: dryRun,
+		ctx:                 ctx,
+		DryRun:              dryRun,
+		namespacedResources: map[schema.GroupKind]bool{},
 	}
 
 	k.restConfig = rest.CopyConfig(configIn)
@@ -284,19 +286,27 @@ func (k *K8sCluster) RediscoverResources() error {
 	return k.updateResources(false)
 }
 
-func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) bool {
+func (k *K8sCluster) SetNamespaced(gv schema.GroupKind, namespaced bool) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
-	r, ok := k.allResources[gvk]
+	k.namespacedResources[gv] = namespaced
+}
+
+func (k *K8sCluster) IsNamespaced(gv schema.GroupKind) bool {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	r, ok := k.preferredResources[gv]
 	if !ok {
-		return false
+		n, _ := k.namespacedResources[gv]
+		return n
 	}
 	return r.Namespaced
 }
 
 func (k *K8sCluster) FixNamespace(o *uo.UnstructuredObject, def string) {
 	ref := o.GetK8sRef()
-	namespaced := k.IsNamespaced(ref.GVK)
+	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
 	if !namespaced && ref.Namespace != "" {
 		o.SetK8sNamespace("")
 	} else if namespaced && ref.Namespace == "" {
@@ -305,7 +315,7 @@ func (k *K8sCluster) FixNamespace(o *uo.UnstructuredObject, def string) {
 }
 
 func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
-	namespaced := k.IsNamespaced(ref.GVK)
+	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
 	if !namespaced && ref.Namespace != "" {
 		ref.Namespace = ""
 	} else if namespaced && ref.Namespace == "" {
