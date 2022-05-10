@@ -154,12 +154,12 @@ func (k *k8sResources) updateResources() error {
 
 var crdGK = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
 
-func (k *k8sResources) updateResourcesFromCRDs() error {
+func (k *k8sResources) updateResourcesFromCRDs(clients *k8sClients) error {
 	ar := k.GetPreferredResource(crdGK)
 	if ar == nil {
 		return fmt.Errorf("api resource for CRDs not found")
 	}
-	gvr, _, err := k.GetGVRForGVK(schema.GroupVersionKind{
+	gvr, err := k.GetGVRForGVK(schema.GroupVersionKind{
 		Group:   ar.Group,
 		Version: ar.Version,
 		Kind:    ar.Kind,
@@ -169,7 +169,7 @@ func (k *k8sResources) updateResourcesFromCRDs() error {
 	}
 
 	var crds *unstructured.UnstructuredList
-	_, err = k.k.withClientFromPool(func(p *parallelClientEntry) error {
+	_, err = clients.withClientFromPool(func(p *parallelClientEntry) error {
 		var err error
 		crds, err = p.dynamicClient.Resource(*gvr).List(k.ctx, v1.ListOptions{})
 		return err
@@ -386,13 +386,13 @@ func BuildGVKFilter(group *string, version *string, kind *string) func(ar *v1.AP
 	}
 }
 
-func (k *k8sResources) GetGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {
+func (k *k8sResources) GetGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, error) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
 	ar, ok := k.allResources[gvk]
 	if !ok {
-		return nil, false, &meta.NoKindMatchError{
+		return nil, &meta.NoKindMatchError{
 			GroupKind:        gvk.GroupKind(),
 			SearchedVersions: []string{gvk.Version},
 		}
@@ -402,7 +402,7 @@ func (k *k8sResources) GetGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupV
 		Group:    ar.Group,
 		Version:  ar.Version,
 		Resource: ar.Name,
-	}, ar.Namespaced, nil
+	}, nil
 }
 
 func (k *k8sResources) GetCRDForGK(gk schema.GroupKind) *uo.UnstructuredObject {

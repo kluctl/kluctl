@@ -17,11 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -38,37 +36,12 @@ type K8sCluster struct {
 	DryRun bool
 
 	restConfig *rest.Config
-	clientPool chan *parallelClientEntry
+	clients    *k8sClients
 
 	ServerVersion *goversion.Version
 
 	Resources *k8sResources
 }
-
-type parallelClientEntry struct {
-	http           *http.Client
-	corev1         *corev1.CoreV1Client
-	dynamicClient  dynamic.Interface
-	metadataClient metadata.Interface
-
-	warnings []ApiWarning
-}
-
-type ApiWarning struct {
-	Code  int
-	Agent string
-	Text  string
-}
-
-func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text string) {
-	p.warnings = append(p.warnings, ApiWarning{
-		Code:  code,
-		Agent: agent,
-		Text:  text,
-	})
-}
-
-const parallelClients = 16
 
 func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
 	var err error
@@ -88,7 +61,7 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 		return nil, err
 	}
 
-	err = k.initClientPool()
+	k.clients, err = newK8sClients(ctx, restConfig, 16)
 	if err != nil {
 		return nil, err
 	}
@@ -107,53 +80,12 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 	if err != nil {
 		return nil, err
 	}
-	err = k.Resources.updateResourcesFromCRDs()
+	err = k.Resources.updateResourcesFromCRDs(k.clients)
 	if err != nil {
 		return nil, err
 	}
 
 	return k, nil
-}
-
-func (k *K8sCluster) initClientPool() error {
-	var err error
-
-	if k.clientPool != nil {
-		for i := 0; i < parallelClients; i++ {
-			p := <-k.clientPool
-			p.http.CloseIdleConnections()
-		}
-	}
-
-	k.clientPool = make(chan *parallelClientEntry, parallelClients)
-	for i := 0; i < parallelClients; i++ {
-		p := &parallelClientEntry{}
-		config := rest.CopyConfig(k.restConfig)
-		config.WarningHandler = p
-
-		p.http, err = rest.HTTPClientFor(config)
-		if err != nil {
-			return err
-		}
-
-		p.corev1, err = corev1.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return err
-		}
-
-		p.dynamicClient, err = dynamic.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return err
-		}
-
-		p.metadataClient, err = metadata.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return err
-		}
-
-		k.clientPool <- p
-	}
-	return nil
 }
 
 func (k *K8sCluster) ReadWrite() *K8sCluster {
@@ -164,48 +96,6 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 
 func (k *K8sCluster) GetCA() []byte {
 	return k.restConfig.CAData
-}
-
-func (k *K8sCluster) withClientFromPool(cb func(p *parallelClientEntry) error) ([]ApiWarning, error) {
-	select {
-	case p := <-k.clientPool:
-		defer func() { k.clientPool <- p }()
-		p.warnings = nil
-		err := cb(p)
-		return append([]ApiWarning(nil), p.warnings...), err
-	case <-k.ctx.Done():
-		return nil, fmt.Errorf("failed waiting for free client: %w", k.ctx.Err())
-	}
-}
-
-func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
-	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		gvr, namespaced, err := k.Resources.GetGVRForGVK(gvk)
-		if err != nil {
-			return err
-		}
-
-		if namespaced && namespace != "" {
-			return cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
-		} else {
-			return cb(p.dynamicClient.Resource(*gvr))
-		}
-	})
-}
-
-func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
-	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		gvr, namespaced, err := k.Resources.GetGVRForGVK(gvk)
-		if err != nil {
-			return err
-		}
-
-		if namespaced && namespace != "" {
-			return cb(p.metadataClient.Resource(*gvr).Namespace(namespace))
-		} else {
-			return cb(p.metadataClient.Resource(*gvr))
-		}
-	})
 }
 
 func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
@@ -223,7 +113,7 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	var result []*uo.UnstructuredObject
 
-	apiWarnings, err := k.withDynamicClientForGVK(gvk, namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, gvk, namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.ListOptions{
 			LabelSelector: k.buildLabelSelector(labels),
 		}
@@ -242,7 +132,7 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	var result []*uo.UnstructuredObject
 
-	apiWarnings, err := k.withMetadataClientForGVK(gvk, namespace, func(r metadata.ResourceInterface) error {
+	apiWarnings, err := k.clients.withMetadataClientForGVK(k.Resources, gvk, namespace, func(r metadata.ResourceInterface) error {
 		o := v1.ListOptions{
 			LabelSelector: k.buildLabelSelector(labels),
 		}
@@ -318,7 +208,7 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.GetOptions{}
 		x, err := r.Get(k.ctx, ref.Name, o)
 		if err != nil {
@@ -382,7 +272,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 		o.DryRun = []string{"All"}
 	}
 
-	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		err := r.Delete(k.ctx, ref.Name, o)
 		if err != nil {
 			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
@@ -539,7 +429,7 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 	status.Trace(k.ctx, "patching %s", ref.String())
 
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(k.ctx, ref.Name, types.ApplyPatchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
@@ -568,7 +458,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	status.Trace(k.ctx, "updating %s", ref.String())
 
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.withDynamicClientForGVK(ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Update(k.ctx, o.ToUnstructured(), updateOpts)
 		if err != nil {
 			return err
@@ -581,7 +471,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 
 func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params map[string]string) (io.ReadCloser, error) {
 	var ret rest.ResponseWrapper
-	_, err := k.withClientFromPool(func(p *parallelClientEntry) error {
+	_, err := k.clients.withClientFromPool(func(p *parallelClientEntry) error {
 		ret = p.corev1.Services(namespace).ProxyGet(scheme, name, port, path, params)
 		return nil
 	})
