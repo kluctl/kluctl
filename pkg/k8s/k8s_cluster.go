@@ -56,7 +56,7 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 		restConfig: restConfig,
 	}
 
-	k.Resources, err = newK8sResources(ctx, restConfig, k)
+	k.Resources, err = newK8sResources(ctx, restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -76,13 +76,26 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 	}
 	k.ServerVersion = v2
 
-	err = k.Resources.updateResources()
-	if err != nil {
-		return nil, err
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	var err1 error
+	var err2 error
+	go func() {
+		err1 = k.Resources.updateResources()
+		wg.Done()
+	}()
+	go func() {
+		err2 = k.Resources.updateResourcesFromCRDs(k.clients)
+		wg.Done()
+	}()
+	wg.Wait()
+
+	if err1 != nil {
+		return nil, err1
 	}
-	err = k.Resources.updateResourcesFromCRDs(k.clients)
-	if err != nil {
-		return nil, err
+	if err2 != nil {
+		return nil, err2
 	}
 
 	return k, nil
