@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"k8s.io/klog/v2"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -83,6 +84,7 @@ func setupStatusHandler() {
 
 	klog.LogToStderr(false)
 	klog.SetOutput(status.NewLineRedirector(sh.Info))
+	log.SetOutput(status.NewLineRedirector(sh.Info))
 }
 
 type VersionCheckState struct {
