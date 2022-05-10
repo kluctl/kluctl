@@ -6,9 +6,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
@@ -21,12 +22,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 )
 
 type k8sResources struct {
-	ctx       context.Context
-	k         *K8sCluster
-	discovery *disk.CachedDiscoveryClient
+	ctx        context.Context
+	restConfig *rest.Config
+	discovery  *disk.CachedDiscoveryClient
 
 	allResources       map[schema.GroupVersionKind]v1.APIResource
 	preferredResources map[schema.GroupKind]v1.APIResource
@@ -34,10 +37,10 @@ type k8sResources struct {
 	mutex              sync.Mutex
 }
 
-func newK8sResources(ctx context.Context, config *rest.Config, k2 *K8sCluster) (*k8sResources, error) {
+func newK8sResources(ctx context.Context, config *rest.Config) (*k8sResources, error) {
 	k := &k8sResources{
 		ctx:                ctx,
-		k:                  k2,
+		restConfig:         config,
 		allResources:       map[schema.GroupVersionKind]v1.APIResource{},
 		preferredResources: map[schema.GroupKind]v1.APIResource{},
 		crds:               map[schema.GroupKind]*uo.UnstructuredObject{},
@@ -155,32 +158,26 @@ func (k *k8sResources) updateResources() error {
 var crdGK = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
 
 func (k *k8sResources) updateResourcesFromCRDs(clients *k8sClients) error {
-	ar := k.GetPreferredResource(crdGK)
-	if ar == nil {
-		return fmt.Errorf("api resource for CRDs not found")
-	}
-	gvr, err := k.GetGVRForGVK(schema.GroupVersionKind{
-		Group:   ar.Group,
-		Version: ar.Version,
-		Kind:    ar.Kind,
-	})
-	if err != nil {
-		return err
-	}
+	var crdList *apiextensionsv1.CustomResourceDefinitionList
+	_, err := clients.withClientFromPool(func(p *parallelClientEntry) error {
+		c, err := apiextensionsclient.NewForConfigAndClient(k.restConfig, p.http)
+		if err != nil {
+			return err
+		}
 
-	var crds *unstructured.UnstructuredList
-	_, err = clients.withClientFromPool(func(p *parallelClientEntry) error {
-		var err error
-		crds, err = p.dynamicClient.Resource(*gvr).List(k.ctx, v1.ListOptions{})
+		crdList, err = c.CustomResourceDefinitions().List(k.ctx, v1.ListOptions{})
 		return err
 	})
 	if err != nil {
 		return err
 	}
 
-	for _, x := range crds.Items {
-		x2 := x
-		crd := uo.FromUnstructured(&x2)
+	for _, x := range crdList.Items {
+		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&x)
+		if err != nil {
+			return err
+		}
+		crd := uo.FromMap(u)
 		err = k.UpdateResourcesFromCRD(crd)
 		if err != nil {
 			return err
