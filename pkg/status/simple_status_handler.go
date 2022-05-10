@@ -15,6 +15,10 @@ func NewSimpleStatusHandler(cb func(message string), trace bool) StatusHandler {
 	}
 }
 
+func (s *simpleStatusHandler) SetTrace(trace bool) {
+	s.trace = trace
+}
+
 func (s *simpleStatusHandler) Stop() {
 }
 

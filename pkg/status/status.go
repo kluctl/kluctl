@@ -37,6 +37,7 @@ type StatusLine interface {
 }
 
 type StatusHandler interface {
+	SetTrace(trace bool)
 	Stop()
 	StartStatus(total int, message string) StatusLine
 

@@ -70,21 +70,19 @@ var flagGroups = []groupInfo{
 
 var cliCtx = context.Background()
 
-func (c *cli) setupStatusHandler() error {
+func setupStatusHandler() {
 	var sh status.StatusHandler
 	if isatty.IsTerminal(os.Stderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, c.Debug)
+		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, false)
 	} else {
 		sh = status.NewSimpleStatusHandler(func(message string) {
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message)
-		}, c.Debug)
+		}, false)
 	}
 	cliCtx = status.NewContext(cliCtx, sh)
 
 	klog.LogToStderr(false)
 	klog.SetOutput(status.NewLineRedirector(sh.Info))
-
-	return nil
 }
 
 type VersionCheckState struct {
@@ -144,9 +142,7 @@ func (c *cli) checkNewVersion() {
 }
 
 func (c *cli) preRun() error {
-	if err := c.setupStatusHandler(); err != nil {
-		return err
-	}
+	status.FromContext(cliCtx).SetTrace(c.Debug)
 	c.checkNewVersion()
 	return nil
 }
@@ -195,9 +191,10 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		return root.preRun()
 	}
 
+	setupStatusHandler()
 	initViper()
 
-	err = rootCmd.Execute()
+	err = rootCmd.ExecuteContext(cliCtx)
 
 	sh := status.FromContext(cliCtx)
 
