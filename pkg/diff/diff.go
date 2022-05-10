@@ -173,14 +173,18 @@ func objectToDiffableString(o interface{}, showType bool) (string, error) {
 		return "", err
 	}
 	if showType {
-		s += fmt.Sprintf(" (type: %s)", reflect.TypeOf(o).Name())
+		t := "<nil>"
+		if o != nil {
+			t = reflect.TypeOf(o).Name()
+		}
+		s += fmt.Sprintf(" (type: %s)", t)
 	}
 	return s, nil
 }
 
 func objectToDiffableStringNoType(o interface{}) (string, error) {
 	if o == nil {
-		return "null", nil
+		return "<nil>", nil
 	}
 	if o == notPresent {
 		return "", nil
