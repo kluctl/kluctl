@@ -45,8 +45,7 @@ type ApplyUtil struct {
 	deletedHookObjects map[k8s2.ObjectRef]bool
 	mutex              sync.Mutex
 
-	abortSignal    *atomic.Value
-	deployedNewCRD *atomic.Value
+	abortSignal *atomic.Value
 
 	ru   *RemoteObjectUtils
 	k    *k8s.K8sCluster
@@ -63,8 +62,7 @@ type ApplyDeploymentsUtil struct {
 	k           *k8s.K8sCluster
 	o           *ApplyUtilOptions
 
-	abortSignal    atomic.Value
-	deployedNewCRD atomic.Value
+	abortSignal atomic.Value
 
 	results []*ApplyUtil
 }
@@ -79,7 +77,6 @@ func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnin
 		o:           o,
 	}
 	ret.abortSignal.Store(false)
-	ret.deployedNewCRD.Store(false)
 	return ret
 }
 
@@ -92,7 +89,6 @@ func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *sta
 		deletedObjects:     map[k8s2.ObjectRef]bool{},
 		deletedHookObjects: map[k8s2.ObjectRef]bool{},
 		abortSignal:        &ad.abortSignal,
-		deployedNewCRD:     &ad.deployedNewCRD,
 		ru:                 ad.ru,
 		k:                  ad.k,
 		o:                  ad.o,
@@ -307,10 +303,6 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		ForceDryRun: a.o.DryRun,
 	}
 	r, apiWarnings, err := a.k.PatchObject(x, options)
-	retry, err := a.handleNewCRDs(r, err)
-	if retry {
-		r, apiWarnings, err = a.k.PatchObject(x, options)
-	}
 	if r != nil && usesDummyName {
 		tmpName := r.GetK8sName()
 		_ = r.ReplaceKeys(tmpName, ref.Name)
@@ -329,30 +321,6 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
 	}
-}
-
-func (a *ApplyUtil) handleNewCRDs(x *uo.UnstructuredObject, err error) (bool, error) {
-	if err != nil && meta.IsNoMatchError(err) {
-		// maybe this was a resource for which the CRD was only deployed recently, so we should do rediscovery and then
-		// retry the patch
-		if a.deployedNewCRD.Load().(bool) {
-			a.deployedNewCRD.Store(false)
-			err = a.k.Resources.RediscoverResources()
-			if err != nil {
-				return false, err
-			}
-			return true, nil
-		}
-	} else if err == nil {
-		ref := x.GetK8sRef()
-		if ref.GVK.Group == "apiextensions.k8s.io" && ref.GVK.Kind == "CustomResourceDefinition" {
-			// this is a freshly deployed CRD, so we must perform rediscovery in case an api resource can't be found
-			a.deployedNewCRD.Store(true)
-			return true, nil
-		}
-		return false, nil
-	}
-	return false, err
 }
 
 func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) bool {

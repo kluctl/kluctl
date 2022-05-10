@@ -8,42 +8,40 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
-type crdCacheEntry struct {
-	crd *uo.UnstructuredObject
-	err error
-}
-
 type k8sResources struct {
 	ctx       context.Context
+	k         *K8sCluster
 	discovery *disk.CachedDiscoveryClient
 
-	allResources        map[schema.GroupVersionKind]*v1.APIResource
-	preferredResources  map[schema.GroupKind]*v1.APIResource
-	namespacedResources map[schema.GroupKind]bool
-	crdCache            map[k8s.ObjectRef]crdCacheEntry
-	mutex               sync.Mutex
+	allResources       map[schema.GroupVersionKind]v1.APIResource
+	preferredResources map[schema.GroupKind]v1.APIResource
+	crds               map[schema.GroupKind]*uo.UnstructuredObject
+	mutex              sync.Mutex
 }
 
-func newK8sResources(ctx context.Context, config *rest.Config) (*k8sResources, error) {
+func newK8sResources(ctx context.Context, config *rest.Config, k2 *K8sCluster) (*k8sResources, error) {
 	k := &k8sResources{
-		ctx:                 ctx,
-		allResources:        map[schema.GroupVersionKind]*v1.APIResource{},
-		preferredResources:  map[schema.GroupKind]*v1.APIResource{},
-		namespacedResources: map[schema.GroupKind]bool{},
-		crdCache:            map[k8s.ObjectRef]crdCacheEntry{},
-		mutex:               sync.Mutex{},
+		ctx:                ctx,
+		k:                  k2,
+		allResources:       map[schema.GroupVersionKind]v1.APIResource{},
+		preferredResources: map[schema.GroupKind]v1.APIResource{},
+		crds:               map[schema.GroupKind]*uo.UnstructuredObject{},
+		mutex:              sync.Mutex{},
 	}
 
 	apiHost, err := url.Parse(config.Host)
@@ -60,15 +58,13 @@ func newK8sResources(ctx context.Context, config *rest.Config) (*k8sResources, e
 	return k, nil
 }
 
-func (k *k8sResources) updateResources(doLock bool) error {
-	if doLock {
-		k.mutex.Lock()
-		defer k.mutex.Unlock()
-	}
+func (k *k8sResources) updateResources() error {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
 
-	k.allResources = map[schema.GroupVersionKind]*v1.APIResource{}
-	k.preferredResources = map[schema.GroupKind]*v1.APIResource{}
-	k.crdCache = map[k8s.ObjectRef]crdCacheEntry{}
+	k.allResources = map[schema.GroupVersionKind]v1.APIResource{}
+	k.preferredResources = map[schema.GroupKind]v1.APIResource{}
+	k.crds = map[schema.GroupKind]*uo.UnstructuredObject{}
 
 	// the discovery client doesn't support cancellation, so we need to run it in the background and wait for it
 	var arls []*v1.APIResourceList
@@ -124,7 +120,7 @@ func (k *k8sResources) updateResources(doLock bool) error {
 			if _, ok := k.allResources[gvk]; ok {
 				ok = false
 			}
-			k.allResources[gvk] = &ar
+			k.allResources[gvk] = ar
 		}
 	}
 
@@ -150,53 +146,160 @@ func (k *k8sResources) updateResources(doLock bool) error {
 			if _, ok := deprecatedResources[gk]; ok {
 				continue
 			}
-			k.preferredResources[gk] = &ar
+			k.preferredResources[gk] = ar
 		}
 	}
 	return nil
 }
 
-func (k *k8sResources) RediscoverResources() error {
+var crdGK = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
+
+func (k *k8sResources) updateResourcesFromCRDs() error {
+	ar := k.GetPreferredResource(crdGK)
+	if ar == nil {
+		return fmt.Errorf("api resource for CRDs not found")
+	}
+	gvr, _, err := k.GetGVRForGVK(schema.GroupVersionKind{
+		Group:   ar.Group,
+		Version: ar.Version,
+		Kind:    ar.Kind,
+	})
+	if err != nil {
+		return err
+	}
+
+	var crds *unstructured.UnstructuredList
+	_, err = k.k.withClientFromPool(func(p *parallelClientEntry) error {
+		var err error
+		crds, err = p.dynamicClient.Resource(*gvr).List(k.ctx, v1.ListOptions{})
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, x := range crds.Items {
+		x2 := x
+		crd := uo.FromUnstructured(&x2)
+		err = k.UpdateResourcesFromCRD(crd)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *k8sResources) UpdateResourcesFromCRD(crd *uo.UnstructuredObject) error {
+	var err error
+	var ar v1.APIResource
+	ar.Group, _, err = crd.GetNestedString("spec", "group")
+	if err != nil {
+		return err
+	}
+	ar.Name, _, err = crd.GetNestedString("spec", "names", "plural")
+	if err != nil {
+		return err
+	}
+	ar.Kind, _, err = crd.GetNestedString("spec", "names", "kind")
+	if err != nil {
+		return err
+	}
+	ar.SingularName, _, err = crd.GetNestedString("spec", "names", "singular")
+	if err != nil {
+		return err
+	}
+	scope, _, err := crd.GetNestedString("spec", "scope")
+	if err != nil {
+		return err
+	}
+	ar.Namespaced = strings.ToLower(scope) == "namespaced"
+	ar.ShortNames, _, err = crd.GetNestedStringList("spec", "names", "shortNames")
+	if err != nil {
+		return err
+	}
+	ar.Categories, _, err = crd.GetNestedStringList("spec", "names", "categories")
+	if err != nil {
+		return err
+	}
+	versions, _, err := crd.GetNestedObjectList("spec", "versions")
+	if err != nil {
+		return err
+	}
+
+	ar.Verbs = []string{"delete", "deletecollection", "get", "list", "patch", "create", "update", "watch"}
+
+	gk := schema.GroupKind{
+		Group: ar.Group,
+		Kind:  ar.Kind,
+	}
+
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
-	k.discovery.Invalidate()
-	return k.updateResources(false)
+	k.crds[gk] = crd
+
+	var versionStrs []string
+	for _, v := range versions {
+		name, _, err := v.GetNestedString("name")
+		if err != nil {
+			return err
+		}
+		versionStrs = append(versionStrs, name)
+	}
+
+	// Sort the same way as api discovery does it. The first entry is then the preferred version
+	sort.Slice(versionStrs, func(i, j int) bool {
+		return version.CompareKubeAwareVersionStrings(versionStrs[i], versionStrs[j]) > 0
+	})
+
+	for i, v := range versionStrs {
+		ar2 := ar
+		ar2.Version = v
+		gvk := schema.GroupVersionKind{
+			Group:   gk.Group,
+			Version: ar2.Version,
+			Kind:    gk.Kind,
+		}
+		k.allResources[gvk] = ar2
+
+		if i == 0 {
+			k.preferredResources[gk] = ar2
+		}
+	}
+
+	return nil
 }
 
-func (k *k8sResources) SetNamespaced(gv schema.GroupKind, namespaced bool) {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-	k.namespacedResources[gv] = namespaced
-}
-
-func (k *k8sResources) IsNamespaced(gv schema.GroupKind) bool {
+func (k *k8sResources) IsNamespaced(gv schema.GroupKind) *bool {
 	ar := k.GetPreferredResource(gv)
 	if ar == nil {
-		k.mutex.Lock()
-		defer k.mutex.Unlock()
-
-		n, _ := k.namespacedResources[gv]
-		return n
+		return nil
 	}
-	return ar.Namespaced
+	return &ar.Namespaced
 }
 
 func (k *k8sResources) FixNamespace(o *uo.UnstructuredObject, def string) {
 	ref := o.GetK8sRef()
 	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
-	if !namespaced && ref.Namespace != "" {
+	if namespaced == nil {
+		return
+	}
+	if !*namespaced && ref.Namespace != "" {
 		o.SetK8sNamespace("")
-	} else if namespaced && ref.Namespace == "" {
+	} else if *namespaced && ref.Namespace == "" {
 		o.SetK8sNamespace(def)
 	}
 }
 
 func (k *k8sResources) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
 	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
-	if !namespaced && ref.Namespace != "" {
+	if namespaced == nil {
+		return ref
+	}
+	if !*namespaced && ref.Namespace != "" {
 		ref.Namespace = ""
-	} else if namespaced && ref.Namespace == "" {
+	} else if *namespaced && ref.Namespace == "" {
 		ref.Namespace = "default"
 	}
 	return ref
@@ -227,7 +330,7 @@ func (k *k8sResources) GetPreferredResource(gk schema.GroupKind) *v1.APIResource
 	if !ok {
 		return nil
 	}
-	return ar
+	return &ar
 }
 
 func (k *k8sResources) GetFilteredGVKs(filter func(ar *v1.APIResource) bool) []schema.GroupVersionKind {
@@ -236,7 +339,7 @@ func (k *k8sResources) GetFilteredGVKs(filter func(ar *v1.APIResource) bool) []s
 
 	var ret []schema.GroupVersionKind
 	for _, ar := range k.allResources {
-		if !filter(ar) {
+		if !filter(&ar) {
 			continue
 		}
 		gvk := schema.GroupVersionKind{
@@ -255,7 +358,7 @@ func (k *k8sResources) GetFilteredPreferredGVKs(filter func(ar *v1.APIResource) 
 
 	var ret []schema.GroupVersionKind
 	for _, ar := range k.preferredResources {
-		if !filter(ar) {
+		if !filter(&ar) {
 			continue
 		}
 		gvk := schema.GroupVersionKind{
@@ -302,39 +405,19 @@ func (k *k8sResources) GetGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupV
 	}, ar.Namespaced, nil
 }
 
-func (k *k8sResources) GetCRDForGVK(k2 *K8sCluster, gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	gvr, _, err := k.GetGVRForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
-
-	crdRef := k8s.ObjectRef{
-		GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
-		Name: fmt.Sprintf("%s.%s", gvr.Resource, gvr.Group),
-	}
-
+func (k *k8sResources) GetCRDForGK(gk schema.GroupKind) *uo.UnstructuredObject {
 	k.mutex.Lock()
-	x, ok := k.crdCache[crdRef]
-	k.mutex.Unlock()
-	if ok {
-		return x.crd, x.err
-	}
+	defer k.mutex.Unlock()
 
-	crd, _, err := k2.GetSingleObject(crdRef)
+	crd, _ := k.crds[gk]
 
-	k.mutex.Lock()
-	x.crd = crd
-	x.err = err
-	k.crdCache[crdRef] = x
-	k.mutex.Unlock()
-
-	return crd, err
+	return crd
 }
 
-func (k *k8sResources) GetSchemaForGVK(k2 *K8sCluster, gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	crd, err := k.GetCRDForGVK(k2, gvk)
-	if err != nil {
-		return nil, err
+func (k *k8sResources) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
+	crd := k.GetCRDForGK(gvk.GroupKind())
+	if crd == nil {
+		return nil, nil
 	}
 
 	versions, ok, err := crd.GetNestedObjectList("spec", "versions")
@@ -345,12 +428,12 @@ func (k *k8sResources) GetSchemaForGVK(k2 *K8sCluster, gvk schema.GroupVersionKi
 		return nil, fmt.Errorf("versions not found in CRD")
 	}
 
-	for _, version := range versions {
-		name, _, _ := version.GetNestedString("name")
+	for _, v := range versions {
+		name, _, _ := v.GetNestedString("name")
 		if name != gvk.Version {
 			continue
 		}
-		s, ok, err := version.GetNestedObject("schema", "openAPIV3Schema")
+		s, ok, err := v.GetNestedObject("schema", "openAPIV3Schema")
 		if err != nil {
 			return nil, err
 		}

@@ -71,20 +71,21 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 const parallelClients = 16
 
 func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
+	var err error
+
 	restConfig := rest.CopyConfig(configIn)
 	restConfig.QPS = 10
 	restConfig.Burst = 20
-
-	resources, err := newK8sResources(ctx, restConfig)
-	if err != nil {
-		return nil, err
-	}
 
 	k := &K8sCluster{
 		ctx:        ctx,
 		DryRun:     dryRun,
 		restConfig: restConfig,
-		Resources:  resources,
+	}
+
+	k.Resources, err = newK8sResources(ctx, restConfig, k)
+	if err != nil {
+		return nil, err
 	}
 
 	err = k.initClientPool()
@@ -102,7 +103,11 @@ func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8
 	}
 	k.ServerVersion = v2
 
-	err = k.Resources.updateResources(true)
+	err = k.Resources.updateResources()
+	if err != nil {
+		return nil, err
+	}
+	err = k.Resources.updateResourcesFromCRDs()
 	if err != nil {
 		return nil, err
 	}

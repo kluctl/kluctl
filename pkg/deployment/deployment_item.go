@@ -388,7 +388,7 @@ func (di *DeploymentItem) loadObjects() error {
 
 var crdGV = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
 
-// postprocessCRDs will set namespace overrides into the K8sCluster so that future IsNamespaced return the correct
+// postprocessCRDs will update api resources from freshly deployed CRDs
 // value even if the CRD is not deployed yet.
 func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
 	if di.dir == nil {
@@ -401,21 +401,10 @@ func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
 			continue
 		}
 
-		scope, _, err := o.GetNestedString("spec", "scope")
+		err := k.Resources.UpdateResourcesFromCRD(o)
 		if err != nil {
 			return err
 		}
-		namespaced := strings.ToLower(scope) == "namespaced"
-		group, _, err := o.GetNestedString("spec", "group")
-		if err != nil {
-			return err
-		}
-		kind, _, err := o.GetNestedString("spec", "names", "kind")
-		if err != nil {
-			return err
-		}
-
-		k.Resources.SetNamespaced(schema.GroupKind{Group: group, Kind: kind}, namespaced)
 	}
 	return nil
 }
