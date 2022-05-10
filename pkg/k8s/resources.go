@@ -272,7 +272,7 @@ func BuildGVKFilter(group *string, version *string, kind *string) func(ar *v1.AP
 	}
 }
 
-func (k *k8sResources) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {
+func (k *k8sResources) GetGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool, error) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
@@ -291,23 +291,15 @@ func (k *k8sResources) getGVRForGVK(gvk schema.GroupVersionKind) (*schema.GroupV
 	}, ar.Namespaced, nil
 }
 
-func (k *k8sResources) GetApiResourceForGVK(gvk schema.GroupVersionKind) *v1.APIResource {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	ar, _ := k.allResources[gvk]
-	return ar
-}
-
 func (k *k8sResources) GetCRDForGVK(k2 *K8sCluster, gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	ar := k.GetApiResourceForGVK(gvk)
-	if ar == nil {
-		return nil, fmt.Errorf("APIResource for %s not found", gvk.String())
+	gvr, _, err := k.GetGVRForGVK(gvk)
+	if err != nil {
+		return nil, err
 	}
 
 	crdRef := k8s.ObjectRef{
 		GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
-		Name: fmt.Sprintf("%s.%s", ar.Name, ar.Group),
+		Name: fmt.Sprintf("%s.%s", gvr.Resource, gvr.Group),
 	}
 
 	k.mutex.Lock()

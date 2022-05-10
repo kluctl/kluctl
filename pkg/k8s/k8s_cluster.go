@@ -175,7 +175,7 @@ func (k *K8sCluster) withClientFromPool(cb func(p *parallelClientEntry) error) (
 
 func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
 	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		gvr, namespaced, err := k.Resources.getGVRForGVK(gvk)
+		gvr, namespaced, err := k.Resources.GetGVRForGVK(gvk)
 		if err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func (k *K8sCluster) withDynamicClientForGVK(gvk schema.GroupVersionKind, namesp
 
 func (k *K8sCluster) withMetadataClientForGVK(gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
 	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		gvr, namespaced, err := k.Resources.getGVRForGVK(gvk)
+		gvr, namespaced, err := k.Resources.GetGVRForGVK(gvk)
 		if err != nil {
 			return err
 		}
