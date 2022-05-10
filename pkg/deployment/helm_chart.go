@@ -22,6 +22,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -201,7 +202,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	}
 	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(c.configFile), "helm-values.yml"))
 
-	var gvs []string
+	var gvs []schema.GroupVersion
 	if k != nil {
 		gvs, err = k.Resources.GetAllGroupVersions()
 		if err != nil {
@@ -245,7 +246,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 		client.IncludeCRDs = true
 	}
 	for _, gv := range gvs {
-		client.APIVersions = append(client.APIVersions, gv)
+		client.APIVersions = append(client.APIVersions, gv.String())
 	}
 
 	p := getter.All(settings)

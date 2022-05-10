@@ -202,15 +202,15 @@ func (k *k8sResources) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
 	return ref
 }
 
-func (k *k8sResources) GetAllGroupVersions() ([]string, error) {
+func (k *k8sResources) GetAllGroupVersions() ([]schema.GroupVersion, error) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
-	m := make(map[string]bool)
-	var l []string
+	m := make(map[schema.GroupVersion]bool)
+	var l []schema.GroupVersion
 
 	for gvk, _ := range k.allResources {
-		gv := gvk.GroupVersion().String()
+		gv := gvk.GroupVersion()
 		if _, ok := m[gv]; !ok {
 			m[gv] = true
 			l = append(l, gv)
