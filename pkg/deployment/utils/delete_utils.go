@@ -7,6 +7,7 @@ import (
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"golang.org/x/sync/semaphore"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strconv"
 	"sync"
@@ -47,9 +48,21 @@ func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef
 }
 
 func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusionHasTags bool, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
+	filterFunc := func(ar *v1.APIResource) bool {
+		if len(apiFilter) == 0 {
+			return true
+		}
+		for _, f := range apiFilter {
+			if ar.Name == f || ar.Group == f || ar.Kind == f {
+				return true
+			}
+		}
+		return false
+	}
+
 	filteredResources := make(map[schema.GroupKind]bool)
-	for _, gk := range k.Resources.GetFilteredGKs(apiFilter) {
-		filteredResources[gk] = true
+	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filterFunc) {
+		filteredResources[gvk.GroupKind()] = true
 	}
 
 	var ret []*uo.UnstructuredObject

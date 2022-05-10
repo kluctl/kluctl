@@ -238,30 +238,6 @@ func (k *k8sResources) GetFilteredPreferredGVKs(filter func(ar *v1.APIResource) 
 	return ret
 }
 
-func (k *k8sResources) GetFilteredGKs(filters []string) []schema.GroupKind {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
-
-	m := make(map[schema.GroupKind]bool)
-	var l []schema.GroupKind
-	for gk, ar := range k.preferredResources {
-		found := len(filters) == 0
-		for _, f := range filters {
-			if ar.Name == f || ar.Group == f || ar.Kind == f {
-				found = true
-				break
-			}
-		}
-		if found {
-			if _, ok := m[gk]; !ok {
-				m[gk] = true
-				l = append(l, gk)
-			}
-		}
-	}
-	return l
-}
-
 func (k *k8sResources) GetGVKs(group *string, version *string, kind *string) []schema.GroupVersionKind {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
