@@ -171,15 +171,15 @@ func (k *k8sResources) SetNamespaced(gv schema.GroupKind, namespaced bool) {
 }
 
 func (k *k8sResources) IsNamespaced(gv schema.GroupKind) bool {
-	k.mutex.Lock()
-	defer k.mutex.Unlock()
+	ar := k.GetPreferredResource(gv)
+	if ar == nil {
+		k.mutex.Lock()
+		defer k.mutex.Unlock()
 
-	r, ok := k.preferredResources[gv]
-	if !ok {
 		n, _ := k.namespacedResources[gv]
 		return n
 	}
-	return r.Namespaced
+	return ar.Namespaced
 }
 
 func (k *k8sResources) FixNamespace(o *uo.UnstructuredObject, def string) {
@@ -217,6 +217,17 @@ func (k *k8sResources) GetAllGroupVersions() ([]schema.GroupVersion, error) {
 		}
 	}
 	return l, nil
+}
+
+func (k *k8sResources) GetPreferredResource(gk schema.GroupKind) *v1.APIResource {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	ar, ok := k.preferredResources[gk]
+	if !ok {
+		return nil
+	}
+	return ar
 }
 
 func (k *k8sResources) GetFilteredGVKs(filter func(ar *v1.APIResource) bool) []schema.GroupVersionKind {
