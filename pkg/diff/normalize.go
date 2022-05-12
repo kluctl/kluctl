@@ -164,7 +164,7 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 			if err != nil {
 				continue
 			}
-			_ = jp.Del(o.Object)
+			_ = jp.Del(o)
 		}
 	}
 
@@ -179,7 +179,7 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		if err != nil {
 			continue
 		}
-		_ = j.Del(o.Object)
+		_ = j.Del(o)
 	}
 
 	return o

@@ -117,7 +117,7 @@ func (s *SecretsLoader) loadSecretsHttp(source *types.SecretSource) (*uo.Unstruc
 		if err != nil {
 			return nil, err
 		}
-		x, ok := p.GetFirst(respObj)
+		x, ok := p.GetFirstFromAny(respObj)
 		if !ok {
 			return nil, fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
 		}

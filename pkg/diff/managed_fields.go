@@ -219,7 +219,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			if err != nil {
 				return nil, nil, err
 			}
-			err = j.Del(ret.Object)
+			err = j.Del(ret)
 			if err != nil {
 				return nil, nil, err
 			}

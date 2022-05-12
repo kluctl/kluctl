@@ -87,11 +87,11 @@ func (j *MyJsonPath) ListMatchingFields(o *UnstructuredObject) ([]KeyPath, error
 	return ret, nil
 }
 
-func (j *MyJsonPath) Get(o interface{}) []interface{} {
-	return j.exp.Get(o)
+func (j *MyJsonPath) Get(o *UnstructuredObject) []interface{} {
+	return j.exp.Get(o.Object)
 }
 
-func (j *MyJsonPath) GetFirst(o interface{}) (interface{}, bool) {
+func (j *MyJsonPath) GetFirst(o *UnstructuredObject) (interface{}, bool) {
 	l := j.Get(o)
 	if len(l) == 0 {
 		return nil, false
@@ -99,30 +99,50 @@ func (j *MyJsonPath) GetFirst(o interface{}) (interface{}, bool) {
 	return l[0], true
 }
 
-func (j *MyJsonPath) GetFirstMap(o interface{}) (map[string]interface{}, bool, error) {
-	o, found := j.GetFirst(o)
+func (j *MyJsonPath) GetFromAny(o any) []interface{} {
+	return j.exp.Get(o)
+}
+
+func (j *MyJsonPath) GetFirstFromAny(o any) (interface{}, bool) {
+	l := j.GetFromAny(o)
+	if len(l) == 0 {
+		return nil, false
+	}
+	return l[0], true
+}
+
+func (j *MyJsonPath) GetFirstObject(o *UnstructuredObject) (*UnstructuredObject, bool, error) {
+	x, found := j.GetFirst(o)
 	if !found {
 		return nil, false, nil
 	}
-	m, ok := o.(map[string]interface{})
+	m, ok := x.(map[string]interface{})
 	if !ok {
 		return nil, false, fmt.Errorf("child is not a map")
 	}
-	return m, true, nil
+	return FromMap(m), true, nil
 }
 
-func (j *MyJsonPath) GetFirstListOfMaps(o interface{}) ([]map[string]interface{}, bool, error) {
-	o, found := j.GetFirst(o)
+func (j *MyJsonPath) GetFirstListOfObjects(o *UnstructuredObject) ([]*UnstructuredObject, bool, error) {
+	x, found := j.GetFirst(o)
 	if !found {
 		return nil, false, nil
 	}
-	m, ok := o.([]map[string]interface{})
+	l, ok := x.([]interface{})
 	if !ok {
-		return nil, false, fmt.Errorf("child is not a list of maps")
+		return nil, false, fmt.Errorf("child is not a list")
 	}
-	return m, true, nil
+	var ret []*UnstructuredObject
+	for _, x := range l {
+		m, ok := x.(map[string]interface{})
+		if !ok {
+			return nil, false, fmt.Errorf("child is not a list of maps")
+		}
+		ret = append(ret, FromMap(m))
+	}
+	return ret, true, nil
 }
 
-func (j *MyJsonPath) Del(o interface{}) error {
-	return j.exp.Del(o)
+func (j *MyJsonPath) Del(o *UnstructuredObject) error {
+	return j.exp.Del(o.Object)
 }

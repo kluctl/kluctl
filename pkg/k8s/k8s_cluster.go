@@ -352,14 +352,15 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 			return
 		}
 
-		ports, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o.Object)
+		ports, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfObjects(o)
 		if !found {
 			return
 		}
 
 		for _, port := range ports {
-			if _, ok := port["protocol"]; !ok {
-				port["protocol"] = "TCP"
+			_, ok, _ := port.GetNestedField("protocol")
+			if !ok {
+				_ = port.SetNestedField("TCP", "protocol")
 			}
 		}
 	}
@@ -368,17 +369,17 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 		if !needsTypeConversionFix {
 			return
 		}
-		d, found, _ := uo.NewMyJsonPathMust(p).GetFirstMap(o.Object)
+		d, found, _ := uo.NewMyJsonPathMust(p).GetFirstObject(o)
 		if !found {
 			return
 		}
-		v, ok := d[k]
+		v, ok, _ := d.GetNestedField(k)
 		if !ok {
 			return
 		}
 		_, ok = v.(string)
 		if !ok {
-			d[k] = fmt.Sprintf("%v", v)
+			_ = d.SetNestedField(fmt.Sprintf("%v", v), k)
 		}
 	}
 
@@ -389,7 +390,7 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 	}
 
 	fixContainers := func(p string) {
-		containers, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o.Object)
+		containers, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfObjects(o)
 		if !found {
 			return
 		}
@@ -399,7 +400,7 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 	}
 
 	fixLimits := func(p string) {
-		limits, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o.Object)
+		limits, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfObjects(o)
 		if !found {
 			return
 		}
