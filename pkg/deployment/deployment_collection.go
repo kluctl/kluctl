@@ -235,6 +235,8 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 
 	if len(errs) == 0 {
 		s.Success()
+	} else {
+		s.Failed()
 	}
 
 	return utils.NewErrorListOrNil(errs)
