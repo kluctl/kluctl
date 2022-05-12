@@ -384,8 +384,8 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 
 	fixContainer := func(p string) {
 		fixPorts(p + ".ports")
-		fixStringType(p+"resources.limits", "cpu")
-		fixStringType(p+"resources.requests", "cpu")
+		fixStringType(p+".resources.limits", "cpu")
+		fixStringType(p+".resources.requests", "cpu")
 	}
 
 	fixContainers := func(p string) {
