@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"time"
 )
 
 type deployCmd struct {
@@ -77,6 +78,9 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 }
 
 func (cmd *deployCmd) diffResultCb(diffResult *types.CommandResult) error {
+	// workaround to ensure that progress has been completely written/updated
+	time.Sleep(130 * time.Millisecond)
+
 	err := outputCommandResult(nil, diffResult)
 	if err != nil {
 		return err
