@@ -96,7 +96,7 @@ func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected in
 		t.Fatal(err)
 	}
 	if !ok {
-		t.Fatalf("field %s not found in object", uo.KeyListToJsonPath(keys))
+		t.Fatalf("field %s not found in object", uo.KeyPath(keys).ToJsonPath())
 	}
 	if !reflect.DeepEqual(v, expected) {
 		t.Fatalf("%v != %v", v, expected)
