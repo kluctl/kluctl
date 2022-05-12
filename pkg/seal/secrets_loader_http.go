@@ -67,7 +67,7 @@ func (s *SecretsLoader) doHttp(httpSource *types.SecretSourceHttp, username stri
 
 func (s *SecretsLoader) loadSecretsHttp(source *types.SecretSource) (*uo.UnstructuredObject, error) {
 	resp, respBody, err := s.doHttp(source.Http, "", "")
-	if err != nil {
+	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)
 		if len(chgs) == 0 {
 			return nil, err
@@ -100,6 +100,8 @@ func (s *SecretsLoader) loadSecretsHttp(source *types.SecretSource) (*uo.Unstruc
 		if err != nil {
 			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	}
 
 	var respObj interface{}
