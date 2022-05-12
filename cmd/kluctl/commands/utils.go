@@ -121,7 +121,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	if err != nil {
 		return fmt.Errorf("failed to parse registry auth from environment: %w", err)
 	}
-	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages, args.forCompletion)
+	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages, args.imageFlags.OfflineImages || args.forCompletion)
 	if err != nil {
 		return err
 	}
