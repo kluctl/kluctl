@@ -11,20 +11,18 @@ import (
 )
 
 type SealCommand struct {
-	c *deployment.DeploymentCollection
+	c             *deployment.DeploymentCollection
+	outputPattern string
 }
 
-func NewSealCommand(c *deployment.DeploymentCollection) *SealCommand {
+func NewSealCommand(c *deployment.DeploymentCollection, outputPattern string) *SealCommand {
 	return &SealCommand{
-		c: c,
+		c:             c,
+		outputPattern: outputPattern,
 	}
 }
 
 func (cmd *SealCommand) Run(sealer *seal.Sealer) error {
-	if cmd.c.Project.Config.SealedSecrets == nil || cmd.c.Project.Config.SealedSecrets.OutputPattern == nil {
-		return fmt.Errorf("sealedSecrets.outputPattern is not defined")
-	}
-
 	err := filepath.WalkDir(cmd.c.RenderDir, func(p string, d fs.DirEntry, err error) error {
 		if !strings.HasSuffix(p, deployment.SealmeExt) {
 			return nil
@@ -34,7 +32,7 @@ func (cmd *SealCommand) Run(sealer *seal.Sealer) error {
 		if err != nil {
 			return err
 		}
-		relTargetFile := filepath.Join(filepath.Dir(relPath), *cmd.c.Project.Config.SealedSecrets.OutputPattern, filepath.Base(p))
+		relTargetFile := filepath.Join(filepath.Dir(relPath), cmd.outputPattern, filepath.Base(p))
 		targetFile, err := securejoin.SecureJoin(cmd.c.Project.SealedSecretsDir, relTargetFile)
 		if err != nil {
 			return err

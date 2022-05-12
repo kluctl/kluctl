@@ -20,9 +20,11 @@ var warnOnce utils.OnceByKey
 type DeploymentProject struct {
 	ctx context.Context
 
-	VarsCtx          *jinja2.VarsCtx
-	dir              string
-	SealedSecretsDir string
+	VarsCtx *jinja2.VarsCtx
+	dir     string
+
+	SealedSecretsDir                  string
+	DefaultSealedSecretsOutputPattern string
 
 	Config types.DeploymentProjectConfig
 
@@ -200,7 +202,8 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 			return err
 		}
 
-		newProject, err := NewDeploymentProject(p.ctx, k, varsCtx, incDir, p.SealedSecretsDir, p)
+		newProject, err := NewDeploymentProject(p.ctx, k, varsCtx, incDir,
+			p.SealedSecretsDir, p)
 		if err != nil {
 			return err
 		}
@@ -211,12 +214,12 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (p *DeploymentProject) getSealedSecretsDir() *string {
+func (p *DeploymentProject) getSealedSecretsDir() string {
 	root := p.getRootProject()
-	if root.Config.SealedSecrets == nil {
-		return nil
+	if root.Config.SealedSecrets == nil || root.Config.SealedSecrets.OutputPattern == nil {
+		return root.DefaultSealedSecretsOutputPattern
 	}
-	return root.Config.SealedSecrets.OutputPattern
+	return *root.Config.SealedSecrets.OutputPattern
 }
 
 func (p *DeploymentProject) getRootProject() *DeploymentProject {

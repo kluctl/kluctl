@@ -230,11 +230,9 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 		fname := filepath.Base(p)
 
 		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.Project.dir, resource)))
-		if sealedSecretsDir == nil {
-			return fmt.Errorf("%s. Sealed secrets dir could not be determined", baseError)
-		}
+
 		// ensure we're not leaving the .sealed-secrets dir
-		sourcePath, err := securejoin.SecureJoin(baseSourcePath, filepath.Join(di.relRenderedDir, subdir, relDir, *sealedSecretsDir, fname))
+		sourcePath, err := securejoin.SecureJoin(baseSourcePath, filepath.Join(di.relRenderedDir, subdir, relDir, sealedSecretsDir, fname))
 		if err != nil {
 			return err
 		}

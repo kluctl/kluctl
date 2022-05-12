@@ -115,7 +115,14 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			return doFail(err)
 		}
 
-		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection)
+		outputPattern := targetName
+		if ctx.targetCtx.DeploymentProject.Config.SealedSecrets != nil && ctx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern != nil {
+			// the outputPattern is rendered already at this point, meaning that for example
+			// '{{ cluster.name }}/{{ target.name }}' will already be rendered to 'my-cluster/my-target'
+			outputPattern = *ctx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern
+		}
+
+		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection, outputPattern)
 		err = cmd2.Run(sealer)
 
 		if err != nil {

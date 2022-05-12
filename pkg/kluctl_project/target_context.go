@@ -115,6 +115,9 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfig
 	if err != nil {
 		return nil, err
 	}
+
+	d.DefaultSealedSecretsOutputPattern = targetName
+
 	c, err := deployment.NewDeploymentCollection(ctx, d, images, inclusion, renderOutputDir, forSeal)
 	if err != nil {
 		return nil, err
