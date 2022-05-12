@@ -87,15 +87,15 @@ func (s *SecretsLoader) loadSecretsSystemEnvs(source *types.SecretSource) (*uo.U
 	err := source.SystemEnvVars.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 		envName, ok := it.Value().(string)
 		if !ok {
-			return fmt.Errorf("value at %s is not a string", it.JsonPath())
+			return fmt.Errorf("value at %s is not a string", it.KeyPath().ToJsonPath())
 		}
 		envValue, ok := os.LookupEnv(envName)
 		if !ok {
-			return fmt.Errorf("environment variable %s not found for secret %s", envName, it.JsonPath())
+			return fmt.Errorf("environment variable %s not found for secret %s", envName, it.KeyPath().ToJsonPath())
 		}
 		err := secrets.SetNestedField(envValue, it.KeyPath()...)
 		if err != nil {
-			return fmt.Errorf("failed to set secret %s: %w", it.JsonPath(), err)
+			return fmt.Errorf("failed to set secret %s: %w", it.KeyPath().ToJsonPath(), err)
 		}
 		return nil
 	})

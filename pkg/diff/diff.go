@@ -18,7 +18,7 @@ import (
 var notPresent = struct{}{}
 
 func convertPath(path []string, o interface{}) (string, error) {
-	var ret []interface{}
+	var ret uo.KeyPath
 	for _, p := range path {
 		if i, err := strconv.ParseInt(p, 10, 32); err == nil {
 			x, found, _ := uo.GetChild(o, int(i))
@@ -35,7 +35,7 @@ func convertPath(path []string, o interface{}) (string, error) {
 		ret = append(ret, p)
 		o = x
 	}
-	return uo.KeyListToJsonPath(ret), nil
+	return ret.ToJsonPath(), nil
 }
 
 func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([]types.Change, error) {

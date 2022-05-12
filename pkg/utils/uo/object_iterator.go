@@ -3,7 +3,7 @@ package uo
 type ObjectIteratorFunc func(it *ObjectIterator) error
 type ObjectIterator struct {
 	path []interface{}
-	keys []interface{}
+	keys KeyPath
 	cb   ObjectIteratorFunc
 }
 
@@ -13,12 +13,12 @@ func NewObjectIterator(o map[string]interface{}) *ObjectIterator {
 	}
 }
 
-func (it *ObjectIterator) KeyPath() []interface{} {
+func (it *ObjectIterator) KeyPath() KeyPath {
 	return it.keys
 }
 
-func (it *ObjectIterator) KeyPathCopy() []interface{} {
-	ret := make([]interface{}, len(it.keys))
+func (it *ObjectIterator) KeyPathCopy() KeyPath {
+	ret := make(KeyPath, len(it.keys))
 	copy(ret, it.keys)
 	return ret
 }
@@ -43,10 +43,6 @@ func (it *ObjectIterator) Value() interface{} {
 
 func (it *ObjectIterator) SetValue(v interface{}) error {
 	return SetChild(it.Parent(), it.Key(), v)
-}
-
-func (it *ObjectIterator) JsonPath() string {
-	return KeyListToJsonPath(it.keys)
 }
 
 func (it *ObjectIterator) IterateLeafs(cb ObjectIteratorFunc) error {

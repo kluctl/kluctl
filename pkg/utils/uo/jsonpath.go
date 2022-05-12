@@ -9,9 +9,11 @@ import (
 
 var isSimpleIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]+$`)
 
-func KeyListToJsonPath(keys []interface{}) string {
+type KeyPath []interface{}
+
+func (kl KeyPath) ToJsonPath() string {
 	p := ""
-	for _, k := range keys {
+	for _, k := range kl {
 		if i, ok := k.(int); ok {
 			p = fmt.Sprintf("%s[%d]", p, i)
 		} else if s, ok := k.(string); ok {
@@ -62,8 +64,8 @@ func NewMyJsonPathMust(p string) *MyJsonPath {
 	return j
 }
 
-func (j *MyJsonPath) ListMatchingFields(o *UnstructuredObject) ([][]interface{}, error) {
-	var ret [][]interface{}
+func (j *MyJsonPath) ListMatchingFields(o *UnstructuredObject) ([]KeyPath, error) {
+	var ret []KeyPath
 
 	o = o.Clone()
 	magic := struct{}{}

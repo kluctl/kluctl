@@ -59,7 +59,7 @@ func checkListItemMatch(o interface{}, pathElement fieldpath.PathElement, index 
 	}
 }
 
-func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) ([]interface{}, bool, error) {
+func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) (uo.KeyPath, bool, error) {
 	var ret []interface{}
 	var o interface{} = remote.Object
 	for _, e := range path {
@@ -157,7 +157,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			return nil, nil, err
 		}
 		for _, f := range fields {
-			forceApplyFields[uo.KeyListToJsonPath(f)] = true
+			forceApplyFields[f.ToJsonPath()] = true
 		}
 	}
 
@@ -209,13 +209,13 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 					break
 				}
 			}
-			if _, ok := forceApplyFields[uo.KeyListToJsonPath(p)]; ok {
+			if _, ok := forceApplyFields[p.ToJsonPath()]; ok {
 				overwrite = true
 			}
 		}
 
 		if !overwrite {
-			j, err := uo.NewMyJsonPath(uo.KeyListToJsonPath(p))
+			j, err := uo.NewMyJsonPath(p.ToJsonPath())
 			if err != nil {
 				return nil, nil, err
 			}

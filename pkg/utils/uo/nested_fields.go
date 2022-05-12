@@ -84,7 +84,7 @@ func (uo *UnstructuredObject) GetNestedString(keys ...interface{}) (string, bool
 	}
 	s, ok := v.(string)
 	if !ok {
-		return "", false, fmt.Errorf("value at %s is not a string", KeyListToJsonPath(keys))
+		return "", false, fmt.Errorf("value at %s is not a string", KeyPath(keys).ToJsonPath())
 	}
 	return s, true, nil
 }
@@ -102,7 +102,7 @@ func (uo *UnstructuredObject) GetNestedInt(keys ...interface{}) (int64, bool, er
 		if i2, ok := v.(int); ok {
 			i = int64(i2)
 		} else {
-			return 0, false, fmt.Errorf("value at %s is not an int", KeyListToJsonPath(keys))
+			return 0, false, fmt.Errorf("value at %s is not an int", KeyPath(keys).ToJsonPath())
 		}
 	}
 	return i, true, nil
@@ -118,7 +118,7 @@ func (uo *UnstructuredObject) GetNestedList(keys ...interface{}) ([]interface{},
 	}
 	l, ok := v.([]interface{})
 	if !ok {
-		return nil, false, fmt.Errorf("value at %s is not a slice", KeyListToJsonPath(keys))
+		return nil, false, fmt.Errorf("value at %s is not a slice", KeyPath(keys).ToJsonPath())
 	}
 	return l, true, nil
 }
@@ -135,7 +135,7 @@ func (uo *UnstructuredObject) GetNestedStringList(keys ...interface{}) ([]string
 	for i, x := range l {
 		s, ok := x.(string)
 		if !ok {
-			return nil, false, fmt.Errorf("value at index %s is not a slice of strings", KeyListToJsonPath(keys))
+			return nil, false, fmt.Errorf("value at index %s is not a slice of strings", KeyPath(keys).ToJsonPath())
 		}
 		ret[i] = s
 	}
@@ -209,13 +209,13 @@ func (uo *UnstructuredObject) GetNestedStringMapCopy(keys ...interface{}) (map[s
 	}
 	m, ok := v.(map[string]interface{})
 	if !ok {
-		return nil, false, fmt.Errorf("value at %s is not a map", KeyListToJsonPath(keys))
+		return nil, false, fmt.Errorf("value at %s is not a map", KeyPath(keys).ToJsonPath())
 	}
 	ret := make(map[string]string)
 	for k, v := range m {
 		s, ok := v.(string)
 		if !ok {
-			return nil, false, fmt.Errorf("value at %s.%s is not a string", KeyListToJsonPath(keys), k)
+			return nil, false, fmt.Errorf("value at %s.%s is not a string", KeyPath(keys).ToJsonPath(), k)
 		}
 		ret[k] = s
 	}

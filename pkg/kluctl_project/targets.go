@@ -336,7 +336,7 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 	if targetConfig.Args != nil {
 		err = targetConfig.Args.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 			strValue := fmt.Sprintf("%v", it.Value())
-			err := c.CheckDynamicArg(&target, it.JsonPath(), strValue)
+			err := c.CheckDynamicArg(&target, it.KeyPath().ToJsonPath(), strValue)
 			if err != nil {
 				return err
 			}

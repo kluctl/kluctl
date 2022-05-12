@@ -352,7 +352,7 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 			return
 		}
 
-		ports, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
+		ports, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o.Object)
 		if !found {
 			return
 		}
@@ -368,7 +368,7 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 		if !needsTypeConversionFix {
 			return
 		}
-		d, found, _ := uo.NewMyJsonPathMust(p).GetFirstMap(o)
+		d, found, _ := uo.NewMyJsonPathMust(p).GetFirstMap(o.Object)
 		if !found {
 			return
 		}
@@ -389,7 +389,7 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 	}
 
 	fixContainers := func(p string) {
-		containers, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
+		containers, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o.Object)
 		if !found {
 			return
 		}
@@ -399,7 +399,7 @@ func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.Unstructure
 	}
 
 	fixLimits := func(p string) {
-		limits, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o)
+		limits, found, _ := uo.NewMyJsonPathMust(p).GetFirstListOfMaps(o.Object)
 		if !found {
 			return
 		}
