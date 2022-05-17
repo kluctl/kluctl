@@ -17,10 +17,11 @@ import (
 	"io/ioutil"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
 )
 
-func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	var url *git_url.GitUrl
 	if projectFlags.ProjectUrl != "" {
 		var err error
@@ -68,6 +69,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		AllowGitClone:       projectFlags.FromArchive == "",
 		GitAuthProviders:    auth.NewDefaultAuthProviders(),
 		GitUpdateInterval:   projectFlags.GitCacheUpdateInterval,
+		ClientConfigGetter:  clientConfigGetter(forCompletion),
 	}
 
 	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
@@ -110,7 +112,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(args.projectFlags, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(args.projectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
@@ -153,16 +155,12 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		renderOutputDir = tmpDir
 	}
 
-	clientConfigGetter := func(context string) (*rest.Config, error) {
-		if args.forCompletion {
-			return nil, nil
-		}
-		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		configOverrides := &clientcmd.ConfigOverrides{CurrentContext: context}
-		return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides).ClientConfig()
+	var clusterName *string
+	if args.projectFlags.Cluster != "" {
+		clusterName = &args.projectFlags.Cluster
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, clientConfigGetter, args.targetFlags.Target, args.projectFlags.Cluster,
+	targetCtx, err := p.NewTargetContext(ctx, args.targetFlags.Target, clusterName,
 		args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
 		optionArgs, args.forSeal, images, inclusion,
 		renderOutputDir)
@@ -184,4 +182,28 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	return cb(cmdCtx)
+}
+
+func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
+	return func(context *string) (*rest.Config, *api.Config, error) {
+		if forCompletion {
+			return nil, nil, nil
+		}
+
+		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		configOverrides := &clientcmd.ConfigOverrides{}
+		if context != nil {
+			configOverrides.CurrentContext = *context
+		}
+		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(configLoadingRules, configOverrides)
+		rawConfig, err := clientConfig.RawConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+		restConfig, err := clientConfig.ClientConfig()
+		if err != nil {
+			return nil, nil, err
+		}
+		return restConfig, &rawConfig, nil
+	}
 }

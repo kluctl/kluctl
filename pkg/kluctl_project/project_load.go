@@ -10,6 +10,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	"path/filepath"
 	"time"
@@ -31,6 +33,8 @@ type LoadKluctlProjectArgs struct {
 	GitAuthProviders *auth2.GitAuthProviders
 
 	GitUpdateInterval time.Duration
+
+	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)
 }
 
 type gitProjectInfo struct {

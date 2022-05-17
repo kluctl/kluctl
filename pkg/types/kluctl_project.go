@@ -29,7 +29,7 @@ type SealingConfig struct {
 
 type Target struct {
 	Name          string                 `yaml:"name" validate:"required"`
-	Cluster       string                 `yaml:"cluster" validate:"required"`
+	Cluster       *string                `yaml:"cluster,omitempty"`
 	Args          *uo.UnstructuredObject `yaml:"args,omitempty"`
 	DynamicArgs   []DynamicArg           `yaml:"dynamicArgs,omitempty"`
 	TargetConfig  *ExternalTargetConfig  `yaml:"targetConfig,omitempty"`

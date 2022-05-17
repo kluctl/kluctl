@@ -106,7 +106,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			}
 		}
 
-		clusterConfig, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster)
+		clusterConfig, _, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster)
 		if err != nil {
 			return doFail(err)
 		}
@@ -134,7 +134,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 }
 
 func (cmd *sealCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
 		secretsLoader := seal.NewSecretsLoader(p, cmd.SecretsDir)
@@ -145,7 +145,7 @@ func (cmd *sealCmd) Run() error {
 			if cmd.Target != "" && cmd.Target != target.Target.Name {
 				continue
 			}
-			if cmd.Cluster != "" && cmd.Cluster != target.Target.Cluster {
+			if cmd.Cluster != "" && target.Target.Cluster != nil && cmd.Cluster != *target.Target.Cluster {
 				continue
 			}
 			if target.Target.SealingConfig == nil {

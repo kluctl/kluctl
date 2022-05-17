@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
 )
 
@@ -23,7 +24,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfigGetter func(context string) (*rest.Config, error), targetName string, clusterName string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -42,26 +43,18 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfig
 		}
 	}
 
-	if clusterName == "" {
-		if target == nil {
-			return nil, fmt.Errorf("you must specify an existing --cluster when not providing a --target")
-		}
+	if clusterName == nil && target != nil {
 		clusterName = target.Cluster
 	}
 
-	clusterConfig, err := p.LoadClusterConfig(clusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	clientConfig, err := clientConfigGetter(clusterConfig.Cluster.Context)
+	clusterConfig, clientConfig, err := p.LoadClusterConfig(clusterName)
 	if err != nil {
 		return nil, err
 	}
 
 	var k *k8s.K8sCluster
 	if clientConfig != nil {
-		s := status.Start(ctx, "Initializing k8s client")
+		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client for context %s", clusterConfig.Cluster.Context))
 		k, err = k8s.NewK8sCluster(ctx, clientConfig, dryRun)
 		if err != nil {
 			s.Failed()
@@ -133,4 +126,43 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, clientConfig
 	}
 
 	return targetCtx, nil
+}
+
+func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string) (*types.ClusterConfig, *rest.Config, error) {
+	var err error
+	var clusterConfig *types.ClusterConfig
+
+	if clusterName != nil {
+		clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, *clusterName)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	var clientConfig *rest.Config
+	if clusterConfig != nil {
+		clientConfig, _, err = p.loadArgs.ClientConfigGetter(&clusterConfig.Cluster.Context)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		var rawConfig *api.Config
+		clientConfig, rawConfig, err = p.loadArgs.ClientConfigGetter(nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		ctx, ok := rawConfig.Contexts[rawConfig.CurrentContext]
+		if !ok {
+			return nil, nil, fmt.Errorf("context %s not found", rawConfig.CurrentContext)
+		}
+		clusterConfig = &types.ClusterConfig{
+			Cluster: &types.ClusterConfig2{
+				Name:    ctx.Cluster,
+				Context: rawConfig.CurrentContext,
+				Vars:    uo.New(),
+			},
+		}
+	}
+
+	return clusterConfig, clientConfig, nil
 }
