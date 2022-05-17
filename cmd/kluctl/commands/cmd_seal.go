@@ -173,6 +173,7 @@ func (cmd *sealCmd) Run() error {
 			err := cmd.runCmdSealForTarget(ctx, p, sealTarget.Name, secretsLoader)
 			if err != nil {
 				hadError = true
+				status.Error(ctx, err.Error())
 			}
 		}
 		if hadError {
