@@ -18,16 +18,14 @@ type usernamePassword struct {
 }
 
 type SecretsLoader struct {
-	project    *kluctl_project.LoadedKluctlProject
-	secretsDir string
+	project *kluctl_project.LoadedKluctlProject
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewSecretsLoader(p *kluctl_project.LoadedKluctlProject, secretsDir string) *SecretsLoader {
+func NewSecretsLoader(p *kluctl_project.LoadedKluctlProject) *SecretsLoader {
 	return &SecretsLoader{
 		project:          p,
-		secretsDir:       secretsDir,
 		credentialsCache: map[string]usernamePassword{},
 	}
 }
@@ -51,11 +49,6 @@ func (s *SecretsLoader) loadSecretsFile(source *types.VarsSource) (*uo.Unstructu
 	var err error
 	if utils.Exists(filepath.Join(s.project.DeploymentDir, *source.Path)) {
 		p, err = securejoin.SecureJoin(s.project.DeploymentDir, *source.Path)
-		if err != nil {
-			return nil, err
-		}
-	} else if utils.Exists(filepath.Join(s.secretsDir, *source.Path)) {
-		p, err = securejoin.SecureJoin(s.secretsDir, *source.Path)
 		if err != nil {
 			return nil, err
 		}
