@@ -4,18 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"path/filepath"
-	"reflect"
 	"strings"
 )
-
-var warnOnce utils.OnceByKey
 
 type DeploymentProject struct {
 	ctx context.Context
@@ -86,30 +82,6 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
 	}
 
-	// TODO remove obsolete code
-	if len(p.Config.Deployments) != 0 && (len(p.Config.KustomizeDirs) != 0 || len(p.Config.Includes) != 0) {
-		return fmt.Errorf("using 'deployments' and 'kustomizeDirs' at the same time is not allowed")
-	}
-	if len(p.Config.KustomizeDirs) != 0 {
-		warnOnce.Do("kustomizeDirs", func() {
-			status.Warning(p.ctx, "'kustomizeDirs' is deprecated, use 'deployments' instead")
-		})
-		p.Config.Deployments = p.Config.KustomizeDirs
-		p.Config.KustomizeDirs = nil
-	}
-	if len(p.Config.Includes) != 0 {
-		warnOnce.Do("includes", func() {
-			status.Warning(p.ctx, "'includes' is deprecated, use 'deployments' instead")
-		})
-		for _, inc := range p.Config.Includes {
-			c := *inc
-			c.Include = c.Path
-			c.Path = nil
-			p.Config.Deployments = append(p.Config.Deployments, &c)
-		}
-		p.Config.Includes = nil
-	}
-
 	// If there are no explicit tags set, interpret the path as a tag, which allows to
 	// enable/disable single deployments via included/excluded tags
 	for _, item := range p.Config.Deployments {
@@ -131,14 +103,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 	if len(p.GetCommonLabels()) == 0 {
 		return fmt.Errorf("no commonLabels in root deployment. This is not allowed")
 	}
-	if len(p.Config.DeleteByLabels) != 0 {
-		warnOnce.Do("deleteByLabels", func() {
-			status.Warning(p.ctx, "'deleteByLabels' is deprecated and ignored from now on")
-		})
-		if !reflect.DeepEqual(p.Config.CommonLabels, p.Config.DeleteByLabels) {
-			return fmt.Errorf("commonLabels and deleteByLabels do not match")
-		}
-	}
+
 	if len(p.Config.Args) != 0 && p.parentProject != nil {
 		return fmt.Errorf("only the root deployment.yml can define args")
 	}

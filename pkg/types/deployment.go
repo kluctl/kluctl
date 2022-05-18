@@ -132,12 +132,7 @@ type DeploymentProjectConfig struct {
 
 	Deployments []*DeploymentItemConfig `yaml:"deployments,omitempty"`
 
-	// Obsolete
-	KustomizeDirs []*DeploymentItemConfig `yaml:"kustomizeDirs,omitempty"`
-	Includes      []*DeploymentItemConfig `yaml:"includes,omitempty"`
-
 	CommonLabels      map[string]string `yaml:"commonLabels,omitempty"`
-	DeleteByLabels    map[string]string `yaml:"deleteByLabels,omitempty"`
 	OverrideNamespace *string           `yaml:"overrideNamespace,omitempty"`
 	Tags              []string          `yaml:"tags,omitempty"`
 
