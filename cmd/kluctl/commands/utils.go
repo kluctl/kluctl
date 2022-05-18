@@ -200,6 +200,9 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 		if err != nil {
 			return nil, nil, err
 		}
+		if context != nil {
+			rawConfig.CurrentContext = *context
+		}
 		restConfig, err := clientConfig.ClientConfig()
 		if err != nil {
 			return nil, nil, err
