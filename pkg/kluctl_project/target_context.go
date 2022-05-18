@@ -70,6 +70,11 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	if err != nil {
 		return nil, err
 	}
+	targetVars, err := uo.FromStruct(target)
+	if err != nil {
+		return nil, err
+	}
+	varsCtx.UpdateChild("target", targetVars)
 
 	allArgs := uo.New()
 
@@ -99,12 +104,6 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	}
 
 	varsCtx.UpdateChild("args", allArgs)
-
-	targetVars, err := uo.FromStruct(target)
-	if err != nil {
-		return nil, err
-	}
-	varsCtx.UpdateChild("target", targetVars)
 
 	d, err := deployment.NewDeploymentProject(ctx, k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
 	if err != nil {
