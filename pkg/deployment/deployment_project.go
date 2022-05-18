@@ -3,12 +3,12 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"path/filepath"
 	"reflect"
@@ -20,7 +20,7 @@ var warnOnce utils.OnceByKey
 type DeploymentProject struct {
 	ctx context.Context
 
-	VarsCtx *jinja2.VarsCtx
+	VarsCtx *vars.VarsCtx
 	dir     string
 
 	SealedSecretsDir                  string
@@ -34,7 +34,7 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsCtx *jinja2.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsCtx *vars.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
 		ctx:              ctx,
 		VarsCtx:          varsCtx.Copy(),

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"reflect"
 	"regexp"
@@ -83,7 +83,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target,
 	var errors []error
 	curTarget := target
 	for i := 0; i < 10; i++ {
-		varsCtx := jinja2.NewVarsCtx(c.J2, c.grc)
+		varsCtx := vars.NewVarsCtx(c.J2, c.grc)
 		err := varsCtx.UpdateChildFromStruct("target", curTarget)
 		if err != nil {
 			return nil, err

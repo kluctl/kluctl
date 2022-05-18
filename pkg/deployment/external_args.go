@@ -2,9 +2,9 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"path/filepath"
 	"regexp"
@@ -40,7 +40,7 @@ func ConvertArgsToVars(args map[string]string) *uo.UnstructuredObject {
 	return vars
 }
 
-func CheckRequiredDeployArgs(dir string, varsCtx *jinja2.VarsCtx, deployArgs *uo.UnstructuredObject) error {
+func CheckRequiredDeployArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) error {
 	// First try to load the config without templating to avoid getting errors while rendering because required
 	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
 	// when the rendering error is actually args related.

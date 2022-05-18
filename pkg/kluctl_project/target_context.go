@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
@@ -65,7 +65,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
-	varsCtx := jinja2.NewVarsCtx(p.J2, p.grc)
+	varsCtx := vars.NewVarsCtx(p.J2, p.grc)
 	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
 	if err != nil {
 		return nil, err

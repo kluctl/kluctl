@@ -1,8 +1,9 @@
-package jinja2
+package vars
 
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -14,12 +15,12 @@ import (
 )
 
 type VarsCtx struct {
-	J2   *Jinja2
+	J2   *jinja2.Jinja2
 	grc  *git.MirroredGitRepoCollection
 	Vars *uo.UnstructuredObject
 }
 
-func NewVarsCtx(j2 *Jinja2, grc *git.MirroredGitRepoCollection) *VarsCtx {
+func NewVarsCtx(j2 *jinja2.Jinja2, grc *git.MirroredGitRepoCollection) *VarsCtx {
 	vc := &VarsCtx{
 		J2:   j2,
 		grc:  grc,
