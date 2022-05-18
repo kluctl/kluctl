@@ -134,6 +134,8 @@ func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string, contextName
 	var clusterConfig *types.ClusterConfig
 
 	if clusterName != nil {
+		status.Warning(p.ctx, "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
+
 		clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, *clusterName)
 		if err != nil {
 			return nil, nil, err

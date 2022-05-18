@@ -206,8 +206,10 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	}
 	var clustersInfos []gitProjectInfo
 	if c.loadArgs.LocalClusters != "" {
+		status.Warning(c.ctx, "--local-clusters is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
 		clustersInfos = append(clustersInfos, c.localProject(c.loadArgs.LocalClusters))
 	} else if len(c.Config.Clusters.Projects) != 0 {
+		status.Warning(c.ctx, "'clusters' is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
 		for _, ep := range c.Config.Clusters.Projects {
 			info, err := c.loadExternalProject(&ep, "clusters", "")
 			if err != nil {
@@ -246,7 +248,6 @@ func (c *LoadedKluctlProject) mergeClustersDirs(mergedClustersDir string, cluste
 
 	for _, ci := range clustersInfos {
 		if !utils.IsDirectory(ci.dir) {
-			status.Warning(c.ctx, "Cluster dir '%s' does not exist", ci.dir)
 			continue
 		}
 		files, err := ioutil.ReadDir(ci.dir)
