@@ -43,11 +43,13 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		}
 	}
 
+	var contextName *string
 	if clusterName == nil && target != nil {
 		clusterName = target.Cluster
+		contextName = target.Context
 	}
 
-	clusterConfig, clientConfig, err := p.LoadClusterConfig(clusterName)
+	clusterConfig, clientConfig, err := p.LoadClusterConfig(clusterName, contextName)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +130,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string) (*types.ClusterConfig, *rest.Config, error) {
+func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string, contextName *string) (*types.ClusterConfig, *rest.Config, error) {
 	var err error
 	var clusterConfig *types.ClusterConfig
 
@@ -147,7 +149,7 @@ func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string) (*types.Clu
 		}
 	} else {
 		var rawConfig *api.Config
-		clientConfig, rawConfig, err = p.loadArgs.ClientConfigGetter(nil)
+		clientConfig, rawConfig, err = p.loadArgs.ClientConfigGetter(contextName)
 		if err != nil {
 			return nil, nil, err
 		}

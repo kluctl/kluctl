@@ -89,7 +89,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target,
 			return nil, err
 		}
 
-		cc, _, err := c.LoadClusterConfig(target.Cluster)
+		cc, _, err := c.LoadClusterConfig(target.Cluster, target.Context)
 		if err == nil {
 			err = varsCtx.UpdateChildFromStruct("cluster", cc.Cluster)
 			if err != nil {

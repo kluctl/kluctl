@@ -106,7 +106,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			}
 		}
 
-		clusterConfig, _, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster)
+		clusterConfig, _, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster, ctx.targetCtx.Target.Context)
 		if err != nil {
 			return doFail(err)
 		}
