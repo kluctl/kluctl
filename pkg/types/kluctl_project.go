@@ -44,8 +44,8 @@ type DynamicTarget struct {
 }
 
 type SecretSet struct {
-	Name    string       `yaml:"name" validate:"required"`
-	Sources []VarsSource `yaml:"sources" validate:"required,gt=0"`
+	Name    string        `yaml:"name" validate:"required"`
+	Sources []*VarsSource `yaml:"sources" validate:"required,gt=0"`
 }
 
 type GlobalSealedSecretsConfig struct {

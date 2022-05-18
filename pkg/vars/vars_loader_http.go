@@ -1,4 +1,4 @@
-package kluctl_project
+package vars
 
 import (
 	"crypto/tls"
@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-func (s *SecretsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, password string) (*http.Response, string, error) {
+func (s *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, password string) (*http.Response, string, error) {
 	client := &http.Client{
 		Transport: ntlmssp.Negotiator{
 			RoundTripper: &http.Transport{
@@ -65,12 +65,12 @@ func (s *SecretsLoader) doHttp(httpSource *types.VarsSourceHttp, username string
 	return resp, string(respBody), nil
 }
 
-func (s *SecretsLoader) loadSecretsHttp(source *types.VarsSource) (*uo.UnstructuredObject, error) {
+func (s *VarsLoader) loadHttp(source *types.VarsSource) error {
 	resp, respBody, err := s.doHttp(source.Http, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)
 		if len(chgs) == 0 {
-			return nil, err
+			return err
 		}
 
 		var realms []string
@@ -87,7 +87,7 @@ func (s *SecretsLoader) loadSecretsHttp(source *types.VarsSource) (*uo.Unstructu
 		if !ok {
 			username, password, err := utils.AskForCredentials(fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
 			if err != nil {
-				return nil, err
+				return err
 			}
 			creds = usernamePassword{
 				username: username,
@@ -98,52 +98,56 @@ func (s *SecretsLoader) loadSecretsHttp(source *types.VarsSource) (*uo.Unstructu
 
 		resp, respBody, err = s.doHttp(source.Http, creds.username, creds.password)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else if err != nil {
-		return nil, err
+		return err
 	}
 
 	var respObj interface{}
-	var secrets *uo.UnstructuredObject
+	var newVars *uo.UnstructuredObject
 
 	err = yaml.ReadYamlString(respBody, &respObj)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if source.Http.JsonPath != nil {
 		p, err := uo.NewMyJsonPath(*source.Http.JsonPath)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		x, ok := p.GetFirstFromAny(respObj)
 		if !ok {
-			return nil, fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
+			return fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
 		}
 		s, ok := x.(string)
 		if !ok {
-			return nil, fmt.Errorf("%s in result of http request %s is not a string", *source.Http.JsonPath, source.Http.Url.String())
+			return fmt.Errorf("%s in result of http request %s is not a string", *source.Http.JsonPath, source.Http.Url.String())
 		}
-		secrets, err = uo.FromString(s)
+		newVars, err = uo.FromString(s)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		x, ok := respObj.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
+			return fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
 		}
-		secrets = uo.FromMap(x)
+		newVars = uo.FromMap(x)
 	}
-	secrets, ok, err := secrets.GetNestedObject("secrets")
-	if err != nil {
-		return nil, err
+
+	if s.rootKey != "" {
+		newVars, _, err = newVars.GetNestedObject(s.rootKey)
+		if err != nil {
+			return err
+		}
 	}
-	if !ok {
-		return uo.New(), nil
+
+	if newVars != nil {
+		s.mergeVars(newVars)
 	}
-	return secrets, nil
+	return nil
 }
