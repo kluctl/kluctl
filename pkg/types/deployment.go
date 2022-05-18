@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
@@ -49,6 +50,12 @@ type DeploymentArg struct {
 	Default interface{} `yaml:"default,omitempty"`
 }
 
+type VarsListItemGit struct {
+	Url  git_url.GitUrl `yaml:"url" validate:"required"`
+	Ref  string         `yaml:"ref,omitempty"`
+	Path string         `yaml:"path" validate:"required"`
+}
+
 type VarsListItemClusterConfigMapOrSecret struct {
 	Name      string `yaml:"name" validate:"required"`
 	Namespace string `yaml:"namespace,omitempty"`
@@ -58,6 +65,7 @@ type VarsListItemClusterConfigMapOrSecret struct {
 type VarsListItem struct {
 	Values           *uo.UnstructuredObject                `yaml:"values,omitempty"`
 	File             *string                               `yaml:"file,omitempty"`
+	Git              *VarsListItemGit                      `yaml:"git,omitempty"`
 	ClusterConfigMap *VarsListItemClusterConfigMapOrSecret `yaml:"clusterConfigMap,omitempty"`
 	ClusterSecret    *VarsListItemClusterConfigMapOrSecret `yaml:"clusterSecret,omitempty"`
 }
@@ -69,6 +77,9 @@ func ValidateVarsListItem(sl validator.StructLevel) {
 		count += 1
 	}
 	if s.File != nil {
+		count += 1
+	}
+	if s.Git != nil {
 		count += 1
 	}
 	if s.ClusterConfigMap != nil {

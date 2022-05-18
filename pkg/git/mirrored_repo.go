@@ -6,6 +6,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -340,6 +341,51 @@ func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 		return fmt.Errorf("failed to clone %s from %s: %w", ref, g.url.String(), err)
 	}
 	return nil
+}
+
+func (g *MirroredGitRepo) ReadFile(ref string, path string) ([]byte, error) {
+	if !g.fileLock.Locked() || !g.hasUpdated {
+		panic("tried to read a file from a project that is not locked/updated")
+	}
+
+	doError := func(err error) ([]byte, error) {
+		return nil, fmt.Errorf("failed to read file from git repostory: %w", err)
+	}
+
+	r, err := git.PlainOpen(g.mirrorDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if ref == "" {
+		ref = "HEAD"
+	}
+
+	h, err := r.ResolveRevision(plumbing.Revision(ref))
+	if err != nil {
+		return doError(err)
+	}
+
+	commit, err := object.GetCommit(r.Storer, *h)
+	if err != nil {
+		return doError(err)
+	}
+	tree, err := commit.Tree()
+	if err != nil {
+		return doError(err)
+	}
+
+	f, err := tree.File(path)
+	if err != nil {
+		return doError(err)
+	}
+	reader, err := f.Reader()
+	if err != nil {
+		return doError(err)
+	}
+	defer reader.Close()
+
+	return ioutil.ReadAll(reader)
 }
 
 func buildMirrorRepoName(u git_url.GitUrl) string {

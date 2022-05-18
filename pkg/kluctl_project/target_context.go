@@ -65,7 +65,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
-	varsCtx := jinja2.NewVarsCtx(p.J2)
+	varsCtx := jinja2.NewVarsCtx(p.J2, p.grc)
 	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
 	if err != nil {
 		return nil, err

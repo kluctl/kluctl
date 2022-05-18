@@ -2,21 +2,27 @@ package jinja2
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"io/ioutil"
+	"os"
 )
 
 type VarsCtx struct {
 	J2   *Jinja2
+	grc  *git.MirroredGitRepoCollection
 	Vars *uo.UnstructuredObject
 }
 
-func NewVarsCtx(j2 *Jinja2) *VarsCtx {
+func NewVarsCtx(j2 *Jinja2, grc *git.MirroredGitRepoCollection) *VarsCtx {
 	vc := &VarsCtx{
 		J2:   j2,
+		grc:  grc,
 		Vars: uo.New(),
 	}
 	return vc
@@ -25,6 +31,7 @@ func NewVarsCtx(j2 *Jinja2) *VarsCtx {
 func (vc *VarsCtx) Copy() *VarsCtx {
 	cp := &VarsCtx{
 		J2:   vc.J2,
+		grc:  vc.grc,
 		Vars: vc.Vars.Clone(),
 	}
 	return cp
@@ -56,6 +63,11 @@ func (vc *VarsCtx) LoadVarsList(k *k8s.K8sCluster, searchDirs []string, varsList
 			if err != nil {
 				return err
 			}
+		} else if v.Git != nil {
+			err := vc.loadVarsGitFile(v.Git)
+			if err != nil {
+				return err
+			}
 		} else if v.ClusterConfigMap != nil {
 			ref := k8s2.NewObjectRef("", "v1", "ConfigMap", v.ClusterConfigMap.Name, v.ClusterConfigMap.Namespace)
 			err := vc.loadVarsFromK8sObject(k, ref, v.ClusterConfigMap.Key)
@@ -84,6 +96,26 @@ func (vc *VarsCtx) loadVarsFile(p string, searchDirs []string) error {
 	}
 	vc.Update(&newVars)
 	return nil
+}
+
+func (vc *VarsCtx) loadVarsGitFile(gitFile *types.VarsListItemGit) error {
+	mr, err := vc.grc.GetMirroredGitRepo(gitFile.Url, true, true, true)
+	if err != nil {
+		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
+	}
+
+	tmpDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "git-vars")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	file, err := mr.ReadFile(gitFile.Ref, gitFile.Path)
+	if err != nil {
+		return fmt.Errorf("failed to load vars from git repository %s and path %s: %w", gitFile.Url.String(), gitFile.Path, err)
+	}
+
+	return vc.loadVarsFromString(string(file))
 }
 
 func (vc *VarsCtx) loadVarsFromK8sObject(k *k8s.K8sCluster, ref k8s2.ObjectRef, key string) error {
