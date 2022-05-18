@@ -59,6 +59,13 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
+	if forSeal {
+		err = p.loadSecrets(target, varsCtx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	d, err := deployment.NewDeploymentProject(ctx, k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
 	if err != nil {
 		return nil, err
@@ -140,6 +147,39 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 	varsCtx.UpdateChild("args", allArgs)
 
 	return varsCtx, clientConfig, clusterConfig.Cluster.Context, nil
+}
+
+func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, error) {
+	for _, e := range p.Config.SecretsConfig.SecretSets {
+		if e.Name == name {
+			return &e, nil
+		}
+	}
+	return nil, fmt.Errorf("secret Set with name %s was not found", name)
+}
+
+func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.VarsCtx) error {
+	secretsLoader := NewSecretsLoader(p)
+
+	for _, secretSetName := range target.SealingConfig.SecretSets {
+		secretEntry, err := p.findSecretsEntry(secretSetName)
+		if err != nil {
+			return err
+		}
+		for _, source := range secretEntry.Sources {
+			var renderedSource types.VarsSource
+			err = p.J2.RenderStruct(&renderedSource, &source, varsCtx.Vars)
+			if err != nil {
+				return err
+			}
+			s, err := secretsLoader.LoadSecrets(&renderedSource)
+			if err != nil {
+				return err
+			}
+			varsCtx.Vars.MergeChild("secrets", s)
+		}
+	}
+	return nil
 }
 
 func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string, contextName *string) (*types.ClusterConfig, *rest.Config, error) {

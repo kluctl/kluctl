@@ -1,4 +1,4 @@
-package seal
+package kluctl_project
 
 import (
 	"crypto/tls"

@@ -1,9 +1,8 @@
-package seal
+package kluctl_project
 
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/aws"
@@ -18,12 +17,12 @@ type usernamePassword struct {
 }
 
 type SecretsLoader struct {
-	project *kluctl_project.LoadedKluctlProject
+	project *LoadedKluctlProject
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewSecretsLoader(p *kluctl_project.LoadedKluctlProject) *SecretsLoader {
+func NewSecretsLoader(p *LoadedKluctlProject) *SecretsLoader {
 	return &SecretsLoader{
 		project:          p,
 		credentialsCache: map[string]usernamePassword{},

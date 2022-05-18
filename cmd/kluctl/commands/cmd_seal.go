@@ -8,8 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
 type sealCmd struct {
@@ -28,40 +26,7 @@ kubeseal on each '.sealme' file and stores secrets in the directory specified by
 If no '--target' is specified, sealing is performed for all targets.`
 }
 
-func findSecretsEntry(ctx *commandCtx, name string) (*types.SecretSet, error) {
-	for _, e := range ctx.targetCtx.KluctlProject.Config.SecretsConfig.SecretSets {
-		if e.Name == name {
-			return &e, nil
-		}
-	}
-	return nil, fmt.Errorf("secret Set with name %s was not found", name)
-}
-
-func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.SecretsLoader) error {
-	secrets := uo.New()
-	for _, secretSetName := range target.SealingConfig.SecretSets {
-		secretEntry, err := findSecretsEntry(ctx, secretSetName)
-		if err != nil {
-			return err
-		}
-		for _, source := range secretEntry.Sources {
-			var renderedSource types.VarsSource
-			err = ctx.targetCtx.KluctlProject.J2.RenderStruct(&renderedSource, &source, ctx.targetCtx.DeploymentProject.VarsCtx.Vars)
-			if err != nil {
-				return err
-			}
-			s, err := secretsLoader.LoadSecrets(&renderedSource)
-			if err != nil {
-				return err
-			}
-			secrets.Merge(s)
-		}
-	}
-	ctx.targetCtx.DeploymentProject.MergeSecretsIntoAllChildren(secrets)
-	return nil
-}
-
-func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject, targetName string, secretsLoader *seal.SecretsLoader) error {
+func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject, targetName string) error {
 	s := status.Start(ctx, "%s: Sealing for target", targetName)
 	defer s.FailedWithMessage("%s: Sealing failed", targetName)
 
@@ -79,11 +44,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 
 	// pass forSeal=True so that .sealme files are rendered as well
 	return withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
-		err := loadSecrets(ctx, ctx.targetCtx.Target, secretsLoader)
-		if err != nil {
-			return doFail(err)
-		}
-		err = ctx.targetCtx.DeploymentCollection.RenderDeployments(ctx.targetCtx.K)
+		err := ctx.targetCtx.DeploymentCollection.RenderDeployments(ctx.targetCtx.K)
 		if err != nil {
 			return doFail(err)
 		}
@@ -136,8 +97,6 @@ func (cmd *sealCmd) Run() error {
 	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
-		secretsLoader := seal.NewSecretsLoader(p)
-
 		baseTargets := make(map[string]bool)
 		noTargetMatch := true
 		for _, target := range p.DynamicTargets {
@@ -169,7 +128,7 @@ func (cmd *sealCmd) Run() error {
 				sealTarget = baseTarget
 			}
 
-			err := cmd.runCmdSealForTarget(ctx, p, sealTarget.Name, secretsLoader)
+			err := cmd.runCmdSealForTarget(ctx, p, sealTarget.Name)
 			if err != nil {
 				hadError = true
 				status.Error(ctx, err.Error())
