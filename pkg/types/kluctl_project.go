@@ -1,7 +1,9 @@
 package types
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type DynamicArg struct {
@@ -43,8 +45,18 @@ type DynamicTarget struct {
 }
 
 type SecretSet struct {
-	Name    string        `yaml:"name" validate:"required"`
-	Sources []*VarsSource `yaml:"sources" validate:"required,gt=0"`
+	Name string `yaml:"name" validate:"required"`
+	// TODO deprecated, use vars instead
+	Sources []*VarsSource `yaml:"sources,omitempty"`
+	Vars    []*VarsSource `yaml:"vars,omitempty"`
+}
+
+func ValidateSecretSet(sl validator.StructLevel) {
+	s := sl.Current().Interface().(SecretSet)
+
+	if len(s.Sources) != 0 && len(s.Vars) != 0 {
+		sl.ReportError(s, "vars", "vars", "invalidsource", "sources and vars can't be set at the same time")
+	}
 }
 
 type GlobalSealedSecretsConfig struct {
@@ -64,4 +76,8 @@ type KluctlProject struct {
 	Clusters      ExternalProjects `yaml:"clusters,omitempty"`
 	Targets       []*Target        `yaml:"targets,omitempty"`
 	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
+}
+
+func init() {
+	yaml.Validator.RegisterStructValidation(ValidateSecretSet, SecretSet{})
 }

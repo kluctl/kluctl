@@ -168,7 +168,12 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 		if err != nil {
 			return err
 		}
-		err = varsLoader.LoadVarsList(varsCtx, secretEntry.Sources, searchDirs, "secrets")
+		if len(secretEntry.Sources) != 0 {
+			status.Warning(p.ctx, "'sources' in secretSets is deprecated, use 'vars' instead")
+			err = varsLoader.LoadVarsList(varsCtx, secretEntry.Sources, searchDirs, "secrets")
+		} else {
+			err = varsLoader.LoadVarsList(varsCtx, secretEntry.Vars, searchDirs, "secrets")
+		}
 		if err != nil {
 			return err
 		}
