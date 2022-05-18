@@ -18,7 +18,7 @@ import (
 type TargetContext struct {
 	KluctlProject        *LoadedKluctlProject
 	Target               *types.Target
-	ClusterConfig        *types.ClusterConfig
+	ClusterContext       string
 	K                    *k8s.K8sCluster
 	DeploymentProject    *deployment.DeploymentProject
 	DeploymentCollection *deployment.DeploymentCollection
@@ -43,20 +43,14 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		}
 	}
 
-	var contextName *string
-	if clusterName == nil && target != nil {
-		clusterName = target.Cluster
-		contextName = target.Context
-	}
-
-	clusterConfig, clientConfig, err := p.LoadClusterConfig(clusterName, contextName)
+	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, args, forSeal)
 	if err != nil {
 		return nil, err
 	}
 
 	var k *k8s.K8sCluster
 	if clientConfig != nil {
-		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client for context %s", clusterConfig.Cluster.Context))
+		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
 		k, err = k8s.NewK8sCluster(ctx, clientConfig, dryRun)
 		if err != nil {
 			s.Failed()
@@ -64,46 +58,6 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		}
 		s.Success()
 	}
-
-	varsCtx := vars.NewVarsCtx(p.J2, p.grc)
-	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
-	if err != nil {
-		return nil, err
-	}
-	targetVars, err := uo.FromStruct(target)
-	if err != nil {
-		return nil, err
-	}
-	varsCtx.UpdateChild("target", targetVars)
-
-	allArgs := uo.New()
-
-	if target != nil {
-		for argName, argValue := range args {
-			err = p.CheckDynamicArg(target, argName, argValue)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	allArgs.Merge(deployment.ConvertArgsToVars(args))
-	if target != nil {
-		if target.Args != nil {
-			allArgs.Merge(target.Args)
-		}
-		if forSeal {
-			if target.SealingConfig.Args != nil {
-				allArgs.Merge(target.SealingConfig.Args)
-			}
-		}
-	}
-
-	err = deployment.CheckRequiredDeployArgs(deploymentDir, varsCtx, allArgs)
-	if err != nil {
-		return nil, err
-	}
-
-	varsCtx.UpdateChild("args", allArgs)
 
 	d, err := deployment.NewDeploymentProject(ctx, k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
 	if err != nil {
@@ -120,13 +74,72 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	targetCtx := &TargetContext{
 		KluctlProject:        p,
 		Target:               target,
-		ClusterConfig:        clusterConfig,
+		ClusterContext:       clusterContext,
 		K:                    k,
 		DeploymentProject:    d,
 		DeploymentCollection: c,
 	}
 
 	return targetCtx, nil
+}
+
+func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, args map[string]string, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
+	doError := func(err error) (*vars.VarsCtx, *rest.Config, string, error) {
+		return nil, nil, "", err
+	}
+
+	var contextName *string
+	if clusterName == nil && target != nil {
+		clusterName = target.Cluster
+		contextName = target.Context
+	}
+
+	clusterConfig, clientConfig, err := p.LoadClusterConfig(clusterName, contextName)
+	if err != nil {
+		return doError(err)
+	}
+
+	varsCtx := vars.NewVarsCtx(p.J2, p.grc)
+	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
+	if err != nil {
+		return doError(err)
+	}
+	targetVars, err := uo.FromStruct(target)
+	if err != nil {
+		return doError(err)
+	}
+	varsCtx.UpdateChild("target", targetVars)
+
+	allArgs := uo.New()
+
+	if target != nil {
+		for argName, argValue := range args {
+			err = p.CheckDynamicArg(target, argName, argValue)
+			if err != nil {
+				return doError(err)
+			}
+		}
+	}
+	allArgs.Merge(deployment.ConvertArgsToVars(args))
+	if target != nil {
+		if target.Args != nil {
+			allArgs.Merge(target.Args)
+		}
+		if forSeal {
+			if target.SealingConfig.Args != nil {
+				allArgs.Merge(target.SealingConfig.Args)
+			}
+		}
+	}
+
+	err = deployment.CheckRequiredDeployArgs(p.DeploymentDir, varsCtx, allArgs)
+	if err != nil {
+		return doError(err)
+	}
+
+	varsCtx.UpdateChild("args", allArgs)
+
+	return varsCtx, clientConfig, clusterConfig.Cluster.Context, nil
 }
 
 func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string, contextName *string) (*types.ClusterConfig, *rest.Config, error) {

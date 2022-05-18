@@ -37,7 +37,7 @@ func (cmd *downscaleCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.targetCtx.ClusterConfig.Cluster.Context)) {
+			if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.targetCtx.ClusterContext)) {
 				return fmt.Errorf("aborted")
 			}
 		}
