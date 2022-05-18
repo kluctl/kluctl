@@ -12,19 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
-
-func (c *LoadedKluctlProject) updateGitCache(mr *git.MirroredGitRepo) error {
-	if mr.HasUpdated() {
-		return nil
-	}
-	if time.Now().Sub(mr.LastUpdateTime()) <= c.loadArgs.GitUpdateInterval {
-		mr.SetUpdated(true)
-		return nil
-	}
-	return mr.Update(c.loadArgs.GitAuthProviders)
-}
 
 func (c *LoadedKluctlProject) updateGitCaches() error {
 	var waitGroup sync.WaitGroup
@@ -39,26 +27,12 @@ func (c *LoadedKluctlProject) updateGitCaches() error {
 		}
 	}
 
-	doUpdateRepo := func(repo *git.MirroredGitRepo) error {
-		return repo.WithLock(func() error {
-			return c.updateGitCache(repo)
-		})
-	}
 	doUpdateGitProject := func(u git_url.GitUrl) error {
-		mr, ok := c.mirroredRepos[u.NormalizedRepoKey()]
-		if ok {
-			return nil
-		}
-		mr, err := git.NewMirroredGitRepo(c.ctx, u)
-		if err != nil {
-			return err
-		}
-		c.mirroredRepos[u.NormalizedRepoKey()] = mr
-
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			err := doUpdateRepo(mr)
+
+			_, err := c.grc.GetMirroredGitRepo(u, true, true, true)
 			if err != nil {
 				doError(fmt.Errorf("failed to update git project %v: %v", u.String(), err))
 			}
@@ -107,33 +81,18 @@ func (c *LoadedKluctlProject) updateGitCaches() error {
 	return firstError
 }
 
-func (c *LoadedKluctlProject) cloneGitProject(gitProject *types2.GitProject, targetDir string, doLock bool) (info git.GitRepoInfo, err error) {
+func (c *LoadedKluctlProject) cloneGitProject(gitProject *types2.GitProject, targetDir string) (info git.GitRepoInfo, err error) {
 	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
 	if err != nil {
 		return
 	}
 
-	mr, ok := c.mirroredRepos[gitProject.Url.NormalizedRepoKey()]
-	if !ok {
-		mr, err = git.NewMirroredGitRepo(c.ctx, gitProject.Url)
-		if err != nil {
-			return
-		}
-		c.mirroredRepos[gitProject.Url.NormalizedRepoKey()] = mr
-		err = mr.Lock()
-		if err != nil {
-			return
-		}
-		defer mr.Unlock()
+	mr, err := c.grc.GetMirroredGitRepo(gitProject.Url, true, true, true)
+	if err != nil {
+		return git.GitRepoInfo{}, err
 	}
 
-	err = mr.MaybeWithLock(doLock, func() error {
-		err := c.updateGitCache(mr)
-		if err != nil {
-			return err
-		}
-		return mr.CloneProject(gitProject.Ref, targetDir)
-	})
+	err = mr.CloneProject(gitProject.Ref, targetDir)
 	if err != nil {
 		return
 	}

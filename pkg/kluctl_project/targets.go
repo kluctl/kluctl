@@ -134,9 +134,9 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsSimple(baseTarget *types.Targ
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
-	mr, ok := c.mirroredRepos[baseTarget.TargetConfig.Project.Url.NormalizedRepoKey()]
-	if !ok {
-		return nil, fmt.Errorf("repo not found in mirroredRepos, this is unexpected and probably a bug")
+	mr, err := c.grc.GetMirroredGitRepo(baseTarget.TargetConfig.Project.Url, true, true, true)
+	if err != nil {
+		return nil, err
 	}
 
 	if baseTarget.TargetConfig.Ref != nil && baseTarget.TargetConfig.RefPattern != nil {
@@ -224,15 +224,6 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 	wp := utils.NewDebuggerAwareWorkerPool(8)
 	defer wp.StopWait(false)
 
-	// lock all involved repos first
-	for _, mr := range c.mirroredRepos {
-		err := mr.Lock()
-		if err != nil {
-			return err
-		}
-		defer mr.Unlock()
-	}
-
 	uniqueClones := make(map[string]interface{})
 	var mutex sync.Mutex
 
@@ -251,7 +242,7 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 			gitProject := *targetInfo.gitProject
 			gitProject.Ref = *targetInfo.ref
 
-			gi, err := c.loadGitProject(&gitProject, "", false, false)
+			gi, err := c.loadGitProject(&gitProject, "", false)
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {

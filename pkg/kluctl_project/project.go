@@ -25,12 +25,12 @@ type LoadedKluctlProject struct {
 	sealedSecretsDir string
 
 	involvedRepos map[string][]types2.InvolvedRepo
-	mirroredRepos map[string]*git.MirroredGitRepo
 
 	Config         types2.KluctlProject
 	DynamicTargets []*types2.DynamicTarget
 
-	J2 *jinja2.Jinja2
+	J2  *jinja2.Jinja2
+	grc *git.MirroredGitRepoCollection
 }
 
 func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {
