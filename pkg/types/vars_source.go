@@ -2,8 +2,22 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
+
+type VarsSourceGit struct {
+	Url  git_url.GitUrl `yaml:"url" validate:"required"`
+	Ref  string         `yaml:"ref,omitempty"`
+	Path string         `yaml:"path" validate:"required"`
+}
+
+type VarsSourceClusterConfigMapOrSecret struct {
+	Name      string `yaml:"name" validate:"required"`
+	Namespace string `yaml:"namespace,omitempty"`
+	Key       string `yaml:"key" validate:"required"`
+}
 
 type VarsSourceHttp struct {
 	Url      YamlUrl           `yaml:"url,omitempty" validate:"required"`
@@ -23,16 +37,33 @@ type VarsSourceAwsSecretsManager struct {
 }
 
 type VarsSource struct {
-	Path              *string                      `yaml:"path,omitempty"`
-	SystemEnvVars     *uo.UnstructuredObject       `yaml:"systemEnvVars,omitempty"`
-	Http              *VarsSourceHttp              `yaml:"http,omitempty"`
-	AwsSecretsManager *VarsSourceAwsSecretsManager `yaml:"awsSecretsManager,omitempty"`
+	Values            *uo.UnstructuredObject              `yaml:"values,omitempty"`
+	File              *string                             `yaml:"file,omitempty"`
+	Path              *string                             `yaml:"path,omitempty"`
+	Git               *VarsSourceGit                      `yaml:"git,omitempty"`
+	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `yaml:"clusterConfigMap,omitempty"`
+	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `yaml:"clusterSecret,omitempty"`
+	SystemEnvVars     *uo.UnstructuredObject              `yaml:"systemEnvVars,omitempty"`
+	Http              *VarsSourceHttp                     `yaml:"http,omitempty"`
+	AwsSecretsManager *VarsSourceAwsSecretsManager        `yaml:"awsSecretsManager,omitempty"`
 }
 
-func ValidateSecretSource(sl validator.StructLevel) {
+func ValidateVarsSource(sl validator.StructLevel) {
 	s := sl.Current().Interface().(VarsSource)
 	count := 0
 	if s.Path != nil {
+		count += 1
+	}
+	if s.File != nil {
+		count += 1
+	}
+	if s.Git != nil {
+		count += 1
+	}
+	if s.ClusterConfigMap != nil {
+		count += 1
+	}
+	if s.ClusterSecret != nil {
 		count += 1
 	}
 	if s.SystemEnvVars != nil {
@@ -45,8 +76,12 @@ func ValidateSecretSource(sl validator.StructLevel) {
 		count += 1
 	}
 	if count == 0 {
-		sl.ReportError(s, "self", "self", "invalidsource", "unknown secret source type")
+		sl.ReportError(s, "self", "self", "invalidsource", "unknown vars source type")
 	} else if count != 1 {
-		sl.ReportError(s, "self", "self", "invalidsource", "more then one secret source type")
+		sl.ReportError(s, "self", "self", "invalidsource", "more then one vars source type")
 	}
+}
+
+func init() {
+	yaml.Validator.RegisterStructValidation(ValidateVarsSource, VarsSource{})
 }

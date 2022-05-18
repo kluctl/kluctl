@@ -2,7 +2,6 @@ package types
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type DynamicArg struct {
@@ -65,8 +64,4 @@ type KluctlProject struct {
 	Clusters      ExternalProjects `yaml:"clusters,omitempty"`
 	Targets       []*Target        `yaml:"targets,omitempty"`
 	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
-}
-
-func init() {
-	yaml.Validator.RegisterStructValidation(ValidateSecretSource, VarsSource{})
 }

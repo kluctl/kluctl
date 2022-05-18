@@ -117,7 +117,7 @@ func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 	defer wp.StopWait(false)
 
 	for _, d := range c.Deployments {
-		err := d.render(k, c.forSeal, wp)
+		err := d.render(c.forSeal, wp)
 		if err != nil {
 			return err
 		}

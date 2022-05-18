@@ -59,14 +59,16 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
+	varsLoader := vars.NewVarsLoader(ctx, k, p.grc)
+
 	if forSeal {
-		err = p.loadSecrets(k, target, varsCtx)
+		err = p.loadSecrets(target, varsCtx, varsLoader)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	d, err := deployment.NewDeploymentProject(ctx, k, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
+	d, err := deployment.NewDeploymentProject(ctx, k, varsLoader, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -158,16 +160,15 @@ func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, e
 	return nil, fmt.Errorf("secret Set with name %s was not found", name)
 }
 
-func (p *LoadedKluctlProject) loadSecrets(k *k8s.K8sCluster, target *types.Target, varsCtx *vars.VarsCtx) error {
+func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
 	searchDirs := []string{p.DeploymentDir}
-	secretsLoader := vars.NewVarsLoader(k, varsCtx, searchDirs, "secrets")
 
 	for _, secretSetName := range target.SealingConfig.SecretSets {
 		secretEntry, err := p.findSecretsEntry(secretSetName)
 		if err != nil {
 			return err
 		}
-		err = secretsLoader.LoadVarsList(secretEntry.Sources)
+		err = varsLoader.LoadVarsList(varsCtx, secretEntry.Sources, searchDirs, "secrets")
 		if err != nil {
 			return err
 		}

@@ -110,7 +110,7 @@ func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	return a
 }
 
-func (di *DeploymentItem) render(k *k8s.K8sCluster, forSeal bool, wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -123,7 +123,8 @@ func (di *DeploymentItem) render(k *k8s.K8sCluster, forSeal bool, wp *utils.Work
 	}
 
 	varsCtx := di.Project.VarsCtx.Copy()
-	err = varsCtx.LoadVarsList(k, di.Project.getRenderSearchDirs(), di.Config.Vars)
+
+	err = di.Project.loadVarsList(varsCtx, di.Config.Vars)
 	if err != nil {
 		return err
 	}

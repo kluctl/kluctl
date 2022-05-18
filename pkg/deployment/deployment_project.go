@@ -16,8 +16,10 @@ import (
 type DeploymentProject struct {
 	ctx context.Context
 
-	VarsCtx *vars.VarsCtx
-	dir     string
+	varsLoader *vars.VarsLoader
+	VarsCtx    *vars.VarsCtx
+
+	dir string
 
 	SealedSecretsDir                  string
 	DefaultSealedSecretsOutputPattern string
@@ -30,9 +32,10 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsCtx *vars.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsLoader *vars.VarsLoader, varsCtx *vars.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
 		ctx:              ctx,
+		varsLoader:       varsLoader,
 		VarsCtx:          varsCtx.Copy(),
 		dir:              dir,
 		SealedSecretsDir: sealedSecretsDir,
@@ -44,7 +47,7 @@ func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsCtx *vars.
 		return nil, fmt.Errorf("%s does not exist or is not a directory", dir)
 	}
 
-	err := dp.loadConfig(k)
+	err := dp.loadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load deployment config for %s: %w", dir, err)
 	}
@@ -57,13 +60,11 @@ func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsCtx *vars.
 	return dp, nil
 }
 
-func (p *DeploymentProject) MergeSecretsIntoAllChildren(vars *uo.UnstructuredObject) {
-	for _, c := range p.getChildren(true, true) {
-		c.VarsCtx.UpdateChild("secrets", vars)
-	}
+func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*types.VarsSource) error {
+	return p.varsLoader.LoadVarsList(varsCtx, varsList, p.getRenderSearchDirs(), "")
 }
 
-func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
+func (p *DeploymentProject) loadConfig() error {
 	configPath := filepath.Join(p.dir, "deployment.yml")
 	if !yaml.Exists(configPath) {
 		if yaml.Exists(filepath.Join(p.dir, "kustomization.yml")) {
@@ -77,7 +78,7 @@ func (p *DeploymentProject) loadConfig(k *k8s.K8sCluster) error {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}
 
-	err = p.VarsCtx.LoadVarsList(k, p.getRenderSearchDirs(), p.Config.Vars)
+	err = p.loadVarsList(p.VarsCtx, p.Config.Vars)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
 	}
@@ -162,12 +163,12 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 		incDir := filepath.Join(p.dir, *inc.Include)
 
 		varsCtx := p.VarsCtx.Copy()
-		err := varsCtx.LoadVarsList(k, p.getRenderSearchDirs(), inc.Vars)
+		err := p.loadVarsList(varsCtx, inc.Vars)
 		if err != nil {
 			return err
 		}
 
-		newProject, err := NewDeploymentProject(p.ctx, k, varsCtx, incDir,
+		newProject, err := NewDeploymentProject(p.ctx, k, p.varsLoader, varsCtx, incDir,
 			p.SealedSecretsDir, p)
 		if err != nil {
 			return err

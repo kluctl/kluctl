@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-func (s *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, password string) (*http.Response, string, error) {
+func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, password string) (*http.Response, string, error) {
 	client := &http.Client{
 		Transport: ntlmssp.Negotiator{
 			RoundTripper: &http.Transport{
@@ -65,8 +65,8 @@ func (s *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, p
 	return resp, string(respBody), nil
 }
 
-func (s *VarsLoader) loadHttp(source *types.VarsSource) error {
-	resp, respBody, err := s.doHttp(source.Http, "", "")
+func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
+	resp, respBody, err := v.doHttp(source.Http, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)
 		if len(chgs) == 0 {
@@ -83,7 +83,7 @@ func (s *VarsLoader) loadHttp(source *types.VarsSource) error {
 		}
 
 		credsKey := fmt.Sprintf("%s|%s", source.Http.Url.Host, strings.Join(realms, "+"))
-		creds, ok := s.credentialsCache[credsKey]
+		creds, ok := v.credentialsCache[credsKey]
 		if !ok {
 			username, password, err := utils.AskForCredentials(fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
 			if err != nil {
@@ -93,10 +93,10 @@ func (s *VarsLoader) loadHttp(source *types.VarsSource) error {
 				username: username,
 				password: password,
 			}
-			s.credentialsCache[credsKey] = creds
+			v.credentialsCache[credsKey] = creds
 		}
 
-		resp, respBody, err = s.doHttp(source.Http, creds.username, creds.password)
+		resp, respBody, err = v.doHttp(source.Http, creds.username, creds.password)
 		if err != nil {
 			return err
 		}
@@ -139,15 +139,15 @@ func (s *VarsLoader) loadHttp(source *types.VarsSource) error {
 		newVars = uo.FromMap(x)
 	}
 
-	if s.rootKey != "" {
-		newVars, _, err = newVars.GetNestedObject(s.rootKey)
+	if rootKey != "" {
+		newVars, _, err = newVars.GetNestedObject(rootKey)
 		if err != nil {
 			return err
 		}
 	}
 
 	if newVars != nil {
-		s.mergeVars(newVars)
+		v.mergeVars(varsCtx, newVars, rootKey)
 	}
 	return nil
 }
