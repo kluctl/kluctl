@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-func (s *SecretsLoader) doHttp(httpSource *types.SecretSourceHttp, username string, password string) (*http.Response, string, error) {
+func (s *SecretsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, password string) (*http.Response, string, error) {
 	client := &http.Client{
 		Transport: ntlmssp.Negotiator{
 			RoundTripper: &http.Transport{
@@ -65,7 +65,7 @@ func (s *SecretsLoader) doHttp(httpSource *types.SecretSourceHttp, username stri
 	return resp, string(respBody), nil
 }
 
-func (s *SecretsLoader) loadSecretsHttp(source *types.SecretSource) (*uo.UnstructuredObject, error) {
+func (s *SecretsLoader) loadSecretsHttp(source *types.VarsSource) (*uo.UnstructuredObject, error) {
 	resp, respBody, err := s.doHttp(source.Http, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)

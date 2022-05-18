@@ -32,7 +32,7 @@ func NewSecretsLoader(p *kluctl_project.LoadedKluctlProject, secretsDir string) 
 	}
 }
 
-func (s *SecretsLoader) LoadSecrets(source *types.SecretSource) (*uo.UnstructuredObject, error) {
+func (s *SecretsLoader) LoadSecrets(source *types.VarsSource) (*uo.UnstructuredObject, error) {
 	if source.Path != nil {
 		return s.loadSecretsFile(source)
 	} else if source.SystemEnvVars != nil {
@@ -46,7 +46,7 @@ func (s *SecretsLoader) LoadSecrets(source *types.SecretSource) (*uo.Unstructure
 	}
 }
 
-func (s *SecretsLoader) loadSecretsFile(source *types.SecretSource) (*uo.UnstructuredObject, error) {
+func (s *SecretsLoader) loadSecretsFile(source *types.VarsSource) (*uo.UnstructuredObject, error) {
 	var p string
 	var err error
 	if utils.Exists(filepath.Join(s.project.DeploymentDir, *source.Path)) {
@@ -82,7 +82,7 @@ func (s *SecretsLoader) loadSecretsFile(source *types.SecretSource) (*uo.Unstruc
 	return secrets, nil
 }
 
-func (s *SecretsLoader) loadSecretsSystemEnvs(source *types.SecretSource) (*uo.UnstructuredObject, error) {
+func (s *SecretsLoader) loadSecretsSystemEnvs(source *types.VarsSource) (*uo.UnstructuredObject, error) {
 	secrets := uo.New()
 	err := source.SystemEnvVars.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 		envName, ok := it.Value().(string)
@@ -105,7 +105,7 @@ func (s *SecretsLoader) loadSecretsSystemEnvs(source *types.SecretSource) (*uo.U
 	return secrets, nil
 }
 
-func (s *SecretsLoader) loadSecretsAwsSecretsManager(source *types.SecretSource) (*uo.UnstructuredObject, error) {
+func (s *SecretsLoader) loadSecretsAwsSecretsManager(source *types.VarsSource) (*uo.UnstructuredObject, error) {
 	secret, err := aws.GetAwsSecretsManagerSecret(source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
 	if err != nil {
 		return nil, err

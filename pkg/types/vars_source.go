@@ -5,7 +5,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
-type SecretSourceHttp struct {
+type VarsSourceHttp struct {
 	Url      YamlUrl           `yaml:"url,omitempty" validate:"required"`
 	Method   *string           `yaml:"method,omitempty"`
 	Body     *string           `yaml:"body,omitempty"`
@@ -13,7 +13,7 @@ type SecretSourceHttp struct {
 	JsonPath *string           `yaml:"jsonPath,omitempty"`
 }
 
-type SecretSourceAwsSecretsManager struct {
+type VarsSourceAwsSecretsManager struct {
 	// Name or ARN of the secret. In case a name is given, the region must be specified as well
 	SecretName string `yaml:"secretName" validate:"required"`
 	// The aws region
@@ -22,15 +22,15 @@ type SecretSourceAwsSecretsManager struct {
 	Profile *string `yaml:"profile,omitempty"`
 }
 
-type SecretSource struct {
-	Path              *string                        `yaml:"path,omitempty"`
-	SystemEnvVars     *uo.UnstructuredObject         `yaml:"systemEnvVars,omitempty"`
-	Http              *SecretSourceHttp              `yaml:"http,omitempty"`
-	AwsSecretsManager *SecretSourceAwsSecretsManager `yaml:"awsSecretsManager,omitempty"`
+type VarsSource struct {
+	Path              *string                      `yaml:"path,omitempty"`
+	SystemEnvVars     *uo.UnstructuredObject       `yaml:"systemEnvVars,omitempty"`
+	Http              *VarsSourceHttp              `yaml:"http,omitempty"`
+	AwsSecretsManager *VarsSourceAwsSecretsManager `yaml:"awsSecretsManager,omitempty"`
 }
 
 func ValidateSecretSource(sl validator.StructLevel) {
-	s := sl.Current().Interface().(SecretSource)
+	s := sl.Current().Interface().(VarsSource)
 	count := 0
 	if s.Path != nil {
 		count += 1

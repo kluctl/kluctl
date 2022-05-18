@@ -46,7 +46,7 @@ func loadSecrets(ctx *commandCtx, target *types.Target, secretsLoader *seal.Secr
 			return err
 		}
 		for _, source := range secretEntry.Sources {
-			var renderedSource types.SecretSource
+			var renderedSource types.VarsSource
 			err = ctx.targetCtx.KluctlProject.J2.RenderStruct(&renderedSource, &source, ctx.targetCtx.DeploymentProject.VarsCtx.Vars)
 			if err != nil {
 				return err
