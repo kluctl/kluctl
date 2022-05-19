@@ -59,7 +59,7 @@ func NewContext(ctx context.Context, slh StatusHandler) context.Context {
 func FromContext(ctx context.Context) StatusHandler {
 	v := ctx.Value(contextKey{})
 	if v == nil {
-		return nil
+		return &NoopStatusHandler{}
 	}
 	return v.(StatusHandler)
 }
