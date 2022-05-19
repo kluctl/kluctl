@@ -3,21 +3,17 @@ package kluctl_project
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
 func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*LoadedKluctlProject, error) {
-	grc := git.NewMirroredGitRepoCollection(ctx, args.GitAuthProviders, args.GitUpdateInterval)
-	defer grc.UnlockAll()
-
 	p := &LoadedKluctlProject{
 		ctx:      ctx,
 		loadArgs: args,
 		TmpDir:   tmpDir,
 		J2:       j2,
-		grc:      grc,
+		GRC:      args.GRC,
 
 		involvedRepos: map[string][]types.InvolvedRepo{},
 	}

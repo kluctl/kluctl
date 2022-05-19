@@ -30,7 +30,7 @@ type LoadedKluctlProject struct {
 	DynamicTargets []*types2.DynamicTarget
 
 	J2  *jinja2.Jinja2
-	grc *git.MirroredGitRepoCollection
+	GRC *git.MirroredGitRepoCollection
 }
 
 func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {

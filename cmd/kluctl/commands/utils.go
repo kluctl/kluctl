@@ -55,6 +55,12 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		status.Warning(cliCtx, "Failed to detect git project root. This might cause follow-up errors")
 	}
 
+	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
+	defer cancel()
+
+	grc := git.NewMirroredGitRepoCollection(ctx, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
+	defer grc.Clear()
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:            repoRoot,
 		ProjectDir:          cwd,
@@ -67,13 +73,10 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		FromArchive:         projectFlags.FromArchive.String(),
 		FromArchiveMetadata: projectFlags.FromArchiveMetadata.String(),
 		AllowGitClone:       projectFlags.FromArchive == "",
-		GitAuthProviders:    auth.NewDefaultAuthProviders(),
-		GitUpdateInterval:   projectFlags.GitCacheUpdateInterval,
+		GRC:                 grc,
 		ClientConfigGetter:  clientConfigGetter(forCompletion),
 	}
 
-	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
-	defer cancel()
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
 	if err != nil {
 		return err
@@ -180,6 +183,9 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		targetCtx: targetCtx,
 		images:    images,
 	}
+
+	// we can assume that all git access is done at this point, so we can clear grc and thus unlock all repos
+	p.GRC.Clear()
 
 	return cb(cmdCtx)
 }

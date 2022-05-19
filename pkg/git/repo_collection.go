@@ -31,13 +31,17 @@ func NewMirroredGitRepoCollection(ctx context.Context, authProviders *auth.GitAu
 	}
 }
 
-func (g *MirroredGitRepoCollection) UnlockAll() {
+func (g *MirroredGitRepoCollection) Clear() {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 
 	for _, e := range g.repos {
-		_ = e.mr.Unlock()
+		if e.mr.IsLocked() {
+			_ = e.mr.Unlock()
+		}
 	}
+
+	g.repos = map[string]*entry{}
 }
 
 func (g *MirroredGitRepoCollection) GetMirroredGitRepo(url git_url.GitUrl, allowCreate bool, lockRepo bool, update bool) (*MirroredGitRepo, error) {

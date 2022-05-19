@@ -59,7 +59,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
-	varsLoader := vars.NewVarsLoader(ctx, k, p.grc)
+	varsLoader := vars.NewVarsLoader(ctx, k, p.GRC)
 
 	if forSeal {
 		err = p.loadSecrets(target, varsCtx, varsLoader)
@@ -108,7 +108,7 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		return doError(err)
 	}
 
-	varsCtx := vars.NewVarsCtx(p.J2, p.grc)
+	varsCtx := vars.NewVarsCtx(p.J2, p.GRC)
 	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
 	if err != nil {
 		return doError(err)

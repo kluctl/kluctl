@@ -83,7 +83,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target,
 	var errors []error
 	curTarget := target
 	for i := 0; i < 10; i++ {
-		varsCtx := vars.NewVarsCtx(c.J2, c.grc)
+		varsCtx := vars.NewVarsCtx(c.J2, c.GRC)
 		err := varsCtx.UpdateChildFromStruct("target", curTarget)
 		if err != nil {
 			return nil, err
@@ -134,7 +134,7 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsSimple(baseTarget *types.Targ
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
-	mr, err := c.grc.GetMirroredGitRepo(baseTarget.TargetConfig.Project.Url, true, true, true)
+	mr, err := c.GRC.GetMirroredGitRepo(baseTarget.TargetConfig.Project.Url, true, true, true)
 	if err != nil {
 		return nil, err
 	}

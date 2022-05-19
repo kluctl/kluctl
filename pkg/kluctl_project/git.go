@@ -32,7 +32,7 @@ func (c *LoadedKluctlProject) updateGitCaches() error {
 		go func() {
 			defer waitGroup.Done()
 
-			_, err := c.grc.GetMirroredGitRepo(u, true, true, true)
+			_, err := c.GRC.GetMirroredGitRepo(u, true, true, true)
 			if err != nil {
 				doError(fmt.Errorf("failed to update git project %v: %v", u.String(), err))
 			}
@@ -87,7 +87,7 @@ func (c *LoadedKluctlProject) cloneGitProject(gitProject *types2.GitProject, tar
 		return
 	}
 
-	mr, err := c.grc.GetMirroredGitRepo(gitProject.Url, true, true, true)
+	mr, err := c.GRC.GetMirroredGitRepo(gitProject.Url, true, true, true)
 	if err != nil {
 		return git.GitRepoInfo{}, err
 	}

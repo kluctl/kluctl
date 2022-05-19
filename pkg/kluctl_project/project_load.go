@@ -3,7 +3,6 @@ package kluctl_project
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
-	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
@@ -14,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 type LoadKluctlProjectArgs struct {
@@ -29,10 +27,8 @@ type LoadKluctlProjectArgs struct {
 	FromArchive         string
 	FromArchiveMetadata string
 
-	AllowGitClone    bool
-	GitAuthProviders *auth2.GitAuthProviders
-
-	GitUpdateInterval time.Duration
+	AllowGitClone bool
+	GRC           *git.MirroredGitRepoCollection
 
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)
 }
