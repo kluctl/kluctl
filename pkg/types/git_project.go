@@ -25,7 +25,7 @@ func (gp *GitProject) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func ValidateGitProject(sl validator.StructLevel) {
 	gp := sl.Current().Interface().(GitProject)
 	if strings.Index(gp.SubDir, "/") != -1 {
-		sl.ReportError(gp.SubDir, "subDir", "SubDir", "subdirinvalid", "/ is not allowed in subdir")
+		sl.ReportError(gp.SubDir, "subDir", "SubDir", "/ is not allowed in subDir", "")
 	}
 }
 
@@ -37,9 +37,9 @@ type ExternalProject struct {
 func ValidateExternalProject(sl validator.StructLevel) {
 	p := sl.Current().Interface().(ExternalProject)
 	if p.Project == nil && p.Path == nil {
-		sl.ReportError(p, ".", ".", "empty", "either project or path must be set")
+		sl.ReportError(p, ".", ".", "either project or path must be set", "")
 	} else if p.Project != nil && p.Path != nil {
-		sl.ReportError(p, ".", ".", "empty", "only one of project or path can be set")
+		sl.ReportError(p, ".", ".", "only one of project or path can be set", "")
 	}
 }
 

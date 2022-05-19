@@ -21,10 +21,10 @@ type DeploymentItemConfig struct {
 func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeploymentItemConfig)
 	if s.Path != nil && s.Include != nil {
-		sl.ReportError(s, "path", "Path", "pathinclude", "path and include can not be set at the same time")
+		sl.ReportError(s, "path", "Path", "path and include can not be set at the same time", "")
 	}
 	if s.Path == nil && s.WaitReadiness != nil {
-		sl.ReportError(s, "waitReadiness", "WaitReadiness", "waitreadiness", "only kustomize deployments are allowed to have waitReadiness set")
+		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")
 	}
 }
 
@@ -39,7 +39,7 @@ type DeleteObjectItemConfig struct {
 func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeleteObjectItemConfig)
 	if s.Group == nil && s.Version == nil && s.Kind == nil {
-		sl.ReportError(s, "self", "self", "missingfield", "at least one of group/version/kind must be set")
+		sl.ReportError(s, "self", "self", "at least one of group/version/kind must be set", "")
 	}
 }
 

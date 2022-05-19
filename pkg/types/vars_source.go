@@ -76,9 +76,9 @@ func ValidateVarsSource(sl validator.StructLevel) {
 		count += 1
 	}
 	if count == 0 {
-		sl.ReportError(s, "self", "self", "invalidsource", "unknown vars source type")
+		sl.ReportError(s, "self", "self", "unknown vars source type", "")
 	} else if count != 1 {
-		sl.ReportError(s, "self", "self", "invalidsource", "more then one vars source type")
+		sl.ReportError(s, "self", "self", "more then one vars source type", "")
 	}
 }
 

@@ -55,7 +55,7 @@ func ValidateSecretSet(sl validator.StructLevel) {
 	s := sl.Current().Interface().(SecretSet)
 
 	if len(s.Sources) != 0 && len(s.Vars) != 0 {
-		sl.ReportError(s, "vars", "vars", "invalidsource", "sources and vars can't be set at the same time")
+		sl.ReportError(s, "vars", "vars", "sources and vars can't be set at the same time", "")
 	}
 }
 
