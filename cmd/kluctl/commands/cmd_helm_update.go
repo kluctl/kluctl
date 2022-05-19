@@ -38,21 +38,31 @@ func (cmd *helmUpdateCmd) Run() error {
 				return err
 			}
 
-			statusPrefix := filepath.Base(p)
+			statusPrefix := filepath.Base(filepath.Dir(p))
 			s := status.Start(cliCtx, "%s: Checking for updates", statusPrefix)
 			defer s.Failed()
+
+			skipUpdate := chart.Config.SkipUpdate != nil && *chart.Config.SkipUpdate
 
 			newVersion, updated, err := chart.CheckUpdate()
 			if err != nil {
 				return err
 			}
 			if !updated {
+				s.Update("%s: Version %s is already up-to-date.", statusPrefix, *chart.Config.ChartVersion)
+				s.Success()
 				return nil
 			}
-			s.Update(fmt.Sprintf("Chart has new version %s available. Old version is %s.", newVersion, *chart.Config.ChartVersion))
+			msg := fmt.Sprintf("%s: Chart has new version %s available. Old version is %s.", statusPrefix, newVersion, *chart.Config.ChartVersion)
+			if skipUpdate {
+				msg += " skipUpdate is set to true."
+			}
+			s.Update(msg)
 
-			if cmd.Upgrade {
-				if chart.Config.SkipUpdate != nil && *chart.Config.SkipUpdate {
+			if !cmd.Upgrade {
+				s.Success()
+			} else {
+				if skipUpdate {
 					s.Update("%s: NOT upgrading chart as skipUpdate was set to true", statusPrefix)
 					s.Success()
 					return nil
