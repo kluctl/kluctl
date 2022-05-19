@@ -4,10 +4,8 @@ import json
 from jinja2 import StrictUndefined, FileSystemLoader, ChainableUndefined
 
 from dict_utils import merge_dict
-from jinja2_cache import KluctlBytecodeCache
 from jinja2_utils import KluctlJinja2Environment, add_jinja2_filters, extract_template_error
 
-jinja2_cache = KluctlBytecodeCache(max_cache_files=10000)
 
 begin_placeholder = "XXXXXbegin_get_image_"
 end_placeholder = "_end_get_imageXXXXX"
@@ -76,7 +74,7 @@ class Jinja2Renderer:
         environment = KluctlJinja2Environment(loader=FileSystemLoader(search_dirs),
                                               undefined=StrictUndefined if strict else NullUndefined,
                                               cache_size=10000,
-                                              bytecode_cache=jinja2_cache, auto_reload=False)
+                                              auto_reload=False)
         merge_dict(environment.globals, vars, clone=False)
 
         add_jinja2_filters(environment)
