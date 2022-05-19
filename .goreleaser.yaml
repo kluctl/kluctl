@@ -64,6 +64,7 @@ changelog:
       - '^refactor:'
 
 release:
+  draft: true
   prerelease: auto
   name_template: "{{.ProjectName}}-{{.Tag}}"
 
