@@ -155,17 +155,13 @@ func (k *k8sResources) updateResources() error {
 	return nil
 }
 
-var crdGK = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
+var crdGVR = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 
 func (k *k8sResources) updateResourcesFromCRDs(clients *k8sClients) error {
-	var crdList *apiextensionsv1.CustomResourceDefinitionList
-	_, err := clients.withClientFromPool(func(p *parallelClientEntry) error {
-		c, err := apiextensionsclient.NewForConfigAndClient(k.restConfig, p.http)
-		if err != nil {
-			return err
-		}
-
-		crdList, err = c.CustomResourceDefinitions().List(k.ctx, v1.ListOptions{})
+	var crdList *unstructured.UnstructuredList
+	_, err := clients.withDynamicClientForGVR(&crdGVR, "", func(r dynamic.ResourceInterface) error {
+		var err error
+		crdList, err = r.List(k.ctx, v1.ListOptions{})
 		return err
 	})
 	if err != nil {
@@ -173,11 +169,8 @@ func (k *k8sResources) updateResourcesFromCRDs(clients *k8sClients) error {
 	}
 
 	for _, x := range crdList.Items {
-		u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&x)
-		if err != nil {
-			return err
-		}
-		crd := uo.FromMap(u)
+		x := x
+		crd := uo.FromUnstructured(&x)
 		err = k.UpdateResourcesFromCRD(crd)
 		if err != nil {
 			return err
