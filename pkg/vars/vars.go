@@ -1,7 +1,6 @@
 package vars
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -9,14 +8,12 @@ import (
 
 type VarsCtx struct {
 	J2   *jinja2.Jinja2
-	grc  *git.MirroredGitRepoCollection
 	Vars *uo.UnstructuredObject
 }
 
-func NewVarsCtx(j2 *jinja2.Jinja2, grc *git.MirroredGitRepoCollection) *VarsCtx {
+func NewVarsCtx(j2 *jinja2.Jinja2) *VarsCtx {
 	vc := &VarsCtx{
 		J2:   j2,
-		grc:  grc,
 		Vars: uo.New(),
 	}
 	return vc
@@ -25,7 +22,6 @@ func NewVarsCtx(j2 *jinja2.Jinja2, grc *git.MirroredGitRepoCollection) *VarsCtx 
 func (vc *VarsCtx) Copy() *VarsCtx {
 	cp := &VarsCtx{
 		J2:   vc.J2,
-		grc:  vc.grc,
 		Vars: vc.Vars.Clone(),
 	}
 	return cp

@@ -83,7 +83,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target,
 	var errors []error
 	curTarget := target
 	for i := 0; i < 10; i++ {
-		varsCtx := vars.NewVarsCtx(c.J2, c.GRC)
+		varsCtx := vars.NewVarsCtx(c.J2)
 		err := varsCtx.UpdateChildFromStruct("target", curTarget)
 		if err != nil {
 			return nil, err

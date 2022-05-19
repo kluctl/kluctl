@@ -108,7 +108,7 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		return doError(err)
 	}
 
-	varsCtx := vars.NewVarsCtx(p.J2, p.GRC)
+	varsCtx := vars.NewVarsCtx(p.J2)
 	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
 	if err != nil {
 		return doError(err)
