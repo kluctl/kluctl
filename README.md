@@ -23,7 +23,7 @@ Kluctl does not depend on external operators/controllers and allows to use the s
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
 local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
 
-Flux support is in development and will come soon.
+Flux support is in alpha statium and available via the [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
 
 ## Installation
 
@@ -41,7 +41,7 @@ Documentation can be found here: https://kluctl.io/docs
 | --- | --- |
 | 💪 Kluctl handles all your deployments | You can manage all your deployments with Kluctl, including infrastructure related and your applications. |
 | 🪶 Complex or simple, all the same | You can manage complex and simple deployments with Kluctl. Simple deployments are lightweight while complex deployment are easily manageable. |
-| 🤖 Native git support | Kluctl has native Git support integrated, meaning that it can easily deploy remote Kluctl projects or externalize parts (e.g. cluster configs) of your Kluctl project. |
+| 🤖 Native git support | Kluctl has native Git support integrated, meaning that it can easily deploy remote Kluctl projects or externalize parts (e.g. configuration) of your Kluctl project. |
 | 🪐 Multiple environments | Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration. |
 | 🌌 Multiple clusters | Manage multiple target clusters (in multiple clouds or bare-metal if you want). |
 | 🔩 Configuration and Templating | Kluctl allows to use templating in nearly all places, making it easy to have dynamic configuration. |
