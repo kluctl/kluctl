@@ -2,8 +2,8 @@ package embed_util
 
 import (
 	"fmt"
-	"github.com/gofrs/flock"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -21,12 +21,11 @@ func ExtractTarToTmp(r io.Reader, fileListR io.Reader, targetPrefix string) (str
 
 	targetPath := fmt.Sprintf("%s-%s", targetPrefix, utils.Sha256Bytes(fileList)[:16])
 
-	fl := flock.New(targetPath + ".lock")
-	err = fl.Lock()
+	fl, err := lockedfile.Create(targetPath + ".lock")
 	if err != nil {
 		return "", err
 	}
-	defer fl.Unlock()
+	defer fl.Close()
 
 	needsExtract, expectedTarGzHash, err := checkExtractNeeded(targetPath, string(fileList))
 	if err != nil {

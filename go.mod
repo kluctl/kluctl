@@ -14,7 +14,6 @@ require (
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/gobwas/glob v0.2.3
 	github.com/goccy/go-yaml v1.9.5
-	github.com/gofrs/flock v0.8.1
 	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/google/go-containerregistry v0.8.0
 	github.com/hashicorp/go-version v1.4.0
@@ -27,6 +26,7 @@ require (
 	github.com/ohler55/ojg v1.14.0
 	github.com/pkg/errors v0.9.1
 	github.com/r3labs/diff/v2 v2.15.1
+	github.com/rogpeppe/go-internal v1.8.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
@@ -43,8 +43,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	helm.sh/helm/v3 v3.8.2
 	k8s.io/api v0.24.0-rc.1
+	k8s.io/apiextensions-apiserver v0.23.6
 	k8s.io/apimachinery v0.24.0-rc.1
 	k8s.io/client-go v0.24.0-rc.1
+	k8s.io/klog/v2 v2.60.1
 	sigs.k8s.io/kind v0.12.0
 	sigs.k8s.io/kustomize/api v0.11.4
 	sigs.k8s.io/kustomize/kyaml v0.13.6
@@ -186,11 +188,9 @@ require (
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/apiextensions-apiserver v0.23.6 // indirect
 	k8s.io/apiserver v0.23.6 // indirect
 	k8s.io/cli-runtime v0.24.0-rc.1 // indirect
 	k8s.io/component-base v0.24.0-rc.1 // indirect
-	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
 	k8s.io/kubectl v0.23.5 // indirect
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect

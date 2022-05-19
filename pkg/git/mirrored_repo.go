@@ -11,13 +11,14 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
-import "github.com/gofrs/flock"
 
 var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
@@ -28,7 +29,11 @@ type MirroredGitRepo struct {
 	mirrorDir string
 
 	hasUpdated bool
-	fileLock   *flock.Flock
+
+	fileLock     *lockedfile.File
+	fileLockPath string
+
+	mutex sync.Mutex
 }
 
 func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl) (*MirroredGitRepo, error) {
@@ -45,7 +50,8 @@ func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl) (*MirroredGitRepo
 			return nil, fmt.Errorf("failed to create mirror repo for %v: %w", u.String(), err)
 		}
 	}
-	o.fileLock = flock.New(filepath.Join(o.mirrorDir, ".cache.lock"))
+
+	o.fileLockPath = filepath.Join(o.mirrorDir, ".cache.lock")
 	return o, nil
 }
 
@@ -58,39 +64,43 @@ func (g *MirroredGitRepo) SetUpdated(u bool) {
 }
 
 func (g *MirroredGitRepo) Lock() error {
-	ok, err := g.fileLock.TryLockContext(g.ctx, time.Millisecond*100)
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+	if g.fileLock != nil {
+		return fmt.Errorf("file %s already locked", g.fileLockPath)
+	}
+
+	var err error
+	g.fileLock, err = lockedfile.Create(g.fileLockPath)
 	if err != nil {
-		return fmt.Errorf("locking of %s failed: %w", g.fileLock.Path(), err)
+		return fmt.Errorf("locking of %s failed: %w", g.fileLockPath, err)
 	}
-	if !ok {
-		return fmt.Errorf("locking of %s failed: unkown reason", g.fileLock.Path())
-	}
+
 	return nil
 }
 
 func (g *MirroredGitRepo) Unlock() error {
-	err := g.fileLock.Unlock()
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+	if g.fileLock == nil {
+		return fmt.Errorf("file %s is not locked", g.fileLockPath)
+	}
+
+	err := g.fileLock.Close()
 	if err != nil {
-		status.Warning(g.ctx, "Unlock of %s failed: %v", g.fileLock.Path(), err)
+		status.Warning(g.ctx, "Unlock of %s failed: %v", g.fileLockPath, err)
 		return err
 	}
+	g.fileLock = nil
 	return nil
 }
 
-func (g *MirroredGitRepo) WithLock(cb func() error) error {
-	err := g.Lock()
-	if err != nil {
-		return err
-	}
-	defer g.Unlock()
-	return cb()
-}
-
-func (g *MirroredGitRepo) MaybeWithLock(lock bool, cb func() error) error {
-	if lock {
-		return g.WithLock(cb)
-	}
-	return cb()
+func (g *MirroredGitRepo) IsLocked() bool {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return g.fileLock != nil
 }
 
 func (g *MirroredGitRepo) LastUpdateTime() time.Time {
@@ -330,7 +340,7 @@ func (g *MirroredGitRepo) Update(authProviders *auth2.GitAuthProviders) error {
 }
 
 func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
-	if !g.fileLock.Locked() || !g.hasUpdated {
+	if !g.IsLocked() || !g.hasUpdated {
 		panic("tried to clone from a project that is not locked/updated")
 	}
 
@@ -344,7 +354,7 @@ func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
 }
 
 func (g *MirroredGitRepo) ReadFile(ref string, path string) ([]byte, error) {
-	if !g.fileLock.Locked() || !g.hasUpdated {
+	if !g.IsLocked() || !g.hasUpdated {
 		panic("tried to read a file from a project that is not locked/updated")
 	}
 
