@@ -5,6 +5,7 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"reflect"
 )
 
 type VarsSourceGit struct {
@@ -50,31 +51,15 @@ type VarsSource struct {
 
 func ValidateVarsSource(sl validator.StructLevel) {
 	s := sl.Current().Interface().(VarsSource)
+
 	count := 0
-	if s.Path != nil {
-		count += 1
+	v := reflect.ValueOf(s)
+	for i := 0; i < v.NumField(); i++ {
+		if !v.Field(i).IsNil() {
+			count += 1
+		}
 	}
-	if s.File != nil {
-		count += 1
-	}
-	if s.Git != nil {
-		count += 1
-	}
-	if s.ClusterConfigMap != nil {
-		count += 1
-	}
-	if s.ClusterSecret != nil {
-		count += 1
-	}
-	if s.SystemEnvVars != nil {
-		count += 1
-	}
-	if s.Http != nil {
-		count += 1
-	}
-	if s.AwsSecretsManager != nil {
-		count += 1
-	}
+
 	if count == 0 {
 		sl.ReportError(s, "self", "self", "unknown vars source type", "")
 	} else if count != 1 {
