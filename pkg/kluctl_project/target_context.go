@@ -51,7 +51,11 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	var k *k8s.K8sCluster
 	if clientConfig != nil {
 		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
-		k, err = k8s.NewK8sCluster(ctx, clientConfig, dryRun)
+		clientFactory, err := k8s.NewClientFactory(clientConfig)
+		if err != nil {
+			return nil, err
+		}
+		k, err = k8s.NewK8sCluster(ctx, clientFactory, dryRun)
 		if err != nil {
 			s.Failed()
 			return nil, err

@@ -35,33 +35,29 @@ type K8sCluster struct {
 
 	DryRun bool
 
-	restConfig *rest.Config
-	clients    *k8sClients
+	clientFactory ClientFactory
+	clients       *k8sClients
 
 	ServerVersion *goversion.Version
 
 	Resources *k8sResources
 }
 
-func NewK8sCluster(ctx context.Context, configIn *rest.Config, dryRun bool) (*K8sCluster, error) {
+func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool) (*K8sCluster, error) {
 	var err error
 
-	restConfig := rest.CopyConfig(configIn)
-	restConfig.QPS = 10
-	restConfig.Burst = 20
-
 	k := &K8sCluster{
-		ctx:        ctx,
-		DryRun:     dryRun,
-		restConfig: restConfig,
+		ctx:           ctx,
+		DryRun:        dryRun,
+		clientFactory: clientFactory,
 	}
 
-	k.Resources, err = newK8sResources(ctx, restConfig)
+	k.Resources, err = newK8sResources(ctx, clientFactory)
 	if err != nil {
 		return nil, err
 	}
 
-	k.clients, err = newK8sClients(ctx, restConfig, 16)
+	k.clients, err = newK8sClients(ctx, clientFactory, 16)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +104,7 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 }
 
 func (k *K8sCluster) GetCA() []byte {
-	return k.restConfig.CAData
+	return k.clientFactory.GetCA()
 }
 
 func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {

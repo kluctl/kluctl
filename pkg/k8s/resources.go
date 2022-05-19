@@ -4,32 +4,22 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
-	"net/url"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-	"time"
-
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 )
 
 type k8sResources struct {
-	ctx        context.Context
-	restConfig *rest.Config
-	discovery  *disk.CachedDiscoveryClient
+	ctx       context.Context
+	discovery discovery.DiscoveryInterface
 
 	allResources       map[schema.GroupVersionKind]v1.APIResource
 	preferredResources map[schema.GroupKind]v1.APIResource
@@ -37,26 +27,20 @@ type k8sResources struct {
 	mutex              sync.Mutex
 }
 
-func newK8sResources(ctx context.Context, config *rest.Config) (*k8sResources, error) {
+func newK8sResources(ctx context.Context, clientFactory ClientFactory) (*k8sResources, error) {
 	k := &k8sResources{
 		ctx:                ctx,
-		restConfig:         config,
 		allResources:       map[schema.GroupVersionKind]v1.APIResource{},
 		preferredResources: map[schema.GroupKind]v1.APIResource{},
 		crds:               map[schema.GroupKind]*uo.UnstructuredObject{},
 		mutex:              sync.Mutex{},
 	}
 
-	apiHost, err := url.Parse(config.Host)
+	var err error
+	k.discovery, err = clientFactory.DiscoveryClient()
 	if err != nil {
 		return nil, err
 	}
-	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), discoveryCacheDir, "", time.Hour*24)
-	if err != nil {
-		return nil, err
-	}
-	k.discovery = discovery2
 
 	return k, nil
 }

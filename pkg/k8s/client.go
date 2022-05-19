@@ -7,20 +7,17 @@ import (
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
-	"k8s.io/client-go/rest"
-	"net/http"
 )
 
 type k8sClients struct {
-	ctx        context.Context
-	restConfig *rest.Config
-	clientPool chan *parallelClientEntry
-	count      int
+	ctx           context.Context
+	clientFactory ClientFactory
+	clientPool    chan *parallelClientEntry
+	count         int
 }
 
 type parallelClientEntry struct {
-	http           *http.Client
-	corev1         *corev1.CoreV1Client
+	corev1         corev1.CoreV1Interface
 	dynamicClient  dynamic.Interface
 	metadataClient metadata.Interface
 
@@ -41,37 +38,30 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 	})
 }
 
-func newK8sClients(ctx context.Context, restConfig *rest.Config, count int) (*k8sClients, error) {
+func newK8sClients(ctx context.Context, clientFactory ClientFactory, count int) (*k8sClients, error) {
 	var err error
 
 	k := &k8sClients{
-		ctx:        ctx,
-		restConfig: restConfig,
-		clientPool: make(chan *parallelClientEntry, count),
-		count:      count,
+		ctx:           ctx,
+		clientFactory: clientFactory,
+		clientPool:    make(chan *parallelClientEntry, count),
+		count:         count,
 	}
 
 	for i := 0; i < count; i++ {
 		p := &parallelClientEntry{}
-		config := rest.CopyConfig(k.restConfig)
-		config.WarningHandler = p
 
-		p.http, err = rest.HTTPClientFor(config)
+		p.corev1, err = clientFactory.CoreV1Client(p)
 		if err != nil {
 			return nil, err
 		}
 
-		p.corev1, err = corev1.NewForConfigAndClient(config, p.http)
+		p.dynamicClient, err = clientFactory.DynamicClient(p)
 		if err != nil {
 			return nil, err
 		}
 
-		p.dynamicClient, err = dynamic.NewForConfigAndClient(config, p.http)
-		if err != nil {
-			return nil, err
-		}
-
-		p.metadataClient, err = metadata.NewForConfigAndClient(config, p.http)
+		p.metadataClient, err = clientFactory.MetadataClient(p)
 		if err != nil {
 			return nil, err
 		}
@@ -82,10 +72,10 @@ func newK8sClients(ctx context.Context, restConfig *rest.Config, count int) (*k8
 }
 
 func (k *k8sClients) close() {
+	k.clientFactory.CloseIdleConnections()
 	if k.clientPool != nil {
 		for i := 0; i < k.count; i++ {
-			p := <-k.clientPool
-			p.http.CloseIdleConnections()
+			_ = <-k.clientPool
 		}
 	}
 	k.clientPool = nil
