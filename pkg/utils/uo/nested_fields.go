@@ -1,6 +1,9 @@
 package uo
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 func (uo *UnstructuredObject) GetNestedField(keys ...interface{}) (interface{}, bool, error) {
 	var o interface{} = uo.Object
@@ -97,15 +100,14 @@ func (uo *UnstructuredObject) GetNestedInt(keys ...interface{}) (int64, bool, er
 	if !found {
 		return 0, false, nil
 	}
-	i, ok := v.(int64)
-	if !ok {
-		if i2, ok := v.(int); ok {
-			i = int64(i2)
-		} else {
-			return 0, false, fmt.Errorf("value at %s is not an int", KeyPath(keys).ToJsonPath())
-		}
+	vv := reflect.ValueOf(v)
+	if vv.CanInt() {
+		return vv.Int(), true, nil
+	} else if vv.CanUint() {
+		return int64(vv.Uint()), true, nil
+	} else {
+		return 0, false, fmt.Errorf("value at %s is not an int", KeyPath(keys).ToJsonPath())
 	}
-	return i, true, nil
 }
 
 func (uo *UnstructuredObject) GetNestedList(keys ...interface{}) ([]interface{}, bool, error) {
