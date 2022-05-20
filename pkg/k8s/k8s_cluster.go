@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	goversion "github.com/hashicorp/go-version"
+	"github.com/Masterminds/semver/v3"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -16,6 +16,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -38,7 +39,7 @@ type K8sCluster struct {
 	clientFactory ClientFactory
 	clients       *k8sClients
 
-	ServerVersion *goversion.Version
+	ServerVersion *version.Info
 
 	Resources *k8sResources
 }
@@ -66,11 +67,7 @@ func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool
 	if err != nil {
 		return nil, err
 	}
-	v2, err := goversion.NewVersion(v.String())
-	if err != nil {
-		return nil, err
-	}
-	k.ServerVersion = v2
+	k.ServerVersion = v
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -326,17 +323,18 @@ func (k *K8sCluster) waitForDeletedObject(ref k8s.ObjectRef) error {
 	return nil
 }
 
-var v1_21, _ = goversion.NewVersion("1.21")
-var v1_1000, _ = goversion.NewVersion("1.1000")
-
 func (k *K8sCluster) FixObjectForPatch(o *uo.UnstructuredObject) *uo.UnstructuredObject {
 	// A bug in versions < 1.20 cause errors when applying resources that have some fields omitted which have
 	// default values. We need to fix these resources.
 	// UPDATE even though https://github.com/kubernetes-sigs/structured-merge-diff/issues/130 says it's fixed, the
 	// issue is still present.
-	needsDefaultsFix := k.ServerVersion.LessThan(v1_21) || true
+	k8sVersion, err := semver.NewVersion(k.ServerVersion.String())
+	if err != nil {
+		return o
+	}
+	needsDefaultsFix := k8sVersion.LessThan(semver.MustParse("1.21")) || true
 	// TODO check when this is actually fixed (see https://github.com/kubernetes/kubernetes/issues/94275)
-	needsTypeConversionFix := k.ServerVersion.LessThan(v1_1000)
+	needsTypeConversionFix := k8sVersion.LessThan(semver.MustParse("1.100"))
 	if !needsDefaultsFix && !needsTypeConversionFix {
 		return o
 	}

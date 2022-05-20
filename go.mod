@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20211209120228-48547f28849e
+	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/aws/aws-sdk-go v1.44.1
 	github.com/bitnami-labs/sealed-secrets v0.17.5
 	github.com/cyphar/filepath-securejoin v0.2.3
@@ -16,7 +17,6 @@ require (
 	github.com/goccy/go-yaml v1.9.5
 	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/google/go-containerregistry v0.8.0
-	github.com/hashicorp/go-version v1.4.0
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/jinzhu/copier v0.3.5
 	github.com/kevinburke/ssh_config v1.2.0
@@ -73,7 +73,6 @@ require (
 	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.2 // indirect
 	github.com/Masterminds/squirrel v1.5.2 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
