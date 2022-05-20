@@ -54,17 +54,12 @@ func (k *k8sResources) updateResources() error {
 	k.crds = map[schema.GroupKind]*uo.UnstructuredObject{}
 
 	// the discovery client doesn't support cancellation, so we need to run it in the background and wait for it
+	var ags []*v1.APIGroup
 	var arls []*v1.APIResourceList
-	var preferredArls []*v1.APIResourceList
 	finished := make(chan error)
 	go func() {
 		var err error
-		_, arls, err = k.discovery.ServerGroupsAndResources()
-		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-			finished <- err
-			return
-		}
-		preferredArls, err = k.discovery.ServerPreferredResources()
+		ags, arls, err = k.discovery.ServerGroupsAndResources()
 		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 			finished <- err
 			return
@@ -82,6 +77,17 @@ func (k *k8sResources) updateResources() error {
 	}
 
 	for _, arl := range arls {
+		var ag *v1.APIGroup
+		for _, x := range ags {
+			if x.Name == arl.GroupVersionKind().Group {
+				ag = x
+				break
+			}
+		}
+		if ag == nil {
+			continue
+		}
+
 		for _, ar := range arl.APIResources {
 			if strings.Index(ar.Name, "/") != -1 {
 				// skip subresources
@@ -104,38 +110,15 @@ func (k *k8sResources) updateResources() error {
 			if _, ok := deprecatedResources[gvk.GroupKind()]; ok {
 				continue
 			}
-			if _, ok := k.allResources[gvk]; ok {
-				ok = false
-			}
+
 			k.allResources[gvk] = ar
+
+			if gvk.Version == ag.PreferredVersion.Version {
+				k.preferredResources[gvk.GroupKind()] = ar
+			}
 		}
 	}
 
-	for _, arl := range preferredArls {
-		for _, ar := range arl.APIResources {
-			if strings.Index(ar.Name, "/") != -1 {
-				// skip subresources
-				continue
-			}
-			gv, err := schema.ParseGroupVersion(arl.GroupVersion)
-			if err != nil {
-				continue
-			}
-
-			ar := ar
-			ar.Group = gv.Group
-			ar.Version = gv.Version
-
-			gk := schema.GroupKind{
-				Group: ar.Group,
-				Kind:  ar.Kind,
-			}
-			if _, ok := deprecatedResources[gk]; ok {
-				continue
-			}
-			k.preferredResources[gk] = ar
-		}
-	}
 	return nil
 }
 
