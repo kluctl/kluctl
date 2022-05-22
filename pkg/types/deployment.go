@@ -9,12 +9,12 @@ type DeploymentItemConfig struct {
 	Path             *string                  `yaml:"path,omitempty"`
 	Include          *string                  `yaml:"include,omitempty"`
 	Tags             []string                 `yaml:"tags,omitempty"`
-	Barrier          *bool                    `yaml:"barrier,omitempty"`
-	WaitReadiness    *bool                    `yaml:"waitReadiness,omitempty"`
+	Barrier          bool                     `yaml:"barrier,omitempty"`
+	WaitReadiness    bool                     `yaml:"waitReadiness,omitempty"`
 	Vars             []*VarsSource            `yaml:"vars,omitempty"`
-	SkipDeleteIfTags *bool                    `yaml:"skipDeleteIfTags,omitempty"`
-	OnlyRender       *bool                    `yaml:"onlyRender,omitempty"`
-	AlwaysDeploy     *bool                    `yaml:"alwaysDeploy,omitempty"`
+	SkipDeleteIfTags bool                     `yaml:"skipDeleteIfTags,omitempty"`
+	OnlyRender       bool                     `yaml:"onlyRender,omitempty"`
+	AlwaysDeploy     bool                     `yaml:"alwaysDeploy,omitempty"`
 	DeleteObjects    []DeleteObjectItemConfig `yaml:"deleteObjects,omitempty"`
 }
 
@@ -23,7 +23,7 @@ func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	if s.Path != nil && s.Include != nil {
 		sl.ReportError(s, "path", "Path", "path and include can not be set at the same time", "")
 	}
-	if s.Path == nil && s.WaitReadiness != nil {
+	if s.Path == nil && s.WaitReadiness {
 		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")
 	}
 }

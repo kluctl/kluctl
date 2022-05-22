@@ -7,8 +7,8 @@ type HelmChartConfig2 struct {
 	ReleaseName  string  `yaml:"releaseName" validate:"required"`
 	Namespace    *string `yaml:"namespace,omitempty"`
 	Output       string  `yaml:"output" validate:"required"`
-	SkipCRDs     *bool   `yaml:"skipCRDs,omitempty"`
-	SkipUpdate   *bool   `yaml:"skipUpdate,omitempty"`
+	SkipCRDs     bool    `yaml:"skipCRDs,omitempty"`
+	SkipUpdate   bool    `yaml:"skipUpdate,omitempty"`
 }
 
 type HelmChartConfig struct {

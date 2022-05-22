@@ -257,7 +257,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	client.ClientOnly = true
 	client.KubeVersion = kubeVersion
 
-	if c.Config.SkipCRDs != nil && *c.Config.SkipCRDs {
+	if c.Config.SkipCRDs {
 		client.SkipCRDs = true
 	} else {
 		client.IncludeCRDs = true

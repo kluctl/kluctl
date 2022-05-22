@@ -46,9 +46,8 @@ func NewDeploymentCollection(ctx context.Context, project *DeploymentProject, im
 }
 
 func (c *DeploymentCollection) createBarrierDummy(project *DeploymentProject) *DeploymentItem {
-	b := true
 	tmpDiConfig := &types.DeploymentItemConfig{
-		Barrier: &b,
+		Barrier: true,
 	}
 	di, err := NewDeploymentItem(project, c, tmpDiConfig, nil, 0)
 	if err != nil {
@@ -93,7 +92,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 				return nil, err
 			}
 			ret = append(ret, ret2...)
-			if diConfig.Barrier != nil && *diConfig.Barrier {
+			if diConfig.Barrier {
 				ret = append(ret, c.createBarrierDummy(project))
 			}
 		} else {

@@ -480,7 +480,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			didLog = true
 		}
 
-		waitReadiness := (d.Config.WaitReadiness != nil && *d.Config.WaitReadiness) || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
+		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
 		if !a.o.NoWait && waitReadiness {
 			a.WaitReadiness(o.GetK8sRef(), 0)
 		}
@@ -577,7 +577,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			sctx.Failed()
 		}()
 
-		barrier := (d.Config.Barrier != nil && *d.Config.Barrier) || d.Barrier
+		barrier := d.Config.Barrier || d.Barrier
 		if barrier {
 			sctx := status.StartWithOptions(a.ctx, status.WithStatus("Waiting on barrier..."), status.WithTotal(1))
 			wg.Wait()

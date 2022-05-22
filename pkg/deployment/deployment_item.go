@@ -101,7 +101,7 @@ func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	a := map[string]string{
 		"kluctl.io/kustomize_dir": filepath.ToSlash(di.RelToRootItemDir),
 	}
-	if di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags {
+	if di.Config.SkipDeleteIfTags {
 		a["kluctl.io/skip-delete-if-tags"] = "true"
 	}
 	return a
@@ -267,10 +267,10 @@ func (di *DeploymentItem) CheckInclusionForDeploy() bool {
 	if di.Inclusion == nil {
 		return true
 	}
-	if di.Config.OnlyRender != nil && *di.Config.OnlyRender {
+	if di.Config.OnlyRender {
 		return true
 	}
-	if di.Config.AlwaysDeploy != nil && *di.Config.AlwaysDeploy {
+	if di.Config.AlwaysDeploy {
 		return true
 	}
 	values := di.buildInclusionEntries()
@@ -281,9 +281,8 @@ func (di *DeploymentItem) checkInclusionForDelete() bool {
 	if di.Inclusion == nil {
 		return true
 	}
-	skipDeleteIfTags := di.Config.SkipDeleteIfTags != nil && *di.Config.SkipDeleteIfTags
 	values := di.buildInclusionEntries()
-	return di.Inclusion.CheckIncluded(values, skipDeleteIfTags)
+	return di.Inclusion.CheckIncluded(values, di.Config.SkipDeleteIfTags)
 }
 
 func (di *DeploymentItem) prepareKustomizationYaml() error {

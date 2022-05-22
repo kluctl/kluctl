@@ -42,8 +42,6 @@ func (cmd *helmUpdateCmd) Run() error {
 			s := status.Start(cliCtx, "%s: Checking for updates", statusPrefix)
 			defer s.Failed()
 
-			skipUpdate := chart.Config.SkipUpdate != nil && *chart.Config.SkipUpdate
-
 			newVersion, updated, err := chart.CheckUpdate()
 			if err != nil {
 				return err
@@ -54,7 +52,7 @@ func (cmd *helmUpdateCmd) Run() error {
 				return nil
 			}
 			msg := fmt.Sprintf("%s: Chart has new version %s available. Old version is %s.", statusPrefix, newVersion, *chart.Config.ChartVersion)
-			if skipUpdate {
+			if chart.Config.SkipUpdate {
 				msg += " skipUpdate is set to true."
 			}
 			s.Update(msg)
@@ -62,7 +60,7 @@ func (cmd *helmUpdateCmd) Run() error {
 			if !cmd.Upgrade {
 				s.Success()
 			} else {
-				if skipUpdate {
+				if chart.Config.SkipUpdate {
 					s.Update("%s: NOT upgrading chart as skipUpdate was set to true", statusPrefix)
 					s.Success()
 					return nil
