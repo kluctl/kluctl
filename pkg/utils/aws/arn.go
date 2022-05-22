@@ -17,7 +17,7 @@ type Arn struct {
 
 func ParseArn(arn string) (Arn, error) {
 	// http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
-	elements := strings.SplitN(arn, ":", 5)
+	elements := strings.SplitN(arn, ":", 6)
 	if len(elements) < 6 {
 		return Arn{}, fmt.Errorf("%s is not a valid arn", arn)
 	}
@@ -29,11 +29,11 @@ func ParseArn(arn string) (Arn, error) {
 	result.Account = elements[4]
 	result.Resource = elements[5]
 
-	if strings.Index(result.Resource, "/") != 0 {
+	if strings.Index(result.Resource, "/") != -1 {
 		s := strings.SplitN(result.Resource, "/", 2)
 		result.ResourceType = s[0]
 		result.Resource = s[1]
-	} else if strings.Index(result.Resource, ":") != 0 {
+	} else if strings.Index(result.Resource, ":") != -1 {
 		s := strings.SplitN(result.Resource, ":", 2)
 		result.ResourceType = s[0]
 		result.Resource = s[1]
