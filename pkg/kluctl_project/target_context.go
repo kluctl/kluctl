@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
+	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
@@ -63,7 +64,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
-	varsLoader := vars.NewVarsLoader(ctx, k, p.GRC)
+	varsLoader := vars.NewVarsLoader(ctx, k, p.GRC, aws.NewClientFactory())
 
 	if forSeal {
 		err = p.loadSecrets(target, varsCtx, varsLoader)

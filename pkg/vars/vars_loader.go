@@ -9,8 +9,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/aws"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
 	"os"
@@ -25,15 +25,17 @@ type VarsLoader struct {
 	ctx context.Context
 	k   *k8s.K8sCluster
 	grc *git.MirroredGitRepoCollection
+	aws aws.AwsClientFactory
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, grc *git.MirroredGitRepoCollection) *VarsLoader {
+func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, grc *git.MirroredGitRepoCollection, aws aws.AwsClientFactory) *VarsLoader {
 	return &VarsLoader{
 		ctx:              ctx,
 		k:                k,
 		grc:              grc,
+		aws:              aws,
 		credentialsCache: map[string]usernamePassword{},
 	}
 }
@@ -125,7 +127,11 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 }
 
 func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
-	secret, err := aws.GetAwsSecretsManagerSecret(source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
+	if v.aws == nil {
+		return fmt.Errorf("no AWS client factory provided")
+	}
+
+	secret, err := aws.GetAwsSecretsManagerSecret(v.aws, source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
 	if err != nil {
 		return err
 	}

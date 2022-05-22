@@ -2,25 +2,10 @@ package aws
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-
-	"os"
 )
 
-func GetAwsSecretsManagerSecret(profile *string, region *string, secretName string) (string, error) {
-	var opts session.Options
-	opts.SharedConfigState = session.SharedConfigEnable
-	// Environment variable always takes precedence
-	if _, ok := os.LookupEnv("AWS_PROFILE"); !ok && region != nil {
-		opts.Profile = *profile
-	}
-	s, err := session.NewSessionWithOptions(opts)
-	if err != nil {
-		return "", err
-	}
-
+func GetAwsSecretsManagerSecret(aws AwsClientFactory, profile *string, region *string, secretName string) (string, error) {
 	if region == nil {
 		arn, err := ParseArn(secretName)
 		if err != nil {
@@ -29,7 +14,11 @@ func GetAwsSecretsManagerSecret(profile *string, region *string, secretName stri
 		region = &arn.Region
 	}
 
-	smClient := secretsmanager.New(s, &aws.Config{Region: region})
+	smClient, err := aws.SecretsManagerClient(profile, region)
+	if err != nil {
+		return "", fmt.Errorf("getting secret %s from AWS secrets manager failed: %w", secretName, err)
+	}
+
 	r, err := smClient.GetSecretValue(&secretsmanager.GetSecretValueInput{
 		SecretId: &secretName,
 	})
