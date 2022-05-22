@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -215,8 +216,10 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	}
 
 	settings := cli.New()
-	valueOpts := values.Options{
-		ValueFiles: []string{valuesPath},
+	valueOpts := values.Options{}
+
+	if utils.Exists(valuesPath) {
+		valueOpts.ValueFiles = append(valueOpts.ValueFiles, valuesPath)
 	}
 
 	var kubeVersion *chartutil.KubeVersion
