@@ -2,6 +2,7 @@ package vars
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -70,10 +71,10 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		return v.loadGit(varsCtx, source.Git, rootKey)
 	} else if source.ClusterConfigMap != nil {
 		ref := k8s2.NewObjectRef("", "v1", "ConfigMap", source.ClusterConfigMap.Name, source.ClusterConfigMap.Namespace)
-		return v.loadFromK8sObject(varsCtx, ref, source.ClusterConfigMap.Key, rootKey)
+		return v.loadFromK8sObject(varsCtx, ref, source.ClusterConfigMap.Key, rootKey, false)
 	} else if source.ClusterSecret != nil {
 		ref := k8s2.NewObjectRef("", "v1", "Secret", source.ClusterSecret.Name, source.ClusterSecret.Namespace)
-		return v.loadFromK8sObject(varsCtx, ref, source.ClusterSecret.Key, rootKey)
+		return v.loadFromK8sObject(varsCtx, ref, source.ClusterSecret.Key, rootKey, true)
 	} else if source.SystemEnvVars != nil {
 		return v.loadSystemEnvs(varsCtx, &source, rootKey)
 	} else if source.Http != nil {
@@ -158,7 +159,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 	return v.loadFromString(varsCtx, string(file), rootKey)
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, ref k8s2.ObjectRef, key string, rootKey string) error {
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, ref k8s2.ObjectRef, key string, rootKey string, base64Decode bool) error {
 	if v.k == nil {
 		return nil
 	}
@@ -168,12 +169,27 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, ref k8s2.ObjectRef, key
 		return err
 	}
 
-	value, found, err := o.GetNestedString("data", key)
+	f, found, err := o.GetNestedField("data", key)
 	if err != nil {
 		return err
 	}
 	if !found {
 		return fmt.Errorf("key %s not found in %s on cluster", key, ref.String())
+	}
+
+	var value string
+	if b, ok := f.([]byte); ok {
+		value = string(b)
+	} else if s, ok := f.(string); ok {
+		if base64Decode {
+			b, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				return err
+			}
+			value = string(b)
+		} else {
+			value = s
+		}
 	}
 
 	err = v.loadFromString(varsCtx, value, rootKey)
