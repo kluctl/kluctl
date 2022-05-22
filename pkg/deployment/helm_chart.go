@@ -115,6 +115,17 @@ func (c *helmChart) Pull(ctx context.Context) error {
 	a.DestDir = targetDir
 	a.Version = *c.Config.ChartVersion
 
+	s := c.getRepoSettings(a.Settings, *c.Config.Repo)
+	if s != nil {
+		a.Username = s.Username
+		a.Password = s.Password
+		a.CertFile = s.CertFile
+		a.CaFile = s.CAFile
+		a.KeyFile = s.KeyFile
+		a.InsecureSkipTLSverify = s.InsecureSkipTLSverify
+		a.PassCredentialsAll = s.PassCredentialsAll
+	}
+
 	var out string
 	if registry.IsOCI(*c.Config.Repo) {
 		out, err = a.Run(*c.Config.Repo)
@@ -145,11 +156,14 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 	var latestVersion string
 
 	settings := cli.New()
-	e := repo.Entry{
-		URL:  *c.Config.Repo,
-		Name: chartName,
+	e := c.getRepoSettings(settings, *c.Config.Repo)
+	if e == nil {
+		e = &repo.Entry{
+			URL: *c.Config.Repo,
+		}
 	}
-	r, err := repo.NewChartRepository(&e, getter.All(settings))
+
+	r, err := repo.NewChartRepository(e, getter.All(settings))
 	if err != nil {
 		return "", false, err
 	}
@@ -164,9 +178,9 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 		return "", false, err
 	}
 
-	indexEntry, ok := index.Entries[*c.Config.ChartName]
+	indexEntry, ok := index.Entries[chartName]
 	if !ok || len(indexEntry) == 0 {
-		return "", false, fmt.Errorf("helm chart %s not found in repo index", *c.Config.ChartName)
+		return "", false, fmt.Errorf("helm chart %s not found in repo index", chartName)
 	}
 
 	var ls versions.LooseVersionSlice
@@ -334,6 +348,31 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	err = ioutil.WriteFile(outputPath, rendered, 0o600)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (c *helmChart) getRepoSettings(env *cli.EnvSettings, repoUrl string) *repo.Entry {
+	f, err := repo.LoadFile(env.RepositoryConfig)
+	if err != nil {
+		return nil
+	}
+
+	removeTrailingSlash := func(s string) string {
+		if len(s) == 0 {
+			return s
+		}
+		if s[len(s)-1] == '/' {
+			return s[:len(s)-1]
+		}
+		return s
+	}
+	repoUrl = removeTrailingSlash(repoUrl)
+
+	for _, e := range f.Repositories {
+		if removeTrailingSlash(e.URL) == repoUrl {
+			return e
+		}
 	}
 	return nil
 }
