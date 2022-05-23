@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"regexp"
 )
 
@@ -31,6 +32,8 @@ type LoadedKluctlProject struct {
 
 	J2  *jinja2.Jinja2
 	GRC *git.MirroredGitRepoCollection
+
+	warnOnce utils.OnceByKey
 }
 
 func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {
