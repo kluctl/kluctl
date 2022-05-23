@@ -48,8 +48,8 @@ type cli struct {
 	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
 	Diff              diffCmd              `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
 	Downscale         downscaleCmd         `cmd:"" help:"Downscale all deployments"`
-	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yml' files and pulls the specified Helm charts"`
-	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yml'' files and checks for new available versions"`
+	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pulls the specified Helm charts"`
+	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
 	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
 	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all target, including dynamic targets"`
 	PokeImages        pokeImagesCmd        `cmd:"" help:"Replace all images in target"`
@@ -99,7 +99,7 @@ func (c *cli) checkNewVersion() {
 		return
 	}
 
-	versionCheckPath := filepath.Join(utils.GetTmpBaseDir(), "version_check.yml")
+	versionCheckPath := filepath.Join(utils.GetTmpBaseDir(), "version_check.yaml")
 	var versionCheckState VersionCheckState
 	err := yaml.ReadYamlFile(versionCheckPath, &versionCheckState)
 	if err == nil {

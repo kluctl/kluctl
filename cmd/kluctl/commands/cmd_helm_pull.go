@@ -17,7 +17,7 @@ type helmPullCmd struct {
 
 func (cmd *helmPullCmd) Help() string {
 	return `The Helm charts are stored under the sub-directory 'charts/<chart-name>' next to the
-'helm-chart.yml'. These Helm charts are meant to be added to version control so that
+'helm-chart.yaml'. These Helm charts are meant to be added to version control so that
 pulling is only needed when really required (e.g. when the chart version changes).`
 }
 

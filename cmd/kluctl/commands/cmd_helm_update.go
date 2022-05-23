@@ -15,7 +15,7 @@ type helmUpdateCmd struct {
 	args.HelmCredentials
 
 	LocalDeployment string `group:"project" help:"Local deployment directory. Defaults to current directory"`
-	Upgrade         bool   `group:"misc" help:"Write new versions into helm-chart.yml and perform helm-pull afterwards"`
+	Upgrade         bool   `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
 	Commit          bool   `group:"misc" help:"Create a git commit for every updated chart"`
 }
 
