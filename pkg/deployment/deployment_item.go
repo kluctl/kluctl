@@ -175,6 +175,22 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 			if err != nil {
 				return err
 			}
+
+			ky, err := di.readKustoimizationYaml()
+			if err == nil && ky != nil {
+				resources, _, _ := ky.GetNestedStringList("resources")
+				found := false
+				for _, r := range resources {
+					if r == chart.GetOutputPath() {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.relRenderedDir, chart.GetOutputPath())
+				}
+			}
+
 			return chart.Render(di.Project.ctx, k)
 		})
 		return nil
@@ -285,19 +301,36 @@ func (di *DeploymentItem) checkInclusionForDelete() bool {
 	return di.Inclusion.CheckIncluded(values, di.Config.SkipDeleteIfTags)
 }
 
-func (di *DeploymentItem) prepareKustomizationYaml() error {
+func (di *DeploymentItem) readKustoimizationYaml() (*uo.UnstructuredObject, error) {
 	if di.dir == nil {
-		return nil
+		return nil, nil
 	}
 
 	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml"))
 	if !utils.IsFile(kustomizeYamlPath) {
-		return nil
+		return nil, nil
 	}
 
 	ky, err := uo.FromFile(kustomizeYamlPath)
 	if err != nil {
+		return nil, err
+	}
+
+	return ky, err
+}
+
+func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) error {
+	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml"))
+	return yaml.WriteYamlFile(kustomizeYamlPath, ky)
+}
+
+func (di *DeploymentItem) prepareKustomizationYaml() error {
+	ky, err := di.readKustoimizationYaml()
+	if err != nil {
 		return err
+	}
+	if ky == nil {
+		return nil
 	}
 
 	overrideNamespace := di.Project.getOverrideNamespace()
@@ -315,11 +348,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	di.WaitReadiness = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/wait-readiness"))
 
 	// Save modified kustomize.yml
-	err = yaml.WriteYamlFile(kustomizeYamlPath, ky)
-	if err != nil {
-		return err
-	}
-	return nil
+	return di.writeKustomizationYaml(ky)
 }
 
 func (di *DeploymentItem) buildKustomize() error {

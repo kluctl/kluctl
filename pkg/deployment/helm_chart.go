@@ -77,13 +77,17 @@ func (c *helmChart) GetChartDir() (string, error) {
 	return securejoin.SecureJoin(targetDir, chartName)
 }
 
-func (c *helmChart) GetOutputPath() (string, error) {
-	dir := filepath.Dir(c.configFile)
+func (c *helmChart) GetOutputPath() string {
 	output := "helm-rendered.yaml"
 	if c.Config.Output != nil {
 		output = *c.Config.Output
 	}
-	return securejoin.SecureJoin(dir, output)
+	return output
+}
+
+func (c *helmChart) GetFullOutputPath() (string, error) {
+	dir := filepath.Dir(c.configFile)
+	return securejoin.SecureJoin(dir, c.GetOutputPath())
 }
 
 func (c *helmChart) buildHelmConfig() (*action.Configuration, error) {
@@ -215,7 +219,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
-	outputPath, err := c.GetOutputPath()
+	outputPath, err := c.GetFullOutputPath()
 	if err != nil {
 		return err
 	}
