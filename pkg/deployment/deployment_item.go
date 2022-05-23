@@ -181,7 +181,7 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 				return err
 			}
 
-			ky, err := di.readKustoimizationYaml(subDir)
+			ky, err := di.readKustomizationYaml(subDir)
 			if err == nil && ky != nil {
 				resources, _, _ := ky.GetNestedStringList("resources")
 				found := false
@@ -306,7 +306,7 @@ func (di *DeploymentItem) checkInclusionForDelete() bool {
 	return di.Inclusion.CheckIncluded(values, di.Config.SkipDeleteIfTags)
 }
 
-func (di *DeploymentItem) readKustoimizationYaml(subDir string) (*uo.UnstructuredObject, error) {
+func (di *DeploymentItem) readKustomizationYaml(subDir string) (*uo.UnstructuredObject, error) {
 	if di.dir == nil {
 		return nil, nil
 	}
@@ -330,7 +330,7 @@ func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) erro
 }
 
 func (di *DeploymentItem) prepareKustomizationYaml() error {
-	ky, err := di.readKustoimizationYaml("")
+	ky, err := di.readKustomizationYaml("")
 	if err != nil {
 		return err
 	}
