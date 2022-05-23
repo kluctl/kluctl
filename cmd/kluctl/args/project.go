@@ -12,7 +12,7 @@ type ProjectFlags struct {
 	LocalSealedSecrets  existingDirType  `group:"project" help:"Local sealed-secrets directory. Overrides the project from .kluctl.yaml" `
 	FromArchive         existingPathType `group:"project" help:"Load project (.kluctl.yaml, cluster, ...) from archive. Given path can either be an archive file or a directory with the extracted contents." exts:"tar.gz,tgz"`
 	FromArchiveMetadata existingFileType `group:"project" help:"Specify where to load metadata (targets, ...) from. If not specified, metadata is assumed to be part of the archive." exts:"yml,yaml"`
-	OutputMetadata      pathType         `group:"project" help:"Specify the output path for the project metadata to be written to. When used with the 'archive' command, it will also cause the archive to not include the metadata.yaml file."`
+	OutputMetadata      string           `group:"project" help:"Specify the output path for the project metadata to be written to. When used with the 'archive' command, it will also cause the archive to not include the metadata.yaml file."`
 	Cluster             string           `group:"project" help:"Specify/Override cluster"`
 
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`

@@ -26,7 +26,7 @@ func (cmd *renderCmd) Run() error {
 		if err != nil {
 			return err
 		}
-		_ = cmd.RenderOutputDir.Set(p)
+		cmd.RenderOutputDir = p
 	}
 
 	ptArgs := projectTargetCommandArgs{

@@ -64,24 +64,3 @@ func (s *existingDirType) Type() string {
 }
 
 func (s *existingDirType) String() string { return string(*s) }
-
-type pathType string
-
-func (s *pathType) Set(val string) error {
-	if val != "-" {
-		val = utils.ExpandPath(val)
-	}
-	if !utils.Exists(val) {
-		return fmt.Errorf("%s does not exist", val)
-	}
-	if !utils.IsDirectory(val) {
-		return fmt.Errorf("%s exists but is not a directory", val)
-	}
-	*s = pathType(val)
-	return nil
-}
-func (s *pathType) Type() string {
-	return "path"
-}
-
-func (s *pathType) String() string { return string(*s) }
