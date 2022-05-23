@@ -184,6 +184,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	rootCmd.Version = version.GetVersion()
 	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		err := copyViperValuesToCobraCmd(cmd)
