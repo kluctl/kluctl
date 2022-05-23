@@ -162,22 +162,30 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 
 		incDir := filepath.Join(p.dir, *inc.Include)
 
-		varsCtx := p.VarsCtx.Copy()
-		err := p.loadVarsList(varsCtx, inc.Vars)
+		newProject, err := p.loadLocalInclude(k, incDir, inc.Vars)
 		if err != nil {
 			return err
 		}
 
-		newProject, err := NewDeploymentProject(p.ctx, k, p.varsLoader, varsCtx, incDir,
-			p.SealedSecretsDir, p)
-		if err != nil {
-			return err
-		}
 		newProject.parentProjectInclude = inc
-
 		p.includes[i] = newProject
 	}
 	return nil
+}
+
+func (p *DeploymentProject) loadLocalInclude(k *k8s.K8sCluster, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
+	varsCtx := p.VarsCtx.Copy()
+	err := p.loadVarsList(varsCtx, vars)
+	if err != nil {
+		return nil, err
+	}
+
+	newProject, err := NewDeploymentProject(p.ctx, k, p.varsLoader, varsCtx, incDir, p.SealedSecretsDir, p)
+	if err != nil {
+		return nil, err
+	}
+
+	return newProject, nil
 }
 
 func (p *DeploymentProject) getSealedSecretsDir() string {
