@@ -87,7 +87,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		if err != nil {
 			return err
 		}
-		err = ioutil.WriteFile(projectFlags.OutputMetadata.String(), b, 0o640)
+		err = ioutil.WriteFile(projectFlags.OutputMetadata, b, 0o640)
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		return err
 	}
 
-	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir.String()
+	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
 		tmpDir, err := ioutil.TempDir(p.TmpDir, "rendered")
 		if err != nil {
