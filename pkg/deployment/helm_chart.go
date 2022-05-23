@@ -79,7 +79,11 @@ func (c *helmChart) GetChartDir() (string, error) {
 
 func (c *helmChart) GetOutputPath() (string, error) {
 	dir := filepath.Dir(c.configFile)
-	return securejoin.SecureJoin(dir, c.Config.Output)
+	output := "helm-rendered.yaml"
+	if c.Config.Output != nil {
+		output = *c.Config.Output
+	}
+	return securejoin.SecureJoin(dir, output)
 }
 
 func (c *helmChart) buildHelmConfig() (*action.Configuration, error) {
