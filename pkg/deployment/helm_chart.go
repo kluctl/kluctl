@@ -32,8 +32,9 @@ import (
 )
 
 type helmChart struct {
-	configFile string
-	Config     *types.HelmChartConfig
+	configFile  string
+	Config      *types.HelmChartConfig
+	credentials *repo.Entry
 }
 
 func NewHelmChart(configFile string) (*helmChart, error) {
@@ -115,15 +116,14 @@ func (c *helmChart) Pull(ctx context.Context) error {
 	a.DestDir = targetDir
 	a.Version = *c.Config.ChartVersion
 
-	s := c.getRepoSettings(a.Settings, *c.Config.Repo)
-	if s != nil {
-		a.Username = s.Username
-		a.Password = s.Password
-		a.CertFile = s.CertFile
-		a.CaFile = s.CAFile
-		a.KeyFile = s.KeyFile
-		a.InsecureSkipTLSverify = s.InsecureSkipTLSverify
-		a.PassCredentialsAll = s.PassCredentialsAll
+	if c.credentials != nil {
+		a.Username = c.credentials.Username
+		a.Password = c.credentials.Password
+		a.CertFile = c.credentials.CertFile
+		a.CaFile = c.credentials.CAFile
+		a.KeyFile = c.credentials.KeyFile
+		a.InsecureSkipTLSverify = c.credentials.InsecureSkipTLSverify
+		a.PassCredentialsAll = c.credentials.PassCredentialsAll
 	}
 
 	var out string
@@ -156,7 +156,7 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 	var latestVersion string
 
 	settings := cli.New()
-	e := c.getRepoSettings(settings, *c.Config.Repo)
+	e := c.credentials
 	if e == nil {
 		e = &repo.Entry{
 			URL: *c.Config.Repo,
@@ -352,29 +352,8 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *helmChart) getRepoSettings(env *cli.EnvSettings, repoUrl string) *repo.Entry {
-	f, err := repo.LoadFile(env.RepositoryConfig)
-	if err != nil {
-		return nil
-	}
-
-	removeTrailingSlash := func(s string) string {
-		if len(s) == 0 {
-			return s
-		}
-		if s[len(s)-1] == '/' {
-			return s[:len(s)-1]
-		}
-		return s
-	}
-	repoUrl = removeTrailingSlash(repoUrl)
-
-	for _, e := range f.Repositories {
-		if removeTrailingSlash(e.URL) == repoUrl {
-			return e
-		}
-	}
-	return nil
+func (c *helmChart) SetCredentials(credentials *repo.Entry) {
+	c.credentials = credentials
 }
 
 func checkIfInstallable(ch *chart.Chart) error {

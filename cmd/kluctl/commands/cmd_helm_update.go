@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -11,6 +12,8 @@ import (
 )
 
 type helmUpdateCmd struct {
+	args.HelmCredentials
+
 	LocalDeployment string `group:"project" help:"Local deployment directory. Defaults to current directory"`
 	Upgrade         bool   `group:"misc" help:"Write new versions into helm-chart.yml and perform helm-pull afterwards"`
 	Commit          bool   `group:"misc" help:"Create a git commit for every updated chart"`
@@ -33,14 +36,23 @@ func (cmd *helmUpdateCmd) Run() error {
 	err = filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
-			chart, err := deployment.NewHelmChart(p)
-			if err != nil {
-				return err
-			}
-
 			statusPrefix := filepath.Base(filepath.Dir(p))
 			s := status.Start(cliCtx, "%s: Checking for updates", statusPrefix)
 			defer s.Failed()
+
+			chart, err := deployment.NewHelmChart(p)
+			if err != nil {
+				s.Update("%s: Error while loading helm-chart.yaml: %v", statusPrefix, err)
+				return err
+			}
+
+			creds := cmd.HelmCredentials.FindCredentials(*chart.Config.Repo, chart.Config.CredentialsId)
+			if chart.Config.CredentialsId != nil && creds == nil {
+				err := fmt.Errorf("%s: No credentials provided", statusPrefix)
+				s.FailedWithMessage(err.Error())
+				return err
+			}
+			chart.SetCredentials(creds)
 
 			newVersion, updated, err := chart.CheckUpdate()
 			if err != nil {
