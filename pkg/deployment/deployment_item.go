@@ -171,12 +171,17 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 		}
 
 		wp.Submit(func() error {
+			subDir, err := filepath.Rel(di.renderedDir, filepath.Dir(p))
+			if err != nil {
+				return err
+			}
+
 			chart, err := NewHelmChart(p)
 			if err != nil {
 				return err
 			}
 
-			ky, err := di.readKustoimizationYaml()
+			ky, err := di.readKustoimizationYaml(subDir)
 			if err == nil && ky != nil {
 				resources, _, _ := ky.GetNestedStringList("resources")
 				found := false
@@ -301,12 +306,12 @@ func (di *DeploymentItem) checkInclusionForDelete() bool {
 	return di.Inclusion.CheckIncluded(values, di.Config.SkipDeleteIfTags)
 }
 
-func (di *DeploymentItem) readKustoimizationYaml() (*uo.UnstructuredObject, error) {
+func (di *DeploymentItem) readKustoimizationYaml(subDir string) (*uo.UnstructuredObject, error) {
 	if di.dir == nil {
 		return nil, nil
 	}
 
-	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml"))
+	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, subDir, "kustomization.yml"))
 	if !utils.IsFile(kustomizeYamlPath) {
 		return nil, nil
 	}
@@ -325,7 +330,7 @@ func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) erro
 }
 
 func (di *DeploymentItem) prepareKustomizationYaml() error {
-	ky, err := di.readKustoimizationYaml()
+	ky, err := di.readKustoimizationYaml("")
 	if err != nil {
 		return err
 	}
