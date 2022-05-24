@@ -110,12 +110,7 @@ func (rp *LiveRepoProvider) getEntry(url git_url.GitUrl, allowCreate bool, lockR
 	return e, nil
 }
 
-func (rp *LiveRepoProvider) GetRepoInfo(url git_url.GitUrl) (RepoInfo, error) {
-	e, err := rp.getEntry(url, true, true, true)
-	if err != nil {
-		return RepoInfo{}, err
-	}
-
+func (e *entry) getRepoInfo() (RepoInfo, error) {
 	remoteRefs, err := e.mr.RemoteRefHashesMap()
 	if err != nil {
 		return RepoInfo{}, err
@@ -127,7 +122,7 @@ func (rp *LiveRepoProvider) GetRepoInfo(url git_url.GitUrl) (RepoInfo, error) {
 	}
 
 	info := RepoInfo{
-		Url:        url,
+		Url:        e.mr.Url(),
 		RemoteRefs: remoteRefs,
 		DefaultRef: defaultRef,
 	}
@@ -135,10 +130,27 @@ func (rp *LiveRepoProvider) GetRepoInfo(url git_url.GitUrl) (RepoInfo, error) {
 	return info, nil
 }
 
+func (rp *LiveRepoProvider) GetRepoInfo(url git_url.GitUrl) (RepoInfo, error) {
+	e, err := rp.getEntry(url, true, true, true)
+	if err != nil {
+		return RepoInfo{}, err
+	}
+
+	return e.getRepoInfo()
+}
+
 func (rp *LiveRepoProvider) GetClonedDir(url git_url.GitUrl, ref string) (string, git.CheckoutInfo, error) {
 	e, err := rp.getEntry(url, true, true, true)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
+	}
+
+	if ref == "" {
+		ref, err = e.mr.DefaultRef()
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
+		ref = path.Base(ref)
 	}
 
 	e.updateMutex.Lock()

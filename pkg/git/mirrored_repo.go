@@ -55,6 +55,10 @@ func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl) (*MirroredGitRepo
 	return o, nil
 }
 
+func (g *MirroredGitRepo) Url() git_url.GitUrl {
+	return g.url
+}
+
 func (g *MirroredGitRepo) HasUpdated() bool {
 	return g.hasUpdated
 }
