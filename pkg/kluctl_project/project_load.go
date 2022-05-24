@@ -59,51 +59,20 @@ func (c *LoadedKluctlProject) localProject(dir string) gitProjectInfo {
 }
 
 func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defaultSubDir string, doAddInvolvedRepo bool) (ret gitProjectInfo, err error) {
-	cloneDir, err := c.buildCloneDir(gitProject.Url, gitProject.Ref)
+	cloneDir, ri, err := c.GRC.GetClonedDir(gitProject.Url, gitProject.Ref, c.loadArgs.AllowGitClone, true, true)
 	if err != nil {
 		return
 	}
 
-	if c.archiveDir != "" {
-		var md types2.GitRepoMetadata
-		err = yaml.ReadYamlFile(filepath.Join(cloneDir, ".git-metadata.yaml"), &md)
-		if err != nil {
-			return
-		}
-		ret.url = gitProject.Url
-		ret.ref = gitProject.Ref
-		ret.commit = md.Commit
-		ret.repoRoot = cloneDir
-	} else {
-		if !c.loadArgs.AllowGitClone {
-			err = fmt.Errorf("tried to load an external project from git, which is not allowed")
-			return
-		}
+	ret.url = gitProject.Url
+	ret.ref = ri.CheckedOutRef
+	ret.commit = ri.CheckedOutCommit
+	ret.repoRoot = cloneDir
 
-		var ri git.GitRepoInfo
-		ri, err = c.cloneGitProject(gitProject, cloneDir)
-		if err != nil {
-			return
-		}
-
-		var md types2.GitRepoMetadata
-		md.Ref = ri.CheckedOutRef
-		md.Commit = ri.CheckedOutCommit
-		err = yaml.WriteYamlFile(filepath.Join(cloneDir, ".git-metadata.yaml"), &md)
-		if err != nil {
-			return gitProjectInfo{}, err
-		}
-
-		ret.url = gitProject.Url
-		ret.ref = ri.CheckedOutRef
-		ret.commit = ri.CheckedOutCommit
-		ret.repoRoot = cloneDir
-
-		if doAddInvolvedRepo {
-			c.addInvolvedRepo(ret.url, ret.ref, map[string]string{
-				ret.ref: ret.commit,
-			})
-		}
+	if doAddInvolvedRepo {
+		c.addInvolvedRepo(ret.url, ret.ref, map[string]string{
+			ret.ref: ret.commit,
+		})
 	}
 
 	subDir := gitProject.SubDir

@@ -155,7 +155,7 @@ func (p *DeploymentProject) loadIncludes() error {
 				return err
 			}
 		} else if inc.Git != nil {
-			cloneDir, err := p.ctx.GRC.GetClonedDir(inc.Git.Url, inc.Git.Ref, true, true, true)
+			cloneDir, _, err := p.ctx.GRC.GetClonedDir(inc.Git.Url, inc.Git.Ref, true, true, true)
 			if err != nil {
 				return err
 			}

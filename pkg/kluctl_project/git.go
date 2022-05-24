@@ -2,15 +2,10 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
-	"strings"
 	"sync"
 )
 
@@ -79,50 +74,6 @@ func (c *LoadedKluctlProject) updateGitCaches() error {
 
 	waitGroup.Wait()
 	return firstError
-}
-
-func (c *LoadedKluctlProject) cloneGitProject(gitProject *types2.GitProject, targetDir string) (info git.GitRepoInfo, err error) {
-	err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o700)
-	if err != nil {
-		return
-	}
-
-	mr, err := c.GRC.GetMirroredGitRepo(gitProject.Url, true, true, true)
-	if err != nil {
-		return git.GitRepoInfo{}, err
-	}
-
-	err = mr.CloneProject(gitProject.Ref, targetDir)
-	if err != nil {
-		return
-	}
-
-	info, err = git.GetGitRepoInfo(targetDir)
-	return
-}
-
-func (c *LoadedKluctlProject) buildCloneDir(u git_url.GitUrl, ref string) (string, error) {
-	baseDir := c.TmpDir
-	if c.archiveDir != "" {
-		baseDir = c.archiveDir
-	}
-	baseDir = filepath.Join(baseDir, "git")
-
-	if ref == "" {
-		ref = "HEAD"
-	}
-	ref = strings.ReplaceAll(ref, "/", "-")
-	ref = strings.ReplaceAll(ref, "\\", "-")
-	urlPath := filepath.FromSlash(u.Path)
-	baseName := filepath.Base(urlPath)
-	urlHash := utils.Sha256String(fmt.Sprintf("%s:%s", u.Host, u.Path))[:16]
-	cloneDir := filepath.Join(fmt.Sprintf("%s-%s", baseName, urlHash), ref)
-	cloneDir = filepath.Join(baseDir, cloneDir)
-	err := utils.CheckInDir(baseDir, cloneDir)
-	if err != nil {
-		return "", err
-	}
-	return cloneDir, nil
 }
 
 func (c *LoadedKluctlProject) addInvolvedRepo(u git_url.GitUrl, refPattern string, refs map[string]string) {

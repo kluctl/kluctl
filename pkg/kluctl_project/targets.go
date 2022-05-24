@@ -178,7 +178,7 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 			continue
 		}
 
-		cloneDir, err := c.buildCloneDir(baseTarget.TargetConfig.Project.Url, refShortName)
+		cloneDir, _, err := c.GRC.GetClonedDir(baseTarget.TargetConfig.Project.Url, refShortName, false, false, false)
 		if err != nil {
 			return nil, err
 		}
@@ -236,7 +236,9 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 		if _, ok := uniqueClones[targetInfo.dir]; ok {
 			continue
 		}
+		mutex.Lock()
 		uniqueClones[targetInfo.dir] = nil
+		mutex.Unlock()
 
 		wp.Submit(func() error {
 			gitProject := *targetInfo.gitProject

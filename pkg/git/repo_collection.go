@@ -112,10 +112,10 @@ func (g *MirroredGitRepoCollection) GetMirroredGitRepo(url git_url.GitUrl, allow
 	return e.mr, nil
 }
 
-func (g *MirroredGitRepoCollection) GetClonedDir(url git_url.GitUrl, ref string, allowCreate bool, lockRepo bool, update bool) (string, error) {
+func (g *MirroredGitRepoCollection) GetClonedDir(url git_url.GitUrl, ref string, allowCreate bool, lockRepo bool, update bool) (string, GitRepoInfo, error) {
 	e, err := g.getEntry(url, allowCreate, lockRepo, update)
 	if err != nil {
-		return "", err
+		return "", GitRepoInfo{}, err
 	}
 
 	e.updateMutex.Lock()
@@ -123,26 +123,31 @@ func (g *MirroredGitRepoCollection) GetClonedDir(url git_url.GitUrl, ref string,
 
 	p, ok := e.clonedDirs[ref]
 	if ok {
-		return p, nil
+		return p, GitRepoInfo{}, nil
 	}
 
 	tmpDir := filepath.Join(utils.GetTmpBaseDir(), "git-cloned")
 	err = os.MkdirAll(tmpDir, 0700)
 	if err != nil {
-		return "", err
+		return "", GitRepoInfo{}, err
 	}
 
 	repoName := path.Base(url.Normalize().Path)
 	p, err = ioutil.TempDir(tmpDir, repoName+"-"+ref+"-")
 	if err != nil {
-		return "", err
+		return "", GitRepoInfo{}, err
 	}
 
 	err = e.mr.CloneProject(ref, p)
 	if err != nil {
-		return "", err
+		return "", GitRepoInfo{}, err
+	}
+
+	repoInfo, err := GetGitRepoInfo(p)
+	if err != nil {
+		return "", GitRepoInfo{}, err
 	}
 
 	e.clonedDirs[ref] = p
-	return p, nil
+	return p, repoInfo, nil
 }
