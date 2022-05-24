@@ -131,6 +131,11 @@ func (c *LoadedKluctlProject) loadExternalProject(ep *types2.ExternalProject, de
 	}
 
 	if ep.Project != nil {
+		c.warnOnce.Do("external-projects", func() {
+			status.Warning(c.ctx, "External projects are deprecated and support for them will be removed in the future. "+
+				"Use Git variable sources as replacement for cluster configs and Git includes as replacement for external deployment projects.")
+		})
+
 		// pointing to an actual external project, so let's try to clone it
 		return c.loadGitProject(ep.Project, defaultGitSubDir, true)
 	}
@@ -192,6 +197,16 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	s := status.Start(c.ctx, "Loading kluctl project")
 	defer s.Failed()
 
+	if c.loadArgs.LocalClusters != "" {
+		status.Warning(c.ctx, "--local-clusters is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
+	}
+	if c.loadArgs.LocalDeployment != "" {
+		status.Warning(c.ctx, "--local-deployment is deprecated and will be removed in an upcoming version. Use git includes instead.")
+	}
+	if c.loadArgs.LocalSealedSecrets != "" {
+		status.Warning(c.ctx, "--local-sealed-secrets is deprecated and will be removed in an upcoming version.")
+	}
+
 	deploymentInfo, err := c.loadExternalProject(c.Config.Deployment, "", c.loadArgs.LocalDeployment)
 	if err != nil {
 		return err
@@ -202,10 +217,8 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	}
 	var clustersInfos []gitProjectInfo
 	if c.loadArgs.LocalClusters != "" {
-		status.Warning(c.ctx, "--local-clusters is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
 		clustersInfos = append(clustersInfos, c.localProject(c.loadArgs.LocalClusters))
 	} else if len(c.Config.Clusters.Projects) != 0 {
-		status.Warning(c.ctx, "'clusters' is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
 		for _, ep := range c.Config.Clusters.Projects {
 			info, err := c.loadExternalProject(&ep, "clusters", "")
 			if err != nil {
