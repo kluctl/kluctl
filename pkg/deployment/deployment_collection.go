@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -14,25 +13,23 @@ import (
 )
 
 type DeploymentCollection struct {
-	ctx context.Context
+	ctx SharedContext
 
 	Project   *DeploymentProject
 	Images    *Images
 	Inclusion *utils.Inclusion
-	RenderDir string
 	forSeal   bool
 
 	Deployments []*DeploymentItem
 	mutex       sync.Mutex
 }
 
-func NewDeploymentCollection(ctx context.Context, project *DeploymentProject, images *Images, inclusion *utils.Inclusion, renderDir string, forSeal bool) (*DeploymentCollection, error) {
+func NewDeploymentCollection(ctx SharedContext, project *DeploymentProject, images *Images, inclusion *utils.Inclusion, forSeal bool) (*DeploymentCollection, error) {
 	dc := &DeploymentCollection{
 		ctx:       ctx,
 		Project:   project,
 		Images:    images,
 		Inclusion: inclusion,
-		RenderDir: renderDir,
 		forSeal:   forSeal,
 	}
 
@@ -49,7 +46,7 @@ func (c *DeploymentCollection) createBarrierDummy(project *DeploymentProject) *D
 	tmpDiConfig := &types.DeploymentItemConfig{
 		Barrier: true,
 	}
-	di, err := NewDeploymentItem(project, c, tmpDiConfig, nil, 0)
+	di, err := NewDeploymentItem(c.ctx, project, c, tmpDiConfig, nil, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +94,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 			}
 		} else {
 			index, dir2 := findDeploymentItemIndex(project, diConfig.Path, indexes)
-			di, err := NewDeploymentItem(project, c, diConfig, dir2, index)
+			di, err := NewDeploymentItem(c.ctx, project, c, diConfig, dir2, index)
 			if err != nil {
 				return nil, err
 			}
@@ -108,8 +105,8 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 	return ret, nil
 }
 
-func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
-	s := status.Start(c.ctx, "Rendering templates")
+func (c *DeploymentCollection) RenderDeployments() error {
+	s := status.Start(c.ctx.Ctx, "Rendering templates")
 	defer s.Failed()
 
 	wp := utils.NewDebuggerAwareWorkerPool(16)
@@ -127,11 +124,11 @@ func (c *DeploymentCollection) RenderDeployments(k *k8s.K8sCluster) error {
 	}
 	s.Success()
 
-	s = status.Start(c.ctx, "Rendering Helm Charts")
+	s = status.Start(c.ctx.Ctx, "Rendering Helm Charts")
 	defer s.Failed()
 
 	for _, d := range c.Deployments {
-		err := d.renderHelmCharts(k, wp)
+		err := d.renderHelmCharts(wp)
 		if err != nil {
 			return err
 		}
@@ -159,7 +156,7 @@ func (c *DeploymentCollection) resolveSealedSecrets() error {
 	return nil
 }
 
-func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
+func (c *DeploymentCollection) buildKustomizeObjects() error {
 	var wg sync.WaitGroup
 	var errs []error
 	var mutex sync.Mutex
@@ -171,7 +168,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 		mutex.Unlock()
 	}
 
-	s := status.Start(c.ctx, "Building kustomize objects")
+	s := status.Start(c.ctx.Ctx, "Building kustomize objects")
 	for _, d_ := range c.Deployments {
 		d := d_
 
@@ -192,7 +189,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 	}
 	s.Success()
 
-	s = status.Start(c.ctx, "Postprocessing objects")
+	s = status.Start(c.ctx.Ctx, "Postprocessing objects")
 	for _, d_ := range c.Deployments {
 		d := d_
 
@@ -202,7 +199,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 			if err != nil {
 				handleError(fmt.Errorf("loading objects failed: %w", err))
 			} else {
-				err = d.postprocessCRDs(k)
+				err = d.postprocessCRDs()
 				if err != nil {
 					handleError(fmt.Errorf("postprocessing CRDs failed: %w", err))
 				}
@@ -220,7 +217,7 @@ func (c *DeploymentCollection) buildKustomizeObjects(k *k8s.K8sCluster) error {
 			_ = sem.Acquire(context.Background(), 1)
 			defer sem.Release(1)
 
-			err := d.postprocessObjects(k, c.Images)
+			err := d.postprocessObjects(c.Images)
 			if err != nil {
 				mutex.Lock()
 				errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed: %w", *d.dir, err))
@@ -259,8 +256,8 @@ func (c *DeploymentCollection) LocalObjectRefs() []k8s2.ObjectRef {
 	return ret
 }
 
-func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
-	err := c.RenderDeployments(k)
+func (c *DeploymentCollection) Prepare() error {
+	err := c.RenderDeployments()
 	if err != nil {
 		return err
 	}
@@ -268,7 +265,7 @@ func (c *DeploymentCollection) Prepare(k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
-	err = c.buildKustomizeObjects(k)
+	err = c.buildKustomizeObjects()
 	if err != nil {
 		return err
 	}

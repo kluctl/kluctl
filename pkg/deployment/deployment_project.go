@@ -1,9 +1,7 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -14,15 +12,11 @@ import (
 )
 
 type DeploymentProject struct {
-	ctx context.Context
+	ctx SharedContext
 
-	varsLoader *vars.VarsLoader
-	VarsCtx    *vars.VarsCtx
+	VarsCtx *vars.VarsCtx
 
 	dir string
-
-	SealedSecretsDir                  string
-	DefaultSealedSecretsOutputPattern string
 
 	Config types.DeploymentProjectConfig
 
@@ -32,15 +26,13 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsLoader *vars.VarsLoader, varsCtx *vars.VarsCtx, dir string, sealedSecretsDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, dir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
-		ctx:              ctx,
-		varsLoader:       varsLoader,
-		VarsCtx:          varsCtx.Copy(),
-		dir:              dir,
-		SealedSecretsDir: sealedSecretsDir,
-		parentProject:    parentProject,
-		includes:         map[int]*DeploymentProject{},
+		ctx:           ctx,
+		VarsCtx:       varsCtx.Copy(),
+		dir:           dir,
+		parentProject: parentProject,
+		includes:      map[int]*DeploymentProject{},
 	}
 
 	if !utils.IsDirectory(dir) {
@@ -52,7 +44,7 @@ func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsLoader *va
 		return nil, fmt.Errorf("failed to load deployment config for %s: %w", dir, err)
 	}
 
-	err = dp.loadIncludes(k)
+	err = dp.loadIncludes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load includes for %s: %w", dir, err)
 	}
@@ -61,7 +53,7 @@ func NewDeploymentProject(ctx context.Context, k *k8s.K8sCluster, varsLoader *va
 }
 
 func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*types.VarsSource) error {
-	return p.varsLoader.LoadVarsList(varsCtx, varsList, p.getRenderSearchDirs(), "")
+	return p.ctx.VarsLoader.LoadVarsList(varsCtx, varsList, p.getRenderSearchDirs(), "")
 }
 
 func (p *DeploymentProject) loadConfig() error {
@@ -154,7 +146,7 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 	return nil
 }
 
-func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
+func (p *DeploymentProject) loadIncludes() error {
 	for i, inc := range p.Config.Deployments {
 		if inc.Include == nil {
 			continue
@@ -162,7 +154,7 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 
 		incDir := filepath.Join(p.dir, *inc.Include)
 
-		newProject, err := p.loadLocalInclude(k, incDir, inc.Vars)
+		newProject, err := p.loadLocalInclude(incDir, inc.Vars)
 		if err != nil {
 			return err
 		}
@@ -173,14 +165,14 @@ func (p *DeploymentProject) loadIncludes(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (p *DeploymentProject) loadLocalInclude(k *k8s.K8sCluster, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
+func (p *DeploymentProject) loadLocalInclude(incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
 	varsCtx := p.VarsCtx.Copy()
 	err := p.loadVarsList(varsCtx, vars)
 	if err != nil {
 		return nil, err
 	}
 
-	newProject, err := NewDeploymentProject(p.ctx, k, p.varsLoader, varsCtx, incDir, p.SealedSecretsDir, p)
+	newProject, err := NewDeploymentProject(p.ctx, varsCtx, incDir, p)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +183,7 @@ func (p *DeploymentProject) loadLocalInclude(k *k8s.K8sCluster, incDir string, v
 func (p *DeploymentProject) getSealedSecretsDir() string {
 	root := p.getRootProject()
 	if root.Config.SealedSecrets == nil || root.Config.SealedSecrets.OutputPattern == nil {
-		return root.DefaultSealedSecretsOutputPattern
+		return p.ctx.DefaultSealedSecretsOutputPattern
 	}
 	return *root.Config.SealedSecrets.OutputPattern
 }

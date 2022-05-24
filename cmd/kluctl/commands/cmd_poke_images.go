@@ -44,7 +44,7 @@ func (cmd *pokeImagesCmd) Run() error {
 
 		cmd2 := commands.NewPokeImagesCommand(ctx.targetCtx.DeploymentCollection)
 
-		result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
+		result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
 		if err != nil {
 			return err
 		}

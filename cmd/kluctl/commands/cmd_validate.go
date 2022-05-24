@@ -39,7 +39,7 @@ func (cmd *validateCmd) Run() error {
 		startTime := time.Now()
 		cmd2 := commands.NewValidateCommand(ctx.ctx, ctx.targetCtx.DeploymentCollection)
 		for true {
-			result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
+			result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
 			if err != nil {
 				return err
 			}

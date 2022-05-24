@@ -204,7 +204,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 				wg.Add(1)
 				go func() {
 					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
-						err := ctx.targetCtx.DeploymentCollection.Prepare(nil)
+						err := ctx.targetCtx.DeploymentCollection.Prepare()
 						if err != nil {
 							status.Error(cliCtx, err.Error())
 						}

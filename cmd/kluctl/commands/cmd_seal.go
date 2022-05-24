@@ -44,7 +44,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 
 	// pass forSeal=True so that .sealme files are rendered as well
 	return withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
-		err := ctx.targetCtx.DeploymentCollection.RenderDeployments(ctx.targetCtx.K)
+		err := ctx.targetCtx.DeploymentCollection.RenderDeployments()
 		if err != nil {
 			return doFail(err)
 		}
@@ -60,7 +60,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			}
 		}
 		if p.Config.SecretsConfig == nil || p.Config.SecretsConfig.SealedSecrets == nil || p.Config.SecretsConfig.SealedSecrets.Bootstrap == nil || *p.Config.SecretsConfig.SealedSecrets.Bootstrap {
-			err = seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.K, sealedSecretsNamespace)
+			err = seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
 			if err != nil {
 				return doFail(err)
 			}
@@ -70,7 +70,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 		if err != nil {
 			return doFail(err)
 		}
-		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.K, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
+		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
 		if err != nil {
 			return doFail(err)
 		}
@@ -82,7 +82,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			outputPattern = *ctx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern
 		}
 
-		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection, outputPattern)
+		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection, outputPattern, ctx.targetCtx.SharedContext.RenderDir, ctx.targetCtx.SharedContext.SealedSecretsDir)
 		err = cmd2.Run(sealer)
 
 		if err != nil {

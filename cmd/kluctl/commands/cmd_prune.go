@@ -43,11 +43,11 @@ func (cmd *pruneCmd) Run() error {
 
 func (cmd *pruneCmd) runCmdPrune(ctx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(ctx.targetCtx.DeploymentCollection)
-	objects, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K)
+	objects, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
 	if err != nil {
 		return err
 	}
-	result, err := confirmedDeleteObjects(ctx.targetCtx.K, objects, cmd.DryRun, cmd.Yes)
+	result, err := confirmedDeleteObjects(ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
 	if err != nil {
 		return err
 	}

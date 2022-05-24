@@ -172,7 +172,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	if !args.forSeal && !args.forCompletion {
-		err = targetCtx.DeploymentCollection.Prepare(targetCtx.K)
+		err = targetCtx.DeploymentCollection.Prepare()
 		if err != nil {
 			return err
 		}

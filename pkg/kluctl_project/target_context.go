@@ -17,10 +17,11 @@ import (
 )
 
 type TargetContext struct {
+	SharedContext deployment.SharedContext
+
 	KluctlProject        *LoadedKluctlProject
 	Target               *types.Target
 	ClusterContext       string
-	K                    *k8s.K8sCluster
 	DeploymentProject    *deployment.DeploymentProject
 	DeploymentCollection *deployment.DeploymentCollection
 }
@@ -73,23 +74,30 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		}
 	}
 
-	d, err := deployment.NewDeploymentProject(ctx, k, varsLoader, varsCtx, deploymentDir, p.sealedSecretsDir, nil)
+	dctx := deployment.SharedContext{
+		Ctx:                               ctx,
+		K:                                 k,
+		VarsLoader:                        varsLoader,
+		RenderDir:                         renderOutputDir,
+		SealedSecretsDir:                  p.sealedSecretsDir,
+		DefaultSealedSecretsOutputPattern: targetName,
+	}
+
+	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deploymentDir, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	d.DefaultSealedSecretsOutputPattern = targetName
-
-	c, err := deployment.NewDeploymentCollection(ctx, d, images, inclusion, renderOutputDir, forSeal)
+	c, err := deployment.NewDeploymentCollection(dctx, d, images, inclusion, forSeal)
 	if err != nil {
 		return nil, err
 	}
 
 	targetCtx := &TargetContext{
+		SharedContext:        dctx,
 		KluctlProject:        p,
 		Target:               target,
 		ClusterContext:       clusterContext,
-		K:                    k,
 		DeploymentProject:    d,
 		DeploymentCollection: c,
 	}

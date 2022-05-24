@@ -21,6 +21,8 @@ import (
 const SealmeExt = ".sealme"
 
 type DeploymentItem struct {
+	ctx SharedContext
+
 	Project   *DeploymentProject
 	Inclusion *utils.Inclusion
 	Config    *types.DeploymentItemConfig
@@ -42,8 +44,9 @@ type DeploymentItem struct {
 	renderedYamlPath    string
 }
 
-func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
+func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
 	di := &DeploymentItem{
+		ctx:       ctx,
 		Project:   project,
 		Inclusion: collection.Inclusion,
 		Config:    config,
@@ -80,7 +83,7 @@ func NewDeploymentItem(project *DeploymentProject, collection *DeploymentCollect
 			di.relRenderedDir = fmt.Sprintf("%s-%d", di.relRenderedDir, di.index)
 		}
 
-		di.renderedDir = filepath.Join(collection.RenderDir, di.relRenderedDir)
+		di.renderedDir = filepath.Join(collection.ctx.RenderDir, di.relRenderedDir)
 		di.renderedYamlPath = filepath.Join(di.renderedDir, ".rendered.yml")
 	}
 	return di, nil
@@ -160,7 +163,7 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 	return nil
 }
 
-func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) renderHelmCharts(wp *utils.WorkerPoolWithErrors) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -196,7 +199,7 @@ func (di *DeploymentItem) renderHelmCharts(k *k8s.K8sCluster, wp *utils.WorkerPo
 				}
 			}
 
-			return chart.Render(di.Project.ctx, k)
+			return chart.Render(di.ctx.Ctx, di.ctx.K)
 		})
 		return nil
 	})
@@ -212,7 +215,7 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 	}
 
 	sealedSecretsDir := di.Project.getSealedSecretsDir()
-	baseSourcePath := di.Project.SealedSecretsDir
+	baseSourcePath := di.Project.ctx.SealedSecretsDir
 
 	renderedDir := filepath.Join(di.renderedDir, subdir)
 
@@ -419,7 +422,7 @@ var crdGV = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourc
 
 // postprocessCRDs will update api resources from freshly deployed CRDs
 // value even if the CRD is not deployed yet.
-func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
+func (di *DeploymentItem) postprocessCRDs() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -430,7 +433,7 @@ func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
 			continue
 		}
 
-		err := k.Resources.UpdateResourcesFromCRD(o)
+		err := di.ctx.K.Resources.UpdateResourcesFromCRD(o)
 		if err != nil {
 			return err
 		}
@@ -438,7 +441,7 @@ func (di *DeploymentItem) postprocessCRDs(k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (di *DeploymentItem) postprocessObjects(k *k8s.K8sCluster, images *Images) error {
+func (di *DeploymentItem) postprocessObjects(images *Images) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -451,8 +454,8 @@ func (di *DeploymentItem) postprocessObjects(k *k8s.K8sCluster, images *Images) 
 		commonAnnotations := di.getCommonAnnotations()
 
 		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-			if k != nil {
-				k.Resources.FixNamespace(o, "default")
+			if di.ctx.K != nil {
+				di.ctx.K.Resources.FixNamespace(o, "default")
 			}
 
 			// Set common labels/annotations
@@ -460,7 +463,7 @@ func (di *DeploymentItem) postprocessObjects(k *k8s.K8sCluster, images *Images) 
 			o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 			// Resolve image placeholders
-			err := images.ResolvePlaceholders(k, o, di.relRenderedDir, di.Tags.ListKeys())
+			err := images.ResolvePlaceholders(di.ctx.K, o, di.relRenderedDir, di.Tags.ListKeys())
 			if err != nil {
 				errList = append(errList, err)
 			}

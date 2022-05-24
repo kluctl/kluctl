@@ -11,29 +11,33 @@ import (
 )
 
 type SealCommand struct {
-	c             *deployment.DeploymentCollection
-	outputPattern string
+	c                *deployment.DeploymentCollection
+	outputPattern    string
+	renderDir        string
+	sealedSecretsDir string
 }
 
-func NewSealCommand(c *deployment.DeploymentCollection, outputPattern string) *SealCommand {
+func NewSealCommand(c *deployment.DeploymentCollection, outputPattern string, renderDir string, sealedSecretsDir string) *SealCommand {
 	return &SealCommand{
-		c:             c,
-		outputPattern: outputPattern,
+		c:                c,
+		outputPattern:    outputPattern,
+		renderDir:        renderDir,
+		sealedSecretsDir: sealedSecretsDir,
 	}
 }
 
 func (cmd *SealCommand) Run(sealer *seal.Sealer) error {
-	err := filepath.WalkDir(cmd.c.RenderDir, func(p string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(cmd.renderDir, func(p string, d fs.DirEntry, err error) error {
 		if !strings.HasSuffix(p, deployment.SealmeExt) {
 			return nil
 		}
 
-		relPath, err := filepath.Rel(cmd.c.RenderDir, p)
+		relPath, err := filepath.Rel(cmd.renderDir, p)
 		if err != nil {
 			return err
 		}
 		relTargetFile := filepath.Join(filepath.Dir(relPath), cmd.outputPattern, filepath.Base(p))
-		targetFile, err := securejoin.SecureJoin(cmd.c.Project.SealedSecretsDir, relTargetFile)
+		targetFile, err := securejoin.SecureJoin(cmd.sealedSecretsDir, relTargetFile)
 		if err != nil {
 			return err
 		}

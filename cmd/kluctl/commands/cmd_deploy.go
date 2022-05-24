@@ -63,7 +63,7 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 		cb = nil
 	}
 
-	result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.K, cb)
+	result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K, cb)
 	if err != nil {
 		return err
 	}
