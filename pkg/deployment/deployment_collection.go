@@ -59,7 +59,7 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 	}
 	var dir2 *string
 	index := 0
-	dir := filepath.Join(project.dir, *pth)
+	dir := filepath.Join(project.absDir, *pth)
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		// we pre-checked directories, so this should not happen

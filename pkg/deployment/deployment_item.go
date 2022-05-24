@@ -36,7 +36,6 @@ type DeploymentItem struct {
 	Objects []*uo.UnstructuredObject
 	Tags    *utils.OrderedMap
 
-	relProjectDir       string
 	RelToRootItemDir    string
 	RelToProjectItemDir string
 	relRenderedDir      string
@@ -60,20 +59,13 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 	di.Tags = di.Project.getTags()
 	di.Tags.SetMultiple(di.Config.Tags, true)
 
-	rootProject := di.Project.getRootProject()
-
-	di.relProjectDir, err = filepath.Rel(rootProject.dir, di.Project.dir)
-	if err != nil {
-		return nil, err
-	}
-
 	if di.dir != nil {
-		di.RelToRootItemDir, err = filepath.Rel(rootProject.dir, *di.dir)
+		di.RelToRootItemDir, err = filepath.Rel(di.Project.rootDir, *di.dir)
 		if err != nil {
 			return nil, err
 		}
 
-		di.RelToProjectItemDir, err = filepath.Rel(di.relProjectDir, di.RelToRootItemDir)
+		di.RelToProjectItemDir, err = filepath.Rel(di.Project.relDir, di.RelToRootItemDir)
 		if err != nil {
 			return nil, err
 		}
@@ -115,8 +107,6 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 		return nil
 	}
 
-	rootDir := di.Project.getRootProject().dir
-
 	err := os.MkdirAll(di.renderedDir, 0o700)
 	if err != nil {
 		return err
@@ -157,7 +147,7 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 	}
 
 	wp.Submit(func() error {
-		return varsCtx.RenderDirectory(rootDir, di.Project.getRenderSearchDirs(), di.relProjectDir, excludePatterns, di.RelToProjectItemDir, di.renderedDir)
+		return varsCtx.RenderDirectory(di.Project.rootDir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.renderedDir)
 	})
 
 	return nil
@@ -220,7 +210,7 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 	renderedDir := filepath.Join(di.renderedDir, subdir)
 
 	// ensure we're not leaving the project
-	_, err := securejoin.SecureJoin(di.Project.getRootProject().dir, subdir)
+	_, err := securejoin.SecureJoin(di.Project.rootDir, subdir)
 	if err != nil {
 		return err
 	}
@@ -251,7 +241,7 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 		}
 		fname := filepath.Base(p)
 
-		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.Project.dir, resource)))
+		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.Project.absDir, resource)))
 
 		// ensure we're not leaving the .sealed-secrets dir
 		sourcePath, err := securejoin.SecureJoin(baseSourcePath, filepath.Join(di.relRenderedDir, subdir, relDir, sealedSecretsDir, fname))

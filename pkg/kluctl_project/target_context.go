@@ -83,7 +83,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		DefaultSealedSecretsOutputPattern: targetName,
 	}
 
-	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deploymentDir, nil)
+	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deploymentDir, ".", nil)
 	if err != nil {
 		return nil, err
 	}

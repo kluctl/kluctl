@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -16,7 +17,9 @@ type DeploymentProject struct {
 
 	VarsCtx *vars.VarsCtx
 
-	dir string
+	rootDir string
+	relDir  string
+	absDir  string
 
 	Config types.DeploymentProjectConfig
 
@@ -26,20 +29,28 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, dir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, rootDir string, relDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
 		ctx:           ctx,
 		VarsCtx:       varsCtx.Copy(),
-		dir:           dir,
+		rootDir:       rootDir,
+		relDir:        relDir,
 		parentProject: parentProject,
 		includes:      map[int]*DeploymentProject{},
+	}
+
+	dir, err := securejoin.SecureJoin(dp.rootDir, dp.relDir)
+	if err != nil {
+		return nil, err
 	}
 
 	if !utils.IsDirectory(dir) {
 		return nil, fmt.Errorf("%s does not exist or is not a directory", dir)
 	}
 
-	err := dp.loadConfig()
+	dp.absDir = dir
+
+	err = dp.loadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load deployment config for %s: %w", dir, err)
 	}
@@ -57,15 +68,15 @@ func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*type
 }
 
 func (p *DeploymentProject) loadConfig() error {
-	configPath := filepath.Join(p.dir, "deployment.yml")
+	configPath := filepath.Join(p.absDir, "deployment.yml")
 	if !yaml.Exists(configPath) {
-		if yaml.Exists(filepath.Join(p.dir, "kustomization.yml")) {
-			return fmt.Errorf("deployment.yml not found but folder %s contains a kustomization.yml", p.dir)
+		if yaml.Exists(filepath.Join(p.absDir, "kustomization.yml")) {
+			return fmt.Errorf("deployment.yml not found but folder %s contains a kustomization.yml", p.absDir)
 		}
-		return fmt.Errorf("%s not found", p.dir)
+		return fmt.Errorf("%s not found", configPath)
 	}
 
-	err := p.VarsCtx.RenderYamlFile(yaml.FixNameExt(p.dir, "deployment.yml"), p.getRenderSearchDirs(), &p.Config)
+	err := p.VarsCtx.RenderYamlFile(yaml.FixNameExt(p.absDir, "deployment.yml"), p.getRenderSearchDirs(), &p.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}
@@ -104,41 +115,28 @@ func (p *DeploymentProject) loadConfig() error {
 }
 
 func (p *DeploymentProject) checkDeploymentDirs() error {
-	rootProject := p.getRootProject()
 	for _, di := range p.Config.Deployments {
-		if di.Path == nil && di.Include == nil {
+		if di.Path == nil {
 			continue
 		}
 
-		var pth string
-		if di.Path != nil {
-			pth = *di.Path
-		} else {
-			pth = *di.Include
-		}
-
-		diDir := filepath.Join(p.dir, pth)
-		diDir, err := filepath.Abs(diDir)
+		diDir, err := securejoin.SecureJoin(p.absDir, *di.Path)
 		if err != nil {
 			return err
 		}
 
-		if !strings.HasPrefix(diDir, rootProject.dir) {
-			return fmt.Errorf("path/include is not part of root deployment project: %s", pth)
+		if !strings.HasPrefix(diDir, p.rootDir) {
+			return fmt.Errorf("path/include is not part of the deployment project: %s", *di.Path)
 		}
 
 		if !utils.Exists(diDir) {
-			return fmt.Errorf("deployment directory does not exist: %s", pth)
+			return fmt.Errorf("deployment directory does not exist: %s", *di.Path)
 		}
 		if !utils.IsDirectory(diDir) {
-			return fmt.Errorf("deployment path is not a directory: %s", pth)
+			return fmt.Errorf("deployment path is not a directory: %s", *di.Path)
 		}
 
-		if di.Path != nil {
-			pth = yaml.FixPathExt(filepath.Join(diDir, "kustomization.yml"))
-		} else {
-			pth = yaml.FixPathExt(filepath.Join(diDir, "deployment.yml"))
-		}
+		pth := yaml.FixPathExt(filepath.Join(diDir, "kustomization.yml"))
 		if !utils.IsFile(pth) {
 			return fmt.Errorf("%s not found or not a file", pth)
 		}
@@ -152,9 +150,7 @@ func (p *DeploymentProject) loadIncludes() error {
 			continue
 		}
 
-		incDir := filepath.Join(p.dir, *inc.Include)
-
-		newProject, err := p.loadLocalInclude(incDir, inc.Vars)
+		newProject, err := p.loadLocalInclude(p.rootDir, filepath.Join(p.relDir, *inc.Include), inc.Vars)
 		if err != nil {
 			return err
 		}
@@ -165,14 +161,14 @@ func (p *DeploymentProject) loadIncludes() error {
 	return nil
 }
 
-func (p *DeploymentProject) loadLocalInclude(incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
+func (p *DeploymentProject) loadLocalInclude(rootDir string, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
 	varsCtx := p.VarsCtx.Copy()
 	err := p.loadVarsList(varsCtx, vars)
 	if err != nil {
 		return nil, err
 	}
 
-	newProject, err := NewDeploymentProject(p.ctx, varsCtx, incDir, p)
+	newProject, err := NewDeploymentProject(p.ctx, varsCtx, rootDir, incDir, p)
 	if err != nil {
 		return nil, err
 	}
@@ -181,11 +177,12 @@ func (p *DeploymentProject) loadLocalInclude(incDir string, vars []*types.VarsSo
 }
 
 func (p *DeploymentProject) getSealedSecretsDir() string {
-	root := p.getRootProject()
-	if root.Config.SealedSecrets == nil || root.Config.SealedSecrets.OutputPattern == nil {
-		return p.ctx.DefaultSealedSecretsOutputPattern
+	for _, x := range p.getParents() {
+		if x.p.Config.SealedSecrets != nil && x.p.Config.SealedSecrets.OutputPattern != nil {
+			return *x.p.Config.SealedSecrets.OutputPattern
+		}
 	}
-	return *root.Config.SealedSecrets.OutputPattern
+	return p.ctx.DefaultSealedSecretsOutputPattern
 }
 
 func (p *DeploymentProject) getRootProject() *DeploymentProject {
@@ -229,7 +226,7 @@ func (p *DeploymentProject) getChildren(recursive bool, includeSelf bool) []*Dep
 func (p *DeploymentProject) getRenderSearchDirs() []string {
 	var ret []string
 	for _, d := range p.getParents() {
-		ret = append(ret, d.p.dir)
+		ret = append(ret, d.p.absDir)
 	}
 	return ret
 }
