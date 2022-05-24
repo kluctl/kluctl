@@ -8,6 +8,7 @@ import (
 type DeploymentItemConfig struct {
 	Path             *string                  `yaml:"path,omitempty"`
 	Include          *string                  `yaml:"include,omitempty"`
+	Git              *GitProject              `yaml:"git,omitempty"`
 	Tags             []string                 `yaml:"tags,omitempty"`
 	Barrier          bool                     `yaml:"barrier,omitempty"`
 	WaitReadiness    bool                     `yaml:"waitReadiness,omitempty"`
@@ -20,8 +21,18 @@ type DeploymentItemConfig struct {
 
 func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeploymentItemConfig)
-	if s.Path != nil && s.Include != nil {
-		sl.ReportError(s, "path", "Path", "path and include can not be set at the same time", "")
+	cnt := 0
+	if s.Path != nil {
+		cnt += 1
+	}
+	if s.Include != nil {
+		cnt += 1
+	}
+	if s.Git != nil {
+		cnt += 1
+	}
+	if cnt > 1 {
+		sl.ReportError(s, "self", "self", "only one of path, include and git can be set at the same time", "")
 	}
 	if s.Path == nil && s.WaitReadiness {
 		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")

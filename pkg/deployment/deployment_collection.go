@@ -79,7 +79,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 	var ret []*DeploymentItem
 
 	for i, diConfig := range project.Config.Deployments {
-		if diConfig.Include != nil {
+		if diConfig.Include != nil || diConfig.Git != nil {
 			includedProject, ok := project.includes[i]
 			if !ok {
 				panic(fmt.Sprintf("Did not find find index %d in project.includes", i))

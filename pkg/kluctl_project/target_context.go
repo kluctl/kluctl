@@ -77,6 +77,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	dctx := deployment.SharedContext{
 		Ctx:                               ctx,
 		K:                                 k,
+		GRC:                               p.GRC,
 		VarsLoader:                        varsLoader,
 		RenderDir:                         renderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,

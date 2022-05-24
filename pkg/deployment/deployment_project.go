@@ -146,15 +146,26 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 
 func (p *DeploymentProject) loadIncludes() error {
 	for i, inc := range p.Config.Deployments {
-		if inc.Include == nil {
+		var err error
+		var newProject *DeploymentProject
+
+		if inc.Include != nil {
+			newProject, err = p.loadLocalInclude(p.rootDir, filepath.Join(p.relDir, *inc.Include), inc.Vars)
+			if err != nil {
+				return err
+			}
+		} else if inc.Git != nil {
+			cloneDir, err := p.ctx.GRC.GetClonedDir(inc.Git.Url, inc.Git.Ref, true, true, true)
+			if err != nil {
+				return err
+			}
+			newProject, err = p.loadLocalInclude(cloneDir, inc.Git.SubDir, inc.Vars)
+			if err != nil {
+				return err
+			}
+		} else {
 			continue
 		}
-
-		newProject, err := p.loadLocalInclude(p.rootDir, filepath.Join(p.relDir, *inc.Include), inc.Vars)
-		if err != nil {
-			return err
-		}
-
 		newProject.parentProjectInclude = inc
 		p.includes[i] = newProject
 	}
