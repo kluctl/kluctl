@@ -65,7 +65,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		s.Success()
 	}
 
-	varsLoader := vars.NewVarsLoader(ctx, k, p.GRC, aws.NewClientFactory())
+	varsLoader := vars.NewVarsLoader(ctx, k, p.RP, aws.NewClientFactory())
 
 	if forSeal {
 		err = p.loadSecrets(target, varsCtx, varsLoader)
@@ -77,7 +77,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	dctx := deployment.SharedContext{
 		Ctx:                               ctx,
 		K:                                 k,
-		GRC:                               p.GRC,
+		RP:                                p.RP,
 		VarsLoader:                        varsLoader,
 		RenderDir:                         renderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,

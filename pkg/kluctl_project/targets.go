@@ -133,7 +133,7 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsSimple(baseTarget *types.Targ
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
-	mr, err := c.GRC.GetMirroredGitRepo(baseTarget.TargetConfig.Project.Url, true, true, true)
+	repoInfo, err := c.RP.GetRepoInfo(baseTarget.TargetConfig.Project.Url)
 	if err != nil {
 		return nil, err
 	}
@@ -145,21 +145,17 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 	targetConfigRef := baseTarget.TargetConfig.Ref
 	refPattern := baseTarget.TargetConfig.RefPattern
 
-	defaultBranch := mr.DefaultRef()
-	if defaultBranch == nil {
+	defaultBranch := repoInfo.DefaultRef
+	if defaultBranch == "" {
 		return nil, fmt.Errorf("git project %v seems to have no default branch", baseTarget.TargetConfig.Project.Url.String())
 	}
 
 	if baseTarget.TargetConfig.Ref == nil && baseTarget.TargetConfig.RefPattern == nil {
 		// use default branch of repo
-		targetConfigRef = defaultBranch
+		targetConfigRef = &defaultBranch
 	}
 
-	refs, err := mr.RemoteRefHashesMap()
-	if err != nil {
-		return nil, err
-	}
-
+	refs := repoInfo.RemoteRefs
 	if targetConfigRef != nil {
 		if _, ok := refs[fmt.Sprintf("refs/heads/%s", *targetConfigRef)]; !ok {
 			return nil, fmt.Errorf("git project %s has no ref %s", baseTarget.TargetConfig.Project.Url.String(), *targetConfigRef)
@@ -177,7 +173,7 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 			continue
 		}
 
-		cloneDir, _, err := c.GRC.GetClonedDir(baseTarget.TargetConfig.Project.Url, refShortName, false, false, false)
+		cloneDir, _, err := c.RP.GetClonedDir(baseTarget.TargetConfig.Project.Url, refShortName)
 		if err != nil {
 			return nil, err
 		}
@@ -188,7 +184,7 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 			gitProject:    baseTarget.TargetConfig.Project,
 			ref:           &refShortName,
 			refPattern:    refPattern,
-			defaultBranch: *defaultBranch,
+			defaultBranch: defaultBranch,
 		})
 	}
 	return dynamicTargets, nil

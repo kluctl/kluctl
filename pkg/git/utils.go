@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 )
 
-type GitRepoInfo struct {
-	CheckedOutRef    string
-	CheckedOutCommit string
+type CheckoutInfo struct {
+	CheckedOutRef    string `yaml:"checkedOutRef"`
+	CheckedOutCommit string `yaml:"checkedOutCommit"`
 }
 
-func GetGitRepoInfo(path string) (ri GitRepoInfo, err error) {
+func GetCheckoutInfo(path string) (ri CheckoutInfo, err error) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		return

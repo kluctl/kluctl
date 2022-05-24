@@ -146,19 +146,19 @@ func (g *MirroredGitRepo) RemoteRefHashesMap() (map[string]string, error) {
 	return refs, nil
 }
 
-func (g *MirroredGitRepo) DefaultRef() *string {
+func (g *MirroredGitRepo) DefaultRef() (string, error) {
 	r, err := git.PlainOpen(g.mirrorDir)
 	if err != nil {
-		return nil
+		return "", err
 	}
 
 	ref, err := r.Reference("HEAD", false)
 	if err != nil {
-		return nil
+		return "", err
 	}
 
 	s := ref.Target().String()
-	return &s
+	return s, nil
 }
 
 func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {

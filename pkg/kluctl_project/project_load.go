@@ -2,8 +2,8 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -28,7 +28,7 @@ type LoadKluctlProjectArgs struct {
 	FromArchiveMetadata string
 
 	AllowGitClone bool
-	GRC           *git.MirroredGitRepoCollection
+	RP            repoprovider.RepoProvider
 
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)
 }
@@ -59,7 +59,7 @@ func (c *LoadedKluctlProject) localProject(dir string) gitProjectInfo {
 }
 
 func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defaultSubDir string) (ret gitProjectInfo, err error) {
-	cloneDir, ri, err := c.GRC.GetClonedDir(gitProject.Url, gitProject.Ref, c.loadArgs.AllowGitClone, true, true)
+	cloneDir, ri, err := c.RP.GetClonedDir(gitProject.Url, gitProject.Ref)
 	if err != nil {
 		return
 	}

@@ -25,7 +25,7 @@ func (c *LoadedKluctlProject) updateGitCaches() error {
 		go func() {
 			defer waitGroup.Done()
 
-			_, err := c.GRC.GetMirroredGitRepo(u, true, true, true)
+			_, err := c.RP.GetRepoInfo(u)
 			if err != nil {
 				doError(fmt.Errorf("failed to update git project %v: %v", u.String(), err))
 			}

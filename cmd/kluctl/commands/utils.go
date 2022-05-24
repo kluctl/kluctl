@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -58,8 +59,8 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
 	defer cancel()
 
-	grc := git.NewMirroredGitRepoCollection(ctx, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
-	defer grc.Clear()
+	rp := repoprovider.NewLiveRepoProvider(ctx, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
+	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:            repoRoot,
@@ -73,7 +74,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		FromArchive:         projectFlags.FromArchive.String(),
 		FromArchiveMetadata: projectFlags.FromArchiveMetadata.String(),
 		AllowGitClone:       projectFlags.FromArchive == "",
-		GRC:                 grc,
+		RP:                  rp,
 		ClientConfigGetter:  clientConfigGetter(forCompletion),
 	}
 
@@ -185,7 +186,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	// we can assume that all git access is done at this point, so we can clear grc and thus unlock all repos
-	p.GRC.Clear()
+	p.RP.Clear()
 
 	return cb(cmdCtx)
 }

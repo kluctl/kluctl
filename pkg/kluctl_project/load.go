@@ -12,7 +12,7 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 		loadArgs: args,
 		TmpDir:   tmpDir,
 		J2:       j2,
-		GRC:      args.GRC,
+		RP:       args.RP,
 	}
 
 	if args.FromArchive != "" {

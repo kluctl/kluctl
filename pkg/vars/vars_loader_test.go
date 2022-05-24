@@ -5,9 +5,9 @@ import (
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -37,8 +37,8 @@ func newTestDir(t *testing.T) string {
 	return tmp
 }
 
-func newGRC(t *testing.T) *git.MirroredGitRepoCollection {
-	grc := git.NewMirroredGitRepoCollection(context.TODO(), auth.NewDefaultAuthProviders(), 0)
+func newRP(t *testing.T) repoprovider.RepoProvider {
+	grc := repoprovider.NewMirroredGitRepoCollection(context.TODO(), auth.NewDefaultAuthProviders(), 0)
 	t.Cleanup(func() {
 		grc.Clear()
 	})
@@ -50,7 +50,7 @@ func testVarsLoader(t *testing.T, test func(vl *VarsLoader, vc *VarsCtx, aws *aw
 	if err != nil {
 		t.Fatal(err)
 	}
-	grc := newGRC(t)
+	grc := newRP(t)
 	fakeAws := aws.NewFakeClientFactory()
 
 	vl := NewVarsLoader(context.TODO(), k, grc, fakeAws)

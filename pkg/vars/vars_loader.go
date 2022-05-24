@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git"
+	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -25,17 +25,17 @@ type usernamePassword struct {
 type VarsLoader struct {
 	ctx context.Context
 	k   *k8s.K8sCluster
-	grc *git.MirroredGitRepoCollection
+	rp  repoprovider.RepoProvider
 	aws aws.AwsClientFactory
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, grc *git.MirroredGitRepoCollection, aws aws.AwsClientFactory) *VarsLoader {
+func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, rp repoprovider.RepoProvider, aws aws.AwsClientFactory) *VarsLoader {
 	return &VarsLoader{
 		ctx:              ctx,
 		k:                k,
-		grc:              grc,
+		rp:               rp,
 		aws:              aws,
 		credentialsCache: map[string]usernamePassword{},
 	}
@@ -140,23 +140,22 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 }
 
 func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, rootKey string) error {
-	mr, err := v.grc.GetMirroredGitRepo(gitFile.Url, true, true, true)
+	clonedDir, _, err := v.rp.GetClonedDir(gitFile.Url, gitFile.Ref)
 	if err != nil {
 		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
-	tmpDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "git-vars")
+	path, err := securejoin.SecureJoin(clonedDir, gitFile.Path)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
 
-	file, err := mr.ReadFile(gitFile.Ref, gitFile.Path)
+	f, err := ioutil.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to load vars from git repository %s and path %s: %w", gitFile.Url.String(), gitFile.Path, err)
+		return err
 	}
 
-	return v.loadFromString(varsCtx, string(file), rootKey)
+	return v.loadFromString(varsCtx, string(f), rootKey)
 }
 
 func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, ref k8s2.ObjectRef, key string, rootKey string, base64Decode bool) error {
