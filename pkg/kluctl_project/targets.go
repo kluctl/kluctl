@@ -228,10 +228,11 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 		if targetInfo.gitProject == nil {
 			continue
 		}
+		mutex.Lock()
 		if _, ok := uniqueClones[targetInfo.dir]; ok {
+			mutex.Unlock()
 			continue
 		}
-		mutex.Lock()
 		uniqueClones[targetInfo.dir] = nil
 		mutex.Unlock()
 
