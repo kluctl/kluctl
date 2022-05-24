@@ -16,19 +16,16 @@ import (
 )
 
 type LoadKluctlProjectArgs struct {
-	RepoRoot            string
-	ProjectDir          string
-	ProjectUrl          *git_url.GitUrl
-	ProjectRef          string
-	ProjectConfig       string
-	LocalClusters       string
-	LocalDeployment     string
-	LocalSealedSecrets  string
-	FromArchive         string
-	FromArchiveMetadata string
+	RepoRoot           string
+	ProjectDir         string
+	ProjectUrl         *git_url.GitUrl
+	ProjectRef         string
+	ProjectConfig      string
+	LocalClusters      string
+	LocalDeployment    string
+	LocalSealedSecrets string
 
-	AllowGitClone bool
-	RP            repoprovider.RepoProvider
+	RP repoprovider.RepoProvider
 
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)
 }
@@ -145,16 +142,9 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 		}
 	}
 
-	if c.loadArgs.AllowGitClone {
-		err = os.MkdirAll(filepath.Join(c.TmpDir, "git"), 0o755)
-		if err != nil {
-			return err
-		}
-
-		err = c.updateGitCaches()
-		if err != nil {
-			return err
-		}
+	err = c.updateGitCaches()
+	if err != nil {
+		return err
 	}
 
 	s := status.Start(c.ctx, "Loading kluctl project")

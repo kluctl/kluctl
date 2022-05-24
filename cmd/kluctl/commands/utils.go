@@ -52,7 +52,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	}
 
 	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
-	if err != nil && projectFlags.FromArchive == "" {
+	if err != nil {
 		status.Warning(cliCtx, "Failed to detect git project root. This might cause follow-up errors")
 	}
 
@@ -63,25 +63,26 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		RepoRoot:            repoRoot,
-		ProjectDir:          cwd,
-		ProjectUrl:          url,
-		ProjectRef:          projectFlags.ProjectRef,
-		ProjectConfig:       projectFlags.ProjectConfig.String(),
-		LocalClusters:       projectFlags.LocalClusters.String(),
-		LocalDeployment:     projectFlags.LocalDeployment.String(),
-		LocalSealedSecrets:  projectFlags.LocalSealedSecrets.String(),
-		FromArchive:         projectFlags.FromArchive.String(),
-		FromArchiveMetadata: projectFlags.FromArchiveMetadata.String(),
-		AllowGitClone:       projectFlags.FromArchive == "",
-		RP:                  rp,
-		ClientConfigGetter:  clientConfigGetter(forCompletion),
+		RepoRoot:           repoRoot,
+		ProjectDir:         cwd,
+		ProjectUrl:         url,
+		ProjectRef:         projectFlags.ProjectRef,
+		ProjectConfig:      projectFlags.ProjectConfig.String(),
+		LocalClusters:      projectFlags.LocalClusters.String(),
+		LocalDeployment:    projectFlags.LocalDeployment.String(),
+		LocalSealedSecrets: projectFlags.LocalSealedSecrets.String(),
+		RP:                 rp,
+		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
+	if p != nil && p.RP != nil {
+		defer p.RP.Clear()
+	}
 	if err != nil {
 		return err
 	}
+
 	if projectFlags.OutputMetadata != "" {
 		md := p.GetMetadata()
 		b, err := yaml.WriteYamlBytes(md)

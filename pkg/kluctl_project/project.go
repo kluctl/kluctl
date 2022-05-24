@@ -15,8 +15,7 @@ type LoadedKluctlProject struct {
 
 	loadArgs LoadKluctlProjectArgs
 
-	TmpDir     string
-	archiveDir string
+	TmpDir string
 
 	projectRootDir string
 	ProjectDir     string

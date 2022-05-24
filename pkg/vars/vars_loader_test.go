@@ -38,7 +38,7 @@ func newTestDir(t *testing.T) string {
 }
 
 func newRP(t *testing.T) repoprovider.RepoProvider {
-	grc := repoprovider.NewMirroredGitRepoCollection(context.TODO(), auth.NewDefaultAuthProviders(), 0)
+	grc := repoprovider.NewLiveRepoProvider(context.TODO(), auth.NewDefaultAuthProviders(), 0)
 	t.Cleanup(func() {
 		grc.Clear()
 	})
