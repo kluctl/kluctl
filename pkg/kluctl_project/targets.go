@@ -3,7 +3,6 @@ package kluctl_project
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -244,7 +243,7 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 			gitProject := *targetInfo.gitProject
 			gitProject.Ref = *targetInfo.ref
 
-			gi, err := c.loadGitProject(&gitProject, "", false)
+			gi, err := c.loadGitProject(&gitProject, "")
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {
@@ -258,40 +257,6 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 	err := wp.StopWait(false)
 	if err != nil {
 		return err
-	}
-
-	refsByUrlAndPattern := make(map[string]map[string]map[string]string)
-	for _, targetInfo := range dynamicTargets {
-		if targetInfo.gitProject == nil {
-			continue
-		}
-		o, ok := uniqueClones[targetInfo.dir]
-		if !ok {
-			return fmt.Errorf("%s not in uniqueClones. This is probably a bug", targetInfo.dir)
-		}
-		err, ok := o.(error)
-		if ok {
-			return err
-		}
-		info := o.(*gitProjectInfo)
-		normalizedUrl := info.url.Normalize().String()
-		if _, ok := refsByUrlAndPattern[normalizedUrl]; !ok {
-			refsByUrlAndPattern[normalizedUrl] = make(map[string]map[string]string)
-		}
-		if _, ok := refsByUrlAndPattern[normalizedUrl][*targetInfo.refPattern]; !ok {
-			refsByUrlAndPattern[normalizedUrl][*targetInfo.refPattern] = make(map[string]string)
-		}
-		refsByUrlAndPattern[normalizedUrl][*targetInfo.refPattern][info.ref] = info.commit
-	}
-
-	for url, refPatterns := range refsByUrlAndPattern {
-		for refPattern, refs := range refPatterns {
-			u, err := git_url.Parse(url)
-			if err != nil {
-				return err
-			}
-			c.addInvolvedRepo(*u, refPattern, refs)
-		}
 	}
 
 	return nil

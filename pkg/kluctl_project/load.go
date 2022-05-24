@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
 func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*LoadedKluctlProject, error) {
@@ -14,8 +13,6 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 		TmpDir:   tmpDir,
 		J2:       j2,
 		GRC:      args.GRC,
-
-		involvedRepos: map[string][]types.InvolvedRepo{},
 	}
 
 	if args.FromArchive != "" {

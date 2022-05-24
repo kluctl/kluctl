@@ -57,7 +57,6 @@ func (c *LoadedKluctlProject) loadFromArchive() error {
 	}
 
 	c.archiveDir = dir
-	c.involvedRepos = pmd.InvolvedRepos
 	c.DynamicTargets = pmd.Targets
 
 	err = c.loadKluctlProject()

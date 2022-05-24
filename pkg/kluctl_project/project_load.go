@@ -58,7 +58,7 @@ func (c *LoadedKluctlProject) localProject(dir string) gitProjectInfo {
 	}
 }
 
-func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defaultSubDir string, doAddInvolvedRepo bool) (ret gitProjectInfo, err error) {
+func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defaultSubDir string) (ret gitProjectInfo, err error) {
 	cloneDir, ri, err := c.GRC.GetClonedDir(gitProject.Url, gitProject.Ref, c.loadArgs.AllowGitClone, true, true)
 	if err != nil {
 		return
@@ -68,12 +68,6 @@ func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defa
 	ret.ref = ri.CheckedOutRef
 	ret.commit = ri.CheckedOutCommit
 	ret.repoRoot = cloneDir
-
-	if doAddInvolvedRepo {
-		c.addInvolvedRepo(ret.url, ret.ref, map[string]string{
-			ret.ref: ret.commit,
-		})
-	}
 
 	subDir := gitProject.SubDir
 	if subDir == "" {
@@ -106,7 +100,7 @@ func (c *LoadedKluctlProject) loadExternalProject(ep *types2.ExternalProject, de
 		})
 
 		// pointing to an actual external project, so let's try to clone it
-		return c.loadGitProject(ep.Project, defaultGitSubDir, true)
+		return c.loadGitProject(ep.Project, defaultGitSubDir)
 	}
 
 	// ExternalProject was provided but without an external repo url, so point into the kluctl project.
@@ -134,7 +128,7 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 		gi, err := c.loadGitProject(&types2.GitProject{
 			Url: *c.loadArgs.ProjectUrl,
 			Ref: c.loadArgs.ProjectRef,
-		}, "", true)
+		}, "")
 		if err != nil {
 			return err
 		}

@@ -25,8 +25,6 @@ type LoadedKluctlProject struct {
 	ClustersDir      string
 	sealedSecretsDir string
 
-	involvedRepos map[string][]types2.InvolvedRepo
-
 	Config         types2.KluctlProject
 	DynamicTargets []*types2.DynamicTarget
 
@@ -38,8 +36,7 @@ type LoadedKluctlProject struct {
 
 func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {
 	md := &types2.ProjectMetadata{
-		InvolvedRepos: c.involvedRepos,
-		Targets:       c.DynamicTargets,
+		Targets: c.DynamicTargets,
 	}
 	return md
 }
