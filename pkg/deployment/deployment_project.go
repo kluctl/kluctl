@@ -17,9 +17,9 @@ type DeploymentProject struct {
 
 	VarsCtx *vars.VarsCtx
 
-	rootDir string
-	relDir  string
-	absDir  string
+	source Source
+	relDir string
+	absDir string
 
 	Config types.DeploymentProjectConfig
 
@@ -29,17 +29,17 @@ type DeploymentProject struct {
 	parentProjectInclude *types.DeploymentItemConfig
 }
 
-func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, rootDir string, relDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
+func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Source, relDir string, parentProject *DeploymentProject) (*DeploymentProject, error) {
 	dp := &DeploymentProject{
 		ctx:           ctx,
 		VarsCtx:       varsCtx.Copy(),
-		rootDir:       rootDir,
+		source:        source,
 		relDir:        relDir,
 		parentProject: parentProject,
 		includes:      map[int]*DeploymentProject{},
 	}
 
-	dir, err := securejoin.SecureJoin(dp.rootDir, dp.relDir)
+	dir, err := securejoin.SecureJoin(dp.source.dir, dp.relDir)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 			return err
 		}
 
-		if !strings.HasPrefix(diDir, p.rootDir) {
+		if !strings.HasPrefix(diDir, p.source.dir) {
 			return fmt.Errorf("path/include is not part of the deployment project: %s", *di.Path)
 		}
 
@@ -150,7 +150,7 @@ func (p *DeploymentProject) loadIncludes() error {
 		var newProject *DeploymentProject
 
 		if inc.Include != nil {
-			newProject, err = p.loadLocalInclude(p.rootDir, filepath.Join(p.relDir, *inc.Include), inc.Vars)
+			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc.Vars)
 			if err != nil {
 				return err
 			}
@@ -159,7 +159,7 @@ func (p *DeploymentProject) loadIncludes() error {
 			if err != nil {
 				return err
 			}
-			newProject, err = p.loadLocalInclude(cloneDir, inc.Git.SubDir, inc.Vars)
+			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc.Vars)
 			if err != nil {
 				return err
 			}
@@ -172,14 +172,14 @@ func (p *DeploymentProject) loadIncludes() error {
 	return nil
 }
 
-func (p *DeploymentProject) loadLocalInclude(rootDir string, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
+func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
 	varsCtx := p.VarsCtx.Copy()
 	err := p.loadVarsList(varsCtx, vars)
 	if err != nil {
 		return nil, err
 	}
 
-	newProject, err := NewDeploymentProject(p.ctx, varsCtx, rootDir, incDir, p)
+	newProject, err := NewDeploymentProject(p.ctx, varsCtx, source, incDir, p)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +237,10 @@ func (p *DeploymentProject) getChildren(recursive bool, includeSelf bool) []*Dep
 func (p *DeploymentProject) getRenderSearchDirs() []string {
 	var ret []string
 	for _, d := range p.getParents() {
+		if d.p.source != p.source {
+			// only allow searching inside same source project
+			continue
+		}
 		ret = append(ret, d.p.absDir)
 	}
 	return ret

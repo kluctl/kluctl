@@ -154,7 +154,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 						defer mutex.Unlock()
 						for _, di := range ctx.targetCtx.DeploymentCollection.Deployments {
 							tags.Merge(di.Tags)
-							deploymentItemDirs.Set(di.RelToRootItemDir, true)
+							deploymentItemDirs.Set(di.RelToSourceItemDir, true)
 						}
 						return nil
 					})

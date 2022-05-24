@@ -36,7 +36,7 @@ type DeploymentItem struct {
 	Objects []*uo.UnstructuredObject
 	Tags    *utils.OrderedMap
 
-	RelToRootItemDir    string
+	RelToSourceItemDir  string
 	RelToProjectItemDir string
 	relRenderedDir      string
 	renderedDir         string
@@ -60,22 +60,22 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 	di.Tags.SetMultiple(di.Config.Tags, true)
 
 	if di.dir != nil {
-		di.RelToRootItemDir, err = filepath.Rel(di.Project.rootDir, *di.dir)
+		di.RelToSourceItemDir, err = filepath.Rel(di.Project.source.dir, *di.dir)
 		if err != nil {
 			return nil, err
 		}
 
-		di.RelToProjectItemDir, err = filepath.Rel(di.Project.relDir, di.RelToRootItemDir)
+		di.RelToProjectItemDir, err = filepath.Rel(di.Project.relDir, di.RelToSourceItemDir)
 		if err != nil {
 			return nil, err
 		}
 
-		di.relRenderedDir = di.RelToRootItemDir
+		di.relRenderedDir = di.RelToSourceItemDir
 		if di.index != 0 {
 			di.relRenderedDir = fmt.Sprintf("%s-%d", di.relRenderedDir, di.index)
 		}
 
-		di.renderedDir = filepath.Join(collection.ctx.RenderDir, di.relRenderedDir)
+		di.renderedDir = filepath.Join(collection.ctx.RenderDir, di.Project.source.id, di.relRenderedDir)
 		di.renderedYamlPath = filepath.Join(di.renderedDir, ".rendered.yml")
 	}
 	return di, nil
@@ -94,7 +94,7 @@ func (di *DeploymentItem) getCommonLabels() map[string]string {
 func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	// TODO change it to kluctl.io/deployment_dir
 	a := map[string]string{
-		"kluctl.io/kustomize_dir": filepath.ToSlash(di.RelToRootItemDir),
+		"kluctl.io/kustomize_dir": filepath.ToSlash(di.RelToSourceItemDir),
 	}
 	if di.Config.SkipDeleteIfTags {
 		a["kluctl.io/skip-delete-if-tags"] = "true"
@@ -147,7 +147,7 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 	}
 
 	wp.Submit(func() error {
-		return varsCtx.RenderDirectory(di.Project.rootDir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.renderedDir)
+		return varsCtx.RenderDirectory(di.Project.source.dir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.renderedDir)
 	})
 
 	return nil
@@ -210,7 +210,7 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 	renderedDir := filepath.Join(di.renderedDir, subdir)
 
 	// ensure we're not leaving the project
-	_, err := securejoin.SecureJoin(di.Project.rootDir, subdir)
+	err := utils.CheckSubInDir(di.Project.source.dir, subdir)
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 		values = append(values, utils.InclusionEntry{Type: "tag", Value: t})
 	}
 	if di.dir != nil {
-		dir := filepath.ToSlash(di.RelToRootItemDir)
+		dir := filepath.ToSlash(di.RelToSourceItemDir)
 		values = append(values, utils.InclusionEntry{Type: "deploymentItemDir", Value: dir})
 	}
 	return values

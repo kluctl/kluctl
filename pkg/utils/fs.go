@@ -57,6 +57,10 @@ func CheckInDir(root string, path string) error {
 	return nil
 }
 
+func CheckSubInDir(root string, subDir string) error {
+	return CheckInDir(root, filepath.Join(root, subDir))
+}
+
 func Touch(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
