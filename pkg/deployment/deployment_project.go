@@ -176,7 +176,7 @@ func (p *DeploymentProject) loadLocalInclude(rootDir string, incDir string, vars
 	return newProject, nil
 }
 
-func (p *DeploymentProject) getSealedSecretsDir() string {
+func (p *DeploymentProject) getRenderedOutputPattern() string {
 	for _, x := range p.getParents() {
 		if x.p.Config.SealedSecrets != nil && x.p.Config.SealedSecrets.OutputPattern != nil {
 			return *x.p.Config.SealedSecrets.OutputPattern

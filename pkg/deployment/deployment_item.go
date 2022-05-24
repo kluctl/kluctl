@@ -204,7 +204,7 @@ func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
 		return nil
 	}
 
-	sealedSecretsDir := di.Project.getSealedSecretsDir()
+	sealedSecretsDir := di.Project.getRenderedOutputPattern()
 	baseSourcePath := di.Project.ctx.SealedSecretsDir
 
 	renderedDir := filepath.Join(di.renderedDir, subdir)
