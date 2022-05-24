@@ -9,7 +9,7 @@ import (
 type archiveCmd struct {
 	args.ProjectFlags
 
-	OutputArchive string `group:"misc" help:"Path to .tgz to write project to." type:"path"`
+	OutputArchive string `group:"misc" help:"Path to .tgz to write project to." type:"path" required:"true"`
 }
 
 func (cmd *archiveCmd) Help() string {

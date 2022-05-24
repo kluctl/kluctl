@@ -143,6 +143,7 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 	help := f.Tag.Get("help")
 	shortFlag := f.Tag.Get("short")
 	defaultValue := f.Tag.Get("default")
+	required := f.Tag.Get("required") == "true"
 
 	group := f.Tag.Get("group")
 	if group != "" {
@@ -206,6 +207,10 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 			return c.buildCobraArgs(cg, v2)
 		}
 		return fmt.Errorf("unknown type %s", f.Type.Name())
+	}
+
+	if required {
+		_ = cg.cmd.MarkPersistentFlagRequired(name)
 	}
 
 	return nil
