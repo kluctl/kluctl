@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/hashicorp/vault/api"
@@ -14,16 +13,14 @@ var httpClient = &http.Client{
 	Timeout: 15 * time.Second,
 }
 
-func GetSecret(vaultAddr string, tokenEnvVar string, secretsPath string) (string, error) {
-	client, err := api.NewClient(&api.Config{Address: vaultAddr, HttpClient: httpClient})
+func GetSecret(server string, key string) (string, error) {
+	client, err := api.NewClient(&api.Config{Address: server, HttpClient: httpClient})
 	if err != nil {
-		return "", fmt.Errorf("failed to create vault %s client", vaultAddr)
+		return "", fmt.Errorf("failed to create vault %s client", server)
 	}
-	token, _ := os.LookupEnv(tokenEnvVar)
-	client.SetToken(token)
-	secret, err := client.Logical().Read(secretsPath)
+	secret, err := client.Logical().Read(key)
 	if err != nil {
-		return "", fmt.Errorf("connection to vault %s failed", vaultAddr)
+		return "", fmt.Errorf("connection to vault %s failed", server)
 	}
 	if secret == nil || secret.Data == nil {
 		return "", fmt.Errorf("the specified vault secret was not found")
