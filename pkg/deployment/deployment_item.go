@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"fmt"
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -38,8 +37,8 @@ type DeploymentItem struct {
 
 	RelToSourceItemDir  string
 	RelToProjectItemDir string
-	relRenderedDir      string
-	renderedDir         string
+	RelRenderedDir      string
+	RenderedDir         string
 	renderedYamlPath    string
 }
 
@@ -70,13 +69,13 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 			return nil, err
 		}
 
-		di.relRenderedDir = di.RelToSourceItemDir
+		di.RelRenderedDir = di.RelToSourceItemDir
 		if di.index != 0 {
-			di.relRenderedDir = fmt.Sprintf("%s-%d", di.relRenderedDir, di.index)
+			di.RelRenderedDir = fmt.Sprintf("%s-%d", di.RelRenderedDir, di.index)
 		}
 
-		di.renderedDir = filepath.Join(collection.ctx.RenderDir, di.Project.source.id, di.relRenderedDir)
-		di.renderedYamlPath = filepath.Join(di.renderedDir, ".rendered.yml")
+		di.RenderedDir = filepath.Join(collection.ctx.RenderDir, di.Project.source.id, di.RelRenderedDir)
+		di.renderedYamlPath = filepath.Join(di.RenderedDir, ".rendered.yml")
 	}
 	return di, nil
 }
@@ -107,7 +106,7 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 		return nil
 	}
 
-	err := os.MkdirAll(di.renderedDir, 0o700)
+	err := os.MkdirAll(di.RenderedDir, 0o700)
 	if err != nil {
 		return err
 	}
@@ -147,7 +146,7 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 	}
 
 	wp.Submit(func() error {
-		return varsCtx.RenderDirectory(di.Project.source.dir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.renderedDir)
+		return varsCtx.RenderDirectory(di.Project.source.dir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.RenderedDir)
 	})
 
 	return nil
@@ -158,13 +157,13 @@ func (di *DeploymentItem) renderHelmCharts(wp *utils.WorkerPoolWithErrors) error
 		return nil
 	}
 
-	err := filepath.Walk(di.renderedDir, func(p string, info fs.FileInfo, err error) error {
+	err := filepath.Walk(di.RenderedDir, func(p string, info fs.FileInfo, err error) error {
 		if !strings.HasSuffix(p, "helm-chart.yml") && !strings.HasSuffix(p, "helm-chart.yaml") {
 			return nil
 		}
 
 		wp.Submit(func() error {
-			subDir, err := filepath.Rel(di.renderedDir, filepath.Dir(p))
+			subDir, err := filepath.Rel(di.RenderedDir, filepath.Dir(p))
 			if err != nil {
 				return err
 			}
@@ -185,7 +184,7 @@ func (di *DeploymentItem) renderHelmCharts(wp *utils.WorkerPoolWithErrors) error
 					}
 				}
 				if !found {
-					return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.relRenderedDir, chart.GetOutputPath())
+					return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.RelRenderedDir, chart.GetOutputPath())
 				}
 			}
 
@@ -199,57 +198,106 @@ func (di *DeploymentItem) renderHelmCharts(wp *utils.WorkerPoolWithErrors) error
 	return nil
 }
 
-func (di *DeploymentItem) resolveSealedSecrets(subdir string) error {
+func (di *DeploymentItem) ListSealedSecrets(subdir string) ([]string, error) {
+	var ret []string
+
 	if di.dir == nil {
-		return nil
+		return nil, nil
 	}
 
-	sealedSecretsDir := di.Project.getRenderedOutputPattern()
-	baseSourcePath := di.Project.ctx.SealedSecretsDir
-
-	renderedDir := filepath.Join(di.renderedDir, subdir)
+	renderedDir := filepath.Join(di.RenderedDir, subdir)
 
 	// ensure we're not leaving the project
 	err := utils.CheckSubInDir(di.Project.source.dir, subdir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	y, err := uo.FromFile(yaml.FixPathExt(filepath.Join(renderedDir, "kustomization.yml")))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	l, _, err := y.GetNestedStringList("resources")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, resource := range l {
-		p := filepath.Join(renderedDir, resource)
-		if utils.IsDirectory(p) {
-			err = di.resolveSealedSecrets(filepath.Join(subdir, resource))
+		p := filepath.Clean(filepath.Join(renderedDir, resource))
+
+		isDir := utils.IsDirectory(p)
+		isSealedSecret := !utils.Exists(p) && utils.Exists(p+SealmeExt)
+		if !isDir && !isSealedSecret {
+			continue
+		}
+
+		relPath, err := filepath.Rel(di.RenderedDir, p)
+		if err != nil {
+			return nil, err
+		}
+
+		relPath = filepath.Clean(relPath)
+
+		// ensure we're not leaving the project
+		err = utils.CheckSubInDir(di.Project.source.dir, relPath)
+		if err != nil {
+			return nil, err
+		}
+
+		if isDir {
+			ret2, err := di.ListSealedSecrets(relPath)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			continue
+			ret = append(ret, ret2...)
+		} else {
+			ret = append(ret, relPath)
 		}
-		if utils.Exists(p) || !utils.Exists(p+SealmeExt) {
-			continue
-		}
-		relDir, err := filepath.Rel(renderedDir, filepath.Dir(p))
+	}
+	return ret, nil
+}
+
+func (di *DeploymentItem) BuildSealedSecretPath(relPath string) (string, error) {
+	sealedSecretsDir := di.Project.getRenderedOutputPattern()
+	baseSourcePath := di.Project.ctx.SealedSecretsDir
+
+	relDir := filepath.Dir(relPath)
+	fname := filepath.Base(relPath)
+
+	// ensure we're not leaving the .sealed-secrets dir
+	sourcePath := filepath.Join(baseSourcePath, di.RelRenderedDir, relDir, sealedSecretsDir, fname)
+	err := utils.CheckInDir(baseSourcePath, sourcePath)
+	if err != nil {
+		return "", err
+	}
+	sourcePath = filepath.Clean(sourcePath)
+	return sourcePath, nil
+}
+
+func (di *DeploymentItem) resolveSealedSecrets() error {
+	if di.dir == nil {
+		return nil
+	}
+
+	sealedSecrets, err := di.ListSealedSecrets("")
+	if err != nil {
+		return err
+	}
+
+	for _, relPath := range sealedSecrets {
+		relDir := filepath.Dir(relPath)
 		if err != nil {
 			return err
 		}
-		fname := filepath.Base(p)
+		fname := filepath.Base(relPath)
 
-		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", filepath.Clean(filepath.Join(di.Project.absDir, resource)))
+		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", relPath)
 
-		// ensure we're not leaving the .sealed-secrets dir
-		sourcePath, err := securejoin.SecureJoin(baseSourcePath, filepath.Join(di.relRenderedDir, subdir, relDir, sealedSecretsDir, fname))
+		sourcePath, err := di.BuildSealedSecretPath(relPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", baseError, err)
 		}
-		sourcePath = filepath.Clean(sourcePath)
-		targetPath := filepath.Join(renderedDir, relDir, fname)
+
+		targetPath := filepath.Join(di.RenderedDir, relDir, fname)
 		if !utils.IsFile(sourcePath) {
 			return fmt.Errorf("%s. %s not found. You might need to seal it first", baseError, sourcePath)
 		}
@@ -304,7 +352,7 @@ func (di *DeploymentItem) readKustomizationYaml(subDir string) (*uo.Unstructured
 		return nil, nil
 	}
 
-	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, subDir, "kustomization.yml"))
+	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.RenderedDir, subDir, "kustomization.yml"))
 	if !utils.IsFile(kustomizeYamlPath) {
 		return nil, nil
 	}
@@ -318,7 +366,7 @@ func (di *DeploymentItem) readKustomizationYaml(subDir string) (*uo.Unstructured
 }
 
 func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) error {
-	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.renderedDir, "kustomization.yml"))
+	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.RenderedDir, "kustomization.yml"))
 	return yaml.WriteYamlFile(kustomizeYamlPath, ky)
 }
 
@@ -365,7 +413,7 @@ func (di *DeploymentItem) buildKustomize() error {
 	k := krusty.MakeKustomizer(ko)
 
 	fsys := filesys.MakeFsOnDisk()
-	rm, err := k.Run(fsys, di.renderedDir)
+	rm, err := k.Run(fsys, di.RenderedDir)
 	if err != nil {
 		return err
 	}
@@ -453,7 +501,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 			o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
 
 			// Resolve image placeholders
-			err := images.ResolvePlaceholders(di.ctx.K, o, di.relRenderedDir, di.Tags.ListKeys())
+			err := images.ResolvePlaceholders(di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys())
 			if err != nil {
 				errList = append(errList, err)
 			}
