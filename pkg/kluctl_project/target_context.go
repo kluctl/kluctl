@@ -12,7 +12,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
 )
 
@@ -117,15 +116,21 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		contextName = target.Context
 	}
 
-	clusterConfig, clientConfig, err := p.LoadClusterConfig(clusterName, contextName)
+	clientConfig, restConfig, err := p.loadArgs.ClientConfigGetter(contextName)
 	if err != nil {
 		return doError(err)
 	}
 
 	varsCtx := vars.NewVarsCtx(p.J2)
-	err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
-	if err != nil {
-		return doError(err)
+	if clusterName != nil {
+		clusterConfig, err := p.LoadClusterConfig(*clusterName)
+		if err != nil {
+			return doError(err)
+		}
+		err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
+		if err != nil {
+			return doError(err)
+		}
 	}
 	targetVars, err := uo.FromStruct(target)
 	if err != nil {
@@ -162,7 +167,7 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 
 	varsCtx.UpdateChild("args", allArgs)
 
-	return varsCtx, clientConfig, clusterConfig.Cluster.Context, nil
+	return varsCtx, clientConfig, restConfig.CurrentContext, nil
 }
 
 func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, error) {
@@ -195,45 +200,18 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 	return nil
 }
 
-func (p *LoadedKluctlProject) LoadClusterConfig(clusterName *string, contextName *string) (*types.ClusterConfig, *rest.Config, error) {
+func (p *LoadedKluctlProject) LoadClusterConfig(clusterName string) (*types.ClusterConfig, error) {
 	var err error
 	var clusterConfig *types.ClusterConfig
 
-	if clusterName != nil {
-		p.warnOnce.Do("cluster-config", func() {
-			status.Warning(p.ctx, "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
-		})
+	p.warnOnce.Do("cluster-config", func() {
+		status.Warning(p.ctx, "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
+	})
 
-		clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, *clusterName)
-		if err != nil {
-			return nil, nil, err
-		}
+	clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, clusterName)
+	if err != nil {
+		return nil, err
 	}
 
-	var clientConfig *rest.Config
-	if clusterConfig != nil {
-		clientConfig, _, err = p.loadArgs.ClientConfigGetter(&clusterConfig.Cluster.Context)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		var rawConfig *api.Config
-		clientConfig, rawConfig, err = p.loadArgs.ClientConfigGetter(contextName)
-		if err != nil {
-			return nil, nil, err
-		}
-		ctx, ok := rawConfig.Contexts[rawConfig.CurrentContext]
-		if !ok {
-			return nil, nil, fmt.Errorf("context %s not found", rawConfig.CurrentContext)
-		}
-		clusterConfig = &types.ClusterConfig{
-			Cluster: &types.ClusterConfig2{
-				Name:    ctx.Cluster,
-				Context: rawConfig.CurrentContext,
-				Vars:    uo.New(),
-			},
-		}
-	}
-
-	return clusterConfig, clientConfig, nil
+	return clusterConfig, nil
 }

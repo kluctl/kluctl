@@ -66,11 +66,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			}
 		}
 
-		clusterConfig, _, err := p.LoadClusterConfig(ctx.targetCtx.Target.Cluster, ctx.targetCtx.Target.Context)
-		if err != nil {
-			return doFail(err)
-		}
-		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName, clusterConfig.Cluster, cmd.ForceReseal)
+		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName, cmd.ForceReseal)
 		if err != nil {
 			return doFail(err)
 		}

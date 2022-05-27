@@ -10,7 +10,6 @@ import (
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -28,18 +27,16 @@ const hashAnnotation = "kluctl.io/sealedsecret-hashes"
 const clusterIdAnnotation = "kluctl.io/sealedsecret-cluster-id"
 
 type Sealer struct {
-	ctx           context.Context
-	clusterConfig *types.ClusterConfig2
-	forceReseal   bool
-	cert          *rsa.PublicKey
-	clusterId     string
+	ctx         context.Context
+	forceReseal bool
+	cert        *rsa.PublicKey
+	clusterId   string
 }
 
-func NewSealer(ctx context.Context, k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, clusterConfig *types.ClusterConfig2, forceReseal bool) (*Sealer, error) {
+func NewSealer(ctx context.Context, k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, forceReseal bool) (*Sealer, error) {
 	s := &Sealer{
-		ctx:           ctx,
-		clusterConfig: clusterConfig,
-		forceReseal:   forceReseal,
+		ctx:         ctx,
+		forceReseal: forceReseal,
 	}
 	cert, err := fetchCert(ctx, k, sealedSecretsNamespace, sealedSecretsControllerName)
 	if err != nil {
@@ -93,7 +90,7 @@ func (s *Sealer) doHash(key string, secret []byte, secretName string, secretName
 	if secretNamespace == "" {
 		secretNamespace = "*"
 	}
-	salt := fmt.Sprintf("%s-%s-%s-%s", s.clusterConfig.Name, secretName, secretNamespace, key)
+	salt := fmt.Sprintf("%s-%s-%s", secretName, secretNamespace, key)
 	if scope != "strict" {
 		salt += "-" + scope
 	}
