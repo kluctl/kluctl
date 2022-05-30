@@ -12,6 +12,7 @@ import (
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
+	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
 	"os"
@@ -81,6 +82,8 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		return v.loadHttp(varsCtx, &source, rootKey)
 	} else if source.AwsSecretsManager != nil {
 		return v.loadAwsSecretsManager(varsCtx, &source, rootKey)
+	} else if source.Vault != nil {
+		return v.loadVault(varsCtx, &source, rootKey)
 	}
 	return fmt.Errorf("invalid vars source")
 }
@@ -133,6 +136,14 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 	}
 
 	secret, err := aws.GetAwsSecretsManagerSecret(v.aws, source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
+	if err != nil {
+		return err
+	}
+	return v.loadFromString(varsCtx, secret, rootKey)
+}
+
+func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
+	secret, err := vault.GetSecret(source.Vault.Server, source.Vault.Key)
 	if err != nil {
 		return err
 	}

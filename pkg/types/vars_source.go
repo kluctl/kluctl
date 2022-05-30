@@ -37,6 +37,11 @@ type VarsSourceAwsSecretsManager struct {
 	Profile *string `yaml:"profile,omitempty"`
 }
 
+type VarsSourceVault struct {
+	Server string `yaml:"server" validate:"required"`
+	Key    string `yaml:"key" validate:"required"`
+}
+
 type VarsSource struct {
 	Values            *uo.UnstructuredObject              `yaml:"values,omitempty"`
 	File              *string                             `yaml:"file,omitempty"`
@@ -47,6 +52,7 @@ type VarsSource struct {
 	SystemEnvVars     *uo.UnstructuredObject              `yaml:"systemEnvVars,omitempty"`
 	Http              *VarsSourceHttp                     `yaml:"http,omitempty"`
 	AwsSecretsManager *VarsSourceAwsSecretsManager        `yaml:"awsSecretsManager,omitempty"`
+	Vault             *VarsSourceVault                    `yaml:"vault,omitempty"`
 }
 
 func ValidateVarsSource(sl validator.StructLevel) {
