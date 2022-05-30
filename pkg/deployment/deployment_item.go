@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/krusty"
 	"strings"
 )
 
@@ -35,11 +33,12 @@ type DeploymentItem struct {
 	Objects []*uo.UnstructuredObject
 	Tags    *utils.OrderedMap
 
-	RelToSourceItemDir  string
-	RelToProjectItemDir string
-	RelRenderedDir      string
-	RenderedDir         string
-	renderedYamlPath    string
+	RenderedSourceRootDir string
+	RelToSourceItemDir    string
+	RelToProjectItemDir   string
+	RelRenderedDir        string
+	RenderedDir           string
+	renderedYamlPath      string
 }
 
 func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
@@ -74,7 +73,8 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 			di.RelRenderedDir = fmt.Sprintf("%s-%d", di.RelRenderedDir, di.index)
 		}
 
-		di.RenderedDir = filepath.Join(collection.ctx.RenderDir, di.Project.source.id, di.RelRenderedDir)
+		di.RenderedSourceRootDir = filepath.Join(collection.ctx.RenderDir, di.Project.source.id)
+		di.RenderedDir = filepath.Join(di.RenderedSourceRootDir, di.RelRenderedDir)
 		di.renderedYamlPath = filepath.Join(di.RenderedDir, ".rendered.yml")
 	}
 	return di, nil
@@ -407,11 +407,7 @@ func (di *DeploymentItem) buildKustomize() error {
 		return err
 	}
 
-	ko := krusty.MakeDefaultOptions()
-	k := krusty.MakeKustomizer(ko)
-
-	fsys := filesys.MakeFsOnDisk()
-	rm, err := k.Run(fsys, di.RenderedDir)
+	rm, err := utils.SecureBuildKustomization(di.RenderedSourceRootDir, di.RenderedDir, true)
 	if err != nil {
 		return err
 	}
