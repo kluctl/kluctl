@@ -47,7 +47,7 @@ func (cmd *pruneCmd) runCmdPrune(ctx *commandCtx) error {
 	if err != nil {
 		return err
 	}
-	result, err := confirmedDeleteObjects(ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+	result, err := confirmedDeleteObjects(ctx.ctx, ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
 	if err != nil {
 		return err
 	}

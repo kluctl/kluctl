@@ -3,13 +3,17 @@ package status
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"github.com/vbauerster/mpb/v7"
 	"github.com/vbauerster/mpb/v7/decor"
 	"io"
 	"math"
+	"strings"
+	"syscall"
 )
 
 type MultiLineStatusHandler struct {
+	ctx      context.Context
 	out      io.Writer
 	progress *mpb.Progress
 	stop     chan any
@@ -117,6 +121,24 @@ func (s *MultiLineStatusHandler) Trace(message string) {
 
 func (s *MultiLineStatusHandler) PlainText(text string) {
 	s.Info(text)
+}
+
+func (s *MultiLineStatusHandler) Prompt(password bool, message string) (string, error) {
+	o := withColor("yellow", "?")
+	sl := s.startStatus(1, message, math.MinInt, o)
+	defer sl.end(o)
+
+	doUpdate := func(ret []byte) {
+		if password {
+			sl.Update(message + strings.Repeat("*", len(ret)))
+		} else {
+			sl.Update(message + string(ret))
+		}
+	}
+
+	ret, err := term.ReadLineNoEcho(int(syscall.Stdin), doUpdate)
+
+	return string(ret), err
 }
 
 func (sl *statusLine) SetTotal(total int) {

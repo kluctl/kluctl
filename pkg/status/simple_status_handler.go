@@ -1,5 +1,12 @@
 package status
 
+import (
+	"fmt"
+	"golang.org/x/term"
+	"os"
+	"syscall"
+)
+
 type simpleStatusHandler struct {
 	cb    func(message string)
 	trace bool
@@ -53,6 +60,26 @@ func (s *simpleStatusHandler) PlainText(text string) {
 
 func (s *simpleStatusHandler) InfoFallback(message string) {
 	s.Info(message)
+}
+
+func (s *simpleStatusHandler) Prompt(password bool, message string) (string, error) {
+	s.cb(message)
+
+	if password {
+		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+		_, _ = fmt.Fprintf(os.Stderr, "\n")
+		if err != nil {
+			return "", err
+		}
+		return string(bytePassword), nil
+	} else {
+		var response string
+		_, err := fmt.Scanln(&response)
+		if err != nil {
+			return "", err
+		}
+		return response, nil
+	}
 }
 
 func (sl *simpleStatusLine) SetTotal(total int) {

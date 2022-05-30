@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 )
 
 type downscaleCmd struct {
@@ -37,7 +37,7 @@ func (cmd *downscaleCmd) Run() error {
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !utils.AskForConfirmation(fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.targetCtx.ClusterContext)) {
+			if !status.AskForConfirmation(cliCtx, fmt.Sprintf("Do you really want to downscale on context/cluster %s?", ctx.targetCtx.ClusterContext)) {
 				return fmt.Errorf("aborted")
 			}
 		}

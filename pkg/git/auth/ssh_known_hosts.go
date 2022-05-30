@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth/goph"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/crypto/ssh"
 	"net"
@@ -14,13 +16,13 @@ import (
 
 var askHostMutex sync.Mutex
 
-func buildVerifyHostCallback(knownHosts []byte) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+func buildVerifyHostCallback(ctx context.Context, knownHosts []byte) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		return verifyHost(hostname, remote, key, knownHosts)
+		return verifyHost(ctx, hostname, remote, key, knownHosts)
 	}
 }
 
-func verifyHost(host string, remote net.Addr, key ssh.PublicKey, knownHosts []byte) error {
+func verifyHost(ctx context.Context, host string, remote net.Addr, key ssh.PublicKey, knownHosts []byte) error {
 	// Ensure only one prompt happens at a time
 	askHostMutex.Lock()
 	defer askHostMutex.Unlock()
@@ -85,14 +87,14 @@ func verifyHost(host string, remote net.Addr, key ssh.PublicKey, knownHosts []by
 		return fmt.Errorf("host not found and SSH_KNOWN_HOSTS has been set")
 	}
 
-	if !askIsHostTrusted(host, key) {
+	if !askIsHostTrusted(ctx, host, key) {
 		return fmt.Errorf("aborted")
 	}
 
 	return goph.AddKnownHost(host, remote, key, "")
 }
 
-func askIsHostTrusted(host string, key ssh.PublicKey) bool {
+func askIsHostTrusted(ctx context.Context, host string, key ssh.PublicKey) bool {
 	prompt := fmt.Sprintf("Unknown Host: %s\nFingerprint: %s\nWould you like to add it? ", host, ssh.FingerprintSHA256(key))
-	return utils.AskForConfirmation(prompt)
+	return status.AskForConfirmation(ctx, prompt)
 }

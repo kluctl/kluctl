@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"time"
 )
 
 type deployCmd struct {
@@ -78,9 +77,6 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 }
 
 func (cmd *deployCmd) diffResultCb(diffResult *types.CommandResult) error {
-	// workaround to ensure that progress has been completely written/updated
-	time.Sleep(130 * time.Millisecond)
-
 	err := outputCommandResult(nil, diffResult)
 	if err != nil {
 		return err
@@ -89,11 +85,11 @@ func (cmd *deployCmd) diffResultCb(diffResult *types.CommandResult) error {
 		return nil
 	}
 	if len(diffResult.Errors) != 0 {
-		if !utils.AskForConfirmation("\nThe diff resulted in errors, do you still want to proceed?") {
+		if !status.AskForConfirmation(cliCtx, "The diff resulted in errors, do you still want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	} else {
-		if !utils.AskForConfirmation("\nThe diff succeeded, do you want to proceed?") {
+		if !status.AskForConfirmation(cliCtx, "The diff succeeded, do you want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	}

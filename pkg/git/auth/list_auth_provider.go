@@ -67,7 +67,7 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 			if err != nil {
 				status.Trace(ctx, "Failed to parse private key: %v", err)
 			} else {
-				a.HostKeyCallback = buildVerifyHostCallback(e.KnownHosts)
+				a.HostKeyCallback = buildVerifyHostCallback(ctx, e.KnownHosts)
 				return AuthMethodAndCA{
 					AuthMethod: a,
 				}

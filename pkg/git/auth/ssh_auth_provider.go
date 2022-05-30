@@ -43,7 +43,7 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 		User: a.user,
 		Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(a.Signers)},
 	}
-	cc.HostKeyCallback = buildVerifyHostCallback(nil)
+	cc.HostKeyCallback = buildVerifyHostCallback(a.ctx, nil)
 	return cc, nil
 }
 
@@ -148,13 +148,14 @@ func (k *deferredPassphraseKey) getPassphrase() ([]byte, error) {
 		return passphrase, nil
 	}
 
-	passphraseStr, err := utils.AskForPassword(fmt.Sprintf("Enter passphrase for key '%s'", k.path))
+	passphraseStr, err := status.AskForPassword(k.ctx, fmt.Sprintf("Enter passphrase for key '%s'", k.path))
 	if err != nil {
 		k.a.passphrases[k.path] = nil
 		return nil, err
 	}
+	passphrase = []byte(passphraseStr)
 	k.a.passphrases[k.path] = passphrase
-	return []byte(passphraseStr), nil
+	return passphrase, nil
 }
 
 func (k *deferredPassphraseKey) parse() {

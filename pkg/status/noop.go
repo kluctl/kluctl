@@ -1,5 +1,7 @@
 package status
 
+import "fmt"
+
 type NoopStatusHandler struct {
 }
 
@@ -32,6 +34,10 @@ func (n NoopStatusHandler) PlainText(text string) {
 }
 
 func (n NoopStatusHandler) InfoFallback(message string) {
+}
+
+func (n NoopStatusHandler) Prompt(password bool, message string) (string, error) {
+	return "", fmt.Errorf("Prompt not implemented in NoopStatusHandler")
 }
 
 var _ StatusHandler = &NoopStatusHandler{}

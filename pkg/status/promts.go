@@ -1,98 +1,73 @@
-package utils
+package status
 
 import (
-	"bufio"
+	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/mattn/go-isatty"
-	"golang.org/x/term"
 	"os"
 	"strings"
-	"syscall"
 )
-
-func doWarn(f string, args ...any) {
-	_, _ = fmt.Fprintf(os.Stderr, f, args...)
-}
 
 // AskForConfirmation uses Scanln to parse user input. A user must type in "yes" or "no" and
 // then press enter. It has fuzzy matching, so "y", "Y", "yes", "YES", and "Yes" all count as
 // confirmations. If the input is not recognized, it will ask again. The function does not return
 // until it gets a valid response from the user. Typically, you should use fmt to print out a question
 // before calling askForConfirmation. E.g. fmt.Println("WARNING: Are you sure? (yes/no)")
-func AskForConfirmation(prompt string) bool {
+func AskForConfirmation(ctx context.Context, prompt string) bool {
 	if !isatty.IsTerminal(os.Stderr.Fd()) {
-		doWarn("Not a terminal, suppressed prompt: %s", prompt)
+		Warning(ctx, "Not a terminal, suppressed prompt: %s", prompt)
 		return false
 	}
 
-	_, err := os.Stderr.WriteString(prompt + " (y/N) ")
-	if err != nil {
-		panic(err)
-	}
-
-	var response string
-	_, err = fmt.Scanln(&response)
+	response, err := Prompt(ctx, false, prompt+" (y/N) ")
 	if err != nil {
 		return false
 	}
 	okayResponses := []string{"y", "Y", "yes", "Yes", "YES"}
 	nokayResponses := []string{"n", "N", "no", "No", "NO"}
-	if FindStrInSlice(okayResponses, response) != -1 {
+	if utils.FindStrInSlice(okayResponses, response) != -1 {
 		return true
-	} else if FindStrInSlice(nokayResponses, response) != -1 || response == "" {
+	} else if utils.FindStrInSlice(nokayResponses, response) != -1 || response == "" {
 		return false
 	} else {
-		fmt.Println("Please type yes or no and then press enter:")
-		return AskForConfirmation(prompt)
+		Warning(ctx, "Please type yes or no and then press enter!")
+		return AskForConfirmation(ctx, prompt)
 	}
 }
 
-func AskForPassword(prompt string) (string, error) {
+func AskForPassword(ctx context.Context, prompt string) (string, error) {
 	if !isatty.IsTerminal(os.Stderr.Fd()) {
 		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
-		doWarn(err.Error())
+		Warning(ctx, err.Error())
 		return "", err
 	}
 
-	_, err := fmt.Fprintf(os.Stderr, "%s: ", prompt)
+	password, err := Prompt(ctx, true, fmt.Sprintf("%s: ", prompt))
 	if err != nil {
 		return "", err
 	}
 
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-	_, _ = fmt.Fprintf(os.Stderr, "\n")
-	if err != nil {
-		return "", err
-	}
-
-	password := string(bytePassword)
 	return strings.TrimSpace(password), nil
 }
 
-func AskForCredentials(prompt string) (string, string, error) {
+func AskForCredentials(ctx context.Context, prompt string) (string, string, error) {
 	if !isatty.IsTerminal(os.Stderr.Fd()) {
 		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
-		doWarn(err.Error())
+		Warning(ctx, err.Error())
 		return "", "", err
 	}
 
-	reader := bufio.NewReader(os.Stdin)
+	Info(ctx, prompt)
 
-	_, err := fmt.Fprintf(os.Stderr, prompt+"\n")
+	username, err := Prompt(ctx, false, "Enter Username: ")
 	if err != nil {
 		return "", "", err
 	}
 
-	fmt.Fprint(os.Stderr, "Enter Username: ")
-	username, err := reader.ReadString('\n')
+	password, err := Prompt(ctx, true, "Enter Password: ")
 	if err != nil {
 		return "", "", err
 	}
-
-	password, err := AskForPassword("Enter Password")
-	if err != nil {
-		return "", "", err
-	}
-
 	return strings.TrimSpace(username), strings.TrimSpace(password), nil
 }

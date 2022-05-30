@@ -48,6 +48,8 @@ type StatusHandler interface {
 
 	PlainText(text string)
 	InfoFallback(message string)
+
+	Prompt(password bool, message string) (string, error)
 }
 
 type contextKey struct{}
@@ -232,4 +234,9 @@ func Trace(ctx context.Context, status string, args ...any) {
 func Error(ctx context.Context, status string, args ...any) {
 	slh := FromContext(ctx)
 	slh.Error(fmt.Sprintf(status, args...))
+}
+
+func Prompt(ctx context.Context, password bool, message string, args ...any) (string, error) {
+	slh := FromContext(ctx)
+	return slh.Prompt(password, fmt.Sprintf(message, args...))
 }

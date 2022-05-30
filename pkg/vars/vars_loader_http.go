@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/Azure/go-ntlmssp"
 	"github.com/docker/distribution/registry/client/auth/challenge"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
@@ -85,7 +85,7 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, rootKe
 		credsKey := fmt.Sprintf("%s|%s", source.Http.Url.Host, strings.Join(realms, "+"))
 		creds, ok := v.credentialsCache[credsKey]
 		if !ok {
-			username, password, err := utils.AskForCredentials(fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
+			username, password, err := status.AskForCredentials(v.ctx, fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
 			if err != nil {
 				return err
 			}

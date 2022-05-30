@@ -1,15 +1,16 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	utils2 "github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 )
 
@@ -59,7 +60,7 @@ func (cmd *deleteCmd) Run() error {
 		if err != nil {
 			return err
 		}
-		result, err := confirmedDeleteObjects(ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+		result, err := confirmedDeleteObjects(ctx.ctx, ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
 		if err != nil {
 			return err
 		}
@@ -74,14 +75,14 @@ func (cmd *deleteCmd) Run() error {
 	})
 }
 
-func confirmedDeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
+func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
 	if len(refs) != 0 {
 		_, _ = os.Stderr.WriteString("The following objects will be deleted:\n")
 		for _, ref := range refs {
 			_, _ = os.Stderr.WriteString(fmt.Sprintf("  %s\n", ref.String()))
 		}
 		if !forceYes && !dryRun {
-			if !utils2.AskForConfirmation(fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
+			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
 				return nil, fmt.Errorf("aborted")
 			}
 		}
