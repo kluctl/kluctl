@@ -26,6 +26,9 @@ func (inc *Inclusion) AddExclude(typ string, value string) {
 }
 
 func (inc *Inclusion) HasType(typ string) bool {
+	if inc == nil {
+		return false
+	}
 	for e, _ := range inc.includes {
 		if e.Type == typ {
 			return true
@@ -49,6 +52,9 @@ func (inc *Inclusion) checkList(l []InclusionEntry, m map[InclusionEntry]bool) b
 }
 
 func (inc *Inclusion) CheckIncluded(l []InclusionEntry, excludeIfNotIncluded bool) bool {
+	if inc == nil {
+		return true
+	}
 	if len(inc.includes) == 0 && len(inc.excludes) == 0 {
 		return true
 	}
