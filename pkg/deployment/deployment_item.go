@@ -407,8 +407,6 @@ func (di *DeploymentItem) buildKustomize() error {
 		return err
 	}
 
-	utils.WaitForOpenapiInitDone()
-
 	ko := krusty.MakeDefaultOptions()
 	k := krusty.MakeKustomizer(ko)
 

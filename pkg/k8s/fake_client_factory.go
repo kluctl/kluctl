@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,8 +64,6 @@ func NewFakeClientFactory(objects ...runtime.Object) ClientFactory {
 }
 
 func ConvertSchemeToAPIResources(s *runtime.Scheme) []*metav1.APIResourceList {
-	utils.WaitForOpenapiInitDone()
-
 	m := map[schema.GroupVersion][]metav1.APIResource{}
 
 	for gvk, _ := range s.AllKnownTypes() {
