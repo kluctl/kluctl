@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -193,18 +194,24 @@ func outputHelper(output []string, cb func(format string) (string, error)) error
 }
 
 func outputCommandResult(output []string, cr *types.CommandResult) error {
+	status.Flush(cliCtx)
+
 	return outputHelper(output, func(format string) (string, error) {
 		return formatCommandResult(cr, format)
 	})
 }
 
 func outputValidateResult(output []string, vr *types.ValidateResult) error {
+	status.Flush(cliCtx)
+
 	return outputHelper(output, func(format string) (string, error) {
 		return formatValidateResult(vr, format)
 	})
 }
 
 func outputYamlResult(output []string, result interface{}, multiDoc bool) error {
+	status.Flush(cliCtx)
+
 	if len(output) == 0 {
 		output = []string{"-"}
 	}

@@ -29,6 +29,9 @@ func (s *simpleStatusHandler) SetTrace(trace bool) {
 func (s *simpleStatusHandler) Stop() {
 }
 
+func (s *simpleStatusHandler) Flush() {
+}
+
 func (s *simpleStatusHandler) StartStatus(total int, message string) StatusLine {
 	if message != "" {
 		s.Info(message)

@@ -39,6 +39,7 @@ type StatusLine interface {
 type StatusHandler interface {
 	SetTrace(trace bool)
 	Stop()
+	Flush()
 	StartStatus(total int, message string) StatusLine
 
 	Info(message string)
@@ -239,4 +240,9 @@ func Error(ctx context.Context, status string, args ...any) {
 func Prompt(ctx context.Context, password bool, message string, args ...any) (string, error) {
 	slh := FromContext(ctx)
 	return slh.Prompt(password, fmt.Sprintf(message, args...))
+}
+
+func Flush(ctx context.Context) {
+	slh := FromContext(ctx)
+	slh.Flush()
 }

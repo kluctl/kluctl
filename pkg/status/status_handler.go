@@ -16,7 +16,6 @@ type MultiLineStatusHandler struct {
 	ctx      context.Context
 	out      io.Writer
 	progress *mpb.Progress
-	stop     chan any
 	trace    bool
 }
 
@@ -32,23 +31,32 @@ type statusLine struct {
 
 func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, trace bool) *MultiLineStatusHandler {
 	sh := &MultiLineStatusHandler{
+		ctx:   ctx,
 		out:   out,
 		trace: trace,
-		stop:  make(chan any),
 	}
 
-	sh.progress = mpb.NewWithContext(
-		ctx,
-		mpb.WithWidth(utils.GetTermWidth()),
-		mpb.WithOutput(out),
-		mpb.PopCompletedMode(),
-	)
+	sh.start()
 
 	return sh
 }
 
+func (s *MultiLineStatusHandler) Flush() {
+	s.Stop()
+	s.start()
+}
+
 func (s *MultiLineStatusHandler) SetTrace(trace bool) {
 	s.trace = trace
+}
+
+func (s *MultiLineStatusHandler) start() {
+	s.progress = mpb.NewWithContext(
+		s.ctx,
+		mpb.WithWidth(utils.GetTermWidth()),
+		mpb.WithOutput(s.out),
+		mpb.PopCompletedMode(),
+	)
 }
 
 func (s *MultiLineStatusHandler) Stop() {

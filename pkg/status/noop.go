@@ -14,6 +14,9 @@ func (n NoopStatusHandler) SetTrace(trace bool) {
 func (n NoopStatusHandler) Stop() {
 }
 
+func (n NoopStatusHandler) Flush() {
+}
+
 func (n NoopStatusHandler) StartStatus(total int, message string) StatusLine {
 	return &NoopStatusLine{}
 }
