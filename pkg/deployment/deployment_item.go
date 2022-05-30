@@ -416,41 +416,16 @@ func (di *DeploymentItem) buildKustomize() error {
 		return err
 	}
 
-	var yamls []interface{}
+	di.Objects = nil
 	for _, r := range rm.Resources() {
 		y, err := r.Map()
 		if err != nil {
 			return err
 		}
-		yamls = append(yamls, y)
+		o := uo.FromMap(y)
+		di.Objects = append(di.Objects, o)
 	}
 
-	err = yaml.WriteYamlAllFile(di.renderedYamlPath, yamls)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (di *DeploymentItem) loadObjects() error {
-	if di.dir == nil {
-		return nil
-	}
-
-	objects, err := yaml.ReadYamlAllFile(di.renderedYamlPath)
-	if err != nil {
-		return err
-	}
-
-	di.Objects = []*uo.UnstructuredObject{}
-	for _, o := range objects {
-		m, ok := o.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("object is not a map")
-		}
-		di.Objects = append(di.Objects, uo.FromMap(m))
-	}
 	return nil
 }
 

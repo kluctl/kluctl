@@ -195,14 +195,9 @@ func (c *DeploymentCollection) buildKustomizeObjects() error {
 
 		wg.Add(1)
 		go func() {
-			err := d.loadObjects()
+			err := d.postprocessCRDs()
 			if err != nil {
-				handleError(fmt.Errorf("loading objects failed: %w", err))
-			} else {
-				err = d.postprocessCRDs()
-				if err != nil {
-					handleError(fmt.Errorf("postprocessing CRDs failed: %w", err))
-				}
+				handleError(fmt.Errorf("postprocessing CRDs failed: %w", err))
 			}
 			wg.Done()
 		}()
