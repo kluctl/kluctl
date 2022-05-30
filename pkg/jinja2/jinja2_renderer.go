@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type pythonJinja2Renderer struct {
@@ -75,7 +76,11 @@ func (j *pythonJinja2Renderer) Close() {
 	}
 	if j.cmd != nil {
 		if j.cmd.Process != nil {
-			_ = j.cmd.Process.Kill()
+			timer := time.AfterFunc(5*time.Second, func() {
+				_ = j.cmd.Process.Kill()
+			})
+			_ = j.cmd.Wait()
+			timer.Stop()
 		}
 		j.cmd = nil
 	}
