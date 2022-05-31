@@ -10,20 +10,18 @@ import (
 func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *KindCluster) {
 	isDone := false
 
+	k := defaultKindCluster
 	p := &testProject{}
-	p.init(t, namespace)
+	p.init(t, k, namespace)
 	defer func() {
 		if !isDone {
 			p.cleanup()
 		}
 	}()
 
-	k := defaultKindCluster
-
 	recreateNamespace(t, k, p.projectName)
 
-	p.updateKindCluster(k, nil)
-	p.updateTarget("test", k.Name, nil)
+	p.updateTarget("test", nil)
 
 	addConfigMapDeployment(p, "cm1", nil, resourceOpts{name: "cm1", namespace: p.projectName})
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{name: "cm2", namespace: p.projectName})

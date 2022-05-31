@@ -1,18 +1,21 @@
 package e2e
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestCommandDeploySimple(t *testing.T) {
 	t.Parallel()
-	p := &testProject{}
-	p.init(t, "simple")
-	defer p.cleanup()
 
 	k := defaultKindCluster
+
+	p := &testProject{}
+	p.init(t, k, "simple")
+	defer p.cleanup()
+
 	recreateNamespace(t, k, p.projectName)
 
-	p.updateKindCluster(k, nil)
-	p.updateTarget("test", k.Name, nil)
+	p.updateTarget("test", nil)
 
 	addConfigMapDeployment(p, "cm", nil, resourceOpts{
 		name:      "cm",

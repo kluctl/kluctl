@@ -109,20 +109,18 @@ func assertHookResultNotCMName(t *testing.T, p *testProject, k *KindCluster, sec
 func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletionPolicy string) (*testProject, *KindCluster) {
 	isDone := false
 	namespace := fmt.Sprintf("hook-%s", name)
+	k := defaultKindCluster
 	p := &testProject{}
-	p.init(t, namespace)
+	p.init(t, k, namespace)
 	defer func() {
 		if !isDone {
 			p.cleanup()
 		}
 	}()
 
-	k := defaultKindCluster
-
 	recreateNamespace(t, k, namespace)
 
-	p.updateKindCluster(k, nil)
-	p.updateTarget("test", k.Name, nil)
+	p.updateTarget("test", nil)
 
 	addHookDeployment(p, "hook", resourceOpts{name: "hook", namespace: namespace}, false, hook, hookDeletionPolicy)
 	addConfigMap(p, "hook", resourceOpts{name: "cm1", namespace: namespace})

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
@@ -29,13 +28,15 @@ type testProject struct {
 	localDeployment    *string
 	localSealedSecrets *string
 
+	k           *KindCluster
 	kubeconfigs []string
 
 	gitServer *test_utils.GitServer
 }
 
-func (p *testProject) init(t *testing.T, projectName string) {
+func (p *testProject) init(t *testing.T, k *KindCluster, projectName string) {
 	p.t = t
+	p.k = k
 	p.gitServer = test_utils.NewGitServer(t)
 	p.projectName = projectName
 
@@ -68,6 +69,8 @@ func (p *testProject) init(t *testing.T, projectName string) {
 	p.updateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
 		return nil
 	})
+
+	p.kubeconfigs = append(p.kubeconfigs, k.Kubeconfig())
 }
 
 func (p *testProject) cleanup() {
@@ -145,9 +148,6 @@ func (p *testProject) updateCluster(name string, context string, vars *uo.Unstru
 }
 
 func (p *testProject) updateKindCluster(k *KindCluster, vars *uo.UnstructuredObject) {
-	if utils.FindStrInSlice(p.kubeconfigs, k.Kubeconfig()) == -1 {
-		p.kubeconfigs = append(p.kubeconfigs, k.Kubeconfig())
-	}
 	context, err := k.Kubectl("config", "current-context")
 	if err != nil {
 		p.t.Fatal(err)
@@ -156,26 +156,41 @@ func (p *testProject) updateKindCluster(k *KindCluster, vars *uo.UnstructuredObj
 	p.updateCluster(k.Name, context, vars)
 }
 
-func (p *testProject) updateTarget(name string, cluster string, args *uo.UnstructuredObject) {
+func (p *testProject) updateTargetDeprecated(name string, cluster string, args *uo.UnstructuredObject) {
+	p.updateTarget(name, func(target *uo.UnstructuredObject) {
+		if args != nil {
+			target.MergeChild("args", args)
+		}
+		// compatibility
+		_ = target.SetNestedField(cluster, "cluster")
+	})
+}
+
+func (p *testProject) updateTarget(name string, cb func(target *uo.UnstructuredObject)) {
+	if cb == nil {
+		cb = func(target *uo.UnstructuredObject) {}
+	}
+
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
 		targets, _, _ := o.GetNestedObjectList("targets")
 		var newTargets []*uo.UnstructuredObject
+		found := false
 		for _, t := range targets {
 			n, _, _ := t.GetNestedString("name")
 			if n == name {
-				continue
+				cb(t)
+				found = true
 			}
 			newTargets = append(newTargets, t)
 		}
-		n := uo.FromMap(map[string]interface{}{
-			"name":    name,
-			"cluster": cluster,
-		})
-		if args != nil {
-			n.MergeChild("args", args)
+		if !found {
+			n := uo.FromMap(map[string]interface{}{
+				"name": name,
+			})
+			cb(n)
+			newTargets = append(newTargets, n)
 		}
 
-		newTargets = append(newTargets, n)
 		_ = o.SetNestedObjectList(newTargets, "targets")
 		return nil
 	})

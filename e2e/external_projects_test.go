@@ -10,7 +10,7 @@ import (
 func doTestProject(t *testing.T, namespace string, p *testProject) {
 	k := defaultKindCluster
 
-	p.init(t, fmt.Sprintf("project-%s", namespace))
+	p.init(t, k, fmt.Sprintf("project-%s", namespace))
 	defer p.cleanup()
 
 	recreateNamespace(t, k, namespace)
@@ -18,7 +18,7 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 	p.updateKindCluster(k, uo.FromMap(map[string]interface{}{
 		"cluster_var": "cluster_value1",
 	}))
-	p.updateTarget("test", k.Name, uo.FromMap(map[string]interface{}{
+	p.updateTargetDeprecated("test", k.Name, uo.FromMap(map[string]interface{}{
 		"target_var": "target_value1",
 	}))
 	addBusyboxDeployment(p, "busybox", resourceOpts{name: "busybox", namespace: namespace})
@@ -47,7 +47,7 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 	assertNestedFieldEquals(t, o, "cluster_value2", "data", "cluster_var")
 	assertNestedFieldEquals(t, o, "target_value1", "data", "target_var")
 
-	p.updateTarget("test", k.Name, uo.FromMap(map[string]interface{}{
+	p.updateTargetDeprecated("test", k.Name, uo.FromMap(map[string]interface{}{
 		"target_var": "target_value2",
 	}))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
