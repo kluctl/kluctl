@@ -21,6 +21,7 @@ import (
 
 type KindCluster struct {
 	Name       string
+	Context    string
 	kubeconfig string
 	config     *rest.Config
 }
@@ -30,6 +31,7 @@ func CreateKindCluster(name, kubeconfigPath string) (*KindCluster, error) {
 
 	c := &KindCluster{
 		Name:       name,
+		Context:    fmt.Sprintf("kind-%s", name),
 		kubeconfig: kubeconfigPath,
 	}
 
