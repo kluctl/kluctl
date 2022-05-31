@@ -32,7 +32,11 @@ func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource s
 	for time.Now().Sub(startTime) < timeout {
 		y, err := k.KubectlYaml("-n", namespace, "get", resource)
 		if err != nil {
-			t.Fatal(err)
+			if ee, ok := err.(*exec.ExitError); !ok || strings.Index(string(ee.Stderr), "NotFound") == -1 {
+				t.Fatal(err)
+			}
+			time.Sleep(1 * time.Second)
+			continue
 		}
 
 		v := validation.ValidateObject(nil, y, true)
