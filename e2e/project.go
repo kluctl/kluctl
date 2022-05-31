@@ -3,9 +3,12 @@ package e2e
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
+	"github.com/imdario/mergo"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,15 +31,13 @@ type testProject struct {
 	localDeployment    *string
 	localSealedSecrets *string
 
-	k           *KindCluster
-	kubeconfigs []string
+	mergedKubeconfig string
 
 	gitServer *test_utils.GitServer
 }
 
 func (p *testProject) init(t *testing.T, k *KindCluster, projectName string) {
 	p.t = t
-	p.k = k
 	p.gitServer = test_utils.NewGitServer(t)
 	p.projectName = projectName
 
@@ -70,13 +71,51 @@ func (p *testProject) init(t *testing.T, k *KindCluster, projectName string) {
 		return nil
 	})
 
-	p.kubeconfigs = append(p.kubeconfigs, k.Kubeconfig())
+	tmpFile, err := os.CreateTemp("", projectName+"-kubeconfig-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = tmpFile.Close()
+	p.mergedKubeconfig = tmpFile.Name()
+	p.mergeKubeconfig(k)
 }
 
 func (p *testProject) cleanup() {
 	if p.gitServer != nil {
 		p.gitServer.Cleanup()
 		p.gitServer = nil
+	}
+	if p.mergedKubeconfig != "" {
+		_ = os.Remove(p.mergedKubeconfig)
+		p.mergedKubeconfig = ""
+	}
+}
+
+func (p *testProject) mergeKubeconfig(k *KindCluster) {
+	p.updateMergedKubeconfig(func(config *clientcmdapi.Config) {
+		nkcfg, err := clientcmd.LoadFromFile(k.kubeconfig)
+		if err != nil {
+			p.t.Fatal(err)
+		}
+
+		err = mergo.Merge(config, nkcfg)
+		if err != nil {
+			p.t.Fatal(err)
+		}
+	})
+}
+
+func (p *testProject) updateMergedKubeconfig(cb func(config *clientcmdapi.Config)) {
+	mkcfg, err := clientcmd.LoadFromFile(p.mergedKubeconfig)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+
+	cb(mkcfg)
+
+	err = clientcmd.WriteToFile(*mkcfg, p.mergedKubeconfig)
+	if err != nil {
+		p.t.Fatal(err)
 	}
 }
 
@@ -377,13 +416,11 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 		args = append(args, "--local-sealed-secrets", *p.localSealedSecrets)
 	}
 
-	sep := ":"
 	if runtime.GOOS == "windows" {
-		sep = ";"
 		args = append(args, "--debug")
 	}
 	env := os.Environ()
-	env = append(env, fmt.Sprintf("KUBECONFIG=%s", strings.Join(p.kubeconfigs, sep)))
+	env = append(env, fmt.Sprintf("KUBECONFIG=%s", p.mergedKubeconfig))
 
 	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
