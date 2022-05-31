@@ -246,11 +246,12 @@ jobs:
           else
             PORT=10002
           fi
-          KIND_CLUSTER_NAME=$(echo "kluctl-${{ runner.os }}" | awk '{{  print tolower($1)}}')
+          KIND_CLUSTER_NAME=$(echo "kluctl-${{ runner.os }}" | awk '{{ print tolower($1) }}')
+          KIND_KUBECONFIG=$(pwd)/kind-kubeconfig
           echo "KIND_CLUSTER_NAME=$KIND_CLUSTER_NAME" >> $GITHUB_ENV
-          echo "KIND_KUBECONFIG=$(pwd)/kind-kubeconfig" >> $GITHUB_ENV
+          echo "KIND_KUBECONFIG=$KIND_KUBECONFIG" >> $GITHUB_ENV
 
-          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$DOCKER_IP" "$PORT"
+          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$DOCKER_IP" "$PORT" "$KIND_KUBECONFIG"
       - name: Download artifacts
         uses: actions/download-artifact@v2
       - name: Run e2e tests
