@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
+	"sync"
 	"testing"
 	"time"
 )
@@ -148,16 +149,35 @@ func createKindCluster(name string, kubeconfig string) *KindCluster {
 	return k
 }
 
-func createDefaultKindCluster() *KindCluster {
-	kindClusterName := os.Getenv("KIND_CLUSTER_NAME")
-	kindKubeconfig := os.Getenv("KIND_KUBECONFIG")
+func createDefaultKindCluster(num int) *KindCluster {
+	kindClusterName := os.Getenv(fmt.Sprintf("KIND_CLUSTER_NAME%d", num))
+	kindKubeconfig := os.Getenv(fmt.Sprintf("KIND_KUBECONFIG%d", num))
 	if kindClusterName == "" {
-		kindClusterName = "kluctl-e2e"
+		kindClusterName = fmt.Sprintf("kluctl-e2e-%d", num)
 	}
 	if kindKubeconfig == "" {
-		kindKubeconfig = filepath.Join(utils.GetTmpBaseDir(), "kluctl-e2e-kubeconfig.yml")
+		kindKubeconfig = filepath.Join(utils.GetTmpBaseDir(), fmt.Sprintf("kluctl-e2e-kubeconfig-%d.yml", num))
 	}
 	return createKindCluster(kindClusterName, kindKubeconfig)
 }
 
-var defaultKindCluster = createDefaultKindCluster()
+func createDefaultKindClusters() (*KindCluster, *KindCluster) {
+	var k1, k2 *KindCluster
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		k1 = createDefaultKindCluster(1)
+	}()
+	go func() {
+		defer wg.Done()
+		k2 = createDefaultKindCluster(2)
+	}()
+	wg.Wait()
+	return k1, k2
+}
+
+var (
+	defaultKindCluster1, defaultKindCluster2 = createDefaultKindClusters()
+)

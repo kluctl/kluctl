@@ -134,5 +134,6 @@ func runHelper(t *testing.T, cmd *exec.Cmd) (string, string, error) {
 }
 
 func init() {
-	deleteTestNamespaces(defaultKindCluster)
+	deleteTestNamespaces(defaultKindCluster1)
+	deleteTestNamespaces(defaultKindCluster2)
 }

@@ -10,7 +10,7 @@ import (
 func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *KindCluster) {
 	isDone := false
 
-	k := defaultKindCluster
+	k := defaultKindCluster1
 	p := &testProject{}
 	p.init(t, k, namespace)
 	defer func() {

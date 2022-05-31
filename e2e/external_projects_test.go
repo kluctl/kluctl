@@ -8,7 +8,7 @@ import (
 )
 
 func doTestProject(t *testing.T, namespace string, p *testProject) {
-	k := defaultKindCluster
+	k := defaultKindCluster1
 
 	p.init(t, k, fmt.Sprintf("project-%s", namespace))
 	defer p.cleanup()

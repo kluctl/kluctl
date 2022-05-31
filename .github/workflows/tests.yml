@@ -240,18 +240,33 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
-            PORT=10000
+            PORT1=10000
+            PORT2=20000
           elif [ "${{ runner.os }}" == "Windows" ]; then
-            PORT=10001
+            PORT1=10001
+            PORT2=20001
           else
-            PORT=10002
+            PORT1=10002
+            PORT2=20002
           fi
-          KIND_CLUSTER_NAME=$(echo "kluctl-${{ runner.os }}" | awk '{{ print tolower($1) }}')
-          KIND_KUBECONFIG=$(pwd)/kind-kubeconfig
-          echo "KIND_CLUSTER_NAME=$KIND_CLUSTER_NAME" >> $GITHUB_ENV
-          echo "KIND_KUBECONFIG=$KIND_KUBECONFIG" >> $GITHUB_ENV
+          KIND_CLUSTER_NAME_BASE=$(echo "kluctl-${{ runner.os }}" | awk '{{ print tolower($1) }}')
 
-          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME" "$DOCKER_IP" "$PORT" "$KIND_KUBECONFIG"
+          KIND_CLUSTER_NAME1=$KIND_CLUSTER_NAME_BASE-1
+          KIND_KUBECONFIG1=$(pwd)/kind-kubeconfig-1
+          echo "KIND_CLUSTER_NAME1=$KIND_CLUSTER_NAME1" >> $GITHUB_ENV
+          echo "KIND_KUBECONFIG1=$KIND_KUBECONFIG1" >> $GITHUB_ENV
+          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME1" "$DOCKER_IP" "$PORT1" "$KIND_KUBECONFIG1" &
+          PID1=$!
+
+          KIND_CLUSTER_NAME2=$KIND_CLUSTER_NAME_BASE-2
+          KIND_KUBECONFIG2=$(pwd)/kind-kubeconfig-2
+          echo "KIND_CLUSTER_NAME2=$KIND_CLUSTER_NAME2" >> $GITHUB_ENV
+          echo "KIND_KUBECONFIG2=$KIND_KUBECONFIG2" >> $GITHUB_ENV
+          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME2" "$DOCKER_IP" "$PORT2" "$KIND_KUBECONFIG2" &
+          PID2=$1
+
+          wait $PID1
+          wait $PID2
       - name: Download artifacts
         uses: actions/download-artifact@v2
       - name: Run e2e tests

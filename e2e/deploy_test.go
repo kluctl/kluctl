@@ -7,7 +7,7 @@ import (
 func TestCommandDeploySimple(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster
+	k := defaultKindCluster1
 
 	p := &testProject{}
 	p.init(t, k, "simple")
