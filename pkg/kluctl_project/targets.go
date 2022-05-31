@@ -26,6 +26,9 @@ type dynamicTargetInfo struct {
 }
 
 func (c *LoadedKluctlProject) loadTargets() error {
+	status.Trace(c.ctx, "Loading targets")
+	defer status.Trace(c.ctx, "Done loading targets")
+
 	targetNames := make(map[string]bool)
 	c.DynamicTargets = nil
 
