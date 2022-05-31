@@ -97,12 +97,15 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 }
 
 func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string, rootKey string) error {
-	var newVars uo.UnstructuredObject
-	err := varsCtx.RenderYamlFile(path, searchDirs, &newVars)
+	newVars := uo.New()
+	err := varsCtx.RenderYamlFile(path, searchDirs, newVars)
 	if err != nil {
 		return fmt.Errorf("failed to load vars from %s: %w", path, err)
 	}
-	v.mergeVars(varsCtx, &newVars, rootKey)
+	if rootKey != "" {
+		newVars, _, err = newVars.GetNestedObject(rootKey)
+	}
+	v.mergeVars(varsCtx, newVars, rootKey)
 	return nil
 }
 
