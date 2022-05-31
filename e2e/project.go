@@ -206,31 +206,39 @@ func (p *testProject) updateTargetDeprecated(name string, cluster string, args *
 }
 
 func (p *testProject) updateTarget(name string, cb func(target *uo.UnstructuredObject)) {
+	p.updateNamedListItem(uo.KeyPath{"targets"}, name, cb)
+}
+
+func (p *testProject) updateSecretSet(name string, cb func(secretSet *uo.UnstructuredObject)) {
+	p.updateNamedListItem(uo.KeyPath{"secretsConfig", "secretSets"}, name, cb)
+}
+
+func (p *testProject) updateNamedListItem(path uo.KeyPath, name string, cb func(item *uo.UnstructuredObject)) {
 	if cb == nil {
 		cb = func(target *uo.UnstructuredObject) {}
 	}
 
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
-		targets, _, _ := o.GetNestedObjectList("targets")
-		var newTargets []*uo.UnstructuredObject
+		l, _, _ := o.GetNestedObjectList(path...)
+		var newList []*uo.UnstructuredObject
 		found := false
-		for _, t := range targets {
-			n, _, _ := t.GetNestedString("name")
+		for _, item := range l {
+			n, _, _ := item.GetNestedString("name")
 			if n == name {
-				cb(t)
+				cb(item)
 				found = true
 			}
-			newTargets = append(newTargets, t)
+			newList = append(newList, item)
 		}
 		if !found {
 			n := uo.FromMap(map[string]interface{}{
 				"name": name,
 			})
 			cb(n)
-			newTargets = append(newTargets, n)
+			newList = append(newList, n)
 		}
 
-		_ = o.SetNestedObjectList(newTargets, "targets")
+		_ = o.SetNestedObjectList(newList, path...)
 		return nil
 	})
 }
@@ -330,8 +338,9 @@ func (p *testProject) convertInterfaceToList(x interface{}) []interface{} {
 }
 
 type kustomizeResource struct {
-	name    string
-	content interface{}
+	name     string
+	fileName string
+	content  interface{}
 }
 
 func (p *testProject) addKustomizeResources(dir string, resources []kustomizeResource) {
@@ -340,11 +349,15 @@ func (p *testProject) addKustomizeResources(dir string, resources []kustomizeRes
 		for _, r := range resources {
 			l = append(l, r.name)
 			x := p.convertInterfaceToList(r.content)
-			err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getDeploymentRepo()), dir, r.name), x)
+			fileName := r.fileName
+			if fileName == "" {
+				fileName = r.name
+			}
+			err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getDeploymentRepo()), dir, fileName), x)
 			if err != nil {
 				return err
 			}
-			_, err = wt.Add(filepath.Join(dir, r.name))
+			_, err = wt.Add(filepath.Join(dir, fileName))
 			if err != nil {
 				return err
 			}

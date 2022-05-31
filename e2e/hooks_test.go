@@ -49,7 +49,7 @@ func addConfigMap(p *testProject, dir string, opts resourceOpts) {
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
 	p.addKustomizeResources(dir, []kustomizeResource{
-		{fmt.Sprintf("%s.yml", opts.name), o},
+		{fmt.Sprintf("%s.yml", opts.name), "", o},
 	})
 }
 

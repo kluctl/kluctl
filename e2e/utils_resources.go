@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"text/template"
 )
@@ -56,7 +57,20 @@ func addConfigMapDeployment(p *testProject, dir string, data map[string]string, 
 		o.SetNestedField(data, "data")
 	}
 	p.addKustomizeDeployment(dir, []kustomizeResource{
-		{"configmap.yml", o},
+		{fmt.Sprintf("configmap-%s.yml", opts.name), "", o},
+	}, opts.tags)
+}
+
+func addSecretDeployment(p *testProject, dir string, data map[string]string, sealedSecret bool, opts resourceOpts) {
+	o := uo.New()
+	o.SetK8sGVKs("", "v1", "Secret")
+	mergeMetadata(o, opts)
+	if data != nil {
+		o.SetNestedField(data, "stringData")
+	}
+	fname := fmt.Sprintf("secret-%s.yml", opts.name)
+	p.addKustomizeDeployment(dir, []kustomizeResource{
+		{fname, fname + ".sealme", o},
 	}, opts.tags)
 }
 
@@ -71,8 +85,8 @@ func addDeploymentHelper(p *testProject, dir string, o *uo.UnstructuredObject, o
 	mergeMetadata(o, opts)
 
 	resources := []kustomizeResource{
-		{"rbac.yml", rbac},
-		{"deploy.yml", o},
+		{"rbac.yml", "", rbac},
+		{"deploy.yml", "", o},
 	}
 
 	p.addKustomizeDeployment(dir, resources, opts.tags)
