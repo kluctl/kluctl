@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
 	log "github.com/sirupsen/logrus"
@@ -15,17 +16,17 @@ import (
 	"time"
 )
 
-func recreateNamespace(t *testing.T, k *KindCluster, namespace string) {
+func recreateNamespace(t *testing.T, k *test_utils.KindCluster, namespace string) {
 	_, _ = k.Kubectl("delete", "ns", namespace)
 	k.KubectlMust(t, "create", "ns", namespace)
 	k.KubectlMust(t, "label", "ns", namespace, "kluctl-e2e=true")
 }
 
-func deleteTestNamespaces(k *KindCluster) {
+func deleteTestNamespaces(k *test_utils.KindCluster) {
 	_, _ = k.Kubectl("delete", "ns", "-l", "kubectl-e2e=true")
 }
 
-func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource string, timeout time.Duration) bool {
+func waitForReadiness(t *testing.T, k *test_utils.KindCluster, namespace string, resource string, timeout time.Duration) bool {
 	t.Logf("Waiting for readiness: %s/%s", namespace, resource)
 
 	startTime := time.Now()
@@ -59,13 +60,13 @@ func waitForReadiness(t *testing.T, k *KindCluster, namespace string, resource s
 	return false
 }
 
-func assertReadiness(t *testing.T, k *KindCluster, namespace string, resource string, timeout time.Duration) {
+func assertReadiness(t *testing.T, k *test_utils.KindCluster, namespace string, resource string, timeout time.Duration) {
 	if !waitForReadiness(t, k, namespace, resource, timeout) {
 		t.Errorf("%s/%s did not get ready in time", namespace, resource)
 	}
 }
 
-func assertResourceExists(t *testing.T, k *KindCluster, namespace string, resource string) *uo.UnstructuredObject {
+func assertResourceExists(t *testing.T, k *test_utils.KindCluster, namespace string, resource string) *uo.UnstructuredObject {
 	var args []string
 	if namespace != "" {
 		args = append(args, "-n", namespace)
@@ -74,7 +75,7 @@ func assertResourceExists(t *testing.T, k *KindCluster, namespace string, resour
 	return k.KubectlYamlMust(t, args...)
 }
 
-func assertResourceNotExists(t *testing.T, k *KindCluster, namespace string, resource string) {
+func assertResourceNotExists(t *testing.T, k *test_utils.KindCluster, namespace string, resource string) {
 	var args []string
 	if namespace != "" {
 		args = append(args, "-n", namespace)
@@ -135,9 +136,4 @@ func runHelper(t *testing.T, cmd *exec.Cmd) (string, string, error) {
 
 	err = cmd.Run()
 	return stdoutBuf.String(), stderrBuf.String(), err
-}
-
-func init() {
-	deleteTestNamespaces(defaultKindCluster1)
-	deleteTestNamespaces(defaultKindCluster2)
 }

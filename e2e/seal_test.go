@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
+	"github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-func installSealedSecretsOperator(t *testing.T, k *KindCluster) {
+func installSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
 	tmpFile, _ := os.CreateTemp("", "")
 	tmpFile.Close()
 	defer os.Remove(tmpFile.Name())
@@ -28,12 +29,12 @@ func installSealedSecretsOperator(t *testing.T, k *KindCluster) {
 	waitForReadiness(t, k, "kube-system", "deployment/sealed-secrets-controller", 5*time.Minute)
 }
 
-func deleteSealedSecretsOperator(t *testing.T, k *KindCluster) {
+func deleteSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
 	_, _ = defaultKindCluster1.Kubectl("-n", "kube-system", "delete", "deployment", "sealed-secrets-controller", "--wait")
 	_, _ = defaultKindCluster1.Kubectl("-n", "kube-system", "delete", "secret", "-l", "sealedsecrets.bitnami.com/sealed-secrets-key", "--wait")
 }
 
-func prepareSealTest(t *testing.T, k *KindCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject) *testProject {
+func prepareSealTest(t *testing.T, k *test_utils.KindCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject) *testProject {
 	p := &testProject{}
 	p.init(t, k, fmt.Sprintf("seal-%s", namespace))
 
@@ -61,7 +62,7 @@ func addSecretsSetToTarget(p *testProject, targetName string, secretSetName stri
 	})
 }
 
-func assertDecryptedSecrets(t *testing.T, k *KindCluster, namespace string, secretName string, expectedSecrets map[string]string) {
+func assertDecryptedSecrets(t *testing.T, k *test_utils.KindCluster, namespace string, secretName string, expectedSecrets map[string]string) {
 	s := k.KubectlYamlMust(t, "-n", namespace, "get", "secret", secretName)
 
 	for key, value := range expectedSecrets {

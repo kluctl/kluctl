@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
 	"time"

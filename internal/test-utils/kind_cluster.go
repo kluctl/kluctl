@@ -1,20 +1,16 @@
-package e2e
+package test_utils
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
-	"sync"
 	"testing"
 	"time"
 )
@@ -142,44 +138,3 @@ func kindCreate(name, kubeconfig string) error {
 		}
 	}
 }
-
-func createKindCluster(name string, kubeconfig string) *KindCluster {
-	k, err := CreateKindCluster(name, kubeconfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return k
-}
-
-func createDefaultKindCluster(num int) *KindCluster {
-	kindClusterName := os.Getenv(fmt.Sprintf("KIND_CLUSTER_NAME%d", num))
-	kindKubeconfig := os.Getenv(fmt.Sprintf("KIND_KUBECONFIG%d", num))
-	if kindClusterName == "" {
-		kindClusterName = fmt.Sprintf("kluctl-e2e-%d", num)
-	}
-	if kindKubeconfig == "" {
-		kindKubeconfig = filepath.Join(utils.GetTmpBaseDir(), fmt.Sprintf("kluctl-e2e-kubeconfig-%d.yml", num))
-	}
-	return createKindCluster(kindClusterName, kindKubeconfig)
-}
-
-func createDefaultKindClusters() (*KindCluster, *KindCluster) {
-	var k1, k2 *KindCluster
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		k1 = createDefaultKindCluster(1)
-	}()
-	go func() {
-		defer wg.Done()
-		k2 = createDefaultKindCluster(2)
-	}()
-	wg.Wait()
-	return k1, k2
-}
-
-var (
-	defaultKindCluster1, defaultKindCluster2 = createDefaultKindClusters()
-)

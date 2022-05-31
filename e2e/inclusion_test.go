@@ -2,12 +2,13 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/internal/test-utils"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
 
-func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *KindCluster) {
+func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *test_utils.KindCluster) {
 	isDone := false
 
 	k := defaultKindCluster1
@@ -48,7 +49,7 @@ func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bo
 	return p, k
 }
 
-func assertExistsHelper(t *testing.T, p *testProject, k *KindCluster, shouldExists map[string]bool, add []string, remove []string) {
+func assertExistsHelper(t *testing.T, p *testProject, k *test_utils.KindCluster, shouldExists map[string]bool, add []string, remove []string) {
 	for _, x := range add {
 		shouldExists[x] = true
 	}

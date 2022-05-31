@@ -36,7 +36,7 @@ type testProject struct {
 	gitServer *test_utils.GitServer
 }
 
-func (p *testProject) init(t *testing.T, k *KindCluster, projectName string) {
+func (p *testProject) init(t *testing.T, k *test_utils.KindCluster, projectName string) {
 	p.t = t
 	p.gitServer = test_utils.NewGitServer(t)
 	p.projectName = projectName
@@ -91,7 +91,7 @@ func (p *testProject) cleanup() {
 	}
 }
 
-func (p *testProject) mergeKubeconfig(k *KindCluster) {
+func (p *testProject) mergeKubeconfig(k *test_utils.KindCluster) {
 	p.updateMergedKubeconfig(func(config *clientcmdapi.Config) {
 		nkcfg, err := clientcmd.LoadFromFile(k.kubeconfig)
 		if err != nil {
@@ -186,7 +186,7 @@ func (p *testProject) updateCluster(name string, context string, vars *uo.Unstru
 	}, fmt.Sprintf("add/update cluster %s", name))
 }
 
-func (p *testProject) updateKindCluster(k *KindCluster, vars *uo.UnstructuredObject) {
+func (p *testProject) updateKindCluster(k *test_utils.KindCluster, vars *uo.UnstructuredObject) {
 	context, err := k.Kubectl("config", "current-context")
 	if err != nil {
 		p.t.Fatal(err)
