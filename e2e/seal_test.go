@@ -8,30 +8,51 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
-	"os"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
-func installSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
-	tmpFile, _ := os.CreateTemp("", "")
-	tmpFile.Close()
-	defer os.Remove(tmpFile.Name())
+func installSealedSecretsOperator(k *test_utils.KindCluster) {
+	test_resources.ApplyYaml("sealed-secrets.yaml", k)
+}
 
-	_ = utils.FsCopyFile(test_resources.Yamls, "sealed-secrets.yaml", tmpFile.Name())
-
-	_, err := k.Kubectl("apply", "-f", tmpFile.Name())
-	if err != nil {
-		panic(err)
-	}
-
+func waitForSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
 	waitForReadiness(t, k, "kube-system", "deployment/sealed-secrets-controller", 5*time.Minute)
 }
 
-func deleteSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
-	_, _ = defaultKindCluster1.Kubectl("-n", "kube-system", "delete", "deployment", "sealed-secrets-controller", "--wait")
-	_, _ = defaultKindCluster1.Kubectl("-n", "kube-system", "delete", "secret", "-l", "sealedsecrets.bitnami.com/sealed-secrets-key", "--wait")
+func deleteSealedSecretsOperator(k *test_utils.KindCluster) {
+	_, _ = k.Kubectl("-n", "kube-system", "delete", "deployment", "sealed-secrets-controller", "--wait")
+	_, _ = k.Kubectl("-n", "kube-system", "delete", "secret", "-l", "sealedsecrets.bitnami.com/sealed-secrets-key", "--wait")
+}
+
+func installVault(k *test_utils.KindCluster) {
+	_, _ = k.Kubectl("create", "ns", "vault")
+	test_resources.ApplyYaml("vault.yaml", k)
+}
+
+func waitForVault(t *testing.T, k *test_utils.KindCluster) {
+	waitForReadiness(t, k, "vault", "statefulset/vault", 5*time.Minute)
+}
+
+func init() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		installSealedSecretsOperator(defaultKindCluster1)
+		installVault(defaultKindCluster1)
+	}()
+	go func() {
+		defer wg.Done()
+		installSealedSecretsOperator(defaultKindCluster2)
+	}()
+	wg.Wait()
 }
 
 func prepareSealTest(t *testing.T, k *test_utils.KindCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject) *testProject {
@@ -76,8 +97,7 @@ func TestSeal_WithOperator(t *testing.T) {
 	k := defaultKindCluster1
 	namespace := "seal-with-operator"
 
-	deleteSealedSecretsOperator(t, k)
-	installSealedSecretsOperator(t, k)
+	waitForSealedSecretsOperator(t, k)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -113,7 +133,10 @@ func TestSeal_WithBootstrap(t *testing.T) {
 	k := defaultKindCluster2
 	namespace := "seal-with-bootstrap"
 
-	deleteSealedSecretsOperator(t, k)
+	// we still wait for it to be ready before we then delete it
+	// this way it's pre-pulled and pre-warmed when we later start it
+	waitForSealedSecretsOperator(t, k)
+	deleteSealedSecretsOperator(k)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -136,7 +159,8 @@ func TestSeal_WithBootstrap(t *testing.T) {
 	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getSealedSecretsRepo())
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
-	installSealedSecretsOperator(t, k)
+	installSealedSecretsOperator(k)
+	waitForSealedSecretsOperator(t, k)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
@@ -153,7 +177,7 @@ func TestSeal_MultipleVarSources(t *testing.T) {
 	k := defaultKindCluster1
 	namespace := "seal-multiple-vs"
 
-	installSealedSecretsOperator(t, k)
+	waitForSealedSecretsOperator(t, k)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -195,7 +219,7 @@ func TestSeal_MultipleSecretSets(t *testing.T) {
 	k := defaultKindCluster1
 	namespace := "seal-multiple-ss"
 
-	installSealedSecretsOperator(t, k)
+	waitForSealedSecretsOperator(t, k)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -239,8 +263,8 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	k := defaultKindCluster1
 	namespace := "seal-multiple-targets"
 
-	installSealedSecretsOperator(t, k)
-	installSealedSecretsOperator(t, defaultKindCluster2)
+	waitForSealedSecretsOperator(t, k)
+	waitForSealedSecretsOperator(t, defaultKindCluster2)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -251,11 +275,6 @@ func TestSeal_MultipleTargets(t *testing.T) {
 			uo.FromMap(map[string]interface{}{
 				"values": map[string]interface{}{
 					"s1": "v1",
-				},
-			}),
-			uo.FromMap(map[string]interface{}{
-				"values": map[string]interface{}{
-					"s2": "v2",
 				},
 			}),
 		},
@@ -304,10 +323,12 @@ func TestSeal_MultipleTargets(t *testing.T) {
 }
 
 func TestSeal_File(t *testing.T) {
+	t.Parallel()
+
 	k := defaultKindCluster1
 	namespace := "seal-file"
 
-	installSealedSecretsOperator(t, k)
+	waitForSealedSecretsOperator(t, k)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -332,6 +353,69 @@ func TestSeal_File(t *testing.T) {
 		return nil
 	}, "")
 
+	p.KluctlMust("seal", "-t", "test-target")
+
+	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getSealedSecretsRepo())
+	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
+
+	p.KluctlMust("deploy", "--yes", "-t", "test-target")
+
+	waitForReadiness(t, k, namespace, "secret/secret", 1*time.Minute)
+	assertDecryptedSecrets(t, k, namespace, "secret", map[string]string{
+		"s1": "v1",
+		"s2": "v2",
+	})
+}
+
+func TestSeal_Vault(t *testing.T) {
+	t.Parallel()
+
+	k := defaultKindCluster1
+	namespace := "seal-vault"
+
+	waitForSealedSecretsOperator(t, k)
+	waitForVault(t, k)
+
+	u, err := url.Parse(defaultKindCluster1.RESTConfig().Host)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vaultUrl := fmt.Sprintf("http://%s:%d", u.Hostname(), defaultKindCluster1VaultPort)
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/v1/secret/data/secret", vaultUrl), strings.NewReader(`{"data": {"secrets":{"s1":"v1","s2":"v2"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Vault-Token", "root")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		t.Fatalf("vault response status %d, body=%s", resp.StatusCode, string(body))
+	}
+
+	p := prepareSealTest(t, k, namespace,
+		map[string]string{
+			"s1": "{{ secrets.s1 }}",
+			"s2": "{{ secrets.s2 }}",
+		},
+		[]*uo.UnstructuredObject{
+			uo.FromMap(map[string]interface{}{
+				"vault": map[string]interface{}{
+					"address": vaultUrl,
+					"path":    "secret/data/secret",
+				},
+			}),
+		},
+	)
+	defer p.cleanup()
+
+	p.extraEnv = append(p.extraEnv, "VAULT_TOKEN=root")
 	p.KluctlMust("seal", "-t", "test-target")
 
 	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getSealedSecretsRepo())

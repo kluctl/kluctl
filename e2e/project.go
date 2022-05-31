@@ -20,6 +20,7 @@ import (
 
 type testProject struct {
 	t           *testing.T
+	extraEnv    []string
 	projectName string
 
 	kluctlProjectExternal bool
@@ -433,6 +434,7 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 		args = append(args, "--debug")
 	}
 	env := os.Environ()
+	env = append(env, p.extraEnv...)
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", p.mergedKubeconfig))
 
 	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
