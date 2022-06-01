@@ -276,6 +276,7 @@ func TestSeal_MultipleTargets(t *testing.T) {
 			uo.FromMap(map[string]interface{}{
 				"values": map[string]interface{}{
 					"s1": "v1",
+					"s2": "v2",
 				},
 			}),
 		},
