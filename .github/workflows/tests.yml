@@ -85,11 +85,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Install zerotier
-        if: runner.os == 'Linux'
         run: |
           sudo apt update
           sudo apt install -y gpg jq
           curl -s https://install.zerotier.com | sudo bash
+      - name: Setup inotify limits
+        run: |
+          # see https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files
+          sudo sysctl fs.inotify.max_user_watches=524288
+          sudo sysctl fs.inotify.max_user_instances=512
       - name: Stop docker
         run: |
           # Ensure docker is down and that the test jobs can wait for it to be available again after joining the network.
