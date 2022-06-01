@@ -110,7 +110,7 @@ func (c *KindCluster) KubectlYamlMust(t *testing.T, args ...string) *uo.Unstruct
 // kindCreate creates the kind cluster. It will retry up to 10 times if cluster creation fails.
 func kindCreate(name string, apiServerHost string, apiServerPort int, extraPorts map[int]int, kubeconfig string) error {
 
-	fmt.Printf("🌧️  Creating kind cluster %s...\n", name)
+	fmt.Printf("🌧️  Creating kind cluster %s with apiServerHost=%s, apiServerPort=%d, extraPorts=%v...\n", name, apiServerHost, apiServerPort, extraPorts)
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
 	config := v1alpha4.Cluster{
 		Name: name,
