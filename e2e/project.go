@@ -93,7 +93,7 @@ func (p *testProject) cleanup() {
 
 func (p *testProject) mergeKubeconfig(k *test_utils.KindCluster) {
 	p.updateMergedKubeconfig(func(config *clientcmdapi.Config) {
-		nkcfg, err := clientcmd.LoadFromFile(k.kubeconfig)
+		nkcfg, err := clientcmd.LoadFromFile(k.Kubeconfig)
 		if err != nil {
 			p.t.Fatal(err)
 		}

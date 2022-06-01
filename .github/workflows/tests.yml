@@ -240,33 +240,27 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
-            PORT1=10000
-            PORT2=20000
+            echo "KIND_API_PORT1=10000" >> $GITHUB_ENV
+            echo "KIND_API_PORT2=20000" >> $GITHUB_ENV
+            echo "KIND_EXTRA_PORTS_OFFSET1=30000" >> $GITHUB_ENV
+            echo "KIND_EXTRA_PORTS_OFFSET2=31000" >> $GITHUB_ENV
           elif [ "${{ runner.os }}" == "Windows" ]; then
-            PORT1=10001
-            PORT2=20001
+            echo "KIND_API_PORT1=10001" >> $GITHUB_ENV
+            echo "KIND_API_PORT2=20001" >> $GITHUB_ENV
+            echo "KIND_EXTRA_PORTS_OFFSET1=30100" >> $GITHUB_ENV
+            echo "KIND_EXTRA_PORTS_OFFSET2=31100" >> $GITHUB_ENV
           else
-            PORT1=10002
-            PORT2=20002
+            echo "KIND_API_PORT1=10002" >> $GITHUB_ENV
+            echo "KIND_API_PORT2=20002" >> $GITHUB_ENV
+            echo "KIND_EXTRA_PORTS_OFFSET1=30200" >> $GITHUB_ENV
+            echo "KIND_EXTRA_PORTS_OFFSET2=31200" >> $GITHUB_ENV
           fi
           KIND_CLUSTER_NAME_BASE=$(echo "kluctl-${{ runner.os }}" | awk '{{ print tolower($1) }}')
 
-          KIND_CLUSTER_NAME1=$KIND_CLUSTER_NAME_BASE-1
-          KIND_KUBECONFIG1=$(pwd)/kind-kubeconfig-1
-          echo "KIND_CLUSTER_NAME1=$KIND_CLUSTER_NAME1" >> $GITHUB_ENV
-          echo "KIND_KUBECONFIG1=$KIND_KUBECONFIG1" >> $GITHUB_ENV
-          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME1" "$DOCKER_IP" "$PORT1" "$KIND_KUBECONFIG1" &
-          PID1=$!
-
-          KIND_CLUSTER_NAME2=$KIND_CLUSTER_NAME_BASE-2
-          KIND_KUBECONFIG2=$(pwd)/kind-kubeconfig-2
-          echo "KIND_CLUSTER_NAME2=$KIND_CLUSTER_NAME2" >> $GITHUB_ENV
-          echo "KIND_KUBECONFIG2=$KIND_KUBECONFIG2" >> $GITHUB_ENV
-          ./hack/start-kind-cluster.sh "$KIND_CLUSTER_NAME2" "$DOCKER_IP" "$PORT2" "$KIND_KUBECONFIG2" &
-          PID2=$1
-
-          wait $PID1
-          wait $PID2
+          echo "KIND_API_HOST1=$DOCKER_IP" >> $GITHUB_ENV
+          echo "KIND_API_HOST2=$DOCKER_IP" >> $GITHUB_ENV
+          echo "KIND_CLUSTER_NAME1=$KIND_CLUSTER_NAME_BASE-1" >> $GITHUB_ENV
+          echo "KIND_CLUSTER_NAME2=$KIND_CLUSTER_NAME_BASE-2" >> $GITHUB_ENV
       - name: Download artifacts
         uses: actions/download-artifact@v2
       - name: Run e2e tests

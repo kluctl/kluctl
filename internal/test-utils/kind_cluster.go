@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"github.com/pkg/errors"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net/url"
 	"os"
 	"os/exec"
+	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 	kindcmd "sigs.k8s.io/kind/pkg/cmd"
 	"testing"
@@ -18,17 +19,17 @@ import (
 type KindCluster struct {
 	Name       string
 	Context    string
-	kubeconfig string
+	Kubeconfig string
 	config     *rest.Config
 }
 
-func CreateKindCluster(name, kubeconfigPath string) (*KindCluster, error) {
+func CreateKindCluster(name, apiServerHost string, apiServerPort int, extraPorts map[int]int, kubeconfigPath string) (*KindCluster, error) {
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
 
 	c := &KindCluster{
 		Name:       name,
 		Context:    fmt.Sprintf("kind-%s", name),
-		kubeconfig: kubeconfigPath,
+		Kubeconfig: kubeconfigPath,
 	}
 
 	n, err := provider.ListNodes(name)
@@ -36,7 +37,7 @@ func CreateKindCluster(name, kubeconfigPath string) (*KindCluster, error) {
 		return nil, err
 	}
 	if len(n) == 0 {
-		if err := kindCreate(name, kubeconfigPath); err != nil {
+		if err := kindCreate(name, apiServerHost, apiServerPort, extraPorts, kubeconfigPath); err != nil {
 			return nil, err
 		}
 	}
@@ -47,19 +48,14 @@ func CreateKindCluster(name, kubeconfigPath string) (*KindCluster, error) {
 // Delete removes the cluster from kind. The cluster may not be deleted straight away - this only issues a delete command
 func (c *KindCluster) Delete() error {
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
-	return provider.Delete(c.Name, c.kubeconfig)
-}
-
-// Kubeconfig returns the path to the cluster kubeconfig
-func (c *KindCluster) Kubeconfig() string {
-	return c.kubeconfig
+	return provider.Delete(c.Name, c.Kubeconfig)
 }
 
 // RESTConfig returns K8s client config to pass to clientset objects
 func (c *KindCluster) RESTConfig() *rest.Config {
 	if c.config == nil {
 		var err error
-		c.config, err = clientcmd.BuildConfigFromFlags("", c.Kubeconfig())
+		c.config, err = clientcmd.BuildConfigFromFlags("", c.Kubeconfig)
 		if err != nil {
 			panic(err)
 		}
@@ -70,7 +66,7 @@ func (c *KindCluster) RESTConfig() *rest.Config {
 func (c *KindCluster) Kubectl(args ...string) (string, error) {
 	cmd := exec.Command("kubectl", args...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", c.kubeconfig))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("KUBECONFIG=%s", c.Kubeconfig))
 
 	stdout, err := cmd.Output()
 	return string(stdout), err
@@ -112,29 +108,64 @@ func (c *KindCluster) KubectlYamlMust(t *testing.T, args ...string) *uo.Unstruct
 }
 
 // kindCreate creates the kind cluster. It will retry up to 10 times if cluster creation fails.
-func kindCreate(name, kubeconfig string) error {
+func kindCreate(name string, apiServerHost string, apiServerPort int, extraPorts map[int]int, kubeconfig string) error {
 
 	fmt.Printf("🌧️  Creating kind cluster %s...\n", name)
 	provider := cluster.NewProvider(cluster.ProviderWithLogger(kindcmd.NewLogger()))
-	attempts := 0
-	maxAttempts := 10
-	for {
-		err := provider.Create(
-			name,
-			cluster.CreateWithNodeImage(""),
-			cluster.CreateWithRetain(false),
-			cluster.CreateWithWaitForReady(time.Duration(0)),
-			cluster.CreateWithKubeconfigPath(kubeconfig),
-			cluster.CreateWithDisplayUsage(false),
-		)
-		if err == nil {
-			return nil
-		}
-
-		fmt.Printf("Error bringing up cluster, will retry (attempt %d): %v", attempts, err)
-		attempts++
-		if attempts >= maxAttempts {
-			return errors.Wrapf(err, "Error bringing up cluster, exceeded max attempts (%d)", attempts)
-		}
+	config := v1alpha4.Cluster{
+		Name: name,
+		Nodes: []v1alpha4.Node{{
+			Role: "control-plane",
+		}},
+		Networking: v1alpha4.Networking{
+			APIServerAddress: "0.0.0.0",
+			APIServerPort:    int32(apiServerPort),
+		},
 	}
+	for hostPort, containerPort := range extraPorts {
+		config.Nodes[0].ExtraPortMappings = append(config.Nodes[0].ExtraPortMappings, v1alpha4.PortMapping{
+			ContainerPort: int32(containerPort),
+			HostPort:      int32(hostPort),
+			ListenAddress: "0.0.0.0",
+			Protocol:      "TCP",
+		})
+	}
+
+	err := provider.Create(
+		name,
+		cluster.CreateWithV1Alpha4Config(&config),
+		cluster.CreateWithNodeImage(""),
+		cluster.CreateWithRetain(false),
+		cluster.CreateWithWaitForReady(time.Duration(0)),
+		cluster.CreateWithKubeconfigPath(kubeconfig),
+		cluster.CreateWithDisplayUsage(false),
+	)
+	if err != nil {
+		return err
+	}
+
+	kcfg, err := clientcmd.LoadFromFile(kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	c := kcfg.Clusters[fmt.Sprintf("kind-%s", name)]
+
+	u, err := url.Parse(c.Server)
+	if err != nil {
+		return err
+	}
+
+	// override api server host and disable TLS verification
+	// this is needed to make it work with remote docker hosts
+	c.InsecureSkipTLSVerify = true
+	c.CertificateAuthorityData = nil
+	c.Server = fmt.Sprintf("https://%s:%s", apiServerHost, u.Port())
+
+	err = clientcmd.WriteToFile(*kcfg, kubeconfig)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
