@@ -27,8 +27,9 @@ func waitForSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
 }
 
 func deleteSealedSecretsOperator(k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("-n", "kube-system", "delete", "deployment", "sealed-secrets-controller", "--wait")
+	test_resources.DeleteYaml("sealed-secrets.yaml", k)
 	_, _ = k.Kubectl("-n", "kube-system", "delete", "secret", "-l", "sealedsecrets.bitnami.com/sealed-secrets-key", "--wait")
+	_, _ = k.Kubectl("-n", "kube-system", "delete", "configmap", "sealed-secrets-key-kluctl-bootstrap", "--wait")
 }
 
 func installVault(k *test_utils.KindCluster) {

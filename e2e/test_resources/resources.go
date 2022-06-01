@@ -34,3 +34,13 @@ func ApplyYaml(name string, k *test_utils.KindCluster) {
 		panic(err)
 	}
 }
+
+func DeleteYaml(name string, k *test_utils.KindCluster) {
+	tmpFile := GetYamlTmpFile(name)
+	defer os.Remove(tmpFile)
+
+	_, err := k.Kubectl("delete", "-f", tmpFile)
+	if err != nil {
+		panic(err)
+	}
+}
