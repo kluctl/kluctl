@@ -236,7 +236,7 @@ jobs:
         run: |
           kubectl version || true
           kind version || true
-      - name: Start kind cluster
+      - name: Prepare kind cluster variables
         shell: bash
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
