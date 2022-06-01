@@ -146,7 +146,7 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 }
 
 func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
-	secret, err := vault.GetSecret(source.Vault.Server, source.Vault.Key)
+	secret, err := vault.GetSecret(source.Vault.Address, source.Vault.Path)
 	if err != nil {
 		return err
 	}

@@ -38,8 +38,8 @@ type VarsSourceAwsSecretsManager struct {
 }
 
 type VarsSourceVault struct {
-	Server string `yaml:"server" validate:"required"`
-	Key    string `yaml:"key" validate:"required"`
+	Address string `yaml:"address" validate:"required"`
+	Path    string `yaml:"path" validate:"required"`
 }
 
 type VarsSource struct {
