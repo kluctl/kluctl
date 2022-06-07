@@ -110,18 +110,14 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		return nil, nil, "", err
 	}
 
+	varsCtx := vars.NewVarsCtx(p.J2)
+
 	var contextName *string
 	if clusterName == nil && target != nil {
 		clusterName = target.Cluster
 		contextName = target.Context
 	}
 
-	clientConfig, restConfig, err := p.loadArgs.ClientConfigGetter(contextName)
-	if err != nil {
-		return doError(err)
-	}
-
-	varsCtx := vars.NewVarsCtx(p.J2)
 	if clusterName != nil {
 		clusterConfig, err := p.LoadClusterConfig(*clusterName)
 		if err != nil {
@@ -131,7 +127,16 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		if err != nil {
 			return doError(err)
 		}
+		if contextName == nil {
+			contextName = &clusterConfig.Cluster.Context
+		}
 	}
+
+	clientConfig, restConfig, err := p.loadArgs.ClientConfigGetter(contextName)
+	if err != nil {
+		return doError(err)
+	}
+
 	targetVars, err := uo.FromStruct(target)
 	if err != nil {
 		return doError(err)
