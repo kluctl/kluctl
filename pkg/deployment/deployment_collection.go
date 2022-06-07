@@ -109,18 +109,26 @@ func (c *DeploymentCollection) RenderDeployments() error {
 	s := status.Start(c.ctx.Ctx, "Rendering templates")
 	defer s.Failed()
 
-	wp := utils.NewDebuggerAwareWorkerPool(16)
-	defer wp.StopWait(false)
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	var errors []error
 
 	for _, d := range c.Deployments {
-		err := d.render(c.forSeal, wp)
-		if err != nil {
-			return err
-		}
+		d := d
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := d.render(c.forSeal)
+			if err != nil {
+				mutex.Lock()
+				errors = append(errors, err)
+				mutex.Unlock()
+			}
+		}()
 	}
-	err := wp.StopWait(true)
-	if err != nil {
-		return err
+	wg.Wait()
+	if len(errors) != 0 {
+		return utils.NewErrorListOrNil(errors)
 	}
 	s.Success()
 
@@ -128,14 +136,21 @@ func (c *DeploymentCollection) RenderDeployments() error {
 	defer s.Failed()
 
 	for _, d := range c.Deployments {
-		err := d.renderHelmCharts(wp)
-		if err != nil {
-			return err
-		}
+		d := d
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := d.renderHelmCharts()
+			if err != nil {
+				mutex.Lock()
+				errors = append(errors, err)
+				mutex.Unlock()
+			}
+		}()
 	}
-	err = wp.StopWait(false)
-	if err != nil {
-		return err
+	wg.Wait()
+	if len(errors) != 0 {
+		return utils.NewErrorListOrNil(errors)
 	}
 
 	s.Success()

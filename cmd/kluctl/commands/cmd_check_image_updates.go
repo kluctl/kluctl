@@ -37,11 +37,9 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 
 	rh := registries.NewRegistryHelper(ctx.ctx)
 
-	wg := utils.NewWorkerPoolWithErrors(8)
-	defer wg.StopWait(false)
-
 	imageTags := make(map[string]interface{})
 	var mutex sync.Mutex
+	var wg sync.WaitGroup
 
 	for _, images := range renderedImages {
 		for _, image := range images {
@@ -51,7 +49,9 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 			}
 			repo := s[0]
 			if _, ok := imageTags[repo]; !ok {
-				wg.Submit(func() error {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
 					tags, err := rh.ListImageTags(repo)
 					mutex.Lock()
 					defer mutex.Unlock()
@@ -60,15 +60,11 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 					} else {
 						imageTags[repo] = tags
 					}
-					return nil
-				})
+				}()
 			}
 		}
 	}
-	err := wg.StopWait(false)
-	if err != nil {
-		return err
-	}
+	wg.Wait()
 
 	prefixPattern := regexp.MustCompile("^([a-zA-Z]+[a-zA-Z-_.]*)")
 	suffixPattern := regexp.MustCompile("([-][a-zA-Z]+[a-zA-Z-_.]*)$")

@@ -164,12 +164,11 @@ func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace 
 }
 
 func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string, onlyMetadata bool) ([]*uo.UnstructuredObject, map[schema.GroupVersionKind][]ApiWarning, error) {
-	wp := utils.NewWorkerPoolWithErrors(8)
-	defer wp.StopWait(false)
-
 	var ret []*uo.UnstructuredObject
+	var errs []error
 	retApiWarnings := make(map[schema.GroupVersionKind][]ApiWarning)
 	var mutex sync.Mutex
+	var wg sync.WaitGroup
 
 	filter := func(ar *v1.APIResource) bool {
 		foundVerb := false
@@ -184,7 +183,10 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 
 	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filter) {
 		gvk := gvk
-		wp.Submit(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
 			var l []*uo.UnstructuredObject
 			var apiWarnings []ApiWarning
 			var err error
@@ -193,23 +195,24 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 			} else {
 				l, apiWarnings, err = k.ListObjects(gvk, namespace, labels)
 			}
-			if err != nil && !errors.IsNotFound(err) {
-				return err
-			}
 			mutex.Lock()
 			defer mutex.Unlock()
+			if err != nil && !errors.IsNotFound(err) {
+				errs = append(errs, err)
+				return
+			}
 			ret = append(ret, l...)
 			if len(apiWarnings) != 0 {
 				retApiWarnings[gvk] = apiWarnings
 			}
-			return nil
-		})
+		}()
+	}
+	wg.Wait()
+
+	if len(errs) != 0 {
+		return nil, retApiWarnings, utils.NewErrorListOrNil(errs)
 	}
 
-	err := wp.StopWait(false)
-	if err != nil {
-		return nil, retApiWarnings, err
-	}
 	return ret, retApiWarnings, nil
 }
 
@@ -228,16 +231,17 @@ func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject,
 }
 
 func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredObject, map[k8s.ObjectRef][]ApiWarning, error) {
-	wp := utils.NewWorkerPoolWithErrors(32)
-	defer wp.StopWait(false)
-
 	var ret []*uo.UnstructuredObject
+	var errs []error
 	retApiWarnings := make(map[k8s.ObjectRef][]ApiWarning)
 	var mutex sync.Mutex
+	var wg sync.WaitGroup
 
 	for _, ref_ := range refs {
 		ref := ref_
-		wp.Submit(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			o, apiWarnings, err := k.GetSingleObject(ref)
 			mutex.Lock()
 			defer mutex.Unlock()
@@ -245,18 +249,17 @@ func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredO
 				retApiWarnings[ref] = apiWarnings
 			}
 			if err != nil {
-				if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
-					return nil
+				if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+					errs = append(errs, err)
 				}
-				return err
+				return
 			}
 			ret = append(ret, o)
-			return nil
-		})
+		}()
 	}
-	err := wp.StopWait(false)
-	if err != nil {
-		return nil, retApiWarnings, err
+	wg.Wait()
+	if len(errs) != 0 {
+		return nil, retApiWarnings, utils.NewErrorListOrNil(errs)
 	}
 
 	return ret, retApiWarnings, nil

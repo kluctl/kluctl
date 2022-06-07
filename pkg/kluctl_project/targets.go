@@ -221,11 +221,9 @@ func (c *LoadedKluctlProject) matchRef(s string, pattern string) (bool, string, 
 }
 
 func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTargetInfo) error {
-	wp := utils.NewDebuggerAwareWorkerPool(8)
-	defer wp.StopWait(false)
-
 	uniqueClones := make(map[string]interface{})
 	var mutex sync.Mutex
+	var wg sync.WaitGroup
 
 	for _, targetInfo_ := range dynamicTargets {
 		targetInfo := targetInfo_
@@ -241,7 +239,9 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 		uniqueClones[targetInfo.dir] = nil
 		mutex.Unlock()
 
-		wp.Submit(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			gitProject := *targetInfo.gitProject
 			gitProject.Ref = *targetInfo.ref
 
@@ -253,13 +253,9 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 			} else {
 				uniqueClones[targetInfo.dir] = &gi
 			}
-			return nil
-		})
+		}()
 	}
-	err := wp.StopWait(false)
-	if err != nil {
-		return err
-	}
+	wg.Wait()
 
 	return nil
 }

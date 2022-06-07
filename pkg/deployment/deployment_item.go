@@ -101,7 +101,7 @@ func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	return a
 }
 
-func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) render(forSeal bool) error {
 	if di.dir == nil {
 		return nil
 	}
@@ -145,14 +145,10 @@ func (di *DeploymentItem) render(forSeal bool, wp *utils.WorkerPoolWithErrors) e
 		excludePatterns = append(excludePatterns, "**.sealme")
 	}
 
-	wp.Submit(func() error {
-		return varsCtx.RenderDirectory(di.Project.source.dir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.RenderedDir)
-	})
-
-	return nil
+	return varsCtx.RenderDirectory(di.Project.source.dir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.RenderedDir)
 }
 
-func (di *DeploymentItem) renderHelmCharts(wp *utils.WorkerPoolWithErrors) error {
+func (di *DeploymentItem) renderHelmCharts() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -162,35 +158,32 @@ func (di *DeploymentItem) renderHelmCharts(wp *utils.WorkerPoolWithErrors) error
 			return nil
 		}
 
-		wp.Submit(func() error {
-			subDir, err := filepath.Rel(di.RenderedDir, filepath.Dir(p))
-			if err != nil {
-				return err
-			}
+		subDir, err := filepath.Rel(di.RenderedDir, filepath.Dir(p))
+		if err != nil {
+			return err
+		}
 
-			chart, err := NewHelmChart(p)
-			if err != nil {
-				return err
-			}
+		chart, err := NewHelmChart(p)
+		if err != nil {
+			return err
+		}
 
-			ky, err := di.readKustomizationYaml(subDir)
-			if err == nil && ky != nil {
-				resources, _, _ := ky.GetNestedStringList("resources")
-				found := false
-				for _, r := range resources {
-					if r == chart.GetOutputPath() {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.RelRenderedDir, chart.GetOutputPath())
+		ky, err := di.readKustomizationYaml(subDir)
+		if err == nil && ky != nil {
+			resources, _, _ := ky.GetNestedStringList("resources")
+			found := false
+			for _, r := range resources {
+				if r == chart.GetOutputPath() {
+					found = true
+					break
 				}
 			}
+			if !found {
+				return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.RelRenderedDir, chart.GetOutputPath())
+			}
+		}
 
-			return chart.Render(di.ctx.Ctx, di.ctx.K)
-		})
-		return nil
+		return chart.Render(di.ctx.Ctx, di.ctx.K)
 	})
 	if err != nil {
 		return err
