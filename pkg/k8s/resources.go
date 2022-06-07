@@ -17,6 +17,13 @@ import (
 	"sync"
 )
 
+var (
+	deprecatedResources = map[schema.GroupKind]bool{
+		{Group: "extensions", Kind: "Ingress"}: true,
+		{Group: "", Kind: "ComponentStatus"}:   true,
+	}
+)
+
 type k8sResources struct {
 	ctx       context.Context
 	discovery discovery.DiscoveryInterface

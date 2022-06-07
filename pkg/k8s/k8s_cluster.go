@@ -25,12 +25,6 @@ import (
 	"time"
 )
 
-var (
-	deprecatedResources = map[schema.GroupKind]bool{
-		{Group: "extensions", Kind: "Ingress"}: true,
-	}
-)
-
 type K8sCluster struct {
 	ctx context.Context
 
