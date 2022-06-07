@@ -23,7 +23,7 @@ Kluctl does not depend on external operators/controllers and allows to use the s
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
 local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
 
-Flux support is in alpha statium and available via the [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
+Flux support is in alpha stadium and available via the [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
 
 ## Installation
 
