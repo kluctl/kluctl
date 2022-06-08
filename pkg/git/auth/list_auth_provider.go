@@ -38,7 +38,11 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 		if e.Host != "*" && e.Host != gitUrl.Hostname() {
 			continue
 		}
-		if !strings.HasPrefix(gitUrl.Path, e.PathPrefix) {
+		urlPath := gitUrl.Path
+		if strings.HasPrefix(urlPath, "/") {
+			urlPath = urlPath[1:]
+		}
+		if !strings.HasPrefix(urlPath, e.PathPrefix) {
 			continue
 		}
 		if e.Username == "" {
