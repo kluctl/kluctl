@@ -30,7 +30,11 @@ func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 }
 
 func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
+	status.Trace(ctx, "ListAuthProvider: BuildAuth for %s", gitUrl.String())
+	status.Trace(ctx, "ListAuthProvider: path=%s, username=%s, scheme=%s", gitUrl.Path, gitUrl.User.Username(), gitUrl.Scheme)
 	for _, e := range a.entries {
+		status.Trace(ctx, "ListAuthProvider: try host=%s, pathPrefix=%s, username=%s", e.Host, e.PathPrefix, e.Username)
+
 		if e.Host != "*" && e.Host != gitUrl.Hostname() {
 			continue
 		}
@@ -61,11 +65,13 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 
 		if gitUrl.IsSsh() {
 			if e.SshKey == nil {
+				status.Trace(ctx, "ListAuthProvider: empty ssh key is not accepted")
 				continue
 			}
+			status.Trace(ctx, "ListAuthProvider: using username+sshKey")
 			a, err := ssh.NewPublicKeys(username, e.SshKey, "")
 			if err != nil {
-				status.Trace(ctx, "Failed to parse private key: %v", err)
+				status.Trace(ctx, "ListAuthProvider: failed to parse private key: %v", err)
 			} else {
 				a.HostKeyCallback = buildVerifyHostCallback(e.KnownHosts)
 				return AuthMethodAndCA{
@@ -74,9 +80,10 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 			}
 		} else {
 			if e.Password == "" {
-				// empty password is not accepted
+				status.Trace(ctx, "ListAuthProvider: empty password is not accepted")
 				continue
 			}
+			status.Trace(ctx, "ListAuthProvider: using username+password")
 			return AuthMethodAndCA{
 				AuthMethod: &http.BasicAuth{
 					Username: username,
