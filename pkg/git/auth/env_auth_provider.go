@@ -21,6 +21,9 @@ func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 			Username:   m["USERNAME"],
 			Password:   m["PASSWORD"],
 		}
+		if e.Host == "" {
+			continue
+		}
 
 		ssh_key_path, _ := m["SSH_KEY"]
 		if ssh_key_path != "" {
