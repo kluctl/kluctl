@@ -20,7 +20,10 @@ type LiveRepoProvider struct {
 	authProviders  *auth.GitAuthProviders
 	updateInterval time.Duration
 	repos          map[string]*entry
-	mutex          sync.Mutex
+	reposMutex     sync.Mutex
+
+	cleanupDirs       []string
+	cleeanupDirsMutex sync.Mutex
 }
 
 type entry struct {
@@ -43,15 +46,11 @@ func NewLiveRepoProvider(ctx context.Context, authProviders *auth.GitAuthProvide
 	}
 }
 
-func (rp *LiveRepoProvider) Clear() {
-	rp.mutex.Lock()
-	defer rp.mutex.Unlock()
+func (rp *LiveRepoProvider) UnlockAll() {
+	rp.reposMutex.Lock()
+	defer rp.reposMutex.Unlock()
 
 	for _, e := range rp.repos {
-		for _, cd := range e.clonedDirs {
-			_ = os.RemoveAll(cd.dir)
-		}
-
 		if e.mr.IsLocked() {
 			_ = e.mr.Unlock()
 		}
@@ -60,10 +59,22 @@ func (rp *LiveRepoProvider) Clear() {
 	rp.repos = map[string]*entry{}
 }
 
+func (rp *LiveRepoProvider) Clear() {
+	rp.UnlockAll()
+
+	rp.cleeanupDirsMutex.Lock()
+	defer rp.cleeanupDirsMutex.Unlock()
+
+	for _, p := range rp.cleanupDirs {
+		_ = os.RemoveAll(p)
+	}
+	rp.cleanupDirs = nil
+}
+
 func (rp *LiveRepoProvider) getEntry(url git_url.GitUrl, allowCreate bool, lockRepo bool, update bool) (*entry, error) {
 	e, err := func() (*entry, error) {
-		rp.mutex.Lock()
-		defer rp.mutex.Unlock()
+		rp.reposMutex.Lock()
+		defer rp.reposMutex.Unlock()
 
 		e, ok := rp.repos[url.NormalizedRepoKey()]
 		if !ok {
@@ -177,6 +188,10 @@ func (rp *LiveRepoProvider) GetClonedDir(url git_url.GitUrl, ref string) (string
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
+
+	rp.cleeanupDirsMutex.Lock()
+	rp.cleanupDirs = append(rp.cleanupDirs, p)
+	rp.cleeanupDirsMutex.Unlock()
 
 	err = e.mr.CloneProject(ref, p)
 	if err != nil {

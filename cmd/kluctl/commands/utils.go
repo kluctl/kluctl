@@ -76,9 +76,6 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
-	if p != nil && p.RP != nil {
-		defer p.RP.Clear()
-	}
 	if err != nil {
 		return err
 	}
@@ -186,8 +183,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		images:    images,
 	}
 
-	// we can assume that all git access is done at this point, so we can clear grc and thus unlock all repos
-	p.RP.Clear()
+	// we can assume that all git access is done at this point, so we can unlock all repos
+	p.RP.UnlockAll()
 
 	return cb(cmdCtx)
 }

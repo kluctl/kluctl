@@ -14,5 +14,6 @@ type RepoInfo struct {
 type RepoProvider interface {
 	GetRepoInfo(url git_url.GitUrl) (RepoInfo, error)
 	GetClonedDir(url git_url.GitUrl, ref string) (string, git.CheckoutInfo, error)
+	UnlockAll()
 	Clear()
 }
