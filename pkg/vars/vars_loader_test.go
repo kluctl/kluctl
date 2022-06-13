@@ -277,6 +277,49 @@ func TestVarsLoader_ClusterSecret(t *testing.T) {
 	}, &secret)
 }
 
+func TestVarsLoader_K8sObjectLabels(t *testing.T) {
+	cm1 := corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{Name: "cm1", Namespace: "ns", Labels: map[string]string{"label1": "value1"}},
+		Data: map[string]string{
+			"vars": `{"test1": {"test2": 42}}`,
+		},
+	}
+	cm2 := corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{Name: "cm2", Namespace: "ns", Labels: map[string]string{"label2": "value2"}},
+		Data: map[string]string{
+			"vars": `{"test3": {"test4": 43}}`,
+		},
+	}
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		err := vl.LoadVars(vc, &types.VarsSource{
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Labels:    map[string]string{"label1": "value1"},
+				Namespace: "ns",
+				Key:       "vars",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+
+		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
+		assert.Equal(t, int64(42), v)
+	}, &cm1, &cm2)
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		err := vl.LoadVars(vc, &types.VarsSource{
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Labels:    map[string]string{"label2": "value2"},
+				Namespace: "ns",
+				Key:       "vars",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+
+		v, _, _ := vc.Vars.GetNestedInt("test3", "test4")
+		assert.Equal(t, int64(43), v)
+	}, &cm1, &cm2)
+}
+
 func TestVarsLoader_SystemEnv(t *testing.T) {
 	t.Setenv("TEST1", "42")
 	t.Setenv("TEST2", "43")

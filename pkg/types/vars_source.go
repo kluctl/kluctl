@@ -15,9 +15,20 @@ type VarsSourceGit struct {
 }
 
 type VarsSourceClusterConfigMapOrSecret struct {
-	Name      string `yaml:"name" validate:"required"`
-	Namespace string `yaml:"namespace,omitempty"`
-	Key       string `yaml:"key" validate:"required"`
+	Name      string            `yaml:"name,omitempty"`
+	Labels    map[string]string `yaml:"labels,omitempty"`
+	Namespace string            `yaml:"namespace" validate:"required"`
+	Key       string            `yaml:"key" validate:"required"`
+}
+
+func ValidateVarsSourceClusterConfigMapOrSecret(sl validator.StructLevel) {
+	s := sl.Current().Interface().(VarsSourceClusterConfigMapOrSecret)
+
+	if s.Name == "" && len(s.Labels) == 0 {
+		sl.ReportError(s, "self", "self", "either name or labels must be set", "")
+	} else if s.Name != "" && len(s.Labels) != 0 {
+		sl.ReportError(s, "self", "self", "only one of name or labels can be set", "")
+	}
 }
 
 type VarsSourceHttp struct {
@@ -74,5 +85,6 @@ func ValidateVarsSource(sl validator.StructLevel) {
 }
 
 func init() {
+	yaml.Validator.RegisterStructValidation(ValidateVarsSourceClusterConfigMapOrSecret, VarsSourceClusterConfigMapOrSecret{})
 	yaml.Validator.RegisterStructValidation(ValidateVarsSource, VarsSource{})
 }

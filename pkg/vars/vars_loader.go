@@ -15,6 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 )
 
@@ -71,11 +72,9 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	} else if source.Git != nil {
 		return v.loadGit(varsCtx, source.Git, rootKey)
 	} else if source.ClusterConfigMap != nil {
-		ref := k8s2.NewObjectRef("", "v1", "ConfigMap", source.ClusterConfigMap.Name, source.ClusterConfigMap.Namespace)
-		return v.loadFromK8sObject(varsCtx, ref, source.ClusterConfigMap.Key, rootKey, false)
+		return v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", source.ClusterConfigMap.Key, rootKey, false)
 	} else if source.ClusterSecret != nil {
-		ref := k8s2.NewObjectRef("", "v1", "Secret", source.ClusterSecret.Name, source.ClusterSecret.Namespace)
-		return v.loadFromK8sObject(varsCtx, ref, source.ClusterSecret.Key, rootKey, true)
+		return v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", source.ClusterSecret.Key, rootKey, true)
 	} else if source.SystemEnvVars != nil {
 		return v.loadSystemEnvs(varsCtx, &source, rootKey)
 	} else if source.Http != nil {
@@ -172,15 +171,38 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 	return v.loadFromString(varsCtx, string(f), rootKey)
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, ref k8s2.ObjectRef, key string, rootKey string, base64Decode bool) error {
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
 	if v.k == nil {
 		return nil
 	}
 
-	o, _, err := v.k.GetSingleObject(ref)
-	if err != nil {
-		return err
+	var err error
+	var o *uo.UnstructuredObject
+
+	if varsSource.Name != "" {
+		o, _, err = v.k.GetSingleObject(k8s2.NewObjectRef("", "v1", kind, varsSource.Name, varsSource.Namespace))
+		if err != nil {
+			return err
+		}
+	} else {
+		objs, _, err := v.k.ListObjects(schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    kind,
+		}, varsSource.Namespace, varsSource.Labels)
+		if err != nil {
+			return err
+		}
+		if len(objs) == 0 {
+			return fmt.Errorf("no object found with labels %v", varsSource.Labels)
+		}
+		if len(objs) > 1 {
+			return fmt.Errorf("found more than one objects with labels %v", varsSource.Labels)
+		}
+		o = objs[0]
 	}
+
+	ref := o.GetK8sRef()
 
 	f, found, err := o.GetNestedField("data", key)
 	if err != nil {
