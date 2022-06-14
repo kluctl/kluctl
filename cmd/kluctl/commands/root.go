@@ -27,6 +27,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"io"
 	"k8s.io/klog/v2"
 	"log"
 	"net/http"
@@ -85,6 +86,18 @@ func setupStatusHandler(debug bool) {
 	klog.LogToStderr(false)
 	klog.SetOutput(status.NewLineRedirector(sh.Info))
 	log.SetOutput(status.NewLineRedirector(sh.Info))
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		x := status.NewLineRedirector(sh.Info)
+		_, _ = io.Copy(x, pr)
+	}()
+
+	os.Stderr = pw
 }
 
 type VersionCheckState struct {
