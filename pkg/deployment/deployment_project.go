@@ -120,7 +120,7 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 			continue
 		}
 
-		diDir, err := securejoin.SecureJoin(p.absDir, *di.Path)
+		diDir, err := securejoin.SecureJoin(p.source.dir, filepath.Join(p.relDir, *di.Path))
 		if err != nil {
 			return err
 		}
