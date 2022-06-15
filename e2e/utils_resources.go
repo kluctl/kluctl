@@ -78,17 +78,6 @@ func addDeploymentHelper(p *testProject, dir string, o *uo.UnstructuredObject, o
 	p.addKustomizeDeployment(dir, resources, opts.tags)
 }
 
-func addDeploymentDeployment(p *testProject, dir string, opts resourceOpts, image string, command []string, args []string) {
-	o := renderTemplateObjectHelper(deploymentTemplate, map[string]interface{}{
-		"name":      opts.name,
-		"namespace": opts.namespace,
-		"image":     image,
-	})
-	o[0].SetNestedField(command, "spec", "template", "spec", "containers", 0, "command")
-	o[0].SetNestedField(args, "spec", "template", "spec", "containers", 0, "args")
-	addDeploymentHelper(p, dir, o[0], opts)
-}
-
 func addJobDeployment(p *testProject, dir string, opts resourceOpts, image string, command []string, args []string) {
 	o := renderTemplateObjectHelper(jobTemplate, map[string]interface{}{
 		"name":      opts.name,
@@ -98,10 +87,6 @@ func addJobDeployment(p *testProject, dir string, opts resourceOpts, image strin
 	o[0].SetNestedField(command, "spec", "template", "spec", "containers", 0, "command")
 	o[0].SetNestedField(args, "spec", "template", "spec", "containers", 0, "args")
 	addDeploymentHelper(p, dir, o[0], opts)
-}
-
-func addBusyboxDeployment(p *testProject, dir string, opts resourceOpts) {
-	addDeploymentDeployment(p, dir, opts, "busybox", []string{"sleep"}, []string{"1000"})
 }
 
 const podRbacTemplate = `

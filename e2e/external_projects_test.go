@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
-	"time"
 )
 
 func doTestProject(t *testing.T, namespace string, p *testProject) {
@@ -21,21 +20,21 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 	p.updateTarget("test", k.Name, uo.FromMap(map[string]interface{}{
 		"target_var": "target_value1",
 	}))
-	addBusyboxDeployment(p, "busybox", resourceOpts{name: "busybox", namespace: namespace})
+	addConfigMapDeployment(p, "cm1", map[string]string{}, resourceOpts{name: "cm1", namespace: namespace})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertReadiness(t, k, namespace, "Deployment/busybox", time.Minute*5)
+	assertResourceExists(t, k, namespace, "ConfigMap/cm1")
 
 	cmData := map[string]string{
 		"cluster_var": "{{ cluster.cluster_var }}",
 		"target_var":  "{{ args.target_var }}",
 	}
 
-	assertResourceNotExists(t, k, namespace, "ConfigMap/cm")
-	addConfigMapDeployment(p, "cm", cmData, resourceOpts{name: "cm", namespace: namespace})
+	assertResourceNotExists(t, k, namespace, "ConfigMap/cm2")
+	addConfigMapDeployment(p, "cm2", cmData, resourceOpts{name: "cm2", namespace: namespace})
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 
-	o := assertResourceExists(t, k, namespace, "ConfigMap/cm")
+	o := assertResourceExists(t, k, namespace, "ConfigMap/cm2")
 	assertNestedFieldEquals(t, o, "cluster_value1", "data", "cluster_var")
 	assertNestedFieldEquals(t, o, "target_value1", "data", "target_var")
 
@@ -43,7 +42,7 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 		"cluster_var": "cluster_value2",
 	}))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	o = assertResourceExists(t, k, namespace, "ConfigMap/cm")
+	o = assertResourceExists(t, k, namespace, "ConfigMap/cm2")
 	assertNestedFieldEquals(t, o, "cluster_value2", "data", "cluster_var")
 	assertNestedFieldEquals(t, o, "target_value1", "data", "target_var")
 
@@ -51,7 +50,7 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 		"target_var": "target_value2",
 	}))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	o = assertResourceExists(t, k, namespace, "ConfigMap/cm")
+	o = assertResourceExists(t, k, namespace, "ConfigMap/cm2")
 	assertNestedFieldEquals(t, o, "cluster_value2", "data", "cluster_var")
 	assertNestedFieldEquals(t, o, "target_value2", "data", "target_var")
 }
