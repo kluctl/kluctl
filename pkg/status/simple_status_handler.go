@@ -8,18 +8,24 @@ import (
 )
 
 type simpleStatusHandler struct {
-	cb    func(message string)
-	trace bool
+	cb         func(message string)
+	isTerminal bool
+	trace      bool
 }
 
 type simpleStatusLine struct {
 }
 
-func NewSimpleStatusHandler(cb func(message string), trace bool) StatusHandler {
+func NewSimpleStatusHandler(cb func(message string), isTerminal bool, trace bool) StatusHandler {
 	return &simpleStatusHandler{
-		cb:    cb,
-		trace: trace,
+		cb:         cb,
+		isTerminal: isTerminal,
+		trace:      trace,
 	}
+}
+
+func (s *simpleStatusHandler) IsTerminal() bool {
+	return s.isTerminal
 }
 
 func (s *simpleStatusHandler) SetTrace(trace bool) {

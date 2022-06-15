@@ -9,13 +9,22 @@ import (
 	"strings"
 )
 
+func isTerminal(ctx context.Context) bool {
+	sh := FromContext(ctx)
+	if sh != nil {
+		return sh.IsTerminal()
+	} else {
+		return isatty.IsTerminal(os.Stderr.Fd())
+	}
+}
+
 // AskForConfirmation uses Scanln to parse user input. A user must type in "yes" or "no" and
 // then press enter. It has fuzzy matching, so "y", "Y", "yes", "YES", and "Yes" all count as
 // confirmations. If the input is not recognized, it will ask again. The function does not return
 // until it gets a valid response from the user. Typically, you should use fmt to print out a question
 // before calling askForConfirmation. E.g. fmt.Println("WARNING: Are you sure? (yes/no)")
 func AskForConfirmation(ctx context.Context, prompt string) bool {
-	if !isatty.IsTerminal(os.Stderr.Fd()) {
+	if !isTerminal(ctx) {
 		Warning(ctx, "Not a terminal, suppressed prompt: %s", prompt)
 		return false
 	}
@@ -37,7 +46,7 @@ func AskForConfirmation(ctx context.Context, prompt string) bool {
 }
 
 func AskForPassword(ctx context.Context, prompt string) (string, error) {
-	if !isatty.IsTerminal(os.Stderr.Fd()) {
+	if !isTerminal(ctx) {
 		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
 		Warning(ctx, err.Error())
 		return "", err
@@ -52,7 +61,7 @@ func AskForPassword(ctx context.Context, prompt string) (string, error) {
 }
 
 func AskForCredentials(ctx context.Context, prompt string) (string, string, error) {
-	if !isatty.IsTerminal(os.Stderr.Fd()) {
+	if !isTerminal(ctx) {
 		err := fmt.Errorf("not a terminal, suppressed credentials prompt: %s", prompt)
 		Warning(ctx, err.Error())
 		return "", "", err

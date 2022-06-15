@@ -13,10 +13,11 @@ import (
 )
 
 type MultiLineStatusHandler struct {
-	ctx      context.Context
-	out      io.Writer
-	progress *mpb.Progress
-	trace    bool
+	ctx        context.Context
+	out        io.Writer
+	isTerminal bool
+	progress   *mpb.Progress
+	trace      bool
 }
 
 type statusLine struct {
@@ -29,16 +30,21 @@ type statusLine struct {
 	barOverride string
 }
 
-func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, trace bool) *MultiLineStatusHandler {
+func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, isTerminal bool, trace bool) *MultiLineStatusHandler {
 	sh := &MultiLineStatusHandler{
-		ctx:   ctx,
-		out:   out,
-		trace: trace,
+		ctx:        ctx,
+		out:        out,
+		isTerminal: isTerminal,
+		trace:      trace,
 	}
 
 	sh.start()
 
 	return sh
+}
+
+func (s *MultiLineStatusHandler) IsTerminal() bool {
+	return s.isTerminal
 }
 
 func (s *MultiLineStatusHandler) Flush() {
