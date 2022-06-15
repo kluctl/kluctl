@@ -37,6 +37,8 @@ type StatusLine interface {
 }
 
 type StatusHandler interface {
+	IsTerminal() bool
+
 	SetTrace(trace bool)
 	Stop()
 	Flush()

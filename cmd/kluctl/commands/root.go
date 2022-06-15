@@ -72,13 +72,15 @@ var flagGroups = []groupInfo{
 var cliCtx = context.Background()
 
 func setupStatusHandler(debug bool) {
+	// we must determine isTerminal before we override os.Stderr
+	isTerminal := isatty.IsTerminal(os.Stderr.Fd())
 	var sh status.StatusHandler
 	if !debug && isatty.IsTerminal(os.Stderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, false)
+		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, false)
 	} else {
 		sh = status.NewSimpleStatusHandler(func(message string) {
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message)
-		}, false)
+		}, isTerminal, false)
 	}
 	sh.SetTrace(debug)
 	cliCtx = status.NewContext(cliCtx, sh)
