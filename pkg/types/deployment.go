@@ -41,7 +41,6 @@ func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 
 type DeleteObjectItemConfig struct {
 	Group     *string `yaml:"group,omitempty"`
-	Version   *string `yaml:"version,omitempty"`
 	Kind      *string `yaml:"kind,omitempty"`
 	Name      string  `yaml:"name" validate:"required"`
 	Namespace string  `yaml:"namespace,omitempty"`
@@ -49,7 +48,7 @@ type DeleteObjectItemConfig struct {
 
 func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeleteObjectItemConfig)
-	if s.Group == nil && s.Version == nil && s.Kind == nil {
+	if s.Group == nil && s.Kind == nil {
 		sl.ReportError(s, "self", "self", "at least one of group/version/kind must be set", "")
 	}
 }
