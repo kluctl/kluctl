@@ -71,8 +71,11 @@ var flagGroups = []groupInfo{
 }
 
 var cliCtx = context.Background()
+var didSetupStatusHandler bool
 
 func setupStatusHandler(debug bool) {
+	didSetupStatusHandler = true
+
 	var sh status.StatusHandler
 	if !debug && isatty.IsTerminal(os.Stderr.Fd()) {
 		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, false)
@@ -211,6 +214,9 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	initViper()
 
 	err = rootCmd.ExecuteContext(cliCtx)
+	if !didSetupStatusHandler {
+		setupStatusHandler(false)
+	}
 
 	sh := status.FromContext(cliCtx)
 
