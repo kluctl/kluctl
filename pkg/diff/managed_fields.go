@@ -175,21 +175,28 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			return nil, nil, fmt.Errorf("field path '%s' is ambiguous", cause.Field)
 		}
 
-		p, found, err := convertToKeyList(remote, mf.pathes[0])
-		if err != nil {
-			return nil, nil, err
-		}
-		if !found {
-			return nil, nil, fmt.Errorf("field '%s' not found in remote object", cause.Field)
-		}
-		localValue, found, err := local.GetNestedField(p...)
+		localKeyPath, found, err := convertToKeyList(local, mf.pathes[0])
 		if err != nil {
 			return nil, nil, err
 		}
 		if !found {
 			return nil, nil, fmt.Errorf("field '%s' not found in local object", cause.Field)
 		}
-		remoteValue, found, err := remote.GetNestedField(p...)
+
+		remoteKeyPath, found, err := convertToKeyList(remote, mf.pathes[0])
+		if err != nil {
+			return nil, nil, err
+		}
+		if !found {
+			return nil, nil, fmt.Errorf("field '%s' not found in remote object", cause.Field)
+		}
+
+		localValue, found, err := local.GetNestedField(localKeyPath...)
+		if !found {
+			panic(fmt.Sprintf("field '%s' not found in local object...which can't be!", cause.Field))
+		}
+
+		remoteValue, found, err := remote.GetNestedField(remoteKeyPath...)
 		if !found {
 			panic(fmt.Sprintf("field '%s' not found in remote object...which can't be!", cause.Field))
 		}
@@ -209,13 +216,16 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 					break
 				}
 			}
-			if _, ok := forceApplyFields[p.ToJsonPath()]; ok {
+			if _, ok := forceApplyFields[localKeyPath.ToJsonPath()]; ok {
+				overwrite = true
+			}
+			if _, ok := forceApplyFields[remoteKeyPath.ToJsonPath()]; ok {
 				overwrite = true
 			}
 		}
 
 		if !overwrite {
-			j, err := uo.NewMyJsonPath(p.ToJsonPath())
+			j, err := uo.NewMyJsonPath(localKeyPath.ToJsonPath())
 			if err != nil {
 				return nil, nil, err
 			}
