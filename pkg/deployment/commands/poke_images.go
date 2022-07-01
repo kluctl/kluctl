@@ -77,7 +77,12 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 		go func() {
 			defer wg.Done()
 			au := ad.NewApplyUtil(ctx, nil)
-			au.ReplaceObject(ref, ru.GetRemoteObject(ref), func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+			remote := ru.GetRemoteObject(ref)
+			if remote == nil {
+				dew.AddWarning(ref, fmt.Errorf("remote object not found, skipped image replacement"))
+				return
+			}
+			au.ReplaceObject(ref, remote, func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 				return doPokeImage(containers, o)
 			})
 		}()
