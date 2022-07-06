@@ -347,7 +347,12 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 func (c *helmChart) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, error) {
 	var parsed []*uo.UnstructuredObject
 
-	m, err := yaml.ReadYamlAllString(s)
+	duplicatesRemoved, err := yaml.RemoveDuplicateFields(strings.NewReader(s))
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := yaml.ReadYamlAllBytes(duplicatesRemoved)
 	if err != nil {
 		return nil, err
 	}
