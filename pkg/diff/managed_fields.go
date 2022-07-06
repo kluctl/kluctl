@@ -169,10 +169,10 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 
 		mf, ok := managersByFields[cause.Field]
 		if !ok {
-			return nil, nil, fmt.Errorf("could not find matching field for path '%s'", cause.Field)
+			return nil, nil, fmt.Errorf("%s. Could not find matching field for path '%s'", cause.Message, cause.Field)
 		}
 		if len(mf.pathes) != 1 {
-			return nil, nil, fmt.Errorf("field path '%s' is ambiguous", cause.Field)
+			return nil, nil, fmt.Errorf("%s. Field path '%s' is ambiguous", cause.Message, cause.Field)
 		}
 
 		localKeyPath, found, err := convertToKeyList(local, mf.pathes[0])
@@ -180,7 +180,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			return nil, nil, err
 		}
 		if !found {
-			return nil, nil, fmt.Errorf("field '%s' not found in local object", cause.Field)
+			return nil, nil, fmt.Errorf("%s. Field '%s' not found in local object", cause.Message, cause.Field)
 		}
 
 		remoteKeyPath, found, err := convertToKeyList(remote, mf.pathes[0])
@@ -188,7 +188,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			return nil, nil, err
 		}
 		if !found {
-			return nil, nil, fmt.Errorf("field '%s' not found in remote object", cause.Field)
+			return nil, nil, fmt.Errorf("%s. Field '%s' not found in remote object", cause.Message, cause.Field)
 		}
 
 		localValue, found, err := local.GetNestedField(localKeyPath...)
