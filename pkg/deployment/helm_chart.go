@@ -299,24 +299,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 		return err
 	}
 
-	var parsed []*uo.UnstructuredObject
-
-	doParse := func(s string) error {
-		m, err := yaml.ReadYamlAllString(s)
-		if err != nil {
-			return err
-		}
-		for _, x := range m {
-			x2, ok := x.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("yaml object is not a map")
-			}
-			parsed = append(parsed, uo.FromMap(x2))
-		}
-		return nil
-	}
-
-	err = doParse(rel.Manifest)
+	parsed, err := c.parseRenderedManifests(rel.Manifest)
 	if err != nil {
 		return err
 	}
@@ -326,10 +309,11 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 			if isTestHook(m) {
 				continue
 			}
-			err = doParse(m.Manifest)
+			parsedHooks, err := c.parseRenderedManifests(m.Manifest)
 			if err != nil {
 				return err
 			}
+			parsed = append(parsed, parsedHooks...)
 		}
 	}
 
@@ -358,6 +342,23 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 		return err
 	}
 	return nil
+}
+
+func (c *helmChart) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, error) {
+	var parsed []*uo.UnstructuredObject
+
+	m, err := yaml.ReadYamlAllString(s)
+	if err != nil {
+		return nil, err
+	}
+	for _, x := range m {
+		x2, ok := x.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("yaml object is not a map")
+		}
+		parsed = append(parsed, uo.FromMap(x2))
+	}
+	return parsed, nil
 }
 
 func (c *helmChart) SetCredentials(credentials *repo.Entry) {
