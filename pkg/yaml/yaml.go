@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/goccy/go-yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
@@ -17,8 +16,32 @@ import (
 	"strings"
 )
 
-func newYamlDecoder(r io.Reader) *yaml.Decoder {
-	return yaml.NewDecoder(r, yaml.Strict(), yaml.Validator(Validator))
+type Decoder interface {
+	Decode(v interface{}) error
+}
+
+type decoderWrapper struct {
+	d *yaml3.Decoder
+}
+
+func (w *decoderWrapper) Decode(v interface{}) error {
+	err := w.d.Decode(v)
+	if err != nil {
+		return err
+	}
+
+	err = ValidateStructs(v)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func newDecoder(r io.Reader, out any) Decoder {
+	d := yaml3.NewDecoder(r)
+	d.KnownFields(true)
+	return &decoderWrapper{d: d}
 }
 
 func newUnicodeReader(r io.Reader) io.Reader {
@@ -51,16 +74,9 @@ func ReadYamlBytes(b []byte, o interface{}) error {
 func ReadYamlStream(r io.Reader, o interface{}) error {
 	r = newUnicodeReader(r)
 
-	var err error
-	if _, ok := o.(*map[string]interface{}); ok {
-		// much faster
-		d := yaml3.NewDecoder(r)
-		err = d.Decode(o)
-	} else {
-		// we need proper working strict mode
-		d := newYamlDecoder(r)
-		err = d.Decode(o)
-	}
+	d := newDecoder(r, o)
+
+	err := d.Decode(o)
 	if err != nil && errors.Is(err, io.EOF) {
 		return nil
 	}
@@ -88,8 +104,7 @@ func ReadYamlAllBytes(b []byte) ([]interface{}, error) {
 func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
 	r = newUnicodeReader(r)
 
-	// yaml.v3 is much faster then go-yaml
-	d := yaml3.NewDecoder(r)
+	d := newDecoder(r, nil)
 
 	var l []interface{}
 	for true {
