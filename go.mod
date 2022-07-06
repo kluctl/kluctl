@@ -14,7 +14,6 @@ require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/gobwas/glob v0.2.3
-	github.com/goccy/go-yaml v1.9.5
 	github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/google/go-containerregistry v0.9.0
 	github.com/hashicorp/vault/api v1.6.0
@@ -25,6 +24,7 @@ require (
 	github.com/klauspost/compress v1.15.6
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mitchellh/go-ps v1.0.0
+	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.14.2
 	github.com/pkg/errors v0.9.1
 	github.com/r3labs/diff/v2 v2.15.1
@@ -158,7 +158,6 @@ require (
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
@@ -199,7 +198,6 @@ require (
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
-	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220602131408-e326c6e8e9c8 // indirect
 	google.golang.org/grpc v1.47.0 // indirect
