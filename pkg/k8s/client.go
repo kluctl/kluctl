@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
 )
 
 type k8sClients struct {
@@ -17,9 +16,8 @@ type k8sClients struct {
 }
 
 type parallelClientEntry struct {
-	corev1         corev1.CoreV1Interface
-	dynamicClient  dynamic.Interface
-	metadataClient metadata.Interface
+	corev1        corev1.CoreV1Interface
+	dynamicClient dynamic.Interface
 
 	warnings []ApiWarning
 }
@@ -57,11 +55,6 @@ func newK8sClients(ctx context.Context, clientFactory ClientFactory, count int) 
 		}
 
 		p.dynamicClient, err = clientFactory.DynamicClient(p)
-		if err != nil {
-			return nil, err
-		}
-
-		p.metadataClient, err = clientFactory.MetadataClient(p)
 		if err != nil {
 			return nil, err
 		}
@@ -104,28 +97,10 @@ func (k *k8sClients) withDynamicClientForGVR(gvr *schema.GroupVersionResource, n
 	})
 }
 
-func (k *k8sClients) withMetadataClientForGVR(gvr *schema.GroupVersionResource, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
-	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		if namespace != "" {
-			return cb(p.metadataClient.Resource(*gvr).Namespace(namespace))
-		} else {
-			return cb(p.metadataClient.Resource(*gvr))
-		}
-	})
-}
-
 func (k *k8sClients) withDynamicClientForGVK(resources *k8sResources, gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
 	gvr, err := resources.GetGVRForGVK(gvk)
 	if err != nil {
 		return nil, err
 	}
 	return k.withDynamicClientForGVR(gvr, namespace, cb)
-}
-
-func (k *k8sClients) withMetadataClientForGVK(resources *k8sResources, gvk schema.GroupVersionKind, namespace string, cb func(r metadata.ResourceInterface) error) ([]ApiWarning, error) {
-	gvr, err := resources.GetGVRForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
-	return k.withMetadataClientForGVR(gvr, namespace, cb)
 }

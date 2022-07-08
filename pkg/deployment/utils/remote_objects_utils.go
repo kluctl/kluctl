@@ -36,7 +36,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 	s := status.Start(u.ctx, "Getting remote objects by commonLabels")
 	defer s.Failed()
 
-	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels, false)
+	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels)
 	for gvk, aw := range apiWarnings {
 		u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
 	}

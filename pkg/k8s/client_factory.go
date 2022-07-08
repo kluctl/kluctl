@@ -6,7 +6,6 @@ import (
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
@@ -22,7 +21,6 @@ type ClientFactory interface {
 	DiscoveryClient() (discovery.DiscoveryInterface, error)
 	CoreV1Client(wh rest.WarningHandler) (corev1.CoreV1Interface, error)
 	DynamicClient(wh rest.WarningHandler) (dynamic.Interface, error)
-	MetadataClient(wh rest.WarningHandler) (metadata.Interface, error)
 }
 
 type realClientFactory struct {
@@ -58,12 +56,6 @@ func (r *realClientFactory) DynamicClient(wh rest.WarningHandler) (dynamic.Inter
 	config := rest.CopyConfig(r.config)
 	config.WarningHandler = wh
 	return dynamic.NewForConfigAndClient(config, r.httpClient)
-}
-
-func (r *realClientFactory) MetadataClient(wh rest.WarningHandler) (metadata.Interface, error) {
-	config := rest.CopyConfig(r.config)
-	config.WarningHandler = wh
-	return metadata.NewForConfigAndClient(config, r.httpClient)
 }
 
 func (r *realClientFactory) CloseIdleConnections() {

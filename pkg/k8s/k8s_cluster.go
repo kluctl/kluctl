@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/Masterminds/semver/v3"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -18,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/metadata"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"sync"
@@ -129,35 +127,7 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) ListObjectsMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
-	var result []*uo.UnstructuredObject
-
-	apiWarnings, err := k.clients.withMetadataClientForGVK(k.Resources, gvk, namespace, func(r metadata.ResourceInterface) error {
-		o := v1.ListOptions{
-			LabelSelector: k.buildLabelSelector(labels),
-		}
-		x, err := r.List(k.ctx, o)
-		if err != nil {
-			return err
-		}
-		for _, o := range x.Items {
-			b, err := json.Marshal(o)
-			if err != nil {
-				panic(err)
-			}
-			u, err := uo.FromString(string(b))
-			if err != nil {
-				panic(err)
-			}
-			u.SetK8sGVK(gvk)
-			result = append(result, u)
-		}
-		return nil
-	})
-	return result, apiWarnings, err
-}
-
-func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string, onlyMetadata bool) ([]*uo.UnstructuredObject, map[schema.GroupVersionKind][]ApiWarning, error) {
+func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, map[schema.GroupVersionKind][]ApiWarning, error) {
 	var ret []*uo.UnstructuredObject
 	var errs []error
 	retApiWarnings := make(map[schema.GroupVersionKind][]ApiWarning)
@@ -181,14 +151,7 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 		go func() {
 			defer wg.Done()
 
-			var l []*uo.UnstructuredObject
-			var apiWarnings []ApiWarning
-			var err error
-			if onlyMetadata {
-				l, apiWarnings, err = k.ListObjectsMetadata(gvk, namespace, labels)
-			} else {
-				l, apiWarnings, err = k.ListObjects(gvk, namespace, labels)
-			}
+			l, apiWarnings, err := k.ListObjects(gvk, namespace, labels)
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil && !errors.IsNotFound(err) {

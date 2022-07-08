@@ -11,8 +11,6 @@ import (
 	fake_dynamic "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
-	metadata_fake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/kustomize/kyaml/openapi"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
@@ -42,10 +40,6 @@ func (f *fakeClientFactory) CoreV1Client(wh rest.WarningHandler) (corev1.CoreV1I
 
 func (f *fakeClientFactory) DynamicClient(wh rest.WarningHandler) (dynamic.Interface, error) {
 	return fake_dynamic.NewSimpleDynamicClient(f.scheme, f.objects...), nil
-}
-
-func (f *fakeClientFactory) MetadataClient(wh rest.WarningHandler) (metadata.Interface, error) {
-	return metadata_fake.NewSimpleMetadataClient(f.scheme, f.objects...), nil
 }
 
 func NewFakeClientFactory(objects ...runtime.Object) ClientFactory {
