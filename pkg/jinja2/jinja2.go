@@ -214,6 +214,8 @@ func (j *Jinja2) needsRender(path string, excludedPatterns []string) bool {
 }
 
 func (j *Jinja2) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string, vars *uo.UnstructuredObject) error {
+	searchDirs = append([]string{rootDir}, searchDirs...)
+
 	walkDir, err := securejoin.SecureJoin(rootDir, filepath.Join(relSourceDir, subdir))
 	if err != nil {
 		return err
