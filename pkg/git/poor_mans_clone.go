@@ -1,20 +1,17 @@
 package git
 
 import (
-	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 )
 
-// PoorMansClone poor mans clone from a local repo, which does not rely on go-git using git-upload-pack
-func PoorMansClone(sourceDir string, targetDir string, ref string) error {
+// PoorMansCloneCommit poor mans clone from a local repo, which does not rely on go-git using git-upload-pack
+func PoorMansClone(sourceDir string, targetDir string, coOptions *git.CheckoutOptions) error {
 	err := os.MkdirAll(targetDir, 0o700)
 	if err != nil {
 		return err
@@ -80,29 +77,8 @@ func PoorMansClone(sourceDir string, targetDir string, ref string) error {
 	if err != nil {
 		return err
 	}
-	var ref2 plumbing.ReferenceName
-	if ref != "" {
-		if strings.HasPrefix(ref, "refs/heads") {
-			ref2 = plumbing.ReferenceName(ref)
-		} else {
-			if _, err := r.Reference(plumbing.NewBranchReferenceName(ref), true); err == nil {
-				ref2 = plumbing.NewBranchReferenceName(ref)
-			} else if _, err := r.Reference(plumbing.NewTagReferenceName(ref), true); err == nil {
-				ref2 = plumbing.NewTagReferenceName(ref)
-			} else {
-				return fmt.Errorf("ref %s not found", ref)
-			}
-		}
-	} else {
-		x, err := r.Reference("HEAD", true)
-		if err != nil {
-			return err
-		}
-		ref2 = x.Name()
-	}
-	err = wt.Checkout(&git.CheckoutOptions{
-		Branch: ref2,
-	})
+
+	err = wt.Checkout(coOptions)
 	if err != nil {
 		return err
 	}

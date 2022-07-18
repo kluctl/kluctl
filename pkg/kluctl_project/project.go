@@ -3,7 +3,7 @@ package kluctl_project
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
+	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -28,7 +28,7 @@ type LoadedKluctlProject struct {
 	DynamicTargets []*types2.DynamicTarget
 
 	J2 *jinja2.Jinja2
-	RP repoprovider.RepoProvider
+	RP *repocache.GitRepoCache
 
 	warnOnce utils.OnceByKey
 }

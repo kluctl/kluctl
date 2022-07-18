@@ -3,7 +3,7 @@ package kluctl_project
 import (
 	"fmt"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
+	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -25,7 +25,7 @@ type LoadKluctlProjectArgs struct {
 	LocalDeployment    string
 	LocalSealedSecrets string
 
-	RP repoprovider.RepoProvider
+	RP *repocache.GitRepoCache
 
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)
 }
@@ -56,7 +56,12 @@ func (c *LoadedKluctlProject) localProject(dir string) gitProjectInfo {
 }
 
 func (c *LoadedKluctlProject) loadGitProject(gitProject *types2.GitProject, defaultSubDir string) (ret gitProjectInfo, err error) {
-	cloneDir, ri, err := c.RP.GetClonedDir(gitProject.Url, gitProject.Ref)
+	ge, err := c.RP.GetEntry(gitProject.Url)
+	if err != nil {
+		return
+	}
+
+	cloneDir, ri, err := ge.GetClonedDir(gitProject.Ref)
 	if err != nil {
 		return
 	}

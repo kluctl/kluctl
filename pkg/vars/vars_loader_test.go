@@ -7,7 +7,6 @@ import (
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -37,8 +36,8 @@ func newTestDir(t *testing.T) string {
 	return tmp
 }
 
-func newRP(t *testing.T) repoprovider.RepoProvider {
-	grc := repoprovider.NewLiveRepoProvider(context.TODO(), auth.NewDefaultAuthProviders(), 0)
+func newRP(t *testing.T) repocache.RepoProvider {
+	grc := repocache.NewLiveRepoProvider(context.TODO(), auth.NewDefaultAuthProviders(), 0)
 	t.Cleanup(func() {
 		grc.Clear()
 	})

@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
+	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -27,13 +27,13 @@ type usernamePassword struct {
 type VarsLoader struct {
 	ctx context.Context
 	k   *k8s.K8sCluster
-	rp  repoprovider.RepoProvider
+	rp  *repocache.GitRepoCache
 	aws aws.AwsClientFactory
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, rp repoprovider.RepoProvider, aws aws.AwsClientFactory) *VarsLoader {
+func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, rp *repocache.GitRepoCache, aws aws.AwsClientFactory) *VarsLoader {
 	return &VarsLoader{
 		ctx:              ctx,
 		k:                k,
@@ -153,7 +153,12 @@ func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, rootK
 }
 
 func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, rootKey string) error {
-	clonedDir, _, err := v.rp.GetClonedDir(gitFile.Url, gitFile.Ref)
+	ge, err := v.rp.GetEntry(gitFile.Url)
+	if err != nil {
+		return err
+	}
+
+	clonedDir, _, err := ge.GetClonedDir(gitFile.Ref)
 	if err != nil {
 		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}

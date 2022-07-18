@@ -343,16 +343,16 @@ func (g *MirroredGitRepo) Update(authProviders *auth2.GitAuthProviders) error {
 	return nil
 }
 
-func (g *MirroredGitRepo) CloneProject(ref string, targetDir string) error {
+func (g *MirroredGitRepo) CloneProjectByCommit(commit string, targetDir string) error {
 	if !g.IsLocked() || !g.hasUpdated {
 		panic("tried to clone from a project that is not locked/updated")
 	}
 
-	status.Trace(g.ctx, "Cloning git project: url='%s', ref='%s', target='%s'", g.url.String(), ref, targetDir)
+	status.Trace(g.ctx, "Cloning git project: url='%s', commit='%s', target='%s'", g.url.String(), commit, targetDir)
 
-	err := PoorMansClone(g.mirrorDir, targetDir, ref)
+	err := PoorMansClone(g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
 	if err != nil {
-		return fmt.Errorf("failed to clone %s from %s: %w", ref, g.url.String(), err)
+		return fmt.Errorf("failed to clone %s from %s: %w", commit, g.url.String(), err)
 	}
 	return nil
 }

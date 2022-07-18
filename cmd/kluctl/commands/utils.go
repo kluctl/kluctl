@@ -8,7 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/git/repoprovider"
+	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -59,7 +59,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
 	defer cancel()
 
-	rp := repoprovider.NewLiveRepoProvider(ctx, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
+	rp := repocache.NewGitRepoCache(ctx, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -182,9 +182,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		targetCtx: targetCtx,
 		images:    images,
 	}
-
-	// we can assume that all git access is done at this point, so we can unlock all repos
-	p.RP.UnlockAll()
 
 	return cb(cmdCtx)
 }

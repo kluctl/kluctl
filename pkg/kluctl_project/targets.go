@@ -138,10 +138,12 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsSimple(baseTarget *types.Targ
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
-	repoInfo, err := c.RP.GetRepoInfo(baseTarget.TargetConfig.Project.Url)
+	ge, err := c.RP.GetEntry(baseTarget.TargetConfig.Project.Url)
 	if err != nil {
 		return nil, err
 	}
+
+	repoInfo := ge.GetRepoInfo()
 
 	if baseTarget.TargetConfig.Ref != nil && baseTarget.TargetConfig.RefPattern != nil {
 		return nil, fmt.Errorf("'refPattern' and 'ref' can't be specified together")
@@ -178,7 +180,12 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 			continue
 		}
 
-		cloneDir, _, err := c.RP.GetClonedDir(baseTarget.TargetConfig.Project.Url, refShortName)
+		ge, err := c.RP.GetEntry(baseTarget.TargetConfig.Project.Url)
+		if err != nil {
+			return nil, err
+		}
+
+		cloneDir, _, err := ge.GetClonedDir(refShortName)
 		if err != nil {
 			return nil, err
 		}
