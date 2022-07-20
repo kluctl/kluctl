@@ -13,7 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -430,9 +429,8 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 		args = append(args, "--local-sealed-secrets", *p.localSealedSecrets)
 	}
 
-	if runtime.GOOS == "windows" {
-		args = append(args, "--debug")
-	}
+	args = append(args, "--debug")
+
 	env := os.Environ()
 	env = append(env, p.extraEnv...)
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", p.mergedKubeconfig))
