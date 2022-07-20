@@ -75,6 +75,8 @@ var didSetupStatusHandler bool
 func setupStatusHandler(debug bool) {
 	didSetupStatusHandler = true
 
+	origStderr := os.Stderr
+
 	// we must determine isTerminal before we override os.Stderr
 	isTerminal := isatty.IsTerminal(os.Stderr.Fd())
 	var sh status.StatusHandler
@@ -82,7 +84,7 @@ func setupStatusHandler(debug bool) {
 		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, false)
 	} else {
 		sh = status.NewSimpleStatusHandler(func(message string) {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", message)
+			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
 		}, isTerminal, false)
 	}
 	sh.SetTrace(debug)
