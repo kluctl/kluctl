@@ -12,6 +12,10 @@ func (n NoopStatusHandler) IsTerminal() bool {
 	return false
 }
 
+func (n NoopStatusHandler) IsTraceEnabled() bool {
+	return false
+}
+
 func (n NoopStatusHandler) SetTrace(trace bool) {
 }
 

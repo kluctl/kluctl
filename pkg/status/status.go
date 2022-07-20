@@ -38,6 +38,7 @@ type StatusLine interface {
 
 type StatusHandler interface {
 	IsTerminal() bool
+	IsTraceEnabled() bool
 
 	SetTrace(trace bool)
 	Stop()
@@ -232,6 +233,11 @@ func Warning(ctx context.Context, status string, args ...any) {
 func Trace(ctx context.Context, status string, args ...any) {
 	slh := FromContext(ctx)
 	slh.Trace(fmt.Sprintf(status, args...))
+}
+
+func IsTraceEnabled(ctx context.Context) bool {
+	slh := FromContext(ctx)
+	return slh.IsTraceEnabled()
 }
 
 func Error(ctx context.Context, status string, args ...any) {

@@ -28,6 +28,10 @@ func (s *simpleStatusHandler) IsTerminal() bool {
 	return s.isTerminal
 }
 
+func (s *simpleStatusHandler) IsTraceEnabled() bool {
+	return s.trace
+}
+
 func (s *simpleStatusHandler) SetTrace(trace bool) {
 	s.trace = trace
 }

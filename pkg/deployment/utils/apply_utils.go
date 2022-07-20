@@ -13,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"golang.org/x/sync/semaphore"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -388,6 +389,12 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		case <-timeoutTimer.C:
 			err := fmt.Errorf("timed out while waiting for readiness of %s", ref.String())
 			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
+			if status.IsTraceEnabled(a.ctx) {
+				y, err := yaml.WriteYamlString(o)
+				if err == nil {
+					status.Trace(a.ctx, "yaml:\n"+y)
+				}
+			}
 			a.HandleError(ref, err)
 			return false
 		case <-a.ctx.Done():

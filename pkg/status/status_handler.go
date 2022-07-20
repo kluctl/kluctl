@@ -47,6 +47,10 @@ func (s *MultiLineStatusHandler) IsTerminal() bool {
 	return s.isTerminal
 }
 
+func (s *MultiLineStatusHandler) IsTraceEnabled() bool {
+	return s.trace
+}
+
 func (s *MultiLineStatusHandler) Flush() {
 	s.Stop()
 	s.start()
