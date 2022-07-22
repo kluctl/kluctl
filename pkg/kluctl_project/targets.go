@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -267,16 +268,7 @@ func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTarge
 	return nil
 }
 
-func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) (*types.Target, error) {
-	var target types.Target
-	err := utils.DeepCopy(&target, targetInfo.baseTarget)
-	if err != nil {
-		return nil, err
-	}
-	if targetInfo.baseTarget.TargetConfig == nil {
-		return &target, nil
-	}
-
+func (c *LoadedKluctlProject) loadTargetConfigFile(targetInfo *dynamicTargetInfo) ([]byte, error) {
 	configFile := yaml.FixNameExt(targetInfo.dir, "target-config.yml")
 	if targetInfo.baseTarget.TargetConfig.File != nil {
 		configFile = *targetInfo.baseTarget.TargetConfig.File
@@ -289,8 +281,26 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 		return nil, fmt.Errorf("no target config file with name %s found in target", configFile)
 	}
 
+	return os.ReadFile(configPath)
+}
+
+func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) (*types.Target, error) {
+	var target types.Target
+	err := utils.DeepCopy(&target, targetInfo.baseTarget)
+	if err != nil {
+		return nil, err
+	}
+	if targetInfo.baseTarget.TargetConfig == nil {
+		return &target, nil
+	}
+
+	configFile, err := c.loadTargetConfigFile(targetInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	var targetConfig types.TargetConfig
-	err = yaml.ReadYamlFile(configPath, &targetConfig)
+	err = yaml.ReadYamlBytes(configFile, &targetConfig)
 	if err != nil {
 		return nil, err
 	}
