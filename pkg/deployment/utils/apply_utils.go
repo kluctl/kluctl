@@ -65,7 +65,8 @@ type ApplyDeploymentsUtil struct {
 
 	abortSignal atomic.Value
 
-	results []*ApplyUtil
+	resultsMutex sync.Mutex
+	results      []*ApplyUtil
 }
 
 func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
@@ -82,6 +83,9 @@ func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnin
 }
 
 func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *status.StatusContext) *ApplyUtil {
+	ad.resultsMutex.Lock()
+	defer ad.resultsMutex.Unlock()
+
 	ret := &ApplyUtil{
 		ctx:                ctx,
 		dew:                ad.dew,
@@ -651,6 +655,9 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 }
 
 func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
+	ad.resultsMutex.Lock()
+	defer ad.resultsMutex.Unlock()
+
 	var ret []*types.RefAndObject
 	for _, a := range ad.results {
 		for _, o := range a.appliedObjects {
@@ -672,6 +679,9 @@ func (ad *ApplyDeploymentsUtil) GetAppliedObjectsMap() map[k8s2.ObjectRef]*uo.Un
 }
 
 func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*types.RefAndObject {
+	ad.resultsMutex.Lock()
+	defer ad.resultsMutex.Unlock()
+
 	var ret []*types.RefAndObject
 	for _, a := range ad.results {
 		for _, o := range a.appliedHookObjects {
@@ -685,6 +695,9 @@ func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*types.RefAndObject {
 }
 
 func (ad *ApplyDeploymentsUtil) GetDeletedObjects() []k8s2.ObjectRef {
+	ad.resultsMutex.Lock()
+	defer ad.resultsMutex.Unlock()
+
 	var ret []k8s2.ObjectRef
 	m := make(map[k8s2.ObjectRef]bool)
 	for _, a := range ad.results {
