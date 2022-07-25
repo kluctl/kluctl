@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadTargetConfigFileFromLocal(t *testing.T) {
@@ -41,7 +42,7 @@ func TestLoadTargetConfigFileFromGit(t *testing.T) {
 	_, err = wt.Add("target-config.yml")
 	assert.NoError(t, err)
 
-	h, err := wt.Commit("test", &git.CommitOptions{})
+	h, err := wt.Commit("test", &git.CommitOptions{Author: &object.Signature{Name: "test", Email: "test@test.com", When: time.Now()}})
 	assert.NoError(t, err)
 
 	commit, err := object.GetCommit(r.Storer, h)
