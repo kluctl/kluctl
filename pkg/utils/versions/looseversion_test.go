@@ -79,3 +79,14 @@ func TestLooseVersionNoNums(t *testing.T) {
 	checkLess(t, "-1", "-2")
 	checkLess(t, "-1.1", "-1.2")
 }
+
+func TestLooseVersionVPrefix(t *testing.T) {
+	checkLess(t, "v1.0", "v1.1")
+	checkLess(t, "v2.0", "v2.1")
+	checkLess(t, "v1.0", "v2.0")
+	checkLess(t, "1.0", "v2.0")
+	checkLess(t, "v1.0suffix", "v1.0")
+	checkLess(t, "v1.0-suffix", "v1.0")
+	checkLess(t, "v1.0suffix1", "v1.0suffix2")
+	checkLess(t, "v1.0-suffix1", "v1.0-suffix2")
+}
