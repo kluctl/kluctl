@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var looseSemverRegex = regexp.MustCompile(`^(([0-9]+)(\.[0-9]+)*)?(.*)$`)
+var looseSemverRegex = regexp.MustCompile(`^v?(([0-9]+)(\.[0-9]+)*)?(.*)$`)
 var suffixComponentRegex = regexp.MustCompile(`\d+|[a-zA-Z]+|\.`)
 
 // Allows to compare ints and strings. Strings are always considered less than ints.
