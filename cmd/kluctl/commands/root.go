@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"time"
 )
@@ -42,6 +43,8 @@ const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/la
 type cli struct {
 	Debug         bool `group:"global" help:"Enable debug logging"`
 	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
+
+	CpuProfile string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
 
 	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
 	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
@@ -107,6 +110,23 @@ func setupStatusHandler(debug bool) {
 	os.Stderr = pw
 }
 
+var cpuProfileFile *os.File
+
+func setupProfiling(cpuProfile string) error {
+	var err error
+	if cpuProfile != "" {
+		cpuProfileFile, err = os.Create(cpuProfile)
+		if err != nil {
+			return fmt.Errorf("failed to create cpu profile file: %w", err)
+		}
+		err = pprof.StartCPUProfile(cpuProfileFile)
+		if err != nil {
+			return fmt.Errorf("failed to start cpu profiling: %w", err)
+		}
+	}
+	return nil
+}
+
 type VersionCheckState struct {
 	LastVersionCheck time.Time `yaml:"lastVersionCheck"`
 }
@@ -164,6 +184,10 @@ func (c *cli) checkNewVersion() {
 }
 
 func (c *cli) preRun() error {
+	err := setupProfiling(c.CpuProfile)
+	if err != nil {
+		return err
+	}
 	setupStatusHandler(c.Debug)
 	c.checkNewVersion()
 	return nil
@@ -219,6 +243,12 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	err = rootCmd.ExecuteContext(cliCtx)
 	if !didSetupStatusHandler {
 		setupStatusHandler(false)
+	}
+
+	if cpuProfileFile != nil {
+		pprof.StopCPUProfile()
+		_ = cpuProfileFile.Close()
+		cpuProfileFile = nil
 	}
 
 	sh := status.FromContext(cliCtx)
