@@ -357,12 +357,12 @@ func (g *MirroredGitRepo) CloneProjectByCommit(commit string, targetDir string) 
 	return nil
 }
 
-func (g *MirroredGitRepo) ReadFile(ref string, path string) ([]byte, error) {
+func (g *MirroredGitRepo) GetGitTreeByCommit(commitHash string) (*object.Tree, error) {
 	if !g.IsLocked() || !g.hasUpdated {
 		panic("tried to read a file from a project that is not locked/updated")
 	}
 
-	doError := func(err error) ([]byte, error) {
+	doError := func(err error) (*object.Tree, error) {
 		return nil, fmt.Errorf("failed to read file from git repostory: %w", err)
 	}
 
@@ -371,16 +371,9 @@ func (g *MirroredGitRepo) ReadFile(ref string, path string) ([]byte, error) {
 		return nil, err
 	}
 
-	if ref == "" {
-		ref = "HEAD"
-	}
+	h := plumbing.NewHash(commitHash)
 
-	h, err := r.ResolveRevision(plumbing.Revision(ref))
-	if err != nil {
-		return doError(err)
-	}
-
-	commit, err := object.GetCommit(r.Storer, *h)
+	commit, err := object.GetCommit(r.Storer, h)
 	if err != nil {
 		return doError(err)
 	}
@@ -388,18 +381,7 @@ func (g *MirroredGitRepo) ReadFile(ref string, path string) ([]byte, error) {
 	if err != nil {
 		return doError(err)
 	}
-
-	f, err := tree.File(path)
-	if err != nil {
-		return doError(err)
-	}
-	reader, err := f.Reader()
-	if err != nil {
-		return doError(err)
-	}
-	defer reader.Close()
-
-	return ioutil.ReadAll(reader)
+	return tree, nil
 }
 
 func buildMirrorRepoName(u git_url.GitUrl) string {

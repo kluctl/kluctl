@@ -3,23 +3,25 @@ package kluctl_project
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 )
 
 type dynamicTargetInfo struct {
 	baseTarget    *types.Target
 	dir           string
+	gitTree       *object.Tree
 	gitProject    *types.GitProject
 	ref           *string
 	refPattern    *string
@@ -40,11 +42,6 @@ func (c *LoadedKluctlProject) loadTargets() error {
 			return err
 		}
 		targetInfos = append(targetInfos, l...)
-	}
-
-	err := c.cloneDynamicTargets(targetInfos)
-	if err != nil {
-		return err
 	}
 
 	for _, targetInfo := range targetInfos {
@@ -186,14 +183,11 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 			return nil, err
 		}
 
-		cloneDir, _, err := ge.GetClonedDir(refShortName)
-		if err != nil {
-			return nil, err
-		}
+		gitTree, err := ge.GetGitTree(refShortName)
 
 		dynamicTargets = append(dynamicTargets, &dynamicTargetInfo{
 			baseTarget:    baseTarget,
-			dir:           cloneDir,
+			gitTree:       gitTree,
 			gitProject:    baseTarget.TargetConfig.Project,
 			ref:           &refShortName,
 			refPattern:    refPattern,
@@ -228,47 +222,40 @@ func (c *LoadedKluctlProject) matchRef(s string, pattern string) (bool, string, 
 	}
 }
 
-func (c *LoadedKluctlProject) cloneDynamicTargets(dynamicTargets []*dynamicTargetInfo) error {
-	uniqueClones := make(map[string]interface{})
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, targetInfo_ := range dynamicTargets {
-		targetInfo := targetInfo_
-
-		if targetInfo.gitProject == nil {
-			continue
+func (c *LoadedKluctlProject) loadTargetConfigFileFromGit(targetInfo *dynamicTargetInfo) ([]byte, error) {
+	existsFunc := func(path string) bool {
+		e, err := targetInfo.gitTree.FindEntry(path)
+		if e == nil || err != nil {
+			return false
 		}
-		mutex.Lock()
-		if _, ok := uniqueClones[targetInfo.dir]; ok {
-			mutex.Unlock()
-			continue
-		}
-		uniqueClones[targetInfo.dir] = nil
-		mutex.Unlock()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			gitProject := *targetInfo.gitProject
-			gitProject.Ref = *targetInfo.ref
-
-			gi, err := c.loadGitProject(&gitProject, "")
-			mutex.Lock()
-			defer mutex.Unlock()
-			if err != nil {
-				uniqueClones[targetInfo.dir] = err
-			} else {
-				uniqueClones[targetInfo.dir] = &gi
-			}
-		}()
+		return true
 	}
-	wg.Wait()
 
-	return nil
+	var configFile string
+
+	if targetInfo.baseTarget.TargetConfig.File != nil {
+		configFile = *targetInfo.baseTarget.TargetConfig.File
+	} else {
+		configFile = "target-config.yml"
+		if !existsFunc(configFile) {
+			configFile = "target-config.yaml"
+		}
+	}
+
+	f, err := targetInfo.gitTree.File(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load target config: %w", err)
+	}
+	r, err := f.Reader()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load target config: %w", err)
+	}
+	defer r.Close()
+
+	return io.ReadAll(r)
 }
 
-func (c *LoadedKluctlProject) loadTargetConfigFile(targetInfo *dynamicTargetInfo) ([]byte, error) {
+func (c *LoadedKluctlProject) loadTargetConfigFileFromLocal(targetInfo *dynamicTargetInfo) ([]byte, error) {
 	configFile := yaml.FixNameExt(targetInfo.dir, "target-config.yml")
 	if targetInfo.baseTarget.TargetConfig.File != nil {
 		configFile = *targetInfo.baseTarget.TargetConfig.File
@@ -282,6 +269,14 @@ func (c *LoadedKluctlProject) loadTargetConfigFile(targetInfo *dynamicTargetInfo
 	}
 
 	return os.ReadFile(configPath)
+}
+
+func (c *LoadedKluctlProject) loadTargetConfigFile(targetInfo *dynamicTargetInfo) ([]byte, error) {
+	if targetInfo.gitTree != nil {
+		return c.loadTargetConfigFileFromGit(targetInfo)
+	} else {
+		return c.loadTargetConfigFileFromLocal(targetInfo)
+	}
 }
 
 func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) (*types.Target, error) {
