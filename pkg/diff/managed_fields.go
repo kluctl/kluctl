@@ -1,7 +1,6 @@
 package diff
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,10 +111,24 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 	managersByFields := make(map[string]*managersByField)
 
 	for _, mf := range managedFields {
-		fieldSet := fieldpath.NewSet()
-		err := fieldSet.FromJSON(bytes.NewReader(mf.FieldsV1.Raw))
+		fields, ok, err := mf.GetNestedObject("fieldsV1")
 		if err != nil {
 			return nil, nil, err
+		}
+		if !ok {
+			continue
+		}
+		fieldSet, _, err := convertManagedFields(fields.Object)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		mgr, ok, err := mf.GetNestedString("manager")
+		if err != nil {
+			return nil, nil, err
+		}
+		if !ok {
+			return nil, nil, fmt.Errorf("manager field is missing")
 		}
 
 		fieldSet.Iterate(func(path fieldpath.Path) {
@@ -135,7 +148,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			if !found {
 				m.pathes = append(m.pathes, path)
 			}
-			m.managers = append(m.managers, mf.Manager)
+			m.managers = append(m.managers, mgr)
 		})
 	}
 

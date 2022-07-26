@@ -96,7 +96,8 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 		// check if kluctl is managing this object
 		found := false
 		for _, mf := range managedFields {
-			if mf.Manager == "kluctl" {
+			mgr, _, _ := mf.GetNestedString("manager")
+			if mgr == "kluctl" {
 				found = true
 				break
 			}

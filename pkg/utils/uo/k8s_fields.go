@@ -3,7 +3,6 @@ package uo
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"regexp"
@@ -208,8 +207,9 @@ func (uo *UnstructuredObject) GetK8sOwnerReferences() []*UnstructuredObject {
 	return ret
 }
 
-func (uo *UnstructuredObject) GetK8sManagedFields() []metav1.ManagedFieldsEntry {
-	return uo.ToUnstructured().GetManagedFields()
+func (uo *UnstructuredObject) GetK8sManagedFields() []*UnstructuredObject {
+	ret, _, _ := uo.GetNestedObjectList("metadata", "managedFields")
+	return ret
 }
 
 func (uo *UnstructuredObject) GetK8sCreationTime() time.Time {
