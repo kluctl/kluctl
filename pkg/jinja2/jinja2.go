@@ -123,61 +123,6 @@ func (j *Jinja2) RenderFile(template string, searchDirs []string, vars *uo.Unstr
 	return *jobs[0].Result, nil
 }
 
-func (j *Jinja2) RenderStruct(dst interface{}, src interface{}, vars *uo.UnstructuredObject) error {
-	m, err := uo.FromStruct(src)
-	if err != nil {
-		return err
-	}
-
-	type pk struct {
-		parent interface{}
-		key    interface{}
-	}
-
-	var jobs []*RenderJob
-	var fields []pk
-	err = m.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
-		value := it.Value()
-		if s, ok := value.(string); ok {
-			jobs = append(jobs, &RenderJob{Template: s})
-			fields = append(fields, pk{
-				parent: it.Parent(),
-				key:    it.Key(),
-			})
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	err = j.RenderStrings(jobs, nil, vars)
-	if err != nil {
-		return err
-	}
-
-	var errors []error
-	for i, j := range jobs {
-		if j.Error != nil {
-			errors = append(errors, j.Error)
-		} else {
-			err = uo.SetChild(fields[i].parent, fields[i].key, *j.Result)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	if len(errors) != 0 {
-		return utils.NewErrorListOrNil(errors)
-	}
-
-	err = m.ToStruct(dst)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (j *Jinja2) getGlob(pattern string) (glob.Glob, error) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()

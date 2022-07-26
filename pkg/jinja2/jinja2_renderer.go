@@ -86,9 +86,17 @@ func (j *pythonJinja2Renderer) Close() {
 	}
 }
 
-func (j *pythonJinja2Renderer) isMaybeTemplate(template string, searchDirs []string, isString bool) (bool, *string) {
+func isMaybeTemplateString(template string) bool {
+	return strings.IndexRune(template, '{') != -1
+}
+
+func isMaybeTemplateBytes(template []byte) bool {
+	return bytes.IndexRune(template, '{') != -1
+}
+
+func isMaybeTemplate(template string, searchDirs []string, isString bool) (bool, *string) {
 	if isString {
-		if strings.IndexRune(template, '{') == -1 {
+		if !isMaybeTemplateString(template) {
 			return false, &template
 		}
 	} else {
@@ -97,7 +105,7 @@ func (j *pythonJinja2Renderer) isMaybeTemplate(template string, searchDirs []str
 			if err != nil {
 				continue
 			}
-			if bytes.IndexRune(b, '{') == -1 {
+			if !isMaybeTemplateBytes(b) {
 				x := string(b)
 				return false, &x
 			} else {
@@ -140,7 +148,7 @@ func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []stri
 	jargs.Strict = strict
 
 	for _, job := range jobs {
-		if ist, r := j.isMaybeTemplate(job.Template, searchDirs, isString); !ist {
+		if ist, r := isMaybeTemplate(job.Template, searchDirs, isString); !ist {
 			job.Result = r
 			continue
 		}

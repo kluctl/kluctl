@@ -12,7 +12,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
 	"os"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -55,7 +54,7 @@ func (c *LoadedKluctlProject) loadTargets() error {
 			continue
 		}
 
-		target, err = c.renderTarget(target)
+		err = c.renderTarget(target)
 		if err != nil {
 			return err
 		}
@@ -76,17 +75,16 @@ func (c *LoadedKluctlProject) loadTargets() error {
 	return nil
 }
 
-func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target, error) {
+func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 	// Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
 	// to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
 
 	var errors []error
-	curTarget := target
 	for i := 0; i < 10; i++ {
 		varsCtx := vars.NewVarsCtx(c.J2)
-		err := varsCtx.UpdateChildFromStruct("target", curTarget)
+		err := varsCtx.UpdateChildFromStruct("target", target)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if target.Cluster != nil {
@@ -94,22 +92,20 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) (*types.Target,
 			if err == nil {
 				err = varsCtx.UpdateChildFromStruct("cluster", cc.Cluster)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			}
 		}
 
-		var newTarget types.Target
-		err = c.J2.RenderStruct(&newTarget, curTarget, varsCtx.Vars)
-		if err == nil && reflect.DeepEqual(curTarget, &newTarget) {
-			return curTarget, nil
+		changed, moreTemplates, err := c.J2.RenderStruct(target, varsCtx.Vars)
+		if err == nil && (!changed || !moreTemplates) {
+			return nil
 		}
-		curTarget = &newTarget
 	}
 	if len(errors) != 0 {
-		return nil, errors[0]
+		return errors[0]
 	}
-	return curTarget, nil
+	return nil
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargets(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {

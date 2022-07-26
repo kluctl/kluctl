@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
@@ -55,8 +56,12 @@ func (v *VarsLoader) LoadVarsList(varsCtx *VarsCtx, varsList []*types.VarsSource
 
 func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, searchDirs []string, rootKey string) error {
 	var source types.VarsSource
+	err := utils.DeepCopy(&source, sourceIn)
+	if err != nil {
+		return err
+	}
 
-	err := varsCtx.J2.RenderStruct(&source, sourceIn, varsCtx.Vars)
+	_, _, err = varsCtx.J2.RenderStruct(&source, varsCtx.Vars)
 	if err != nil {
 		return err
 	}
