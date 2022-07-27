@@ -139,11 +139,11 @@ jobs:
         include:
           - os: ubuntu-20.04
             binary-suffix: linux-amd64
-          - os: macos-10.15
+          - os: macos-11
             binary-suffix: darwin-amd64
           - os: windows-2019
             binary-suffix: windows-amd64
-        os: [ubuntu-20.04, macos-10.15, windows-2019]
+        os: [ubuntu-20.04, macos-11, windows-2019]
       fail-fast: false
     needs:
       - build
