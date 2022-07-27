@@ -521,6 +521,9 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	if a.warningCount != 0 {
 		finalStatus += fmt.Sprintf(" Encountered %d warnings.", a.warningCount)
 	}
+	if finalStatus == "" {
+		finalStatus = "Nothing to apply."
+	}
 
 	a.sctx.Update(strings.TrimSpace(finalStatus))
 
@@ -573,6 +576,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 			sctx = status.StartWithOptions(a.ctx,
 				status.WithTotal(-1),
 				status.WithPrefix(*progressName),
+				status.WithStatus("Initializing"),
 			)
 		}
 		a2 := a.NewApplyUtil(a.ctx, sctx)
