@@ -27,6 +27,7 @@ func NewValidateCommand(ctx context.Context, c *deployment.DeploymentCollection)
 
 func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.ValidateResult, error) {
 	var result types.ValidateResult
+	result.Ready = true
 
 	cmd.dew.Init()
 
@@ -56,6 +57,9 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 				continue
 			}
 			r := validation.ValidateObject(k, remoteObject, true)
+			if !r.Ready {
+				result.Ready = false
+			}
 			result.Errors = append(result.Errors, r.Errors...)
 			result.Warnings = append(result.Warnings, r.Warnings...)
 			result.Results = append(result.Results, r.Results...)
