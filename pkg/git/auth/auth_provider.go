@@ -4,11 +4,15 @@ import (
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"golang.org/x/crypto/ssh"
 )
 
 type AuthMethodAndCA struct {
 	AuthMethod transport.AuthMethod
 	CABundle   []byte
+
+	PublicKeys   func() []ssh.PublicKey
+	ClientConfig func() (*ssh.ClientConfig, error)
 }
 
 type GitAuthProvider interface {

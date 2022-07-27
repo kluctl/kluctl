@@ -121,6 +121,15 @@ func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 
 	return AuthMethodAndCA{
 		AuthMethod: auth,
+		PublicKeys: func() []ssh.PublicKey {
+			signers, _ := auth.Signers()
+			var ret []ssh.PublicKey
+			for _, s := range signers {
+				ret = append(ret, s.PublicKey())
+			}
+			return ret
+		},
+		ClientConfig: auth.ClientConfig,
 	}
 }
 

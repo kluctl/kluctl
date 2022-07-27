@@ -6,6 +6,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	ssh2 "golang.org/x/crypto/ssh"
 	"strings"
 )
 
@@ -80,6 +81,10 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 				a.HostKeyCallback = buildVerifyHostCallback(ctx, e.KnownHosts)
 				return AuthMethodAndCA{
 					AuthMethod: a,
+					PublicKeys: func() []ssh2.PublicKey {
+						return []ssh2.PublicKey{a.Signer.PublicKey()}
+					},
+					ClientConfig: a.ClientConfig,
 				}
 			}
 		} else {
