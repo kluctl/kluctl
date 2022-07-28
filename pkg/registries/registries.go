@@ -54,12 +54,13 @@ type RegistryHelper struct {
 }
 
 type AuthEntry struct {
-	Registry string
-	Username string
-	Password string
-	Auth     string
-	CABundle []byte
-	Insecure bool
+	Registry      string
+	Username      string
+	Password      string
+	Auth          string
+	CABundle      []byte
+	Insecure      bool
+	SkipTlsVerify bool
 }
 
 func NewRegistryHelper(ctx context.Context) *RegistryHelper {
@@ -86,8 +87,7 @@ func (rh *RegistryHelper) ListImageTags(image string) ([]string, error) {
 		remote.WithContext(context.WithValue(rh.ctx, transportKey, t)),
 	}
 
-	e := rh.findAuthEntry(repo.RegistryStr())
-	if e != nil && e.Insecure {
+	if rh.isInsecureRegistry(repo.RegistryStr()) {
 		nameOpts = append(nameOpts, name.Insecure)
 		repo, err = name.NewRepository(image, nameOpts...)
 	}
@@ -110,23 +110,63 @@ func (rh *RegistryHelper) AddAuthEntry(e AuthEntry) {
 	rh.authEntries = append(rh.authEntries, e)
 }
 
-func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
-	defaultTlsVerify := true
-	if x, ok := os.LookupEnv("KLUCTL_REGISTRY_DEFAULT_TLSVERIFY"); ok {
-		b, err := strconv.ParseBool(x)
-		if err != nil {
-			return fmt.Errorf("failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %w", err)
-		}
-		defaultTlsVerify = b
+func (rh *RegistryHelper) isDefaultInsecure() bool {
+	defaultInsecure, err := utils.ParseEnvBool("KLUCTL_REGISTRY_DEFAULT_INSECURE", false)
+	if err != nil {
+		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_INSECURE: %w", err)
+		return false
 	}
+	return defaultInsecure
+}
+
+func (rh *RegistryHelper) isDefaultSkipTlsVerify() bool {
+	defaultTlsVerify, err := utils.ParseEnvBool("KLUCTL_REGISTRY_DEFAULT_TLSVERIFY", true)
+	if err != nil {
+		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %w", err)
+		return false
+	}
+	return !defaultTlsVerify
+}
+
+func (rh *RegistryHelper) isInsecureRegistry(registry string) bool {
+	e := rh.findAuthEntry(registry)
+	if e == nil {
+		return rh.isDefaultInsecure()
+	}
+	return e.Insecure
+}
+
+func (rh *RegistryHelper) isSkipTlsVerify(registry string) bool {
+	e := rh.findAuthEntry(registry)
+	if e == nil {
+		return rh.isDefaultSkipTlsVerify()
+	}
+	return e.SkipTlsVerify
+}
+
+func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
+	defaultInsecure := rh.isDefaultInsecure()
+	defaultSkipTlsVerify := rh.isDefaultSkipTlsVerify()
 
 	for _, m := range utils.ParseEnvConfigSets("KLUCTL_REGISTRY") {
 		e := AuthEntry{
-			Registry: m["HOST"],
-			Username: m["USERNAME"],
-			Password: m["PASSWORD"],
-			Auth:     m["AUTH"],
-			Insecure: !defaultTlsVerify,
+			Registry:      m["HOST"],
+			Username:      m["USERNAME"],
+			Password:      m["PASSWORD"],
+			Auth:          m["AUTH"],
+			Insecure:      defaultInsecure,
+			SkipTlsVerify: defaultSkipTlsVerify,
+		}
+		if e.Registry == "" {
+			continue
+		}
+		insecureStr, ok := m["INSECURE"]
+		if ok {
+			insecure, err := strconv.ParseBool(insecureStr)
+			if err != nil {
+				return fmt.Errorf("failed to parse INSECURE from env: %w", err)
+			}
+			e.Insecure = insecure
 		}
 		tlsverifyStr, ok := m["TLSVERIFY"]
 		if ok {
@@ -134,7 +174,7 @@ func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
 			if err != nil {
 				return fmt.Errorf("failed to parse TLSVERIFY from env: %w", err)
 			}
-			e.Insecure = !tlsverify
+			e.SkipTlsVerify = !tlsverify
 		}
 
 		ca_bundle_path := m["CA_BUNDLE"]
@@ -178,16 +218,19 @@ func (rh *RegistryHelper) loadCA(registry string) (*x509.CertPool, error) {
 
 func (rh *RegistryHelper) buildTransport(registry string) (http.RoundTripper, error) {
 	ret, err := rh.cachedTransports.Get(registry, func() (interface{}, error) {
+		skipTls := rh.isSkipTlsVerify(registry)
+
 		ca, err := rh.loadCA(registry)
 		if err != nil {
 			return nil, err
 		}
-		if ca == nil {
+		if ca == nil && !skipTls {
 			return remote.DefaultTransport, nil
 		}
 
 		t := remote.DefaultTransport.Clone()
 		t.TLSClientConfig.RootCAs = ca
+		t.TLSClientConfig.InsecureSkipVerify = skipTls
 		return t, nil
 	})
 	if err != nil {

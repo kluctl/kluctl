@@ -8,6 +8,17 @@ import (
 	"strings"
 )
 
+func ParseEnvBool(name string, def bool) (bool, error) {
+	if x, ok := os.LookupEnv(name); ok {
+		b, err := strconv.ParseBool(x)
+		if err != nil {
+			return def, err
+		}
+		return b, nil
+	}
+	return def, nil
+}
+
 func ParseEnvConfigSets(prefix string) map[int]map[string]string {
 	ret := make(map[int]map[string]string)
 
