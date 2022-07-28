@@ -247,11 +247,15 @@ func (rh *RegistryHelper) getTransport(req *http.Request) http.RoundTripper {
 func (rh *RegistryHelper) doResolve(resource authn.Resource) (authn.Authenticator, error) {
 	e := rh.findAuthEntry(resource.RegistryStr())
 	if e != nil {
-		return authn.FromConfig(authn.AuthConfig{
-			Username: e.Username,
-			Password: e.Password,
-			Auth:     e.Auth,
-		}), nil
+		// only use credentials from entry if present, otherwise fallback to default keychain
+		// (which will also check ~/.docker/config.json)
+		if e.Username != "" || e.Auth != "" {
+			return authn.FromConfig(authn.AuthConfig{
+				Username: e.Username,
+				Password: e.Password,
+				Auth:     e.Auth,
+			}), nil
+		}
 	}
 
 	return authn.DefaultKeychain.Resolve(resource)
