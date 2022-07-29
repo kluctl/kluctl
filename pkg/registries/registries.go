@@ -113,7 +113,7 @@ func (rh *RegistryHelper) AddAuthEntry(e AuthEntry) {
 func (rh *RegistryHelper) isDefaultInsecure() bool {
 	defaultInsecure, err := utils.ParseEnvBool("KLUCTL_REGISTRY_DEFAULT_INSECURE", false)
 	if err != nil {
-		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_INSECURE: %w", err)
+		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_INSECURE: %s", err)
 		return false
 	}
 	return defaultInsecure
@@ -122,7 +122,7 @@ func (rh *RegistryHelper) isDefaultInsecure() bool {
 func (rh *RegistryHelper) isDefaultSkipTlsVerify() bool {
 	defaultTlsVerify, err := utils.ParseEnvBool("KLUCTL_REGISTRY_DEFAULT_TLSVERIFY", true)
 	if err != nil {
-		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %w", err)
+		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %s", err)
 		return false
 	}
 	return !defaultTlsVerify
