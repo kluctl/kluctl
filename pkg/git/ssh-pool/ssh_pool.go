@@ -18,7 +18,6 @@ const maxAge = time.Minute * 1
 
 type SshPool struct {
 	pool sync.Map
-	m    sync.Mutex
 }
 
 type poolEntry struct {

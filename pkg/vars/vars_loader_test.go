@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -38,7 +39,7 @@ func newTestDir(t *testing.T) string {
 }
 
 func newRP(t *testing.T) *repocache.GitRepoCache {
-	grc := repocache.NewGitRepoCache(context.TODO(), auth.NewDefaultAuthProviders(), 0)
+	grc := repocache.NewGitRepoCache(context.TODO(), &ssh_pool.SshPool{}, auth.NewDefaultAuthProviders(), 0)
 	t.Cleanup(func() {
 		grc.Clear()
 	})
