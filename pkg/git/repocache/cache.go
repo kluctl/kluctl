@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"io/ioutil"
 	"os"
@@ -20,6 +21,7 @@ import (
 type GitRepoCache struct {
 	ctx            context.Context
 	authProviders  *auth.GitAuthProviders
+	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
 	repos          map[string]*CacheEntry
 	reposMutex     sync.Mutex
@@ -49,9 +51,10 @@ type clonedDir struct {
 	info git.CheckoutInfo
 }
 
-func NewGitRepoCache(ctx context.Context, authProviders *auth.GitAuthProviders, updateInterval time.Duration) *GitRepoCache {
+func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, updateInterval time.Duration) *GitRepoCache {
 	return &GitRepoCache{
 		ctx:            ctx,
+		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
 		repos:          map[string]*CacheEntry{},
@@ -74,7 +77,7 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 
 	e, ok := rp.repos[url.NormalizedRepoKey()]
 	if !ok {
-		mr, err := git.NewMirroredGitRepo(rp.ctx, url)
+		mr, err := git.NewMirroredGitRepo(rp.ctx, url, rp.sshPool, rp.authProviders)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +109,7 @@ func (e *CacheEntry) Update() error {
 		if time.Now().Sub(e.mr.LastUpdateTime()) <= e.rp.updateInterval {
 			e.mr.SetUpdated(true)
 		} else {
-			err := e.mr.Update(e.rp.authProviders)
+			err := e.mr.Update()
 			if err != nil {
 				return err
 			}

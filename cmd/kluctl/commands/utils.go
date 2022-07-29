@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -59,7 +60,9 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
 	defer cancel()
 
-	rp := repocache.NewGitRepoCache(ctx, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
+	sshPool := &ssh_pool.SshPool{}
+
+	rp := repocache.NewGitRepoCache(ctx, sshPool, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{

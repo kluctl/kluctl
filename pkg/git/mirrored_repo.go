@@ -9,6 +9,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	_ "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/rogpeppe/go-internal/lockedfile"
@@ -25,6 +27,9 @@ var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 type MirroredGitRepo struct {
 	ctx context.Context
 
+	sshPool       *ssh_pool.SshPool
+	authProviders *auth2.GitAuthProviders
+
 	url       git_url.GitUrl
 	mirrorDir string
 
@@ -36,12 +41,14 @@ type MirroredGitRepo struct {
 	mutex sync.Mutex
 }
 
-func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl) (*MirroredGitRepo, error) {
+func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl, sshPool *ssh_pool.SshPool, authProviders *auth2.GitAuthProviders) (*MirroredGitRepo, error) {
 	mirrorRepoName := buildMirrorRepoName(u)
 	o := &MirroredGitRepo{
-		ctx:       ctx,
-		url:       u,
-		mirrorDir: filepath.Join(cacheBaseDir, mirrorRepoName),
+		ctx:           ctx,
+		sshPool:       sshPool,
+		authProviders: authProviders,
+		url:           u,
+		mirrorDir:     filepath.Join(cacheBaseDir, mirrorRepoName),
 	}
 
 	if !utils.IsDirectory(o.mirrorDir) {
@@ -185,26 +192,19 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string, authProviders *auth2.GitAuthProviders) error {
+func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error {
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		return err
 	}
 
-	auth := authProviders.BuildAuth(g.ctx, g.url)
+	auth := g.authProviders.BuildAuth(g.ctx, g.url)
 
-	remote, err := r.Remote("origin")
+	remoteRefs, err := g.listRemoteRefs(r, auth)
 	if err != nil {
 		return err
 	}
 
-	remoteRefs, err := remote.ListContext(g.ctx, &git.ListOptions{
-		Auth:     auth.AuthMethod,
-		CABundle: auth.CABundle,
-	})
-	if err != nil {
-		return err
-	}
 	remoteRefsMap := make(map[plumbing.ReferenceName]*plumbing.Reference)
 	for _, reference := range remoteRefs {
 		remoteRefsMap[reference.Name()] = reference
@@ -241,6 +241,10 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string, authPr
 	}
 
 	if changed {
+		remote, err := r.Remote("origin")
+		if err != nil {
+			return err
+		}
 		err = remote.FetchContext(g.ctx, &git.FetchOptions{
 			Auth:     auth.AuthMethod,
 			CABundle: auth.CABundle,
@@ -276,10 +280,10 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string, authPr
 	return nil
 }
 
-func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext, authProviders *auth2.GitAuthProviders) error {
+func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	if utils.IsFile(initMarker) {
-		return g.update(s, g.mirrorDir, authProviders)
+		return g.update(s, g.mirrorDir)
 	}
 	err := g.cleanupMirrorDir()
 	if err != nil {
@@ -309,7 +313,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext, authProviders *
 		return err
 	}
 
-	err = g.update(s, tmpMirrorDir, authProviders)
+	err = g.update(s, tmpMirrorDir)
 	if err != nil {
 		return err
 	}
@@ -331,9 +335,9 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext, authProviders *
 	return nil
 }
 
-func (g *MirroredGitRepo) Update(authProviders *auth2.GitAuthProviders) error {
+func (g *MirroredGitRepo) Update() error {
 	s := status.Start(g.ctx, "Updating git cache for %s", g.url.String())
-	err := g.cloneOrUpdate(s, authProviders)
+	err := g.cloneOrUpdate(s)
 	if err != nil {
 		s.FailedWithMessage(err.Error())
 		return err
