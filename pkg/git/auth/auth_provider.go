@@ -11,7 +11,7 @@ type AuthMethodAndCA struct {
 	AuthMethod transport.AuthMethod
 	CABundle   []byte
 
-	PublicKeys   func() []ssh.PublicKey
+	Hash         func() ([]byte, error)
 	ClientConfig func() (*ssh.ClientConfig, error)
 }
 

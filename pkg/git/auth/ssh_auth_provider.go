@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"github.com/kevinburke/ssh_config"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -121,13 +123,12 @@ func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 
 	return AuthMethodAndCA{
 		AuthMethod: auth,
-		PublicKeys: func() []ssh.PublicKey {
-			signers, _ := auth.Signers()
-			var ret []ssh.PublicKey
-			for _, s := range signers {
-				ret = append(ret, s.PublicKey())
+		Hash: func() ([]byte, error) {
+			signers, err := auth.Signers()
+			if err != nil {
+				return nil, err
 			}
-			return ret
+			return buildHashForList(signers)
 		},
 		ClientConfig: auth.ClientConfig,
 	}
@@ -209,6 +210,19 @@ func (k *dummyPublicKey) Marshal() []byte {
 // key. This function will hash the data appropriately first.
 func (k *dummyPublicKey) Verify(data []byte, sig *ssh.Signature) error {
 	return fmt.Errorf("this is a dummy key")
+}
+
+func (k *deferredPassphraseKey) Hash() ([]byte, error) {
+	pemBytes, err := ioutil.ReadFile(k.path)
+	if err != nil {
+		return nil, err
+	}
+
+	h := sha256.New()
+	_ = binary.Write(h, binary.LittleEndian, "dpk")
+	_ = binary.Write(h, binary.LittleEndian, pemBytes)
+
+	return h.Sum(nil), nil
 }
 
 func (k *deferredPassphraseKey) PublicKey() ssh.PublicKey {

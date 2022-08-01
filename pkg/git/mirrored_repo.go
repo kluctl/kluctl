@@ -222,7 +222,7 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error 
 	})
 
 	var toDelete []*plumbing.Reference
-	changed := false
+	changed := true
 	for name, ref := range remoteRefsMap {
 		if name.String() != "HEAD" && !strings.HasPrefix(name.String(), "refs/heads/") && !strings.HasPrefix(name.String(), "refs/tags/") {
 			// we only fetch branches and tags

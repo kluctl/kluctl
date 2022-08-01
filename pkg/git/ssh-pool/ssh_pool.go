@@ -154,9 +154,9 @@ func (p *SshPool) newClient(ctx context.Context, addr string, auth auth.AuthMeth
 }
 
 func (p *SshPool) buildHash(addr string, auth auth.AuthMethodAndCA) (string, error) {
-	if auth.PublicKeys == nil {
+	if auth.Hash == nil {
 		// this should not happen
-		return "", fmt.Errorf("auth has no PublicKeys")
+		return "", fmt.Errorf("auth has no Hash")
 	}
 
 	config, err := auth.ClientConfig()
@@ -168,9 +168,11 @@ func (p *SshPool) buildHash(addr string, auth auth.AuthMethodAndCA) (string, err
 	_ = binary.Write(h, binary.LittleEndian, addr)
 	_ = binary.Write(h, binary.LittleEndian, config.User)
 
-	for _, pk := range auth.PublicKeys() {
-		_ = binary.Write(h, binary.LittleEndian, pk.Marshal())
+	h2, err := auth.Hash()
+	if err != nil {
+		return "", err
 	}
+	_ = binary.Write(h, binary.LittleEndian, h2)
 
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
