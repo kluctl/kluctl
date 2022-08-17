@@ -17,7 +17,7 @@ type patchResume struct {
 	Value bool   `json:"value"`
 }
 
-// TODO add reoncilation after resume
+// TODO add reconciliation after resume
 func (cmd *fluxResumeCmd) Run() error {
 	ns := cmd.KluctlDeploymentFlags.Namespace
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment

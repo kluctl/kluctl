@@ -44,7 +44,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 			panic(err.Error())
 		}
 		sourceName, sourceNamespace = flux.GetSource(objectFields)
-		fmt.Println(("► Running with source"))
+		fmt.Printf("► annotating Source %s in %s namespace \n", sourceName, sourceNamespace)
 		err = flux.Patch(client, sourceNamespace, sourceName, args.GitRepository, payload)
 		if err != nil {
 			flux.HandleError(err, kd, ns)

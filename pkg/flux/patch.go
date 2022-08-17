@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-// TODO wait for object to reconcile
+// TODO Add wait for object to reconcile
 // TODO add better error handling
 func Patch(client dynamic.Interface,
 	namespace string,
@@ -32,8 +32,16 @@ func Patch(client dynamic.Interface,
 }
 
 func GetSource(objectData *unstructured.Unstructured) (string, string) {
+	// Refactor extraction, maybe reflect ?
 	spec := objectData.DeepCopy().Object["spec"]
+	status := objectData.DeepCopy().Object["status"]
 	m, ok := spec.(map[string]interface{})["sourceRef"]
+	if !ok {
+		fmt.Printf("want type map[string]interface{};  got %T", spec)
+		os.Exit(1)
+	}
+
+	s, ok := status.(map[string]interface{})["lastAttemptedReconcile"]
 	if !ok {
 		fmt.Printf("want type map[string]interface{};  got %T", spec)
 		os.Exit(1)
@@ -41,6 +49,9 @@ func GetSource(objectData *unstructured.Unstructured) (string, string) {
 
 	sourceName := fmt.Sprintf("%v", m.(map[string]interface{})["name"])
 	sourceNamespace := fmt.Sprintf("%v", m.(map[string]interface{})["namespace"])
+	revision := fmt.Sprintf("%v", s.(map[string]interface{})["revision"])
+
+	fmt.Printf("✔ revision: %s \n", revision)
 
 	return sourceName, sourceNamespace
 }
