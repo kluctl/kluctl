@@ -23,7 +23,7 @@ func (cmd *fluxResumeCmd) Run() error {
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment
 	client := flux.CreateClient()
 
-	payload := []patchSuspend{{
+	payload := []patchResume{{
 		Op:    "replace",
 		Path:  "/spec/suspend",
 		Value: false,
