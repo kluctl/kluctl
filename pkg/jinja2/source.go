@@ -1,16 +1,22 @@
 package jinja2
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/embed_util"
+	"github.com/rogpeppe/go-internal/lockedfile"
+	"io/fs"
+	"os"
 	"path/filepath"
 )
 
-//go:generate go run ./generate
+//go:embed python_src
+var _pythonSrc embed.FS
+var pythonSrc, _ = fs.Sub(_pythonSrc, "python_src")
 
-//go:embed embed/python_src.*
-var pythonSrc embed.FS
 var pythonSrcExtracted string
 
 func init() {
@@ -22,23 +28,66 @@ func init() {
 }
 
 func extractSource() (string, error) {
-	tgz, err := pythonSrc.Open("embed/python_src.tar.gz")
+	hash := calcEmbeddedHash(pythonSrc)
+
+	targetPath := filepath.Join(utils.GetTmpBaseDir(), fmt.Sprintf("jinja2-%s", hash[:16]))
+
+	lock, err := lockedfile.Create(targetPath + ".lock")
 	if err != nil {
 		return "", err
 	}
-	defer tgz.Close()
+	defer lock.Close()
 
-	fileList, err := pythonSrc.Open("embed/python_src.tar.gz.files")
+	err = fs.WalkDir(pythonSrc, ".", func(path string, d fs.DirEntry, err error) error {
+		if d == nil || d.IsDir() {
+			return nil
+		}
+		data, err := fs.ReadFile(pythonSrc, path)
+		if err != nil {
+			return err
+		}
+		targetPath2 := filepath.Join(targetPath, path)
+		err = os.MkdirAll(filepath.Dir(targetPath2), 0o755)
+		if err != nil {
+			return err
+		}
+
+		err = os.WriteFile(targetPath2+".tmp", data, 0o644)
+		if err != nil {
+			return err
+		}
+		err = os.Rename(targetPath2+".tmp", targetPath2)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return "", err
 	}
-	defer fileList.Close()
 
-	libPath := filepath.Join(utils.GetTmpBaseDir(), "jinja2-src")
-	libPath, err = embed_util.ExtractTarToTmp(tgz, fileList, libPath)
+	return targetPath, nil
+}
+
+func calcEmbeddedHash(fs1 fs.FS) string {
+	h := sha256.New()
+	err := fs.WalkDir(fs1, ".", func(path string, d fs.DirEntry, err error) error {
+		_ = binary.Write(h, binary.LittleEndian, path)
+		if d.IsDir() {
+			_ = binary.Write(h, binary.LittleEndian, "dir")
+		} else {
+			_ = binary.Write(h, binary.LittleEndian, "regular")
+			data, err := fs.ReadFile(fs1, path)
+			if err != nil {
+				panic(err)
+			}
+			_ = binary.Write(h, binary.LittleEndian, len(data))
+			_ = binary.Write(h, binary.LittleEndian, data)
+		}
+		return nil
+	})
 	if err != nil {
-		return "", err
+		panic(err)
 	}
-
-	return libPath, nil
+	return hex.EncodeToString(h.Sum(nil))
 }

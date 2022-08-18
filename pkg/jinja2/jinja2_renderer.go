@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/python"
+	"github.com/kluctl/kluctl-python-deps/pkg/python"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io"
 	"io/ioutil"

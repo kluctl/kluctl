@@ -14,7 +14,7 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-.PHONY: all test build vendor check-kubectl check-helm check-kind
+.PHONY: all test build check-kubectl check-helm check-kind
 
 all: help
 
@@ -30,24 +30,17 @@ check-kind: ## Checks if kind is installed
 	kind version
 
 ## Build:
-build: vendor generate build-go ## Run the complete build pipeline
+build: build-go ## Run the complete build pipeline
 
 build-go:  ## Build your project and put the output binary in ./bin/
 	mkdir -p ./bin
-	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -mod vendor -o ./bin/$(BINARY_NAME)
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -o ./bin/$(BINARY_NAME)
 
 clean: ## Remove build related file
 	rm -fr ./bin
 	rm -fr ./out
 	rm -fr ./reports
 	rm -fr ./download-python
-
-vendor: ## Copy of all packages needed to support builds and tests in the vendor directory
-	$(GOCMD) mod vendor
-
-generate: ## Generating Python and Jinja2 support
-	$(GOCMD) generate ./...
-	$(GOCMD) generate -tags linux,darwin,windows,amd64,arm64 ./pkg/python
 
 ## Test:
 test: test-unit test-e2e ## Runs the complete test suite
@@ -61,10 +54,10 @@ ifeq ($(EXPORT_RESULT), true)
 	GO111MODULE=off $(GOCMD) get -u github.com/jstemmer/go-junit-report
 	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > reports/test-unit/junit-report.xml)
 endif
-	$(GOTEST) -v -race $(shell go list ./... | grep -v /e2e/ | grep -v /vendor/) $(OUTPUT_OPTIONS)
+	$(GOTEST) -v -race $(shell go list ./... | grep -v /e2e/) $(OUTPUT_OPTIONS)
 
 coverage-unit: ## Run the unit tests of the project and export the coverage
-	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/ | grep -v /vendor/)
+	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/)
 	$(GOCMD) tool cover -func profile.cov
 ifeq ($(EXPORT_RESULT), true)
 	mkdir -p reports/coverage-unit

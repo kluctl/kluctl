@@ -7,8 +7,6 @@
 .secrets.yml
 .sealed-secrets
 
-/vendor
-/download-python
 /kluctl
 /kluctl.exe
 /e2e.test*

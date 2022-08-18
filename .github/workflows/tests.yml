@@ -28,12 +28,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Go Mod Vendor
-        run: |
-          go mod vendor
-      - name: Go Generate
-        run: |
-          go generate ./...
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v
