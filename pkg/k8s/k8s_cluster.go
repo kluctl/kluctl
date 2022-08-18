@@ -376,14 +376,8 @@ type PatchOptions struct {
 	ForceApply  bool
 }
 
-func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+func (k *K8sCluster) doPatch(ref k8s.ObjectRef, data []byte, patchType types.PatchType, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
-	ref := o.GetK8sRef()
-
-	data, err := yaml.WriteYamlBytes(o)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	po := v1.PatchOptions{
 		FieldManager: "kluctl",
@@ -399,7 +393,7 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Patch(k.ctx, ref.Name, types.ApplyPatchType, data, po)
+		x, err := r.Patch(k.ctx, ref.Name, patchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
 		}
@@ -407,6 +401,33 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 		return nil
 	})
 	return result, apiWarnings, err
+}
+
+func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+	data, err := yaml.WriteYamlBytes(o)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k.doPatch(o.GetK8sRef(), data, types.JSONPatchType, options)
+}
+
+type JsonPatch struct {
+	Op    string `yaml:"op"`
+	Path  string `yaml:"path"`
+	Value any    `yaml:"value"`
+}
+
+func (k *K8sCluster) PatchObjectWithJsonPatch(ref k8s.ObjectRef, patch JsonPatch, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+	data, err := yaml.WriteYamlBytes(patch)
+	if err != nil {
+		return nil, nil, err
+	}
+	data, err = yaml.ConvertYamlToJson(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	return k.doPatch(ref, data, types.JSONPatchType, options)
 }
 
 type UpdateOptions struct {
