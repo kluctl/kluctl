@@ -2,14 +2,19 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/Masterminds/semver/v3"
+
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,8 +24,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	"sync"
-	"time"
 )
 
 type K8sCluster struct {
@@ -222,6 +225,16 @@ func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredO
 	return ret, retApiWarnings, nil
 }
 
+func (k *K8sCluster) GetObjectField(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
+
+	status.Trace(k.ctx, "fetching %s", ref.String())
+
+	o, apiWarning, err := k.GetSingleObject(ref)
+
+	return o, apiWarning, err
+
+}
+
 type DeleteOptions struct {
 	ForceDryRun         bool
 	NoWait              bool
@@ -413,17 +426,13 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 }
 
 type JsonPatch struct {
-	Op    string `yaml:"op"`
-	Path  string `yaml:"path"`
-	Value any    `yaml:"value"`
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value any    `json:"value"`
 }
 
-func (k *K8sCluster) PatchObjectWithJsonPatch(ref k8s.ObjectRef, patch JsonPatch, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
-	data, err := yaml.WriteYamlBytes(patch)
-	if err != nil {
-		return nil, nil, err
-	}
-	data, err = yaml.ConvertYamlToJson(data)
+func (k *K8sCluster) PatchObjectWithJsonPatch(ref k8s.ObjectRef, patch interface{}, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+	data, err := json.Marshal(patch)
 	if err != nil {
 		return nil, nil, err
 	}
