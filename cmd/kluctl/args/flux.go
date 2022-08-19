@@ -16,8 +16,8 @@ var KluctlDeploymentGVK = schema.GroupVersionKind{
 	Kind:    "KluctlDeployment",
 }
 
-var GitRepository = schema.GroupVersionResource{
-	Group:    "source.toolkit.fluxcd.io",
-	Version:  "v1beta2",
-	Resource: "gitrepositories",
+var GitRepositoryGVK = schema.GroupVersionKind{
+	Group:   "source.toolkit.fluxcd.io",
+	Version: "v1beta2",
+	Kind:    "GitRepository",
 }

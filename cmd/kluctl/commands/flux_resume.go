@@ -44,7 +44,5 @@ func (cmd *fluxResumeCmd) Run() error {
 	}
 	s.Success()
 
-	// fmt.Println(("✔ KluctlDeployment suspended"))
-
 	return err
 }
