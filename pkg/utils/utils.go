@@ -3,24 +3,71 @@ package utils
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"github.com/jinzhu/copier"
+	"github.com/kluctl/kluctl-python-deps/pkg/utils"
+	"io/fs"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"sync"
 )
 
 var createTmpBaseDirOnce sync.Once
+var tmpBaseDir string
 
 func GetTmpBaseDir() string {
-	dir := filepath.Join(os.TempDir(), "kluctl-workdir")
 	createTmpBaseDirOnce.Do(func() {
-		err := os.MkdirAll(dir, 0o700)
+		createTmpBaseDir()
+	})
+	return tmpBaseDir
+}
+
+func createTmpBaseDir() {
+	dir := filepath.Join(os.TempDir(), "kluctl-workdir")
+
+	ensureDir(dir, 0o777, true)
+
+	// every user gets its own tmp dir
+	u, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+
+	dir = filepath.Join(dir, u.Uid)
+	ensureDir(dir, 0o700, true)
+
+	tmpBaseDir = dir
+}
+
+func ensureDir(path string, perm fs.FileMode, allowCreate bool) {
+	if utils.Exists(path) {
+		st, err := os.Lstat(path)
 		if err != nil {
 			panic(err)
 		}
-	})
-	return dir
+		if !st.IsDir() {
+			panic(fmt.Sprintf("%s is not a directory", path))
+		}
+		if st.Mode().Perm() != perm {
+			err = os.Chmod(path, perm)
+			if err != nil {
+				panic(err)
+			}
+		}
+	} else if !allowCreate {
+		panic(fmt.Sprintf("failed to ensure directory %s", path))
+	} else {
+		err := os.Mkdir(path, perm)
+		if err != nil {
+			if os.IsExist(err) {
+				ensureDir(path, perm, false)
+			} else {
+				panic(err)
+			}
+		}
+	}
 }
 
 func Sha256String(data string) string {
