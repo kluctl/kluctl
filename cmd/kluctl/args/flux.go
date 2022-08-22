@@ -21,3 +21,13 @@ var GitRepositoryGVK = schema.GroupVersionKind{
 	Version: "v1beta2",
 	Kind:    "GitRepository",
 }
+
+func (cmd *KluctlDeploymentFlags) VerifyFlags() bool {
+	if cmd.KluctlDeployment == "" {
+		return false
+	}
+	if cmd.Namespace == "" {
+		cmd.Namespace = "default"
+	}
+	return true
+}

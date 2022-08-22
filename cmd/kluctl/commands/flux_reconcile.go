@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
@@ -44,6 +45,10 @@ func (cmd *fluxReconcileCmd) Run() error {
 	}}
 
 	if source {
+		if !cmd.VerifyFlags() {
+			fmt.Println("KluctlDeployment name flag not provided..")
+			os.Exit(1)
+		}
 		sourceName, sourceNamespace, _, err = k.GetObjectSource(ref)
 		if err != nil {
 			return err
