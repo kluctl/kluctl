@@ -2,6 +2,13 @@ package e2e
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/imdario/mergo"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
@@ -9,12 +16,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 type testProject struct {

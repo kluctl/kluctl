@@ -1,0 +1,1918 @@
+---
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: microservices-demo-test
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./simple
+  prune: true
+  renameContexts:
+  - newContext: kind-kind
+    oldContext: default
+  sourceRef:
+    kind: GitRepository
+    name: microservices-demo
+    namespace: flux-system
+  target: simple
+  timeout: 2m
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: microservices-demo
+  namespace: flux-system
+spec:
+  interval: 5m
+  ref:
+    branch: main
+  url: https://github.com/gitbluf/kluctl-examples.git
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: kluctldeployments.flux.kluctl.io
+spec:
+  group: flux.kluctl.io
+  names:
+    kind: KluctlDeployment
+    listKind: KluctlDeploymentList
+    plural: kluctldeployments
+    singular: kluctldeployment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.lastDeployResult.time
+      name: Deployed
+      type: date
+    - jsonPath: .status.lastPruneResult.time
+      name: Pruned
+      type: date
+    - jsonPath: .status.lastValidateResult.time
+      name: Validated
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: KluctlDeployment is the Schema for the kluctldeployments API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KluctlDeploymentSpec defines the desired state of KluctlDeployment
+            properties:
+              abortOnError:
+                default: false
+                description: ForceReplaceOnError instructs kluctl to abort deployments
+                  immediately when something fails. Equivalent to using '--abort-on-error'
+                  when calling kluctl.
+                type: boolean
+              args:
+                additionalProperties:
+                  type: string
+                description: Args specifies dynamic target args. Only arguments defined
+                  by 'dynamicArgs' of the target are allowed.
+                type: object
+              dependsOn:
+                description: DependsOn may contain a meta.NamespacedObjectReference
+                  slice with references to resources that must be ready before this
+                  kluctl project can be deployed.
+                items:
+                  description: NamespacedObjectReference contains enough information
+                    to locate the referenced Kubernetes resource object in any namespace.
+                  properties:
+                    name:
+                      description: Name of the referent.
+                      type: string
+                    namespace:
+                      description: Namespace of the referent, when not specified it
+                        acts as LocalObjectReference.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              deployInterval:
+                description: DeployInterval specifies the interval at which to deploy
+                  the KluctlDeployment. This is independent of the 'Interval' value,
+                  which only causes deployments if some deployment objects have changed.
+                type: string
+              deployMode:
+                default: full-deploy
+                description: DeployMode specifies what deploy mode should be used
+                enum:
+                - full-deploy
+                - poke-images
+                type: string
+              dryRun:
+                default: false
+                description: DryRun instructs kluctl to run everything in dry-run
+                  mode. Equivalent to using '--dry-run' when calling kluctl.
+                type: boolean
+              excludeDeploymentDirs:
+                description: ExcludeDeploymentDirs instructs kluctl to exclude deployments
+                  with the given dir. Equivalent to using '--exclude-deployment-dir'
+                  when calling kluctl.
+                items:
+                  type: string
+                type: array
+              excludeTags:
+                description: ExcludeTags instructs kluctl to exclude deployments with
+                  given tags. Equivalent to using '--exclude-tag' when calling kluctl.
+                items:
+                  type: string
+                type: array
+              forceApply:
+                default: false
+                description: ForceApply instructs kluctl to force-apply in case of
+                  SSA conflicts. Equivalent to using '--force-apply' when calling
+                  kluctl.
+                type: boolean
+              forceReplaceOnError:
+                default: false
+                description: ForceReplaceOnError instructs kluctl to force-replace
+                  resources in case a normal replace fails. Equivalent to using '--force-replace-on-error'
+                  when calling kluctl.
+                type: boolean
+              images:
+                description: Images contains a list of fixed image overrides. Equivalent
+                  to using '--fixed-images-file' when calling kluctl.
+                items:
+                  properties:
+                    container:
+                      type: string
+                    deployTags:
+                      items:
+                        type: string
+                      type: array
+                    deployedImage:
+                      type: string
+                    deployment:
+                      type: string
+                    deploymentDir:
+                      type: string
+                    image:
+                      type: string
+                    namespace:
+                      type: string
+                    object:
+                      description: ObjectRef contains the information necessary to
+                        locate a resource within a cluster.
+                      properties:
+                        group:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      - name
+                      - namespace
+                      - version
+                      type: object
+                    registryImage:
+                      type: string
+                    resultImage:
+                      type: string
+                    versionFilter:
+                      type: string
+                  required:
+                  - image
+                  - resultImage
+                  type: object
+                type: array
+              includeDeploymentDirs:
+                description: IncludeDeploymentDirs instructs kluctl to only include
+                  deployments with the given dir. Equivalent to using '--include-deployment-dir'
+                  when calling kluctl.
+                items:
+                  type: string
+                type: array
+              includeTags:
+                description: IncludeTags instructs kluctl to only include deployments
+                  with given tags. Equivalent to using '--include-tag' when calling
+                  kluctl.
+                items:
+                  type: string
+                type: array
+              interval:
+                description: The interval at which to reconcile the KluctlDeployment.
+                type: string
+              kubeConfig:
+                description: The KubeConfig for deploying to the target cluster. Specifies
+                  the kubeconfig to be used when invoking kluctl. Contexts in this
+                  kubeconfig must match the context found in the kluctl target. As
+                  an alternative, RenameContexts can be used to fix non-matching context
+                  names.
+                properties:
+                  secretRef:
+                    description: SecretRef holds the name of a secret that contains
+                      a key with the kubeconfig file as the value. If no key is set,
+                      the key will default to 'value'. The secret must be in the same
+                      namespace as the Kustomization. It is recommended that the kubeconfig
+                      is self-contained, and the secret is regularly updated if credentials
+                      such as a cloud-access-token expire. Cloud specific `cmd-path`
+                      auth helpers will not function without adding binaries and credentials
+                      to the Pod that is responsible for reconciling the KluctlDeployment.
+                    properties:
+                      key:
+                        description: Key in the Secret, when not specified an implementation-specific
+                          default key is used.
+                        type: string
+                      name:
+                        description: Name of the Secret.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              noWait:
+                default: false
+                description: NoWait instructs kluctl to not wait for any resources
+                  to become ready, including hooks. Equivalent to using '--no-wait'
+                  when calling kluctl.
+                type: boolean
+              path:
+                description: Path to the directory containing the .kluctl.yaml file,
+                  or the Defaults to 'None', which translates to the root path of
+                  the SourceRef.
+                type: string
+              prune:
+                default: false
+                description: Prune enables pruning after deploying.
+                type: boolean
+              registrySecrets:
+                description: RegistrySecrets is a list of secret references to be
+                  used for image registry authentication. The secrets must either
+                  have ".dockerconfigjson" included or "registry", "username" and
+                  "password". Additionally, "caFile" and "insecure" can be specified.
+                items:
+                  description: LocalObjectReference contains enough information to
+                    locate the referenced Kubernetes resource object.
+                  properties:
+                    name:
+                      description: Name of the referent.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              renameContexts:
+                description: RenameContexts specifies a list of context rename operations.
+                  This is useful when the kluctl target's context does not match with
+                  the contexts found in the kubeconfig while deploying. This is the
+                  case when using kubeconfigs generated from service accounts, in
+                  which case the context name is always "default".
+                items:
+                  description: RenameContext specifies a single rename of a context
+                  properties:
+                    newContext:
+                      description: NewContext is the new name of the context
+                      type: string
+                    oldContext:
+                      description: OldContext is the name of the context to be renamed
+                      type: string
+                  required:
+                  - newContext
+                  - oldContext
+                  type: object
+                type: array
+              replaceOnError:
+                default: false
+                description: ReplaceOnError instructs kluctl to replace resources
+                  on error. Equivalent to using '--replace-on-error' when calling
+                  kluctl.
+                type: boolean
+              retryInterval:
+                description: The interval at which to retry a previously failed reconciliation.
+                  When not specified, the controller uses the KluctlDeploymentSpec.Interval
+                  value to retry failures.
+                type: string
+              serviceAccountName:
+                description: The name of the Kubernetes service account to use while
+                  deploying. If not specified, the default service account is used.
+                type: string
+              sourceRef:
+                description: Reference of the source where the kluctl project is.
+                  The authentication secrets from the source are also used to authenticate
+                  dependent git repositories which are cloned while deploying the
+                  kluctl project.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  kind:
+                    description: Kind of the referent.
+                    enum:
+                    - GitRepository
+                    - Bucket
+                    type: string
+                  name:
+                    description: Name of the referent.
+                    type: string
+                  namespace:
+                    description: Namespace of the referent, defaults to the namespace
+                      of the Kubernetes resource object that contains the reference.
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              suspend:
+                description: This flag tells the controller to suspend subsequent
+                  kluctl executions, it does not apply to already started executions.
+                  Defaults to false.
+                type: boolean
+              target:
+                description: Target specifies the kluctl target to deploy
+                maxLength: 63
+                minLength: 1
+                type: string
+              timeout:
+                description: Timeout for all operations. Defaults to 'Interval' duration.
+                type: string
+              updateImages:
+                default: false
+                description: UpdateImages instructs kluctl to update dynamic images.
+                  Equivalent to using '-u' when calling kluctl.
+                type: boolean
+              validateInterval:
+                default: 5m
+                description: ValidateInterval specifies the interval at which to validate
+                  the KluctlDeployment. Validation is performed the same way as with
+                  'kluctl validate -t <target>'. Defaults to 1m.
+                type: string
+            required:
+            - interval
+            - sourceRef
+            - target
+            type: object
+          status:
+            description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
+            properties:
+              commonLabels:
+                additionalProperties:
+                  type: string
+                description: CommonLabels are the commonLabels found in the deployment
+                  project when the last deployment was done. This is used to perform
+                  cleanup/deletion in case the KluctlDeployment project is deleted
+                type: object
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastAttemptedRevision:
+                description: LastAttemptedRevision is the revision of the last reconciliation
+                  attempt.
+                type: string
+              lastDeployResult:
+                description: LastDeployResult is the result of the last deploy command
+                properties:
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  result:
+                    properties:
+                      changedObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      deletedObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      errors:
+                        items:
+                          properties:
+                            error:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - error
+                          - ref
+                          type: object
+                        type: array
+                      hookObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      newObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      orphanObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      seenImages:
+                        items:
+                          properties:
+                            container:
+                              type: string
+                            deployTags:
+                              items:
+                                type: string
+                              type: array
+                            deployedImage:
+                              type: string
+                            deployment:
+                              type: string
+                            deploymentDir:
+                              type: string
+                            image:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                            registryImage:
+                              type: string
+                            resultImage:
+                              type: string
+                            versionFilter:
+                              type: string
+                          required:
+                          - image
+                          - resultImage
+                          type: object
+                        type: array
+                      warnings:
+                        items:
+                          properties:
+                            error:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - error
+                          - ref
+                          type: object
+                        type: array
+                    type: object
+                  revision:
+                    description: Revision is the source revision. Please note that
+                      kluctl projects have dependent git repositories which are not
+                      considered in the source revision
+                    type: string
+                  targetName:
+                    description: TargetName is the name of the target
+                    type: string
+                  time:
+                    description: AttemptedAt is the time when the attempt was performed
+                    format: date-time
+                    type: string
+                required:
+                - targetName
+                - time
+                type: object
+              lastHandledReconcileAt:
+                description: LastHandledReconcileAt holds the value of the most recent
+                  reconcile request value, so a change of the annotation value can
+                  be detected.
+                type: string
+              lastPruneResult:
+                description: LastDeployResult is the result of the last prune command
+                properties:
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  result:
+                    properties:
+                      changedObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      deletedObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      errors:
+                        items:
+                          properties:
+                            error:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - error
+                          - ref
+                          type: object
+                        type: array
+                      hookObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      newObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      orphanObjects:
+                        items:
+                          description: ObjectRef contains the information necessary
+                            to locate a resource within a cluster.
+                          properties:
+                            group:
+                              type: string
+                            kind:
+                              type: string
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            version:
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          - namespace
+                          - version
+                          type: object
+                        type: array
+                      seenImages:
+                        items:
+                          properties:
+                            container:
+                              type: string
+                            deployTags:
+                              items:
+                                type: string
+                              type: array
+                            deployedImage:
+                              type: string
+                            deployment:
+                              type: string
+                            deploymentDir:
+                              type: string
+                            image:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                            registryImage:
+                              type: string
+                            resultImage:
+                              type: string
+                            versionFilter:
+                              type: string
+                          required:
+                          - image
+                          - resultImage
+                          type: object
+                        type: array
+                      warnings:
+                        items:
+                          properties:
+                            error:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - error
+                          - ref
+                          type: object
+                        type: array
+                    type: object
+                  revision:
+                    description: Revision is the source revision. Please note that
+                      kluctl projects have dependent git repositories which are not
+                      considered in the source revision
+                    type: string
+                  targetName:
+                    description: TargetName is the name of the target
+                    type: string
+                  time:
+                    description: AttemptedAt is the time when the attempt was performed
+                    format: date-time
+                    type: string
+                required:
+                - targetName
+                - time
+                type: object
+              lastValidateResult:
+                description: LastValidateResult is the result of the last validate
+                  command
+                properties:
+                  error:
+                    type: string
+                  objectsHash:
+                    description: ObjectsHash is the hash of all rendered objects
+                    type: string
+                  result:
+                    properties:
+                      errors:
+                        items:
+                          properties:
+                            error:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - error
+                          - ref
+                          type: object
+                        type: array
+                      ready:
+                        type: boolean
+                      results:
+                        items:
+                          properties:
+                            annotation:
+                              type: string
+                            message:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - annotation
+                          - message
+                          - ref
+                          type: object
+                        type: array
+                      warnings:
+                        items:
+                          properties:
+                            error:
+                              type: string
+                            ref:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                          required:
+                          - error
+                          - ref
+                          type: object
+                        type: array
+                    required:
+                    - ready
+                    type: object
+                  revision:
+                    description: Revision is the source revision. Please note that
+                      kluctl projects have dependent git repositories which are not
+                      considered in the source revision
+                    type: string
+                  targetName:
+                    description: TargetName is the name of the target
+                    type: string
+                  time:
+                    description: AttemptedAt is the time when the attempt was performed
+                    format: date-time
+                    type: string
+                required:
+                - error
+                - targetName
+                - time
+                type: object
+              observedGeneration:
+                description: ObservedGeneration is the last reconciled generation.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.7.0
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: kluctlmultideployments.flux.kluctl.io
+spec:
+  group: flux.kluctl.io
+  names:
+    kind: KluctlMultiDeployment
+    listKind: KluctlMultiDeploymentList
+    plural: kluctlmultideployments
+    singular: kluctlmultideployment
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.targetPattern
+      name: Pattern
+      type: string
+    - jsonPath: .status.targetCount
+      name: Targets
+      type: integer
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: KluctlMultiDeployment is the Schema for the kluctlmultideployments
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KluctlMultiDeploymentSpec defines the desired state of KluctlMultiDeployment
+            properties:
+              dependsOn:
+                description: DependsOn may contain a meta.NamespacedObjectReference
+                  slice with references to resources that must be ready before this
+                  kluctl project can be deployed.
+                items:
+                  description: NamespacedObjectReference contains enough information
+                    to locate the referenced Kubernetes resource object in any namespace.
+                  properties:
+                    name:
+                      description: Name of the referent.
+                      type: string
+                    namespace:
+                      description: Namespace of the referent, when not specified it
+                        acts as LocalObjectReference.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              interval:
+                description: The interval at which to reconcile the KluctlDeployment.
+                type: string
+              path:
+                description: Path to the directory containing the .kluctl.yaml file,
+                  or the Defaults to 'None', which translates to the root path of
+                  the SourceRef.
+                type: string
+              retryInterval:
+                description: The interval at which to retry a previously failed reconciliation.
+                  When not specified, the controller uses the KluctlDeploymentSpec.Interval
+                  value to retry failures.
+                type: string
+              sourceRef:
+                description: Reference of the source where the kluctl project is.
+                  The authentication secrets from the source are also used to authenticate
+                  dependent git repositories which are cloned while deploying the
+                  kluctl project.
+                properties:
+                  apiVersion:
+                    description: API version of the referent.
+                    type: string
+                  kind:
+                    description: Kind of the referent.
+                    enum:
+                    - GitRepository
+                    - Bucket
+                    type: string
+                  name:
+                    description: Name of the referent.
+                    type: string
+                  namespace:
+                    description: Namespace of the referent, defaults to the namespace
+                      of the Kubernetes resource object that contains the reference.
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              suspend:
+                description: This flag tells the controller to suspend subsequent
+                  kluctl executions, it does not apply to already started executions.
+                  Defaults to false.
+                type: boolean
+              targetPattern:
+                description: TargetPattern is the regex pattern used to match targets
+                type: string
+              template:
+                description: Template is the object template used to create KluctlDeploymet
+                  objects
+                properties:
+                  spec:
+                    description: Spec is the KluctlDeployment spec to be used as a
+                      template
+                    properties:
+                      abortOnError:
+                        default: false
+                        description: ForceReplaceOnError instructs kluctl to abort
+                          deployments immediately when something fails. Equivalent
+                          to using '--abort-on-error' when calling kluctl.
+                        type: boolean
+                      args:
+                        additionalProperties:
+                          type: string
+                        description: Args specifies dynamic target args. Only arguments
+                          defined by 'dynamicArgs' of the target are allowed.
+                        type: object
+                      deployInterval:
+                        description: DeployInterval specifies the interval at which
+                          to deploy the KluctlDeployment. This is independent of the
+                          'Interval' value, which only causes deployments if some
+                          deployment objects have changed.
+                        type: string
+                      deployMode:
+                        default: full-deploy
+                        description: DeployMode specifies what deploy mode should
+                          be used
+                        enum:
+                        - full-deploy
+                        - poke-images
+                        type: string
+                      dryRun:
+                        default: false
+                        description: DryRun instructs kluctl to run everything in
+                          dry-run mode. Equivalent to using '--dry-run' when calling
+                          kluctl.
+                        type: boolean
+                      excludeDeploymentDirs:
+                        description: ExcludeDeploymentDirs instructs kluctl to exclude
+                          deployments with the given dir. Equivalent to using '--exclude-deployment-dir'
+                          when calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      excludeTags:
+                        description: ExcludeTags instructs kluctl to exclude deployments
+                          with given tags. Equivalent to using '--exclude-tag' when
+                          calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      forceApply:
+                        default: false
+                        description: ForceApply instructs kluctl to force-apply in
+                          case of SSA conflicts. Equivalent to using '--force-apply'
+                          when calling kluctl.
+                        type: boolean
+                      forceReplaceOnError:
+                        default: false
+                        description: ForceReplaceOnError instructs kluctl to force-replace
+                          resources in case a normal replace fails. Equivalent to
+                          using '--force-replace-on-error' when calling kluctl.
+                        type: boolean
+                      images:
+                        description: Images contains a list of fixed image overrides.
+                          Equivalent to using '--fixed-images-file' when calling kluctl.
+                        items:
+                          properties:
+                            container:
+                              type: string
+                            deployTags:
+                              items:
+                                type: string
+                              type: array
+                            deployedImage:
+                              type: string
+                            deployment:
+                              type: string
+                            deploymentDir:
+                              type: string
+                            image:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              description: ObjectRef contains the information necessary
+                                to locate a resource within a cluster.
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - group
+                              - kind
+                              - name
+                              - namespace
+                              - version
+                              type: object
+                            registryImage:
+                              type: string
+                            resultImage:
+                              type: string
+                            versionFilter:
+                              type: string
+                          required:
+                          - image
+                          - resultImage
+                          type: object
+                        type: array
+                      includeDeploymentDirs:
+                        description: IncludeDeploymentDirs instructs kluctl to only
+                          include deployments with the given dir. Equivalent to using
+                          '--include-deployment-dir' when calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      includeTags:
+                        description: IncludeTags instructs kluctl to only include
+                          deployments with given tags. Equivalent to using '--include-tag'
+                          when calling kluctl.
+                        items:
+                          type: string
+                        type: array
+                      interval:
+                        description: The interval at which to reconcile the KluctlDeployment.
+                        type: string
+                      kubeConfig:
+                        description: The KubeConfig for deploying to the target cluster.
+                          Specifies the kubeconfig to be used when invoking kluctl.
+                          Contexts in this kubeconfig must match the context found
+                          in the kluctl target. As an alternative, RenameContexts
+                          can be used to fix non-matching context names.
+                        properties:
+                          secretRef:
+                            description: SecretRef holds the name of a secret that
+                              contains a key with the kubeconfig file as the value.
+                              If no key is set, the key will default to 'value'. The
+                              secret must be in the same namespace as the Kustomization.
+                              It is recommended that the kubeconfig is self-contained,
+                              and the secret is regularly updated if credentials such
+                              as a cloud-access-token expire. Cloud specific `cmd-path`
+                              auth helpers will not function without adding binaries
+                              and credentials to the Pod that is responsible for reconciling
+                              the KluctlDeployment.
+                            properties:
+                              key:
+                                description: Key in the Secret, when not specified
+                                  an implementation-specific default key is used.
+                                type: string
+                              name:
+                                description: Name of the Secret.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        type: object
+                      noWait:
+                        default: false
+                        description: NoWait instructs kluctl to not wait for any resources
+                          to become ready, including hooks. Equivalent to using '--no-wait'
+                          when calling kluctl.
+                        type: boolean
+                      prune:
+                        default: false
+                        description: Prune enables pruning after deploying.
+                        type: boolean
+                      registrySecrets:
+                        description: RegistrySecrets is a list of secret references
+                          to be used for image registry authentication. The secrets
+                          must either have ".dockerconfigjson" included or "registry",
+                          "username" and "password". Additionally, "caFile" and "insecure"
+                          can be specified.
+                        items:
+                          description: LocalObjectReference contains enough information
+                            to locate the referenced Kubernetes resource object.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      renameContexts:
+                        description: RenameContexts specifies a list of context rename
+                          operations. This is useful when the kluctl target's context
+                          does not match with the contexts found in the kubeconfig
+                          while deploying. This is the case when using kubeconfigs
+                          generated from service accounts, in which case the context
+                          name is always "default".
+                        items:
+                          description: RenameContext specifies a single rename of
+                            a context
+                          properties:
+                            newContext:
+                              description: NewContext is the new name of the context
+                              type: string
+                            oldContext:
+                              description: OldContext is the name of the context to
+                                be renamed
+                              type: string
+                          required:
+                          - newContext
+                          - oldContext
+                          type: object
+                        type: array
+                      replaceOnError:
+                        default: false
+                        description: ReplaceOnError instructs kluctl to replace resources
+                          on error. Equivalent to using '--replace-on-error' when
+                          calling kluctl.
+                        type: boolean
+                      retryInterval:
+                        description: The interval at which to retry a previously failed
+                          reconciliation. When not specified, the controller uses
+                          the KluctlDeploymentSpec.Interval value to retry failures.
+                        type: string
+                      serviceAccountName:
+                        description: The name of the Kubernetes service account to
+                          use while deploying. If not specified, the default service
+                          account is used.
+                        type: string
+                      timeout:
+                        description: Timeout for all operations. Defaults to 'Interval'
+                          duration.
+                        type: string
+                      updateImages:
+                        default: false
+                        description: UpdateImages instructs kluctl to update dynamic
+                          images. Equivalent to using '-u' when calling kluctl.
+                        type: boolean
+                      validateInterval:
+                        default: 5m
+                        description: ValidateInterval specifies the interval at which
+                          to validate the KluctlDeployment. Validation is performed
+                          the same way as with 'kluctl validate -t <target>'. Defaults
+                          to 1m.
+                        type: string
+                    required:
+                    - interval
+                    type: object
+                required:
+                - spec
+                type: object
+              timeout:
+                description: Timeout for all operations. Defaults to 'Interval' duration.
+                type: string
+            required:
+            - interval
+            - sourceRef
+            - targetPattern
+            - template
+            type: object
+          status:
+            description: KluctlMultiDeploymentStatus defines the observed state of
+              KluctlMultiDeployment
+            properties:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    type FooStatus struct{     // Represents the observations of a
+                    foo's current state.     // Known .status.conditions.type are:
+                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
+                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
+                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
+                    \n     // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastAttemptedRevision:
+                description: LastAttemptedRevision is the revision of the last reconciliation
+                  attempt.
+                type: string
+              lastHandledReconcileAt:
+                description: LastHandledReconcileAt holds the value of the most recent
+                  reconcile request value, so a change of the annotation value can
+                  be detected.
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the last reconciled generation.
+                format: int64
+                type: integer
+              targetCount:
+                description: TargetCount is the number of targets detected
+                type: integer
+              targets:
+                description: Targets is the list of detected targets
+                items:
+                  description: KluctlMultiDeploymentTargetStatus describes the status
+                    of a single target
+                  properties:
+                    kluctlDeploymentName:
+                      description: KluctlDeploymentName is the name of the generated
+                        KluctlDeployment object
+                      type: string
+                    name:
+                      description: Name is the name of the detected target
+                      type: string
+                  required:
+                  - kluctlDeploymentName
+                  - name
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: flux-kluctl-controller
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: flux-kluctl-leader-election-role
+  namespace: flux-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: flux-kluctl-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctlmultideployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctlmultideployments/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctlmultideployments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets
+  - gitrepositories
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - buckets/status
+  - gitrepositories/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: flux-kluctl-leader-election-rolebinding
+  namespace: flux-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: flux-kluctl-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: controller
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: flux-kluctl-cluster-reconciler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: flux-kluctl-controller
+  namespace: flux-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+  name: flux-kluctl-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: flux-kluctl-manager-role
+subjects:
+- kind: ServiceAccount
+  name: flux-kluctl-controller
+  namespace: flux-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: flux-system
+    app.kubernetes.io/part-of: flux-kluctl-controller
+    control-plane: controller
+  name: flux-kluctl-controller
+  namespace: flux-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flux-kluctl-controller
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "8080"
+        prometheus.io/scrape: "true"
+      labels:
+        app: flux-kluctl-controller
+    spec:
+      containers:
+      - args:
+        - --events-addr=http://notification-controller.flux-system.svc.cluster.local./
+        - --watch-all-namespaces
+        - --log-level=info
+        - --log-encoding=json
+        - --enable-leader-election
+        env:
+        - name: RUNTIME_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: ghcr.io/kluctl/flux-kluctl-controller:v0.5.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: healthz
+        name: manager
+        ports:
+        - containerPort: 8080
+          name: http-prom
+          protocol: TCP
+        - containerPort: 9440
+          name: healthz
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: healthz
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /tmp
+          name: temp
+      securityContext:
+        fsGroup: 1337
+      serviceAccountName: flux-kluctl-controller
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - emptyDir: {}
+        name: temp
+

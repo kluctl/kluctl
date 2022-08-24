@@ -229,14 +229,18 @@ func (k *K8sCluster) GetObjectSource(ref k8s.ObjectRef) (string, string, []ApiWa
 	status.Trace(k.ctx, "fetching %s in %s", ref.Name, ref.Namespace)
 
 	o, apiWarning, err := k.GetSingleObject(ref)
-	spec := o.Object["spec"]
-	m, ok := spec.(map[string]interface{})["sourceRef"]
+	name, ok, err := o.GetNestedField("spec", "sourceRef", "name")
 	if !ok {
 		return "", "", nil, err
 	}
 
-	return fmt.Sprintf("%v", m.(map[string]interface{})["name"]),
-		fmt.Sprintf("%v", m.(map[string]interface{})["namespace"]),
+	namespace, ok, err := o.GetNestedField("spec", "sourceRef", "namespace")
+	if !ok {
+		return "", "", nil, err
+	}
+
+	return fmt.Sprintf("%v", name),
+		fmt.Sprintf("%v", namespace),
 		apiWarning,
 		err
 }
@@ -488,15 +492,16 @@ func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params
 
 func (k *K8sCluster) GetObjectStatus(ref k8s.ObjectRef) (string, error) {
 	o, _, err := k.GetSingleObject(ref)
-	conditions, ok := o.Object["status"].(map[string]interface{})["conditions"]
+	if o == nil {
+		return "", err
+	}
+	conditions, ok, err := o.GetNestedField("status", "conditions")
 	if !ok {
 		return "", err
 	}
+	last := conditions.([]interface{})[0].(map[string]interface{})["status"]
 
-	last := conditions.([]interface{})[0]
-	status := fmt.Sprintf("%s", last.(map[string]interface{})["status"])
-
-	return status, err
+	return fmt.Sprintf("%s", last), err
 }
 
 func (k *K8sCluster) WaitForReady(ref k8s.ObjectRef) (bool, error) {
@@ -504,7 +509,7 @@ func (k *K8sCluster) WaitForReady(ref k8s.ObjectRef) (bool, error) {
 	finalStatus := true
 	var errorMsg error
 	for s, err := k.GetObjectStatus(ref); s != "True"; {
-		if retry >= 3 || err != nil {
+		if retry >= 5 || err != nil {
 			finalStatus = false
 			errorMsg = err
 			break
