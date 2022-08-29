@@ -2,33 +2,38 @@ package git
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
+	"github.com/go-git/go-git/v5/storage/memory"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"strconv"
 )
 
-// listRemoteRefsFastSsh will reuse existing ssh connections from a pool
-func (g *MirroredGitRepo) listRemoteRefsFastSsh(r *git.Repository, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
-	var portInt int64 = -1
-	if g.url.Port() != "" {
+// ListRemoteRefsFastSsh will reuse existing ssh connections from a pool
+func ListRemoteRefsFastSsh(ctx context.Context, url git_url.GitUrl, sshPool *ssh_pool.SshPool, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
+	var portInt int64 = 22
+	if url.Port() != "" {
 		var err error
-		portInt, err = strconv.ParseInt(g.url.Port(), 10, 32)
+		portInt, err = strconv.ParseInt(url.Port(), 10, 32)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	s, err := g.sshPool.GetSession(g.ctx, g.url.Hostname(), int(portInt), auth)
+	s, err := sshPool.GetSession(ctx, url.Hostname(), int(portInt), auth)
 	if err != nil {
 		return nil, err
 	}
 	defer s.Close()
 
-	cmd := fmt.Sprintf("git-upload-pack %s", g.url.Path)
+	cmd := fmt.Sprintf("git-upload-pack %s", url.Path)
 
 	stdout := bytes.NewBuffer(nil)
 	stderr := bytes.NewBuffer(nil)
@@ -71,13 +76,15 @@ func (g *MirroredGitRepo) listRemoteRefsFastSsh(r *git.Repository, auth auth2.Au
 	return resultRefs, nil
 }
 
-func (g *MirroredGitRepo) listRemoteRefsSlow(r *git.Repository, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
-	remote, err := r.Remote("origin")
-	if err != nil {
-		return nil, err
-	}
+func ListRemoteRefsSlow(ctx context.Context, url git_url.GitUrl, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
+	storage := memory.NewStorage()
+	remote := git.NewRemote(storage, &config.RemoteConfig{
+		Name:  "origin",
+		URLs:  []string{url.String()},
+		Fetch: defaultFetch,
+	})
 
-	remoteRefs, err := remote.ListContext(g.ctx, &git.ListOptions{
+	remoteRefs, err := remote.ListContext(ctx, &git.ListOptions{
 		Auth:     auth.AuthMethod,
 		CABundle: auth.CABundle,
 	})
@@ -87,13 +94,13 @@ func (g *MirroredGitRepo) listRemoteRefsSlow(r *git.Repository, auth auth2.AuthM
 	return remoteRefs, nil
 }
 
-func (g *MirroredGitRepo) listRemoteRefs(r *git.Repository, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
-	if g.url.IsSsh() {
-		refs, err := g.listRemoteRefsFastSsh(r, auth)
+func ListRemoteRefs(ctx context.Context, url git_url.GitUrl, sshPool *ssh_pool.SshPool, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
+	if url.IsSsh() {
+		refs, err := ListRemoteRefsFastSsh(ctx, url, sshPool, auth)
 		if err == nil {
 			return refs, nil
 		}
-		status.Warning(g.ctx, "Fast listing of remote refs failed: %s", err.Error())
+		status.Warning(ctx, "Fast listing of remote refs failed: %s", err.Error())
 	}
-	return g.listRemoteRefsSlow(r, auth)
+	return ListRemoteRefsSlow(ctx, url, auth)
 }

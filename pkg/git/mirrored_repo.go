@@ -24,6 +24,11 @@ import (
 
 var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
+var defaultFetch = []config.RefSpec{
+	"+refs/heads/*:refs/heads/*",
+	"+refs/tags/*:refs/tags/*",
+}
+
 type MirroredGitRepo struct {
 	ctx context.Context
 
@@ -200,7 +205,7 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error 
 
 	auth := g.authProviders.BuildAuth(g.ctx, g.url)
 
-	remoteRefs, err := g.listRemoteRefs(r, auth)
+	remoteRefs, err := ListRemoteRefs(g.ctx, g.url, g.sshPool, auth)
 	if err != nil {
 		return err
 	}
@@ -302,12 +307,9 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 	}
 
 	_, err = repo.CreateRemote(&config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{g.url.String()},
-		Fetch: []config.RefSpec{
-			"+refs/heads/*:refs/heads/*",
-			"+refs/tags/*:refs/tags/*",
-		},
+		Name:  "origin",
+		URLs:  []string{g.url.String()},
+		Fetch: defaultFetch,
 	})
 	if err != nil {
 		return err
