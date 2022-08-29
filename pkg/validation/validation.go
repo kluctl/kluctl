@@ -281,10 +281,13 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 			}
 		}
 	case schema.GroupKind{Group: "apps", Kind: "Deployment"}:
-		readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
-		replicas := getStatusFieldInt("replicas", reactNotReady, true, 0)
-		if readyReplicas < replicas {
-			addNotReady(fmt.Sprintf("readyReplicas (%d) is less then replicas (%d)", readyReplicas, replicas))
+		specReplicas, ok, _ := o.GetNestedInt("spec", "replicas")
+		if ok && specReplicas != 0 {
+			readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
+			replicas := getStatusFieldInt("replicas", reactNotReady, true, 0)
+			if readyReplicas < replicas {
+				addNotReady(fmt.Sprintf("readyReplicas (%d) is less then replicas (%d)", readyReplicas, replicas))
+			}
 		}
 	case schema.GroupKind{Group: "", Kind: "PersistentVolumeClaim"}:
 		phase := getStatusFieldStr("phase", reactNotReady, true, "")
