@@ -201,6 +201,19 @@ func WriteYamlToTar(tw *tar.Writer, o interface{}, name string) error {
 	return nil
 }
 
+func WriteJsonString(o interface{}) (string, error) {
+	x, err := WriteYamlBytes(o)
+	if err != nil {
+		return "", err
+	}
+
+	x, err = ConvertYamlToJson(x)
+	if err != nil {
+		return "", err
+	}
+	return string(x), nil
+}
+
 func ConvertYamlToJson(b []byte) ([]byte, error) {
 	var x interface{}
 	err := ReadYamlBytes(b, &x)

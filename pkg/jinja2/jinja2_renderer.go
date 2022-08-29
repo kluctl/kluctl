@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl-python-deps/pkg/python"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
 	"io/ioutil"
 	"os"
@@ -130,7 +131,7 @@ type jinja2Result struct {
 }
 
 func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []string, vars *uo.UnstructuredObject, isString bool, strict bool) error {
-	varsStr, err := json.Marshal(vars.Object)
+	varsStr, err := yaml.WriteJsonString(vars)
 	if err != nil {
 		return err
 	}
