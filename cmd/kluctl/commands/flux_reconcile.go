@@ -24,6 +24,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 	ns := cmd.KluctlDeploymentFlags.Namespace
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment
 	source := cmd.KluctlDeploymentFlags.WithSource
+	noWait := cmd.KluctlDeploymentFlags.NoWait
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
 
 	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
@@ -62,10 +63,13 @@ func (cmd *fluxReconcileCmd) Run() error {
 		if err != nil {
 			return err
 		}
-		ready, err := k.WaitForReady(ref2)
-		if !ready {
-			s.FailedWithMessage("Failed while waiting for Source %s to get ready..", sourceName)
-			return err
+
+		if !noWait {
+			ready, err := k.WaitForReady(ref2)
+			if !ready {
+				s.FailedWithMessage("Failed while waiting for Source %s to get ready..", sourceName)
+				return err
+			}
 		}
 
 		s.Success()
@@ -79,10 +83,12 @@ func (cmd *fluxReconcileCmd) Run() error {
 		return err
 	}
 
-	ready, err := k.WaitForReady(ref)
-	if !ready {
-		s.FailedWithMessage("Failed while waiting for KluctlDeployment %s to get ready..", kd)
-		return err
+	if !noWait {
+		ready, err := k.WaitForReady(ref)
+		if !ready {
+			s.FailedWithMessage("Failed while waiting for KluctlDeployment %s to get ready..", kd)
+			return err
+		}
 	}
 
 	s.Success()

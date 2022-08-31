@@ -8,6 +8,7 @@ type KluctlDeploymentFlags struct {
 	KluctlDeployment string `group:"flux" short:"k" help:"Name of the KluctlDeployment to interact with"`
 	Namespace        string `group:"flux" short:"n" help:"Namespace where KluctlDeployment is located"`
 	WithSource       bool   `group:"flux" help:"--with-source will annotate Source object as well, triggering pulling"`
+	NoWait           bool   `group:"flux" help:"Don't wait for objects readiness'"`
 }
 
 var KluctlDeploymentGVK = schema.GroupVersionKind{
