@@ -27,6 +27,9 @@ class NullUndefined(ChainableUndefined):
     __pow__ = __rpow__ = _return_self
 
 class Jinja2Renderer:
+    def __init__(self, trim_blocks=False, lstrip_blocks=False):
+        self.trim_blocks = trim_blocks
+        self.lstrip_blocks = lstrip_blocks
 
     def get_image_wrapper(self, image, latest_version=None):
         if latest_version is None:
@@ -74,7 +77,8 @@ class Jinja2Renderer:
         environment = KluctlJinja2Environment(loader=FileSystemLoader(search_dirs),
                                               undefined=StrictUndefined if strict else NullUndefined,
                                               cache_size=10000,
-                                              auto_reload=False)
+                                              auto_reload=False,
+                                              trim_blocks=self.trim_blocks, lstrip_blocks=self.lstrip_blocks)
         merge_dict(environment.globals, vars, clone=False)
 
         add_jinja2_filters(environment)

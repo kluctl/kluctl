@@ -23,6 +23,9 @@ type pythonJinja2Renderer struct {
 	stdout io.ReadCloser
 
 	stdoutReader *bufio.Reader
+
+	trimBlocks   bool
+	lstripBlocks bool
 }
 
 func newPythonJinja2Renderer() (*pythonJinja2Renderer, error) {
@@ -123,6 +126,9 @@ type jinja2Args struct {
 	SearchDirs []string `json:"searchDirs"`
 	Vars       string   `json:"vars"`
 	Strict     bool     `json:"strict"`
+
+	TrimBlocks   bool `json:"trimBlocks"`
+	LStripBlocks bool `json:"lstripBlocks"`
 }
 
 type jinja2Result struct {
@@ -147,6 +153,8 @@ func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, searchDirs []stri
 	jargs.Vars = string(varsStr)
 	jargs.SearchDirs = searchDirs
 	jargs.Strict = strict
+	jargs.TrimBlocks = j.trimBlocks
+	jargs.LStripBlocks = j.lstripBlocks
 
 	for _, job := range jobs {
 		if ist, r := isMaybeTemplate(job.Template, searchDirs, isString); !ist {

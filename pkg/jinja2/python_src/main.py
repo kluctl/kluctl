@@ -5,13 +5,13 @@ from jinja2_renderer import Jinja2Renderer
 
 
 def main():
-    r = Jinja2Renderer()
-
     while True:
         args = sys.stdin.readline()
         if not args:
             break
         args = json.loads(args)
+
+        r = Jinja2Renderer(args.get("trimBlocks", False), args.get("lstripBlocks", False))
 
         if args["cmd"] == "render-strings":
             result = r.RenderStrings(args["templates"], args["searchDirs"] or [], args["vars"], args["strict"])

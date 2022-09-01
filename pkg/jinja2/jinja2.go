@@ -35,11 +35,25 @@ type Jinja2Error struct {
 	error string
 }
 
+type Jinja2Opt func(j2 *pythonJinja2Renderer)
+
+func WithTrimBlocks(trimBlocks bool) Jinja2Opt {
+	return func(j2 *pythonJinja2Renderer) {
+		j2.trimBlocks = trimBlocks
+	}
+}
+
+func WithLStripBlocks(lstripBlocks bool) Jinja2Opt {
+	return func(j2 *pythonJinja2Renderer) {
+		j2.lstripBlocks = lstripBlocks
+	}
+}
+
 func (m *Jinja2Error) Error() string {
 	return m.error
 }
 
-func NewJinja2() (*Jinja2, error) {
+func NewJinja2(opts ...Jinja2Opt) (*Jinja2, error) {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	var err error
@@ -60,6 +74,9 @@ func NewJinja2() (*Jinja2, error) {
 				defer mutex.Unlock()
 				err = err2
 				return
+			}
+			for _, o := range opts {
+				o(pj)
 			}
 			j.pj <- pj
 		}()
