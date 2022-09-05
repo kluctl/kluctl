@@ -108,6 +108,12 @@ func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string
 	}
 	if rootKey != "" {
 		newVars, _, err = newVars.GetNestedObject(rootKey)
+		if err != nil {
+			return err
+		}
+		if newVars == nil {
+			return fmt.Errorf("vars from %s have no '%s' root", path, rootKey)
+		}
 	}
 	v.mergeVars(varsCtx, newVars, rootKey)
 	return nil
@@ -146,7 +152,7 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 	if err != nil {
 		return err
 	}
-	return v.loadFromString(varsCtx, secret, rootKey)
+	return v.loadFromString(varsCtx, secret, "awsSecretsManager", rootKey)
 }
 
 func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
@@ -154,7 +160,7 @@ func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, rootK
 	if err != nil {
 		return err
 	}
-	return v.loadFromString(varsCtx, secret, rootKey)
+	return v.loadFromString(varsCtx, secret, "vault", rootKey)
 }
 
 func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, rootKey string) error {
@@ -178,7 +184,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 		return err
 	}
 
-	return v.loadFromString(varsCtx, string(f), rootKey)
+	return v.loadFromString(varsCtx, string(f), "git", rootKey)
 }
 
 func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
@@ -237,14 +243,14 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		}
 	}
 
-	err = v.loadFromString(varsCtx, value, rootKey)
+	err = v.loadFromString(varsCtx, value, "k8s", rootKey)
 	if err != nil {
 		return fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), key, err)
 	}
 	return nil
 }
 
-func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, rootKey string) error {
+func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, secretType string, rootKey string) error {
 	newVars := uo.New()
 	err := v.renderYamlString(varsCtx, s, newVars)
 	if err != nil {
@@ -253,6 +259,12 @@ func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, rootKey string) 
 
 	if rootKey != "" {
 		newVars, _, err = newVars.GetNestedObject(rootKey)
+		if err != nil {
+			return err
+		}
+		if newVars == nil {
+			return fmt.Errorf("%s secret has no '%s' root", secretType, rootKey)
+		}
 	}
 
 	v.mergeVars(varsCtx, newVars, rootKey)
