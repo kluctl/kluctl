@@ -136,9 +136,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	if err != nil {
 		return err
 	}
-	for _, fi := range fixedImages {
-		images.AddFixedImage(fi)
-	}
+	images.PrependFixedImages(fixedImages)
 
 	inclusion, err := args.inclusionFlags.ParseInclusionFromArgs()
 	if err != nil {

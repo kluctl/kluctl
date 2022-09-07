@@ -39,9 +39,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		}
 		target = t.Target
 
-		for _, fi := range target.Images {
-			images.AddFixedImage(fi)
-		}
+		images.PrependFixedImages(target.Images)
 	}
 
 	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, args, forSeal)

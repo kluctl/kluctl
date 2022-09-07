@@ -41,6 +41,13 @@ func (images *Images) AddFixedImage(fi types.FixedImage) {
 	images.fixedImages = append(images.fixedImages, fi)
 }
 
+func (images *Images) PrependFixedImages(fis []types.FixedImage) {
+	var newFixedImages []types.FixedImage
+	newFixedImages = append(newFixedImages, fis...)
+	newFixedImages = append(newFixedImages, images.fixedImages...)
+	images.fixedImages = newFixedImages
+}
+
 func (images *Images) SeenImages(simple bool) []types.FixedImage {
 	var ret []types.FixedImage
 	for _, fi := range images.seenImages {
