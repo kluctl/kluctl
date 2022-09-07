@@ -1,7 +1,7 @@
 package vars
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
@@ -44,8 +44,33 @@ func (vc *VarsCtx) UpdateChildFromStruct(child string, o interface{}) error {
 	return nil
 }
 
+func (vc *VarsCtx) RenderString(t string) (string, error) {
+	globals, err := vc.Vars.ToMap()
+	if err != nil {
+		return "", err
+	}
+	return vc.J2.RenderString(t,
+		jinja2.WithGlobals(globals),
+	)
+}
+
+func (vc *VarsCtx) RenderStruct(o interface{}) (bool, error) {
+	globals, err := vc.Vars.ToMap()
+	if err != nil {
+		return false, err
+	}
+	return vc.J2.RenderStruct(o, jinja2.WithGlobals(globals))
+}
+
 func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}) error {
-	ret, err := vc.J2.RenderFile(p, searchDirs, vc.Vars)
+	globals, err := vc.Vars.ToMap()
+	if err != nil {
+		return err
+	}
+	ret, err := vc.J2.RenderFile(p,
+		jinja2.WithSearchDirs(searchDirs),
+		jinja2.WithGlobals(globals),
+	)
 	if err != nil {
 		return err
 	}
@@ -58,6 +83,10 @@ func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}
 	return nil
 }
 
-func (vc *VarsCtx) RenderDirectory(rootDir string, searchDirs []string, relSourceDir string, excludePatterns []string, subdir string, targetDir string) error {
-	return vc.J2.RenderDirectory(rootDir, searchDirs, relSourceDir, excludePatterns, subdir, targetDir, vc.Vars)
+func (vc *VarsCtx) RenderDirectory(sourceDir string, targetDir string, excludePatterns []string, searchDirs []string) error {
+	globals, err := vc.Vars.ToMap()
+	if err != nil {
+		return err
+	}
+	return vc.J2.RenderDirectory(sourceDir, targetDir, excludePatterns, jinja2.WithGlobals(globals), jinja2.WithSearchDirs(searchDirs))
 }

@@ -75,8 +75,9 @@ func (p *DeploymentProject) loadConfig() error {
 		}
 		return fmt.Errorf("%s not found", configPath)
 	}
+	configPath = yaml.FixPathExt(configPath)
 
-	err := p.VarsCtx.RenderYamlFile(yaml.FixNameExt(p.absDir, "deployment.yml"), p.getRenderSearchDirs(), &p.Config)
+	err := p.VarsCtx.RenderYamlFile(configPath, p.getRenderSearchDirs(), &p.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}

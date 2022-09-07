@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -61,7 +62,12 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		return err
 	}
 
-	_, _, err = varsCtx.J2.RenderStruct(&source, varsCtx.Vars)
+	globals, err := varsCtx.Vars.ToMap()
+	if err != nil {
+		return err
+	}
+
+	_, err = varsCtx.J2.RenderStruct(&source, jinja2.WithGlobals(globals))
 	if err != nil {
 		return err
 	}
@@ -272,7 +278,7 @@ func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, secretType strin
 }
 
 func (v *VarsLoader) renderYamlString(varsCtx *VarsCtx, s string, out interface{}) error {
-	ret, err := varsCtx.J2.RenderString(s, nil, varsCtx.Vars)
+	ret, err := varsCtx.RenderString(s)
 	if err != nil {
 		return err
 	}

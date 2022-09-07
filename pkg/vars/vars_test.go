@@ -1,14 +1,15 @@
 package vars
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func newJinja2Must(t *testing.T) *jinja2.Jinja2 {
-	j2, err := jinja2.NewJinja2()
+	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
 		t.Fatal(err)
 	}

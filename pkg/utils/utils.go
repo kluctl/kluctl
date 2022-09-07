@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/jinzhu/copier"
-	"github.com/kluctl/kluctl-python-deps/pkg/utils"
 	"io/fs"
 	"os"
 	"os/user"
@@ -42,7 +41,7 @@ func createTmpBaseDir() {
 }
 
 func ensureDir(path string, perm fs.FileMode, allowCreate bool) {
-	if utils.Exists(path) {
+	if Exists(path) {
 		st, err := os.Lstat(path)
 		if err != nil {
 			panic(err)

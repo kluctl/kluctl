@@ -2,7 +2,7 @@ package kluctl_project
 
 import (
 	"context"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 )
 

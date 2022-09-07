@@ -128,7 +128,7 @@ func (di *DeploymentItem) render(forSeal bool) error {
 			}
 			if yaml.Exists(filepath.Join(p, "helm-chart.yml")) {
 				// never try to render helm charts
-				ep := filepath.Join(di.RelToProjectItemDir, relDir, "charts/**")
+				ep := filepath.Join(relDir, "charts/**")
 				ep = filepath.ToSlash(ep)
 				excludePatterns = append(excludePatterns, ep)
 				return filepath.SkipDir
@@ -145,7 +145,12 @@ func (di *DeploymentItem) render(forSeal bool) error {
 		excludePatterns = append(excludePatterns, "**.sealme")
 	}
 
-	return varsCtx.RenderDirectory(di.Project.source.dir, di.Project.getRenderSearchDirs(), di.Project.relDir, excludePatterns, di.RelToProjectItemDir, di.RenderedDir)
+	return varsCtx.RenderDirectory(
+		filepath.Join(di.Project.source.dir, di.RelToSourceItemDir),
+		di.RenderedDir,
+		excludePatterns,
+		di.Project.getRenderSearchDirs(),
+	)
 }
 
 func (di *DeploymentItem) renderHelmCharts() error {

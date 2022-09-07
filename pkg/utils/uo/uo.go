@@ -63,6 +63,22 @@ func (uo *UnstructuredObject) ToStruct(out interface{}) error {
 	return yaml.ReadYamlBytes(b, out)
 }
 
+// ToMap will ensure that only plain go values are returned, meaning that all internal structs are converted
+// to maps
+func (uo *UnstructuredObject) ToMap() (map[string]any, error) {
+	b, err := yaml.WriteYamlBytes(uo.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	var ret map[string]any
+	err = yaml.ReadYamlBytes(b, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func FromString(s string) (*UnstructuredObject, error) {
 	o := New()
 	err := yaml.ReadYamlString(s, &o.Object)

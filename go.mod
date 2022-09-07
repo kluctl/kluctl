@@ -13,7 +13,7 @@ require (
 	github.com/fluxcd/pkg/kustomize v0.7.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.11.0
-	github.com/gobwas/glob v0.2.3
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-containerregistry v0.11.0
 	github.com/gosuri/uilive v0.0.4
@@ -22,7 +22,8 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/jinzhu/copier v0.3.5
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/kluctl-python-deps v0.0.0-20220819072433-e8107cc5ae41
+	github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2
+	github.com/kluctl/go-jinja2 v0.0.0-20220908201753-f33cd6224f2b
 	github.com/mattn/go-isatty v0.0.16
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/reflectwalk v1.0.2

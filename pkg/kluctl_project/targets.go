@@ -97,8 +97,8 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 			}
 		}
 
-		changed, moreTemplates, err := c.J2.RenderStruct(target, varsCtx.Vars)
-		if err == nil && (!changed || !moreTemplates) {
+		changed, err := varsCtx.RenderStruct(target)
+		if err == nil && !changed {
 			return nil
 		}
 	}

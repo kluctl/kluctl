@@ -10,7 +10,7 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -39,13 +39,11 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	}
 	defer os.RemoveAll(tmpDir)
 
-	j2, err := jinja2.NewJinja2()
+	j2, err := kluctl_jinja2.NewKluctlJinja2(strictTemplates)
 	if err != nil {
 		return err
 	}
 	defer j2.Close()
-
-	j2.SetStrict(strictTemplates)
 
 	cwd, err := os.Getwd()
 	if err != nil {
