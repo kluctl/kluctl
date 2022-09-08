@@ -2,13 +2,12 @@ package status
 
 import (
 	"context"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status/multiline"
 	"github.com/kluctl/kluctl/v2/pkg/utils/term"
-	"github.com/vbauerster/mpb/v7"
-	"github.com/vbauerster/mpb/v7/decor"
 	"io"
-	"math"
 	"strings"
+	"sync"
 	"syscall"
 )
 
@@ -16,18 +15,22 @@ type MultiLineStatusHandler struct {
 	ctx        context.Context
 	out        io.Writer
 	isTerminal bool
-	progress   *mpb.Progress
 	trace      bool
+
+	ml *multiline.MultiLinePrinter
 }
 
 type statusLine struct {
-	slh     *MultiLineStatusHandler
+	slh *MultiLineStatusHandler
+	l   *multiline.Line
+
+	current int
 	total   int
-	bar     *mpb.Bar
-	filler  mpb.BarFiller
 	message string
 
 	barOverride string
+
+	mutex sync.Mutex
 }
 
 func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, isTerminal bool, trace bool) *MultiLineStatusHandler {
@@ -52,8 +55,7 @@ func (s *MultiLineStatusHandler) IsTraceEnabled() bool {
 }
 
 func (s *MultiLineStatusHandler) Flush() {
-	s.Stop()
-	s.start()
+	s.ml.Flush()
 }
 
 func (s *MultiLineStatusHandler) SetTrace(trace bool) {
@@ -61,60 +63,43 @@ func (s *MultiLineStatusHandler) SetTrace(trace bool) {
 }
 
 func (s *MultiLineStatusHandler) start() {
-	s.progress = mpb.NewWithContext(
-		s.ctx,
-		mpb.WithWidth(utils.GetTermWidth()),
-		mpb.WithOutput(s.out),
-		mpb.PopCompletedMode(),
-	)
+	s.ml = &multiline.MultiLinePrinter{}
+	s.ml.Start(s.out)
 }
 
 func (s *MultiLineStatusHandler) Stop() {
-	s.progress.Wait()
+	s.ml.Stop()
 }
 
 func (s *MultiLineStatusHandler) StartStatus(total int, message string) StatusLine {
-	return s.startStatus(total, message, 0, "")
+	return s.startStatus(total, message, "")
 }
 
-func (s *MultiLineStatusHandler) startStatus(total int, message string, priority int, barOverride string) *statusLine {
+func (s *MultiLineStatusHandler) startStatus(total int, message string, barOverride string) *statusLine {
 	sl := &statusLine{
 		slh:         s,
 		total:       total,
 		message:     message,
 		barOverride: barOverride,
 	}
-	sl.filler = mpb.SpinnerStyle().PositionLeft().Build()
 
-	opts := []mpb.BarOption{
-		mpb.BarWidth(1),
-		mpb.AppendDecorators(decor.Any(sl.DecorMessage, decor.WCSyncWidthR)),
-	}
-	if priority != 0 {
-		opts = append(opts, mpb.BarPriority(priority))
-	}
-
-	sl.bar = s.progress.Add(int64(total), sl, opts...)
+	sl.l = sl.slh.ml.NewLine(sl.lineFunc)
 
 	return sl
 }
 
-func (sl *statusLine) DecorMessage(s decor.Statistics) string {
-	return sl.message
-}
-
-func (sl *statusLine) Fill(w io.Writer, reqWidth int, stat decor.Statistics) {
-	if sl.barOverride != "" {
-		_, _ = io.WriteString(w, sl.barOverride)
-		return
+func (s *MultiLineStatusHandler) printLine(message string, barOverride string, doFlush bool) {
+	s.ml.NewTopLine(func() string {
+		return fmt.Sprintf("%s %s", barOverride, message)
+	})
+	if doFlush {
+		s.Flush()
 	}
-
-	sl.filler.Fill(w, reqWidth, stat)
 }
 
 func (s *MultiLineStatusHandler) Info(message string) {
 	o := withColor("green", "ⓘ")
-	s.startStatus(1, message, math.MinInt, o).end(o)
+	s.printLine(message, o, true)
 }
 
 func (s *MultiLineStatusHandler) InfoFallback(message string) {
@@ -123,12 +108,12 @@ func (s *MultiLineStatusHandler) InfoFallback(message string) {
 
 func (s *MultiLineStatusHandler) Warning(message string) {
 	o := withColor("yellow", "⚠")
-	s.startStatus(1, message, math.MinInt, o).end(o)
+	s.printLine(message, o, true)
 }
 
 func (s *MultiLineStatusHandler) Error(message string) {
 	o := withColor("red", "✗")
-	s.startStatus(1, message, math.MinInt, o).end(o)
+	s.printLine(message, o, true)
 }
 
 func (s *MultiLineStatusHandler) Trace(message string) {
@@ -143,7 +128,7 @@ func (s *MultiLineStatusHandler) PlainText(text string) {
 
 func (s *MultiLineStatusHandler) Prompt(password bool, message string) (string, error) {
 	o := withColor("yellow", "?")
-	sl := s.startStatus(1, message, math.MinInt, o)
+	sl := s.startStatus(1, message, o)
 	defer sl.end(o)
 
 	doUpdate := func(ret []byte) {
@@ -159,28 +144,47 @@ func (s *MultiLineStatusHandler) Prompt(password bool, message string) (string, 
 	return string(ret), err
 }
 
+func (sl *statusLine) lineFunc() string {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+
+	if sl.barOverride != "" {
+		return fmt.Sprintf("%s %s", sl.barOverride, sl.message)
+	}
+
+	s := multiline.Spinner()
+	return fmt.Sprintf("%s %s", s, sl.message)
+}
+
 func (sl *statusLine) SetTotal(total int) {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
 	sl.total = total
-	sl.bar.SetTotal(int64(total), false)
-	sl.bar.EnableTriggerComplete()
 }
 
 func (sl *statusLine) Increment() {
-	sl.bar.Increment()
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
+	if sl.current < sl.total {
+		sl.current++
+	}
 }
 
 func (sl *statusLine) Update(message string) {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
 	sl.message = message
 }
 
 func (sl *statusLine) end(barOverride string) {
 	sl.barOverride = barOverride
-	// make sure that the bar es rendered on top so that it can be properly popped
-	sl.bar.SetPriority(math.MinInt)
-	sl.bar.SetCurrent(int64(sl.total))
+	sl.current = sl.total
+	sl.l.Remove(true)
 }
 
 func (sl *statusLine) End(result EndResult) {
+	sl.mutex.Lock()
+	defer sl.mutex.Unlock()
 	switch result {
 	case EndSuccess:
 		sl.end(withColor("green", "✓"))

@@ -31,7 +31,7 @@ type replaceRReader struct {
 
 func (r *replaceRReader) Read(p []byte) (int, error) {
 	written := 0
-	for true {
+	for written < len(p) {
 		b, err := r.reader.ReadByte()
 		if err != nil {
 			if err == io.EOF {

@@ -16,6 +16,7 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-containerregistry v0.11.0
+	github.com/gosuri/uilive v0.0.4
 	github.com/hashicorp/vault/api v1.7.2
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/imdario/mergo v0.3.13
@@ -34,7 +35,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
-	github.com/vbauerster/mpb/v7 v7.5.2
 	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/ssh-agent v0.3.2
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
@@ -73,8 +73,6 @@ require (
 	github.com/Masterminds/squirrel v1.5.3 // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20220824120805-4b6e5c587895 // indirect
-	github.com/VividCortex/ewma v1.2.0 // indirect
-	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
