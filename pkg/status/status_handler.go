@@ -177,14 +177,15 @@ func (sl *statusLine) Update(message string) {
 }
 
 func (sl *statusLine) end(barOverride string) {
+	sl.mutex.Lock()
 	sl.barOverride = barOverride
 	sl.current = sl.total
+	sl.mutex.Unlock()
+
 	sl.l.Remove(true)
 }
 
 func (sl *statusLine) End(result EndResult) {
-	sl.mutex.Lock()
-	defer sl.mutex.Unlock()
 	switch result {
 	case EndSuccess:
 		sl.end(withColor("green", "✓"))
