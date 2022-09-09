@@ -145,11 +145,15 @@ func (di *DeploymentItem) render(forSeal bool) error {
 		excludePatterns = append(excludePatterns, "**.sealme")
 	}
 
+	searchDirs := di.Project.getRenderSearchDirs()
+	// also add deployment item dir to search dirs
+	searchDirs = append([]string{*di.dir}, searchDirs...)
+
 	return varsCtx.RenderDirectory(
 		filepath.Join(di.Project.source.dir, di.RelToSourceItemDir),
 		di.RenderedDir,
 		excludePatterns,
-		di.Project.getRenderSearchDirs(),
+		searchDirs,
 	)
 }
 
