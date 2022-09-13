@@ -12,4 +12,5 @@
 /e2e.test*
 /bin
 /reports
+/vendor
 dist/
