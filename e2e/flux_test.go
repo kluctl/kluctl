@@ -22,9 +22,9 @@ func TestFluxCommands(t *testing.T) {
 
 	assertResourceExists(t, k, "default", "kluctldeployment/microservices-demo-test")
 
-	p.KluctlMust("flux-suspend", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test")
+	p.KluctlMust("flux", "suspend", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test")
 
-	p.KluctlMust("flux-resume", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test", "--no-wait")
-	p.KluctlMust("flux-reconcile", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test", "--with-source", "--no-wait")
+	p.KluctlMust("flux", "resume", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test", "--no-wait")
+	p.KluctlMust("flux", "reconcile", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test", "--with-source", "--no-wait")
 
 }
