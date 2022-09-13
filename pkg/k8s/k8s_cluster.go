@@ -432,7 +432,7 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 		return nil, nil, err
 	}
 
-	return k.doPatch(o.GetK8sRef(), data, types.JSONPatchType, options)
+	return k.doPatch(o.GetK8sRef(), data, types.ApplyPatchType, options)
 }
 
 type JsonPatch struct {
