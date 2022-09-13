@@ -61,9 +61,7 @@ type cli struct {
 	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
 	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate          validateCmd          `cmd:"" help:"Validates the already deployed deployment"`
-	FluxReconcile     fluxReconcileCmd     `cmd:"" help:"Reconcile KluctlDeployment"`
-	FluxSuspend       fluxSuspendCmd       `cmd:"" help:"Suspend KluctlDeployment"`
-	FluxResume        fluxResumeCmd        `cmd:"" help:"Resume KluctlDeployment"`
+	Flux              fluxCmd              `cmd:"" help:"Flux sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
