@@ -35,7 +35,7 @@ func (cmd *fluxResumeCmd) Run() error {
 		Value: false,
 	}}
 
-	s := status.Start(cliCtx, "► Resuming KluctlDeployment %s in %s namespace", kd, ns)
+	s := status.Start(cliCtx, "Resuming KluctlDeployment %s in %s namespace", kd, ns)
 	defer s.Failed()
 
 	_, _, err = k.PatchObjectWithJsonPatch(ref, patch, k8s.PatchOptions{})

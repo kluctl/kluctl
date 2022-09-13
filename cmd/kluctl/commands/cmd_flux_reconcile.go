@@ -25,7 +25,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment
 	source := cmd.KluctlDeploymentFlags.WithSource
 	noWait := cmd.KluctlDeploymentFlags.NoWait
-	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+	timestamp := time.Now().Format(time.RFC3339)
 
 	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
 	if err != nil {
@@ -56,13 +56,16 @@ func (cmd *fluxReconcileCmd) Run() error {
 		}
 		ref2 := k8s2.ObjectRef{GVK: args.GitRepositoryGVK, Name: sourceName, Namespace: sourceNamespace}
 
-		s := status.Start(cliCtx, "► annotating Source %s in %s namespace", sourceName, sourceNamespace)
+		s := status.Start(cliCtx, "Annotating Source %s in %s namespace", sourceName, sourceNamespace)
 		defer s.Failed()
 
 		_, _, err = k.PatchObjectWithJsonPatch(ref2, patch, k8s.PatchOptions{})
 		if err != nil {
 			return err
 		}
+		s.Success()
+
+		s = status.Start(cliCtx, "Waiting for Source %s to finish reconciliation", sourceName)
 
 		if !noWait {
 			ready, err := k.WaitForReady(ref2)
@@ -75,13 +78,16 @@ func (cmd *fluxReconcileCmd) Run() error {
 		s.Success()
 	}
 
-	s := status.Start(cliCtx, "► annotating KluctlDeployment %s in %s namespace", kd, ns)
+	s := status.Start(cliCtx, "Annotating KluctlDeployment %s in %s namespace", kd, ns)
 	defer s.Failed()
 
 	_, _, err = k.PatchObjectWithJsonPatch(ref, patch, k8s.PatchOptions{})
 	if err != nil {
 		return err
 	}
+	s.Success()
+
+	s = status.Start(cliCtx, "Waiting for KluctlDeployment %s in %s namespace to finish reconciliation", kd, ns)
 
 	if !noWait {
 		ready, err := k.WaitForReady(ref)
