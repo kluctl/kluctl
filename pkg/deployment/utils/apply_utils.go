@@ -208,7 +208,7 @@ func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 func (a *ApplyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
 
-	if !a.o.ReplaceOnError || remoteObject == nil {
+	if (!a.o.ReplaceOnError && !a.o.ForceReplaceOnError) || remoteObject == nil {
 		a.HandleError(ref, applyError)
 		return
 	}
