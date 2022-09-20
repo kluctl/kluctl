@@ -28,16 +28,21 @@ func ParseArgs(argsList []string) (map[string]string, error) {
 	return args, nil
 }
 
-func ConvertArgsToVars(args map[string]string) *uo.UnstructuredObject {
+func ConvertArgsToVars(args map[string]string) (*uo.UnstructuredObject, error) {
 	vars := uo.New()
 	for n, v := range args {
 		var p []interface{}
 		for _, x := range strings.Split(n, ".") {
 			p = append(p, x)
 		}
-		_ = vars.SetNestedField(v, p...)
+		var j any
+		err := yaml.ReadYamlString(v, &j)
+		if err != nil {
+			return nil, err
+		}
+		_ = vars.SetNestedField(j, p...)
 	}
-	return vars
+	return vars, nil
 }
 
 func CheckRequiredDeployArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) error {

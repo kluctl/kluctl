@@ -151,7 +151,11 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 			}
 		}
 	}
-	allArgs.Merge(deployment.ConvertArgsToVars(args))
+	convertedArgs, err := deployment.ConvertArgsToVars(args)
+	if err != nil {
+		return doError(err)
+	}
+	allArgs.Merge(convertedArgs)
 	if target != nil {
 		if target.Args != nil {
 			allArgs.Merge(target.Args)
