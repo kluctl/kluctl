@@ -412,7 +412,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 }
 
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
-	var toDelete []k8s2.ObjectRef
+	toDelete := map[k8s2.ObjectRef]bool{}
 	for _, x := range d.Config.DeleteObjects {
 		for _, gvk := range a.k.Resources.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind)) {
 			ref := k8s2.ObjectRef{
@@ -420,7 +420,12 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 				Name:      x.Name,
 				Namespace: x.Namespace,
 			}
-			toDelete = append(toDelete, ref)
+			toDelete[ref] = true
+		}
+	}
+	for _, x := range d.Objects {
+		if utils.ParseBoolOrFalse(x.GetK8sAnnotation("kluctl.io/delete")) {
+			toDelete[x.GetK8sRef()] = true
 		}
 	}
 
@@ -436,6 +441,9 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	var applyObjects []*uo.UnstructuredObject
 	for _, o := range d.Objects {
 		if h.GetHook(o) != nil {
+			continue
+		}
+		if _, ok := toDelete[o.GetK8sRef()]; ok {
 			continue
 		}
 		applyObjects = append(applyObjects, o)
@@ -462,10 +470,12 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 	if len(toDelete) != 0 {
 		a.sctx.InfoFallback("Deleting %d objects", len(toDelete))
-		for i, ref := range toDelete {
+		i := 0
+		for ref := range toDelete {
 			a.sctx.Update(fmt.Sprintf("Deleting object %s (%d of %d)", ref.String(), i+1, len(toDelete)))
 			a.DeleteObject(ref, false)
 			a.sctx.Increment()
+			i++
 		}
 	}
 

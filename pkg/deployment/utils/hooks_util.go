@@ -156,6 +156,10 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		return ret
 	}
 
+	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/delete")) {
+		return nil
+	}
+
 	hooks := getSet("kluctl.io/hook")
 	for h := range hooks {
 		if utils.FindStrInSlice(supportedKluctlHooks, h) == -1 {
