@@ -254,7 +254,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	sh := status.FromContext(cliCtx)
 
 	if err != nil {
-		status.Error(cliCtx, err.Error())
+		status.Error(cliCtx, "%s", err.Error())
 		sh.Stop()
 		os.Exit(1)
 	}
