@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"strings"
 )
 
 type LoadedKluctlProject struct {
@@ -60,7 +61,7 @@ func (c *LoadedKluctlProject) FindDynamicTarget(name string) (*types2.DynamicTar
 func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName string, argValue string) error {
 	var dynArg *types2.DynamicArg
 	for _, x := range target.DynamicArgs {
-		if x.Name == argName {
+		if x.Name == argName || strings.HasPrefix(argName, x.Name+".") {
 			dynArg = &x
 			break
 		}
