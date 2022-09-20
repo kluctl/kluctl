@@ -171,7 +171,7 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 		if defaultValue != "" {
 			return fmt.Errorf("default not supported for slices")
 		}
-		cg.cmd.PersistentFlags().StringSliceVarP(v2.(*[]string), name, shortFlag, nil, help)
+		cg.cmd.PersistentFlags().StringArrayVarP(v2.(*[]string), name, shortFlag, nil, help)
 	case *bool:
 		parsedDefault := false
 		if defaultValue != "" {
