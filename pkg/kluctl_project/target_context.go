@@ -167,7 +167,7 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		}
 	}
 
-	err = deployment.CheckRequiredDeployArgs(p.DeploymentDir, varsCtx, allArgs)
+	err = deployment.LoadDeploymentArgs(p.DeploymentDir, varsCtx, allArgs)
 	if err != nil {
 		return doError(err)
 	}
