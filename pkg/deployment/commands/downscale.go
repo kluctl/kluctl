@@ -6,7 +6,6 @@ import (
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sync"
 )
@@ -34,8 +33,6 @@ func (cmd *DownscaleCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
 
-	appliedObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-
 	for _, d := range cmd.c.Deployments {
 		if !d.CheckInclusionForDeploy() {
 			continue
@@ -62,7 +59,7 @@ func (cmd *DownscaleCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types
 	}
 	wg.Wait()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, appliedObjects)
+	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, ad.GetAppliedObjectsMap())
 	du.Diff()
 
 	return &types.CommandResult{
