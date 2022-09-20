@@ -7,8 +7,7 @@ import (
 )
 
 type DynamicArg struct {
-	Name    string  `yaml:"name" validate:"required"`
-	Pattern *string `yaml:"pattern,omitempty"`
+	Name string `yaml:"name" validate:"required"`
 }
 
 type ExternalTargetConfig struct {

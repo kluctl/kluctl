@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"regexp"
 )
 
 type LoadedKluctlProject struct {
@@ -70,18 +69,5 @@ func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName str
 		return fmt.Errorf("dynamic argument %s is not allowed for target", argName)
 	}
 
-	argPattern := ".*"
-	if dynArg.Pattern != nil {
-		argPattern = *dynArg.Pattern
-	}
-	argPattern = fmt.Sprintf("^%s$", argPattern)
-
-	m, err := regexp.MatchString(argPattern, argValue)
-	if err != nil {
-		return err
-	}
-	if !m {
-		return fmt.Errorf("dynamic argument %s does not match required pattern '%s", argName, argPattern)
-	}
 	return nil
 }
