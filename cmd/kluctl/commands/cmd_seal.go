@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
 type sealCmd struct {
@@ -49,17 +50,24 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			return doFail(err)
 		}
 
+		secretsConfig := p.Config.SecretsConfig
+		var sealedSecretsConfig *types.GlobalSealedSecretsConfig
+		if secretsConfig != nil {
+			sealedSecretsConfig = secretsConfig.SealedSecrets
+		}
+
 		sealedSecretsNamespace := "kube-system"
 		sealedSecretsControllerName := "sealed-secrets-controller"
-		if p.Config.SecretsConfig != nil && p.Config.SecretsConfig.SealedSecrets != nil {
-			if p.Config.SecretsConfig.SealedSecrets.Namespace != nil {
-				sealedSecretsNamespace = *p.Config.SecretsConfig.SealedSecrets.Namespace
+		if sealedSecretsConfig != nil {
+			if sealedSecretsConfig.Namespace != nil {
+				sealedSecretsNamespace = *sealedSecretsConfig.Namespace
 			}
-			if p.Config.SecretsConfig.SealedSecrets.ControllerName != nil {
-				sealedSecretsControllerName = *p.Config.SecretsConfig.SealedSecrets.ControllerName
+			if sealedSecretsConfig.ControllerName != nil {
+				sealedSecretsControllerName = *sealedSecretsConfig.ControllerName
 			}
 		}
-		if p.Config.SecretsConfig == nil || p.Config.SecretsConfig.SealedSecrets == nil || p.Config.SecretsConfig.SealedSecrets.Bootstrap == nil || *p.Config.SecretsConfig.SealedSecrets.Bootstrap {
+
+		if sealedSecretsConfig == nil || sealedSecretsConfig.Bootstrap == nil || *sealedSecretsConfig.Bootstrap {
 			err = seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
 			if err != nil {
 				return doFail(err)
