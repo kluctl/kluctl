@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -21,19 +23,35 @@ import (
 )
 
 const hashAnnotation = "kluctl.io/sealedsecret-hashes"
+const certHashAnnotation = "kluctl.io/sealedsecret-cert-hash"
 
 type Sealer struct {
 	ctx         context.Context
 	forceReseal bool
-	cert        *rsa.PublicKey
+	cert        *x509.Certificate
+	pubKey      *rsa.PublicKey
+	certHash    string
 }
 
-func NewSealer(ctx context.Context, cert *rsa.PublicKey, forceReseal bool) (*Sealer, error) {
+func NewSealer(ctx context.Context, cert *x509.Certificate, forceReseal bool) (*Sealer, error) {
 	s := &Sealer{
 		ctx:         ctx,
 		forceReseal: forceReseal,
 		cert:        cert,
 	}
+
+	pk, ok := cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("expected RSA public key but found %v", cert.PublicKey)
+	}
+	s.pubKey = pk
+
+	pkBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	h := sha256.Sum256(pkBytes)
+	s.certHash = hex.EncodeToString(h[:])
 
 	return s, nil
 }
@@ -69,7 +87,8 @@ func encryptionLabel(namespace string, name string, scope string) []byte {
 }
 
 func (s *Sealer) encryptSecret(secret []byte, secretName string, secretNamespace string, scope string) (string, error) {
-	b, err := crypto.HybridEncrypt(rand.Reader, s.cert, secret, encryptionLabel(secretNamespace, secretName, scope))
+	// todo
+	b, err := crypto.HybridEncrypt(rand.Reader, s.pubKey, secret, encryptionLabel(secretNamespace, secretName, scope))
 	if err != nil {
 		return "", err
 	}
@@ -122,12 +141,17 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 
 	var existingContent *uo.UnstructuredObject
 	var existingHashes *uo.UnstructuredObject
+	var existingCertHash string
 
 	if utils.Exists(targetFile) {
 		existingContent, err = uo.FromFile(targetFile)
 		a := existingContent.GetK8sAnnotation(hashAnnotation)
 		if a != nil {
 			existingHashes, _ = uo.FromString(*a)
+		}
+		a = existingContent.GetK8sAnnotation(certHashAnnotation)
+		if a != nil {
+			existingCertHash = *a
 		}
 	}
 	if existingHashes == nil {
@@ -190,6 +214,9 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	if s.forceReseal {
 		resealAll = true
 		status.Info(s.ctx, "Forcing reseal of secrets in %s", secretName)
+	} else if existingCertHash != s.certHash {
+		resealAll = true
+		status.Info(s.ctx, "Cert for secret %s has changed, forcing reseal", secretName)
 	}
 
 	for k, v := range secrets {
@@ -228,6 +255,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 		return err
 	}
 	result.SetK8sAnnotation(hashAnnotation, resultSecretHashesStr)
+	result.SetK8sAnnotation(certHashAnnotation, s.certHash)
 
 	if reflect.DeepEqual(existingContent, result) {
 		status.Info(s.ctx, "Skipped %s as it did not change", baseName)

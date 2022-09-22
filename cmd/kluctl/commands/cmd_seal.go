@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	"crypto/rsa"
+	"crypto/x509"
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
@@ -84,7 +84,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	})
 }
 
-func (cmd *sealCmd) loadCert(ctx *commandCtx) (*rsa.PublicKey, error) {
+func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
 	sealingConfig := ctx.targetCtx.Target.SealingConfig
 
 	var certFile string

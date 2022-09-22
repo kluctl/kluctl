@@ -2,7 +2,7 @@ package seal
 
 import (
 	"context"
-	"crypto/rsa"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/cert"
 )
 
-func FetchCert(ctx context.Context, k *k8s.K8sCluster, namespace string, controllerName string) (*rsa.PublicKey, error) {
+func FetchCert(ctx context.Context, k *k8s.K8sCluster, namespace string, controllerName string) (*x509.Certificate, error) {
 	certData, err := openCertFromController(k, namespace, controllerName)
 	if err != nil {
 		if controllerName == "sealed-secrets-controller" {
@@ -92,7 +92,7 @@ func getServicePortName(k *k8s.K8sCluster, namespace, serviceName string) (strin
 	return n, nil
 }
 
-func ParseCert(data []byte) (*rsa.PublicKey, error) {
+func ParseCert(data []byte) (*x509.Certificate, error) {
 	certs, err := cert.ParseCertsPEM(data)
 	if err != nil {
 		return nil, err
@@ -103,10 +103,5 @@ func ParseCert(data []byte) (*rsa.PublicKey, error) {
 		return nil, errors.New("failed to read any certificates")
 	}
 
-	cert, ok := certs[0].PublicKey.(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("fxpected RSA public key but found %v", certs[0].PublicKey)
-	}
-
-	return cert, nil
+	return certs[0], nil
 }
