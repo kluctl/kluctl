@@ -16,7 +16,6 @@ body:
       label: Command
       description: Which command will be affected by the feature request? (If you want to propose a new command, just leave all unchecked)
       options:
-        - label: "archive"
         - label: "check-image-updates"
         - label: "delete"
         - label: "deploy"
