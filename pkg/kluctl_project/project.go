@@ -58,7 +58,7 @@ func (c *LoadedKluctlProject) FindDynamicTarget(name string) (*types2.DynamicTar
 	return nil, fmt.Errorf("target %s not existent in kluctl project config", name)
 }
 
-func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName string, argValue string) error {
+func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName string, argValue any) error {
 	var dynArg *types2.DynamicArg
 	for _, x := range target.DynamicArgs {
 		if x.Name == argName || strings.HasPrefix(argName, x.Name+".") {

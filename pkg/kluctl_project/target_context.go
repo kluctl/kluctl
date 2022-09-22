@@ -25,7 +25,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		images.PrependFixedImages(target.Images)
 	}
 
-	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, args, forSeal)
+	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, externalArgs, forSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, args map[string]string, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
+func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
 	doError := func(err error) (*vars.VarsCtx, *rest.Config, string, error) {
 		return nil, nil, "", err
 	}
@@ -144,18 +144,15 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 	allArgs := uo.New()
 
 	if target != nil {
-		for argName, argValue := range args {
+		for argName, argValue := range externalArgs.Object {
 			err = p.CheckDynamicArg(target, argName, argValue)
 			if err != nil {
 				return doError(err)
 			}
 		}
 	}
-	convertedArgs, err := deployment.ConvertArgsToVars(args)
-	if err != nil {
-		return doError(err)
-	}
-	allArgs.Merge(convertedArgs)
+
+	allArgs.Merge(externalArgs)
 	if target != nil {
 		if target.Args != nil {
 			allArgs.Merge(target.Args)
