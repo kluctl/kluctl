@@ -23,7 +23,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2
-	github.com/kluctl/go-jinja2 v0.0.0-20220915092153-31a9e083bdf2
+	github.com/kluctl/go-jinja2 v0.0.0-20220922065727-cf67f5b7f26d
 	github.com/mattn/go-isatty v0.0.16
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/reflectwalk v1.0.2

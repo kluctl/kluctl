@@ -18,6 +18,7 @@ func NewKluctlJinja2(strict bool) (*x.Jinja2, error) {
 		x.WithStrict(strict),
 		x.WithExtension("jinja2.ext.loopcontrols"),
 		x.WithExtension("go_jinja2.ext.kluctl"),
+		x.WithExtension("go_jinja2.ext.time"),
 		x.WithExtension("ext.images_ext.ImagesExtension"),
 		x.WithPythonPath(extSrc.GetExtractedPath()))
 }
