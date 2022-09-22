@@ -671,8 +671,8 @@ github.com/klauspost/compress v1.15.10 h1:Ai8UzuomSCDw90e1qNMtb15msBXsNpH6gzkkEN
 github.com/klauspost/compress v1.15.10/go.mod h1:QPwzmACJjUTFsnSHH934V6woptycfrDDJnH7hvFVbGM=
 github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2 h1:zjJAVyZiWJhufcafhykvXNar1vqDp/ukQk0hFuCJ9zw=
 github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2/go.mod h1:uekQDAlvKAYJWuDxxP1SGn1vTPUfoBwMS+aB6kR+v+o=
-github.com/kluctl/go-jinja2 v0.0.0-20220922065727-cf67f5b7f26d h1:pfyMHiDIYskxhJFlh1u1Xi3qHKGzg8Vna5hsRm7Cz0I=
-github.com/kluctl/go-jinja2 v0.0.0-20220922065727-cf67f5b7f26d/go.mod h1:8deI9sssmQf1CiCnyRJoBgfIw4Hh3+WsHmmO9+xIIO0=
+github.com/kluctl/go-jinja2 v0.0.0-20220922102415-424914b4142b h1:4fBKK0PZ8e/DC4GqM6RrUSSE2J6SlVTKNPb8awYxb5g=
+github.com/kluctl/go-jinja2 v0.0.0-20220922102415-424914b4142b/go.mod h1:8deI9sssmQf1CiCnyRJoBgfIw4Hh3+WsHmmO9+xIIO0=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
