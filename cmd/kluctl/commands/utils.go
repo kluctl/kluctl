@@ -104,8 +104,9 @@ type projectTargetCommandArgs struct {
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
 
-	forSeal       bool
-	forCompletion bool
+	forSeal           bool
+	forCompletion     bool
+	offlineKubernetes bool
 }
 
 type commandCtx struct {
@@ -165,7 +166,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		clusterName = &args.projectFlags.Cluster
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, args.targetFlags.Target, clusterName,
+	targetCtx, err := p.NewTargetContext(ctx,
+		args.targetFlags.Target, clusterName, args.offlineKubernetes,
 		args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
 		optionArgs2, args.forSeal, images, inclusion,
 		renderOutputDir)

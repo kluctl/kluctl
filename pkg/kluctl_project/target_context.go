@@ -12,6 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
 )
 
@@ -25,7 +26,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, offlineK8s bool, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		images.PrependFixedImages(target.Images)
 	}
 
-	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, externalArgs, forSeal)
+	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, offlineK8s, externalArgs, forSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
+func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, offlineK8s bool, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
 	doError := func(err error) (*vars.VarsCtx, *rest.Config, string, error) {
 		return nil, nil, "", err
 	}
@@ -130,9 +131,17 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		}
 	}
 
-	clientConfig, restConfig, err := p.loadArgs.ClientConfigGetter(contextName)
-	if err != nil {
-		return doError(err)
+	var err error
+	var clientConfig *rest.Config
+	if !offlineK8s {
+		var restConfig *api.Config
+		clientConfig, restConfig, err = p.loadArgs.ClientConfigGetter(contextName)
+		if err != nil {
+			return doError(err)
+		}
+		if contextName == nil {
+			contextName = &restConfig.CurrentContext
+		}
 	}
 
 	targetVars, err := uo.FromStruct(target)
@@ -171,7 +180,11 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 
 	varsCtx.UpdateChild("args", allArgs)
 
-	return varsCtx, clientConfig, restConfig.CurrentContext, nil
+	var contextName2 string
+	if contextName != nil {
+		contextName2 = *contextName
+	}
+	return varsCtx, clientConfig, contextName2, nil
 }
 
 func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, error) {

@@ -195,7 +195,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 
 func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
 	if v.k == nil {
-		return nil
+		return fmt.Errorf("loading vars from cluster is disabled")
 	}
 
 	var err error
