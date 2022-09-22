@@ -18,8 +18,9 @@ type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
 
-	ForceReseal bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
-	CertFile    string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
+	ForceReseal       bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	CertFile          string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
+	OfflineKubernetes bool   `group:"misc" help:"Run seal in offline mode, meaning that it will not try to connect the target cluster"`
 }
 
 func (cmd *sealCmd) Help() string {
@@ -41,9 +42,10 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	}
 
 	ptArgs := projectTargetCommandArgs{
-		projectFlags: cmd.ProjectFlags,
-		targetFlags:  cmd.TargetFlags,
-		forSeal:      true,
+		projectFlags:      cmd.ProjectFlags,
+		targetFlags:       cmd.TargetFlags,
+		forSeal:           true,
+		offlineKubernetes: cmd.OfflineKubernetes,
 	}
 	ptArgs.targetFlags.Target = targetName
 
@@ -113,6 +115,10 @@ func (cmd *sealCmd) loadCert(ctx *commandCtx) (*rsa.PublicKey, error) {
 		}
 		return cert, nil
 	} else {
+		if ctx.targetCtx.SharedContext.K == nil {
+			return nil, fmt.Errorf("must specify certFile when sealing in offline mode")
+		}
+
 		secretsConfig := ctx.targetCtx.KluctlProject.Config.SecretsConfig
 		var sealedSecretsConfig *types.GlobalSealedSecretsConfig
 		if secretsConfig != nil {
