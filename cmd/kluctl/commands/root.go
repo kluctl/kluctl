@@ -24,6 +24,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,6 +44,7 @@ const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/la
 type cli struct {
 	Debug         bool `group:"global" help:"Enable debug logging"`
 	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
+	NoColor       bool `group:"global" help:"Disable colored output"`
 
 	CpuProfile string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
 
@@ -74,7 +76,7 @@ var flagGroups = []groupInfo{
 var cliCtx = context.Background()
 var didSetupStatusHandler bool
 
-func setupStatusHandler(debug bool) {
+func setupStatusHandler(debug bool, noColor bool) {
 	didSetupStatusHandler = true
 
 	origStderr := os.Stderr
@@ -83,7 +85,7 @@ func setupStatusHandler(debug bool) {
 	isTerminal := isatty.IsTerminal(os.Stderr.Fd())
 	var sh status.StatusHandler
 	if !debug && isatty.IsTerminal(os.Stderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, false)
+		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, !noColor, false)
 	} else {
 		sh = status.NewSimpleStatusHandler(func(message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
@@ -187,7 +189,7 @@ func (c *cli) preRun() error {
 	if err != nil {
 		return err
 	}
-	setupStatusHandler(c.Debug)
+	setupStatusHandler(c.Debug, c.NoColor)
 	c.checkNewVersion()
 	return nil
 }
@@ -214,6 +216,8 @@ func initViper() {
 }
 
 func Execute() {
+	colorable.EnableColorsStdout(nil)
+
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
 		"Deploy and manage complex deployments on Kubernetes",
@@ -241,7 +245,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	err = rootCmd.ExecuteContext(cliCtx)
 	if !didSetupStatusHandler {
-		setupStatusHandler(false)
+		setupStatusHandler(false, true)
 	}
 
 	if cpuProfileFile != nil {
