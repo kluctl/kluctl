@@ -25,6 +25,7 @@ type SealingConfig struct {
 	DynamicSealing *bool                  `yaml:"dynamicSealing,omitempty"`
 	Args           *uo.UnstructuredObject `yaml:"args,omitempty"`
 	SecretSets     []string               `yaml:"secretSets,omitempty"`
+	CertFile       *string                `yaml:"certFile,omitempty"`
 }
 
 type Target struct {

@@ -2,13 +2,16 @@ package commands
 
 import (
 	"context"
+	"crypto/rsa"
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"os"
 )
 
 type sealCmd struct {
@@ -50,31 +53,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			return doFail(err)
 		}
 
-		secretsConfig := p.Config.SecretsConfig
-		var sealedSecretsConfig *types.GlobalSealedSecretsConfig
-		if secretsConfig != nil {
-			sealedSecretsConfig = secretsConfig.SealedSecrets
-		}
-
-		sealedSecretsNamespace := "kube-system"
-		sealedSecretsControllerName := "sealed-secrets-controller"
-		if sealedSecretsConfig != nil {
-			if sealedSecretsConfig.Namespace != nil {
-				sealedSecretsNamespace = *sealedSecretsConfig.Namespace
-			}
-			if sealedSecretsConfig.ControllerName != nil {
-				sealedSecretsControllerName = *sealedSecretsConfig.ControllerName
-			}
-		}
-
-		if sealedSecretsConfig == nil || sealedSecretsConfig.Bootstrap == nil || *sealedSecretsConfig.Bootstrap {
-			err = seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
-			if err != nil {
-				return doFail(err)
-			}
-		}
-
-		cert, err := seal.FetchCert(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName)
+		cert, err := cmd.loadCert(ctx)
 		if err != nil {
 			return doFail(err)
 		}
@@ -100,6 +79,62 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 		s.Success()
 		return nil
 	})
+}
+
+func (cmd *sealCmd) loadCert(ctx *commandCtx) (*rsa.PublicKey, error) {
+	sealingConfig := ctx.targetCtx.Target.SealingConfig
+
+	var certFile string
+
+	if sealingConfig != nil && sealingConfig.CertFile != nil {
+		path, err := securejoin.SecureJoin(ctx.targetCtx.KluctlProject.ProjectDir, *sealingConfig.CertFile)
+		if err != nil {
+			return nil, err
+		}
+		certFile = path
+	}
+
+	if certFile != "" {
+		d, err := os.ReadFile(certFile)
+		if err != nil {
+			return nil, err
+		}
+		cert, err := seal.ParseCert(d)
+		if err != nil {
+			return nil, err
+		}
+		return cert, nil
+	} else {
+		secretsConfig := ctx.targetCtx.KluctlProject.Config.SecretsConfig
+		var sealedSecretsConfig *types.GlobalSealedSecretsConfig
+		if secretsConfig != nil {
+			sealedSecretsConfig = secretsConfig.SealedSecrets
+		}
+
+		sealedSecretsNamespace := "kube-system"
+		sealedSecretsControllerName := "sealed-secrets-controller"
+		if sealedSecretsConfig != nil {
+			if sealedSecretsConfig.Namespace != nil {
+				sealedSecretsNamespace = *sealedSecretsConfig.Namespace
+			}
+			if sealedSecretsConfig.ControllerName != nil {
+				sealedSecretsControllerName = *sealedSecretsConfig.ControllerName
+			}
+		}
+
+		if sealedSecretsConfig == nil || sealedSecretsConfig.Bootstrap == nil || *sealedSecretsConfig.Bootstrap {
+			err := seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		cert, err := seal.FetchCert(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName)
+		if err != nil {
+			return nil, err
+		}
+		return cert, nil
+	}
 }
 
 func (cmd *sealCmd) Run() error {

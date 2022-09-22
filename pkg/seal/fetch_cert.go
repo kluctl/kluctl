@@ -34,7 +34,7 @@ func FetchCert(ctx context.Context, k *k8s.K8sCluster, namespace string, control
 		}
 	}
 
-	return parseKey(certData)
+	return ParseCert(certData)
 }
 
 func openCertFromBootstrap(k *k8s.K8sCluster, namespace string) ([]byte, error) {
@@ -92,7 +92,7 @@ func getServicePortName(k *k8s.K8sCluster, namespace, serviceName string) (strin
 	return n, nil
 }
 
-func parseKey(data []byte) (*rsa.PublicKey, error) {
+func ParseCert(data []byte) (*rsa.PublicKey, error) {
 	certs, err := cert.ParseCertsPEM(data)
 	if err != nil {
 		return nil, err
