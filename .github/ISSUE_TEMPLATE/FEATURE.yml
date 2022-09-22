@@ -21,7 +21,6 @@ body:
         - label: "delete"
         - label: "deploy"
         - label: "diff"
-        - label: "downscale"
         - label: "helm-pull"
         - label: "helm-update"
         - label: "list-images"

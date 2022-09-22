@@ -50,7 +50,6 @@ type cli struct {
 	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
 	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
 	Diff              diffCmd              `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
-	Downscale         downscaleCmd         `cmd:"" help:"Downscale all deployments"`
 	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pulls the specified Helm charts"`
 	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
 	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
