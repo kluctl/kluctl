@@ -66,7 +66,12 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			}
 		}
 
-		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName, cmd.ForceReseal)
+		cert, err := seal.FetchCert(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName)
+		if err != nil {
+			return doFail(err)
+		}
+
+		sealer, err := seal.NewSealer(ctx.ctx, cert, cmd.ForceReseal)
 		if err != nil {
 			return doFail(err)
 		}

@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -29,17 +28,12 @@ type Sealer struct {
 	cert        *rsa.PublicKey
 }
 
-func NewSealer(ctx context.Context, k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, forceReseal bool) (*Sealer, error) {
+func NewSealer(ctx context.Context, cert *rsa.PublicKey, forceReseal bool) (*Sealer, error) {
 	s := &Sealer{
 		ctx:         ctx,
 		forceReseal: forceReseal,
+		cert:        cert,
 	}
-
-	cert, err := fetchCert(ctx, k, sealedSecretsNamespace, sealedSecretsControllerName)
-	if err != nil {
-		return nil, err
-	}
-	s.cert = cert
 
 	return s, nil
 }

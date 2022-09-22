@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/cert"
 )
 
-func fetchCert(ctx context.Context, k *k8s.K8sCluster, namespace string, controllerName string) (*rsa.PublicKey, error) {
+func FetchCert(ctx context.Context, k *k8s.K8sCluster, namespace string, controllerName string) (*rsa.PublicKey, error) {
 	certData, err := openCertFromController(k, namespace, controllerName)
 	if err != nil {
 		if controllerName == "sealed-secrets-controller" {
