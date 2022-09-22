@@ -18,7 +18,8 @@ type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
 
-	ForceReseal bool `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	ForceReseal bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	CertFile    string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
 }
 
 func (cmd *sealCmd) Help() string {
@@ -92,6 +93,13 @@ func (cmd *sealCmd) loadCert(ctx *commandCtx) (*rsa.PublicKey, error) {
 			return nil, err
 		}
 		certFile = path
+	}
+
+	if cmd.CertFile != "" {
+		if certFile != "" {
+			status.Info(ctx.ctx, "Overriding certFile from target with certFile argument")
+		}
+		certFile = cmd.CertFile
 	}
 
 	if certFile != "" {
