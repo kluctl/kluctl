@@ -18,10 +18,10 @@ import (
 var kustomizeBuildMutex sync.Mutex
 
 // SecureBuildKustomization wraps krusty.MakeKustomizer with the following settings:
-//  - secure on-disk FS denying operations outside root
-//  - load files from outside the kustomization dir path
-//    (but not outside root)
-//  - disable plugins except for the builtin ones
+//   - secure on-disk FS denying operations outside root
+//   - load files from outside the kustomization dir path
+//     (but not outside root)
+//   - disable plugins except for the builtin ones
 func SecureBuildKustomization(root, dirPath string, allowRemoteBases bool) (_ resmap.ResMap, err error) {
 	var fs filesys.FileSystem
 
