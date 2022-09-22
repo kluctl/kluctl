@@ -9,7 +9,7 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.18.2
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/evanphx/json-patch v5.6.0+incompatible
+	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fluxcd/pkg/kustomize v0.7.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.11.1
