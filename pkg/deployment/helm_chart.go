@@ -90,13 +90,15 @@ func (c *helmChart) GetFullOutputPath() (string, error) {
 	return securejoin.SecureJoin(dir, c.GetOutputPath())
 }
 
-func (c *helmChart) buildHelmConfig() (*action.Configuration, error) {
+func (c *helmChart) buildHelmConfig(k *k8s.K8sCluster) (*action.Configuration, error) {
 	rc, err := registry.NewClient()
 	if err != nil {
 		return nil, err
 	}
+
 	return &action.Configuration{
-		RegistryClient: rc,
+		RESTClientGetter: k,
+		RegistryClient:   rc,
 	}, nil
 }
 
@@ -114,7 +116,7 @@ func (c *helmChart) Pull(ctx context.Context) error {
 	targetDir := filepath.Join(filepath.Dir(c.configFile), "charts")
 	_ = os.RemoveAll(chartDir)
 
-	cfg, err := c.buildHelmConfig()
+	cfg, err := c.buildHelmConfig(nil)
 	if err != nil {
 		return err
 	}
@@ -232,7 +234,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 			return err
 		}
 	}
-	cfg, err := c.buildHelmConfig()
+	cfg, err := c.buildHelmConfig(k)
 	if err != nil {
 		return err
 	}

@@ -16,9 +16,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"sync"
 	"time"
 )
@@ -448,4 +450,31 @@ func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params
 		return nil, err
 	}
 	return ret.Stream(k.ctx)
+}
+
+func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {
+	return k.clientFactory.RESTConfig(), nil
+}
+
+func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	d, err := k.clientFactory.DiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+	cd, ok := d.(discovery.CachedDiscoveryInterface)
+	if !ok {
+		return nil, fmt.Errorf("not a CachedDiscoveryInterface")
+	}
+	return cd, nil
+}
+
+func (k *K8sCluster) ToRESTMapper() (meta.RESTMapper, error) {
+	discoveryClient, err := k.ToDiscoveryClient()
+	if err != nil {
+		return nil, err
+	}
+
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+	expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
+	return expander, nil
 }
