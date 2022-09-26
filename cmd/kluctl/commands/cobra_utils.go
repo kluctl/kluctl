@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -252,7 +253,7 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 func (c *rootCommand) helpFunc(cg *commandAndGroups) {
 	cmd := cg.cmd
 
-	termWidth := utils.GetTermWidth()
+	termWidth := term.GetWidth()
 
 	h := "Usage: "
 	if cmd.Runnable() {

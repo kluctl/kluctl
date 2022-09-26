@@ -3,7 +3,7 @@ package multiline
 import (
 	"fmt"
 	"github.com/acarl005/stripansi"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"github.com/mattn/go-runewidth"
 	"io"
 	"sync"
@@ -67,7 +67,7 @@ func (ml *MultiLinePrinter) Flush() {
 	ml.mutex.Lock()
 	defer ml.mutex.Unlock()
 
-	tw := utils.GetTermWidth()
+	tw := term.GetWidth()
 
 	// Count the number of lines that need to be cleared. We need to take wrapping into account as well
 	prevTotalLines := 0
