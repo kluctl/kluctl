@@ -38,7 +38,10 @@ func formatCommandResultText(cr *types.CommandResult) string {
 		prettyObjectRefs(buf, refs)
 
 		buf.WriteString("\n")
-		for _, co := range cr.ChangedObjects {
+		for i, co := range cr.ChangedObjects {
+			if i != 0 {
+				buf.WriteString("\n")
+			}
 			prettyChanges(buf, co.Ref, co.Changes)
 		}
 	}
