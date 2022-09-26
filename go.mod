@@ -5,18 +5,17 @@ go 1.19
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e
 	github.com/Masterminds/semver/v3 v3.1.1
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/aws/aws-sdk-go v1.44.103
 	github.com/bitnami-labs/sealed-secrets v0.18.2
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fluxcd/pkg/kustomize v0.7.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/google/go-containerregistry v0.11.0
-	github.com/gosuri/uilive v0.0.4
 	github.com/hashicorp/vault/api v1.8.0
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/imdario/mergo v0.3.13
@@ -24,7 +23,9 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2
 	github.com/kluctl/go-jinja2 v0.0.0-20220922102415-424914b4142b
+	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.16
+	github.com/mattn/go-runewidth v0.0.9
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.14.4
@@ -94,6 +95,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.13.0 // indirect
@@ -153,8 +155,6 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -181,7 +181,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/rivo/uniseg v0.4.2 // indirect
 	github.com/rubenv/sql-migrate v1.2.0 // indirect
 	github.com/russross/blackfriday v1.6.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect

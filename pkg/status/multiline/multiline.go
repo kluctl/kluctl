@@ -1,9 +1,10 @@
 package multiline
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/gosuri/uilive"
+	"github.com/acarl005/stripansi"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/mattn/go-runewidth"
 	"io"
 	"sync"
 	"time"
@@ -13,8 +14,8 @@ type MultiLinePrinter struct {
 	topLines []*Line
 	lines    []*Line
 
-	uil         *uilive.Writer
-	lastWritten []byte
+	w         io.Writer
+	prevLines []string
 
 	ticker *time.Ticker
 	tdone  chan bool
@@ -30,11 +31,9 @@ type Line struct {
 }
 
 func (ml *MultiLinePrinter) Start(w io.Writer) {
-	ml.uil = uilive.New()
-	ml.uil.Out = w
-	ml.uil.Start()
+	ml.w = w
 
-	ml.ticker = time.NewTicker(100 * time.Millisecond)
+	ml.ticker = time.NewTicker(1 * time.Millisecond)
 	ml.tdone = make(chan bool)
 
 	go ml.loop()
@@ -44,7 +43,6 @@ func (ml *MultiLinePrinter) Stop() {
 	ml.Flush()
 	ml.tdone <- true
 	<-ml.tdone
-	ml.uil.Stop()
 }
 
 func (ml *MultiLinePrinter) loop() {
@@ -69,27 +67,42 @@ func (ml *MultiLinePrinter) Flush() {
 	ml.mutex.Lock()
 	defer ml.mutex.Unlock()
 
-	hadTopLines := false
-	if len(ml.topLines) != 0 {
-		hadTopLines = true
-		topBuf := bytes.NewBuffer(nil)
-		for _, l := range ml.topLines {
-			_, _ = fmt.Fprintf(topBuf, "%s\n", l.s())
-		}
+	tw := utils.GetTermWidth()
 
-		_, _ = ml.uil.Bypass().Write(topBuf.Bytes())
+	// Count the number of lines that need to be cleared. We need to take wrapping into account as well
+	prevTotalLines := 0
+	for _, line := range ml.prevLines {
+		prevTotalLines += ml.countConsoleLines(line, tw)
+	}
+	if prevTotalLines > 0 {
+		ml.clearLines(prevTotalLines)
+	}
+
+	if len(ml.topLines) != 0 {
+		for _, l := range ml.topLines {
+			_, _ = fmt.Fprintf(ml.w, "%s\n", l.s())
+		}
 		ml.topLines = nil
 	}
 
-	linesBuf := bytes.NewBuffer(nil)
+	ml.prevLines = nil
 	for _, l := range ml.lines {
-		_, _ = fmt.Fprintf(linesBuf, "%s\n", l.s())
+		s := l.s()
+		ml.prevLines = append(ml.prevLines, s)
+		_, _ = fmt.Fprintf(ml.w, "%s\n", s)
 	}
-	newBytes := linesBuf.Bytes()
-	if hadTopLines || !bytes.Equal(newBytes, ml.lastWritten) {
-		_, _ = ml.uil.Write(newBytes)
-		ml.lastWritten = newBytes
+}
+
+func (ml *MultiLinePrinter) countConsoleLines(s string, tw int) int {
+	s = stripansi.Strip(s)
+	w := runewidth.StringWidth(s)
+	cnt := 1
+	for w > tw {
+		cnt++
+		s = s[tw:]
+		w = runewidth.StringWidth(s)
 	}
+	return cnt
 }
 
 func (ml *MultiLinePrinter) NewTopLine(s LineFunc) {
