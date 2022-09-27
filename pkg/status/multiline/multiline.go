@@ -33,7 +33,7 @@ type Line struct {
 func (ml *MultiLinePrinter) Start(w io.Writer) {
 	ml.w = w
 
-	ml.ticker = time.NewTicker(1 * time.Millisecond)
+	ml.ticker = time.NewTicker(100 * time.Millisecond)
 	ml.tdone = make(chan bool)
 
 	go ml.loop()
