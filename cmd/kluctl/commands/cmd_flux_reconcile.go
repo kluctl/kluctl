@@ -50,7 +50,12 @@ func (cmd *fluxReconcileCmd) Run() error {
 			fmt.Println("KluctlDeployment name flag not provided..")
 			os.Exit(1)
 		}
-		sourceName, sourceNamespace, _, err = k.GetObjectSource(ref)
+		o, _, err := k.GetSingleObject(ref)
+		if o == nil {
+			return err
+		}
+
+		sourceName, sourceNamespace, err = GetObjectSource(o, kd, ns, context.TODO())
 		if err != nil {
 			return err
 		}
@@ -68,7 +73,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 		s = status.Start(cliCtx, "Waiting for Source %s to finish reconciliation", sourceName)
 
 		if !noWait {
-			ready, err := k.WaitForReady(ref2)
+			ready, err := WaitForReady(k, ref2)
 			if !ready {
 				s.FailedWithMessage("Failed while waiting for Source %s to get ready..", sourceName)
 				return err
@@ -90,7 +95,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 	s = status.Start(cliCtx, "Waiting for KluctlDeployment %s in %s namespace to finish reconciliation", kd, ns)
 
 	if !noWait {
-		ready, err := k.WaitForReady(ref)
+		ready, err := WaitForReady(k, ref)
 		if !ready {
 			s.FailedWithMessage("Failed while waiting for KluctlDeployment %s to get ready..", kd)
 			return err

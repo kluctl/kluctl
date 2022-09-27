@@ -225,26 +225,6 @@ func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredO
 	return ret, retApiWarnings, nil
 }
 
-func (k *K8sCluster) GetObjectSource(ref k8s.ObjectRef) (string, string, []ApiWarning, error) {
-	status.Trace(k.ctx, "fetching %s in %s", ref.Name, ref.Namespace)
-
-	o, apiWarning, err := k.GetSingleObject(ref)
-	name, ok, err := o.GetNestedField("spec", "sourceRef", "name")
-	if !ok {
-		return "", "", nil, err
-	}
-
-	namespace, ok, err := o.GetNestedField("spec", "sourceRef", "namespace")
-	if !ok {
-		return "", "", nil, err
-	}
-
-	return fmt.Sprintf("%v", name),
-		fmt.Sprintf("%v", namespace),
-		apiWarning,
-		err
-}
-
 type DeleteOptions struct {
 	ForceDryRun         bool
 	NoWait              bool
@@ -488,34 +468,4 @@ func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params
 		return nil, err
 	}
 	return ret.Stream(k.ctx)
-}
-
-func (k *K8sCluster) GetObjectStatus(ref k8s.ObjectRef) (string, error) {
-	o, _, err := k.GetSingleObject(ref)
-	if o == nil {
-		return "", err
-	}
-	conditions, ok, err := o.GetNestedField("status", "conditions")
-	if !ok {
-		return "", err
-	}
-	last := conditions.([]interface{})[0].(map[string]interface{})["status"]
-
-	return fmt.Sprintf("%s", last), err
-}
-
-func (k *K8sCluster) WaitForReady(ref k8s.ObjectRef) (bool, error) {
-	retry := 0
-	finalStatus := true
-	var errorMsg error
-	for s, err := k.GetObjectStatus(ref); s != "True"; {
-		if retry >= 5 || err != nil {
-			finalStatus = false
-			errorMsg = err
-			break
-		}
-		retry++
-		time.Sleep(8 * time.Second)
-	}
-	return finalStatus, errorMsg
 }
