@@ -205,7 +205,7 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 			return err
 		}
 		if len(secretEntry.Sources) != 0 {
-			status.Warning(p.ctx, "'sources' in secretSets is deprecated, use 'vars' instead")
+			status.Deprecation(p.ctx, "secrets-sets-sources", "'sources' in secretSets is deprecated, use 'vars' instead")
 			err = varsLoader.LoadVarsList(varsCtx, secretEntry.Sources, searchDirs, "secrets")
 		} else {
 			err = varsLoader.LoadVarsList(varsCtx, secretEntry.Vars, searchDirs, "secrets")
@@ -221,9 +221,7 @@ func (p *LoadedKluctlProject) LoadClusterConfig(clusterName string) (*types.Clus
 	var err error
 	var clusterConfig *types.ClusterConfig
 
-	p.warnOnce.Do("cluster-config", func() {
-		status.Warning(p.ctx, "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
-	})
+	status.Deprecation(p.ctx, "cluster-config", "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
 
 	clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, clusterName)
 	if err != nil {

@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"strings"
 )
 
@@ -29,8 +28,6 @@ type LoadedKluctlProject struct {
 
 	J2 *jinja2.Jinja2
 	RP *repocache.GitRepoCache
-
-	warnOnce utils.OnceByKey
 }
 
 func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {

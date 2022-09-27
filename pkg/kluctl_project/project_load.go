@@ -96,10 +96,8 @@ func (c *LoadedKluctlProject) loadExternalProject(ep *types2.ExternalProject, de
 	}
 
 	if ep.Project != nil {
-		c.warnOnce.Do("external-projects", func() {
-			status.Warning(c.ctx, "External projects are deprecated and support for them will be removed in the future. "+
-				"Use Git variable sources as replacement for cluster configs and Git includes as replacement for external deployment projects.")
-		})
+		status.Deprecation(c.ctx, "external-projects", "External projects are deprecated and support for them will be removed in the future. "+
+			"Use Git variable sources as replacement for cluster configs and Git includes as replacement for external deployment projects.")
 
 		// pointing to an actual external project, so let's try to clone it
 		return c.loadGitProject(ep.Project, defaultGitSubDir)
@@ -156,13 +154,13 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	defer s.Failed()
 
 	if c.loadArgs.LocalClusters != "" {
-		status.Warning(c.ctx, "--local-clusters is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
+		status.Deprecation(c.ctx, "--local-clusters", "--local-clusters is deprecated and will be removed in an upcoming version. Use variables loaded from git instead.")
 	}
 	if c.loadArgs.LocalDeployment != "" {
-		status.Warning(c.ctx, "--local-deployment is deprecated and will be removed in an upcoming version. Use git includes instead.")
+		status.Deprecation(c.ctx, "--local-deployment", "--local-deployment is deprecated and will be removed in an upcoming version. Use git includes instead.")
 	}
 	if c.loadArgs.LocalSealedSecrets != "" {
-		status.Warning(c.ctx, "--local-sealed-secrets is deprecated and will be removed in an upcoming version.")
+		status.Deprecation(c.ctx, "--local-sealed-secrets", "--local-sealed-secrets is deprecated and will be removed in an upcoming version.")
 	}
 
 	deploymentInfo, err := c.loadExternalProject(c.Config.Deployment, "", c.loadArgs.LocalDeployment)

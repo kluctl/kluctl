@@ -76,7 +76,7 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		v.mergeVars(varsCtx, source.Values, rootKey)
 		return nil
 	} else if source.Path != nil {
-		status.Warning(v.ctx, "'path' is deprecated as vars source, use 'file' instead")
+		status.Deprecation(v.ctx, "vars-path", "'path' is deprecated as vars source, use 'file' instead")
 		return v.loadFile(varsCtx, *source.Path, searchDirs, rootKey)
 	} else if source.File != nil {
 		return v.loadFile(varsCtx, *source.File, searchDirs, rootKey)
