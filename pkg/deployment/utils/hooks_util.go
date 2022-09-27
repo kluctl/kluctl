@@ -107,7 +107,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 		if u.a.HadError(ref) {
 			continue
 		}
-		if !h.wait {
+		if !h.wait || u.a.o.NoWait {
 			continue
 		}
 		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout)
