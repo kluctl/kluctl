@@ -5,7 +5,8 @@ import (
 	"sync"
 )
 
-var defaultCluster1, defaultCluster2 *test_utils.EnvTestCluster
+var defaultCluster1 = test_utils.CreateEnvTestCluster("cluster1")
+var defaultCluster2 = test_utils.CreateEnvTestCluster("cluster2")
 var defaultKindCluster1VaultPort, defaultKindCluster2VaultPort int
 
 func init() {
@@ -13,16 +14,14 @@ func init() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		var err error
-		defaultCluster1, err = test_utils.CreateEnvTestCluster("cluster1")
+		err := defaultCluster1.Start()
 		if err != nil {
 			panic(err)
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		var err error
-		defaultCluster2, err = test_utils.CreateEnvTestCluster("cluster2")
+		err := defaultCluster2.Start()
 		if err != nil {
 			panic(err)
 		}
