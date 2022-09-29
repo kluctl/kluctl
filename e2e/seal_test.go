@@ -46,12 +46,12 @@ func init() {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		installSealedSecretsOperator(defaultKindCluster1)
-		installVault(defaultKindCluster1)
+		installSealedSecretsOperator(defaultCluster1)
+		installVault(defaultCluster1)
 	}()
 	go func() {
 		defer wg.Done()
-		installSealedSecretsOperator(defaultKindCluster2)
+		installSealedSecretsOperator(defaultCluster2)
 	}()
 	wg.Wait()
 }
@@ -95,7 +95,7 @@ func assertDecryptedSecrets(t *testing.T, k *test_utils.EnvTestCluster, namespac
 }
 
 func TestSeal_WithOperator(t *testing.T) {
-	k := defaultKindCluster1
+	k := defaultCluster1
 	namespace := "seal-with-operator"
 
 	waitForSealedSecretsOperator(t, k)
@@ -131,7 +131,7 @@ func TestSeal_WithOperator(t *testing.T) {
 }
 
 func TestSeal_WithBootstrap(t *testing.T) {
-	k := defaultKindCluster2
+	k := defaultCluster2
 	namespace := "seal-with-bootstrap"
 
 	// we still wait for it to be ready before we then delete it
@@ -175,7 +175,7 @@ func TestSeal_WithBootstrap(t *testing.T) {
 func TestSeal_MultipleVarSources(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 	namespace := "seal-multiple-vs"
 
 	waitForSealedSecretsOperator(t, k)
@@ -217,7 +217,7 @@ func TestSeal_MultipleVarSources(t *testing.T) {
 func TestSeal_MultipleSecretSets(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 	namespace := "seal-multiple-ss"
 
 	waitForSealedSecretsOperator(t, k)
@@ -261,11 +261,11 @@ func TestSeal_MultipleSecretSets(t *testing.T) {
 }
 
 func TestSeal_MultipleTargets(t *testing.T) {
-	k := defaultKindCluster1
+	k := defaultCluster1
 	namespace := "seal-multiple-targets"
 
 	waitForSealedSecretsOperator(t, k)
-	waitForSealedSecretsOperator(t, defaultKindCluster2)
+	waitForSealedSecretsOperator(t, defaultCluster2)
 
 	p := prepareSealTest(t, k, namespace,
 		map[string]string{
@@ -293,13 +293,13 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	})
 	addSecretsSetToTarget(p, "test-target2", "test2")
 
-	p.mergeKubeconfig(defaultKindCluster2)
-	createNamespace(t, defaultKindCluster2, namespace)
+	p.mergeKubeconfig(defaultCluster2)
+	createNamespace(t, defaultCluster2, namespace)
 	p.updateTarget("test-target", func(target *uo.UnstructuredObject) {
-		_ = target.SetNestedField(defaultKindCluster1.Context, "context")
+		_ = target.SetNestedField(defaultCluster1.Context, "context")
 	})
 	p.updateTarget("test-target2", func(target *uo.UnstructuredObject) {
-		_ = target.SetNestedField(defaultKindCluster2.Context, "context")
+		_ = target.SetNestedField(defaultCluster2.Context, "context")
 	})
 
 	p.KluctlMust("seal", "-t", "test-target")
@@ -317,8 +317,8 @@ func TestSeal_MultipleTargets(t *testing.T) {
 		"s1": "v1",
 		"s2": "v2",
 	})
-	waitForReadiness(t, defaultKindCluster2, namespace, "secret/secret", 1*time.Minute)
-	assertDecryptedSecrets(t, defaultKindCluster2, namespace, "secret", map[string]string{
+	waitForReadiness(t, defaultCluster2, namespace, "secret/secret", 1*time.Minute)
+	assertDecryptedSecrets(t, defaultCluster2, namespace, "secret", map[string]string{
 		"s1": "v3",
 		"s2": "v4",
 	})
@@ -327,7 +327,7 @@ func TestSeal_MultipleTargets(t *testing.T) {
 func TestSeal_File(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 	namespace := "seal-file"
 
 	waitForSealedSecretsOperator(t, k)
@@ -372,13 +372,13 @@ func TestSeal_File(t *testing.T) {
 func TestSeal_Vault(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 	namespace := "seal-vault"
 
 	waitForSealedSecretsOperator(t, k)
 	waitForVault(t, k)
 
-	u, err := url.Parse(defaultKindCluster1.RESTConfig().Host)
+	u, err := url.Parse(defaultCluster1.RESTConfig().Host)
 	if err != nil {
 		t.Fatal(err)
 	}

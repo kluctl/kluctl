@@ -111,7 +111,7 @@ func assertHookResultNotCMName(t *testing.T, p *testProject, k *test_utils.EnvTe
 func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletionPolicy string) (*testProject, *test_utils.EnvTestCluster) {
 	isDone := false
 	namespace := fmt.Sprintf("hook-%s", name)
-	k := defaultKindCluster1
+	k := defaultCluster1
 	p := &testProject{}
 	p.init(t, k, namespace)
 	defer func() {

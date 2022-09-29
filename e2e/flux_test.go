@@ -12,7 +12,7 @@ import (
 func TestFluxCommands(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 
 	p := &testProject{}
 	p.init(t, k, "simple")

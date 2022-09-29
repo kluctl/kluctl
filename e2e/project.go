@@ -187,7 +187,7 @@ func (p *testProject) updateCluster(name string, context string, vars *uo.Unstru
 	}, fmt.Sprintf("add/update cluster %s", name))
 }
 
-func (p *testProject) updateKindCluster(k *test_utils.EnvTestCluster, vars *uo.UnstructuredObject) {
+func (p *testProject) updateEnvTestCluster(k *test_utils.EnvTestCluster, vars *uo.UnstructuredObject) {
 	context := k.KubectlMust(p.t, "config", "current-context")
 	context = strings.TrimSpace(context)
 	p.updateCluster(k.Context, context, vars)

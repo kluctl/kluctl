@@ -11,7 +11,7 @@ import (
 func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *test_utils.EnvTestCluster) {
 	isDone := false
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 	p := &testProject{}
 	p.init(t, k, namespace)
 	defer func() {
