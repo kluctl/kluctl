@@ -2,10 +2,13 @@ package test_utils
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
 	"k8s.io/client-go/rest"
+	"os"
+	"os/exec"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"testing"
 )
@@ -46,7 +49,7 @@ func CreateEnvTestCluster(context string) (*EnvTestCluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	kcfg = bytes.ReplaceAll(kcfg, []byte("envtest"), []byte(context))
 
 	k.Kubeconfig = kcfg
@@ -61,14 +64,31 @@ func (c *EnvTestCluster) RESTConfig() *rest.Config {
 }
 
 func (c *EnvTestCluster) Kubectl(args ...string) (string, string, error) {
-	kctl, err := c.user.Kubectl()
+	tmp, err := os.CreateTemp("", "")
+	if err != nil {
+		return "", "", err
+	}
+	defer func() {
+		tmp.Close()
+		os.Remove(tmp.Name())
+	}()
+
+	_, err = tmp.Write(c.Kubeconfig)
 	if err != nil {
 		return "", "", err
 	}
 
-	stdout1, stderr1, err := kctl.Run(args...)
-	stdout, _ := io.ReadAll(stdout1)
-	stderr, _ := io.ReadAll(stderr1)
+	stdoutBuffer := &bytes.Buffer{}
+	stderrBuffer := &bytes.Buffer{}
+	allArgs := append([]string{fmt.Sprintf("--kubeconfig=%s", tmp.Name())}, args...)
+
+	cmd := exec.Command(c.env.ControlPlane.KubectlPath, allArgs...)
+	cmd.Stdout = stdoutBuffer
+	cmd.Stderr = stderrBuffer
+
+	err = cmd.Run()
+	stdout, _ := io.ReadAll(stdoutBuffer)
+	stderr, _ := io.ReadAll(stderrBuffer)
 	return string(stdout), string(stderr), err
 }
 
