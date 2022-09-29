@@ -297,11 +297,15 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		x = x.Clone()
 		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
 	} else if a.o.DryRun && remoteNamespace == nil && ref.Namespace != "" {
-		// The namespace does not exist, so let's pretend we deploy it to the default namespace with a dummy name
-		usesDummyName = true
-		x = x.Clone()
-		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
-		x.SetK8sNamespace("default")
+		nsRef := k8s2.NewObjectRef("", "v1", "Namespace", ref.Namespace, "")
+		if _, ok := a.appliedObjects[nsRef]; ok {
+			// The namespace does not really exist, but would have been created if dryRun would be false.
+			// So let's pretend we deploy it to the default namespace with a dummy name
+			usesDummyName = true
+			x = x.Clone()
+			x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+			x.SetK8sNamespace("default")
+		}
 	}
 
 	options := k8s.PatchOptions{
