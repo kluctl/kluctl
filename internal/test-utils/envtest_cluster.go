@@ -2,6 +2,7 @@ package test_utils
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -10,52 +11,69 @@ import (
 	"os"
 	"os/exec"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"testing"
 )
 
 type EnvTestCluster struct {
-	env envtest.Environment
+	env     envtest.Environment
+	started bool
 
 	user       *envtest.AuthenticatedUser
 	Kubeconfig []byte
 	Context    string
 	config     *rest.Config
+
+	callbackServer     webhook.Server
+	callbackServerStop context.CancelFunc
 }
 
-func CreateEnvTestCluster(context string) (*EnvTestCluster, error) {
+func CreateEnvTestCluster(context string) *EnvTestCluster {
 	k := &EnvTestCluster{
 		Context: context,
 	}
+	return k
+}
 
+func (k *EnvTestCluster) Start() error {
 	_, err := k.env.Start()
 	if err != nil {
-		return nil, err
+		return err
 	}
+	k.started = true
 
-	isOk := false
-	defer func() {
-		if !isOk {
-			_ = k.env.Stop()
-		}
-	}()
+	err = k.startCallbackServer()
+	if err != nil {
+		return err
+	}
 
 	user, err := k.env.AddUser(envtest.User{Name: "default", Groups: []string{"system:masters"}}, &rest.Config{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	k.user = user
 
 	kcfg, err := user.KubeConfig()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	kcfg = bytes.ReplaceAll(kcfg, []byte("envtest"), []byte(context))
+	kcfg = bytes.ReplaceAll(kcfg, []byte("envtest"), []byte(k.Context))
 
 	k.Kubeconfig = kcfg
 
-	isOk = true
-	return k, nil
+	return nil
+}
+
+func (c *EnvTestCluster) Stop() {
+	if c.started {
+		_ = c.env.Stop()
+		c.started = false
+	}
+	if c.callbackServerStop != nil {
+		c.callbackServerStop()
+		c.callbackServerStop = nil
+	}
 }
 
 // RESTConfig returns K8s client config to pass to clientset objects
