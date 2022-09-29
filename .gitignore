@@ -11,6 +11,7 @@
 /kluctl.exe
 /e2e.test*
 /bin
+/build
 /reports
 /vendor
 dist/
