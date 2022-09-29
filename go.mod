@@ -53,11 +53,12 @@ require (
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v0.25.2
 	k8s.io/klog/v2 v2.80.1
-	sigs.k8s.io/kind v0.16.0
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 )
+
+require sigs.k8s.io/controller-runtime v0.13.0
 
 require (
 	cloud.google.com/go/compute v1.10.0 // indirect
@@ -76,7 +77,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20220824120805-4b6e5c587895 // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
-	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect

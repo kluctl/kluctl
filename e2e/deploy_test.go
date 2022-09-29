@@ -13,7 +13,7 @@ func TestCommandDeploySimple(t *testing.T) {
 	p.init(t, k, "simple")
 	defer p.cleanup()
 
-	recreateNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.projectName)
 
 	p.updateTarget("test", nil)
 

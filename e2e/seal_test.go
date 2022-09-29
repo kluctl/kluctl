@@ -18,26 +18,26 @@ import (
 	"time"
 )
 
-func installSealedSecretsOperator(k *test_utils.KindCluster) {
+func installSealedSecretsOperator(k *test_utils.EnvTestCluster) {
 	test_resources.ApplyYaml("sealed-secrets.yaml", k)
 }
 
-func waitForSealedSecretsOperator(t *testing.T, k *test_utils.KindCluster) {
+func waitForSealedSecretsOperator(t *testing.T, k *test_utils.EnvTestCluster) {
 	waitForReadiness(t, k, "kube-system", "deployment/sealed-secrets-controller", 5*time.Minute)
 }
 
-func deleteSealedSecretsOperator(k *test_utils.KindCluster) {
+func deleteSealedSecretsOperator(k *test_utils.EnvTestCluster) {
 	test_resources.DeleteYaml("sealed-secrets.yaml", k)
-	_, _ = k.Kubectl("-n", "kube-system", "delete", "secret", "-l", "sealedsecrets.bitnami.com/sealed-secrets-key", "--wait")
-	_, _ = k.Kubectl("-n", "kube-system", "delete", "configmap", "sealed-secrets-key-kluctl-bootstrap", "--wait")
+	_, _, _ = k.Kubectl("-n", "kube-system", "delete", "secret", "-l", "sealedsecrets.bitnami.com/sealed-secrets-key", "--wait")
+	_, _, _ = k.Kubectl("-n", "kube-system", "delete", "configmap", "sealed-secrets-key-kluctl-bootstrap", "--wait")
 }
 
-func installVault(k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("create", "ns", "vault")
+func installVault(k *test_utils.EnvTestCluster) {
+	_, _, _ = k.Kubectl("create", "ns", "vault")
 	test_resources.ApplyYaml("vault.yaml", k)
 }
 
-func waitForVault(t *testing.T, k *test_utils.KindCluster) {
+func waitForVault(t *testing.T, k *test_utils.EnvTestCluster) {
 	waitForReadiness(t, k, "vault", "statefulset/vault", 5*time.Minute)
 }
 
@@ -56,11 +56,11 @@ func init() {
 	wg.Wait()
 }
 
-func prepareSealTest(t *testing.T, k *test_utils.KindCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject) *testProject {
+func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject) *testProject {
 	p := &testProject{}
 	p.init(t, k, fmt.Sprintf("seal-%s", namespace))
 
-	recreateNamespace(t, k, namespace)
+	createNamespace(t, k, namespace)
 
 	addSecretsSet(p, "test", varsSources)
 	addSecretsSetToTarget(p, "test-target", "test")
@@ -84,7 +84,7 @@ func addSecretsSetToTarget(p *testProject, targetName string, secretSetName stri
 	})
 }
 
-func assertDecryptedSecrets(t *testing.T, k *test_utils.KindCluster, namespace string, secretName string, expectedSecrets map[string]string) {
+func assertDecryptedSecrets(t *testing.T, k *test_utils.EnvTestCluster, namespace string, secretName string, expectedSecrets map[string]string) {
 	s := k.KubectlYamlMust(t, "-n", namespace, "get", "secret", secretName)
 
 	for key, value := range expectedSecrets {
@@ -294,7 +294,7 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	addSecretsSetToTarget(p, "test-target2", "test2")
 
 	p.mergeKubeconfig(defaultKindCluster2)
-	recreateNamespace(t, defaultKindCluster2, namespace)
+	createNamespace(t, defaultKindCluster2, namespace)
 	p.updateTarget("test-target", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultKindCluster1.Context, "context")
 	})

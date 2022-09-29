@@ -38,7 +38,7 @@ func TestFluxCommands(t *testing.T) {
 	assert.Len(t, annotation, 1, "Annotation not present")
 }
 
-func getKluctlSuspendField(t *testing.T, k *test_utils.KindCluster) interface{} {
+func getKluctlSuspendField(t *testing.T, k *test_utils.EnvTestCluster) interface{} {
 	o := k.KubectlYamlMust(t, "-n", "default", "get", "kluctldeployment", "microservices-demo-test")
 	result, ok, err := o.GetNestedField("spec", "suspend")
 	fmt.Println(result)
@@ -51,7 +51,7 @@ func getKluctlSuspendField(t *testing.T, k *test_utils.KindCluster) interface{} 
 	return result
 }
 
-func getKluctlAnnotations(t *testing.T, k *test_utils.KindCluster) interface{} {
+func getKluctlAnnotations(t *testing.T, k *test_utils.EnvTestCluster) interface{} {
 	o := k.KubectlYamlMust(t, "-n", "default", "get", "kluctldeployment", "microservices-demo-test")
 	result, ok, err := o.GetNestedField("metadata", "annotations")
 	if err != nil {

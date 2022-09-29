@@ -37,7 +37,7 @@ type testProject struct {
 	gitServer *test_utils.GitServer
 }
 
-func (p *testProject) init(t *testing.T, k *test_utils.KindCluster, projectName string) {
+func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectName string) {
 	p.t = t
 	p.gitServer = test_utils.NewGitServer(t)
 	p.projectName = projectName
@@ -92,9 +92,9 @@ func (p *testProject) cleanup() {
 	}
 }
 
-func (p *testProject) mergeKubeconfig(k *test_utils.KindCluster) {
+func (p *testProject) mergeKubeconfig(k *test_utils.EnvTestCluster) {
 	p.updateMergedKubeconfig(func(config *clientcmdapi.Config) {
-		nkcfg, err := clientcmd.LoadFromFile(k.Kubeconfig)
+		nkcfg, err := clientcmd.Load(k.Kubeconfig)
 		if err != nil {
 			p.t.Fatal(err)
 		}
@@ -187,13 +187,10 @@ func (p *testProject) updateCluster(name string, context string, vars *uo.Unstru
 	}, fmt.Sprintf("add/update cluster %s", name))
 }
 
-func (p *testProject) updateKindCluster(k *test_utils.KindCluster, vars *uo.UnstructuredObject) {
-	context, err := k.Kubectl("config", "current-context")
-	if err != nil {
-		p.t.Fatal(err)
-	}
+func (p *testProject) updateKindCluster(k *test_utils.EnvTestCluster, vars *uo.UnstructuredObject) {
+	context := k.KubectlMust(p.t, "config", "current-context")
 	context = strings.TrimSpace(context)
-	p.updateCluster(k.Name, context, vars)
+	p.updateCluster(k.Context, context, vars)
 }
 
 func (p *testProject) updateTargetDeprecated(name string, cluster string, args *uo.UnstructuredObject) {

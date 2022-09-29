@@ -3,7 +3,6 @@ package e2e
 import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"sync"
 	"testing"
 )
 
@@ -12,17 +11,8 @@ func prepareContextTest(t *testing.T, name string) *testProject {
 	p.init(t, defaultKindCluster1, name)
 	p.mergeKubeconfig(defaultKindCluster2)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		recreateNamespace(t, defaultKindCluster1, p.projectName)
-	}()
-	go func() {
-		defer wg.Done()
-		recreateNamespace(t, defaultKindCluster2, p.projectName)
-	}()
-	wg.Wait()
+	createNamespace(t, defaultKindCluster1, p.projectName)
+	createNamespace(t, defaultKindCluster2, p.projectName)
 
 	addConfigMapDeployment(p, "cm", nil, resourceOpts{
 		name:      "cm",

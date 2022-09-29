@@ -55,7 +55,7 @@ func addConfigMap(p *testProject, dir string, opts resourceOpts) {
 	})
 }
 
-func getHookResult(t *testing.T, p *testProject, k *test_utils.KindCluster, secretName string) *uo.UnstructuredObject {
+func getHookResult(t *testing.T, p *testProject, k *test_utils.EnvTestCluster, secretName string) *uo.UnstructuredObject {
 	o := k.KubectlYamlMust(t, "-n", p.projectName, "get", "secret", secretName)
 	s, ok, err := o.GetNestedString("data", "result")
 	if err != nil {
@@ -75,7 +75,7 @@ func getHookResult(t *testing.T, p *testProject, k *test_utils.KindCluster, secr
 	return r
 }
 
-func getHookResultCMNames(t *testing.T, p *testProject, k *test_utils.KindCluster, second bool) []string {
+func getHookResultCMNames(t *testing.T, p *testProject, k *test_utils.EnvTestCluster, second bool) []string {
 	secretName := "hook-result"
 	if second {
 		secretName = "hook-result2"
@@ -89,7 +89,7 @@ func getHookResultCMNames(t *testing.T, p *testProject, k *test_utils.KindCluste
 	return names
 }
 
-func assertHookResultCMName(t *testing.T, p *testProject, k *test_utils.KindCluster, second bool, cmName string) {
+func assertHookResultCMName(t *testing.T, p *testProject, k *test_utils.EnvTestCluster, second bool, cmName string) {
 	names := getHookResultCMNames(t, p, k, second)
 	for _, x := range names {
 		if x == cmName {
@@ -99,7 +99,7 @@ func assertHookResultCMName(t *testing.T, p *testProject, k *test_utils.KindClus
 	t.Fatalf("%s not found in hook result", cmName)
 }
 
-func assertHookResultNotCMName(t *testing.T, p *testProject, k *test_utils.KindCluster, second bool, cmName string) {
+func assertHookResultNotCMName(t *testing.T, p *testProject, k *test_utils.EnvTestCluster, second bool, cmName string) {
 	names := getHookResultCMNames(t, p, k, second)
 	for _, x := range names {
 		if x == cmName {
@@ -108,7 +108,7 @@ func assertHookResultNotCMName(t *testing.T, p *testProject, k *test_utils.KindC
 	}
 }
 
-func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletionPolicy string) (*testProject, *test_utils.KindCluster) {
+func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletionPolicy string) (*testProject, *test_utils.EnvTestCluster) {
 	isDone := false
 	namespace := fmt.Sprintf("hook-%s", name)
 	k := defaultKindCluster1
@@ -120,7 +120,7 @@ func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletion
 		}
 	}()
 
-	recreateNamespace(t, k, namespace)
+	createNamespace(t, k, namespace)
 
 	p.updateTarget("test", nil)
 
@@ -131,14 +131,14 @@ func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletion
 	return p, k
 }
 
-func ensureHookExecuted(t *testing.T, p *testProject, k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("delete", "-n", p.projectName, "secret", "hook-result", "hook-result2")
+func ensureHookExecuted(t *testing.T, p *testProject, k *test_utils.EnvTestCluster) {
+	_, _, _ = k.Kubectl("delete", "-n", p.projectName, "secret", "hook-result", "hook-result2")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertResourceExists(t, k, p.projectName, "ConfigMap/cm1")
 }
 
-func ensureHookNotExecuted(t *testing.T, p *testProject, k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("delete", "-n", p.projectName, "secret", "hook-result", "hook-result2")
+func ensureHookNotExecuted(t *testing.T, p *testProject, k *test_utils.EnvTestCluster) {
+	_, _, _ = k.Kubectl("delete", "-n", p.projectName, "secret", "hook-result", "hook-result2")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertResourceNotExists(t, k, p.projectName, "Secret/hook-result")
 }

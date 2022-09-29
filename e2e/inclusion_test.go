@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *test_utils.KindCluster) {
+func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *test_utils.EnvTestCluster) {
 	isDone := false
 
 	k := defaultKindCluster1
@@ -20,7 +20,7 @@ func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bo
 		}
 	}()
 
-	recreateNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.projectName)
 
 	p.updateTarget("test", nil)
 
@@ -49,7 +49,7 @@ func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bo
 	return p, k
 }
 
-func assertExistsHelper(t *testing.T, p *testProject, k *test_utils.KindCluster, shouldExists map[string]bool, add []string, remove []string) {
+func assertExistsHelper(t *testing.T, p *testProject, k *test_utils.EnvTestCluster, shouldExists map[string]bool, add []string, remove []string) {
 	for _, x := range add {
 		shouldExists[x] = true
 	}

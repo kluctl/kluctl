@@ -26,21 +26,21 @@ func GetYamlTmpFile(name string) string {
 	return tmpFile.Name()
 }
 
-func ApplyYaml(name string, k *test_utils.KindCluster) {
+func ApplyYaml(name string, k *test_utils.EnvTestCluster) {
 	tmpFile := GetYamlTmpFile(name)
 	defer os.Remove(tmpFile)
 
-	_, err := k.Kubectl("apply", "-f", tmpFile)
+	_, _, err := k.Kubectl("apply", "-f", tmpFile)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func DeleteYaml(name string, k *test_utils.KindCluster) {
+func DeleteYaml(name string, k *test_utils.EnvTestCluster) {
 	tmpFile := GetYamlTmpFile(name)
 	defer os.Remove(tmpFile)
 
-	_, err := k.Kubectl("delete", "-f", tmpFile)
+	_, _, err := k.Kubectl("delete", "-f", tmpFile)
 	if err != nil {
 		panic(err)
 	}
