@@ -3,6 +3,7 @@ package status
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
 // StatusContext is used to report user-facing status/progress
@@ -57,17 +58,33 @@ type StatusHandler interface {
 }
 
 type contextKey struct{}
+type contextValue struct {
+	slh         StatusHandler
+	deprecation utils.OnceByKey
+}
+
+var noopContextValue = contextValue{
+	slh: &NoopStatusHandler{},
+}
 
 func NewContext(ctx context.Context, slh StatusHandler) context.Context {
-	return context.WithValue(ctx, contextKey{}, slh)
+	return context.WithValue(ctx, contextKey{}, &contextValue{
+		slh: slh,
+	})
+}
+
+func getContextValue(ctx context.Context) *contextValue {
+	v := ctx.Value(contextKey{})
+	if v == nil {
+		return &noopContextValue
+	}
+	cv := v.(*contextValue)
+	return cv
 }
 
 func FromContext(ctx context.Context) StatusHandler {
-	v := ctx.Value(contextKey{})
-	if v == nil {
-		return &NoopStatusHandler{}
-	}
-	return v.(StatusHandler)
+	v := getContextValue(ctx)
+	return v.slh
 }
 
 type Option func(s *StatusContext)
@@ -248,6 +265,13 @@ func Error(ctx context.Context, status string, args ...any) {
 func Prompt(ctx context.Context, password bool, message string, args ...any) (string, error) {
 	slh := FromContext(ctx)
 	return slh.Prompt(password, fmt.Sprintf(message, args...))
+}
+
+func Deprecation(ctx context.Context, key string, message string) {
+	cv := getContextValue(ctx)
+	cv.deprecation.Do(key, func() {
+		cv.slh.Warning(message)
+	})
 }
 
 func Flush(ctx context.Context) {

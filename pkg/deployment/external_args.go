@@ -28,19 +28,24 @@ func ParseArgs(argsList []string) (map[string]string, error) {
 	return args, nil
 }
 
-func ConvertArgsToVars(args map[string]string) *uo.UnstructuredObject {
+func ConvertArgsToVars(args map[string]string) (*uo.UnstructuredObject, error) {
 	vars := uo.New()
 	for n, v := range args {
 		var p []interface{}
 		for _, x := range strings.Split(n, ".") {
 			p = append(p, x)
 		}
-		_ = vars.SetNestedField(v, p...)
+		var j any
+		err := yaml.ReadYamlString(v, &j)
+		if err != nil {
+			return nil, err
+		}
+		_ = vars.SetNestedField(j, p...)
 	}
-	return vars
+	return vars, nil
 }
 
-func CheckRequiredDeployArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) error {
+func LoadDeploymentArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) error {
 	// First try to load the config without templating to avoid getting errors while rendering because required
 	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
 	// when the rendering error is actually args related.
@@ -64,6 +69,19 @@ func CheckRequiredDeployArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.U
 		return nil
 	}
 
+	// load defaults
+	defaults := uo.New()
+	for _, a := range conf.Args {
+		if a.Default != nil {
+			a2 := uo.FromMap(map[string]interface{}{
+				a.Name: a.Default,
+			})
+			defaults.Merge(a2)
+		}
+	}
+	defaults.Merge(deployArgs)
+	*deployArgs = *defaults
+
 	err = checkRequiredArgs(conf.Args, deployArgs)
 	if err != nil {
 		return err
@@ -81,11 +99,6 @@ func checkRequiredArgs(argsDef []*types.DeploymentArg, args *uo.UnstructuredObje
 		if !found {
 			if a.Default == nil {
 				return fmt.Errorf("required argument %s not set", a.Name)
-			} else {
-				err := args.SetNestedField(a.Default, p...)
-				if err != nil {
-					return err
-				}
 			}
 		}
 	}

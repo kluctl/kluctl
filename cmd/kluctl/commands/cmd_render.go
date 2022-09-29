@@ -4,7 +4,9 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
+	"os"
 )
 
 type renderCmd struct {
@@ -13,6 +15,9 @@ type renderCmd struct {
 	args.ArgsFlags
 	args.ImageFlags
 	args.RenderOutputDirFlags
+
+	OfflineKubernetes bool `group:"misc" help:"Run render in offline mode, meaning that it will not try to connect the target cluster"`
+	PrintAll          bool `group:"misc" help:"Write all rendered manifests to stdout"`
 }
 
 func (cmd *renderCmd) Help() string {
@@ -21,12 +26,14 @@ a temporary directory or a specified directory.`
 }
 
 func (cmd *renderCmd) Run() error {
+	isTmp := false
 	if cmd.RenderOutputDir == "" {
 		p, err := ioutil.TempDir(utils.GetTmpBaseDir(), "rendered-")
 		if err != nil {
 			return err
 		}
 		cmd.RenderOutputDir = p
+		isTmp = true
 	}
 
 	ptArgs := projectTargetCommandArgs{
@@ -35,9 +42,24 @@ func (cmd *renderCmd) Run() error {
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		offlineKubernetes:    cmd.OfflineKubernetes,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		status.Info(ctx.ctx, "Rendered into %s", ctx.targetCtx.SharedContext.RenderDir)
+		if cmd.PrintAll {
+			var all []any
+			for _, d := range ctx.targetCtx.DeploymentCollection.Deployments {
+				for _, o := range d.Objects {
+					all = append(all, o)
+				}
+			}
+			if isTmp {
+				defer os.RemoveAll(cmd.RenderOutputDir)
+			}
+			status.Flush(ctx.ctx)
+			return yaml.WriteYamlAllStream(os.Stdout, all)
+		} else {
+			status.Info(ctx.ctx, "Rendered into %s", ctx.targetCtx.SharedContext.RenderDir)
+		}
 		return nil
 	})
 }

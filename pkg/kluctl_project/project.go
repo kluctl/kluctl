@@ -6,8 +6,7 @@ import (
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"regexp"
+	"strings"
 )
 
 type LoadedKluctlProject struct {
@@ -29,8 +28,6 @@ type LoadedKluctlProject struct {
 
 	J2 *jinja2.Jinja2
 	RP *repocache.GitRepoCache
-
-	warnOnce utils.OnceByKey
 }
 
 func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {
@@ -58,10 +55,10 @@ func (c *LoadedKluctlProject) FindDynamicTarget(name string) (*types2.DynamicTar
 	return nil, fmt.Errorf("target %s not existent in kluctl project config", name)
 }
 
-func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName string, argValue string) error {
+func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName string, argValue any) error {
 	var dynArg *types2.DynamicArg
 	for _, x := range target.DynamicArgs {
-		if x.Name == argName {
+		if x.Name == argName || strings.HasPrefix(argName, x.Name+".") {
 			dynArg = &x
 			break
 		}
@@ -70,18 +67,5 @@ func (c *LoadedKluctlProject) CheckDynamicArg(target *types2.Target, argName str
 		return fmt.Errorf("dynamic argument %s is not allowed for target", argName)
 	}
 
-	argPattern := ".*"
-	if dynArg.Pattern != nil {
-		argPattern = *dynArg.Pattern
-	}
-	argPattern = fmt.Sprintf("^%s$", argPattern)
-
-	m, err := regexp.MatchString(argPattern, argValue)
-	if err != nil {
-		return err
-	}
-	if !m {
-		return fmt.Errorf("dynamic argument %s does not match required pattern '%s", argName, argPattern)
-	}
 	return nil
 }

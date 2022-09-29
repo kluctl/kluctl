@@ -15,6 +15,7 @@ import (
 )
 
 type ClientFactory interface {
+	RESTConfig() *rest.Config
 	GetCA() []byte
 
 	CloseIdleConnections()
@@ -29,12 +30,15 @@ type realClientFactory struct {
 	httpClient *http.Client
 }
 
+func (r *realClientFactory) RESTConfig() *rest.Config {
+	return r.config
+}
+
 func (r *realClientFactory) GetCA() []byte {
 	return r.config.CAData
 }
 
 func (r *realClientFactory) DiscoveryClient() (discovery.DiscoveryInterface, error) {
-
 	apiHost, err := url.Parse(r.config.Host)
 	if err != nil {
 		return nil, err

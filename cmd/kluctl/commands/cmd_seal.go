@@ -2,19 +2,25 @@ package commands
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"os"
 )
 
 type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
 
-	ForceReseal bool `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	ForceReseal       bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	CertFile          string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
+	OfflineKubernetes bool   `group:"misc" help:"Run seal in offline mode, meaning that it will not try to connect the target cluster"`
 }
 
 func (cmd *sealCmd) Help() string {
@@ -36,9 +42,10 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	}
 
 	ptArgs := projectTargetCommandArgs{
-		projectFlags: cmd.ProjectFlags,
-		targetFlags:  cmd.TargetFlags,
-		forSeal:      true,
+		projectFlags:      cmd.ProjectFlags,
+		targetFlags:       cmd.TargetFlags,
+		forSeal:           true,
+		offlineKubernetes: cmd.OfflineKubernetes,
 	}
 	ptArgs.targetFlags.Target = targetName
 
@@ -49,24 +56,12 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 			return doFail(err)
 		}
 
-		sealedSecretsNamespace := "kube-system"
-		sealedSecretsControllerName := "sealed-secrets-controller"
-		if p.Config.SecretsConfig != nil && p.Config.SecretsConfig.SealedSecrets != nil {
-			if p.Config.SecretsConfig.SealedSecrets.Namespace != nil {
-				sealedSecretsNamespace = *p.Config.SecretsConfig.SealedSecrets.Namespace
-			}
-			if p.Config.SecretsConfig.SealedSecrets.ControllerName != nil {
-				sealedSecretsControllerName = *p.Config.SecretsConfig.SealedSecrets.ControllerName
-			}
-		}
-		if p.Config.SecretsConfig == nil || p.Config.SecretsConfig.SealedSecrets == nil || p.Config.SecretsConfig.SealedSecrets.Bootstrap == nil || *p.Config.SecretsConfig.SealedSecrets.Bootstrap {
-			err = seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
-			if err != nil {
-				return doFail(err)
-			}
+		cert, err := cmd.loadCert(ctx)
+		if err != nil {
+			return doFail(err)
 		}
 
-		sealer, err := seal.NewSealer(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName, cmd.ForceReseal)
+		sealer, err := seal.NewSealer(ctx.ctx, cert, cmd.ForceReseal)
 		if err != nil {
 			return doFail(err)
 		}
@@ -87,6 +82,73 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 		s.Success()
 		return nil
 	})
+}
+
+func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
+	sealingConfig := ctx.targetCtx.Target.SealingConfig
+
+	var certFile string
+
+	if sealingConfig != nil && sealingConfig.CertFile != nil {
+		path, err := securejoin.SecureJoin(ctx.targetCtx.KluctlProject.ProjectDir, *sealingConfig.CertFile)
+		if err != nil {
+			return nil, err
+		}
+		certFile = path
+	}
+
+	if cmd.CertFile != "" {
+		if certFile != "" {
+			status.Info(ctx.ctx, "Overriding certFile from target with certFile argument")
+		}
+		certFile = cmd.CertFile
+	}
+
+	if certFile != "" {
+		d, err := os.ReadFile(certFile)
+		if err != nil {
+			return nil, err
+		}
+		cert, err := seal.ParseCert(d)
+		if err != nil {
+			return nil, err
+		}
+		return cert, nil
+	} else {
+		if ctx.targetCtx.SharedContext.K == nil {
+			return nil, fmt.Errorf("must specify certFile when sealing in offline mode")
+		}
+
+		secretsConfig := ctx.targetCtx.KluctlProject.Config.SecretsConfig
+		var sealedSecretsConfig *types.GlobalSealedSecretsConfig
+		if secretsConfig != nil {
+			sealedSecretsConfig = secretsConfig.SealedSecrets
+		}
+
+		sealedSecretsNamespace := "kube-system"
+		sealedSecretsControllerName := "sealed-secrets-controller"
+		if sealedSecretsConfig != nil {
+			if sealedSecretsConfig.Namespace != nil {
+				sealedSecretsNamespace = *sealedSecretsConfig.Namespace
+			}
+			if sealedSecretsConfig.ControllerName != nil {
+				sealedSecretsControllerName = *sealedSecretsConfig.ControllerName
+			}
+		}
+
+		if sealedSecretsConfig == nil || sealedSecretsConfig.Bootstrap == nil || *sealedSecretsConfig.Bootstrap {
+			err := seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		cert, err := seal.FetchCert(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName)
+		if err != nil {
+			return nil, err
+		}
+		return cert, nil
+	}
 }
 
 func (cmd *sealCmd) Run() error {

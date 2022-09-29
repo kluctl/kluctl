@@ -107,7 +107,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 		if u.a.HadError(ref) {
 			continue
 		}
-		if !h.wait {
+		if !h.wait || u.a.o.NoWait {
 			continue
 		}
 		waitResults[ref] = u.a.WaitReadiness(ref, h.timeout)
@@ -154,6 +154,10 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 			}
 		}
 		return ret
+	}
+
+	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/delete")) {
+		return nil
 	}
 
 	hooks := getSet("kluctl.io/hook")

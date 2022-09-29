@@ -76,7 +76,7 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		v.mergeVars(varsCtx, source.Values, rootKey)
 		return nil
 	} else if source.Path != nil {
-		status.Warning(v.ctx, "'path' is deprecated as vars source, use 'file' instead")
+		status.Deprecation(v.ctx, "vars-path", "'path' is deprecated as vars source, use 'file' instead")
 		return v.loadFile(varsCtx, *source.Path, searchDirs, rootKey)
 	} else if source.File != nil {
 		return v.loadFile(varsCtx, *source.File, searchDirs, rootKey)
@@ -195,7 +195,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 
 func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
 	if v.k == nil {
-		return nil
+		return fmt.Errorf("loading vars from cluster is disabled")
 	}
 
 	var err error

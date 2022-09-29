@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -119,6 +120,9 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	}
 
 	var excludePatterns []string
+	if len(di.Project.Config.TemplateExcludes) != 0 {
+		status.Deprecation(di.ctx.Ctx, "template-excludes", "'templateExcludes' are deprecated, use .templateignore files instead.")
+	}
 	excludePatterns = append(excludePatterns, di.Project.Config.TemplateExcludes...)
 	err = filepath.WalkDir(*di.dir, func(p string, d fs.DirEntry, err error) error {
 		if d.IsDir() {

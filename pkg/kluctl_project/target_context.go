@@ -12,6 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
 )
 
@@ -25,7 +26,7 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, dryRun bool, args map[string]string, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, offlineK8s bool, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.DeploymentDir)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		images.PrependFixedImages(target.Images)
 	}
 
-	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, args, forSeal)
+	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, offlineK8s, externalArgs, forSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +104,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, args map[string]string, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
+func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, offlineK8s bool, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
 	doError := func(err error) (*vars.VarsCtx, *rest.Config, string, error) {
 		return nil, nil, "", err
 	}
@@ -130,9 +131,17 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		}
 	}
 
-	clientConfig, restConfig, err := p.loadArgs.ClientConfigGetter(contextName)
-	if err != nil {
-		return doError(err)
+	var err error
+	var clientConfig *rest.Config
+	if !offlineK8s {
+		var restConfig *api.Config
+		clientConfig, restConfig, err = p.loadArgs.ClientConfigGetter(contextName)
+		if err != nil {
+			return doError(err)
+		}
+		if contextName == nil {
+			contextName = &restConfig.CurrentContext
+		}
 	}
 
 	targetVars, err := uo.FromStruct(target)
@@ -144,14 +153,15 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 	allArgs := uo.New()
 
 	if target != nil {
-		for argName, argValue := range args {
+		for argName, argValue := range externalArgs.Object {
 			err = p.CheckDynamicArg(target, argName, argValue)
 			if err != nil {
 				return doError(err)
 			}
 		}
 	}
-	allArgs.Merge(deployment.ConvertArgsToVars(args))
+
+	allArgs.Merge(externalArgs)
 	if target != nil {
 		if target.Args != nil {
 			allArgs.Merge(target.Args)
@@ -163,14 +173,18 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		}
 	}
 
-	err = deployment.CheckRequiredDeployArgs(p.DeploymentDir, varsCtx, allArgs)
+	err = deployment.LoadDeploymentArgs(p.DeploymentDir, varsCtx, allArgs)
 	if err != nil {
 		return doError(err)
 	}
 
 	varsCtx.UpdateChild("args", allArgs)
 
-	return varsCtx, clientConfig, restConfig.CurrentContext, nil
+	var contextName2 string
+	if contextName != nil {
+		contextName2 = *contextName
+	}
+	return varsCtx, clientConfig, contextName2, nil
 }
 
 func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, error) {
@@ -191,7 +205,7 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 			return err
 		}
 		if len(secretEntry.Sources) != 0 {
-			status.Warning(p.ctx, "'sources' in secretSets is deprecated, use 'vars' instead")
+			status.Deprecation(p.ctx, "secrets-sets-sources", "'sources' in secretSets is deprecated, use 'vars' instead")
 			err = varsLoader.LoadVarsList(varsCtx, secretEntry.Sources, searchDirs, "secrets")
 		} else {
 			err = varsLoader.LoadVarsList(varsCtx, secretEntry.Vars, searchDirs, "secrets")
@@ -207,9 +221,7 @@ func (p *LoadedKluctlProject) LoadClusterConfig(clusterName string) (*types.Clus
 	var err error
 	var clusterConfig *types.ClusterConfig
 
-	p.warnOnce.Do("cluster-config", func() {
-		status.Warning(p.ctx, "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
-	})
+	status.Deprecation(p.ctx, "cluster-config", "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
 
 	clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, clusterName)
 	if err != nil {

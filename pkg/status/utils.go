@@ -2,7 +2,6 @@ package status
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 )
 
@@ -63,16 +62,4 @@ func (r *replaceRReader) Read(p []byte) (int, error) {
 		}
 	}
 	return written, nil
-}
-
-func withColor(c string, s string) string {
-	switch c {
-	case "red":
-		c = "\x1b[31m"
-	case "green":
-		c = "\x1b[32m"
-	case "yellow":
-		c = "\x1b[33m"
-	}
-	return fmt.Sprintf("%s%s\x1b[0m", c, s)
 }

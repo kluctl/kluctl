@@ -4,18 +4,17 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"golang.org/x/crypto/scrypt"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
@@ -24,66 +23,37 @@ import (
 )
 
 const hashAnnotation = "kluctl.io/sealedsecret-hashes"
-const clusterIdAnnotation = "kluctl.io/sealedsecret-cluster-id"
+const certHashAnnotation = "kluctl.io/sealedsecret-cert-hash"
 
 type Sealer struct {
 	ctx         context.Context
 	forceReseal bool
-	cert        *rsa.PublicKey
-	clusterId   string
+	cert        *x509.Certificate
+	pubKey      *rsa.PublicKey
+	certHash    string
 }
 
-func NewSealer(ctx context.Context, k *k8s.K8sCluster, sealedSecretsNamespace string, sealedSecretsControllerName string, forceReseal bool) (*Sealer, error) {
+func NewSealer(ctx context.Context, cert *x509.Certificate, forceReseal bool) (*Sealer, error) {
 	s := &Sealer{
 		ctx:         ctx,
 		forceReseal: forceReseal,
+		cert:        cert,
 	}
-	cert, err := fetchCert(ctx, k, sealedSecretsNamespace, sealedSecretsControllerName)
+
+	pk, ok := cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("expected RSA public key but found %v", cert.PublicKey)
+	}
+	s.pubKey = pk
+
+	pkBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	if err != nil {
 		return nil, err
 	}
-	s.cert = cert
-
-	clusterId, err := getClusterId(k)
-	if err != nil {
-		return nil, err
-	}
-
-	s.clusterId = clusterId
+	h := sha256.Sum256(pkBytes)
+	s.certHash = hex.EncodeToString(h[:])
 
 	return s, nil
-}
-
-// We treat the hashed kube-root-ca.crt as cluster id for now. We also accept that it might change when keys
-// get rotated.
-func getClusterId(k *k8s.K8sCluster) (string, error) {
-	o, _, err := k.GetSingleObject(k8s2.ObjectRef{
-		GVK:       schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
-		Name:      "kube-root-ca.crt",
-		Namespace: "kube-system",
-	})
-	if err != nil && !errors.IsNotFound(err) {
-		return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
-	}
-
-	var kubeRootCA string
-	if o != nil {
-		x, ok, err := o.GetNestedString("data", "ca.crt")
-		if err != nil {
-			return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: %w", err)
-		}
-		if !ok {
-			return "", fmt.Errorf("failed to retrieve kube-root-ca.crt: ca.crt key is missing")
-		}
-		kubeRootCA = x
-	} else {
-		// fall-back to CA from kubeconfig
-		ca := k.GetCA()
-		if ca != nil {
-			kubeRootCA = string(ca)
-		}
-	}
-	return utils.Sha256String(kubeRootCA), nil
 }
 
 func (s *Sealer) doHash(key string, secret []byte, secretName string, secretNamespace string, scope string) string {
@@ -117,7 +87,8 @@ func encryptionLabel(namespace string, name string, scope string) []byte {
 }
 
 func (s *Sealer) encryptSecret(secret []byte, secretName string, secretNamespace string, scope string) (string, error) {
-	b, err := crypto.HybridEncrypt(rand.Reader, s.cert, secret, encryptionLabel(secretNamespace, secretName, scope))
+	// todo
+	b, err := crypto.HybridEncrypt(rand.Reader, s.pubKey, secret, encryptionLabel(secretNamespace, secretName, scope))
 	if err != nil {
 		return "", err
 	}
@@ -170,7 +141,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 
 	var existingContent *uo.UnstructuredObject
 	var existingHashes *uo.UnstructuredObject
-	var existingClusterId string
+	var existingCertHash string
 
 	if utils.Exists(targetFile) {
 		existingContent, err = uo.FromFile(targetFile)
@@ -178,9 +149,9 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 		if a != nil {
 			existingHashes, _ = uo.FromString(*a)
 		}
-		a = existingContent.GetK8sAnnotation(clusterIdAnnotation)
+		a = existingContent.GetK8sAnnotation(certHashAnnotation)
 		if a != nil {
-			existingClusterId = *a
+			existingCertHash = *a
 		}
 	}
 	if existingHashes == nil {
@@ -243,9 +214,9 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	if s.forceReseal {
 		resealAll = true
 		status.Info(s.ctx, "Forcing reseal of secrets in %s", secretName)
-	} else if existingClusterId != s.clusterId {
+	} else if existingCertHash != s.certHash {
 		resealAll = true
-		status.Info(s.ctx, "Target cluster for secret %s has changed, forcing reseal", secretName)
+		status.Info(s.ctx, "Cert for secret %s has changed, forcing reseal", secretName)
 	}
 
 	for k, v := range secrets {
@@ -284,7 +255,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 		return err
 	}
 	result.SetK8sAnnotation(hashAnnotation, resultSecretHashesStr)
-	result.SetK8sAnnotation(clusterIdAnnotation, s.clusterId)
+	result.SetK8sAnnotation(certHashAnnotation, s.certHash)
 
 	if reflect.DeepEqual(existingContent, result) {
 		status.Info(s.ctx, "Skipped %s as it did not change", baseName)

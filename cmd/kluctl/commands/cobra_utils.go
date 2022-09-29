@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -170,7 +171,7 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 		if defaultValue != "" {
 			return fmt.Errorf("default not supported for slices")
 		}
-		cg.cmd.PersistentFlags().StringSliceVarP(v2.(*[]string), name, shortFlag, nil, help)
+		cg.cmd.PersistentFlags().StringArrayVarP(v2.(*[]string), name, shortFlag, nil, help)
 	case *bool:
 		parsedDefault := false
 		if defaultValue != "" {
@@ -251,7 +252,7 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 func (c *rootCommand) helpFunc(cg *commandAndGroups) {
 	cmd := cg.cmd
 
-	termWidth := utils.GetTermWidth()
+	termWidth := term.GetWidth()
 
 	h := "Usage: "
 	if cmd.Runnable() {

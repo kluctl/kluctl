@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,6 +33,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,6 +45,7 @@ const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/la
 type cli struct {
 	Debug         bool `group:"global" help:"Enable debug logging"`
 	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
+	NoColor       bool `group:"global" help:"Disable colored output"`
 
 	CpuProfile string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
 
@@ -51,7 +53,6 @@ type cli struct {
 	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
 	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
 	Diff              diffCmd              `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
-	Downscale         downscaleCmd         `cmd:"" help:"Downscale all deployments"`
 	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pulls the specified Helm charts"`
 	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
 	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
@@ -78,7 +79,7 @@ var flagGroups = []groupInfo{
 var cliCtx = context.Background()
 var didSetupStatusHandler bool
 
-func setupStatusHandler(debug bool) {
+func setupStatusHandler(debug bool, noColor bool) {
 	didSetupStatusHandler = true
 
 	origStderr := os.Stderr
@@ -87,7 +88,7 @@ func setupStatusHandler(debug bool) {
 	isTerminal := isatty.IsTerminal(os.Stderr.Fd())
 	var sh status.StatusHandler
 	if !debug && isatty.IsTerminal(os.Stderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, false)
+		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, !noColor, false)
 	} else {
 		sh = status.NewSimpleStatusHandler(func(message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
@@ -191,7 +192,7 @@ func (c *cli) preRun() error {
 	if err != nil {
 		return err
 	}
-	setupStatusHandler(c.Debug)
+	setupStatusHandler(c.Debug, c.NoColor)
 	c.checkNewVersion()
 	return nil
 }
@@ -218,6 +219,8 @@ func initViper() {
 }
 
 func Execute() {
+	colorable.EnableColorsStdout(nil)
+
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
 		"Deploy and manage complex deployments on Kubernetes",
@@ -245,7 +248,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	err = rootCmd.ExecuteContext(cliCtx)
 	if !didSetupStatusHandler {
-		setupStatusHandler(false)
+		setupStatusHandler(false, true)
 	}
 
 	if cpuProfileFile != nil {
@@ -257,7 +260,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	sh := status.FromContext(cliCtx)
 
 	if err != nil {
-		status.Error(cliCtx, err.Error())
+		status.Error(cliCtx, "%s", err.Error())
 		sh.Stop()
 		os.Exit(1)
 	}

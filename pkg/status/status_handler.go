@@ -12,10 +12,11 @@ import (
 )
 
 type MultiLineStatusHandler struct {
-	ctx        context.Context
-	out        io.Writer
-	isTerminal bool
-	trace      bool
+	ctx         context.Context
+	out         io.Writer
+	isTerminal  bool
+	enableColor bool
+	trace       bool
 
 	ml *multiline.MultiLinePrinter
 }
@@ -33,12 +34,13 @@ type statusLine struct {
 	mutex sync.Mutex
 }
 
-func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, isTerminal bool, trace bool) *MultiLineStatusHandler {
+func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, isTerminal bool, enableColor bool, trace bool) *MultiLineStatusHandler {
 	sh := &MultiLineStatusHandler{
-		ctx:        ctx,
-		out:        out,
-		isTerminal: isTerminal,
-		trace:      trace,
+		ctx:         ctx,
+		out:         out,
+		isTerminal:  isTerminal,
+		enableColor: enableColor,
+		trace:       trace,
 	}
 
 	sh.start()
@@ -88,6 +90,21 @@ func (s *MultiLineStatusHandler) startStatus(total int, message string, barOverr
 	return sl
 }
 
+func (s *MultiLineStatusHandler) withColor(c string, txt string) string {
+	if !s.isTerminal || !s.enableColor {
+		return txt
+	}
+	switch c {
+	case "red":
+		c = "\x1b[31m"
+	case "green":
+		c = "\x1b[32m"
+	case "yellow":
+		c = "\x1b[33m"
+	}
+	return fmt.Sprintf("%s%s\x1b[0m", c, txt)
+}
+
 func (s *MultiLineStatusHandler) printLine(message string, barOverride string, doFlush bool) {
 	s.ml.NewTopLine(func() string {
 		return fmt.Sprintf("%s %s", barOverride, message)
@@ -98,7 +115,7 @@ func (s *MultiLineStatusHandler) printLine(message string, barOverride string, d
 }
 
 func (s *MultiLineStatusHandler) Info(message string) {
-	o := withColor("green", "ⓘ")
+	o := s.withColor("green", "ⓘ")
 	s.printLine(message, o, true)
 }
 
@@ -107,12 +124,12 @@ func (s *MultiLineStatusHandler) InfoFallback(message string) {
 }
 
 func (s *MultiLineStatusHandler) Warning(message string) {
-	o := withColor("yellow", "⚠")
+	o := s.withColor("yellow", "⚠")
 	s.printLine(message, o, true)
 }
 
 func (s *MultiLineStatusHandler) Error(message string) {
-	o := withColor("red", "✗")
+	o := s.withColor("red", "✗")
 	s.printLine(message, o, true)
 }
 
@@ -127,7 +144,7 @@ func (s *MultiLineStatusHandler) PlainText(text string) {
 }
 
 func (s *MultiLineStatusHandler) Prompt(password bool, message string) (string, error) {
-	o := withColor("yellow", "?")
+	o := s.withColor("yellow", "?")
 	sl := s.startStatus(1, message, o)
 	defer sl.end(o)
 
@@ -188,10 +205,10 @@ func (sl *statusLine) end(barOverride string) {
 func (sl *statusLine) End(result EndResult) {
 	switch result {
 	case EndSuccess:
-		sl.end(withColor("green", "✓"))
+		sl.end(sl.slh.withColor("green", "✓"))
 	case EndWarning:
-		sl.end(withColor("yellow", "⚠"))
+		sl.end(sl.slh.withColor("yellow", "⚠"))
 	case EndError:
-		sl.end(withColor("red", "✗"))
+		sl.end(sl.slh.withColor("red", "✗"))
 	}
 }

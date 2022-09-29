@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 )
@@ -29,12 +30,17 @@ func createTmpBaseDir() {
 	ensureDir(dir, 0o777, true)
 
 	// every user gets its own tmp dir
-	u, err := user.Current()
-	if err != nil {
-		panic(err)
+	if runtime.GOOS == "windows" {
+		u, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
+		dir = filepath.Join(dir, u.Uid)
+	} else {
+		uid := os.Getuid()
+		dir = filepath.Join(dir, fmt.Sprintf("%d", uid))
 	}
 
-	dir = filepath.Join(dir, u.Uid)
 	ensureDir(dir, 0o700, true)
 
 	tmpBaseDir = dir

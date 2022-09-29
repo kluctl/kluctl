@@ -23,6 +23,10 @@ type fakeClientFactory struct {
 	scheme    *runtime.Scheme
 }
 
+func (f *fakeClientFactory) RESTConfig() *rest.Config {
+	return nil
+}
+
 func (f *fakeClientFactory) GetCA() []byte {
 	return []byte{}
 }

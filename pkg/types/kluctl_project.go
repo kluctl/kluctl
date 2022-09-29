@@ -7,8 +7,7 @@ import (
 )
 
 type DynamicArg struct {
-	Name    string  `yaml:"name" validate:"required"`
-	Pattern *string `yaml:"pattern,omitempty"`
+	Name string `yaml:"name" validate:"required"`
 }
 
 type ExternalTargetConfig struct {
@@ -26,6 +25,7 @@ type SealingConfig struct {
 	DynamicSealing *bool                  `yaml:"dynamicSealing,omitempty"`
 	Args           *uo.UnstructuredObject `yaml:"args,omitempty"`
 	SecretSets     []string               `yaml:"secretSets,omitempty"`
+	CertFile       *string                `yaml:"certFile,omitempty"`
 }
 
 type Target struct {

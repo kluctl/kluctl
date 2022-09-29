@@ -2,10 +2,8 @@ package utils
 
 import (
 	"bytes"
-	"golang.org/x/crypto/ssh/terminal"
-	"os"
+	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -23,20 +21,6 @@ func (t *PrettyTable) SortRows(col int) {
 	sort.SliceStable(t.rows[1:], func(i, j int) bool {
 		return t.rows[i+1][col] < t.rows[j+1][col]
 	})
-}
-
-func GetTermWidth() int {
-	if c, ok := os.LookupEnv("COLUMNS"); ok {
-		tw, err := strconv.ParseInt(c, 10, 32)
-		if err == nil {
-			return int(tw)
-		}
-	}
-	tw, _, err := terminal.GetSize(0)
-	if err != nil {
-		return 80
-	}
-	return tw
 }
 
 func (t *PrettyTable) Render(limitWidths []int) string {
@@ -82,7 +66,7 @@ func (t *PrettyTable) Render(limitWidths []int) string {
 	}
 
 	if len(limitWidths) < cols {
-		tw := GetTermWidth()
+		tw := term.GetWidth()
 		// last column should use all remaining space
 		tw = tw - widthSum - (cols-1)*3 - 4
 		if tw <= 0 {
