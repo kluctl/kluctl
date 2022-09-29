@@ -236,7 +236,7 @@ type DeleteOptions struct {
 func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 
-	pp := v1.DeletePropagationForeground
+	pp := v1.DeletePropagationBackground
 	o := v1.DeleteOptions{
 		PropagationPolicy: &pp,
 	}
