@@ -66,11 +66,10 @@ func (c *rootCommand) buildCobraCmd(parent *commandAndGroups, cmdStruct interfac
 	}
 
 	runP, ok := cmdStruct.(runProvider)
-	if !ok {
-		panic(fmt.Sprintf("%s does not implement runProvider", name))
-	}
-	cg.cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runP.Run()
+	if ok {
+		cg.cmd.RunE = func(cmd *cobra.Command, args []string) error {
+			return runP.Run()
+		}
 	}
 
 	err := c.buildCobraSubCommands(cg, cmdStruct)

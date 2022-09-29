@@ -2,14 +2,19 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/Masterminds/semver/v3"
+
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -378,14 +383,8 @@ type PatchOptions struct {
 	ForceApply  bool
 }
 
-func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+func (k *K8sCluster) doPatch(ref k8s.ObjectRef, data []byte, patchType types.PatchType, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
-	ref := o.GetK8sRef()
-
-	data, err := yaml.WriteYamlBytes(o)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	po := v1.PatchOptions{
 		FieldManager: "kluctl",
@@ -401,7 +400,7 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Patch(k.ctx, ref.Name, types.ApplyPatchType, data, po)
+		x, err := r.Patch(k.ctx, ref.Name, patchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
 		}
@@ -409,6 +408,29 @@ func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions)
 		return nil
 	})
 	return result, apiWarnings, err
+}
+
+func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+	data, err := yaml.WriteYamlBytes(o)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k.doPatch(o.GetK8sRef(), data, types.ApplyPatchType, options)
+}
+
+type JsonPatch struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value any    `json:"value"`
+}
+
+func (k *K8sCluster) PatchObjectWithJsonPatch(ref k8s.ObjectRef, patch interface{}, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+	data, err := json.Marshal(patch)
+	if err != nil {
+		return nil, nil, err
+	}
+	return k.doPatch(ref, data, types.JSONPatchType, options)
 }
 
 type UpdateOptions struct {

@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -80,4 +81,20 @@ func NewClientFactory(configIn *rest.Config) (ClientFactory, error) {
 		config:     restConfig,
 		httpClient: httpClient,
 	}, nil
+}
+
+func NewClientFactoryFromDefaultConfig(context *string) (ClientFactory, error) {
+	configOverrides := &clientcmd.ConfigOverrides{}
+	if context != nil {
+		configOverrides.CurrentContext = *context
+	}
+
+	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		configOverrides).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewClientFactory(config)
 }

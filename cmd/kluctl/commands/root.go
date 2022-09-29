@@ -18,6 +18,15 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime/pprof"
+	"strings"
+	"time"
+
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -28,15 +37,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"io"
 	"k8s.io/klog/v2"
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
-	"runtime/pprof"
-	"strings"
-	"time"
 )
 
 const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/latest"
@@ -61,6 +62,7 @@ type cli struct {
 	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
 	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate          validateCmd          `cmd:"" help:"Validates the already deployed deployment"`
+	Flux              fluxCmd              `cmd:"" help:"Flux sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -71,6 +73,7 @@ var flagGroups = []groupInfo{
 	{group: "images", title: "Image arguments:", description: "Control fixed images and update behaviour."},
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
+	{group: "flux", title: "Flux arguments:", description: "EXPERIMENTAL: Subcommands for interaction with flux-kluctl-controller"},
 }
 
 var cliCtx = context.Background()

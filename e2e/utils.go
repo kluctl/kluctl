@@ -4,16 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/internal/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/validation"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/validation"
+	log "github.com/sirupsen/logrus"
 )
 
 func recreateNamespace(t *testing.T, k *test_utils.KindCluster, namespace string) {

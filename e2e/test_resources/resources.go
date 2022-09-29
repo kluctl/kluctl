@@ -2,9 +2,10 @@ package test_resources
 
 import (
 	"embed"
+	"os"
+
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"os"
 )
 
 //go:embed *.yaml

@@ -1,0 +1,30 @@
+---
+apiVersion: flux.kluctl.io/v1alpha1
+kind: KluctlDeployment
+metadata:
+  name: microservices-demo-test
+  namespace: default
+spec:
+  interval: 10m
+  path: ./simple
+  prune: true
+  renameContexts:
+  - newContext: kind-kind
+    oldContext: default
+  sourceRef:
+    kind: GitRepository
+    name: microservices-demo
+    namespace: default
+  target: simple
+  timeout: 2m
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: microservices-demo
+  namespace: default
+spec:
+  interval: 5m
+  ref:
+    branch: main
+  url: https://github.com/gitbluf/kluctl-examples.git
