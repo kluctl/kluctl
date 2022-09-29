@@ -26,8 +26,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
-	"sync"
-	"time"
 )
 
 type K8sCluster struct {
