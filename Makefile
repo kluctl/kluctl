@@ -75,6 +75,9 @@ KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_
 test-e2e: install-envtest ## Runs the end to end tests
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o ./bin/$(TEST_BINARY_NAME) ./e2e -test.v
 
+test-e2e-pre-built: install-envtest
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./e2e.test -test.v
+
 test-unit: ## Run the unit tests of the project
 ifeq ($(EXPORT_RESULT), true)
 	mkdir -p reports/test-unit
