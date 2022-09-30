@@ -1,27 +1,59 @@
 package e2e
 
 import (
-	"encoding/base64"
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
-const hookScript = `
-kubectl get configmap -oyaml > /tmp/result.yml
-cat /tmp/result.yml
-if ! kubectl get secret {{ .name }}-result; then
-    name="{{ .name }}-result"
-else
-    name="{{ .name }}-result2"
-fi
-kubectl create secret generic $name --from-file=result=/tmp/result.yml
-kubectl delete configmap cm2 || true
-`
+type HookTestSuite struct {
+	suite.Suite
 
-func addHookDeployment(p *testProject, dir string, opts resourceOpts, isHelm bool, hook string, hookDeletionPolicy string) {
+	k *test_utils.EnvTestCluster
+
+	seenConfigMaps []string
+}
+
+func TestHooks(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, &HookTestSuite{})
+}
+
+func (s *HookTestSuite) SetupSuite() {
+	s.clearSeenConfigmaps()
+
+	s.k = test_utils.CreateEnvTestCluster("cluster1")
+	s.k.AddWebhookCallback(schema.GroupVersionResource{
+		Version: "v1", Resource: "configmaps",
+	}, true, s.handleConfigmap)
+	err := s.k.Start()
+	if err != nil {
+		s.T().Fatal(err)
+	}
+}
+
+func (s *HookTestSuite) TearDownSuite() {
+	s.k.Stop()
+}
+
+func (s *HookTestSuite) SetupTest() {
+	s.clearSeenConfigmaps()
+}
+
+func (s *HookTestSuite) handleConfigmap(o *uo.UnstructuredObject) {
+	s.seenConfigMaps = append(s.seenConfigMaps, o.GetK8sName())
+}
+
+func (s *HookTestSuite) clearSeenConfigmaps() {
+	s.seenConfigMaps = nil
+}
+
+func (s *HookTestSuite) addHookConfigMap(p *testProject, dir string, opts resourceOpts, isHelm bool, hook string, hookDeletionPolicy string) {
 	annotations := make(map[string]string)
 	if isHelm {
 		annotations["helm.sh/hook"] = hook
@@ -35,17 +67,12 @@ func addHookDeployment(p *testProject, dir string, opts resourceOpts, isHelm boo
 		annotations["kluctl.io/hook-deletion-policy"] = hookDeletionPolicy
 	}
 
-	script := renderTemplateHelper(hookScript, map[string]interface{}{
-		"name":      opts.name,
-		"namespace": opts.namespace,
-	})
-
 	opts.annotations = uo.CopyMergeStrMap(opts.annotations, annotations)
 
-	addJobDeployment(p, dir, opts, "bitnami/kubectl:1.21", []string{"sh"}, []string{"-c", script})
+	s.addConfigMap(p, dir, opts)
 }
 
-func addConfigMap(p *testProject, dir string, opts resourceOpts) {
+func (s *HookTestSuite) addConfigMap(p *testProject, dir string, opts resourceOpts) {
 	o := uo.New()
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	mergeMetadata(o, opts)
@@ -55,203 +82,115 @@ func addConfigMap(p *testProject, dir string, opts resourceOpts) {
 	})
 }
 
-func getHookResult(t *testing.T, p *testProject, k *test_utils.KindCluster, secretName string) *uo.UnstructuredObject {
-	o := k.KubectlYamlMust(t, "-n", p.projectName, "get", "secret", secretName)
-	s, ok, err := o.GetNestedString("data", "result")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Fatalf("result not found")
-	}
-	b, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	r, err := uo.FromString(string(b))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
-func getHookResultCMNames(t *testing.T, p *testProject, k *test_utils.KindCluster, second bool) []string {
-	secretName := "hook-result"
-	if second {
-		secretName = "hook-result2"
-	}
-	o := getHookResult(t, p, k, secretName)
-	items, _, _ := o.GetNestedObjectList("items")
-	var names []string
-	for _, x := range items {
-		names = append(names, x.GetK8sName())
-	}
-	return names
-}
-
-func assertHookResultCMName(t *testing.T, p *testProject, k *test_utils.KindCluster, second bool, cmName string) {
-	names := getHookResultCMNames(t, p, k, second)
-	for _, x := range names {
-		if x == cmName {
-			return
-		}
-	}
-	t.Fatalf("%s not found in hook result", cmName)
-}
-
-func assertHookResultNotCMName(t *testing.T, p *testProject, k *test_utils.KindCluster, second bool, cmName string) {
-	names := getHookResultCMNames(t, p, k, second)
-	for _, x := range names {
-		if x == cmName {
-			t.Fatalf("%s found in hook result", cmName)
-		}
-	}
-}
-
-func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletionPolicy string) (*testProject, *test_utils.KindCluster) {
+func (s *HookTestSuite) prepareHookTestProject(name string, hook string, hookDeletionPolicy string) *testProject {
 	isDone := false
 	namespace := fmt.Sprintf("hook-%s", name)
-	k := defaultKindCluster1
 	p := &testProject{}
-	p.init(t, k, namespace)
+	p.init(s.T(), s.k, namespace)
 	defer func() {
 		if !isDone {
 			p.cleanup()
 		}
 	}()
 
-	recreateNamespace(t, k, namespace)
+	createNamespace(s.T(), s.k, namespace)
 
 	p.updateTarget("test", nil)
 
-	addHookDeployment(p, "hook", resourceOpts{name: "hook", namespace: namespace}, false, hook, hookDeletionPolicy)
-	addConfigMap(p, "hook", resourceOpts{name: "cm1", namespace: namespace})
+	p.addKustomizeDeployment("hook", nil, nil)
+
+	s.addConfigMap(p, "hook", resourceOpts{name: "cm1", namespace: namespace})
+	s.addHookConfigMap(p, "hook", resourceOpts{name: "hook1", namespace: namespace}, false, hook, hookDeletionPolicy)
 
 	isDone = true
-	return p, k
+	return p
 }
 
-func ensureHookExecuted(t *testing.T, p *testProject, k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("delete", "-n", p.projectName, "secret", "hook-result", "hook-result2")
+func (s *HookTestSuite) ensureHookExecuted(p *testProject, expectedCms ...string) {
+	s.clearSeenConfigmaps()
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertResourceExists(t, k, p.projectName, "ConfigMap/cm1")
+	assert.Equal(s.T(), expectedCms, s.seenConfigMaps)
 }
 
-func ensureHookNotExecuted(t *testing.T, p *testProject, k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("delete", "-n", p.projectName, "secret", "hook-result", "hook-result2")
+func (s *HookTestSuite) ensureHookNotExecuted(p *testProject) {
+	_, _, _ = s.k.Kubectl("delete", "-n", p.projectName, "configmaps", "cm1")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertResourceNotExists(t, k, p.projectName, "Secret/hook-result")
+	assertResourceNotExists(s.T(), s.k, p.projectName, "ConfigMap/cm1")
 }
 
-func TestHooksPreDeployInitial(t *testing.T) {
-	t.Parallel()
-	p, k := prepareHookTestProject(t, "pre-deploy-initial", "pre-deploy-initial", "")
+func (s *HookTestSuite) TestHooksPreDeployInitial() {
+	p := s.prepareHookTestProject("pre-deploy-initial", "pre-deploy-initial", "")
 	defer p.cleanup()
-	ensureHookExecuted(t, p, k)
-	assertHookResultNotCMName(t, p, k, false, "cm1")
-	ensureHookNotExecuted(t, p, k)
+	s.ensureHookExecuted(p, "hook1", "cm1")
+	s.ensureHookExecuted(p, "cm1")
 }
 
-func TestHooksPostDeployInitial(t *testing.T) {
-	t.Parallel()
-	p, k := prepareHookTestProject(t, "post-deploy-initial", "post-deploy-initial", "")
+func (s *HookTestSuite) TestHooksPostDeployInitial() {
+	p := s.prepareHookTestProject("post-deploy-initial", "post-deploy-initial", "")
 	defer p.cleanup()
-	ensureHookExecuted(t, p, k)
-	assertHookResultCMName(t, p, k, false, "cm1")
-	ensureHookNotExecuted(t, p, k)
+	s.ensureHookExecuted(p, "cm1", "hook1")
+	s.ensureHookExecuted(p, "cm1")
 }
 
-func TestHooksPreDeployUpgrade(t *testing.T) {
-	t.Parallel()
-	p, k := prepareHookTestProject(t, "pre-deploy-upgrade", "pre-deploy-upgrade", "")
+func (s *HookTestSuite) TestHooksPreDeployUpgrade() {
+	p := s.prepareHookTestProject("pre-deploy-upgrade", "pre-deploy-upgrade", "")
 	defer p.cleanup()
-	addConfigMap(p, "hook", resourceOpts{name: "cm2", namespace: p.projectName})
-	ensureHookNotExecuted(t, p, k)
-	k.KubectlMust(t, "delete", "-n", p.projectName, "configmap", "cm1")
-	ensureHookExecuted(t, p, k)
-	assertHookResultNotCMName(t, p, k, false, "cm1")
-	ensureHookExecuted(t, p, k)
-	assertHookResultCMName(t, p, k, false, "cm1")
+	s.ensureHookExecuted(p, "cm1")
+	s.ensureHookExecuted(p, "hook1", "cm1")
+	s.ensureHookExecuted(p, "hook1", "cm1")
 }
 
-func TestHooksPostDeployUpgrade(t *testing.T) {
-	t.Parallel()
-	p, k := prepareHookTestProject(t, "post-deploy-upgrade", "post-deploy-upgrade", "")
+func (s *HookTestSuite) TestHooksPostDeployUpgrade() {
+	p := s.prepareHookTestProject("post-deploy-upgrade", "post-deploy-upgrade", "")
 	defer p.cleanup()
-	addConfigMap(p, "hook", resourceOpts{name: "cm2", namespace: p.projectName})
-	ensureHookNotExecuted(t, p, k)
-	k.KubectlMust(t, "delete", "-n", p.projectName, "configmap", "cm1")
-	ensureHookExecuted(t, p, k)
-	assertHookResultCMName(t, p, k, false, "cm1")
+	s.ensureHookExecuted(p, "cm1")
+	s.ensureHookExecuted(p, "cm1", "hook1")
+	s.ensureHookExecuted(p, "cm1", "hook1")
 }
 
-func doTestHooksPreDeploy(t *testing.T, name string, hooks string) {
-	p, k := prepareHookTestProject(t, name, hooks, "")
+func (s *HookTestSuite) doTestHooksPreDeploy(name string, hooks string) {
+	p := s.prepareHookTestProject(name, hooks, "")
 	defer p.cleanup()
-	addConfigMap(p, "hook", resourceOpts{name: "cm2", namespace: p.projectName})
-	ensureHookExecuted(t, p, k)
-	k.KubectlMust(t, "delete", "-n", p.projectName, "configmap", "cm1")
-	ensureHookExecuted(t, p, k)
-	assertHookResultNotCMName(t, p, k, false, "cm1")
-	ensureHookExecuted(t, p, k)
-	assertHookResultCMName(t, p, k, false, "cm1")
+	s.ensureHookExecuted(p, "hook1", "cm1")
+	s.ensureHookExecuted(p, "hook1", "cm1")
 }
 
-func doTestHooksPostDeploy(t *testing.T, name string, hooks string) {
-	p, k := prepareHookTestProject(t, name, hooks, "")
+func (s *HookTestSuite) doTestHooksPostDeploy(name string, hooks string) {
+	p := s.prepareHookTestProject(name, hooks, "")
 	defer p.cleanup()
-	addConfigMap(p, "hook", resourceOpts{name: "cm2", namespace: p.projectName})
-	ensureHookExecuted(t, p, k)
-	k.KubectlMust(t, "delete", "-n", p.projectName, "configmap", "cm1")
-	ensureHookExecuted(t, p, k)
-	assertHookResultCMName(t, p, k, false, "cm1")
+	s.ensureHookExecuted(p, "cm1", "hook1")
+	s.ensureHookExecuted(p, "cm1", "hook1")
 }
 
-func doTestHooksPrePostDeploy(t *testing.T, name string, hooks string) {
-	p, k := prepareHookTestProject(t, name, hooks, "")
+func (s *HookTestSuite) doTestHooksPrePostDeploy(name string, hooks string) {
+	p := s.prepareHookTestProject(name, hooks, "")
 	defer p.cleanup()
-	addConfigMap(p, "hook", resourceOpts{name: "cm2", namespace: p.projectName})
-	ensureHookExecuted(t, p, k)
-	assertHookResultNotCMName(t, p, k, false, "cm1")
-	assertHookResultNotCMName(t, p, k, false, "cm2")
-	assertHookResultCMName(t, p, k, true, "cm1")
-	assertHookResultCMName(t, p, k, true, "cm2")
-
-	ensureHookExecuted(t, p, k)
-	assertHookResultCMName(t, p, k, false, "cm1")
-	assertHookResultNotCMName(t, p, k, false, "cm2")
-	assertHookResultCMName(t, p, k, true, "cm1")
-	assertHookResultCMName(t, p, k, true, "cm2")
+	s.ensureHookExecuted(p, "hook1", "cm1", "hook1")
+	s.ensureHookExecuted(p, "hook1", "cm1", "hook1")
 }
 
-func TestHooksPreDeploy(t *testing.T) {
-	t.Parallel()
-	doTestHooksPreDeploy(t, "pre-deploy", "pre-deploy")
+func (s *HookTestSuite) TestHooksPreDeploy() {
+	s.doTestHooksPreDeploy("pre-deploy", "pre-deploy")
 }
 
-func TestHooksPreDeploy2(t *testing.T) {
-	t.Parallel()
+func (s *HookTestSuite) TestHooksPreDeploy2() {
 	// same as pre-deploy
-	doTestHooksPreDeploy(t, "pre-deploy2", "pre-deploy-initial,pre-deploy-upgrade")
+	s.doTestHooksPreDeploy("pre-deploy2", "pre-deploy-initial,pre-deploy-upgrade")
 }
 
-func TestHooksPostDeploy(t *testing.T) {
-	t.Parallel()
-	doTestHooksPostDeploy(t, "post-deploy", "post-deploy")
+func (s *HookTestSuite) TestHooksPostDeploy() {
+	s.doTestHooksPostDeploy("post-deploy", "post-deploy")
 }
 
-func TestHooksPostDeploy2(t *testing.T) {
-	t.Parallel()
+func (s *HookTestSuite) TestHooksPostDeploy2() {
 	// same as post-deploy
-	doTestHooksPostDeploy(t, "post-deploy2", "post-deploy-initial,post-deploy-upgrade")
+	s.doTestHooksPostDeploy("post-deploy2", "post-deploy-initial,post-deploy-upgrade")
 }
 
-func TestHooksPrePostDeploy(t *testing.T) {
-	t.Parallel()
-	doTestHooksPrePostDeploy(t, "pre-post-deploy", "pre-deploy,post-deploy")
+func (s *HookTestSuite) TestHooksPrePostDeploy() {
+	s.doTestHooksPrePostDeploy("pre-post-deploy", "pre-deploy,post-deploy")
 }
 
-func TestHooksPrePostDeploy2(t *testing.T) {
-	t.Parallel()
-	doTestHooksPrePostDeploy(t, "pre-post-deploy2", "pre-deploy-initial,pre-deploy-upgrade,post-deploy-initial,post-deploy-upgrade")
+func (s *HookTestSuite) TestHooksPrePostDeploy2() {
+	s.doTestHooksPrePostDeploy("pre-post-deploy2", "pre-deploy-initial,pre-deploy-upgrade,post-deploy-initial,post-deploy-upgrade")
 }

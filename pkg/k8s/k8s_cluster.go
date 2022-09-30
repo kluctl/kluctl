@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -236,7 +238,7 @@ type DeleteOptions struct {
 func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 
-	pp := v1.DeletePropagationForeground
+	pp := v1.DeletePropagationBackground
 	o := v1.DeleteOptions{
 		PropagationPolicy: &pp,
 	}
@@ -460,9 +462,47 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	return result, apiWarnings, err
 }
 
+// envtestProxyGet checks the environment variables KLUCTL_K8S_SERVICE_PROXY_XXX to enable testing of proxy requests with envtest
+func (k *K8sCluster) envtestProxyGet(scheme, namespace, name, port, path string, params map[string]string) (io.ReadCloser, error) {
+	for _, m := range utils.ParseEnvConfigSets("KLUCTL_K8S_SERVICE_PROXY") {
+		envApiHost := strings.TrimSuffix(m["API_HOST"], "/")
+		envNamespace := m["SERVICE_NAMESPACE"]
+		envName := m["SERVICE_NAME"]
+		envPort := m["SERVICE_PORT"]
+		envUrl := m["LOCAL_URL"]
+
+		apiHost := strings.TrimSuffix(k.clientFactory.RESTConfig().Host, "/")
+
+		if envApiHost != apiHost || envNamespace != namespace || envName != name || port != envPort {
+			continue
+		}
+
+		status.Trace(k.ctx, "envtestProxyGet apiHost=%s, ns=%s, name=%s, port=%s, path=%s, envUrl=%s", apiHost, namespace, name, port, path, envUrl)
+
+		envUrl = fmt.Sprintf("%s%s", envUrl, path)
+		resp, err := http.Get(envUrl)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			return nil, fmt.Errorf("http get returned status %d: %s", resp.StatusCode, resp.Status)
+		}
+		return resp.Body, nil
+	}
+	return nil, nil
+}
+
 func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params map[string]string) (io.ReadCloser, error) {
+	stream, err := k.envtestProxyGet(scheme, namespace, name, port, path, params)
+	if err != nil {
+		return nil, err
+	}
+	if stream != nil {
+		return stream, nil
+	}
+
 	var ret rest.ResponseWrapper
-	_, err := k.clients.withClientFromPool(func(p *parallelClientEntry) error {
+	_, err = k.clients.withClientFromPool(func(p *parallelClientEntry) error {
 		ret = p.corev1.Services(namespace).ProxyGet(scheme, name, port, path, params)
 		return nil
 	})

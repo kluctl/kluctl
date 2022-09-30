@@ -8,26 +8,26 @@ TEST_BINARY_NAME=kluctl-e2e
 REQUIRED_ENV_VARS=GOOS GOARCH
 EXPORT_RESULT?=false
 
+# If gobin not set, create one on ./build and add to path.
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(BUILD_DIR)/gobin
+else
+GOBIN=$(shell go env GOBIN)
+endif
+export PATH:=$(GOBIN):${PATH}
+
+# Architecture to use envtest with
+ENVTEST_ARCH ?= amd64
+
 GREEN  := $(shell tput -Txterm setaf 2)
 YELLOW := $(shell tput -Txterm setaf 3)
 WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-.PHONY: all test build check-kubectl check-helm check-kind
+.PHONY: all test build
 
 all: help
-
-## Check:
-
-check-kubectl: ## Checks if kubectl is installed
-	kubectl version --client=true
-
-check-helm: ## Checks if helm is installed
-	helm version
-
-check-kind: ## Checks if kind is installed
-	kind version
 
 ## Build:
 build: build-go ## Run the complete build pipeline
@@ -42,11 +42,41 @@ clean: ## Remove build related file
 	rm -fr ./reports
 	rm -fr ./download-python
 
+## Envtest setup
+# Repository root based on Git metadata
+REPOSITORY_ROOT := $(shell git rev-parse --show-toplevel)
+BUILD_DIR := $(REPOSITORY_ROOT)/build
+ENVTEST = $(GOBIN)/setup-envtest
+.PHONY: envtest
+setup-envtest: ## Download envtest-setup locally if necessary.
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+
+# Download the envtest binaries to testbin
+ENVTEST_KUBERNETES_VERSION?=1.25.0
+ENVTEST_ASSETS_DIR=$(BUILD_DIR)/testbin
+
+ifeq ($(OS),Windows_NT)
+ENVTEST_ASSETS_DIR_WINDOWS=$(ENVTEST_ASSETS_DIR)/k8s/$(ENVTEST_KUBERNETES_VERSION)-windows-amd64
+install-envtest: setup-envtest $(ENVTEST_ASSETS_DIR_WINDOWS)/etcd.exe
+$(ENVTEST_ASSETS_DIR_WINDOWS)/etcd.exe:
+	mkdir -p $(ENVTEST_ASSETS_DIR_WINDOWS)
+	curl -o $(ENVTEST_ASSETS_DIR_WINDOWS)/kubebuilder-tools.tar.gz "https://raw.githubusercontent.com/kluctl/kubebuilder-tools-releases-windows/main/releases/kubebuilder-tools-$(ENVTEST_KUBERNETES_VERSION)_windows_amd64.tar.gz"
+	cd $(ENVTEST_ASSETS_DIR_WINDOWS) && tar xzf kubebuilder-tools.tar.gz && mv kubebuilder/bin/* .
+	rm $(ENVTEST_ASSETS_DIR_WINDOWS)/kubebuilder-tools.tar.gz
+else
+install-envtest: setup-envtest
+	$(ENVTEST) use $(ENVTEST_KUBERNETES_VERSION) --arch=$(ENVTEST_ARCH) --bin-dir=$(ENVTEST_ASSETS_DIR)
+endif
+
 ## Test:
 test: test-unit test-e2e ## Runs the complete test suite
 
-test-e2e: check-kubectl check-helm check-kind ## Runs the end to end tests
-	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o ./bin/$(TEST_BINARY_NAME) ./e2e
+KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
+test-e2e: install-envtest ## Runs the end to end tests
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o ./bin/$(TEST_BINARY_NAME) ./e2e -test.v
+
+test-e2e-pre-built: install-envtest
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./e2e.test -test.v
 
 test-unit: ## Run the unit tests of the project
 ifeq ($(EXPORT_RESULT), true)
@@ -54,7 +84,7 @@ ifeq ($(EXPORT_RESULT), true)
 	GO111MODULE=off $(GOCMD) get -u github.com/jstemmer/go-junit-report
 	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > reports/test-unit/junit-report.xml)
 endif
-	$(GOTEST) -v -race $(shell go list ./... | grep -v /e2e/) $(OUTPUT_OPTIONS)
+	$(GOTEST) -v -race $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
 
 coverage-unit: ## Run the unit tests of the project and export the coverage
 	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/)
@@ -99,3 +129,18 @@ help: ## Show this help.
 		if (/^[0-9a-zA-Z_-]+:.*?##.*$$/) {printf "    ${YELLOW}%-20s${GREEN}%s${RESET}\n", $$1, $$2} \
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
+
+## Tools
+# go-install-tool will 'go install' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-install-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(GOBIN) go install $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef

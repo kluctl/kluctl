@@ -7,13 +7,13 @@ import (
 func TestCommandDeploySimple(t *testing.T) {
 	t.Parallel()
 
-	k := defaultKindCluster1
+	k := defaultCluster1
 
 	p := &testProject{}
 	p.init(t, k, "simple")
 	defer p.cleanup()
 
-	recreateNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.projectName)
 
 	p.updateTarget("test", nil)
 

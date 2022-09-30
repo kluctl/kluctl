@@ -17,24 +17,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func recreateNamespace(t *testing.T, k *test_utils.KindCluster, namespace string) {
-	_, _ = k.Kubectl("delete", "ns", namespace)
+func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {
 	k.KubectlMust(t, "create", "ns", namespace)
 	k.KubectlMust(t, "label", "ns", namespace, "kluctl-e2e=true")
 }
 
-func deleteTestNamespaces(k *test_utils.KindCluster) {
-	_, _ = k.Kubectl("delete", "ns", "-l", "kubectl-e2e=true")
-}
-
-func waitForReadiness(t *testing.T, k *test_utils.KindCluster, namespace string, resource string, timeout time.Duration) bool {
+func waitForReadiness(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string, timeout time.Duration) bool {
 	t.Logf("Waiting for readiness: %s/%s", namespace, resource)
 
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
-		y, err := k.KubectlYaml("-n", namespace, "get", resource)
+		y, stderr, err := k.KubectlYaml("-n", namespace, "get", resource)
 		if err != nil {
-			if ee, ok := err.(*exec.ExitError); !ok || strings.Index(string(ee.Stderr), "NotFound") == -1 {
+			if strings.Index(stderr, "NotFound") == -1 {
 				t.Fatal(err)
 			}
 			time.Sleep(1 * time.Second)
@@ -61,13 +56,13 @@ func waitForReadiness(t *testing.T, k *test_utils.KindCluster, namespace string,
 	return false
 }
 
-func assertReadiness(t *testing.T, k *test_utils.KindCluster, namespace string, resource string, timeout time.Duration) {
+func assertReadiness(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string, timeout time.Duration) {
 	if !waitForReadiness(t, k, namespace, resource, timeout) {
 		t.Errorf("%s/%s did not get ready in time", namespace, resource)
 	}
 }
 
-func assertResourceExists(t *testing.T, k *test_utils.KindCluster, namespace string, resource string) *uo.UnstructuredObject {
+func assertResourceExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string) *uo.UnstructuredObject {
 	var args []string
 	if namespace != "" {
 		args = append(args, "-n", namespace)
@@ -76,21 +71,17 @@ func assertResourceExists(t *testing.T, k *test_utils.KindCluster, namespace str
 	return k.KubectlYamlMust(t, args...)
 }
 
-func assertResourceNotExists(t *testing.T, k *test_utils.KindCluster, namespace string, resource string) {
+func assertResourceNotExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string) {
 	var args []string
 	if namespace != "" {
 		args = append(args, "-n", namespace)
 	}
 	args = append(args, "get", resource)
-	_, err := k.KubectlYaml(args...)
+	_, stderr, err := k.KubectlYaml(args...)
 	if err == nil {
 		t.Fatalf("'kubectl get' for %s should not have succeeded", resource)
 	} else {
-		ee, ok := err.(*exec.ExitError)
-		if !ok {
-			t.Fatal(err)
-		}
-		if strings.Index(string(ee.Stderr), "(NotFound)") == -1 {
+		if strings.Index(stderr, "(NotFound)") == -1 {
 			t.Fatal(err)
 		}
 	}

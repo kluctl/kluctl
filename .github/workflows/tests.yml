@@ -21,9 +21,9 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: build-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            build-go-${{ runner.os }}-
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v
@@ -66,64 +66,7 @@ jobs:
             e2e.test-darwin-amd64
             e2e.test-windows-amd64.exe
 
-  docker-host:
-    if: "!startsWith(github.ref, 'refs/tags/')"
-    runs-on: ubuntu-20.04
-    needs:
-      - build
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Install zerotier
-        run: |
-          sudo apt update
-          sudo apt install -y gpg jq
-          curl -s https://install.zerotier.com | sudo bash
-      - name: Setup inotify limits
-        run: |
-          # see https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files
-          sudo sysctl fs.inotify.max_user_watches=524288
-          sudo sysctl fs.inotify.max_user_instances=512
-      - name: Stop docker
-        run: |
-          # Ensure docker is down and that the test jobs can wait for it to be available again after joining the network.
-          # Otherwise they might join and then docker restarts
-          sudo systemctl stop docker
-      - name: Create network
-        run: |
-          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
-          ./hack/zerotier-create-network.sh $GITHUB_RUN_ID
-      - name: Join network
-        run: |
-          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
-          ./hack/zerotier-join-network.sh $GITHUB_RUN_ID docker
-      - name: Restart ssh
-        run: |
-          sudo systemctl restart ssh
-      - name: Restart docker
-        run: |
-          sudo sed -i 's|-H fd://|-H fd:// -H tcp://0.0.0.0:2375|g' /lib/systemd/system/docker.service
-          sudo systemctl daemon-reload
-          sudo systemctl start docker
-      - name: Wait for other jobs to finish
-        run: |
-          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-          while true; do
-            JOBS=$(gh api /repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs | jq '.jobs[] | select(.name | startswith("tests "))')
-            NON_COMPLETED=$(echo $JOBS | jq '. | select(.status != "completed")')
-            if [ "$NON_COMPLETED" == "" ]; then
-              break
-            fi
-            sleep 5
-          done
-      - name: Delete network
-        if: always()
-        run: |
-          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
-          ./hack/zerotier-delete-network.sh $GITHUB_RUN_ID
-
   tests:
-    if: "!startsWith(github.ref, 'refs/tags/')"
     strategy:
       matrix:
         include:
@@ -141,125 +84,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Install zerotier (linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt update
-          sudo apt install -y gpg jq
-          curl -s https://install.zerotier.com | sudo bash
-      - name: Install zerotier (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install zerotier-one
-      - name: Install zerotier (windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          choco install zerotier-one
-          echo "#!/usr/bin/env bash" > /usr/bin/zerotier-cli
-          echo '/c/ProgramData/ZeroTier/One/zerotier-one_x64.exe -q "$@"' >> /usr/bin/zerotier-cli
-          chmod +x /usr/bin/zerotier-cli
-
-          choco install netcat
-          echo /c/ProgramData/chocolatey/bin >> $GITHUB_PATH
-      - name: Join network
-        shell: bash
-        run: |
-          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
-          ./hack/zerotier-join-network.sh $GITHUB_RUN_ID ${{ matrix.binary-suffix }}
-      - name: Determine DOCKER_HOST
-        shell: bash
-        run: |
-          export CI_ZEROTIER_API_KEY=${{ secrets.CI_ZEROTIER_API_KEY }}
-          ./hack/zerotier-setup-docker-host.sh $GITHUB_RUN_ID
-      - name: Setup TOOLS envs
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" != "Windows" ]; then
-            echo "SUDO=sudo" >> $GITHUB_ENV
-          fi
-
-          TOOLS_EXE=
-          TOOLS_TARGET_DIR=$GITHUB_WORKSPACE/bin
-          mkdir $TOOLS_TARGET_DIR
-
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            TOOLS_OS=darwin
-          elif [ "${{ runner.os }}" == "Windows" ]; then
-            TOOLS_OS=windows
-            TOOLS_EXE=.exe
-          else
-            TOOLS_OS=linux
-          fi
-          echo "TOOLS_EXE=$TOOLS_EXE" >> $GITHUB_ENV
-          echo "TOOLS_OS=$TOOLS_OS" >> $GITHUB_ENV
-          echo "TOOLS_TARGET_DIR=$TOOLS_TARGET_DIR" >> $GITHUB_ENV
-          echo "$TOOLS_TARGET_DIR" >> $GITHUB_PATH
-      - name: "[Windows] Install openssh"
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          choco install openssh
-      - name: Provide required tools versions
-        shell: bash
-        run: |
-          echo "KUBECTL_VERSION=1.21.5" >> $GITHUB_ENV
-          echo "KIND_VERSION=0.11.1" >> $GITHUB_ENV
-          echo "DOCKER_VERSION=20.10.9" >> $GITHUB_ENV
-      - name: Download required tools
-        shell: bash
-        run: |
-          curl -L -o kubectl$TOOLS_EXE https://storage.googleapis.com/kubernetes-release/release/v$KUBECTL_VERSION/bin/${TOOLS_OS}/amd64/kubectl$TOOLS_EXE && \
-              $SUDO mv kubectl$TOOLS_EXE "$TOOLS_TARGET_DIR/"
-          curl -L -o kind$TOOLS_EXE https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${TOOLS_OS}-amd64 && \
-              $SUDO mv kind$TOOLS_EXE "$TOOLS_TARGET_DIR/"
-          if [ "${{ runner.os }}" == "macOS" ]; then
-            curl -L -o docker.tar.gz https://download.docker.com/mac/static/stable/x86_64/docker-$DOCKER_VERSION.tgz
-            tar xzf docker.tar.gz
-            $SUDO mv docker/docker "$TOOLS_TARGET_DIR/"
-            rm -rf docker
-          elif [ "${{ runner.os }}" == "Windows" ]; then
-            curl -L -o docker.zip https://download.docker.com/win/static/stable/x86_64/docker-$DOCKER_VERSION.zip
-            unzip docker.zip
-            mv docker/docker.exe "$TOOLS_TARGET_DIR/"
-            rm -rf docker
-          fi
-          $SUDO chmod -R +x "$TOOLS_TARGET_DIR/"
-      - name: Test required tools
-        shell: bash
-        run: |
-          kubectl version || true
-          kind version || true
-      - name: Prepare kind cluster variables
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            echo "KIND_API_PORT1=10000" >> $GITHUB_ENV
-            echo "KIND_API_PORT2=20000" >> $GITHUB_ENV
-            echo "KIND_EXTRA_PORTS_OFFSET1=30000" >> $GITHUB_ENV
-            echo "KIND_EXTRA_PORTS_OFFSET2=31000" >> $GITHUB_ENV
-          elif [ "${{ runner.os }}" == "Windows" ]; then
-            echo "KIND_API_PORT1=10001" >> $GITHUB_ENV
-            echo "KIND_API_PORT2=20001" >> $GITHUB_ENV
-            echo "KIND_EXTRA_PORTS_OFFSET1=30100" >> $GITHUB_ENV
-            echo "KIND_EXTRA_PORTS_OFFSET2=31100" >> $GITHUB_ENV
-          else
-            echo "KIND_API_PORT1=10002" >> $GITHUB_ENV
-            echo "KIND_API_PORT2=20002" >> $GITHUB_ENV
-            echo "KIND_EXTRA_PORTS_OFFSET1=30200" >> $GITHUB_ENV
-            echo "KIND_EXTRA_PORTS_OFFSET2=31200" >> $GITHUB_ENV
-          fi
-          KIND_CLUSTER_NAME_BASE=$(echo "kluctl-${{ runner.os }}" | awk '{{ print tolower($1) }}')
-
-          echo "KIND_API_HOST1=$DOCKER_IP" >> $GITHUB_ENV
-          echo "KIND_API_HOST2=$DOCKER_IP" >> $GITHUB_ENV
-          echo "KIND_CLUSTER_NAME1=$KIND_CLUSTER_NAME_BASE-1" >> $GITHUB_ENV
-          echo "KIND_CLUSTER_NAME2=$KIND_CLUSTER_NAME_BASE-2" >> $GITHUB_ENV
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.19'
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            tests-go-${{ runner.os }}-
       - name: Download artifacts
         uses: actions/download-artifact@v2
+      - name: setup-envtest
+        shell: bash
+        run: |
+          make install-envtest
       - name: Run e2e tests
         shell: bash
         run: |
+          EXE=
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            EXE=.exe
+          fi
+
           chmod +x ./binaries/*
-          export KLUCTL_EXE=./binaries/kluctl-${{ matrix.binary-suffix }}$TOOLS_EXE
-          ./binaries/e2e.test-${{ matrix.binary-suffix }}$TOOLS_EXE -test.v
+          mv ./binaries/e2e.test-${{ matrix.binary-suffix }}$EXE ./e2e.test$EXE
+
+          export KLUCTL_EXE=./binaries/kluctl-${{ matrix.binary-suffix }}$EXE
+          make test-e2e-pre-built

@@ -7,17 +7,17 @@ import (
 )
 
 func doTestProject(t *testing.T, namespace string, p *testProject) {
-	k := defaultKindCluster1
+	k := defaultCluster1
 
 	p.init(t, k, fmt.Sprintf("project-%s", namespace))
 	defer p.cleanup()
 
-	recreateNamespace(t, k, namespace)
+	createNamespace(t, k, namespace)
 
-	p.updateKindCluster(k, uo.FromMap(map[string]interface{}{
+	p.updateEnvTestCluster(k, uo.FromMap(map[string]interface{}{
 		"cluster_var": "cluster_value1",
 	}))
-	p.updateTargetDeprecated("test", k.Name, uo.FromMap(map[string]interface{}{
+	p.updateTargetDeprecated("test", k.Context, uo.FromMap(map[string]interface{}{
 		"target_var": "target_value1",
 	}))
 	addConfigMapDeployment(p, "cm1", map[string]string{}, resourceOpts{name: "cm1", namespace: namespace})
@@ -38,7 +38,7 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 	assertNestedFieldEquals(t, o, "cluster_value1", "data", "cluster_var")
 	assertNestedFieldEquals(t, o, "target_value1", "data", "target_var")
 
-	p.updateKindCluster(k, uo.FromMap(map[string]interface{}{
+	p.updateEnvTestCluster(k, uo.FromMap(map[string]interface{}{
 		"cluster_var": "cluster_value2",
 	}))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
@@ -46,7 +46,7 @@ func doTestProject(t *testing.T, namespace string, p *testProject) {
 	assertNestedFieldEquals(t, o, "cluster_value2", "data", "cluster_var")
 	assertNestedFieldEquals(t, o, "target_value1", "data", "target_var")
 
-	p.updateTargetDeprecated("test", k.Name, uo.FromMap(map[string]interface{}{
+	p.updateTargetDeprecated("test", k.Context, uo.FromMap(map[string]interface{}{
 		"target_var": "target_value2",
 	}))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
