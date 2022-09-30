@@ -20,6 +20,7 @@ type HookTestSuite struct {
 }
 
 func TestHooks(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, &HookTestSuite{})
 }
 

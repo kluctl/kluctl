@@ -40,6 +40,7 @@ type certServer struct {
 }
 
 func TestSealedSecrets(t *testing.T) {
+	t.Parallel()
 	suite.Run(t, &SealedSecretsTestSuite{})
 }
 
