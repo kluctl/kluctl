@@ -71,7 +71,7 @@ ifeq ($(EXPORT_RESULT), true)
 	GO111MODULE=off $(GOCMD) get -u github.com/jstemmer/go-junit-report
 	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > reports/test-unit/junit-report.xml)
 endif
-	$(GOTEST) -v -race $(shell go list ./... | grep -v /e2e/) $(OUTPUT_OPTIONS)
+	$(GOTEST) -v -race $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
 
 coverage-unit: ## Run the unit tests of the project and export the coverage
 	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/)
