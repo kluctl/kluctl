@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
@@ -46,17 +45,16 @@ func NewSealer(ctx context.Context, cert *x509.Certificate, forceReseal bool) (*
 	}
 	s.pubKey = pk
 
-	pkBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	var err error
+	s.certHash, err = HashPublicKey(cert)
 	if err != nil {
 		return nil, err
 	}
-	h := sha256.Sum256(pkBytes)
-	s.certHash = hex.EncodeToString(h[:])
 
 	return s, nil
 }
 
-func (s *Sealer) doHash(key string, secret []byte, secretName string, secretNamespace string, scope string) string {
+func HashSecret(key string, secret []byte, secretName string, secretNamespace string, scope string) string {
 	if secretNamespace == "" {
 		secretNamespace = "*"
 	}
@@ -220,7 +218,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	}
 
 	for k, v := range secrets {
-		hash := s.doHash(k, v, secretName, secretNamespace, *scope)
+		hash := HashSecret(k, v, secretName, secretNamespace, *scope)
 		existingHash, _, _ := existingHashes.GetNestedString(k)
 
 		doEncrypt := resealAll

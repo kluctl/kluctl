@@ -2,7 +2,9 @@ package seal
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -104,4 +106,13 @@ func ParseCert(data []byte) (*x509.Certificate, error) {
 	}
 
 	return certs[0], nil
+}
+
+func HashPublicKey(cert *x509.Certificate) (string, error) {
+	pkBytes, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(pkBytes)
+	return hex.EncodeToString(h[:]), nil
 }

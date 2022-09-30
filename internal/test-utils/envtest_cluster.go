@@ -53,6 +53,8 @@ func (k *EnvTestCluster) Start() error {
 	}
 	k.user = user
 
+	k.config = user.Config()
+
 	kcfg, err := user.KubeConfig()
 	if err != nil {
 		return err
@@ -113,7 +115,11 @@ func (c *EnvTestCluster) Kubectl(args ...string) (string, string, error) {
 func (c *EnvTestCluster) KubectlMust(t *testing.T, args ...string) string {
 	stdout, stderr, err := c.Kubectl(args...)
 	if err != nil {
-		t.Fatalf("%v, stderr=%s\n", err, stderr)
+		if t != nil {
+			t.Fatalf("%v, stderr=%s\n", err, stderr)
+		} else {
+			panic(fmt.Sprintf("%v, stderr=%s\n", err, stderr))
+		}
 	}
 	return stdout
 }

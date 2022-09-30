@@ -7,7 +7,6 @@ import (
 
 var defaultCluster1 = test_utils.CreateEnvTestCluster("cluster1")
 var defaultCluster2 = test_utils.CreateEnvTestCluster("cluster2")
-var defaultKindCluster1VaultPort, defaultKindCluster2VaultPort int
 
 func init() {
 	var wg sync.WaitGroup
