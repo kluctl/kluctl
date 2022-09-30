@@ -52,11 +52,21 @@ setup-envtest: ## Download envtest-setup locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
 # Download the envtest binaries to testbin
+ENVTEST_KUBERNETES_VERSION?=1.25.0
 ENVTEST_ASSETS_DIR=$(BUILD_DIR)/testbin
-ENVTEST_KUBERNETES_VERSION?=latest
+
+ifeq ($(OS),Windows_NT)
+ENVTEST_ASSETS_DIR_WINDOWS=$(ENVTEST_ASSETS_DIR)/k8s/$(ENVTEST_KUBERNETES_VERSION)-windows-amd64
+install-envtest: setup-envtest $(ENVTEST_ASSETS_DIR_WINDOWS)/etcd.exe
+$(ENVTEST_ASSETS_DIR_WINDOWS)/etcd.exe:
+	mkdir -p $(ENVTEST_ASSETS_DIR_WINDOWS)
+	curl -o $(ENVTEST_ASSETS_DIR_WINDOWS)/kubebuilder-tools.tar.gz "https://raw.githubusercontent.com/kluctl/kubebuilder-tools-releases-windows/main/releases/kubebuilder-tools-$(ENVTEST_KUBERNETES_VERSION)_windows_amd64.tar.gz"
+	cd $(ENVTEST_ASSETS_DIR_WINDOWS) && tar xzf kubebuilder-tools.tar.gz && mv kubebuilder/bin/* .
+	rm $(ENVTEST_ASSETS_DIR_WINDOWS)/kubebuilder-tools.tar.gz
+else
 install-envtest: setup-envtest
-	mkdir -p ${ENVTEST_ASSETS_DIR}
 	$(ENVTEST) use $(ENVTEST_KUBERNETES_VERSION) --arch=$(ENVTEST_ARCH) --bin-dir=$(ENVTEST_ASSETS_DIR)
+endif
 
 ## Test:
 test: test-unit test-e2e ## Runs the complete test suite
