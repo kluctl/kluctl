@@ -439,6 +439,9 @@ func (di *DeploymentItem) postprocessCRDs() error {
 	if di.dir == nil {
 		return nil
 	}
+	if di.ctx.K == nil {
+		return nil
+	}
 
 	for _, o := range di.Objects {
 		gvk := o.GetK8sGVK()
