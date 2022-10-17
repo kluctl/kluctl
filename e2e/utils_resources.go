@@ -1,10 +1,8 @@
 package e2e
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"text/template"
 )
 
 type resourceOpts struct {
@@ -28,25 +26,6 @@ func mergeMetadata(o *uo.UnstructuredObject, opts resourceOpts) {
 	if opts.annotations != nil {
 		o.SetK8sAnnotations(opts.annotations)
 	}
-}
-
-func renderTemplateHelper(tmpl string, m map[string]interface{}) string {
-	t := template.Must(template.New("").Parse(tmpl))
-	r := bytes.NewBuffer(nil)
-	err := t.Execute(r, m)
-	if err != nil {
-		panic(err)
-	}
-	return r.String()
-}
-
-func renderTemplateObjectHelper(tmpl string, m map[string]interface{}) []*uo.UnstructuredObject {
-	s := renderTemplateHelper(tmpl, m)
-	ret, err := uo.FromStringMulti(s)
-	if err != nil {
-		panic(err)
-	}
-	return ret
 }
 
 func addConfigMapDeployment(p *testProject, dir string, data map[string]string, opts resourceOpts) {
