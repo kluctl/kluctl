@@ -15,6 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
 	"k8s.io/client-go/rest"
@@ -146,9 +147,16 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	if err != nil {
 		return err
 	}
-	optionArgs2, err := deployment.ConvertArgsToVars(optionArgs)
+	optionArgs2, err := deployment.ConvertArgsToVars(optionArgs, true)
 	if err != nil {
 		return err
+	}
+	for _, a := range args.argsFlags.ArgsFromFile {
+		optionArgs3, err := uo.FromFile(a)
+		if err != nil {
+			return err
+		}
+		optionArgs2.Merge(optionArgs3)
 	}
 
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
