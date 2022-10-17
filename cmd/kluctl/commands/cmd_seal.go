@@ -161,9 +161,6 @@ func (cmd *sealCmd) Run() error {
 			if cmd.Target != "" && cmd.Target != target.Target.Name {
 				continue
 			}
-			if cmd.Cluster != "" && target.Target.Cluster != nil && cmd.Cluster != *target.Target.Cluster {
-				continue
-			}
 			if target.Target.SealingConfig == nil {
 				status.Info(ctx, "Target %s has no sealingConfig", target.Target.Name)
 				continue

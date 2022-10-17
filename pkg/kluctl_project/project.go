@@ -19,8 +19,6 @@ type LoadedKluctlProject struct {
 	projectRootDir string
 	ProjectDir     string
 
-	DeploymentDir    string
-	ClustersDir      string
 	sealedSecretsDir string
 
 	Config         types2.KluctlProject

@@ -3,7 +3,6 @@ package kluctl_project
 import (
 	"fmt"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"sync"
 )
 
@@ -33,37 +32,13 @@ func (c *LoadedKluctlProject) updateGitCaches() error {
 
 		return nil
 	}
-	doUpdateExternalProject := func(p *types2.ExternalProject) error {
-		if p == nil || p.Project == nil {
-			return nil
-		}
-		return doUpdateGitProject(p.Project.Url)
-	}
-
-	err := doUpdateExternalProject(c.Config.Deployment)
-	if err != nil {
-		waitGroup.Wait()
-		return err
-	}
-	err = doUpdateExternalProject(c.Config.SealedSecrets)
-	if err != nil {
-		waitGroup.Wait()
-		return err
-	}
-	for _, ep := range c.Config.Clusters.Projects {
-		err = doUpdateExternalProject(&ep)
-		if err != nil {
-			waitGroup.Wait()
-			return err
-		}
-	}
 
 	for _, target := range c.Config.Targets {
 		if target.TargetConfig == nil || target.TargetConfig.Project == nil {
 			continue
 		}
 
-		err = doUpdateGitProject(target.TargetConfig.Project.Url)
+		err := doUpdateGitProject(target.TargetConfig.Project.Url)
 		if err != nil {
 			waitGroup.Wait()
 			return err

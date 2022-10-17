@@ -43,21 +43,6 @@ func ValidateExternalProject(sl validator.StructLevel) {
 	}
 }
 
-type ExternalProjects struct {
-	Projects []ExternalProject
-}
-
-func (gp *ExternalProjects) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	singleProject := ExternalProject{}
-	if err := unmarshal(&singleProject); err == nil {
-		// it's a single project
-		gp.Projects = []ExternalProject{singleProject}
-		return nil
-	}
-	// try as array
-	return unmarshal(&gp.Projects)
-}
-
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
 	yaml.Validator.RegisterStructValidation(ValidateExternalProject, ExternalProject{})
