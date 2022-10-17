@@ -5,7 +5,7 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"io/ioutil"
+	"os"
 )
 
 type GitEnvAuthProvider struct {
@@ -31,7 +31,7 @@ func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 
 		if ssh_key_path != "" {
 			ssh_key_path = utils.ExpandPath(ssh_key_path)
-			b, err := ioutil.ReadFile(ssh_key_path)
+			b, err := os.ReadFile(ssh_key_path)
 			if err != nil {
 				status.Trace(ctx, "GitEnvAuthProvider: failed to read key %s: %v", ssh_key_path, err)
 			} else {
@@ -41,7 +41,7 @@ func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 		ca_bundle_path := m["CA_BUNDLE"]
 		if ca_bundle_path != "" {
 			ca_bundle_path = utils.ExpandPath(ca_bundle_path)
-			b, err := ioutil.ReadFile(ca_bundle_path)
+			b, err := os.ReadFile(ca_bundle_path)
 			if err != nil {
 				status.Trace(ctx, "GitEnvAuthProvider: failed to read ca bundle %s: %v", ca_bundle_path, err)
 			} else {

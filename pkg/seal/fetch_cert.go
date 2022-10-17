@@ -10,7 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"io/ioutil"
+	"io"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/cert"
 )
@@ -68,7 +68,7 @@ func openCertFromController(k *k8s.K8sCluster, namespace, name string) ([]byte, 
 	}
 	defer r.Close()
 
-	cert, err := ioutil.ReadAll(r)
+	cert, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

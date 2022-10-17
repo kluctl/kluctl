@@ -9,7 +9,6 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -198,7 +197,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	}
 	repoName = strings.ReplaceAll(repoName, "/", "-")
 
-	p, err := ioutil.TempDir(tmpDir, repoName)
+	p, err := os.MkdirTemp(tmpDir, repoName)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}

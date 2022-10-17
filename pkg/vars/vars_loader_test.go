@@ -15,7 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"io"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +28,7 @@ import (
 )
 
 func newTestDir(t *testing.T) string {
-	tmp, err := ioutil.TempDir("", "")
+	tmp, err := os.MkdirTemp("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestVarsLoader_Values(t *testing.T) {
 
 func TestVarsLoader_File(t *testing.T) {
 	d := newTestDir(t)
-	_ = ioutil.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		err := vl.LoadVars(vc, &types.VarsSource{
@@ -89,8 +89,8 @@ func TestVarsLoader_File(t *testing.T) {
 
 func TestVarsLoader_FileWithLoad(t *testing.T) {
 	d := newTestDir(t)
-	_ = ioutil.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
-	_ = ioutil.WriteFile(filepath.Join(d, "test2.txt"), []byte(`42`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "test2.txt"), []byte(`42`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		err := vl.LoadVars(vc, &types.VarsSource{
@@ -106,8 +106,8 @@ func TestVarsLoader_FileWithLoad(t *testing.T) {
 func TestVarsLoader_FileWithLoadSubDir(t *testing.T) {
 	d := newTestDir(t)
 	_ = os.Mkdir(filepath.Join(d, "subdir"), 0o700)
-	_ = ioutil.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
-	_ = ioutil.WriteFile(filepath.Join(d, "subdir/test2.txt"), []byte(`42`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "subdir/test2.txt"), []byte(`42`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		err := vl.LoadVars(vc, &types.VarsSource{
@@ -122,7 +122,7 @@ func TestVarsLoader_FileWithLoadSubDir(t *testing.T) {
 
 func TestVarsLoader_FileWithLoadNotExists(t *testing.T) {
 	d := newTestDir(t)
-	_ = ioutil.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{load_template("test3.txt")}}}}`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{load_template("test3.txt")}}}}`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		err := vl.LoadVars(vc, &types.VarsSource{
@@ -385,7 +385,7 @@ func TestVarsLoader_Http_POST(t *testing.T) {
 			w.WriteHeader(542)
 			return
 		}
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		if string(body) != "body" {
 			w.WriteHeader(543)
 			return

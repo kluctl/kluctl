@@ -22,7 +22,6 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
-	"io/ioutil"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
@@ -339,7 +338,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(outputPath, rendered, 0o600)
+	err = os.WriteFile(outputPath, rendered, 0o600)
 	if err != nil {
 		return err
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io/ioutil"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -24,7 +23,7 @@ import (
 )
 
 func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	tmpDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "project-")
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
 	}
@@ -73,7 +72,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		if err != nil {
 			return err
 		}
-		err = ioutil.WriteFile(projectFlags.OutputMetadata, b, 0o640)
+		err = os.WriteFile(projectFlags.OutputMetadata, b, 0o640)
 		if err != nil {
 			return err
 		}
@@ -146,7 +145,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
-		tmpDir, err := ioutil.TempDir(p.TmpDir, "rendered")
+		tmpDir, err := os.MkdirTemp(p.TmpDir, "rendered")
 		if err != nil {
 			return err
 		}
