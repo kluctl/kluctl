@@ -22,6 +22,6 @@ func (u *YamlUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-func (u YamlUrl) MarshalYAML() (interface{}, error) {
+func (u *YamlUrl) MarshalYAML() (interface{}, error) {
 	return u.String(), nil
 }

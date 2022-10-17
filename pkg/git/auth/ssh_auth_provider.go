@@ -12,7 +12,6 @@ import (
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -176,7 +175,7 @@ func (k *deferredPassphraseKey) parse() {
 		return
 	}
 
-	pemBytes, err := ioutil.ReadFile(k.path)
+	pemBytes, err := os.ReadFile(k.path)
 	if err != nil {
 		k.err = err
 		status.Warning(k.ctx, "Failed to parse key %s: %v", k.path, err)
@@ -213,7 +212,7 @@ func (k *dummyPublicKey) Verify(data []byte, sig *ssh.Signature) error {
 }
 
 func (k *deferredPassphraseKey) Hash() ([]byte, error) {
-	pemBytes, err := ioutil.ReadFile(k.path)
+	pemBytes, err := os.ReadFile(k.path)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +251,7 @@ func (k *deferredPassphraseKey) Sign(rand io.Reader, data []byte) (*ssh.Signatur
 }
 
 func (a *GitSshAuthProvider) readKey(ctx context.Context, path string) (ssh.Signer, error) {
-	pemBytes, err := ioutil.ReadFile(path)
+	pemBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	} else {

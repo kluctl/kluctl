@@ -15,7 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -180,7 +180,7 @@ func (rh *RegistryHelper) ParseAuthEntriesFromEnv() error {
 		ca_bundle_path := m["CA_BUNDLE"]
 		if ca_bundle_path != "" {
 			ca_bundle_path = utils.ExpandPath(ca_bundle_path)
-			b, err := ioutil.ReadFile(ca_bundle_path)
+			b, err := os.ReadFile(ca_bundle_path)
 			if err != nil {
 				return fmt.Errorf("failed to read ca bundle %s: %w", ca_bundle_path, err)
 			} else {
@@ -319,7 +319,7 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 		return nil
 	}
 
-	b, err := ioutil.ReadFile(cachePath)
+	b, err := os.ReadFile(cachePath)
 	if err != nil {
 		return nil
 	}
@@ -327,7 +327,7 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 	res, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(b)), nil)
 
 	if strings.HasPrefix(res.Header.Get("Content-Type"), "application/json") {
-		jb, err := ioutil.ReadAll(res.Body)
+		jb, err := io.ReadAll(res.Body)
 		if err != nil {
 			return nil
 		}
@@ -349,7 +349,7 @@ func (rh *RegistryHelper) writeCachedResponse(key string, data []byte) {
 		}
 	}
 
-	err := ioutil.WriteFile(cachePath+".tmp", data, 0o600)
+	err := os.WriteFile(cachePath+".tmp", data, 0o600)
 	if err != nil {
 		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 		return

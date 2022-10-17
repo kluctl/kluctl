@@ -5,12 +5,8 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/spf13/cobra"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -23,10 +19,6 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	targetFlags := v.FieldByName("TargetFlags")
 	inclusionFlags := v.FieldByName("InclusionFlags")
 	imageFlags := v.FieldByName("ImageFlags")
-
-	if projectFlags.IsValid() {
-		_ = ccmd.RegisterFlagCompletionFunc("cluster", buildClusterCompletionFunc(projectFlags.Addr().Interface().(*args.ProjectFlags)))
-	}
 
 	if projectFlags.IsValid() && targetFlags.IsValid() {
 		_ = ccmd.RegisterFlagCompletionFunc("target", buildTargetCompletionFunc(projectFlags.Addr().Interface().(*args.ProjectFlags)))
@@ -54,34 +46,6 @@ func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(ctx contex
 	return withKluctlProjectFromArgs(*projectArgs, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return cb(ctx, p)
 	})
-}
-
-func buildClusterCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		var ret []string
-		err := withProjectForCompletion(projectArgs, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
-			dents, err := os.ReadDir(p.ClustersDir)
-			if err != nil {
-				return err
-			}
-			for _, de := range dents {
-				var config types.ClusterConfig
-				err = yaml.ReadYamlFile(filepath.Join(p.ClustersDir, de.Name()), &config)
-				if err != nil {
-					continue
-				}
-				if config.Cluster.Name != "" {
-					ret = append(ret, config.Cluster.Name)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			status.Error(cliCtx, err.Error())
-			return nil, cobra.ShellCompDirectiveError
-		}
-		return ret, cobra.ShellCompDirectiveDefault
-	}
 }
 
 func buildTargetCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

@@ -26,8 +26,8 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, clusterName *string, offlineK8s bool, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
-	deploymentDir, err := filepath.Abs(p.DeploymentDir)
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, offlineK8s bool, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+	deploymentDir, err := filepath.Abs(p.ProjectDir)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		images.PrependFixedImages(target.Images)
 	}
 
-	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, clusterName, offlineK8s, externalArgs, forSeal)
+	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, offlineK8s, externalArgs, forSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -104,32 +104,14 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *string, offlineK8s bool, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
+func (p *LoadedKluctlProject) buildVars(target *types.Target, offlineK8s bool, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
 	doError := func(err error) (*vars.VarsCtx, *rest.Config, string, error) {
 		return nil, nil, "", err
 	}
 
 	varsCtx := vars.NewVarsCtx(p.J2)
 
-	var contextName *string
-	if clusterName == nil && target != nil {
-		clusterName = target.Cluster
-		contextName = target.Context
-	}
-
-	if clusterName != nil {
-		clusterConfig, err := p.LoadClusterConfig(*clusterName)
-		if err != nil {
-			return doError(err)
-		}
-		err = varsCtx.UpdateChildFromStruct("cluster", clusterConfig.Cluster)
-		if err != nil {
-			return doError(err)
-		}
-		if contextName == nil {
-			contextName = &clusterConfig.Cluster.Context
-		}
-	}
+	contextName := target.Context
 
 	var err error
 	var clientConfig *rest.Config
@@ -173,7 +155,7 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, clusterName *strin
 		}
 	}
 
-	err = deployment.LoadDeploymentArgs(p.DeploymentDir, varsCtx, allArgs)
+	err = deployment.LoadDeploymentArgs(p.ProjectDir, varsCtx, allArgs)
 	if err != nil {
 		return doError(err)
 	}
@@ -197,7 +179,7 @@ func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, e
 }
 
 func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
-	searchDirs := []string{p.DeploymentDir}
+	searchDirs := []string{p.ProjectDir}
 
 	for _, secretSetName := range target.SealingConfig.SecretSets {
 		secretEntry, err := p.findSecretsEntry(secretSetName)
@@ -215,18 +197,4 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 		}
 	}
 	return nil
-}
-
-func (p *LoadedKluctlProject) LoadClusterConfig(clusterName string) (*types.ClusterConfig, error) {
-	var err error
-	var clusterConfig *types.ClusterConfig
-
-	status.Deprecation(p.ctx, "cluster-config", "Cluster configurations have been deprecated and support for them will be removed in a future kluctl release.")
-
-	clusterConfig, err = types.LoadClusterConfig(p.ClustersDir, clusterName)
-	if err != nil {
-		return nil, err
-	}
-
-	return clusterConfig, nil
 }

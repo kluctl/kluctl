@@ -22,15 +22,6 @@ type testProject struct {
 	extraEnv    []string
 	projectName string
 
-	kluctlProjectExternal bool
-	clustersExternal      bool
-	deploymentExternal    bool
-	sealedSecretsExternal bool
-
-	localClusters      *string
-	localDeployment    *string
-	localSealedSecrets *string
-
 	mergedKubeconfig string
 
 	gitServer *test_utils.GitServer
@@ -42,29 +33,8 @@ func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectNa
 	p.projectName = projectName
 
 	p.gitServer.GitInit(p.getKluctlProjectRepo())
-	if p.clustersExternal {
-		p.gitServer.GitInit(p.getClustersRepo())
-	}
-	if p.deploymentExternal {
-		p.gitServer.GitInit(p.getDeploymentRepo())
-	}
-	if p.sealedSecretsExternal {
-		p.gitServer.GitInit(p.getSealedSecretsRepo())
-	}
-
-	_ = os.MkdirAll(filepath.Join(p.gitServer.LocalRepoDir(p.getClustersRepo()), "clusters"), 0o700)
-	_ = os.MkdirAll(filepath.Join(p.gitServer.LocalRepoDir(p.getSealedSecretsRepo()), ".sealed-secrets"), 0o700)
 
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
-		if p.clustersExternal {
-			o.SetNestedField(p.gitServer.LocalGitUrl(p.getClustersRepo()), "clusters", "project")
-		}
-		if p.deploymentExternal {
-			o.SetNestedField(p.gitServer.LocalGitUrl(p.getDeploymentRepo()), "deployment", "project")
-		}
-		if p.sealedSecretsExternal {
-			o.SetNestedField(p.gitServer.LocalGitUrl(p.getSealedSecretsRepo()), "sealedSecrets", "project")
-		}
 		return nil
 	})
 	p.updateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
@@ -124,7 +94,7 @@ func (p *testProject) updateKluctlYaml(update func(o *uo.UnstructuredObject) err
 }
 
 func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.UnstructuredObject) error) {
-	p.gitServer.UpdateYaml(p.getDeploymentRepo(), filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
+	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
 		if dir == "." {
 			o.SetNestedField(p.projectName, "commonLabels", "project_name")
 		}
@@ -133,7 +103,7 @@ func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.Unstruc
 }
 
 func (p *testProject) getDeploymentYaml(dir string) *uo.UnstructuredObject {
-	o, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getDeploymentRepo()), dir, "deployment.yml"))
+	o, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, "deployment.yml"))
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -165,41 +135,12 @@ func (p *testProject) listDeploymentItemPathes(dir string, fullPath bool) []stri
 }
 
 func (p *testProject) updateKustomizeDeployment(dir string, update func(o *uo.UnstructuredObject, wt *git.Worktree) error) {
-	wt := p.gitServer.GetWorktree(p.getDeploymentRepo())
+	wt := p.gitServer.GetWorktree(p.getKluctlProjectRepo())
 
 	pth := filepath.Join(dir, "kustomization.yml")
-	p.gitServer.UpdateYaml(p.getDeploymentRepo(), pth, func(o *uo.UnstructuredObject) error {
+	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), pth, func(o *uo.UnstructuredObject) error {
 		return update(o, wt)
 	}, fmt.Sprintf("Update kustomization.yml for %s", dir))
-}
-
-func (p *testProject) updateCluster(name string, context string, vars *uo.UnstructuredObject) {
-	pth := filepath.Join("clusters", fmt.Sprintf("%s.yml", name))
-	p.gitServer.UpdateYaml(p.getClustersRepo(), pth, func(o *uo.UnstructuredObject) error {
-		o.Clear()
-		o.SetNestedField(name, "cluster", "name")
-		o.SetNestedField(context, "cluster", "context")
-		if vars != nil {
-			o.MergeChild("cluster", vars)
-		}
-		return nil
-	}, fmt.Sprintf("add/update cluster %s", name))
-}
-
-func (p *testProject) updateEnvTestCluster(k *test_utils.EnvTestCluster, vars *uo.UnstructuredObject) {
-	context := k.KubectlMust(p.t, "config", "current-context")
-	context = strings.TrimSpace(context)
-	p.updateCluster(k.Context, context, vars)
-}
-
-func (p *testProject) updateTargetDeprecated(name string, cluster string, args *uo.UnstructuredObject) {
-	p.updateTarget(name, func(target *uo.UnstructuredObject) {
-		if args != nil {
-			target.MergeChild("args", args)
-		}
-		// compatibility
-		_ = target.SetNestedField(cluster, "cluster")
-	})
 }
 
 func (p *testProject) updateTarget(name string, cb func(target *uo.UnstructuredObject)) {
@@ -286,7 +227,7 @@ func (p *testProject) addKustomizeDeployment(dir string, resources []kustomizeRe
 		p.addDeploymentIncludes(deploymentDir)
 	}
 
-	absKustomizeDir := filepath.Join(p.gitServer.LocalRepoDir(p.getDeploymentRepo()), dir)
+	absKustomizeDir := filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir)
 
 	err := os.MkdirAll(absKustomizeDir, 0o700)
 	if err != nil {
@@ -350,7 +291,7 @@ func (p *testProject) addKustomizeResources(dir string, resources []kustomizeRes
 			if fileName == "" {
 				fileName = r.name
 			}
-			err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getDeploymentRepo()), dir, fileName), x)
+			err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, fileName), x)
 			if err != nil {
 				return err
 			}
@@ -383,48 +324,12 @@ func (p *testProject) getKluctlProjectRepo() string {
 	return "kluctl-project"
 }
 
-func (p *testProject) getClustersRepo() string {
-	if p.clustersExternal {
-		return "external-clusters"
-	}
-	return p.getKluctlProjectRepo()
-}
-
-func (p *testProject) getDeploymentRepo() string {
-	if p.deploymentExternal {
-		return "external-deployment"
-	}
-	return p.getKluctlProjectRepo()
-}
-
-func (p *testProject) getSealedSecretsRepo() string {
-	if p.sealedSecretsExternal {
-		return "external-sealed-secrets"
-	}
-	return p.getKluctlProjectRepo()
-}
-
 func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
 	args = append(args, "--no-update-check")
 
-	cwd := ""
-	if p.kluctlProjectExternal {
-		args = append(args, "--project-url", p.gitServer.LocalGitUrl(p.getKluctlProjectRepo()))
-	} else {
-		cwd = p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
-	}
-
-	if p.localClusters != nil {
-		args = append(args, "--local-clusters", *p.localClusters)
-	}
-	if p.localDeployment != nil {
-		args = append(args, "--local-deployment", *p.localDeployment)
-	}
-	if p.localSealedSecrets != nil {
-		args = append(args, "--local-sealed-secrets", *p.localSealedSecrets)
-	}
+	cwd := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
 
 	args = append(args, "--debug")
 

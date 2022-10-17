@@ -9,7 +9,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
-	"io/ioutil"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
@@ -307,11 +306,11 @@ func (di *DeploymentItem) resolveSealedSecrets() error {
 		if !utils.IsFile(sourcePath) {
 			return fmt.Errorf("%s. %s not found. You might need to seal it first", baseError, sourcePath)
 		}
-		b, err := ioutil.ReadFile(sourcePath)
+		b, err := os.ReadFile(sourcePath)
 		if err != nil {
 			return fmt.Errorf("failed to read source secret file %s: %w", sourcePath, err)
 		}
-		err = ioutil.WriteFile(targetPath, b, 0o600)
+		err = os.WriteFile(targetPath, b, 0o600)
 		if err != nil {
 			return fmt.Errorf("failed to write target secret file %s: %w", targetPath, err)
 		}

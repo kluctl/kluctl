@@ -4,7 +4,6 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -63,7 +62,7 @@ func PoorMansClone(sourceDir string, targetDir string, coOptions *git.CheckoutOp
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(targetDir, ".git", "config"), b, 0o600)
+	err = os.WriteFile(filepath.Join(targetDir, ".git", "config"), b, 0o600)
 	if err != nil {
 		return err
 	}

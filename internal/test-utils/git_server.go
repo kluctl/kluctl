@@ -8,7 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -33,7 +32,7 @@ func NewGitServer(t *testing.T) *GitServer {
 		t: t,
 	}
 
-	baseDir, err := ioutil.TempDir(os.TempDir(), "kluctl-tests-")
+	baseDir, err := os.MkdirTemp(os.TempDir(), "kluctl-tests-")
 	if err != nil {
 		p.t.Fatal(err)
 	}

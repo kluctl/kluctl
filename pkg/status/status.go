@@ -14,11 +14,10 @@ type StatusContext struct {
 	finished bool
 	failed   bool
 
-	prefix        string
-	startMessage  string
-	startPriority int
-	startTotal    int
-	disableLogs   bool
+	prefix       string
+	startMessage string
+	startTotal   int
+	disableLogs  bool
 }
 
 type EndResult int
@@ -98,12 +97,6 @@ func WithPrefix(prefix string) Option {
 func WithStatus(message string, args ...any) Option {
 	return func(s *StatusContext) {
 		s.startMessage = fmt.Sprintf(message, args...)
-	}
-}
-
-func WithPriority(p int) Option {
-	return func(s *StatusContext) {
-		s.startPriority = p
 	}
 }
 

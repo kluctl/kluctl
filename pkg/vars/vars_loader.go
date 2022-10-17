@@ -16,7 +16,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io/ioutil"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 )
@@ -185,7 +184,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 		return err
 	}
 
-	f, err := ioutil.ReadFile(path)
+	f, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}

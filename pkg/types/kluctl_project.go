@@ -30,7 +30,6 @@ type SealingConfig struct {
 
 type Target struct {
 	Name          string                 `yaml:"name" validate:"required"`
-	Cluster       *string                `yaml:"cluster,omitempty"`
 	Context       *string                `yaml:"context,omitempty"`
 	Args          *uo.UnstructuredObject `yaml:"args,omitempty"`
 	DynamicArgs   []DynamicArg           `yaml:"dynamicArgs,omitempty"`
@@ -71,11 +70,8 @@ type SecretsConfig struct {
 }
 
 type KluctlProject struct {
-	Deployment    *ExternalProject `yaml:"deployment,omitempty"`
-	SealedSecrets *ExternalProject `yaml:"sealedSecrets,omitempty"`
-	Clusters      ExternalProjects `yaml:"clusters,omitempty"`
-	Targets       []*Target        `yaml:"targets,omitempty"`
-	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
+	Targets       []*Target      `yaml:"targets,omitempty"`
+	SecretsConfig *SecretsConfig `yaml:"secretsConfig,omitempty"`
 }
 
 func init() {

@@ -10,7 +10,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -53,7 +52,7 @@ func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, p
 	}
 	defer resp.Body.Close()
 
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", err
 	}

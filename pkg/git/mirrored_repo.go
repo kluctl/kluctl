@@ -14,7 +14,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/rogpeppe/go-internal/lockedfile"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,7 +119,7 @@ func (g *MirroredGitRepo) IsLocked() bool {
 }
 
 func (g *MirroredGitRepo) LastUpdateTime() time.Time {
-	s, err := ioutil.ReadFile(filepath.Join(g.mirrorDir, ".update-time"))
+	s, err := os.ReadFile(filepath.Join(g.mirrorDir, ".update-time"))
 	if err != nil {
 		return time.Time{}
 	}
@@ -183,7 +182,7 @@ func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {
 
 func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	if utils.IsDirectory(g.mirrorDir) {
-		files, err := ioutil.ReadDir(g.mirrorDir)
+		files, err := os.ReadDir(g.mirrorDir)
 		if err != nil {
 			return err
 		}
@@ -280,7 +279,7 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error 
 		}
 	}
 
-	_ = ioutil.WriteFile(filepath.Join(g.mirrorDir, ".update-time"), []byte(time.Now().Format(time.RFC3339Nano)), 0644)
+	_ = os.WriteFile(filepath.Join(g.mirrorDir, ".update-time"), []byte(time.Now().Format(time.RFC3339Nano)), 0644)
 
 	return nil
 }
@@ -295,7 +294,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 		return err
 	}
 
-	tmpMirrorDir, err := ioutil.TempDir(utils.GetTmpBaseDir(), "mirror-")
+	tmpMirrorDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "mirror-")
 	if err != nil {
 		return err
 	}
@@ -320,7 +319,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 		return err
 	}
 
-	files, err := ioutil.ReadDir(tmpMirrorDir)
+	files, err := os.ReadDir(tmpMirrorDir)
 	if err != nil {
 		return err
 	}
