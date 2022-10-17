@@ -21,8 +21,8 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/jinzhu/copier v0.3.5
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/go-embed-python v0.0.0-3.10.6-20220906-2
-	github.com/kluctl/go-jinja2 v0.0.0-20221011075324-ee187dbffa85
+	github.com/kluctl/go-embed-python v0.0.0-3.10.7-20221017-1
+	github.com/kluctl/go-jinja2 v0.0.0-20221017153334-80addb432305
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.16
 	github.com/mattn/go-runewidth v0.0.14
@@ -40,9 +40,9 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/ssh-agent v0.3.2
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
-	golang.org/x/net v0.0.0-20220923203811-8be639271d50
+	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b
 	golang.org/x/sync v0.0.0-20220923202941-7f9b1623fab7
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8
+	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43
 	golang.org/x/term v0.0.0-20220919170432-7a66f970e087
 	golang.org/x/text v0.3.7
 	gopkg.in/yaml.v2 v2.4.0
