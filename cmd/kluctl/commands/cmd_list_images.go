@@ -14,14 +14,15 @@ type listImagesCmd struct {
 	args.OutputFlags
 	args.RenderOutputDirFlags
 
-	Simple bool `group:"misc" help:"Output a simplified version of the images list"`
+	OfflineKubernetes bool `group:"misc" help:"Run list-images in offline mode, meaning that it will not try to connect the target cluster"`
+	Simple            bool `group:"misc" help:"Output a simplified version of the images list"`
 }
 
 func (cmd *listImagesCmd) Help() string {
 	return `The result is a compatible with yaml files expected by --fixed-images-file.
 
 If fixed images ('-f/--fixed-image') are provided, these are also taken into account,
-as described in for the deploy command.`
+as described in the deploy command.`
 }
 
 func (cmd *listImagesCmd) Run() error {
@@ -32,6 +33,7 @@ func (cmd *listImagesCmd) Run() error {
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		offlineKubernetes:    cmd.OfflineKubernetes,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		result := types.FixedImagesConfig{
