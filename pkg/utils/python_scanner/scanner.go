@@ -593,9 +593,9 @@ func (s *Scanner) scanString(quote rune) (n int) {
 	return
 }
 
-func (s *Scanner) scanRawString() {
+func (s *Scanner) scanRawString(quote rune) {
 	ch := s.next() // read character after '`'
-	for ch != '`' {
+	for ch != quote {
 		if ch < 0 {
 			s.error("literal not terminated")
 			return
@@ -697,14 +697,14 @@ redo:
 			break
 		case '"':
 			if s.Mode&ScanStrings != 0 {
-				s.scanString('"')
+				s.scanRawString('"')
 				tok = String
 			}
 			ch = s.next()
 		case '\'':
 			// This is the difference to golang's text/scanner package, we handle ' as a string and not as a char
 			if s.Mode&ScanStrings != 0 {
-				s.scanString('\'')
+				s.scanRawString('\'')
 				tok = String
 			}
 			ch = s.next()
@@ -726,7 +726,7 @@ redo:
 			}
 		case '`':
 			if s.Mode&ScanRawStrings != 0 {
-				s.scanRawString()
+				s.scanRawString('`')
 				tok = RawString
 			}
 			ch = s.next()
