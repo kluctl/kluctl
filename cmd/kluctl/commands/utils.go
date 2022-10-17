@@ -146,7 +146,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	if err != nil {
 		return err
 	}
-	optionArgs2, err := deployment.ConvertArgsToVars(optionArgs)
+	optionArgs2, err := deployment.ConvertArgsToVars(optionArgs, true)
 	if err != nil {
 		return err
 	}

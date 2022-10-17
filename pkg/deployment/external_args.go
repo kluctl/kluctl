@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -28,9 +29,19 @@ func ParseArgs(argsList []string) (map[string]string, error) {
 	return args, nil
 }
 
-func ConvertArgsToVars(args map[string]string) (*uo.UnstructuredObject, error) {
+func ConvertArgsToVars(args map[string]string, allowLoadFromFiles bool) (*uo.UnstructuredObject, error) {
 	vars := uo.New()
 	for n, v := range args {
+		if allowLoadFromFiles && strings.HasPrefix(v, "@") {
+			b, err := os.ReadFile(v[1:])
+			if err != nil {
+				return nil, err
+			}
+			v = string(b)
+		} else if strings.HasPrefix(v, "\\@") {
+			v = v[1:]
+		}
+
 		var p []interface{}
 		for _, x := range strings.Split(n, ".") {
 			p = append(p, x)

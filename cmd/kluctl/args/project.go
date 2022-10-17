@@ -18,7 +18,7 @@ type ProjectFlags struct {
 }
 
 type ArgsFlags struct {
-	Arg []string `group:"project" short:"a" help:"Passes a template argument in the form of name=value. Nested args can be set with the '-a my.nested.arg=value' syntax. Values are interpreted as yaml values, meaning that 'true' and 'false' will lead to boolean values and numbers will be treated as numbers. Use quotes if you want these to be treated as strings."`
+	Arg []string `group:"project" short:"a" help:"Passes a template argument in the form of name=value. Nested args can be set with the '-a my.nested.arg=value' syntax. Values are interpreted as yaml values, meaning that 'true' and 'false' will lead to boolean values and numbers will be treated as numbers. Use quotes if you want these to be treated as strings. If the value starts with @, it is treated as a file, meaning that the contents of the file will be loaded and treated as yaml."`
 }
 
 type TargetFlags struct {
