@@ -152,11 +152,18 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		renderOutputDir = tmpDir
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx,
-		args.targetFlags.Target, args.offlineKubernetes,
-		args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
-		optionArgs2, args.forSeal, images, inclusion,
-		renderOutputDir)
+	targetParams := kluctl_project.TargetContextParams{
+		TargetName:      args.targetFlags.Target,
+		OfflineK8s:      args.offlineKubernetes,
+		DryRun:          args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
+		ExternalArgs:    optionArgs2,
+		ForSeal:         args.forSeal,
+		Images:          images,
+		Inclusion:       inclusion,
+		RenderOutputDir: renderOutputDir,
+	}
+
+	targetCtx, err := p.NewTargetContext(ctx, targetParams)
 	if err != nil {
 		return err
 	}

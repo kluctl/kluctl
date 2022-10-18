@@ -26,15 +26,26 @@ type TargetContext struct {
 	DeploymentCollection *deployment.DeploymentCollection
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName string, offlineK8s bool, dryRun bool, externalArgs *uo.UnstructuredObject, forSeal bool, images *deployment.Images, inclusion *utils.Inclusion, renderOutputDir string) (*TargetContext, error) {
+type TargetContextParams struct {
+	TargetName      string
+	OfflineK8s      bool
+	DryRun          bool
+	ExternalArgs    *uo.UnstructuredObject
+	ForSeal         bool
+	Images          *deployment.Images
+	Inclusion       *utils.Inclusion
+	RenderOutputDir string
+}
+
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params TargetContextParams) (*TargetContext, error) {
 	deploymentDir, err := filepath.Abs(p.ProjectDir)
 	if err != nil {
 		return nil, err
 	}
 
 	var target *types.Target
-	if targetName != "" {
-		t, err := p.FindDynamicTarget(targetName)
+	if params.TargetName != "" {
+		t, err := p.FindDynamicTarget(params.TargetName)
 		if err != nil {
 			return nil, err
 		}
@@ -43,15 +54,15 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		target = &types.Target{}
 	}
 
-	images.PrependFixedImages(target.Images)
+	params.Images.PrependFixedImages(target.Images)
 
-	clientConfig, clusterContext, err := p.loadK8sConfig(target, offlineK8s)
+	clientConfig, clusterContext, err := p.loadK8sConfig(target, params.OfflineK8s)
 	if err != nil {
 		return nil, err
 	}
 	target.Context = &clusterContext
 
-	varsCtx, err := p.buildVars(target, externalArgs, forSeal)
+	varsCtx, err := p.buildVars(target, params.ExternalArgs, params.ForSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +74,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		if err != nil {
 			return nil, err
 		}
-		k, err = k8s.NewK8sCluster(ctx, clientFactory, dryRun)
+		k, err = k8s.NewK8sCluster(ctx, clientFactory, params.DryRun)
 		if err != nil {
 			s.Failed()
 			return nil, err
@@ -73,7 +84,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 
 	varsLoader := vars.NewVarsLoader(ctx, k, p.RP, aws.NewClientFactory())
 
-	if forSeal {
+	if params.ForSeal {
 		err = p.loadSecrets(target, varsCtx, varsLoader)
 		if err != nil {
 			return nil, err
@@ -85,7 +96,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		K:                                 k,
 		RP:                                p.RP,
 		VarsLoader:                        varsLoader,
-		RenderDir:                         renderOutputDir,
+		RenderDir:                         params.RenderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,
 		DefaultSealedSecretsOutputPattern: target.Name,
 	}
@@ -95,7 +106,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		return nil, err
 	}
 
-	c, err := deployment.NewDeploymentCollection(dctx, d, images, inclusion, forSeal)
+	c, err := deployment.NewDeploymentCollection(dctx, d, params.Images, params.Inclusion, params.ForSeal)
 	if err != nil {
 		return nil, err
 	}
