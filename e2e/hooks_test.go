@@ -46,10 +46,12 @@ func (s *HookTestSuite) SetupTest() {
 }
 
 func (s *HookTestSuite) handleConfigmap(o *uo.UnstructuredObject) {
+	s.T().Logf("handleConfigmap: %s", o.GetK8sName())
 	s.seenConfigMaps = append(s.seenConfigMaps, o.GetK8sName())
 }
 
 func (s *HookTestSuite) clearSeenConfigmaps() {
+	s.T().Logf("clearSeenConfigmaps: %v", s.seenConfigMaps)
 	s.seenConfigMaps = nil
 }
 
