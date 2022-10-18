@@ -78,3 +78,6 @@ Renders the input string with the current Jinja2 context. Example:
 {% set a="{{ my_var }}" %}
 {{ a | render }}
 ```
+
+### slugify
+Slugify a string based on [python-slugify](https://github.com/un33k/python-slugify).
