@@ -3,7 +3,6 @@ package repocache
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -223,26 +222,4 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 		info: repoInfo,
 	}
 	return p, repoInfo, nil
-}
-
-func (e *CacheEntry) GetGitTree(ref string) (*object.Tree, error) {
-	e.updateMutex.Lock()
-	defer e.updateMutex.Unlock()
-
-	err := e.mr.Lock()
-	if err != nil {
-		return nil, err
-	}
-	defer e.mr.Unlock()
-
-	if ref == "" {
-		ref = e.defaultRef
-	}
-
-	_, commit, err := e.findCommit(ref)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.mr.GetGitTreeByCommit(commit)
 }
