@@ -15,7 +15,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -66,17 +65,6 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		return err
 	}
 
-	if projectFlags.OutputMetadata != "" {
-		md := p.GetMetadata()
-		b, err := yaml.WriteYamlBytes(md)
-		if err != nil {
-			return err
-		}
-		err = os.WriteFile(projectFlags.OutputMetadata, b, 0o640)
-		if err != nil {
-			return err
-		}
-	}
 	return cb(ctx, p)
 }
 

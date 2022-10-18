@@ -28,13 +28,6 @@ type LoadedKluctlProject struct {
 	RP *repocache.GitRepoCache
 }
 
-func (c *LoadedKluctlProject) GetMetadata() *types2.ProjectMetadata {
-	md := &types2.ProjectMetadata{
-		Targets: c.DynamicTargets,
-	}
-	return md
-}
-
 func (c *LoadedKluctlProject) FindBaseTarget(name string) (*types2.Target, error) {
 	for _, target := range c.Config.Targets {
 		if target.Name == name {
