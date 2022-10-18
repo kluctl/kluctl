@@ -116,3 +116,21 @@ func TestContextSwitch(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
 	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
 }
+
+func TestContextOverride(t *testing.T) {
+	t.Parallel()
+
+	p := prepareContextTest(t, "context-override")
+	defer p.cleanup()
+
+	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
+		_ = target.SetNestedField(defaultCluster1.Context, "context")
+	})
+
+	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
+	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+
+	p.KluctlMust("deploy", "--yes", "-t", "test1", "--context", defaultCluster2.Context)
+	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+}
