@@ -56,7 +56,6 @@ type VarsSourceVault struct {
 type VarsSource struct {
 	Values            *uo.UnstructuredObject              `yaml:"values,omitempty"`
 	File              *string                             `yaml:"file,omitempty"`
-	Path              *string                             `yaml:"path,omitempty"`
 	Git               *VarsSourceGit                      `yaml:"git,omitempty"`
 	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `yaml:"clusterConfigMap,omitempty"`
 	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `yaml:"clusterSecret,omitempty"`
