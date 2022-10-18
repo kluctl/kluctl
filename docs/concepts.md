@@ -7,11 +7,8 @@ weight: 10
 These are some core concepts in Kluctl.
 
 ## Kluctl project
-The kluctl project defines targets, secret sources and external git projects.
+The kluctl project defines targets and secret sources.
 It is defined via the [.kluctl.yaml]({{< ref "docs/reference/kluctl-project" >}}) configuration file.
-
-The kluctl project can also optionally define where the deployment project and clusters configs are located (external
-git projects).
 
 ## Targets
 A target defines a target cluster and a set of deployment arguments. Multiple targets can use the same cluster. Targets

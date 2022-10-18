@@ -11,8 +11,8 @@ In addition to arguments, Kluctl can be controlled via a set of environment vari
 ## Environment variables as arguments
 All options/arguments accepted by kluctl can also be specified via environment variables. The name of the environment
 variables always start with `KLUCTL_` and end with the option/argument in uppercase and dashes replaced with
-underscores. As an example, `--project-url=my-project` can also be specified with the environment variable
-`KLUCTL_PROJECT_URL=my-project`.
+underscores. As an example, `--dry-run` can also be specified with the environment variable
+`KLUCTL_DRY_RUN=true`.
 
 ## Additional environment variables
 A few additional environment variables are supported which do not belong to an option/argument. These are:
