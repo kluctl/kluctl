@@ -39,11 +39,19 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 			return nil, err
 		}
 		target = t.Target
-
-		images.PrependFixedImages(target.Images)
+	} else {
+		target = &types.Target{}
 	}
 
-	varsCtx, clientConfig, clusterContext, err := p.buildVars(target, offlineK8s, externalArgs, forSeal)
+	images.PrependFixedImages(target.Images)
+
+	clientConfig, clusterContext, err := p.loadK8sConfig(target, offlineK8s)
+	if err != nil {
+		return nil, err
+	}
+	target.Context = &clusterContext
+
+	varsCtx, err := p.buildVars(target, externalArgs, forSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +87,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 		VarsLoader:                        varsLoader,
 		RenderDir:                         renderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,
-		DefaultSealedSecretsOutputPattern: targetName,
+		DefaultSealedSecretsOutputPattern: target.Name,
 	}
 
 	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(deploymentDir), ".", nil)
@@ -104,31 +112,35 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, targetName s
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, offlineK8s bool, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, *rest.Config, string, error) {
-	doError := func(err error) (*vars.VarsCtx, *rest.Config, string, error) {
-		return nil, nil, "", err
+func (p *LoadedKluctlProject) loadK8sConfig(target *types.Target, offlineK8s bool) (*rest.Config, string, error) {
+	if offlineK8s {
+		return nil, "", nil
 	}
-
-	varsCtx := vars.NewVarsCtx(p.J2)
 
 	contextName := target.Context
 
 	var err error
 	var clientConfig *rest.Config
-	if !offlineK8s {
-		var restConfig *api.Config
-		clientConfig, restConfig, err = p.loadArgs.ClientConfigGetter(contextName)
-		if err != nil {
-			return doError(err)
-		}
-		if contextName == nil {
-			contextName = &restConfig.CurrentContext
-		}
+	var restConfig *api.Config
+	clientConfig, restConfig, err = p.loadArgs.ClientConfigGetter(contextName)
+	if err != nil {
+		return nil, "", err
 	}
+	if contextName == nil {
+		contextName = &restConfig.CurrentContext
+	}
+	if contextName != nil {
+		return clientConfig, *contextName, nil
+	}
+	return clientConfig, "", nil
+}
+
+func (p *LoadedKluctlProject) buildVars(target *types.Target, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, error) {
+	varsCtx := vars.NewVarsCtx(p.J2)
 
 	targetVars, err := uo.FromStruct(target)
 	if err != nil {
-		return doError(err)
+		return nil, err
 	}
 	varsCtx.UpdateChild("target", targetVars)
 
@@ -148,16 +160,12 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, offlineK8s bool, e
 
 	err = deployment.LoadDeploymentArgs(p.ProjectDir, varsCtx, allArgs)
 	if err != nil {
-		return doError(err)
+		return nil, err
 	}
 
 	varsCtx.UpdateChild("args", allArgs)
 
-	var contextName2 string
-	if contextName != nil {
-		contextName2 = *contextName
-	}
-	return varsCtx, clientConfig, contextName2, nil
+	return varsCtx, nil
 }
 
 func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, error) {
