@@ -16,5 +16,7 @@ type ArgsFlags struct {
 }
 
 type TargetFlags struct {
-	Target string `group:"project" short:"t" help:"Target name to run command for. Target must exist in .kluctl.yaml."`
+	Target             string `group:"project" short:"t" help:"Target name to run command for. Target must exist in .kluctl.yaml."`
+	TargetNameOverride string `group:"project" short:"T" help:"Overrides the target name. If -t is used at the same time, then the target will be looked up based on -t <name> and then renamed to the value of -T. If no target is specified via -t, then the no-name target is renamed to the value of -T."`
+	Context            string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
 }

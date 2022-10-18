@@ -27,14 +27,16 @@ type TargetContext struct {
 }
 
 type TargetContextParams struct {
-	TargetName      string
-	OfflineK8s      bool
-	DryRun          bool
-	ExternalArgs    *uo.UnstructuredObject
-	ForSeal         bool
-	Images          *deployment.Images
-	Inclusion       *utils.Inclusion
-	RenderOutputDir string
+	TargetName         string
+	TargetNameOverride string
+	ContextOverride    string
+	OfflineK8s         bool
+	DryRun             bool
+	ExternalArgs       *uo.UnstructuredObject
+	ForSeal            bool
+	Images             *deployment.Images
+	Inclusion          *utils.Inclusion
+	RenderOutputDir    string
 }
 
 func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params TargetContextParams) (*TargetContext, error) {
@@ -49,9 +51,15 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		if err != nil {
 			return nil, err
 		}
-		target = t.Target
+		target = &*t.Target
 	} else {
 		target = &types.Target{}
+	}
+	if params.TargetNameOverride != "" {
+		target.Name = params.TargetNameOverride
+	}
+	if params.ContextOverride != "" {
+		target.Context = &params.ContextOverride
 	}
 
 	params.Images.PrependFixedImages(target.Images)
