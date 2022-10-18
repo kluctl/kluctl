@@ -63,3 +63,32 @@ Raises a python exception with the given message. This causes the current comman
 
 ### debug_print(msg)
 Prints a line to stderr.
+
+### time.now()
+Returns the current time. The returned object has the following members:
+
+| member                        | description                                                                                                                                                                        |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| t.as_timezone(tz)             | Converts and returns the time `t` in the given timezone. Example: <br/>`{{ time.now().as_timezone("Europe/Berlin") }}`                                                             |
+| t.weekday()                   | Returns the time's weekday. 0 means Monday and 6 means Sunday.                                                                                                                     |
+| t.hour()                      | Returns the time's hour from 0-23.                                                                                                                                                 |
+| t.minute()                    | Returns the time's minute from 0-59.                                                                                                                                               |
+| t.second()                    | Returns the time's second from 0-59.                                                                                                                                               |
+| t.nanosecond()                | Returns the time's nanosecond from 0-999999999.                                                                                                                                    |
+| t + delta                     | Adds a delta to `t`. Example: `{{ time.now() + time.second * 10 }}`                                                                                                                |
+| t - delta                     | Subtracts a delta from `t`. Example: `{{ time.now() - time.second * 10 }}`                                                                                                         |
+| t1 < t2<br/>t1 >= t2<br/> ... | Time objects can be compared to other time objects. Example:<br/>`{% if time.now() < time.parse_iso("2022-10-01T10:00") %}...{% endif %}`<br/>All logical operators are supported. |
+
+### time.utcnow()
+Returns the current time in UTC.
+The object has the same members as described in [time.now()](#timenow).
+
+### time.parse_iso(iso_time_str)
+Parse the given string and return a time object. The string must be in ISO time. 
+The object has the same members as described in [time.now()](#timenow).
+
+### time.second, time.minute, time.hour
+Represents a time delta to be used with `t + delta` and `t - delta`. Example
+```
+{{ time.now() + time.minute * 10 }}
+```
