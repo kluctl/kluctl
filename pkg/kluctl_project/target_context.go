@@ -134,15 +134,6 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, offlineK8s bool, e
 
 	allArgs := uo.New()
 
-	if target != nil {
-		for argName, argValue := range externalArgs.Object {
-			err = p.CheckDynamicArg(target, argName, argValue)
-			if err != nil {
-				return doError(err)
-			}
-		}
-	}
-
 	allArgs.Merge(externalArgs)
 	if target != nil {
 		if target.Args != nil {

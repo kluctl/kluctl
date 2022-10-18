@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
@@ -245,19 +244,12 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 		return nil, err
 	}
 
+	if len(target.DynamicArgs) != 0 {
+		status.Deprecation(c.ctx, "dynamic-args", "dynamicArgs are deprecated and ignored. The field will be removed in a future kluctl release.")
+	}
+
 	// check and merge args
 	if targetConfig.Args != nil {
-		err = targetConfig.Args.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
-			strValue := fmt.Sprintf("%v", it.Value())
-			err := c.CheckDynamicArg(&target, it.KeyPath().ToJsonPath(), strValue)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
 		target.Args.Merge(targetConfig.Args)
 	}
 	// We prepend the dynamic images to ensure they get higher priority later
