@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	"strings"
 )
 
 func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
@@ -49,7 +51,16 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 
 	sshPool := &ssh_pool.SshPool{}
 
-	rp := repocache.NewGitRepoCache(ctx, sshPool, auth.NewDefaultAuthProviders(), projectFlags.GitCacheUpdateInterval)
+	var repoOverrides []repocache.RepoOverride
+	for _, x := range projectFlags.LocalGitOverride {
+		ro, err := parseRepoOverride(x)
+		if err != nil {
+			return err
+		}
+		repoOverrides = append(repoOverrides, ro)
+	}
+
+	rp := repocache.NewGitRepoCache(ctx, sshPool, auth.NewDefaultAuthProviders(), repoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -191,4 +202,28 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 		}
 		return restConfig, &rawConfig, nil
 	}
+}
+
+func parseRepoOverride(s string) (ret repocache.RepoOverride, err error) {
+	sp := strings.SplitN(s, "=", 2)
+	if len(sp) != 2 {
+		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-override %s", s)
+	}
+
+	sp2 := strings.Split(sp[0], ":")
+	if len(sp2) < 2 || len(sp2) > 3 {
+		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-override %s", s)
+	}
+
+	u, err := git_url.Parse(fmt.Sprintf("%s:%s", sp2[0], sp2[1]))
+	if err != nil {
+		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-override %s: %w", s, err)
+	}
+
+	ret.RepoKey = u.NormalizedRepoKey()
+	if len(sp2) == 3 {
+		ret.Ref = sp2[2]
+	}
+	ret.Override = sp[1]
+	return
 }

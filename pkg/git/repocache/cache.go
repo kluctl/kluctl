@@ -3,11 +3,11 @@ package repocache
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"path"
@@ -22,8 +22,11 @@ type GitRepoCache struct {
 	authProviders  *auth.GitAuthProviders
 	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
-	repos          map[string]*CacheEntry
-	reposMutex     sync.Mutex
+
+	repos      map[string]*CacheEntry
+	reposMutex sync.Mutex
+
+	repoOverrides []RepoOverride
 
 	cleanupDirs       []string
 	cleeanupDirsMutex sync.Mutex
@@ -45,18 +48,25 @@ type RepoInfo struct {
 	DefaultRef string            `yaml:"defaultRef"`
 }
 
+type RepoOverride struct {
+	RepoKey  string
+	Ref      string
+	Override string
+}
+
 type clonedDir struct {
 	dir  string
 	info git.CheckoutInfo
 }
 
-func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, updateInterval time.Duration) *GitRepoCache {
+func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, repoOverrides []RepoOverride, updateInterval time.Duration) *GitRepoCache {
 	return &GitRepoCache{
 		ctx:            ctx,
 		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
 		repos:          map[string]*CacheEntry{},
+		repoOverrides:  repoOverrides,
 	}
 }
 
@@ -206,9 +216,29 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	e.rp.cleanupDirs = append(e.rp.cleanupDirs, p)
 	e.rp.cleeanupDirsMutex.Unlock()
 
-	err = e.mr.CloneProjectByCommit(commit, p)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
+	var foundRo *RepoOverride
+	for _, ro := range e.rp.repoOverrides {
+		u := e.mr.Url()
+		if ro.RepoKey == u.NormalizedRepoKey() {
+			if ro.Ref == "" || strings.HasSuffix(ref2, "/"+ro.Ref) {
+				foundRo = &ro
+				break
+			}
+		}
+	}
+
+	if foundRo != nil {
+		u := e.mr.Url()
+		status.WarningOnce(e.rp.ctx, fmt.Sprintf("git-override-%s|%s", foundRo.RepoKey, foundRo.Ref), "Overriding git repo %s with local directory %s", u.String(), foundRo.Override)
+		err = utils.CopyDir(foundRo.Override, p)
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
+	} else {
+		err = e.mr.CloneProjectByCommit(commit, p)
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
 	}
 
 	repoInfo, err := git.GetCheckoutInfo(p)
@@ -223,26 +253,4 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 		info: repoInfo,
 	}
 	return p, repoInfo, nil
-}
-
-func (e *CacheEntry) GetGitTree(ref string) (*object.Tree, error) {
-	e.updateMutex.Lock()
-	defer e.updateMutex.Unlock()
-
-	err := e.mr.Lock()
-	if err != nil {
-		return nil, err
-	}
-	defer e.mr.Unlock()
-
-	if ref == "" {
-		ref = e.defaultRef
-	}
-
-	_, commit, err := e.findCommit(ref)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.mr.GetGitTreeByCommit(commit)
 }

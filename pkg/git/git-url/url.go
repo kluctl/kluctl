@@ -33,7 +33,7 @@ func (u *GitUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-func (u *GitUrl) MarshalYAML() (interface{}, error) {
+func (u GitUrl) MarshalYAML() (interface{}, error) {
 	return u.String(), nil
 }
 
