@@ -58,8 +58,9 @@ type StatusHandler interface {
 
 type contextKey struct{}
 type contextValue struct {
-	slh         StatusHandler
-	deprecation utils.OnceByKey
+	slh             StatusHandler
+	warningOnce     utils.OnceByKey
+	deprecationOnce utils.OnceByKey
 }
 
 var noopContextValue = contextValue{
@@ -240,6 +241,13 @@ func Warning(ctx context.Context, status string, args ...any) {
 	slh.Warning(fmt.Sprintf(status, args...))
 }
 
+func WarningOnce(ctx context.Context, key string, status string, args ...any) {
+	cv := getContextValue(ctx)
+	cv.deprecationOnce.Do(key, func() {
+		Warning(ctx, status, args...)
+	})
+}
+
 func Trace(ctx context.Context, status string, args ...any) {
 	slh := FromContext(ctx)
 	slh.Trace(fmt.Sprintf(status, args...))
@@ -262,7 +270,7 @@ func Prompt(ctx context.Context, password bool, message string, args ...any) (st
 
 func Deprecation(ctx context.Context, key string, message string) {
 	cv := getContextValue(ctx)
-	cv.deprecation.Do(key, func() {
+	cv.deprecationOnce.Do(key, func() {
 		cv.slh.Warning(message)
 	})
 }
