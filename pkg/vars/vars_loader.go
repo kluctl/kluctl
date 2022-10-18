@@ -8,7 +8,6 @@ import (
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -74,9 +73,6 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	if source.Values != nil {
 		v.mergeVars(varsCtx, source.Values, rootKey)
 		return nil
-	} else if source.Path != nil {
-		status.Deprecation(v.ctx, "vars-path", "'path' is deprecated as vars source, use 'file' instead")
-		return v.loadFile(varsCtx, *source.Path, searchDirs, rootKey)
 	} else if source.File != nil {
 		return v.loadFile(varsCtx, *source.File, searchDirs, rootKey)
 	} else if source.Git != nil {
