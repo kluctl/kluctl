@@ -14,3 +14,6 @@ are added to the validation result, which is then returned by the validate comma
 
 The annotation key is dynamic, meaning that all annotations that begin with `validate-result.kluctl.io/` are taken
 into account.
+
+### kluctl.io/validate-ignore
+If this annotation is set to `true`, the object will be ignored while `kluctl validate` is run.
