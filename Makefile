@@ -1,11 +1,20 @@
 # Based on the work of Thomas Poignant (thomaspoignant)
 # https://gist.github.com/thomaspoignant/5b72d579bd5f311904d973652180c705
+EXE=
+ifeq ($(GOOS), windows)
+EXE=.exe
+endif
+
+RACE=
+ifeq ($(GOOS), linux)
+RACE=-race
+endif
+
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=kluctl
-TEST_BINARY_NAME=kluctl-e2e
-REQUIRED_ENV_VARS=GOOS GOARCH
+BINARY_NAME=kluctl$(EXE)
+TEST_BINARY_NAME=kluctl-e2e$(EXE)
 EXPORT_RESULT?=false
 
 # If gobin not set, create one on ./build and add to path.
@@ -34,7 +43,7 @@ build: build-go ## Run the complete build pipeline
 
 build-go:  ## Build your project and put the output binary in ./bin/
 	mkdir -p ./bin
-	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) build -o ./bin/$(BINARY_NAME)
+	$(GOCMD) build -o ./bin/$(BINARY_NAME)
 
 clean: ## Remove build related file
 	rm -fr ./bin
@@ -72,11 +81,13 @@ endif
 test: test-unit test-e2e ## Runs the complete test suite
 
 KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test-e2e: install-envtest ## Runs the end to end tests
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o ./bin/$(TEST_BINARY_NAME) ./e2e -test.v
+test-e2e: test-e2e-build test-e2e-pre-built ## Runs the end to end tests
+
+test-e2e-build: ## Builds the end to end tests
+	$(GOCMD) test $(RACE) -c ./e2e -o ./bin/$(TEST_BINARY_NAME)
 
 test-e2e-pre-built: install-envtest
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./e2e.test -test.v
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./bin/$(TEST_BINARY_NAME) -test.v
 
 test-unit: ## Run the unit tests of the project
 ifeq ($(EXPORT_RESULT), true)
@@ -84,7 +95,7 @@ ifeq ($(EXPORT_RESULT), true)
 	GO111MODULE=off $(GOCMD) get -u github.com/jstemmer/go-junit-report
 	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > reports/test-unit/junit-report.xml)
 endif
-	$(GOTEST) -v -race $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
+	$(GOTEST) -v $(RACE) $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
 
 coverage-unit: ## Run the unit tests of the project and export the coverage
 	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/)
@@ -108,6 +119,11 @@ else
 endif
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run $(OUTPUT_OPTIONS)
 
+replace-commands-help: ## Replace commands help in docs
+	$(GOCMD) run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
+
+markdown-link-check: ## Check markdown files for dead links
+	find . -name '*.md' | xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:stable
 
 ## Release:
 version: ## Write next version into version file

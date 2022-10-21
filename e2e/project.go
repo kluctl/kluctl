@@ -337,27 +337,17 @@ func (p *testProject) Kluctl(argsIn ...string) (string, string, error) {
 	env = append(env, p.extraEnv...)
 	env = append(env, fmt.Sprintf("KUBECONFIG=%s", p.mergedKubeconfig))
 
+	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
+	env = append(env, "CALL_KLUCTL=true")
+
 	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
-	kluctlExe := os.Getenv("KLUCTL_EXE")
-	if kluctlExe == "" {
-		curDir, _ := os.Getwd()
-		for i, p := range env {
-			x := strings.SplitN(p, "=", 2)
-			if x[0] == "PATH" {
-				env[i] = fmt.Sprintf("PATH=%s%c%s%c%s", curDir, os.PathListSeparator, filepath.Join(curDir, ".."), os.PathListSeparator, x[1])
-			}
-		}
-		kluctlExe = "kluctl"
-	} else {
-		p, err := filepath.Abs(kluctlExe)
-		if err != nil {
-			return "", "", err
-		}
-		kluctlExe = p
+	testExe, err := os.Executable()
+	if err != nil {
+		panic(err)
 	}
 
-	cmd := exec.Command(kluctlExe, args...)
+	cmd := exec.Command(testExe, args...)
 	cmd.Dir = cwd
 	cmd.Env = env
 
