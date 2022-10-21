@@ -1,11 +1,14 @@
 # Based on the work of Thomas Poignant (thomaspoignant)
 # https://gist.github.com/thomaspoignant/5b72d579bd5f311904d973652180c705
+EXE=
+ifeq ($(GOOS), windows)
+EXE=.exe
+endif
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=kluctl
-TEST_BINARY_NAME=kluctl-e2e
-REQUIRED_ENV_VARS=GOOS GOARCH
+BINARY_NAME=kluctl$(EXE)
+TEST_BINARY_NAME=kluctl-e2e$(EXE)
 EXPORT_RESULT?=false
 
 # If gobin not set, create one on ./build and add to path.
@@ -72,11 +75,13 @@ endif
 test: test-unit test-e2e ## Runs the complete test suite
 
 KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test-e2e: install-envtest ## Runs the end to end tests
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -o ./bin/$(TEST_BINARY_NAME) ./e2e -test.v
+test-e2e: test-e2e-build test-e2e-pre-built ## Runs the end to end tests
+
+test-e2e-build: ## Builds the end to end tests
+	CGO_ENBALED=0 GO111MODULE=on $(GOCMD) test -c ./e2e -o ./bin/$(TEST_BINARY_NAME)
 
 test-e2e-pre-built: install-envtest
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./e2e.test -test.v
+	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./bin/$(TEST_BINARY_NAME) -test.v
 
 test-unit: ## Run the unit tests of the project
 ifeq ($(EXPORT_RESULT), true)
