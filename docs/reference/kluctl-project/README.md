@@ -12,9 +12,9 @@ description: >
 # Kluctl project
 
 The `.kluctl.yaml` is the central configuration and entry point for your deployments. It defines where the actual
-[deployment project]({{< ref "docs/reference/deployments" >}}) is located,
-where [sealed secrets]({{< ref "docs/reference/sealed-secrets" >}}) and unencrypted secrets are localed and which targets are available to
-invoke [commands]({{< ref "docs/reference/commands" >}}) on.
+[deployment project](../deployments) is located,
+where [sealed secrets](../sealed-secrets) and unencrypted secrets are localed and which targets are available to
+invoke [commands](../commands) on.
 
 ## Example
 

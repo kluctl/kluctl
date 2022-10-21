@@ -10,14 +10,14 @@ weight: 6
 # Tags
 
 Every kustomize deployment has a set of tags assigned to it. These tags are defined in multiple places, which is
-documented in [deployment.yaml]({{< ref "./deployment-yml" >}}). Look for the `tags` field, which is available in multiple places per
+documented in [deployment.yaml](./deployment-yml.md). Look for the `tags` field, which is available in multiple places per
 deployment project.
 
 Tags are useful when only one or more specific kustomize deployments need to be deployed or deleted.
 
 ## Default tags
 
-[deployment items]({{< ref "./deployment-yml#deployments" >}}) in deployment projects can have an optional list of tags assigned.
+[deployment items](./deployment-yml.md#deployments) in deployment projects can have an optional list of tags assigned.
 
 If this list is completely omitted, one single entry is added by default. This single entry equals to the last element
 of the `path` in the `deployments` entry.
@@ -39,10 +39,10 @@ or even conflicting tags (e.g. `subdir` is really a bad tag), in which case you'
 ## Tag inheritance
 
 Deployment projects and deployments items inherit the tags of their parents. For example, if a deployment project
-has a [tags]({{< ref "./deployment-yml#tags-deployment-project" >}}) property defined, all `deployments` entries would
+has a [tags](./deployment-yml.md#tags-deployment-project) property defined, all `deployments` entries would
 inherit all these tags. Also, the sub-deployment projects included via deployment items of type
-[include]({{< ref "./deployment-yml#includes" >}}) inherit the tags of the deployment project. These included sub-deployments also
-inherit the [tags]({{< ref "./deployment-yml#tags-deployment-item" >}}) specified by the deployment item itself.
+[include](./deployment-yml.md#includes) inherit the tags of the deployment project. These included sub-deployments also
+inherit the [tags](./deployment-yml.md#tags-deployment-item) specified by the deployment item itself.
 
 Consider the following example `deployment.yaml`:
 
@@ -72,7 +72,7 @@ resources to be deployed as well.
 
 Imagine a large deployment is able to deploy 10 applications, but you only want to deploy one of them. When using tags
 to achieve this, there might be some base resources (e.g. Namespaces) which are needed no matter if everything or just
-this single application is deployed. In that case, you'd need to set [alwaysDeploy]({{< ref "./deployment-yml#deployments" >}})
+this single application is deployed. In that case, you'd need to set [alwaysDeploy](./deployment-yml.md#deployments)
 to `true`.
 
 ## Deleting with tag inclusion/exclusion
@@ -83,6 +83,6 @@ Imagine a kustomize deployment being responsible for namespaces deployments. If 
 deployments that have the `persistency` tag assigned, the exclusion logic would NOT exclude deletion of the namespace.
 This would ultimately lead to everything being deleted, and the exclusion tag having no effect.
 
-In such a case, you'd need to set [skipDeleteIfTags]({{< ref "./deployment-yml#skipdeleteiftags" >}}) to `true` as well.
+In such a case, you'd need to set [skipDeleteIfTags](./deployment-yml.md#skipdeleteiftags) to `true` as well.
 
 In most cases, setting `alwaysDeploy` to `true` also requires setting `skipDeleteIfTags` to `true`.

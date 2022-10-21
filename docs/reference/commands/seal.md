@@ -23,11 +23,11 @@ If no '--target' is specified, sealing is performed for all targets.
 
 <!-- END SECTION -->
 
-See [sealed-secrets]({{< ref "docs/reference/sealed-secrets">}}) for more details.
+See [sealed-secrets](../sealed-secrets) for more details.
 
 ## Arguments
 The following sets of arguments are available:
-1. [project arguments]({{< ref "./common-arguments#project-arguments" >}}) (except `-a`)
+1. [project arguments](./common-arguments#project-arguments) (except `-a`)
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "seal" "Misc arguments" true -->

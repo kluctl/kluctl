@@ -22,7 +22,7 @@ Loads the given file into memory, renders it with the current Jinja2 context and
 {{ a }}
 ```
 
-`load_template` uses the same path searching rules as described in [includes/imports]({{< ref "docs/reference/templating#includes-and-imports" >}}).
+`load_template` uses the same path searching rules as described in [includes/imports](../templating#includes-and-imports).
 
 ### load_sha256(file, digest_len)
 Loads the given file into memory, renders it and calculates the sha256 hash of the result.
@@ -44,7 +44,7 @@ data:
 ### get_var(field_path, default)
 Convenience method to navigate through the current context variables via a
 [JSON Path](https://goessner.net/articles/JsonPath/). Let's assume you currently have these variables defined
-(e.g. via [vars]({{< ref "docs/reference/deployments/deployment-yml#vars-deployment-project" >}})):
+(e.g. via [vars](../deployments/deployment-yml#vars-deployment-project)):
 ```yaml
 my:
   deep:

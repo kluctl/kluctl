@@ -61,7 +61,7 @@ Run the binary:
 
 
 <!-- TODO uncomment when chocolatey support is implemented
-{{% tab "Chocolatey" %}}
+## Chocolatey
 
 With [Chocolatey](https://chocolatey.org/) for Windows:
 
@@ -69,9 +69,7 @@ With [Chocolatey](https://chocolatey.org/) for Windows:
 choco install kluctl
 ```
 
-{{% /tab %}}
 -->
-{{% /tabs %}}
 
 <!-- TODO uncomment this when completion is implemented
 To configure your shell to load `kluctl` [bash completions](./cmd/kluctl_completion_bash.md) add to your profile:

@@ -21,8 +21,8 @@ a temporary directory or a specified directory.
 
 ## Arguments
 The following sets of arguments are available:
-1. [project arguments]({{< ref "./common-arguments#project-arguments" >}})
-1. [image arguments]({{< ref "./common-arguments#image-arguments" >}})
+1. [project arguments](./common-arguments#project-arguments)
+1. [image arguments](./common-arguments#image-arguments)
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "render" "Misc arguments" true -->

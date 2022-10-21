@@ -20,8 +20,8 @@ pulling is only needed when really required (e.g. when the chart version changes
 
 <!-- END SECTION -->
 
-See [helm-integration]({{< ref "docs/reference/deployments/helm">}}) for more details.
+See [helm-integration](../deployments/helm) for more details.
 
 ## Arguments
 The following sets of arguments are available:
-1. [project arguments]({{< ref "./common-arguments#project-arguments" >}}) (except `-a`)
+1. [project arguments](./common-arguments#project-arguments) (except `-a`)

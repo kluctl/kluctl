@@ -21,7 +21,7 @@ description: >
 8. [Annotations](./annotations)
 
 A deployment project is collection of deployment items and sub-deployments. Deployment items are usually
-[Kustomize]({{< ref "./kustomize" >}}) deployments, but can also integrate [Helm Charts]({{< ref "./helm" >}}).
+[Kustomize](./kustomize.md) deployments, but can also integrate [Helm Charts](./helm.md).
 
 ## Basic structure
 
@@ -32,14 +32,14 @@ provides some additional configuration required for multiple kluctl features to 
 As can be seen, sub-deployments can include other sub-deployments, allowing you to structure the deployment project
 as you need.
 
-Each level in this structure recursively adds [tags]({{< ref "./tags" >}}) to each deployed resources, allowing you to control
+Each level in this structure recursively adds [tags](./tags.md) to each deployed resources, allowing you to control
 precisely what is deployed in the future.
 
 Some visualized files/directories have links attached, follow them to get more information.
 
 <pre>
 -- project-dir/
-   |-- <a href="{{< ref "./deployment-yml" >}}">deployment.yaml</a>
+   |-- <a href="./deployment-yml.md">deployment.yaml</a>
    |-- .gitignore
    |-- kustomize-deployment1/
    |   |-- kustomization.yaml
@@ -56,7 +56,7 @@ Some visualized files/directories have links attached, follow them to get more i
    |   |   |-- resource2.yaml
    |   |   |-- patch1.yaml
    |   |   `-- ...
-   |   |-- <a href="{{< ref "./helm" >}}">kustomize-with-helm-deployment/</a>
+   |   |-- <a href="./helm.md">kustomize-with-helm-deployment/</a>
    |   |   |-- charts/
    |   |   |   `-- ...
    |   |   |-- kustomization.yaml
@@ -72,5 +72,5 @@ Some visualized files/directories have links attached, follow them to get more i
 
 ## Order of deployments
 Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control
-order, is by placing [barriers]({{< ref "./deployment-yml#barriers" >}}) between kustomize deployments.
+order, is by placing [barriers](./deployment-yml.md#barriers) between kustomize deployments.
 You should however not overuse barriers, as they negatively impact the speed of kluctl.

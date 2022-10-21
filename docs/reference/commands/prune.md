@@ -18,9 +18,9 @@ Searches the target cluster for prunable objects and deletes them
 
 ## Arguments
 The following sets of arguments are available:
-1. [project arguments]({{< ref "./common-arguments#project-arguments" >}})
-1. [image arguments]({{< ref "./common-arguments#image-arguments" >}})
-1. [inclusion/exclusion arguments]({{< ref "./common-arguments#inclusionexclusion-arguments" >}})
+1. [project arguments](./common-arguments#project-arguments)
+1. [image arguments](./common-arguments#image-arguments)
+1. [inclusion/exclusion arguments](./common-arguments#inclusionexclusion-arguments)
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "prune" "Misc arguments" true -->

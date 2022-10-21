@@ -12,7 +12,7 @@ description: >
 # Container Images
 
 There are usually 2 different scenarios where Container Images need to be specified:
-1. When deploying third party applications like nginx, redis, ... (e.g. via the [Helm integration]({{< ref "./helm" >}})). <br>
+1. When deploying third party applications like nginx, redis, ... (e.g. via the [Helm integration](./helm.md)). <br>
    * In this case, image versions/tags rarely change, and if they do, this is an explicit change to the deployment.
 1. When deploying your own applications. <br>
    * In this case, image versions/tags might change very rapidly, sometimes multiple times per hour. It would be too much
@@ -89,7 +89,7 @@ The described `images.get_image` logic however leads to a loosely defined state 
 might be fine in a CI/CD environment, but might be undesired when deploying to production. In that case, it might be
 desirable to explicitly define which versions need to be deployed.
 
-To achieve this, you can use the `-F FIXED_IMAGE` [argument]({{< ref "docs/reference/commands/common-arguments#image-arguments" >}}).
+To achieve this, you can use the `-F FIXED_IMAGE` [argument](../commands/common-arguments#image-arguments).
 `FIXED_IMAGE` must be in the form of `-F image<:namespace:deployment:container>=result`. For example, to pin the image
 `registry.gitlab.com/my-group/my-project` to the tag `1.1.2` you'd have to specify
 `-F registry.gitlab.com/my-group/my-project=registry.gitlab.com/my-group/my-project:1.1.2`.

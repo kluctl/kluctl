@@ -37,12 +37,12 @@ If more than one field needs to be specified, add `-xxx` to the annotation key, 
 The following annotations control how delete/prune is behaving.
 
 ### kluctl.io/skip-delete
-If set to "true", the annotated resource will not be deleted when [delete]({{< ref "docs/reference/commands/delete" >}}) or
-[prune]({{< ref "docs/reference/commands/prune" >}}) is called.
+If set to "true", the annotated resource will not be deleted when [delete](../../commands/delete) or
+[prune](../../commands/prune) is called.
 
 ### kluctl.io/skip-delete-if-tags
-If set to "true", the annotated resource will not be deleted when [delete]({{< ref "docs/reference/commands/delete" >}}) or
-[prune]({{< ref "docs/reference/commands/prune" >}}) is called and inclusion/exclusion tags are used at the same time.
+If set to "true", the annotated resource will not be deleted when [delete](../../commands/delete) or
+[prune](../../commands/prune) is called and inclusion/exclusion tags are used at the same time.
 
 This tag is especially useful and required on resources that would otherwise cause cascaded deletions of resources that
 do not match the specified inclusion/exclusion tags. Namespaces are the most prominent example of such resources, as

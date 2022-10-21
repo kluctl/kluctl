@@ -48,6 +48,6 @@ changed by setting the `kluctl.io/hook-delete-policy` to a comma separated list 
 ## Hook readiness
 
 After each deployment/execution of the hooks that belong to a deployment stage (before/after deployment), kluctl
-waits for the hook resources to become "ready". Readiness is defined [here]({{< ref "./readiness" >}}).
+waits for the hook resources to become "ready". Readiness is defined [here](./readiness.md).
 
 It is possible to disable waiting for hook readiness by setting the annotation `kluctl.io/hook-wait` to "false".

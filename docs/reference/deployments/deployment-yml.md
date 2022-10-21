@@ -36,7 +36,7 @@ The following sub-chapters describe the available fields in the `deployment.yaml
 
 ## sealedSecrets
 `sealedSecrets` configures how sealed secrets are stored while sealing and located while rendering.
-See [Sealed Secrets]({{< ref "docs/reference/sealed-secrets#outputpattern-and-location-of-stored-sealed-secrets" >}})
+See [Sealed Secrets](../sealed-secrets#outputpattern-and-location-of-stored-sealed-secrets)
 for details.
 
 ## deployments
@@ -48,7 +48,7 @@ wait for all previous deployments to finish.
 ### Kustomize deployments
 
 Specifies a [kustomize](https://kustomize.io/) deployment.
-Please see [Kustomize integration]({{< ref "./kustomize" >}}) for more details.
+Please see [Kustomize integration](./kustomize.md) for more details.
 
 Example:
 ```yaml
@@ -62,7 +62,7 @@ The `path` must point to a directory relative to the directory containing the `d
 that are part of the kluctl project are allowed. The directory must contain a valid `kustomization.yaml`.
 
 `waitReadiness` is optional and if set to `true` instructs kluctl to wait for readiness of each individual object
-of the kustomize deployment. Readiness is defined in [readiness]({{< ref "./readiness" >}}).
+of the kustomize deployment. Readiness is defined in [readiness](./readiness.md).
 
 ### Includes
 
@@ -130,7 +130,7 @@ All entries in `deployments` can have the following common properties:
 A list of variable sets to be loaded into the templating context, which is then available in all [deployment items](#deployments)
 and [sub-deployments](#includes).
 
-See [templating]({{< ref "docs/reference/templating#vars-from-deploymentyaml" >}}) for more details.
+See [templating](../templating/variable-sources.md) for more details.
 
 Example:
 ```yaml
@@ -148,8 +148,8 @@ deployments:
 ```
 
 ### tags (deployment item)
-A list of tags the deployment should have. See [tags]({{< ref "./tags" >}}) for more details. For includes, this means that all
-sub-deployments will get these tags applied to. If not specified, the default tags logic as described in [tags]({{< ref "./tags" >}})
+A list of tags the deployment should have. See [tags](./tags.md) for more details. For includes, this means that all
+sub-deployments will get these tags applied to. If not specified, the default tags logic as described in [tags](./tags.md)
 is applied.
 
 Example:
@@ -171,7 +171,7 @@ deployments:
 
 ### alwaysDeploy
 Forces a deployment to be included everytime, ignoring inclusion/exclusion sets from the command line.
-See [Deploying with tag inclusion/exclusion]({{< ref "./tags#deploying-with-tag-inclusionexclusion" >}}) for details.
+See [Deploying with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
 
 ```yaml
 deployments:
@@ -182,7 +182,7 @@ deployments:
 
 ### skipDeleteIfTags
 Forces exclusion of a deployment whenever inclusion/exclusion tags are specified via command line.
-See [Deleting with tag inclusion/exclusion]({{< ref "./tags#deploying-with-tag-inclusionexclusion" >}}) for details.
+See [Deleting with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
 
 ```yaml
 deployments:
@@ -195,7 +195,7 @@ deployments:
 A list of variable sets to be loaded into the templating context, which is then available in all [deployment items](#deployments)
 and [sub-deployments](#includes).
 
-See [templating]({{< ref "docs/reference/templating#vars-from-deploymentyaml" >}}) for more details.
+See [templating](../templating/variable-sources.md) for more details.
 
 ## commonLabels
 A dictionary of [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and values to be
@@ -240,7 +240,7 @@ A string that is used as the default namespace for all kustomize deployments whi
 ## tags (deployment project)
 A list of common tags which are applied to all kustomize deployments and sub-deployment includes.
 
-See [tags]({{< ref "./tags" >}}) for more details.
+See [tags](./tags.md) for more details.
 
 ## args
 A list of arguments that can or must be passed to most kluctl operations. Each of these arguments is then available
@@ -307,5 +307,5 @@ valid [JSON Path](https://goessner.net/articles/JsonPath/). `fieldPath` may also
 The JSON Path implementation used in kluctl has extended support for wildcards in field
 names, allowing you to also specify paths like `metadata.labels.my-prefix-*`.
 
-As an alternative, [annotations]({{< ref "./annotations/all-resources#control-diff-behavior" >}}) can be used to control
+As an alternative, [annotations](./annotations/all-resources#control-diff-behavior) can be used to control
 diff behavior of individual resources.

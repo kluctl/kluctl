@@ -91,12 +91,12 @@ images:
 ```
 
 ### args
-An optional map of arguments, in the same format as in the normal [target args]({{< ref "docs/reference/kluctl-project/targets/#args" >}}).
+An optional map of arguments, in the same format as in the normal [target args](../../kluctl-project/targets#args).
 
 The arguments specified here have higher priority.
 
 ### images
-An optional list of fixed images, in the same format as in the normal [target images]({{< ref "docs/reference/kluctl-project/targets/#images" >}})
+An optional list of fixed images, in the same format as in the normal [target images](../../kluctl-project/targets#images)
 
 ## Simple dynamic targets
 

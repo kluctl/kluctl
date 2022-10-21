@@ -13,10 +13,10 @@ description: >
 
 The following annotations control hook execution
 
-See [hooks]({{< ref "docs/reference/deployments/hooks" >}}) for more details.
+See [hooks](../../deployments/hooks) for more details.
 
 ### kluctl.io/hook
-Declares a resource to be a hook, which is deployed/executed as described in [hooks]({{< ref "docs/reference/deployments/hooks" >}}). The value of the
+Declares a resource to be a hook, which is deployed/executed as described in [hooks](../../deployments/hooks). The value of the
 annotation determines when the hook is deployed/executed.
 
 ### kluctl.io/hook-weight

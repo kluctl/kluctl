@@ -25,15 +25,15 @@ being installed. Installing the operator is the responsibility of you (or whoeve
 
 Kluctl can however perform sealing of secrets without an existing sealed-secrets operator installation. This is solved
 by automatically pre-provisioning a key onto the cluster that is compatible with the operator or by providing the
-public certificate via `certFile` in the targets [sealingConfig]({{< ref "docs/reference/kluctl-project/targets#certfile" >}}).
+public certificate via `certFile` in the targets [sealingConfig](./kluctl-project/targets#certfile).
 
 ## Sealing of .sealme files
 
-Sealing is done via the [seal command]({{< ref "docs/reference/commands/seal" >}}). It must be done before the actual
+Sealing is done via the [seal command](./commands/seal). It must be done before the actual
 deployment is performed.
 
 The `seal` command recursively searches for files that end with `.sealme`, renders them with the
-[templating engine]({{< ref "docs/reference/templating" >}}) engine. The rendered secret resource is then
+[templating engine](./templating) engine. The rendered secret resource is then
 converted/encrypted into a sealed secret.
 
 The `.sealme` files itself have to be [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/),
@@ -54,14 +54,14 @@ stringData:
   DB_PASSWORD: {{ secrets.database.password }}
 ```
 
-While sealing, the full templating context (same as in [templating]({{< ref "docs/reference/templating" >}})) is available.
+While sealing, the full templating context (same as in [templating](./templating)) is available.
 Additionally, the global `secrets` object/variable is available which contains the sensitive secrets.
 
 ## Secret Sources
 
 Secrets are only loaded while sealing. Available secret sets and sources are configured via
-[.kluctl.yaml]({{< ref "docs/reference/kluctl-project/secrets-config" >}}). The secrets used per target are configured via the
-[secrets config]({{< ref "docs/reference/kluctl-project/targets#secretsets" >}}) of the targets.
+[.kluctl.yaml](./kluctl-project/secrets-config). The secrets used per target are configured via the
+[secrets config](./kluctl-project/targets#secretsets) of the targets.
 
 ## Using sealed secrets
 
@@ -83,9 +83,9 @@ resources:
 
 ## outputPattern and location of stored sealed secrets
 
-It is possible to override the output pattern in the root [deployment project]({{< ref "docs/reference/deployments" >}}).
+It is possible to override the output pattern in the root [deployment project](./deployments).
 The output pattern must be a template string that is rendered with the full
-[templating context]({{< ref "docs/reference/templating" >}}) available for the deployment.yaml.
+[templating context](./templating) available for the deployment.yaml.
 
 When manually specifying the outputPattern, ensure that it works well with multiple clusters and targets. You can
 for example use the `{{ target.name }}` and `{{ cluster.name }}` inside the outputPattern.
@@ -111,8 +111,8 @@ with:
 
 ## Content Hashes and re-sealing
 Sealed secrets are stored together with hashes of all individual secret entries. These hashes are then used to avoid
-unnecessary re-sealing in future [seal]({{< ref "docs/reference/commands/seal" >}}) invocations. If you want to force re-sealing, use the
-[--force-reseal]({{< ref "docs/reference/commands/seal" >}}) option.
+unnecessary re-sealing in future [seal](./commands/seal) invocations. If you want to force re-sealing, use the
+[--force-reseal](./commands/seal) option.
 
 Hashing of secrets is done with bcrypt and the cluster id as salt. The cluster id is currently defined as the sha256 hash
 of the cluster CA certificate. This will cause re-sealing of all secrets in case a cluster is set up from scratch
