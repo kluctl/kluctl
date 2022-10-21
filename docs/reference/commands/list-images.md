@@ -17,7 +17,7 @@ Renders the target and outputs all images used via 'images.get_image(...)
 The result is a compatible with yaml files expected by --fixed-images-file.
 
 If fixed images ('-f/--fixed-image') are provided, these are also taken into account,
-as described in for the deploy command.
+as described in the deploy command.
 
 <!-- END SECTION -->
 
@@ -33,6 +33,8 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
+      --offline-kubernetes         Run list-images in offline mode, meaning that it will not try to connect the
+                                   target cluster
   -o, --output stringArray         Specify output target file. Can be specified multiple times
       --render-output-dir string   Specifies the target directory to render the project into. If omitted, a
                                    temporary directory is used.

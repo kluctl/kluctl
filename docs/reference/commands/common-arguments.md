@@ -39,23 +39,34 @@ They control where and how to load the kluctl project and deployment project.
 Project arguments:
   Define where and how to load the kluctl project and its components from.
 
-  -a, --arg stringArray                      Template argument in the form name=value
-      --cluster string                       DEPRECATED. Specify/Override cluster
+  -a, --arg stringArray                      Passes a template argument in the form of name=value. Nested args can
+                                             be set with the '-a my.nested.arg=value' syntax. Values are
+                                             interpreted as yaml values, meaning that 'true' and 'false' will lead
+                                             to boolean values and numbers will be treated as numbers. Use quotes
+                                             if you want these to be treated as strings. If the value starts with
+                                             @, it is treated as a file, meaning that the contents of the file
+                                             will be loaded and treated as yaml.
+      --args-from-file stringArray           Loads a yaml file and makes it available as arguments, meaning that
+                                             they will be available thought the global 'args' variable.
+      --context string                       Overrides the context name specified in the target. If the selected
+                                             target does not specify a context or the no-name target is used,
+                                             --context will override the currently active context.
       --git-cache-update-interval duration   Specify the time to wait between git cache updates. Defaults to not
                                              wait at all and always updating caches.
-      --local-clusters existingdir           DEPRECATED. Local clusters directory. Overrides the project from
-                                             .kluctl.yaml
-      --local-deployment existingdir         DEPRECATED. Local deployment directory. Overrides the project from
-                                             .kluctl.yaml
-      --local-sealed-secrets existingdir     DEPRECATED. Local sealed-secrets directory. Overrides the project
-                                             from .kluctl.yaml
-      --output-metadata string               Specify the output path for the project metadata to be written to.
+      --local-git-override stringArray       Specify a local git override in the form of
+                                             'github.com:my-org/my-repo=/local/path/to/override'. This will cause
+                                             kluctl to not use git to clone for the specified repository but
+                                             instead use the local directory. This is useful in case you need to
+                                             test out changes in external git repositories without pushing them.
+                                             To only override a single branch of the repo, use
+                                             'github.com:my-org/my-repo:my-branch=/local/path/to/override'
   -c, --project-config existingfile          Location of the .kluctl.yaml config file. Defaults to
                                              $PROJECT/.kluctl.yaml
-  -b, --project-ref string                   Git ref of the kluctl project. Only used when --project-url was given.
-  -p, --project-url string                   Git url of the kluctl project. If not specified, the current
-                                             directory will be used instead of a remote Git project
   -t, --target string                        Target name to run command for. Target must exist in .kluctl.yaml.
+  -T, --target-name-override string          Overrides the target name. If -t is used at the same time, then the
+                                             target will be looked up based on -t <name> and then renamed to the
+                                             value of -T. If no target is specified via -t, then the no-name
+                                             target is renamed to the value of -T.
       --timeout duration                     Specify timeout for all operations, including loading of the project,
                                              all external api calls and waiting for readiness. (default 10m0s)
 
