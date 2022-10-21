@@ -1,9 +1,14 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Philosophy"
 linkTitle: "Philosophy"
 weight: 30
 description: "The philosophy behind kluctl."
 ---
+-->
+
+# Philosophy
 
 Kluctl tries to follow a few basic ideas and a philosophy. Project and deployments structure, as well as all commands
 are centered on these.

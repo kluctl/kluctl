@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "list-targets"
 linkTitle: "list-targets"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     list-targets command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "list-targets" "Usage" false -->

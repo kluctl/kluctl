@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "poke-images"
 linkTitle: "poke-images"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     poke-images command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "poke-images" "Usage" false -->

@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Validation"
 linkTitle: "Validation"
@@ -5,6 +7,9 @@ weight: 3
 description: >
     Annotations to control validation
 ---
+-->
+
+# Validation
 
 The following annotations influence the [validate]({{< ref "docs/reference/commands/validate" >}}) command.
 

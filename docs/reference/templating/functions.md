@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Functions"
 linkTitle: "Functions"
@@ -5,6 +7,9 @@ weight: 4
 description: >
     Available functions.
 ---
+-->
+
+# Functions
 
 In addition to the provided
 [builtin global functions](https://jinja.palletsprojects.com/en/2.11.x/templates/#list-of-global-functions),

@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Common Arguments"
 linkTitle: "Common Arguments"
@@ -5,6 +7,9 @@ weight: 1
 description: >
     Common arguments
 ---
+-->
+
+# Common Arguments
 
 A few sets of arguments are common between multiple commands. These arguments are still part of the command itself and
 must be placed *after* the command name.

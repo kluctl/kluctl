@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "deploy"
 linkTitle: "deploy"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     deploy command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "deploy" "Usage" false -->

@@ -1,18 +1,22 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Installation"
 linkTitle: "Installation"
 weight: 20
 description: "Installing kluctl."
 ---
+-->
 
-## Install kluctl
+# Installation
+
+## Binaries
 
 The kluctl CLI is available as a binary executable for all major platforms,
 the binaries can be downloaded form GitHub
 [releases page](https://github.com/kluctl/kluctl/releases).
 
-{{% tabs %}}
-{{% tab "Homebrew" %}}
+## Installation with Homebrew
 
 With [Homebrew](https://brew.sh) for macOS and Linux:
 
@@ -20,8 +24,7 @@ With [Homebrew](https://brew.sh) for macOS and Linux:
 brew install kluctl/tap/kluctl
 ```
 
-{{% /tab %}}
-{{% tab "bash" %}}
+## Installation with Bash
 
 With [Bash](https://www.gnu.org/software/bash/) for macOS and Linux:
 
@@ -29,7 +32,33 @@ With [Bash](https://www.gnu.org/software/bash/) for macOS and Linux:
 curl -s https://kluctl.io/install.sh | bash
 ```
 
-{{% /tab %}}
+The install script does the following:
+* attempts to detect your OS
+* downloads and unpacks the release tar file in a temporary directory
+* copies the kluctl binary to `/usr/local/bin`
+* removes the temporary directory
+
+## Build from source
+
+Clone the repository:
+
+```bash
+git clone https://github.com/kluctl/kluctl
+cd kluctl
+```
+
+Build the `kluctl` binary (requires go >= 1.19):
+
+```bash
+make build
+```
+
+Run the binary:
+
+```bash
+./bin/kluctl -h
+```
+
 
 <!-- TODO uncomment when chocolatey support is implemented
 {{% tab "Chocolatey" %}}

@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "delete"
 linkTitle: "delete"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     delete command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "delete" "Usage" false -->

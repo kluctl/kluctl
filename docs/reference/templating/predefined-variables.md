@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Predefined Variables"
 linkTitle: "Predefined Variables"
@@ -5,6 +7,9 @@ weight: 1
 description: >
     Available predefined variables.
 ---
+-->
+
+# Predefined Variables
 
 There are multiple variables available which are pre-defined by kluctl. These are:
 

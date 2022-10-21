@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Helm Integration"
 linkTitle: "Helm Integration"
@@ -5,6 +7,9 @@ weight: 3
 description: >
     How Helm is integrated into Kluctl.
 ---
+-->
+
+# Helm Integration
 
 kluctl offers a simple-to-use Helm integration, which allows you to reuse many common third-party Helm Charts.
 

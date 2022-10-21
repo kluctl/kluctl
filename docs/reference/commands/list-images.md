@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "list-images"
 linkTitle: "list-images"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     list-images command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "list-images" "Usage" false -->

@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "seal"
 linkTitle: "seal"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     seal command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "seal" "Usage" false -->

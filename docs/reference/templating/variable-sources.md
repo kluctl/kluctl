@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Variable Sources"
 linkTitle: "Variable Sources"
@@ -5,6 +7,9 @@ weight: 2
 description: >
   Available variable sources.
 ---
+-->
+
+# Variable Sources
 
 There are multiple places in deployment projects (deployment.yaml) where additional variables can be loaded into
 future Jinja2 contexts.

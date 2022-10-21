@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Templating"
 linkTitle: "Templating"
@@ -5,6 +7,16 @@ weight: 2
 description: >
     Templating Engine.
 ---
+-->
+
+# Table of Contents
+
+1. [Predefined Variables](./predefined-variables.md)
+2. [Variable Sources](./variable-sources.md)
+3. [Filters](./filters.md)
+4. [Functions](./functions.md)
+
+# Templating
 
 kluctl uses a Jinja2 Templating engine to pre-process/render every involved configuration file and resource before
 actually interpreting it. Only files that are explicitly excluded via [.templateignore files](#templateignore)

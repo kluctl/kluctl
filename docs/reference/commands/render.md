@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "render"
 linkTitle: "render"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     render command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "render" "Usage" false -->

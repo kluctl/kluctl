@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Deployments"
 linkTitle: "Deployments"
@@ -5,6 +7,18 @@ weight: 2
 description: >
     Deployments and sub-deployments.
 ---
+-->
+
+# Table of Contents
+
+1. [deployment.yaml](./deployment-yml.md)
+2. [Kustomize Integration](./kustomize.md)
+3. [Container Images](./images.md)
+4. [Helm Integration](./helm.md)
+5. [Hooks](./hooks.md)
+6. [Readiness](./readiness.md)
+7. [Tags](./tags.md)
+8. [Annotations](./annotations)
 
 A deployment project is collection of deployment items and sub-deployments. Deployment items are usually
 [Kustomize]({{< ref "./kustomize" >}}) deployments, but can also integrate [Helm Charts]({{< ref "./helm" >}}).

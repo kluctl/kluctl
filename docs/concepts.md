@@ -1,8 +1,13 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: Core Concepts
 description: Core Concepts of Kluctl.
 weight: 10
 ---
+-->
+
+# Core Concepts
 
 These are some core concepts in Kluctl.
 

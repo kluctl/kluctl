@@ -6,8 +6,6 @@
 
 <img alt="kluctl" src="logo/kluctl.svg" width="200"/>
 
-<!-- copied from https://kluctl.io/docs -->
-
 Kluctl is the missing glue that puts together your (and any third-party) deployments into one large declarative
 Kubernetes deployment, while making it fully manageable (deploy, diff, prune, delete, ...) via one unified command
 line interface.
@@ -25,17 +23,29 @@ local machine, from your CI/CD pipelines or any automation platform/system that 
 
 Flux support is in alpha stadium and available via the [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
 
-## Installation
+## What can I do with Kluctl?
 
-See [installation](./install).
+Kluctl allows you to define a Kluctl project, which in turn defines Kluctl
+deployments and sub-deployments. Each Kluctl deployment defines Kustomize deployments.
+
+A Kluctl project also defines targets, which represent your target environments
+and/or clusters.
+
+The Kluctl CLI then allows to deploy, diff, prune, delete, ... your deployments.
+
+## Where do I start?
+
+Installation instructions can be found [here](./docs/installation.md). For a getting started guide, continue
+[here](./docs/get-started.md).
 
 ## Documentation
 
-Documentation can be found here: https://kluctl.io/docs
+Documentation, news and blog posts can be found on https://kluctl.io.
+
+The underlying documentation is synced from this repo (look into ./docs) to the website whenever something is merged
+into main.
 
 ## Kluctl in Short
-
-<!-- copied from https://kluctl.io/docs -->
 
 |     |     |
 | --- | --- |

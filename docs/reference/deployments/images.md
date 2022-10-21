@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Container Images"
 linkTitle: "Container Images"
@@ -5,6 +7,9 @@ weight: 3
 description: >
     Dynamic configuration of container images.
 ---
+-->
+
+# Container Images
 
 There are usually 2 different scenarios where Container Images need to be specified:
 1. When deploying third party applications like nginx, redis, ... (e.g. via the [Helm integration]({{< ref "./helm" >}})). <br>

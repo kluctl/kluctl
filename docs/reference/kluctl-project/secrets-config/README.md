@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "secretsConfig"
 linkTitle: "secretsConfig"
@@ -5,6 +7,9 @@ weight: 4
 description: >
   Optional, defines where to load secrets from.
 ---
+-->
+
+# secretsConfig
 
 This configures how secrets are retrieved while sealing. It is basically a list of named secret sets which can be
 referenced from targets.

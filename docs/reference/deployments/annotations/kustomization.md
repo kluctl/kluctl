@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Kustomize"
 linkTitle: "Kustomize"
@@ -5,6 +7,9 @@ weight: 4
 description: >
   Annotations on the kustomization.yaml resource
 ---
+-->
+
+# Kustomize
 
 Even though the `kustomization.yaml` from Kustomize deployments are not really Kubernetes resources (as they are not
 really deployed), they have the same structure as Kubernetes resources. This also means that the `kustomization.yaml`

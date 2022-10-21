@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Kustomize Integration"
 linkTitle: "Kustomize Integration"
@@ -5,6 +7,9 @@ weight: 2
 description: >
     How Kustomize is integrated into Kluctl
 ---
+-->
+
+# Kustomize Integration
 
 kluctl uses [kustomize](https://kustomize.io/) to render final resources. This means, that the finest/lowest
 level in kluctl is represented with kustomize deployments. These kustomize deployments can then perform further

@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Filters"
 linkTitle: "Filters"
@@ -5,6 +7,9 @@ weight: 3
 description: >
     Available filters.
 ---
+-->
+
+# Filters
 
 In addition to the [builtin Jinja2 filters](https://jinja.palletsprojects.com/en/2.11.x/templates/#list-of-builtin-filters),
 kluctl provides a few additional filters:

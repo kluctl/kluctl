@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "validate"
 linkTitle: "validate"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     validate command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "validate" "Usage" false -->

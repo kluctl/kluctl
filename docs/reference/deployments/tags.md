@@ -1,8 +1,13 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Tags"
 linkTitle: "Tags"
 weight: 6
 ---
+-->
+
+# Tags
 
 Every kustomize deployment has a set of tags assigned to it. These tags are defined in multiple places, which is
 documented in [deployment.yaml]({{< ref "./deployment-yml" >}}). Look for the `tags` field, which is available in multiple places per

@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "targets"
 linkTitle: "targets"
@@ -5,6 +7,9 @@ weight: 4
 description: >
   Required, defines targets for this kluctl project.
 ---
+-->
+
+# targets
 
 Specifies a list of targets for which commands can be invoked. A target puts together environment/target specific
 configuration and the target cluster. Multiple targets can exist which target the same cluster but with differing

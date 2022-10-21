@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Sealed Secrets"
 linkTitle: "Sealed Secrets"
@@ -5,13 +7,16 @@ weight: 2
 description: >
     Sealed Secrets integration
 ---
+-->
+
+# Sealed Secrets
 
 kluctl has an integration for [sealed secrets](https://github.com/bitnami-labs/sealed-secrets), allowing you to
 securely store secrets for multiple target clusters and/or environments inside version control.
 
 The integration consists of two parts:
 1. Sealing of secrets
-1. Automatically choosing and deploying the correct sealed secrets for a target
+2. Automatically choosing and deploying the correct sealed secrets for a target
 
 ## Requirements
 

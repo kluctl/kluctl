@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "helm-pull"
 linkTitle: "helm-pull"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     helm-pull command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "helm-pull" "Usage" false -->

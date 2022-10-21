@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Hooks"
 linkTitle: "Hooks"
@@ -5,6 +7,9 @@ weight: 4
 description: >
     Kluctl hooks.
 ---
+-->
+
+# Hooks
 
 Kluctl supports hooks in a similar fashion as known from Helm Charts. Hooks are executed/deployed before and/or after the
 actual deployment of a kustomize deployment.

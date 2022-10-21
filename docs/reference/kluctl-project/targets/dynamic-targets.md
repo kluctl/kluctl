@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Dynamic Targets"
 linkTitle: "Dynamic Targets"
@@ -5,6 +7,9 @@ weight: 1
 description: >
     Dynamically defined targets.
 ---
+-->
+
+# Dynamic Targets
 
 Targets can also be "dynamic", meaning that additional configuration can be sourced from another git repository.
 This can be based on a single target repository and branch, or on a target repository and branch/ref pattern, resulting

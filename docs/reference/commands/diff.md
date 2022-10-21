@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "diff"
 linkTitle: "diff"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     diff command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "diff" "Usage" false -->

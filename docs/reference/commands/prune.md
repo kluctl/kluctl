@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "prune"
 linkTitle: "prune"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     prune command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "prune" "Usage" false -->

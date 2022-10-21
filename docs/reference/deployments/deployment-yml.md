@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "deployment.yaml"
 linkTitle: "deployment.yaml"
@@ -5,6 +7,9 @@ weight: 1
 description: >
     Structure of deployment.yaml.
 ---
+-->
+
+# Deployments
 
 The `deployment.yaml` file is the entrypoint for the deployment project. Included sub-deployments also provide a
 `deployment.yaml` file with the same structure as the initial one.

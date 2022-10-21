@@ -1,11 +1,16 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Get Started with Kluctl"
 linkTitle: "Get Started"
 description: "Get Started with Kluctl."
 weight: 20
 ---
+-->
 
-This tutorial shows you how to bootstrap Flux to a Kubernetes cluster and deploy a sample application in a GitOps manner.
+# Get Started
+
+This tutorial shows you how to start using kluctl.
 
 ## Before you begin
 
@@ -15,7 +20,7 @@ A few things must be prepared before you actually begin.
 
 The first step is of course: You need a kubernetes cluster. It doesn't really matter where this cluster is hosted, if
 it's a local (e.g. [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)) cluster, managed cluster, or a self-hosted
-cluster, kops or kubespray based, AWS, GCE, Azure, ... and so on. kluctl
+cluster, kops or kubespray based, AWS, GCE, Azure, ... and so on. Kluctl
 is completely independent of how Kubernetes is deployed and where it is hosted.
 
 There is however a minimum Kubernetes version that must be met: 1.20.0. This is due to the heavy use of server-side apply
@@ -29,7 +34,7 @@ then you'd have to ensure that the kubeconfig context `test.example.com` is corr
 cluster.
 
 See [Configure Access to Multiple Clusters](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/) for documentation
-on how to manage multiple clusters with a single kubeconfig. Depending on the Kubernets provisioning/deployment tooling
+on how to manage multiple clusters with a single kubeconfig. Depending on the Kubernetes provisioning/deployment tooling
 you used, you might also be able to directly export the context into your local kubeconfig. For example,
 [kops](https://github.com/kubernetes/kops/blob/master/docs/cli/kops_export.md) is able to export and merge the kubeconfig
 for a given cluster.
@@ -42,15 +47,8 @@ for a given cluster.
 
 ## Install Kluctl
 
-The `kluctl` command-line interface (CLI) is required to perform deployments.
-
-To install the CLI with Homebrew run:
-
-```sh
-brew install kluctl/tap/kluctl
-```
-
-For other installation methods, see the [install documentation]({{< ref "docs/installation" >}}).
+The `kluctl` command-line interface (CLI) is required to perform deployments. Read the [installation instructions](./installation.md)
+to figure out how to install it.
 
 ## Clone the kluctl examples
 
@@ -62,7 +60,7 @@ git clone https://github.com/kluctl/kluctl-examples.git
 
 ## Choose one of the examples
 
-You can choose whatever example you like from the clones repository. We will however continue this guide by referring
+You can choose whatever example you like from the cloned repository. We will however continue this guide by referring
 to the `simple-helm` example found in that repository. Change the current directory:
 
 ```sh
@@ -115,5 +113,5 @@ You should need 2 instances of the nginx POD running now.
 
 ## Where to continue?
 
-Continue by reading through the [tutorials]({{< ref "docs/guides/tutorials" >}}) and by consulting
-the [reference documentation]({{< ref "reference" >}}).
+Continue by reading through the [tutorials](https://kluctl.io/docs/guides/tutorials/) and by consulting
+the [reference documentation](./reference).

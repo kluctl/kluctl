@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Environment Variables"
 linkTitle: "Environment Variables"
@@ -5,6 +7,7 @@ weight: 2
 description: >
     Controlling Kluctl via environment variables
 ---
+-->
 
 In addition to arguments, Kluctl can be controlled via a set of environment variables.
 

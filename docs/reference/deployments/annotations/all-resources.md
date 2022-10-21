@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "All resources"
 linkTitle: "All resources"
@@ -5,6 +7,9 @@ weight: 1
 description: >
   Annotations on all resources
 ---
+-->
+
+# All resources
 
 The following annotations control the behavior of the `deploy` and related commands.
 

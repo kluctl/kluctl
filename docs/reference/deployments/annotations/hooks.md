@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "Hooks"
 linkTitle: "Hooks"
@@ -5,6 +7,10 @@ weight: 2
 description: >
   Annotations on hooks
 ---
+-->
+
+# Hooks
+
 The following annotations control hook execution
 
 See [hooks]({{< ref "docs/reference/deployments/hooks" >}}) for more details.

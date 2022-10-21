@@ -1,9 +1,14 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "History"
 linkTitle: "History"
 weight: 40
 description: "The history of kluctl."
 ---
+-->
+
+# History
 
 Kluctl was created after multiple incarnations of complex multi-environment (e.g. dev, test, prod) deployments, including everything
 from monitoring, persistency and the actual custom services. The philosophy of these deployments was always

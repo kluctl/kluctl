@@ -1,3 +1,5 @@
+<!-- This comment is uncommented when auto-synced to www-kluctl.io
+
 ---
 title: "helm-update"
 linkTitle: "helm-update"
@@ -5,6 +7,7 @@ weight: 10
 description: >
     helm-update command
 ---
+-->
 
 ## Command
 <!-- BEGIN SECTION "helm-update" "Usage" false -->
