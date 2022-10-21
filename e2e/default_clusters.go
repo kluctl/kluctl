@@ -9,6 +9,10 @@ var defaultCluster1 = test_utils.CreateEnvTestCluster("cluster1")
 var defaultCluster2 = test_utils.CreateEnvTestCluster("cluster2")
 
 func init() {
+	if isCallKluctlHack() {
+		return
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {

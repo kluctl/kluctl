@@ -28,23 +28,17 @@ jobs:
       - name: Run unit tests
         run: |
           go test ./cmd/... ./pkg/... -v
-      - name: Build kluctl (linux)
+      - name: Build kluctl-e2e (linux)
         run: |
-          make build GOARCH=amd64 GOOS=linux
           make test-e2e-build GOARCH=amd64 GOOS=linux
-          mv ./bin/kluctl ./bin/kluctl-linux-amd64
           mv ./bin/kluctl-e2e ./bin/kluctl-e2e-linux-amd64
-      - name: Build kluctl (darwin)
+      - name: Build kluctl-e2e (darwin)
         run: |
-          make build GOARCH=amd64 GOOS=darwin
           make test-e2e-build GOARCH=amd64 GOOS=darwin
-          mv ./bin/kluctl ./bin/kluctl-darwin-amd64
           mv ./bin/kluctl-e2e ./bin/kluctl-e2e-darwin-amd64
-      - name: Build kluctl (windows)
+      - name: Build kluctl-e2e (windows)
         run: |
-          make build GOARCH=amd64 GOOS=windows
           make test-e2e-build GOARCH=amd64 GOOS=windows
-          mv ./bin/kluctl.exe ./bin/kluctl-windows-amd64.exe
           mv ./bin/kluctl-e2e.exe ./bin/kluctl-e2e-windows-amd64.exe
       - name: Verify commands help is up-to-date
         run: |
@@ -106,7 +100,6 @@ jobs:
           fi
 
           chmod +x ./bin/*
-          mv ./bin/kluctl-${{ matrix.binary-suffix }}$EXE ./kluctl$EXE
           mv ./bin/kluctl-e2e-${{ matrix.binary-suffix }}$EXE ./kluctl-e2e$EXE
 
           make test-e2e-pre-built
