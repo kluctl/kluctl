@@ -37,9 +37,10 @@ precisely what is deployed in the future.
 
 Some visualized files/directories have links attached, follow them to get more information.
 
+<!-- markdown-link-check-disable -->
 <pre>
 -- project-dir/
-   |-- <a href="./deployment-yml.md">deployment.yaml</a>
+   |-- <a href="./deployment-yml">deployment.yaml</a>
    |-- .gitignore
    |-- kustomize-deployment1/
    |   |-- kustomization.yaml
@@ -56,7 +57,7 @@ Some visualized files/directories have links attached, follow them to get more i
    |   |   |-- resource2.yaml
    |   |   |-- patch1.yaml
    |   |   `-- ...
-   |   |-- <a href="./helm.md">kustomize-with-helm-deployment/</a>
+   |   |-- <a href="./helm">kustomize-with-helm-deployment/</a>
    |   |   |-- charts/
    |   |   |   `-- ...
    |   |   |-- kustomization.yaml
@@ -69,6 +70,7 @@ Some visualized files/directories have links attached, follow them to get more i
    `-- sub-deployment/
        `-- ...
 </pre>
+<!-- markdown-link-check-enable -->
 
 ## Order of deployments
 Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control
