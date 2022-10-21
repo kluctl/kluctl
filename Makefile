@@ -4,6 +4,12 @@ EXE=
 ifeq ($(GOOS), windows)
 EXE=.exe
 endif
+
+RACE=
+ifeq ($(GOOS), linux)
+RACE=-race
+endif
+
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
@@ -78,7 +84,7 @@ KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_
 test-e2e: test-e2e-build test-e2e-pre-built ## Runs the end to end tests
 
 test-e2e-build: ## Builds the end to end tests
-	$(GOCMD) test -race -c ./e2e -o ./bin/$(TEST_BINARY_NAME)
+	$(GOCMD) test $(RACE) -c ./e2e -o ./bin/$(TEST_BINARY_NAME)
 
 test-e2e-pre-built: install-envtest
 	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./bin/$(TEST_BINARY_NAME) -test.v
@@ -89,7 +95,7 @@ ifeq ($(EXPORT_RESULT), true)
 	GO111MODULE=off $(GOCMD) get -u github.com/jstemmer/go-junit-report
 	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > reports/test-unit/junit-report.xml)
 endif
-	$(GOTEST) -v -race $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
+	$(GOTEST) -v $(RACE) $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
 
 coverage-unit: ## Run the unit tests of the project and export the coverage
 	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/)
