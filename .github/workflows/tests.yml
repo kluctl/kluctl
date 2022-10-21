@@ -46,6 +46,15 @@ jobs:
           make test-e2e-build GOARCH=amd64 GOOS=windows
           mv ./bin/kluctl.exe ./bin/kluctl-windows-amd64.exe
           mv ./bin/kluctl-e2e.exe ./bin/kluctl-e2e-windows-amd64.exe
+      - name: Verify commands help is up-to-date
+        run: |
+          make replace-commands-help
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "replace-commands-help must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
       - name: Upload binaries
         uses: actions/upload-artifact@v2
         with:

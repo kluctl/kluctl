@@ -113,6 +113,8 @@ else
 endif
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run $(OUTPUT_OPTIONS)
 
+replace-commands-help: ## Replace commands help in docs
+	$(GOCMD) run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
 
 ## Release:
 version: ## Write next version into version file
