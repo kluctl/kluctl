@@ -7,16 +7,36 @@ on:
       - main
 
 jobs:
-  pre-checks:
+  docs-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.19'
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: docs-check-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            docs-check-go-${{ runner.os }}-
       - name: Check links on changed files
         run: |
           make markdown-link-check
+      - name: Verify commands help is up-to-date
+        run: |
+          make replace-commands-help
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "replace-commands-help must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
 
   build:
     runs-on: ubuntu-20.04
@@ -51,15 +71,6 @@ jobs:
         run: |
           make test-e2e-build GOARCH=amd64 GOOS=windows
           mv ./bin/kluctl-e2e.exe ./bin/kluctl-e2e-windows-amd64.exe
-      - name: Verify commands help is up-to-date
-        run: |
-          make replace-commands-help
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "replace-commands-help must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
       - name: Upload binaries
         uses: actions/upload-artifact@v2
         with:
