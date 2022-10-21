@@ -122,6 +122,9 @@ endif
 replace-commands-help: ## Replace commands help in docs
 	$(GOCMD) run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
 
+markdown-link-check: ## Check markdown files for dead links
+	find . -name '*.md' | xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:stable
+
 ## Release:
 version: ## Write next version into version file
 	$(GOCMD) install github.com/bvieira/sv4git/v2/cmd/git-sv@v2.7.0
