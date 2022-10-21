@@ -44,7 +44,7 @@ data:
 ### get_var(field_path, default)
 Convenience method to navigate through the current context variables via a
 [JSON Path](https://goessner.net/articles/JsonPath/). Let's assume you currently have these variables defined
-(e.g. via [vars](../deployments/deployment-yml#vars-deployment-project)):
+(e.g. via [vars](../deployments/deployment-yml.md#vars-deployment-project)):
 ```yaml
 my:
   deep:

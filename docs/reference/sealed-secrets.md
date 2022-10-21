@@ -29,7 +29,7 @@ public certificate via `certFile` in the targets [sealingConfig](./kluctl-projec
 
 ## Sealing of .sealme files
 
-Sealing is done via the [seal command](./commands/seal). It must be done before the actual
+Sealing is done via the [seal command](./commands/seal.md). It must be done before the actual
 deployment is performed.
 
 The `seal` command recursively searches for files that end with `.sealme`, renders them with the
@@ -111,8 +111,8 @@ with:
 
 ## Content Hashes and re-sealing
 Sealed secrets are stored together with hashes of all individual secret entries. These hashes are then used to avoid
-unnecessary re-sealing in future [seal](./commands/seal) invocations. If you want to force re-sealing, use the
-[--force-reseal](./commands/seal) option.
+unnecessary re-sealing in future [seal](./commands/seal.md) invocations. If you want to force re-sealing, use the
+[--force-reseal](./commands/seal.md) option.
 
 Hashing of secrets is done with bcrypt and the cluster id as salt. The cluster id is currently defined as the sha256 hash
 of the cluster CA certificate. This will cause re-sealing of all secrets in case a cluster is set up from scratch

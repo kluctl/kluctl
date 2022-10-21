@@ -20,7 +20,7 @@ Optionally performs the actual upgrade and/or add a commit to version control.
 
 ## Arguments
 The following sets of arguments are available:
-1. [project arguments](./common-arguments#project-arguments) (except `-a`)
+1. [project arguments](./common-arguments.md#project-arguments) (except `-a`)
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "helm-update" "Misc arguments" true -->

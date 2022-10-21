@@ -35,7 +35,7 @@ This field specifies the name of the secret set. The name can be used in targets
 
 ### vars
 A list of variables sources. Check the documentation of
-[variables sources](../../templating/variable-sources) for details.
+[variables sources](../../templating/variable-sources.md) for details.
 
 Each variables source must have a root dictionary with the name `secrets` and all the actual secret values
 below that dictionary. Every other root key will be ignored.

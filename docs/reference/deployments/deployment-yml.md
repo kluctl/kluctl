@@ -36,7 +36,7 @@ The following sub-chapters describe the available fields in the `deployment.yaml
 
 ## sealedSecrets
 `sealedSecrets` configures how sealed secrets are stored while sealing and located while rendering.
-See [Sealed Secrets](../sealed-secrets#outputpattern-and-location-of-stored-sealed-secrets)
+See [Sealed Secrets](../sealed-secrets.md#outputpattern-and-location-of-stored-sealed-secrets)
 for details.
 
 ## deployments
@@ -307,5 +307,5 @@ valid [JSON Path](https://goessner.net/articles/JsonPath/). `fieldPath` may also
 The JSON Path implementation used in kluctl has extended support for wildcards in field
 names, allowing you to also specify paths like `metadata.labels.my-prefix-*`.
 
-As an alternative, [annotations](./annotations/all-resources#control-diff-behavior) can be used to control
+As an alternative, [annotations](./annotations/all-resources.md#control-diff-behavior) can be used to control
 diff behavior of individual resources.

@@ -16,7 +16,7 @@ menu:
 
 1. [Get Started](./get-started.md)
 2. [Core Concepts](./concepts.md)
-3. [Installation](./installation)
+3. [Installation](./installation.md)
 4. [Philosophy](./philosophy.md)
 5. [History](./history.md)
 6. [Reference](./reference)

@@ -14,10 +14,10 @@ description: >
 There are multiple places in deployment projects (deployment.yaml) where additional variables can be loaded into
 future Jinja2 contexts.
 
-The first place where vars can be specified is the deployment root, as documented [here](../deployments/deployment-yml#vars-deployment-project).
+The first place where vars can be specified is the deployment root, as documented [here](../deployments/deployment-yml.md#vars-deployment-project).
 These vars are visible for all deployments inside the deployment project, including sub-deployments from includes.
 
-The second place to specify variables is in the deployment items, as documented [here](../deployments/deployment-yml#vars-deployment-item).
+The second place to specify variables is in the deployment items, as documented [here](../deployments/deployment-yml.md#vars-deployment-item).
 
 The variables loaded for each entry in `vars` are not available inside the `deployment.yaml` file itself.
 However, each entry in `vars` can use all variables defined before that specific entry is processed. Consider the

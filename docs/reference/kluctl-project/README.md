@@ -13,7 +13,7 @@ description: >
 
 The `.kluctl.yaml` is the central configuration and entry point for your deployments. It defines where the actual
 [deployment project](../deployments) is located,
-where [sealed secrets](../sealed-secrets) and unencrypted secrets are localed and which targets are available to
+where [sealed secrets](../sealed-secrets.md) and unencrypted secrets are localed and which targets are available to
 invoke [commands](../commands) on.
 
 ## Example

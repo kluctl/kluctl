@@ -22,9 +22,9 @@ It will also output a list of prunable objects (without actually deleting them).
 
 ## Arguments
 The following sets of arguments are available:
-1. [project arguments](./common-arguments#project-arguments)
-1. [image arguments](./common-arguments#image-arguments)
-1. [inclusion/exclusion arguments](./common-arguments#inclusionexclusion-arguments)
+1. [project arguments](./common-arguments.md#project-arguments)
+1. [image arguments](./common-arguments.md#image-arguments)
+1. [inclusion/exclusion arguments](./common-arguments.md#inclusionexclusion-arguments)
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "deploy" "Misc arguments" true -->
@@ -54,9 +54,9 @@ Misc arguments:
 <!-- END SECTION -->
 
 ### --force-apply
-kluctl implements deployments via [server-side apply](https://kubernetes.io/reference/using-api/server-side-apply/)
+kluctl implements deployments via [server-side apply](https://kubernetes.io/docs/reference/using-api/server-side-apply/)
 and a custom automatic conflict resolution algorithm. This algurithm is an automatic implementation of the
-"[Don't overwrite value, give up management claim](https://kubernetes.io/reference/using-api/server-side-apply/#conflicts)"
+"[Don't overwrite value, give up management claim](https://kubernetes.io/docs/reference/using-api/server-side-apply/#conflicts)"
 method. It should work in most cases, but might still fail. In case of such failure, you can use `--force-apply` to
 use the "Overwrite value, become sole manager" strategy instead.
 

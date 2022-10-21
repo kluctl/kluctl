@@ -41,11 +41,11 @@ control structures (if/else, for loops, ...).
 
 ## Secrets
 Secrets are loaded from [external sources](./reference/kluctl-project) and are only available
-while [sealing](./reference/sealed-secrets). After the sealing process, only the public-key encrypted
+while [sealing](./reference/sealed-secrets.md). After the sealing process, only the public-key encrypted
 sealed secrets are available.
 
 ## Sealed Secrets
-[Sealed Secrets](./reference/sealed-secrets) are based on
+[Sealed Secrets](./reference/sealed-secrets.md) are based on
 [Bitnami's sealed-secrets controller](https://github.com/bitnami-labs/sealed-secrets). Kluctl offers integration of
 sealed secrets through the `seal` command. Kluctl allows managing multiple sets of sealed secrets for multiple targets.
 
