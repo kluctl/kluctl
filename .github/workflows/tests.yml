@@ -100,6 +100,6 @@ jobs:
           fi
 
           chmod +x ./bin/*
-          mv ./bin/kluctl-e2e-${{ matrix.binary-suffix }}$EXE ./kluctl-e2e$EXE
+          mv ./bin/kluctl-e2e-${{ matrix.binary-suffix }}$EXE ./bin/kluctl-e2e$EXE
 
           make test-e2e-pre-built
