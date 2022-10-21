@@ -9,7 +9,7 @@ description: >
 ---
 -->
 
-# Table of Contents
+## Table of Contents
 
 1. [Predefined Variables](./predefined-variables.md)
 2. [Variable Sources](./variable-sources.md)

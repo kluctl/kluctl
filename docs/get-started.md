@@ -1,7 +1,7 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "Get Started with Kluctl"
+title: "Get Started"
 linkTitle: "Get Started"
 description: "Get Started with Kluctl."
 weight: 20

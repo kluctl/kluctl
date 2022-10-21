@@ -1,7 +1,7 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "Kluctl project (.kluctl.yaml)"
+title: "Kluctl project"
 linkTitle: ".kluctl.yaml"
 weight: 1
 description: >

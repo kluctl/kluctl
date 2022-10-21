@@ -9,9 +9,9 @@ description: >
 ---
 -->
 
-# Table of Contents
+## Table of Contents
 
-1. [deployment.yaml](./deployment-yml.md)
+1. [Deployments](./deployment-yml.md)
 2. [Kustomize Integration](./kustomize.md)
 3. [Container Images](./images.md)
 4. [Helm Integration](./helm.md)

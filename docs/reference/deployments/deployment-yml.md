@@ -1,8 +1,8 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "deployment.yaml"
-linkTitle: "deployment.yaml"
+title: "Deployments"
+linkTitle: "Deployments"
 weight: 1
 description: >
     Structure of deployment.yaml.

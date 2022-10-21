@@ -9,7 +9,7 @@ weight: 110
 ---
 -->
 
-# Table of Contents
+## Table of Contents
 
 1. [.kluctl.yaml](./kluctl-project)
 2. [Deployments](./deployments)

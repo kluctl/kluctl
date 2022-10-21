@@ -9,7 +9,7 @@ description: >
 ---
 -->
 
-# Table of Contents
+## Table of Contents
 
 1. [All Resources](./all-resources.md)
 2. [Hooks](./hooks.md)
