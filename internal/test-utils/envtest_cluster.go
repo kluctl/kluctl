@@ -7,7 +7,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"net/http"
 	"os"
 	"os/exec"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -23,6 +25,9 @@ type EnvTestCluster struct {
 	Kubeconfig []byte
 	Context    string
 	config     *rest.Config
+
+	HttpClient    *http.Client
+	DynamicClient dynamic.Interface
 
 	callbackServer     webhook.Server
 	callbackServerStop context.CancelFunc
@@ -63,6 +68,18 @@ func (k *EnvTestCluster) Start() error {
 	kcfg = bytes.ReplaceAll(kcfg, []byte("envtest"), []byte(k.Context))
 
 	k.Kubeconfig = kcfg
+
+	client, err := rest.HTTPClientFor(k.config)
+	if err != nil {
+		return err
+	}
+	k.HttpClient = client
+
+	dynamicClient, err := dynamic.NewForConfigAndClient(k.config, k.HttpClient)
+	if err != nil {
+		return err
+	}
+	k.DynamicClient = dynamicClient
 
 	return nil
 }
