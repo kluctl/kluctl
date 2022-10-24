@@ -3,63 +3,18 @@ package e2e
 import (
 	"bufio"
 	"bytes"
-	"fmt"
+	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io"
 	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
-
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/validation"
-	log "github.com/sirupsen/logrus"
 )
 
 func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {
 	k.KubectlMust(t, "create", "ns", namespace)
 	k.KubectlMust(t, "label", "ns", namespace, "kluctl-e2e=true")
-}
-
-func waitForReadiness(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string, timeout time.Duration) bool {
-	t.Logf("Waiting for readiness: %s/%s", namespace, resource)
-
-	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
-		y, stderr, err := k.KubectlYaml("-n", namespace, "get", resource)
-		if err != nil {
-			if strings.Index(stderr, "NotFound") == -1 {
-				t.Fatal(err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		v := validation.ValidateObject(nil, y, true)
-		if v.Ready {
-			return true
-		}
-
-		if log.IsLevelEnabled(log.DebugLevel) {
-			errTxt := ""
-			for _, e := range v.Errors {
-				if errTxt != "" {
-					errTxt += "\n"
-				}
-				errTxt += fmt.Sprintf("%s: %s", e.Ref.String(), e.Error)
-			}
-			log.Debugf("validation failed for %s/%s. errors:\n%s", namespace, resource, errTxt)
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return false
-}
-
-func assertReadiness(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string, timeout time.Duration) {
-	if !waitForReadiness(t, k, namespace, resource, timeout) {
-		t.Errorf("%s/%s did not get ready in time", namespace, resource)
-	}
 }
 
 func assertResourceExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string) *uo.UnstructuredObject {
