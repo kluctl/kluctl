@@ -19,20 +19,6 @@ func TestArgs(t *testing.T) {
 	createNamespace(t, k, p.projectName)
 
 	p.updateTarget("test", func(target *uo.UnstructuredObject) {
-		_ = target.SetNestedField([]any{
-			map[string]any{
-				"name": "a",
-			},
-			map[string]any{
-				"name": "b",
-			},
-			map[string]any{
-				"name": "c",
-			},
-			map[string]any{
-				"name": "d",
-			},
-		}, "dynamicArgs")
 	})
 	p.updateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField([]any{
