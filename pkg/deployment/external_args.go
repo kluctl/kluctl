@@ -18,7 +18,7 @@ func ParseArgs(argsList []string) (map[string]string, error) {
 	args := make(map[string]string)
 	for _, arg := range argsList {
 		if !argPattern.MatchString(arg) {
-			return nil, fmt.Errorf("invalid --arg argument. Must be --arg=some_var_name=value")
+			return nil, fmt.Errorf("invalid --arg argument. Must be --arg=some_var_name=value, not '%s'", arg)
 		}
 
 		s := strings.SplitN(arg, "=", 2)
