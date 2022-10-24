@@ -1,7 +1,11 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
@@ -9,13 +13,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var kluctlDeploymentGVR = schema.GroupVersionResource{
+	Group:    "flux.kluctl.io",
+	Version:  "v1alpha1",
+	Resource: "kluctldeployments",
+}
+
+func getKluctlDeploymentObject(t *testing.T, k *test_utils.EnvTestCluster) *uo.UnstructuredObject {
+	kd, err := k.DynamicClient.Resource(kluctlDeploymentGVR).Namespace("flux-test").Get(context.Background(), "microservices-demo-test", v1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kd == nil {
+		t.Fatal("kluctldeployment not found")
+	}
+	return uo.FromUnstructured(kd)
+}
+
 func TestFluxCommands(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "simple")
+	p.init(t, k, "flux-test")
 
 	defer p.cleanup()
 
@@ -23,23 +44,24 @@ func TestFluxCommands(t *testing.T) {
 	test_resources.ApplyYaml("kluctl-crds.yaml", k)
 	test_resources.ApplyYaml("kluctl-deployment.yaml", k)
 
-	assertResourceExists(t, k, "default", "kluctldeployment/microservices-demo-test")
+	// assert that it was created
+	_ = getKluctlDeploymentObject(t, k)
 
-	p.KluctlMust("flux", "suspend", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test")
+	p.KluctlMust("flux", "suspend", "--namespace", "flux-test", "--kluctl-deployment", "microservices-demo-test")
 	suspend := getKluctlSuspendField(t, k)
 	assert.Equal(t, true, suspend, "Field status.suspend is not false")
 
-	p.KluctlMust("flux", "resume", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test", "--no-wait")
+	p.KluctlMust("flux", "resume", "--namespace", "flux-test", "--kluctl-deployment", "microservices-demo-test", "--no-wait")
 	resume := getKluctlSuspendField(t, k)
 	assert.Equal(t, false, resume, "Field status.suspend is not true")
 
-	p.KluctlMust("flux", "reconcile", "--namespace", "default", "--kluctl-deployment", "microservices-demo-test", "--with-source", "--no-wait")
+	p.KluctlMust("flux", "reconcile", "--namespace", "flux-test", "--kluctl-deployment", "microservices-demo-test", "--with-source", "--no-wait")
 	annotation := getKluctlAnnotations(t, k)
 	assert.Len(t, annotation, 1, "Annotation not present")
 }
 
 func getKluctlSuspendField(t *testing.T, k *test_utils.EnvTestCluster) interface{} {
-	o := k.KubectlYamlMust(t, "-n", "default", "get", "kluctldeployment", "microservices-demo-test")
+	o := getKluctlDeploymentObject(t, k)
 	result, ok, err := o.GetNestedField("spec", "suspend")
 	fmt.Println(result)
 	if err != nil {
@@ -52,7 +74,7 @@ func getKluctlSuspendField(t *testing.T, k *test_utils.EnvTestCluster) interface
 }
 
 func getKluctlAnnotations(t *testing.T, k *test_utils.EnvTestCluster) interface{} {
-	o := k.KubectlYamlMust(t, "-n", "default", "get", "kluctldeployment", "microservices-demo-test")
+	o := getKluctlDeploymentObject(t, k)
 	result, ok, err := o.GetNestedField("metadata", "annotations")
 	if err != nil {
 		t.Fatal(err)
