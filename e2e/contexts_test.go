@@ -33,15 +33,15 @@ func TestContextCurrent(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.projectName, "cm")
 
 	p.updateMergedKubeconfig(func(config *api.Config) {
 		config.CurrentContext = defaultCluster2.Context
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster2, p.projectName, "cm")
 }
 
 func TestContext1(t *testing.T) {
@@ -55,8 +55,8 @@ func TestContext1(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.projectName, "cm")
 }
 
 func TestContext2(t *testing.T) {
@@ -70,8 +70,8 @@ func TestContext2(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster2, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster1, p.projectName, "cm")
 }
 
 func TestContext1And2(t *testing.T) {
@@ -88,11 +88,11 @@ func TestContext1And2(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.projectName, "cm")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test2")
-	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster2, p.projectName, "cm")
 }
 
 func TestContextSwitch(t *testing.T) {
@@ -106,15 +106,15 @@ func TestContextSwitch(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.projectName, "cm")
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster2.Context, "context")
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster2, p.projectName, "cm")
 }
 
 func TestContextOverride(t *testing.T) {
@@ -128,9 +128,9 @@ func TestContextOverride(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
-	assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.projectName, "cm")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1", "--context", defaultCluster2.Context)
-	assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, defaultCluster2, p.projectName, "cm")
 }

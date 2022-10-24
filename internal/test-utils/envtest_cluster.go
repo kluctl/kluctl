@@ -7,6 +7,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"net/http"
@@ -98,6 +100,30 @@ func (c *EnvTestCluster) Stop() {
 // RESTConfig returns K8s client config to pass to clientset objects
 func (c *EnvTestCluster) RESTConfig() *rest.Config {
 	return c.config
+}
+
+func (c *EnvTestCluster) Get(gvr schema.GroupVersionResource, namespace string, name string) (*uo.UnstructuredObject, error) {
+	x, err := c.DynamicClient.Resource(gvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return uo.FromUnstructured(x), nil
+}
+
+func (c *EnvTestCluster) MustGet(t *testing.T, gvr schema.GroupVersionResource, namespace string, name string) *uo.UnstructuredObject {
+	x, err := c.Get(gvr, namespace, name)
+	if err != nil {
+		t.Fatalf("error while getting %s/%s/%s: %s", gvr.String(), namespace, name, err.Error())
+	}
+	return x
+}
+
+func (c *EnvTestCluster) MustGetCoreV1(t *testing.T, resource string, namespace string, name string) *uo.UnstructuredObject {
+	return c.MustGet(t, schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: resource,
+	}, namespace, name)
 }
 
 func (c *EnvTestCluster) Kubectl(args ...string) (string, string, error) {

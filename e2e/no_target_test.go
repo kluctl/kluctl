@@ -31,22 +31,22 @@ func TestNoTarget(t *testing.T) {
 	defer p.cleanup()
 
 	p.KluctlMust("deploy", "--yes")
-	cm := assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
-	assertResourceNotExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	cm := assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.projectName, "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "",
 		"targetContext": defaultCluster1.Context,
 	}, cm.Object["data"])
 
 	p.KluctlMust("deploy", "--yes", "-T", "override-name")
-	cm = assertResourceExists(t, defaultCluster1, p.projectName, "ConfigMap/cm")
+	cm = assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "override-name",
 		"targetContext": defaultCluster1.Context,
 	}, cm.Object["data"])
 
 	p.KluctlMust("deploy", "--yes", "-T", "override-name", "--context", defaultCluster2.Context)
-	cm = assertResourceExists(t, defaultCluster2, p.projectName, "ConfigMap/cm")
+	cm = assertConfigMapExists(t, defaultCluster2, p.projectName, "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "override-name",
 		"targetContext": defaultCluster2.Context,

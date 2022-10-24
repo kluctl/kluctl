@@ -132,7 +132,7 @@ func (s *HookTestSuite) ensureHookExecuted(p *testProject, expectedCms ...string
 func (s *HookTestSuite) ensureHookNotExecuted(p *testProject) {
 	_, _, _ = s.k.Kubectl("delete", "-n", p.projectName, "configmaps", "cm1")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertResourceNotExists(s.T(), s.k, p.projectName, "ConfigMap/cm1")
+	assertConfigMapNotExists(s.T(), s.k, p.projectName, "cm1")
 }
 
 func (s *HookTestSuite) TestHooksPreDeployInitial() {
