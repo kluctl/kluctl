@@ -363,7 +363,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			a.HandleError(ref, err)
 			return false
 		}
-		v := validation.ValidateObject(a.k, o, false)
+		v := validation.ValidateObject(a.k, o, false, false)
 		if v.Ready {
 			if didLog {
 				a.sctx.InfoFallback("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)

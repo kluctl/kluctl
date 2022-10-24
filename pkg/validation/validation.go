@@ -45,7 +45,7 @@ const (
 	reactNotReady
 )
 
-func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool) (ret types.ValidateResult) {
+func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret types.ValidateResult) {
 	ref := o.GetK8sRef()
 
 	// We assume all is good in case no validation is performed
@@ -118,6 +118,10 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 
 	status, _, _ := o.GetNestedObject("status")
 	if status == nil {
+		if forceStatusRequired {
+			addNotReady("no status available yet")
+			return
+		}
 		if k == nil {
 			// can't really say anything...
 			return
