@@ -218,3 +218,15 @@ vars:
 
 The above example will make 3 variables available: `var1`, `someDict.var2` and
 `someList[0].var3`, each having the values of the environment variables specified by the leaf values.
+
+All specified environment variables must be set before calling kluctl unless a default value is set. Default values
+can be set by using the `ENV_VAR_NAME:default-value` form.
+
+Example:
+```yaml
+vars:
+- systemEnvVars:
+    var1: ENV_VAR_NAME4:defaultValue
+```
+
+The above example will set the variable `var1` to `defaultValue` in case ENV_VAR_NAME4 is not set.

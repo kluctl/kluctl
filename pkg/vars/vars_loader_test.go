@@ -334,6 +334,8 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 				"test3": map[string]interface{}{
 					"test4": "TEST4",
 				},
+				"test5": "TEST5:def",
+				"test6": "TEST1:def",
 			}),
 		}, nil, "")
 		assert.NoError(t, err)
@@ -346,6 +348,12 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 
 		v, _, _ = vc.Vars.GetNestedString("test3", "test4")
 		assert.Equal(t, "44", v)
+
+		v, _, _ = vc.Vars.GetNestedString("test5")
+		assert.Equal(t, "def", v)
+
+		v, _, _ = vc.Vars.GetNestedString("test6")
+		assert.Equal(t, "42", v)
 	})
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {

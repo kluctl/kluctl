@@ -17,6 +17,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
+	"strings"
 )
 
 type usernamePassword struct {
@@ -127,11 +128,24 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 		if !ok {
 			return fmt.Errorf("value at %s is not a string", it.KeyPath().ToJsonPath())
 		}
-		envValue, ok := os.LookupEnv(envName)
-		if !ok {
+		var defaultValue string
+		hasDefaultValue := false
+		if strings.IndexRune(envName, ':') != -1 {
+			s := strings.SplitN(envName, ":", 2)
+			envName = s[0]
+			defaultValue = s[1]
+			hasDefaultValue = true
+		}
+		envValueStr := ""
+		if v, ok := os.LookupEnv(envName); ok {
+			envValueStr = v
+		} else if hasDefaultValue {
+			envValueStr = defaultValue
+		} else {
 			return fmt.Errorf("environment variable %s not found for %s", envName, it.KeyPath().ToJsonPath())
 		}
-		err := newVars.SetNestedField(envValue, it.KeyPath()...)
+
+		err := newVars.SetNestedField(envValueStr, it.KeyPath()...)
 		if err != nil {
 			return fmt.Errorf("failed to set value for %s: %w", it.KeyPath().ToJsonPath(), err)
 		}
