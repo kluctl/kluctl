@@ -145,7 +145,13 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 			return fmt.Errorf("environment variable %s not found for %s", envName, it.KeyPath().ToJsonPath())
 		}
 
-		err := newVars.SetNestedField(envValueStr, it.KeyPath()...)
+		var envValue any
+		err := yaml.ReadYamlString(envValueStr, &envValue)
+		if err != nil {
+			return fmt.Errorf("failed to parse env value '%s': %w", envValueStr, err)
+		}
+
+		err = newVars.SetNestedField(envValue, it.KeyPath()...)
 		if err != nil {
 			return fmt.Errorf("failed to set value for %s: %w", it.KeyPath().ToJsonPath(), err)
 		}

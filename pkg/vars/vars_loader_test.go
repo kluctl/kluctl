@@ -323,7 +323,7 @@ func TestVarsLoader_K8sObjectLabels(t *testing.T) {
 
 func TestVarsLoader_SystemEnv(t *testing.T) {
 	t.Setenv("TEST1", "42")
-	t.Setenv("TEST2", "43")
+	t.Setenv("TEST2", "'43'")
 	t.Setenv("TEST4", "44")
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
@@ -340,20 +340,20 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 		}, nil, "")
 		assert.NoError(t, err)
 
-		v, _, _ := vc.Vars.GetNestedString("test1")
-		assert.Equal(t, "42", v)
+		v, _, _ := vc.Vars.GetNestedField("test1")
+		assert.Equal(t, 42, v)
 
-		v, _, _ = vc.Vars.GetNestedString("test2")
+		v, _, _ = vc.Vars.GetNestedField("test2")
 		assert.Equal(t, "43", v)
 
-		v, _, _ = vc.Vars.GetNestedString("test3", "test4")
-		assert.Equal(t, "44", v)
+		v, _, _ = vc.Vars.GetNestedField("test3", "test4")
+		assert.Equal(t, 44, v)
 
-		v, _, _ = vc.Vars.GetNestedString("test5")
+		v, _, _ = vc.Vars.GetNestedField("test5")
 		assert.Equal(t, "def", v)
 
-		v, _, _ = vc.Vars.GetNestedString("test6")
-		assert.Equal(t, "42", v)
+		v, _, _ = vc.Vars.GetNestedField("test6")
+		assert.Equal(t, 42, v)
 	})
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
