@@ -218,3 +218,29 @@ vars:
 
 The above example will make 3 variables available: `var1`, `someDict.var2` and
 `someList[0].var3`, each having the values of the environment variables specified by the leaf values.
+
+All specified environment variables must be set before calling kluctl unless a default value is set. Default values
+can be set by using the `ENV_VAR_NAME:default-value` form.
+
+Example:
+```yaml
+vars:
+- systemEnvVars:
+    var1: ENV_VAR_NAME4:defaultValue
+```
+
+The above example will set the variable `var1` to `defaultValue` in case ENV_VAR_NAME4 is not set.
+
+All values retrieved from environment variables (or specified as default values) will be treated as YAML, meaning that
+integers and booleans will be treated as integers/booleans. If you want to enforce strings, encapsulate the values in
+quotes.
+
+Example:
+```yaml
+vars:
+- systemEnvVars:
+    var1: ENV_VAR_NAME5:'true'
+```
+
+The above example will treat `true` as a string instead of a boolean. When the environment variable is set outside
+kluctl, it should also contain the quotes. Please note that your shell might require escaping to properly pass quotes.
