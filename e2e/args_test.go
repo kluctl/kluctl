@@ -123,3 +123,41 @@ d:
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d4"}}`, "data", "d")
 }
+
+func TestArgsFromEnv(t *testing.T) {
+	t.Setenv("KLUCTL_ARG", "a=a")
+	t.Setenv("KLUCTL_ARG_1", "b=b")
+	t.Setenv("KLUCTL_ARG_2", `c={"nested":{"nested2":"c"}}`)
+	t.Setenv("KLUCTL_ARG_3", "d=true")
+	t.Setenv("KLUCTL_ARG_4", "e='true'")
+
+	k := defaultCluster1
+
+	p := &testProject{}
+	p.init(t, k, "args-from-envs")
+	defer p.cleanup()
+
+	createNamespace(t, k, p.projectName)
+
+	p.updateTarget("test", func(target *uo.UnstructuredObject) {
+	})
+
+	addConfigMapDeployment(p, "cm", map[string]string{
+		"a": `{{ args.a }}`,
+		"b": `{{ args.b }}`,
+		"c": `{{ args.c | to_json }}`,
+		"d": `{{ args.d }}`,
+		"e": `{{ args.e }}`,
+	}, resourceOpts{
+		name:      "cm",
+		namespace: p.projectName,
+	})
+
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+	cm := k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	assertNestedFieldEquals(t, cm, "a", "data", "a")
+	assertNestedFieldEquals(t, cm, "b", "data", "b")
+	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "c"}}`, "data", "c")
+	assertNestedFieldEquals(t, cm, "True", "data", "d")
+	assertNestedFieldEquals(t, cm, "true", "data", "e")
+}
