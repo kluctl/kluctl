@@ -126,6 +126,33 @@ func (c *EnvTestCluster) MustGetCoreV1(t *testing.T, resource string, namespace 
 	}, namespace, name)
 }
 
+func (c *EnvTestCluster) List(gvr schema.GroupVersionResource, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, error) {
+	labelSelector := ""
+	if len(labels) != 0 {
+		for k, v := range labels {
+			if labelSelector != "" {
+				labelSelector += ","
+			}
+			labelSelector += fmt.Sprintf("%s=%s", k, v)
+		}
+	}
+
+	l, err := c.DynamicClient.Resource(gvr).
+		Namespace(namespace).
+		List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+	if err != nil {
+		return nil, err
+	}
+	var ret []*uo.UnstructuredObject
+	for _, x := range l.Items {
+		x := x
+		ret = append(ret, uo.FromUnstructured(&x))
+	}
+	return ret, nil
+}
+
 func (c *EnvTestCluster) Kubectl(args ...string) (string, string, error) {
 	tmp, err := os.CreateTemp("", "")
 	if err != nil {

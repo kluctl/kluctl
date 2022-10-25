@@ -1,8 +1,8 @@
 package e2e
 
 import (
-	"fmt"
 	"github.com/kluctl/kluctl/v2/internal/test-utils"
+	corev1 "k8s.io/api/core/v1"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -58,8 +58,10 @@ func assertExistsHelper(t *testing.T, p *testProject, k *test_utils.EnvTestClust
 			delete(shouldExists, x)
 		}
 	}
-	exists := k.KubectlYamlMust(t, "-n", p.projectName, "get", "configmaps", "-l", fmt.Sprintf("project_name=%s", p.projectName))
-	items, _, _ := exists.GetNestedObjectList("items")
+	items, err := k.List(corev1.SchemeGroupVersion.WithResource("configmaps"), p.projectName, map[string]string{"project_name": p.projectName})
+	if err != nil {
+		t.Fatal(err)
+	}
 	found := make(map[string]bool)
 	for _, x := range items {
 		found[x.GetK8sName()] = true
