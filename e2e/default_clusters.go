@@ -2,6 +2,7 @@ package e2e
 
 import (
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )
 
@@ -24,6 +25,9 @@ func init() {
 	}()
 	go func() {
 		defer wg.Done()
+		defaultCluster2.InitWebhookCallback(schema.GroupVersionResource{
+			Version: "v1", Resource: "configmaps",
+		}, true)
 		err := defaultCluster2.Start()
 		if err != nil {
 			panic(err)

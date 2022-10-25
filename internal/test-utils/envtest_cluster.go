@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sync"
 	"testing"
 )
 
@@ -30,6 +31,9 @@ type EnvTestCluster struct {
 
 	callbackServer     webhook.Server
 	callbackServerStop context.CancelFunc
+
+	webhookHandlers      []*CallbackHandlerEntry
+	webhookHandlersMutex sync.Mutex
 }
 
 func CreateEnvTestCluster(context string) *EnvTestCluster {

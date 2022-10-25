@@ -14,6 +14,10 @@ import (
 )
 
 type CallbackHandler func(request admission.Request)
+type CallbackHandlerEntry struct {
+	GVR      schema.GroupVersionResource
+	Callback CallbackHandler
+}
 
 func (k *EnvTestCluster) buildServeCallback(gvr schema.GroupVersionResource, cb CallbackHandler) http.Handler {
 	wh := &webhook.Admission{
@@ -49,7 +53,7 @@ func (k *EnvTestCluster) startCallbackServer() error {
 	return nil
 }
 
-func (k *EnvTestCluster) AddWebhookCallback(gvr schema.GroupVersionResource, isNamespaced bool, cb CallbackHandler) {
+func (k *EnvTestCluster) InitWebhookCallback(gvr schema.GroupVersionResource, isNamespaced bool) {
 	scope := admissionv1.ClusterScope
 	if isNamespaced {
 		scope = admissionv1.NamespacedScope
@@ -103,5 +107,41 @@ func (k *EnvTestCluster) AddWebhookCallback(gvr schema.GroupVersionResource, isN
 		},
 	})
 
-	k.callbackServer.Register(path, k.buildServeCallback(gvr, cb))
+	k.callbackServer.Register(path, k.buildServeCallback(gvr, k.handleWebhook))
+}
+
+func (k *EnvTestCluster) handleWebhook(request admission.Request) {
+	k.webhookHandlersMutex.Lock()
+	defer k.webhookHandlersMutex.Unlock()
+
+	for _, e := range k.webhookHandlers {
+		if e.GVR.Group == request.Resource.Group && e.GVR.Version == request.Resource.Version && e.GVR.Resource == request.Resource.Resource {
+			e.Callback(request)
+		}
+	}
+}
+
+func (k *EnvTestCluster) AddWebhookHandler(gvr schema.GroupVersionResource, cb CallbackHandler) *CallbackHandlerEntry {
+	k.webhookHandlersMutex.Lock()
+	defer k.webhookHandlersMutex.Unlock()
+
+	entry := &CallbackHandlerEntry{
+		GVR:      gvr,
+		Callback: cb,
+	}
+	k.webhookHandlers = append(k.webhookHandlers, entry)
+
+	return entry
+}
+
+func (k *EnvTestCluster) RemoveWebhookHandler(e *CallbackHandlerEntry) {
+	k.webhookHandlersMutex.Lock()
+	defer k.webhookHandlersMutex.Unlock()
+	old := k.webhookHandlers
+	k.webhookHandlers = make([]*CallbackHandlerEntry, 0, len(k.webhookHandlers))
+	for _, e2 := range old {
+		if e != e2 {
+			k.webhookHandlers = append(k.webhookHandlers, e2)
+		}
+	}
 }
