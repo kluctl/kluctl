@@ -26,7 +26,6 @@ require (
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.16
 	github.com/mattn/go-runewidth v0.0.14
-	github.com/mitchellh/go-ps v1.0.0
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.14.5
 	github.com/pkg/errors v0.9.1

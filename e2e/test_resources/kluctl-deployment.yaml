@@ -1,9 +1,14 @@
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flux-test
+---
 apiVersion: flux.kluctl.io/v1alpha1
 kind: KluctlDeployment
 metadata:
   name: microservices-demo-test
-  namespace: default
+  namespace: flux-test
 spec:
   interval: 10m
   path: ./simple
@@ -14,7 +19,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: microservices-demo
-    namespace: default
+    namespace: flux-test
   target: simple
   timeout: 2m
 ---
@@ -22,7 +27,7 @@ apiVersion: source.toolkit.fluxcd.io/v1beta1
 kind: GitRepository
 metadata:
   name: microservices-demo
-  namespace: default
+  namespace: flux-test
 spec:
   interval: 5m
   ref:

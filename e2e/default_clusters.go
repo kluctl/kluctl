@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test_resources"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )
 
@@ -21,13 +23,18 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
+		test_resources.ApplyYaml("sealed-secrets.yaml", defaultCluster1)
 	}()
 	go func() {
 		defer wg.Done()
+		defaultCluster2.InitWebhookCallback(schema.GroupVersionResource{
+			Version: "v1", Resource: "configmaps",
+		}, true)
 		err := defaultCluster2.Start()
 		if err != nil {
 			panic(err)
 		}
+		test_resources.ApplyYaml("sealed-secrets.yaml", defaultCluster2)
 	}()
 	wg.Wait()
 }

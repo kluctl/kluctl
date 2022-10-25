@@ -56,7 +56,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 				result.Errors = append(result.Errors, types.DeploymentError{Ref: ref, Error: "object not found"})
 				continue
 			}
-			r := validation.ValidateObject(k, remoteObject, true)
+			r := validation.ValidateObject(k, remoteObject, true, false)
 			if !r.Ready {
 				result.Ready = false
 			}

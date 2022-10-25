@@ -3,87 +3,45 @@ package e2e
 import (
 	"bufio"
 	"bytes"
-	"fmt"
-	"io"
-	"os/exec"
-	"reflect"
-	"strings"
-	"testing"
-	"time"
-
+	"context"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/validation"
-	log "github.com/sirupsen/logrus"
+	"io"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"os/exec"
+	"reflect"
+	"testing"
 )
 
 func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {
-	k.KubectlMust(t, "create", "ns", namespace)
-	k.KubectlMust(t, "label", "ns", namespace, "kluctl-e2e=true")
-}
+	var ns unstructured.Unstructured
+	ns.SetName(namespace)
 
-func waitForReadiness(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string, timeout time.Duration) bool {
-	t.Logf("Waiting for readiness: %s/%s", namespace, resource)
+	_, err := k.DynamicClient.Resource(v1.SchemeGroupVersion.WithResource("namespaces")).Create(context.Background(), &ns, metav1.CreateOptions{})
 
-	startTime := time.Now()
-	for time.Now().Sub(startTime) < timeout {
-		y, stderr, err := k.KubectlYaml("-n", namespace, "get", resource)
-		if err != nil {
-			if strings.Index(stderr, "NotFound") == -1 {
-				t.Fatal(err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		v := validation.ValidateObject(nil, y, true)
-		if v.Ready {
-			return true
-		}
-
-		if log.IsLevelEnabled(log.DebugLevel) {
-			errTxt := ""
-			for _, e := range v.Errors {
-				if errTxt != "" {
-					errTxt += "\n"
-				}
-				errTxt += fmt.Sprintf("%s: %s", e.Ref.String(), e.Error)
-			}
-			log.Debugf("validation failed for %s/%s. errors:\n%s", namespace, resource, errTxt)
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return false
-}
-
-func assertReadiness(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string, timeout time.Duration) {
-	if !waitForReadiness(t, k, namespace, resource, timeout) {
-		t.Errorf("%s/%s did not get ready in time", namespace, resource)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
-func assertResourceExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string) *uo.UnstructuredObject {
-	var args []string
-	if namespace != "" {
-		args = append(args, "-n", namespace)
+func assertConfigMapExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) *uo.UnstructuredObject {
+	x, err := k.Get(v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name)
+	if err != nil {
+		t.Fatalf("unexpected error '%v' while getting ConfigMap %s/%s", err, namespace, name)
 	}
-	args = append(args, "get", resource)
-	return k.KubectlYamlMust(t, args...)
+	return x
 }
 
-func assertResourceNotExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, resource string) {
-	var args []string
-	if namespace != "" {
-		args = append(args, "-n", namespace)
-	}
-	args = append(args, "get", resource)
-	_, stderr, err := k.KubectlYaml(args...)
+func assertConfigMapNotExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) {
+	_, err := k.Get(v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name)
 	if err == nil {
-		t.Fatalf("'kubectl get' for %s should not have succeeded", resource)
-	} else {
-		if strings.Index(stderr, "(NotFound)") == -1 {
-			t.Fatal(err)
-		}
+		t.Fatalf("expected %s/%s to not exist", namespace, name)
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("unexpected error '%v' for %s/%s, expected a NotFound error", err, namespace, name)
 	}
 }
 

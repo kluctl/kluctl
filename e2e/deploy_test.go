@@ -22,14 +22,14 @@ func TestCommandDeploySimple(t *testing.T) {
 		namespace: p.projectName,
 	})
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertResourceExists(t, k, p.projectName, "ConfigMap/cm")
+	assertConfigMapExists(t, k, p.projectName, "cm")
 
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
 		name:      "cm2",
 		namespace: p.projectName,
 	})
 	p.KluctlMust("deploy", "--yes", "-t", "test", "--dry-run")
-	assertResourceNotExists(t, k, p.projectName, "ConfigMap/cm2")
+	assertConfigMapNotExists(t, k, p.projectName, "cm2")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertResourceExists(t, k, p.projectName, "ConfigMap/cm2")
+	assertConfigMapExists(t, k, p.projectName, "cm2")
 }
