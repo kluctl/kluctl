@@ -53,17 +53,19 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
 		du.Diff()
 
+		orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 		diffResult := &types.CommandResult{
 			NewObjects:     du.NewObjects,
 			ChangedObjects: du.ChangedObjects,
 			DeletedObjects: au.GetDeletedObjects(),
 			HookObjects:    au.GetAppliedHookObjects(),
+			OrphanObjects:  orphanObjects,
 			Errors:         dew.GetErrorsList(),
 			Warnings:       dew.GetWarningsList(),
 			SeenImages:     cmd.c.Images.SeenImages(false),
 		}
 
-		err := diffResultCb(diffResult)
+		err = diffResultCb(diffResult)
 		if err != nil {
 			return nil, err
 		}
