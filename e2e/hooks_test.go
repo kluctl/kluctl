@@ -1,9 +1,12 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"testing"
@@ -130,7 +133,9 @@ func (s *HookTestSuite) ensureHookExecuted(p *testProject, expectedCms ...string
 }
 
 func (s *HookTestSuite) ensureHookNotExecuted(p *testProject) {
-	_, _, _ = s.k.Kubectl("delete", "-n", p.projectName, "configmaps", "cm1")
+	_ = s.k.DynamicClient.Resource(corev1.SchemeGroupVersion.WithResource("configmaps")).
+		Namespace(p.projectName).
+		Delete(context.Background(), "cm1", metav1.DeleteOptions{})
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapNotExists(s.T(), s.k, p.projectName, "cm1")
 }
