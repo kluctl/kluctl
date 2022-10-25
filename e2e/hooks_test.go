@@ -47,7 +47,21 @@ func (s *HookTestSuite) SetupTest() {
 }
 
 func (s *HookTestSuite) handleConfigmap(request admission.Request) {
-	s.T().Logf("handleConfigmap: %s %s/%s", request.Operation, request.Namespace, request.Name)
+	x, err := uo.FromString(string(request.Object.Raw))
+	if err != nil {
+		s.T().Fatal(err)
+	}
+	generation, _, err := x.GetNestedInt("metadata", "generation")
+	if err != nil {
+		s.T().Fatal(err)
+	}
+	uid, _, err := x.GetNestedString("metadata", "uid")
+	if err != nil {
+		s.T().Fatal(err)
+	}
+
+	s.T().Logf("handleConfigmap: op=%s, name=%s/%s, generation=%d, uid=%s", request.Operation, request.Namespace, request.Name, generation, uid)
+
 	s.seenConfigMaps = append(s.seenConfigMaps, request.Name)
 }
 
