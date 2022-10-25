@@ -28,7 +28,6 @@ func TestNoTarget(t *testing.T) {
 	t.Parallel()
 
 	p := prepareNoTargetTest(t, "no-target")
-	defer p.cleanup()
 
 	p.KluctlMust("deploy", "--yes")
 	cm := assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")

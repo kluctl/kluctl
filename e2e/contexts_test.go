@@ -26,7 +26,6 @@ func TestContextCurrent(t *testing.T) {
 	t.Parallel()
 
 	p := prepareContextTest(t, "context-current")
-	defer p.cleanup()
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		// no context set, assume the current one is used
@@ -48,7 +47,6 @@ func TestContext1(t *testing.T) {
 	t.Parallel()
 
 	p := prepareContextTest(t, "context-1")
-	defer p.cleanup()
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
@@ -63,7 +61,6 @@ func TestContext2(t *testing.T) {
 	t.Parallel()
 
 	p := prepareContextTest(t, "context-2")
-	defer p.cleanup()
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster2.Context, "context")
@@ -78,7 +75,6 @@ func TestContext1And2(t *testing.T) {
 	t.Parallel()
 
 	p := prepareContextTest(t, "context-1-and-2")
-	defer p.cleanup()
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
@@ -99,7 +95,6 @@ func TestContextSwitch(t *testing.T) {
 	t.Parallel()
 
 	p := prepareContextTest(t, "context-switch")
-	defer p.cleanup()
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
@@ -121,7 +116,6 @@ func TestContextOverride(t *testing.T) {
 	t.Parallel()
 
 	p := prepareContextTest(t, "context-override")
-	defer p.cleanup()
 
 	p.updateTarget("test1", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")

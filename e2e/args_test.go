@@ -14,7 +14,6 @@ func TestArgs(t *testing.T) {
 
 	p := &testProject{}
 	p.init(t, k, "args")
-	defer p.cleanup()
 
 	createNamespace(t, k, p.projectName)
 
@@ -121,7 +120,6 @@ func TestArgsFromEnv(t *testing.T) {
 
 	p := &testProject{}
 	p.init(t, k, "args-from-envs")
-	defer p.cleanup()
 
 	createNamespace(t, k, p.projectName)
 

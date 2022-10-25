@@ -39,8 +39,6 @@ func TestFluxCommands(t *testing.T) {
 	p := &testProject{}
 	p.init(t, k, "flux-test")
 
-	defer p.cleanup()
-
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {

@@ -47,18 +47,10 @@ func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectNa
 	}
 	_ = tmpFile.Close()
 	p.mergedKubeconfig = tmpFile.Name()
+	t.Cleanup(func() {
+		os.Remove(p.mergedKubeconfig)
+	})
 	p.mergeKubeconfig(k)
-}
-
-func (p *testProject) cleanup() {
-	if p.gitServer != nil {
-		p.gitServer.Cleanup()
-		p.gitServer = nil
-	}
-	if p.mergedKubeconfig != "" {
-		_ = os.Remove(p.mergedKubeconfig)
-		p.mergedKubeconfig = ""
-	}
 }
 
 func (p *testProject) mergeKubeconfig(k *test_utils.EnvTestCluster) {

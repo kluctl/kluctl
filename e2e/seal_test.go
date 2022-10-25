@@ -100,9 +100,7 @@ func addProxyVars(p *testProject) {
 func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *testProject {
 	p := &testProject{}
 	p.init(t, k, fmt.Sprintf("seal-%s", namespace))
-	t.Cleanup(func() {
-		p.cleanup()
-	})
+
 	if proxy {
 		addProxyVars(p)
 	}

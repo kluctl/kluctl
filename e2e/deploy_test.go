@@ -11,7 +11,6 @@ func TestCommandDeploySimple(t *testing.T) {
 
 	p := &testProject{}
 	p.init(t, k, "simple")
-	defer p.cleanup()
 
 	createNamespace(t, k, p.projectName)
 
