@@ -110,6 +110,18 @@ func FromStringMulti(s string) ([]*UnstructuredObject, error) {
 	if err != nil {
 		return nil, err
 	}
+	return fromAnyList(ifs)
+}
+
+func FromFileMulti(p string) ([]*UnstructuredObject, error) {
+	ifs, err := yaml.ReadYamlAllFile(p)
+	if err != nil {
+		return nil, err
+	}
+	return fromAnyList(ifs)
+}
+
+func fromAnyList(ifs []any) ([]*UnstructuredObject, error) {
 	var ret []*UnstructuredObject
 	for _, i := range ifs {
 		m, ok := i.(map[string]interface{})
