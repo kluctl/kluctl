@@ -105,7 +105,6 @@ func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletion
 	s.p.init(t, s.k, namespace)
 	t.Cleanup(func() {
 		s.removeWebhook()
-		s.p.cleanup()
 	})
 
 	createNamespace(s.t, s.k, namespace)

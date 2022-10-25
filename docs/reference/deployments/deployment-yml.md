@@ -45,9 +45,23 @@ for details.
 Individual deployments are performed in parallel, unless a [barrier](#barriers) is encountered which causes kluctl to
 wait for all previous deployments to finish.
 
+### Simple deployments
+
+Simple deployments are specified via `path` and are expected to be directories with Kubernetes manifests inside.
+Kluctl will internally generate a kustomization.yaml from these manifests and treat the deployment item the same way
+as it would treat a [Kustomize deployment](#kustomize-deployments).
+
+Example:
+```yaml
+deployments:
+- path: path/to/manifests
+```
+
 ### Kustomize deployments
 
-Specifies a [kustomize](https://kustomize.io/) deployment.
+When the deployment item directory specified via `path` contains a `kustomization.yaml`, Kluctl will use this file
+instead of generating one.
+
 Please see [Kustomize integration](./kustomize.md) for more details.
 
 Example:

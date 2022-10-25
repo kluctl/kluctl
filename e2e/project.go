@@ -47,18 +47,10 @@ func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectNa
 	}
 	_ = tmpFile.Close()
 	p.mergedKubeconfig = tmpFile.Name()
+	t.Cleanup(func() {
+		os.Remove(p.mergedKubeconfig)
+	})
 	p.mergeKubeconfig(k)
-}
-
-func (p *testProject) cleanup() {
-	if p.gitServer != nil {
-		p.gitServer.Cleanup()
-		p.gitServer = nil
-	}
-	if p.mergedKubeconfig != "" {
-		_ = os.Remove(p.mergedKubeconfig)
-		p.mergedKubeconfig = ""
-	}
 }
 
 func (p *testProject) mergeKubeconfig(k *test_utils.EnvTestCluster) {
@@ -90,16 +82,22 @@ func (p *testProject) updateMergedKubeconfig(cb func(config *clientcmdapi.Config
 }
 
 func (p *testProject) updateKluctlYaml(update func(o *uo.UnstructuredObject) error) {
-	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), ".kluctl.yml", update, "")
+	p.updateYaml(".kluctl.yml", update, "")
 }
 
 func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.UnstructuredObject) error) {
-	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
+	p.updateYaml(filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
 		if dir == "." {
 			o.SetNestedField(p.projectName, "commonLabels", "project_name")
 		}
 		return update(o)
 	}, "")
+}
+
+func (p *testProject) updateYaml(path string, update func(o *uo.UnstructuredObject) error, message string) {
+	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), path, func(o *uo.UnstructuredObject) error {
+		return update(o)
+	}, message)
 }
 
 func (p *testProject) getDeploymentYaml(dir string) *uo.UnstructuredObject {
@@ -138,7 +136,7 @@ func (p *testProject) updateKustomizeDeployment(dir string, update func(o *uo.Un
 	wt := p.gitServer.GetWorktree(p.getKluctlProjectRepo())
 
 	pth := filepath.Join(dir, "kustomization.yml")
-	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), pth, func(o *uo.UnstructuredObject) error {
+	p.updateYaml(pth, func(o *uo.UnstructuredObject) error {
 		return update(o, wt)
 	}, fmt.Sprintf("Update kustomization.yml for %s", dir))
 }

@@ -28,25 +28,38 @@ func mergeMetadata(o *uo.UnstructuredObject, opts resourceOpts) {
 	}
 }
 
-func addConfigMapDeployment(p *testProject, dir string, data map[string]string, opts resourceOpts) {
+func createCoreV1Object(kind string, opts resourceOpts) *uo.UnstructuredObject {
 	o := uo.New()
-	o.SetK8sGVKs("", "v1", "ConfigMap")
+	o.SetK8sGVKs("", "v1", kind)
 	mergeMetadata(o, opts)
+	return o
+}
+
+func createConfigMapObject(data map[string]string, opts resourceOpts) *uo.UnstructuredObject {
+	o := createCoreV1Object("ConfigMap", opts)
 	if data != nil {
 		o.SetNestedField(data, "data")
 	}
+	return o
+}
+
+func createSecretObject(data map[string]string, opts resourceOpts) *uo.UnstructuredObject {
+	o := createCoreV1Object("ConfigMap", opts)
+	if data != nil {
+		o.SetNestedField(data, "stringData")
+	}
+	return o
+}
+
+func addConfigMapDeployment(p *testProject, dir string, data map[string]string, opts resourceOpts) {
+	o := createConfigMapObject(data, opts)
 	p.addKustomizeDeployment(dir, []kustomizeResource{
 		{fmt.Sprintf("configmap-%s.yml", opts.name), "", o},
 	}, opts.tags)
 }
 
-func addSecretDeployment(p *testProject, dir string, data map[string]string, sealedSecret bool, opts resourceOpts) {
-	o := uo.New()
-	o.SetK8sGVKs("", "v1", "Secret")
-	mergeMetadata(o, opts)
-	if data != nil {
-		o.SetNestedField(data, "stringData")
-	}
+func addSecretDeployment(p *testProject, dir string, data map[string]string, opts resourceOpts) {
+	o := createSecretObject(data, opts)
 	fname := fmt.Sprintf("secret-%s.yml", opts.name)
 	p.addKustomizeDeployment(dir, []kustomizeResource{
 		{fname, fname + ".sealme", o},

@@ -9,16 +9,9 @@ import (
 )
 
 func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bool) (*testProject, *test_utils.EnvTestCluster) {
-	isDone := false
-
 	k := defaultCluster1
 	p := &testProject{}
 	p.init(t, k, namespace)
-	defer func() {
-		if !isDone {
-			p.cleanup()
-		}
-	}()
 
 	createNamespace(t, k, p.projectName)
 
@@ -45,7 +38,6 @@ func prepareInclusionTestProject(t *testing.T, namespace string, withIncludes bo
 		addConfigMapDeployment(p, "include3/icm5", nil, resourceOpts{name: "icm5", namespace: p.projectName, tags: []string{"itag5", "itag6"}})
 	}
 
-	isDone = true
 	return p, k
 }
 
@@ -74,7 +66,6 @@ func assertExistsHelper(t *testing.T, p *testProject, k *test_utils.EnvTestClust
 func TestInclusionTags(t *testing.T) {
 	t.Parallel()
 	p, k := prepareInclusionTestProject(t, "inclusion-tags", false)
-	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
 	doAssertExists := func(add ...string) {
@@ -109,7 +100,6 @@ func TestInclusionTags(t *testing.T) {
 func TestExclusionTags(t *testing.T) {
 	t.Parallel()
 	p, k := prepareInclusionTestProject(t, "inclusion-exclusion", false)
-	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
 	doAssertExists := func(add ...string) {
@@ -134,7 +124,6 @@ func TestExclusionTags(t *testing.T) {
 func TestInclusionIncludeDirs(t *testing.T) {
 	t.Parallel()
 	p, k := prepareInclusionTestProject(t, "inclusion-dirs", true)
-	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
 	doAssertExists := func(add ...string) {
@@ -156,7 +145,6 @@ func TestInclusionIncludeDirs(t *testing.T) {
 func TestInclusionDeploymentDirs(t *testing.T) {
 	t.Parallel()
 	p, k := prepareInclusionTestProject(t, "inclusion-kustomize-dirs", true)
-	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
 	doAssertExists := func(add ...string) {
@@ -184,7 +172,6 @@ func TestInclusionDeploymentDirs(t *testing.T) {
 func TestInclusionPrune(t *testing.T) {
 	t.Parallel()
 	p, k := prepareInclusionTestProject(t, "inclusion-prune", false)
-	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
 	doAssertExists := func(add []string, remove []string) {
@@ -218,7 +205,6 @@ func TestInclusionPrune(t *testing.T) {
 func TestInclusionDelete(t *testing.T) {
 	t.Parallel()
 	p, k := prepareInclusionTestProject(t, "inclusion-delete", false)
-	defer p.cleanup()
 
 	shouldExists := make(map[string]bool)
 	doAssertExists := func(add []string, remove []string) {

@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -160,13 +161,25 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	)
 }
 
+func (di *DeploymentItem) isHelmChartYaml(p string) bool {
+	_, file := filepath.Split(p)
+	file = strings.ToLower(file)
+	return file == "helm-chart.yml" || file == "helm-chart.yaml"
+}
+
+func (di *DeploymentItem) isHelmValuesYaml(p string) bool {
+	_, file := filepath.Split(p)
+	file = strings.ToLower(file)
+	return file == "helm-values.yml" || file == "helm-values.yaml"
+}
+
 func (di *DeploymentItem) renderHelmCharts() error {
 	if di.dir == nil {
 		return nil
 	}
 
 	err := filepath.Walk(di.RenderedDir, func(p string, info fs.FileInfo, err error) error {
-		if !strings.HasSuffix(p, "helm-chart.yml") && !strings.HasSuffix(p, "helm-chart.yaml") {
+		if !di.isHelmChartYaml(p) {
 			return nil
 		}
 
@@ -218,15 +231,23 @@ func (di *DeploymentItem) ListSealedSecrets(subdir string) ([]string, error) {
 		return nil, err
 	}
 
-	y, err := uo.FromFile(yaml.FixPathExt(filepath.Join(renderedDir, "kustomization.yml")))
+	y, err := di.readKustomizationYaml(subdir)
 	if err != nil {
 		return nil, err
 	}
-	l, _, err := y.GetNestedStringList("resources")
+	if y == nil {
+		y, err = di.generateKustomizationYaml(subdir)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	resources, _, err := y.GetNestedStringList("resources")
 	if err != nil {
 		return nil, err
 	}
-	for _, resource := range l {
+
+	for _, resource := range resources {
 		p := filepath.Clean(filepath.Join(renderedDir, resource))
 
 		isDir := utils.IsDirectory(p)
@@ -370,6 +391,60 @@ func (di *DeploymentItem) readKustomizationYaml(subDir string) (*uo.Unstructured
 	return ky, err
 }
 
+func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.UnstructuredObject, error) {
+	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.RenderedDir, subDir, "kustomization.yml"))
+	if utils.IsFile(kustomizeYamlPath) {
+		return nil, nil
+	}
+
+	des, err := os.ReadDir(filepath.Join(di.RenderedDir, subDir))
+	if err != nil {
+		return nil, err
+	}
+
+	var list []any
+	m := map[string]bool{}
+
+	for _, de := range des {
+		if de.IsDir() {
+			continue
+		}
+
+		lname := strings.ToLower(de.Name())
+		resourcePath := ""
+
+		if di.isHelmValuesYaml(de.Name()) {
+			continue
+		} else if di.isHelmChartYaml(de.Name()) {
+			c, err := NewHelmChart(filepath.Join(di.RenderedDir, subDir, de.Name()))
+			if err != nil {
+				return nil, err
+			}
+			if !utils.IsFile(filepath.Join(di.RenderedDir, subDir, c.GetOutputPath())) {
+				resourcePath = c.GetOutputPath()
+			}
+		} else if strings.HasSuffix(lname, ".yml") || strings.HasSuffix(lname, ".yaml") {
+			resourcePath = de.Name()
+		} else if strings.HasSuffix(lname, ".yml"+SealmeExt) || strings.HasSuffix(lname, ".yaml"+SealmeExt) {
+			resourcePath = de.Name()[:len(de.Name())-len(SealmeExt)]
+		}
+
+		if resourcePath != "" {
+			resourcePath = filepath.ToSlash(resourcePath)
+			resourcePath = path.Clean(resourcePath)
+			if _, ok := m[resourcePath]; !ok {
+				m[resourcePath] = true
+				list = append(list, resourcePath)
+			}
+		}
+	}
+
+	generated := uo.New()
+	_ = generated.SetNestedField(list, "resources")
+
+	return generated, nil
+}
+
 func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) error {
 	kustomizeYamlPath := yaml.FixPathExt(filepath.Join(di.RenderedDir, "kustomization.yml"))
 	return yaml.WriteYamlFile(kustomizeYamlPath, ky)
@@ -381,7 +456,14 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 		return err
 	}
 	if ky == nil {
-		return nil
+		ky, err = di.generateKustomizationYaml("")
+		if err != nil {
+			return err
+		}
+		err = di.writeKustomizationYaml(ky)
+		if err != nil {
+			return err
+		}
 	}
 
 	overrideNamespace := di.Project.getOverrideNamespace()
@@ -398,7 +480,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	di.Barrier = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/barrier"))
 	di.WaitReadiness = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/wait-readiness"))
 
-	// Save modified kustomize.yml
+	// Save modified kustomization.yml
 	return di.writeKustomizationYaml(ky)
 }
 
