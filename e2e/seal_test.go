@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -13,6 +14,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	certUtil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"net"
@@ -158,7 +162,12 @@ func (s *SealedSecretsTestSuite) addSecretsSetToTarget(p *testProject, targetNam
 }
 
 func (s *SealedSecretsTestSuite) assertSealedSecret(k *test_utils.EnvTestCluster, namespace string, secretName string, expectedCertHash string, expectedSecrets map[string]string) {
-	y := k.KubectlYamlMust(s.T(), "-n", namespace, "get", "sealedsecret", secretName)
+
+	y := k.MustGet(s.T(), schema.GroupVersionResource{
+		Group:    "bitnami.com",
+		Version:  "v1alpha1",
+		Resource: "sealedsecrets",
+	}, namespace, secretName)
 
 	h1 := y.GetK8sAnnotation("kluctl.io/sealedsecret-cert-hash")
 	if h1 == nil {
@@ -219,7 +228,8 @@ func (s *SealedSecretsTestSuite) TestSeal_WithBootstrap() {
 	namespace := "seal-with-bootstrap"
 
 	// deleting the crd causes kluctl to not recognize the operator, so it will do a bootstrap
-	k.KubectlMust(s.T(), "delete", "crd", "sealedsecrets.bitnami.com")
+	_ = k.DynamicClient.Resource(apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")).
+		Delete(context.Background(), "sealedsecrets.bitnami.com", metav1.DeleteOptions{})
 
 	p := s.prepareSealTest(k, namespace,
 		map[string]string{
@@ -246,7 +256,7 @@ func (s *SealedSecretsTestSuite) TestSeal_WithBootstrap() {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	pkCm := k.KubectlYamlMust(s.T(), "-n", "kube-system", "get", "cm", "sealed-secrets-key-kluctl-bootstrap")
+	pkCm := k.MustGetCoreV1(s.T(), "configmaps", "kube-system", "sealed-secrets-key-kluctl-bootstrap")
 	certBytes, ok, _ := pkCm.GetNestedString("data", "tls.crt")
 	s.Assertions.True(ok)
 
