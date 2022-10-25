@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -52,8 +53,17 @@ func (s *SealedSecretsTestSuite) SetupSuite() {
 	s.k = defaultCluster1
 	s.k2 = defaultCluster2
 
-	test_resources.ApplyYaml("sealed-secrets.yaml", s.k)
-	test_resources.ApplyYaml("sealed-secrets.yaml", s.k2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		test_resources.ApplyYaml("sealed-secrets.yaml", s.k)
+		wg.Done()
+	}()
+	go func() {
+		test_resources.ApplyYaml("sealed-secrets.yaml", s.k2)
+		wg.Done()
+	}()
+	wg.Wait()
 
 	var err error
 	s.certServer1, err = s.startCertServer()

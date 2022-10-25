@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sync"
 	"testing"
 
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
@@ -40,8 +41,17 @@ func TestFluxCommands(t *testing.T) {
 
 	defer p.cleanup()
 
-	test_resources.ApplyYaml("flux-source-crd.yaml", k)
-	test_resources.ApplyYaml("kluctl-crds.yaml", k)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		test_resources.ApplyYaml("flux-source-crd.yaml", k)
+		wg.Done()
+	}()
+	go func() {
+		test_resources.ApplyYaml("kluctl-crds.yaml", k)
+		wg.Done()
+	}()
+	wg.Wait()
 	test_resources.ApplyYaml("kluctl-deployment.yaml", k)
 
 	// assert that it was created
