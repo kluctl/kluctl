@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/flowcontrol"
 	"net/http"
 	"os"
 	"os/exec"
@@ -61,6 +62,7 @@ func (k *EnvTestCluster) Start() error {
 	k.user = user
 
 	k.config = user.Config()
+	k.config.RateLimiter = flowcontrol.NewFakeAlwaysRateLimiter()
 
 	kcfg, err := user.KubeConfig()
 	if err != nil {
