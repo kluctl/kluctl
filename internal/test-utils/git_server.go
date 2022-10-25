@@ -150,6 +150,14 @@ func (p *GitServer) CommitFiles(repo string, add []string, all bool, message str
 func (p *GitServer) CommitYaml(repo string, pth string, message string, y *uo.UnstructuredObject) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
+	dir, _ := filepath.Split(fullPath)
+	if dir != "" {
+		err := os.MkdirAll(dir, 0o700)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	err := yaml.WriteYamlFile(fullPath, y)
 	if err != nil {
 		p.t.Fatal(err)

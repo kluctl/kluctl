@@ -110,7 +110,7 @@ func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, namespace strin
 	addSecretsSet(p, "test", varsSources)
 	addSecretsSetToTarget(p, "test-target", "test")
 
-	addSecretDeployment(p, "secret-deployment", secrets, true, resourceOpts{name: "secret", namespace: namespace})
+	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: namespace})
 
 	return p
 }
@@ -393,7 +393,7 @@ func TestSeal_File(t *testing.T) {
 			}),
 		}, true)
 
-	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), "secret-values.yaml", func(o *uo.UnstructuredObject) error {
+	p.updateYaml("secret-values.yaml", func(o *uo.UnstructuredObject) error {
 		*o = *uo.FromMap(map[string]interface{}{
 			"secrets": map[string]interface{}{
 				"s1": "v1",
