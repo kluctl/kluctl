@@ -1,5 +1,8 @@
 # Based on the work of Thomas Poignant (thomaspoignant)
 # https://gist.github.com/thomaspoignant/5b72d579bd5f311904d973652180c705
+GOOS=$(shell go env GOOS)
+GOARCH=$(shell go env GOARCH)
+
 EXE=
 ifeq ($(GOOS), windows)
 EXE=.exe
