@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"testing"
 
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
@@ -45,9 +46,9 @@ func (s *HookTestSuite) SetupTest() {
 	s.clearSeenConfigmaps()
 }
 
-func (s *HookTestSuite) handleConfigmap(o *uo.UnstructuredObject) {
-	s.T().Logf("handleConfigmap: %s", o.GetK8sName())
-	s.seenConfigMaps = append(s.seenConfigMaps, o.GetK8sName())
+func (s *HookTestSuite) handleConfigmap(request admission.Request) {
+	s.T().Logf("handleConfigmap: %s %s/%s", request.Operation, request.Namespace, request.Name)
+	s.seenConfigMaps = append(s.seenConfigMaps, request.Name)
 }
 
 func (s *HookTestSuite) clearSeenConfigmaps() {

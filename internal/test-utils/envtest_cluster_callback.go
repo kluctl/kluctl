@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type CallbackHandler func(o *uo.UnstructuredObject)
+type CallbackHandler func(request admission.Request)
 
 func (k *EnvTestCluster) buildServeCallback(gvr schema.GroupVersionResource, cb CallbackHandler) http.Handler {
 	wh := &webhook.Admission{
@@ -28,12 +27,11 @@ func (k *EnvTestCluster) buildServeCallback(gvr schema.GroupVersionResource, cb 
 }
 
 func (k *EnvTestCluster) serveCallback(gvr schema.GroupVersionResource, request admission.Request, cb CallbackHandler) {
-	o, err := uo.FromString(string(request.Object.Raw))
-	if err != nil {
-		panic(err)
+	if request.Resource.Group != gvr.Group || request.Resource.Version != gvr.Version || request.Resource.Resource != gvr.Resource {
+		return
 	}
 
-	cb(o)
+	cb(request)
 }
 
 func (k *EnvTestCluster) startCallbackServer() error {
