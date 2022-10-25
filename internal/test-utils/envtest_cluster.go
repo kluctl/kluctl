@@ -5,16 +5,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 	"net/http"
-	"os"
-	"os/exec"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"testing"
@@ -153,64 +149,4 @@ func (c *EnvTestCluster) List(gvr schema.GroupVersionResource, namespace string,
 		ret = append(ret, uo.FromUnstructured(&x))
 	}
 	return ret, nil
-}
-
-func (c *EnvTestCluster) Kubectl(args ...string) (string, string, error) {
-	tmp, err := os.CreateTemp("", "")
-	if err != nil {
-		return "", "", err
-	}
-	defer func() {
-		tmp.Close()
-		os.Remove(tmp.Name())
-	}()
-
-	_, err = tmp.Write(c.Kubeconfig)
-	if err != nil {
-		return "", "", err
-	}
-
-	stdoutBuffer := &bytes.Buffer{}
-	stderrBuffer := &bytes.Buffer{}
-	allArgs := append([]string{fmt.Sprintf("--kubeconfig=%s", tmp.Name())}, args...)
-
-	cmd := exec.Command(c.env.ControlPlane.KubectlPath, allArgs...)
-	cmd.Stdout = stdoutBuffer
-	cmd.Stderr = stderrBuffer
-
-	err = cmd.Run()
-	stdout, _ := io.ReadAll(stdoutBuffer)
-	stderr, _ := io.ReadAll(stderrBuffer)
-	return string(stdout), string(stderr), err
-}
-
-func (c *EnvTestCluster) KubectlMust(t *testing.T, args ...string) string {
-	stdout, stderr, err := c.Kubectl(args...)
-	if err != nil {
-		if t != nil {
-			t.Fatalf("%v, stderr=%s\n", err, stderr)
-		} else {
-			panic(fmt.Sprintf("%v, stderr=%s\n", err, stderr))
-		}
-	}
-	return stdout
-}
-
-func (c *EnvTestCluster) KubectlYaml(args ...string) (*uo.UnstructuredObject, string, error) {
-	args = append(args, "-oyaml")
-	stdout, stderr, err := c.Kubectl(args...)
-	if err != nil {
-		return nil, stderr, err
-	}
-	ret := uo.New()
-	err = yaml.ReadYamlString(stdout, ret)
-	return ret, stderr, err
-}
-
-func (c *EnvTestCluster) KubectlYamlMust(t *testing.T, args ...string) *uo.UnstructuredObject {
-	o, stderr, err := c.KubectlYaml(args...)
-	if err != nil {
-		t.Fatalf("%v, stderr=%s\n", err, stderr)
-	}
-	return o
 }
