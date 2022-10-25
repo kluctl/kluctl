@@ -136,11 +136,6 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 		if !utils.IsDirectory(diDir) {
 			return fmt.Errorf("deployment path is not a directory: %s", *di.Path)
 		}
-
-		pth := yaml.FixPathExt(filepath.Join(diDir, "kustomization.yml"))
-		if !utils.IsFile(pth) {
-			return fmt.Errorf("%s not found or not a file", pth)
-		}
 	}
 	return nil
 }
