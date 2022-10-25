@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 )
 
@@ -93,18 +92,88 @@ func (s *Sealer) encryptSecret(secret []byte, secretName string, secretNamespace
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
+type sealedSecret struct {
+	content  *uo.UnstructuredObject
+	hashes   *uo.UnstructuredObject
+	certHash string
+}
+
+func buildSecretRef(o *uo.UnstructuredObject) string {
+	return fmt.Sprintf("%s/%s", o.GetK8sNamespace(), o.GetK8sName())
+}
+
+func (s *Sealer) loadExistingSealedSecrets(p string) (map[string]*sealedSecret, error) {
+	ret := map[string]*sealedSecret{}
+
+	if !utils.Exists(p) {
+		return ret, nil
+	}
+
+	list, err := uo.FromFileMulti(p)
+	if err != nil {
+		return nil, err
+	}
+	if len(list) != 1 {
+		err = nil
+	}
+
+	for _, x := range list {
+		var ss sealedSecret
+
+		ss.content = x
+
+		a := x.GetK8sAnnotation(hashAnnotation)
+		if a != nil {
+			ss.hashes, _ = uo.FromString(*a)
+		}
+		a = x.GetK8sAnnotation(certHashAnnotation)
+		if a != nil {
+			ss.certHash = *a
+		}
+		if ss.hashes == nil {
+			ss.hashes = uo.New()
+		}
+
+		ret[buildSecretRef(x)] = &ss
+	}
+	return ret, nil
+}
+
 func (s *Sealer) SealFile(p string, targetFile string) error {
-	baseName := filepath.Base(targetFile)
 	err := os.MkdirAll(filepath.Dir(targetFile), 0o700)
 	if err != nil {
 		return err
 	}
 
-	o, err := uo.FromFile(p)
+	existingSealedSecrets, err := s.loadExistingSealedSecrets(targetFile)
 	if err != nil {
 		return err
 	}
 
+	secrets, err := uo.FromFileMulti(p)
+	if err != nil {
+		return err
+	}
+
+	var result []any
+
+	for _, o := range secrets {
+		existing, _ := existingSealedSecrets[buildSecretRef(o)]
+		newSealedSecret, err := s.sealSecret(o, existing)
+		if err != nil {
+			return err
+		}
+		result = append(result, newSealedSecret.content)
+	}
+
+	err = yaml.WriteYamlAllFile(targetFile, result)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Sealer) sealSecret(o *uo.UnstructuredObject, existing *sealedSecret) (*sealedSecret, error) {
 	secretName := o.ToUnstructured().GetName()
 	secretNamespace := o.ToUnstructured().GetNamespace()
 	if secretNamespace == "" {
@@ -112,7 +181,7 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 	}
 	secretType, ok, err := o.GetNestedString("type")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !ok {
 		secretType = "Opaque"
@@ -137,53 +206,34 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 		scope = &x
 	}
 
-	var existingContent *uo.UnstructuredObject
-	var existingHashes *uo.UnstructuredObject
-	var existingCertHash string
-
-	if utils.Exists(targetFile) {
-		existingContent, err = uo.FromFile(targetFile)
-		a := existingContent.GetK8sAnnotation(hashAnnotation)
-		if a != nil {
-			existingHashes, _ = uo.FromString(*a)
-		}
-		a = existingContent.GetK8sAnnotation(certHashAnnotation)
-		if a != nil {
-			existingCertHash = *a
-		}
-	}
-	if existingHashes == nil {
-		existingHashes = uo.New()
-	}
-
 	secrets := make(map[string][]byte)
 
 	data, ok, err := o.GetNestedObject("data")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if ok {
 		for k, v := range data.Object {
 			s, ok := v.(string)
 			if !ok {
-				return fmt.Errorf("%s is not a string", k)
+				return nil, fmt.Errorf("%s is not a string", k)
 			}
 			secrets[k], err = base64.StdEncoding.DecodeString(s)
 			if err != nil {
-				return fmt.Errorf("failed to decode base64 string for secret %s and key %s", secretName, k)
+				return nil, fmt.Errorf("failed to decode base64 string for secret %s and key %s", secretName, k)
 			}
 		}
 	}
 
 	stringData, ok, err := o.GetNestedObject("stringData")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if ok {
 		for k, v := range stringData.Object {
 			s, ok := v.(string)
 			if !ok {
-				return fmt.Errorf("%s is not a string", k)
+				return nil, fmt.Errorf("%s is not a string", k)
 			}
 			secrets[k] = []byte(s)
 		}
@@ -191,47 +241,52 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 
 	resultSecretHashes := make(map[string]string)
 
-	result := uo.New()
-	result.SetK8sGVK(schema.GroupVersionKind{Group: "bitnami.com", Version: "v1alpha1", Kind: "SealedSecret"})
-	result.SetK8sName(secretName)
-	result.SetK8sNamespace(secretNamespace)
-	result.SetK8sAnnotation("sealedsecrets.bitnami.com/scope", *scope)
+	var result sealedSecret
+	result.content = uo.New()
+	result.content.SetK8sGVK(schema.GroupVersionKind{Group: "bitnami.com", Version: "v1alpha1", Kind: "SealedSecret"})
+	result.content.SetK8sName(secretName)
+	result.content.SetK8sNamespace(secretNamespace)
+	result.content.SetK8sAnnotation("sealedsecrets.bitnami.com/scope", *scope)
 	if *scope == "namespace-wide" {
-		result.SetK8sAnnotation("sealedsecrets.bitnami.com/namespace-wide", "true")
+		result.content.SetK8sAnnotation("sealedsecrets.bitnami.com/namespace-wide", "true")
 	}
 	if *scope == "cluster-wide" {
-		result.SetK8sAnnotation("sealedsecrets.bitnami.com/cluster-wide", "true")
+		result.content.SetK8sAnnotation("sealedsecrets.bitnami.com/cluster-wide", "true")
 	}
-	_ = result.SetNestedField(secretType, "spec", "template", "type")
+	_ = result.content.SetNestedField(secretType, "spec", "template", "type")
 	metadata, ok, _ := o.GetNestedObject("metadata")
 	if ok {
-		result.SetNestedField(metadata.Object, "spec", "template", "metadata")
+		result.content.SetNestedField(metadata.Object, "spec", "template", "metadata")
 	}
 
 	resealAll := false
 	if s.forceReseal {
 		resealAll = true
 		status.Info(s.ctx, "Forcing reseal of secrets in %s", secretName)
-	} else if existingCertHash != s.certHash {
+	} else if existing == nil || existing.certHash != s.certHash {
 		resealAll = true
 		status.Info(s.ctx, "Cert for secret %s has changed, forcing reseal", secretName)
 	}
 
 	for k, v := range secrets {
 		hash := HashSecret(k, v, secretName, secretNamespace, *scope)
-		existingHash, _, _ := existingHashes.GetNestedString(k)
 
-		doEncrypt := resealAll
+		var existingHash string
+		if existing != nil {
+			existingHash, _, _ = existing.hashes.GetNestedString(k)
+		}
+
+		doEncrypt := existing == nil || resealAll
 		if !doEncrypt && hash != existingHash {
 			status.Info(s.ctx, "Secret %s and key %s has changed, resealing", secretName, k)
 			doEncrypt = true
 		}
 
 		if !doEncrypt {
-			e, ok, _ := existingContent.GetNestedString("spec", "encryptedData", k)
+			e, ok, _ := existing.content.GetNestedString("spec", "encryptedData", k)
 			if ok {
 				status.Trace(s.ctx, "Secret %s and key %s is unchanged", secretName, k)
-				result.SetNestedField(e, "spec", "encryptedData", k)
+				result.content.SetNestedField(e, "spec", "encryptedData", k)
 				resultSecretHashes[k] = hash
 				continue
 			} else {
@@ -242,27 +297,18 @@ func (s *Sealer) SealFile(p string, targetFile string) error {
 
 		e, err := s.encryptSecret(v, secretName, secretNamespace, *scope)
 		if err != nil {
-			return fmt.Errorf("failed to encrypt secret %s with key %s", secretName, k)
+			return nil, fmt.Errorf("failed to encrypt secret %s with key %s", secretName, k)
 		}
-		result.SetNestedField(e, "spec", "encryptedData", k)
+		result.content.SetNestedField(e, "spec", "encryptedData", k)
 		resultSecretHashes[k] = hash
 	}
 
 	resultSecretHashesStr, err := yaml.WriteYamlString(resultSecretHashes)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	result.SetK8sAnnotation(hashAnnotation, resultSecretHashesStr)
-	result.SetK8sAnnotation(certHashAnnotation, s.certHash)
+	result.content.SetK8sAnnotation(hashAnnotation, resultSecretHashesStr)
+	result.content.SetK8sAnnotation(certHashAnnotation, s.certHash)
 
-	if reflect.DeepEqual(existingContent, result) {
-		status.Info(s.ctx, "Skipped %s as it did not change", baseName)
-		return nil
-	}
-
-	err = yaml.WriteYamlFile(targetFile, result)
-	if err != nil {
-		return err
-	}
-	return nil
+	return &result, nil
 }
