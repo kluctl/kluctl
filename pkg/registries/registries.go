@@ -228,7 +228,12 @@ func (rh *RegistryHelper) buildTransport(registry string) (http.RoundTripper, er
 			return remote.DefaultTransport, nil
 		}
 
-		t := remote.DefaultTransport.Clone()
+		httpTransport, ok := remote.DefaultTransport.(*http.Transport)
+		if !ok {
+			return nil, fmt.Errorf("remote.DefaultTransport is not a http.Transport anymore. Please report this to https://github.com/kluctl/kluctl")
+		}
+		t := httpTransport.Clone()
+
 		t.TLSClientConfig.RootCAs = ca
 		t.TLSClientConfig.InsecureSkipVerify = skipTls
 		return t, nil
