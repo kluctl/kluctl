@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"testing"
 
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
@@ -45,9 +46,23 @@ func (s *HookTestSuite) SetupTest() {
 	s.clearSeenConfigmaps()
 }
 
-func (s *HookTestSuite) handleConfigmap(o *uo.UnstructuredObject) {
-	s.T().Logf("handleConfigmap: %s", o.GetK8sName())
-	s.seenConfigMaps = append(s.seenConfigMaps, o.GetK8sName())
+func (s *HookTestSuite) handleConfigmap(request admission.Request) {
+	x, err := uo.FromString(string(request.Object.Raw))
+	if err != nil {
+		s.T().Fatal(err)
+	}
+	generation, _, err := x.GetNestedInt("metadata", "generation")
+	if err != nil {
+		s.T().Fatal(err)
+	}
+	uid, _, err := x.GetNestedString("metadata", "uid")
+	if err != nil {
+		s.T().Fatal(err)
+	}
+
+	s.T().Logf("handleConfigmap: op=%s, name=%s/%s, generation=%d, uid=%s", request.Operation, request.Namespace, request.Name, generation, uid)
+
+	s.seenConfigMaps = append(s.seenConfigMaps, request.Name)
 }
 
 func (s *HookTestSuite) clearSeenConfigmaps() {
