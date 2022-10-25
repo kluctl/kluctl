@@ -40,7 +40,7 @@ jobs:
             exit 1
           fi
 
-  build:
+  cross-compile:
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
@@ -55,30 +55,18 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: build-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          key: cross-compile-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            build-go-${{ runner.os }}-
-      - name: Run unit tests
+            cross-compile-go-${{ runner.os }}-
+      - name: Build kluctl (linux)
         run: |
-          go test ./cmd/... ./pkg/... -v
-      - name: Build kluctl-e2e (linux)
+          make build GOARCH=amd64 GOOS=linux
+      - name: Build kluctl (darwin)
         run: |
-          make test-e2e-build GOARCH=amd64 GOOS=linux
-          mv ./bin/kluctl-e2e ./bin/kluctl-e2e-linux-amd64
-      - name: Build kluctl-e2e (darwin)
+          make build GOARCH=amd64 GOOS=darwin
+      - name: Build kluctl (windows)
         run: |
-          make test-e2e-build GOARCH=amd64 GOOS=darwin
-          mv ./bin/kluctl-e2e ./bin/kluctl-e2e-darwin-amd64
-      - name: Build kluctl-e2e (windows)
-        run: |
-          make test-e2e-build GOARCH=amd64 GOOS=windows
-          mv ./bin/kluctl-e2e.exe ./bin/kluctl-e2e-windows-amd64.exe
-      - name: Upload binaries
-        uses: actions/upload-artifact@v2
-        with:
-          name: bin
-          path: |
-            ./bin
+          make build GOARCH=amd64 GOOS=windows
 
   tests:
     strategy:
@@ -92,8 +80,6 @@ jobs:
             binary-suffix: windows-amd64
         os: [ubuntu-20.04, macos-11, windows-2019]
       fail-fast: false
-    needs:
-      - build
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -109,21 +95,15 @@ jobs:
           key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             tests-go-${{ runner.os }}-
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
       - name: setup-envtest
         shell: bash
         run: |
           make install-envtest
+      - name: Run unit tests
+        shell: bash
+        run: |
+          make test-unit
       - name: Run e2e tests
         shell: bash
         run: |
-          EXE=
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            EXE=.exe
-          fi
-
-          chmod +x ./bin/*
-          mv ./bin/kluctl-e2e-${{ matrix.binary-suffix }}$EXE ./bin/kluctl-e2e$EXE
-
-          make test-e2e-pre-built
+          make test-e2e
