@@ -160,13 +160,19 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	)
 }
 
+func (di *DeploymentItem) isHelmChartYaml(p string) bool {
+	_, file := filepath.Split(p)
+	file = strings.ToLower(file)
+	return file == "helm-chart.yml" || file == "helm-chart.yaml"
+}
+
 func (di *DeploymentItem) renderHelmCharts() error {
 	if di.dir == nil {
 		return nil
 	}
 
 	err := filepath.Walk(di.RenderedDir, func(p string, info fs.FileInfo, err error) error {
-		if !strings.HasSuffix(p, "helm-chart.yml") && !strings.HasSuffix(p, "helm-chart.yaml") {
+		if !di.isHelmChartYaml(p) {
 			return nil
 		}
 
