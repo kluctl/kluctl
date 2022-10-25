@@ -417,6 +417,52 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 	})
 }
 
+func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+	namespace := "seal-multiple-secrets2"
+
+	secret1 := map[string]string{
+		"s1": "{{ secrets.s1 }}",
+	}
+	secret2 := map[string]string{
+		"s2": "{{ secrets.s2 }}",
+	}
+	secret2Text, _ := yaml.WriteYamlString(createSecretObject(secret2, resourceOpts{name: "secret2", namespace: namespace}))
+
+	p := prepareSealTest(t, k, namespace,
+		secret1,
+		[]*uo.UnstructuredObject{
+			uo.FromMap(map[string]interface{}{
+				"values": map[string]interface{}{
+					"s1": "v1",
+					"s2": "v2",
+				},
+			}),
+		}, true)
+
+	p.gitServer.UpdateFile(p.getKluctlProjectRepo(), "secret-deployment/secret-secret.yml.sealme", func(f string) (string, error) {
+		f += "---\n"
+		f += secret2Text
+		return f, nil
+	}, "")
+
+	p.KluctlMust("seal", "-t", "test-target")
+
+	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
+
+	p.KluctlMust("deploy", "--yes", "-t", "test-target")
+
+	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+		"s1": "v1",
+	})
+	assertSealedSecret(t, k, namespace, "secret2", certServer1.certHash, map[string]string{
+		"s2": "v2",
+	})
+}
+
 func TestSeal_File(t *testing.T) {
 	t.Parallel()
 

@@ -168,6 +168,32 @@ func (p *GitServer) CommitYaml(repo string, pth string, message string, y *uo.Un
 	p.CommitFiles(repo, []string{pth}, false, message)
 }
 
+func (p *GitServer) UpdateFile(repo string, pth string, update func(f string) (string, error), message string) {
+	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	f := ""
+	if utils.Exists(fullPath) {
+		b, err := os.ReadFile(fullPath)
+		if err != nil {
+			p.t.Fatal(err)
+		}
+		f = string(b)
+	}
+
+	newF, err := update(f)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+
+	if f == newF {
+		return
+	}
+	err = os.WriteFile(fullPath, []byte(newF), 0o600)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	p.CommitFiles(repo, []string{pth}, false, message)
+}
+
 func (p *GitServer) UpdateYaml(repo string, pth string, update func(o *uo.UnstructuredObject) error, message string) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
