@@ -50,32 +50,32 @@ func TestArgs(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a")
-	cm := k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm := k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "na", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
-	cm = k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "na", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c")
-	cm = k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", "-ad.nested=d")
-	cm = k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": "d"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", `-ad={"nested": "d2"}`)
-	cm = k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": "d2"}`, "data", "d")
 
 	tmpFile, err := os.CreateTemp("", "")
@@ -89,7 +89,7 @@ nested:
 `)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", fmt.Sprintf(`-ad=@%s`, tmpFile.Name()))
-	cm = k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d3"}}`, "data", "d")
 
 	_ = tmpFile.Truncate(0)
@@ -103,7 +103,7 @@ d:
 `)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", fmt.Sprintf(`--args-from-file=%s`, tmpFile.Name()))
-	cm = k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, "a2", "data", "a")
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")
@@ -140,7 +140,7 @@ func TestArgsFromEnv(t *testing.T) {
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	cm := k.KubectlYamlMust(t, "-n", p.projectName, "get", "cm/cm")
+	cm := k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "c"}}`, "data", "c")
