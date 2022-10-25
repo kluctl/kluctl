@@ -234,13 +234,36 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 			return
 		}
 		v := viper.Get(flag.Name)
+
+		var a []string
 		if v != nil {
-			s, ok := v.(string)
-			if !ok {
-				retErr = append(retErr, fmt.Errorf("viper flag %s is not a string", flag.Name))
+			if x, ok := v.(string); ok {
+				a = []string{x}
+			} else if x, ok := v.([]any); ok {
+				for _, y := range x {
+					s, ok := y.(string)
+					if !ok {
+						retErr = append(retErr, fmt.Errorf("viper flag %s has unexpected type", flag.Name))
+						return
+					}
+					a = append(a, s)
+				}
+			} else {
+				retErr = append(retErr, fmt.Errorf("viper flag %s has unexpected type", flag.Name))
 				return
 			}
-			err := flag.Value.Set(s)
+		}
+
+		envName := strings.ReplaceAll(flag.Name, "-", "_")
+		envName = strings.ToUpper(envName)
+		envName = fmt.Sprintf("KLUCTL_%s", envName)
+
+		for _, v := range utils.ParseEnvConfigList(envName) {
+			a = append(a, v)
+		}
+
+		for _, x := range a {
+			err := flag.Value.Set(x)
 			if err != nil {
 				retErr = append(retErr, err)
 			}

@@ -17,6 +17,9 @@ variables always start with `KLUCTL_` and end with the option/argument in upperc
 underscores. As an example, `--dry-run` can also be specified with the environment variable
 `KLUCTL_DRY_RUN=true`.
 
+If an argument needs to be specified multiple times through environment variables, indexed can be appended to the
+names of the environment variables, e.g. `KLUCTL_ARG_0=name1=value1` and `KLUCTL_ARG_1=name2=value2`.
+
 ## Additional environment variables
 A few additional environment variables are supported which do not belong to an option/argument. These are:
 

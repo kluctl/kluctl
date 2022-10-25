@@ -212,10 +212,6 @@ func initViper() {
 			os.Exit(1)
 		}
 	}
-
-	viper.SetEnvPrefix("kluctl")
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
 }
 
 func Execute() {

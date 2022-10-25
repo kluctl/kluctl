@@ -29,9 +29,6 @@ targets:
       arg1: <value1>
       arg2: <value2>
       ...
-    dynamicArgs:
-      - name: <arg_name>
-      ...
     images:
       - image: my-image
         resultImage: my-image:1.2.3
@@ -58,21 +55,12 @@ are configured via [deployment args](../../deployments/deployment-yml.md#args).
 The arguments specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#args)
 have higher priority.
 
-## dynamicArgs
-This field specifies a list of CLI arguments that can be passed to kluctl when performing any commands on the target. These
-arguments are passed with `-a arg_name=arg_value` when for example calling `kluctl deploy -t target_name`.
-
-Each entry has the following fields:
-
 ## images
 This field specifies a list of fixed images to be used by [`images.get_image(...)`](../../deployments/images.md#imagesget_image).
 The format is identical to the [fixed images file](../../deployments/images.md#fixed-images-via-a-yaml-file).
 
 The fixed images specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#images)
 have higher priority.
-
-### name
-The name of the argument.
 
 ## sealingConfig
 This field configures how sealing is performed when the [seal command](../../commands/seal.md) is invoked for this target.

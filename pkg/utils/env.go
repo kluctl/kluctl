@@ -19,11 +19,25 @@ func ParseEnvBool(name string, def bool) (bool, error) {
 	return def, nil
 }
 
-func ParseEnvConfigSets(prefix string) map[int]map[string]string {
+func parseEnv(prefix string, withIndex bool, withSuffix bool) map[int]map[string]string {
 	ret := make(map[int]map[string]string)
 
-	r := regexp.MustCompile(fmt.Sprintf(`^%s_(\d+)_(.*)$`, prefix))
-	r2 := regexp.MustCompile(fmt.Sprintf(`^%s_(.*)$`, prefix))
+	rs := prefix
+	curGroup := 1
+	indexGroup := -1
+	suffixGroup := -1
+	if withIndex {
+		rs += `(_\d+)?`
+		indexGroup = curGroup
+		curGroup++
+	}
+	if withSuffix {
+		rs += `_(.*)`
+		suffixGroup = curGroup
+		curGroup++
+	}
+	rs = fmt.Sprintf("^%s$", rs)
+	r := regexp.MustCompile(rs)
 
 	for _, e := range os.Environ() {
 		eq := strings.Index(e, "=")
@@ -34,26 +48,45 @@ func ParseEnvConfigSets(prefix string) map[int]map[string]string {
 		v := e[eq+1:]
 
 		idx := -1
-		key := ""
+		suffix := ""
 
 		m := r.FindStringSubmatch(n)
-		if m != nil {
-			x, _ := strconv.ParseInt(m[1], 10, 32)
-			idx = int(x)
-			key = m[2]
-		} else {
-			m = r2.FindStringSubmatch(n)
-			if m != nil {
-				key = m[1]
-			}
+		if m == nil {
+			continue
 		}
 
-		if key != "" {
-			if _, ok := ret[idx]; !ok {
-				ret[idx] = make(map[string]string)
+		if withIndex {
+			idxStr := m[indexGroup]
+			if idxStr != "" {
+				idxStr = idxStr[1:] // remove leading _
+				x, err := strconv.ParseInt(idxStr, 10, 32)
+				if err != nil {
+					continue
+				}
+				idx = int(x)
 			}
-			ret[idx][key] = v
 		}
+		if withSuffix {
+			suffix = m[suffixGroup]
+		}
+
+		if _, ok := ret[idx]; !ok {
+			ret[idx] = map[string]string{}
+		}
+		ret[idx][suffix] = v
+	}
+	return ret
+}
+
+func ParseEnvConfigSets(prefix string) map[int]map[string]string {
+	return parseEnv(prefix, true, true)
+}
+
+func ParseEnvConfigList(prefix string) map[int]string {
+	ret := make(map[int]string)
+
+	for idx, m := range parseEnv(prefix, true, false) {
+		ret[idx] = m[""]
 	}
 	return ret
 }
