@@ -336,6 +336,8 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 				},
 				"test5": "TEST5:def",
 				"test6": "TEST1:def",
+				"test7": "TEST5:''",
+				"test8": "TEST5:",
 			}),
 		}, nil, "")
 		assert.NoError(t, err)
@@ -354,6 +356,12 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 
 		v, _, _ = vc.Vars.GetNestedField("test6")
 		assert.Equal(t, 42, v)
+
+		v, _, _ = vc.Vars.GetNestedField("test7")
+		assert.Equal(t, "", v)
+
+		v, _, _ = vc.Vars.GetNestedField("test8")
+		assert.Equal(t, "", v)
 	})
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {

@@ -145,3 +145,40 @@ func TestArgsFromEnv(t *testing.T) {
 	assertNestedFieldEquals(t, cm, "True", "data", "d")
 	assertNestedFieldEquals(t, cm, "true", "data", "e")
 }
+
+func TestArgsFromEnvAndCli(t *testing.T) {
+	t.Setenv("KLUCTL_ARG_1", "a=a")
+	t.Setenv("KLUCTL_ARG_2", "c=c")
+
+	k := defaultCluster1
+
+	p := &testProject{}
+	p.init(t, k, "args-from-envs-and-cli")
+
+	createNamespace(t, k, p.projectName)
+
+	p.updateTarget("test", func(target *uo.UnstructuredObject) {
+	})
+
+	addConfigMapDeployment(p, "cm", map[string]string{
+		"a": `{{ args.a }}`,
+		"b": `{{ args.b }}`,
+		"c": `{{ args.c }}`,
+	}, resourceOpts{
+		name:      "cm",
+		namespace: p.projectName,
+	})
+
+	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "b=b")
+	cm := k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	assertNestedFieldEquals(t, cm, "a", "data", "a")
+	assertNestedFieldEquals(t, cm, "b", "data", "b")
+	assertNestedFieldEquals(t, cm, "c", "data", "c")
+
+	// make sure the CLI overrides values from env
+	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "b=b", "-a", "c=c2")
+	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	assertNestedFieldEquals(t, cm, "a", "data", "a")
+	assertNestedFieldEquals(t, cm, "b", "data", "b")
+	assertNestedFieldEquals(t, cm, "c2", "data", "c")
+}

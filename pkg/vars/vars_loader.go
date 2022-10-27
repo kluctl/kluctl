@@ -141,6 +141,10 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 			envValueStr = v
 		} else if hasDefaultValue {
 			envValueStr = defaultValue
+			if envValueStr == "" {
+				// treat empty default string as literal empty string instead of treating it as nil
+				envValueStr = `""`
+			}
 		} else {
 			return fmt.Errorf("environment variable %s not found for %s", envName, it.KeyPath().ToJsonPath())
 		}
