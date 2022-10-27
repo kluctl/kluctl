@@ -230,7 +230,8 @@ func copyViperValuesToCobraCmd(cmd *cobra.Command) error {
 func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 	var retErr []error
 	flags.VisitAll(func(flag *pflag.Flag) {
-		if flag.Changed {
+		sliceValue, _ := flag.Value.(pflag.SliceValue)
+		if flag.Changed && sliceValue == nil {
 			return
 		}
 		v := viper.Get(flag.Name)
@@ -262,10 +263,19 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 			a = append(a, v)
 		}
 
-		for _, x := range a {
-			err := flag.Value.Set(x)
+		if sliceValue != nil {
+			// we must ensure that values passed via CLI are at the end of the slice
+			a = append(a, sliceValue.GetSlice()...)
+			err := sliceValue.Replace(a)
 			if err != nil {
 				retErr = append(retErr, err)
+			}
+		} else {
+			for _, x := range a {
+				err := flag.Value.Set(x)
+				if err != nil {
+					retErr = append(retErr, err)
+				}
 			}
 		}
 	})
