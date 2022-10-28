@@ -38,12 +38,26 @@ The Kluctl CLI then allows to deploy, diff, prune, delete, ... your deployments.
 Installation instructions can be found [here](./docs/installation.md). For a getting started guide, continue
 [here](./docs/get-started.md).
 
+## Community
+
+Check the [community page](https://kluctl.io/community/) for details about the Kluctl community.
+
+In short: We use [Github Issues](https://github.com/kluctl/kluctl/issues) and
+[Github Discussions](https://github.com/kluctl/kluctl/discussions) to track and discuss Kluctl related development.
+You can also join the #kluctl channel inside the [CNCF Slack](https://slack.cncf.io) to get in contact with other
+community members and contributors/developers.
+
 ## Documentation
 
 Documentation, news and blog posts can be found on https://kluctl.io.
 
 The underlying documentation is synced from this repo (look into ./docs) to the website whenever something is merged
 into main.
+
+## Development and contributions
+
+Please read [DEVELOPMENT](./DEVELOPMENT.md) and [CONTRIBUTIONS](./CONTRIBUTING.md) for details on how the Kluctl project
+handles these matters.
 
 ## Kluctl in Short
 
