@@ -45,6 +45,11 @@ Documentation, news and blog posts can be found on https://kluctl.io.
 The underlying documentation is synced from this repo (look into ./docs) to the website whenever something is merged
 into main.
 
+## Development and contributions
+
+Please read [DEVELOPMENT](./DEVELOPMENT.md) and [CONTRIBUTIONS](./CONTRIBUTING.md) for details on how the Kluctl project
+handles these matters.
+
 ## Kluctl in Short
 
 |     |     |
