@@ -8,4 +8,4 @@ Currently, the maintainers of Kluctl are:
 
 - Alexander Block (github: @codablock, slack: codablock)
 - Aljoscha Poertner (github: @AljoschaP, slack: aljoshare)
-- Matthias Gebbe (github: @matzegebbe)
+- Mathias Gebbe (github: @matzegebbe, slack: matzeihnsein)
