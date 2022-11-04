@@ -90,7 +90,7 @@ Kluctl will perform a diff first and then ask for your confirmation to deploy it
 some objects being newly deployed.
 
 ```sh
-kubectl -nsimple-helm get pod
+kubectl -n simple-helm get pod
 ```
 
 ## Change something and re-deploy
@@ -106,7 +106,7 @@ This time it should show your modifications in the diff. Confirm that you want t
 it:
 
 ```sh
-kubectl -nsimple-helm get pod
+kubectl -n simple-helm get pod
 ```
 
 You should need 2 instances of the nginx POD running now.
