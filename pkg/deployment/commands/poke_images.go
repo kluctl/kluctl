@@ -54,14 +54,19 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 		containersAndImages[*fi.Object] = append(containersAndImages[*fi.Object], fi)
 	}
 
-	doPokeImage := func(images []types.FixedImage, o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
-		containers, _, _ := o.GetNestedObjectList("spec", "template", "spec", "containers")
+	var fieldPathes []uo.KeyPath
+	fieldPathes = append(fieldPathes, uo.KeyPath{"spec", "template", "spec", "containers"})
+	fieldPathes = append(fieldPathes, uo.KeyPath{"spec", "template", "spec", "initContainers"})
 
+	doPokeImage := func(images []types.FixedImage, o *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 		for _, image := range images {
-			for _, c := range containers {
-				containerName, _, _ := c.GetNestedString("name")
-				if image.Container != nil && containerName == *image.Container {
-					c.SetNestedField(image.ResultImage, "image")
+			for _, jsp := range fieldPathes {
+				containers, _, _ := o.GetNestedObjectList(jsp...)
+				for _, c := range containers {
+					containerName, _, _ := c.GetNestedString("name")
+					if image.Container != nil && containerName == *image.Container {
+						_ = c.SetNestedField(image.ResultImage, "image")
+					}
 				}
 			}
 		}
