@@ -450,19 +450,19 @@ func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) erro
 	return yaml.WriteYamlFile(kustomizeYamlPath, ky)
 }
 
-func (di *DeploymentItem) prepareKustomizationYaml() error {
+func (di *DeploymentItem) prepareKustomizationYaml() (*uo.UnstructuredObject, error) {
 	ky, err := di.readKustomizationYaml("")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if ky == nil {
 		ky, err = di.generateKustomizationYaml("")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = di.writeKustomizationYaml(ky)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -470,7 +470,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	if overrideNamespace != nil {
 		_, ok, err := ky.GetNestedString("namespace")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ok {
 			ky.SetNestedField(*overrideNamespace, "namespace")
@@ -480,8 +480,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	di.Barrier = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/barrier"))
 	di.WaitReadiness = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/wait-readiness"))
 
-	// Save modified kustomization.yml
-	return di.writeKustomizationYaml(ky)
+	return ky, nil
 }
 
 func (di *DeploymentItem) buildKustomize() error {
@@ -489,7 +488,13 @@ func (di *DeploymentItem) buildKustomize() error {
 		return nil
 	}
 
-	err := di.prepareKustomizationYaml()
+	ky, err := di.prepareKustomizationYaml()
+	if err != nil {
+		return err
+	}
+
+	// Save modified kustomization.yml
+	err = di.writeKustomizationYaml(ky)
 	if err != nil {
 		return err
 	}
