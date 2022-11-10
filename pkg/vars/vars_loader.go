@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -199,17 +198,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
-	path, err := securejoin.SecureJoin(clonedDir, gitFile.Path)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	return v.loadFromString(varsCtx, string(f), "git", rootKey)
+	return v.loadFile(varsCtx, gitFile.Path, []string{clonedDir}, rootKey)
 }
 
 func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
@@ -297,7 +286,7 @@ func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, secretType strin
 }
 
 func (v *VarsLoader) renderYamlString(varsCtx *VarsCtx, s string, out interface{}) error {
-	ret, err := varsCtx.RenderString(s)
+	ret, err := varsCtx.RenderString(s, nil)
 	if err != nil {
 		return err
 	}

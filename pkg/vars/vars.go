@@ -44,12 +44,13 @@ func (vc *VarsCtx) UpdateChildFromStruct(child string, o interface{}) error {
 	return nil
 }
 
-func (vc *VarsCtx) RenderString(t string) (string, error) {
+func (vc *VarsCtx) RenderString(t string, searchDirs []string) (string, error) {
 	globals, err := vc.Vars.ToMap()
 	if err != nil {
 		return "", err
 	}
 	return vc.J2.RenderString(t,
+		jinja2.WithSearchDirs(searchDirs),
 		jinja2.WithGlobals(globals),
 	)
 }
@@ -62,24 +63,31 @@ func (vc *VarsCtx) RenderStruct(o interface{}) (bool, error) {
 	return vc.J2.RenderStruct(o, jinja2.WithGlobals(globals))
 }
 
-func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}) error {
+func (vc *VarsCtx) RenderFile(p string, searchDirs []string) (string, error) {
 	globals, err := vc.Vars.ToMap()
 	if err != nil {
-		return err
+		return "", err
 	}
 	ret, err := vc.J2.RenderFile(p,
 		jinja2.WithSearchDirs(searchDirs),
 		jinja2.WithGlobals(globals),
 	)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	err = yaml.ReadYamlString(ret, out)
+	return ret, nil
+}
+
+func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}) error {
+	rendered, err := vc.RenderFile(p, searchDirs)
 	if err != nil {
 		return err
 	}
-
+	err = yaml.ReadYamlString(rendered, out)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
