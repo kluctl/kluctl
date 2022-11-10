@@ -3,7 +3,7 @@
 ---
 title: "Helm Integration"
 linkTitle: "Helm Integration"
-weight: 3
+weight: 4
 description: >
     How Helm is integrated into Kluctl.
 ---

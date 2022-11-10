@@ -3,7 +3,7 @@
 ---
 title: "Hooks"
 linkTitle: "Hooks"
-weight: 4
+weight: 6
 description: >
     Kluctl hooks.
 ---
