@@ -14,6 +14,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/cmd/sops/formats"
+	"go.mozilla.org/sops/v3/decrypt"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
@@ -102,8 +105,25 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 }
 
 func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string, rootKey string) error {
+	rendered, err := varsCtx.RenderFile(path, searchDirs)
+	if err != nil {
+		return fmt.Errorf("failed to render vars file %s: %w", path, err)
+	}
+
+	if yaml.IsMaybeSopsFile([]byte(rendered)) {
+		decrypted, err := decrypt.DataWithFormat([]byte(rendered), formats.FormatForPath(path))
+		if err != nil && err != sops.MetadataNotFound {
+			return fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
+		} else if err == nil {
+			rendered = string(decrypted)
+		}
+	}
+
 	newVars := uo.New()
-	err := varsCtx.RenderYamlFile(path, searchDirs, newVars)
+	err = yaml.ReadYamlString(rendered, newVars)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("failed to load vars from %s: %w", path, err)
 	}

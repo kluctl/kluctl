@@ -285,3 +285,7 @@ func Exists(p string) bool {
 	p = FixPathExt(p)
 	return utils.Exists(p)
 }
+
+func IsMaybeSopsFile(s []byte) bool {
+	return bytes.Index(s, []byte("sops")) != -1
+}

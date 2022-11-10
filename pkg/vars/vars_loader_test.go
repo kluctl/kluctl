@@ -15,6 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/stretchr/testify/assert"
+	"go.mozilla.org/sops/v3/age"
 	"io"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,6 +88,25 @@ func TestVarsLoader_File(t *testing.T) {
 	})
 }
 
+func TestVarsLoader_SopsFile(t *testing.T) {
+	d := newTestDir(t)
+	f, _ := sops_test_resources.TestResources.ReadFile("test.yaml")
+	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
+	_ = os.WriteFile(filepath.Join(d, "test.yaml"), f, 0o600)
+
+	t.Setenv(age.SopsAgeKeyEnv, string(key))
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		err := vl.LoadVars(vc, &types.VarsSource{
+			File: utils.StrPtr("test.yaml"),
+		}, []string{d}, "")
+		assert.NoError(t, err)
+
+		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
+		assert.Equal(t, int64(42), v)
+	})
+}
+
 func TestVarsLoader_FileWithLoad(t *testing.T) {
 	d := newTestDir(t)
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
@@ -128,7 +148,7 @@ func TestVarsLoader_FileWithLoadNotExists(t *testing.T) {
 		err := vl.LoadVars(vc, &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
 		}, []string{d}, "")
-		assert.EqualError(t, err, "failed to load vars from test.yaml: template test3.txt not found")
+		assert.EqualError(t, err, "failed to render vars file test.yaml: template test3.txt not found")
 	})
 }
 
