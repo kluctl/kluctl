@@ -16,9 +16,6 @@ The `deployment.yaml` file is the entrypoint for the deployment project. Include
 
 An example `deployment.yaml` looks like this:
 ```yaml
-sealedSecrets:
-  outputPattern: "{{ cluster.name }}/{{ args.environment }}"
-
 deployments:
 - path: nginx
 - path: my-app
@@ -33,11 +30,6 @@ args:
 ```
 
 The following sub-chapters describe the available fields in the `deployment.yaml`
-
-## sealedSecrets
-`sealedSecrets` configures how sealed secrets are stored while sealing and located while rendering.
-See [Sealed Secrets](../sealed-secrets.md#outputpattern-and-location-of-stored-sealed-secrets)
-for details.
 
 ## deployments
 

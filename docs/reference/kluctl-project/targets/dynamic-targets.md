@@ -35,10 +35,6 @@ targets:
       ref: <ref-name>
       refPattern: <regex-pattern>
       file: <config-file>
-    sealingConfig:
-      dynamicSealing: <false_or_true>
-      secretSets:
-        - <name_of_secrets_set>
 ...
 ```
 
@@ -102,14 +98,3 @@ An optional list of fixed images, in the same format as in the normal [target im
 
 A simplified form of dynamic targets is to store target config inside the same directory/project as the `.kluctl.yaml`.
 This can be done by omitting `project`, `ref` and `refPattern` from `targetConfig` and only specify `file`.
-
-## A note on sealing
-
-When sealing dynamic targets, it is very likely that it is not known yet which dynamic targets will actually exist in
-the future. This requires some special care when sealing secrets for these targets. Sealed secrets are usually namespace
-scoped, which might need to be changed to cluster-wide scoping so that the same sealed secret can be deployed into
-multiple targets (assuming you deploy to different namespaces for each target). When you do this, watch out to not
-compromise security, e.g. by sealing production level secrets with a cluster-wide scope!
-
-It is also very likely required to set `target.sealingConfig.dynamicSealing` to `false`, so that sealing is only performed
-once and not for all dynamic targets.

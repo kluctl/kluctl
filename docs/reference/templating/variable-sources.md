@@ -159,8 +159,8 @@ Kluctl currently supports BASIC and NTLM authentication. It will prompt for cred
 
 ### awsSecretsManager
 [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) integration. Loads a variables YAML from an AWS Secrets
-Manager secret. The secret can either be specified via an ARN or via a secretName and region combination. An AWS
-config profile can also be specified (which must exist while sealing).
+Manager secret. The secret can either be specified via an ARN or via a secretName and region combination. An existing AWS
+config profile can also be specified.
 
 The secrets stored in AWS Secrets manager must contain a valid yaml or json file.
 
@@ -198,7 +198,7 @@ vars:
       path: secret/data/simple
 ```
 
-Before deploying or sealing please make sure that you have access to vault. You can do this for example by setting 
+Before deploying please make sure that you have access to vault. You can do this for example by setting 
 the environment variable `VAULT_TOKEN`.
 
 ### systemEnvVars
