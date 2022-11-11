@@ -70,10 +70,15 @@ func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*type
 func (p *DeploymentProject) loadConfig() error {
 	configPath := filepath.Join(p.absDir, "deployment.yml")
 	if !yaml.Exists(configPath) {
-		if yaml.Exists(filepath.Join(p.absDir, "kustomization.yml")) {
+		if p.parentProject == nil {
+			// the root project is allowed to not have a deployment.yaml
+			// in that case, it is treated as a simple deployment with a single deployment item pointing to "."
+			return p.generateSingleKustomizeProject()
+		} else if yaml.Exists(filepath.Join(p.absDir, "kustomization.yml")) {
 			return fmt.Errorf("deployment.yml not found but folder %s contains a kustomization.yml", p.absDir)
+		} else {
+			return fmt.Errorf("%s not found", configPath)
 		}
-		return fmt.Errorf("%s not found", configPath)
 	}
 	configPath = yaml.FixPathExt(configPath)
 
@@ -82,7 +87,18 @@ func (p *DeploymentProject) loadConfig() error {
 		return fmt.Errorf("failed to load deployment.yml: %w", err)
 	}
 
-	err = p.loadVarsList(p.VarsCtx, p.Config.Vars)
+	return p.processConfig()
+}
+
+func (p *DeploymentProject) generateSingleKustomizeProject() error {
+	p.Config.Deployments = append(p.Config.Deployments, &types.DeploymentItemConfig{
+		Path: utils.StrPtr("."),
+	})
+	return nil
+}
+
+func (p *DeploymentProject) processConfig() error {
+	err := p.loadVarsList(p.VarsCtx, p.Config.Vars)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
 	}

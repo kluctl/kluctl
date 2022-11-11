@@ -63,6 +63,10 @@ func LoadDeprecatedDeploymentArgs(ctx context.Context, dir string, varsCtx *vars
 	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
 	// when the rendering error is actually args related.
 
+	if !yaml.Exists(filepath.Join(dir, "deployment.yml")) {
+		return false, nil
+	}
+
 	var conf types.DeploymentProjectConfig
 
 	err := yaml.ReadYamlFile(yaml.FixPathExt(filepath.Join(dir, "deployment.yml")), &conf)
