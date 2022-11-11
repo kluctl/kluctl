@@ -13,7 +13,7 @@ description: >
 
 Specifies a list of targets for which commands can be invoked. A target puts together environment/target specific
 configuration and the target cluster. Multiple targets can exist which target the same cluster but with differing
-configuration (via `args`). Target entries also specifies which secrets to use while [sealing](../../sealed-secrets.md).
+configuration (via `args`).
 
 Each value found in the target definition is rendered with a simple Jinja2 context that only contains the target itself.
 The rendering process is retried 10 times until it finally succeeds, allowing you to reference
@@ -32,9 +32,6 @@ targets:
     images:
       - image: my-image
         resultImage: my-image:1.2.3
-    sealingConfig:
-      secretSets:
-        - <name_of_secrets_set>
 ...
 ```
 
@@ -61,36 +58,3 @@ The format is identical to the [fixed images file](../../deployments/images.md#f
 
 The fixed images specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#images)
 have higher priority.
-
-## sealingConfig
-This field configures how sealing is performed when the [seal command](../../commands/seal.md) is invoked for this target.
-It has the following form:
-
-```yaml
-targets:
-...
-- name: <target_name>
-  ...
-  sealingConfig:
-    args:
-      arg1: <override_for_arg1>
-    certFile: <path-to-cert-file>
-    dynamicSealing: <true_or_false>
-    secretSets:
-      - <name_of_secrets_set>
-```
-
-### args
-This field allows adding extra arguments to the target args. These are only used while sealing and may override
-arguments which are already configured for the target.
-
-### certFile
-Optional path to a local (inside your project) public certificate used for sealing. Such a certificate can be fetched
-from the sealed-secrets controller using `kubeseal --fetch-cert`.
-
-### dynamicSealing
-This field specifies weather sealing should happen per [dynamic target](./dynamic-targets.md) or only once. This
-field is optional and defaults to `true`.
-
-### secretSets
-This field specifies a list of secret set names, which all must exist in the [secretsConfig](../secrets-config).

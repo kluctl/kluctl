@@ -26,7 +26,3 @@ This global object provides the dynamic images features described in [images](..
 
 ### version
 This global object defines latest version filters for `images.get_image(...)`. See [images](../deployments/images.md) for details.
-
-### secrets
-This global object is only available while [sealing](../sealed-secrets.md) and contains the loaded
-secrets defined via the currently sealed target.

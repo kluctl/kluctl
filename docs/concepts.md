@@ -12,7 +12,7 @@ weight: 10
 These are some core concepts in Kluctl.
 
 ## Kluctl project
-The kluctl project defines targets and secret sources.
+The kluctl project defines targets.
 It is defined via the [.kluctl.yaml](./reference/kluctl-project) configuration file.
 
 ## Targets
@@ -38,16 +38,6 @@ All configuration files (including .kluctl.yaml and deployment.yaml) and all Kub
 through a templating engine.
 The [templating engine](./reference/templating) allows simple variable substitution and also complex
 control structures (if/else, for loops, ...).
-
-## Secrets
-Secrets are loaded from [external sources](./reference/kluctl-project) and are only available
-while [sealing](./reference/sealed-secrets.md). After the sealing process, only the public-key encrypted
-sealed secrets are available.
-
-## Sealed Secrets
-[Sealed Secrets](./reference/sealed-secrets.md) are based on
-[Bitnami's sealed-secrets controller](https://github.com/bitnami-labs/sealed-secrets). Kluctl offers integration of
-sealed secrets through the `seal` command. Kluctl allows managing multiple sets of sealed secrets for multiple targets.
 
 ## Unified CLI
 The CLI of kluctl is designed to be unified/consistent as much as possible. Most commands are centered around targets

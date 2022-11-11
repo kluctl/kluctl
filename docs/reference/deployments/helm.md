@@ -25,7 +25,7 @@ hands over the rendered yaml to [kustomize](https://kustomize.io/). Rendering is
 `helm-values.yaml`, which contains the necessary values to configure the Helm Chart.
 
 The resulting rendered yaml is then referred by your `kustomization.yaml`, from which point on the
-[kustomize integration](../sealed-secrets.md#outputpattern-and-location-of-stored-sealed-secrets) 
+[kustomize integration](./kustomize.md) 
 takes over. This means, that you can perform all desired customization (patches, namespace override, ...) as if you
 provided your own resources via yaml files.
 

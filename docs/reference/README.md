@@ -13,5 +13,4 @@ weight: 110
 
 1. [.kluctl.yaml](./kluctl-project)
 2. [Deployments](./deployments)
-3. [Sealed Secrets](./sealed-secrets.md)
-4. [Kluctl Commands](./commands)
+3. [Kluctl Commands](./commands)

@@ -60,6 +60,19 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 
 	c.sealedSecretsDir = filepath.Join(c.ProjectDir, ".sealed-secrets")
 
+	sealedSecretsUsed := false
+	if c.Config.SecretsConfig != nil {
+		sealedSecretsUsed = true
+	}
+	for _, t := range c.Config.Targets {
+		if t.SealingConfig != nil {
+			sealedSecretsUsed = true
+		}
+	}
+	if sealedSecretsUsed {
+		status.Deprecation(c.ctx, "sealed-secrets", "The SealedSecrets integration is deprecated and will be completely removed in an upcoming version. Please switch to using the SOPS integration instead.")
+	}
+
 	s.Success()
 
 	return nil

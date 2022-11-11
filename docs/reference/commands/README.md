@@ -32,5 +32,4 @@ Individual commands are documented in sub-sections.
 10. [poke-images](./poke-images.md)
 11. [prune](./prune.md)
 12. [render](./render.md)
-13. [seal](./seal.md)
-14. [validate](./validate.md)
+13. [validate](./validate.md)
