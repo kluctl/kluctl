@@ -2,10 +2,12 @@ package e2e
 
 import (
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-func prepareNoTargetTest(t *testing.T, name string) *testProject {
+func prepareNoTargetTest(t *testing.T, name string, withDeploymentYaml bool) *testProject {
 	p := &testProject{}
 	p.init(t, defaultCluster1, name)
 	p.mergeKubeconfig(defaultCluster2)
@@ -13,7 +15,7 @@ func prepareNoTargetTest(t *testing.T, name string) *testProject {
 	createNamespace(t, defaultCluster1, p.projectName)
 	createNamespace(t, defaultCluster2, p.projectName)
 
-	addConfigMapDeployment(p, "cm", map[string]string{
+	cm := createConfigMapObject(map[string]string{
 		"targetName":    `{{ target.name }}`,
 		"targetContext": `{{ target.context }}`,
 	}, resourceOpts{
@@ -21,13 +23,21 @@ func prepareNoTargetTest(t *testing.T, name string) *testProject {
 		namespace: p.projectName,
 	})
 
+	if withDeploymentYaml {
+		p.addKustomizeDeployment("cm", []kustomizeResource{{name: "cm.yaml", content: cm}}, nil)
+	} else {
+		p.addKustomizeResources("", []kustomizeResource{{name: "cm.yaml", content: cm}})
+		err := os.Remove(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "deployment.yml"))
+		assert.NoError(t, err)
+	}
+
 	return p
 }
 
-func TestNoTarget(t *testing.T) {
+func testNoTarget(t *testing.T, withDeploymentYaml bool) {
 	t.Parallel()
 
-	p := prepareNoTargetTest(t, "no-target")
+	p := prepareNoTargetTest(t, "no-target", withDeploymentYaml)
 
 	p.KluctlMust("deploy", "--yes")
 	cm := assertConfigMapExists(t, defaultCluster1, p.projectName, "cm")
@@ -50,4 +60,12 @@ func TestNoTarget(t *testing.T) {
 		"targetName":    "override-name",
 		"targetContext": defaultCluster2.Context,
 	}, cm.Object["data"])
+}
+
+func TestNoTarget(t *testing.T) {
+	testNoTarget(t, true)
+}
+
+func TestNoTargetNoDeployment(t *testing.T) {
+	testNoTarget(t, false)
 }
