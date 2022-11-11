@@ -42,3 +42,8 @@ targets:
 Please check the following sub-sections of this section to see which fields are allowed at the root level of `.kluctl.yaml`.
 
 1. [targets](./targets)
+
+## Using Kluctl without .kluctl.yaml
+
+It's possible to use Kluctl without any `.kluctl.yaml`. In that case, all commands must be used without specifying the
+target.
