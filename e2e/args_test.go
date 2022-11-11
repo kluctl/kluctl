@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestArgs(t *testing.T) {
+func testArgs(t *testing.T, deprecated bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -19,24 +19,34 @@ func TestArgs(t *testing.T) {
 
 	p.updateTarget("test", func(target *uo.UnstructuredObject) {
 	})
-	p.updateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField([]any{
-			map[string]any{
-				"name": "a",
+
+	args := []any{
+		map[string]any{
+			"name": "a",
+		},
+		map[string]any{
+			"name":    "b",
+			"default": "default",
+		},
+		map[string]any{
+			"name": "d",
+			"default": map[string]any{
+				"nested": "default",
 			},
-			map[string]any{
-				"name":    "b",
-				"default": "default",
-			},
-			map[string]any{
-				"name": "d",
-				"default": map[string]any{
-					"nested": "default",
-				},
-			},
-		}, "args")
-		return nil
-	})
+		},
+	}
+
+	if deprecated {
+		p.updateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField(args, "args")
+			return nil
+		})
+	} else {
+		p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField(args, "args")
+			return nil
+		})
+	}
 
 	addConfigMapDeployment(p, "cm", map[string]string{
 		"a": `{{ args.a | default("na") }}`,
@@ -107,6 +117,14 @@ d:
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d4"}}`, "data", "d")
+}
+
+func TestDeprecatedArgs(t *testing.T) {
+	testArgs(t, true)
+}
+
+func TestArgs(t *testing.T) {
+	testArgs(t, false)
 }
 
 func TestArgsFromEnv(t *testing.T) {
