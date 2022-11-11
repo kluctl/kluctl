@@ -36,7 +36,7 @@ func (s *hooksTestContext) removeWebhook() {
 }
 
 func (s *hooksTestContext) handleConfigmap(request admission.Request) {
-	if s.p.projectName != request.Namespace {
+	if s.p.testSlug() != request.Namespace {
 		return
 	}
 
@@ -100,21 +100,19 @@ func prepareHookTestProject(t *testing.T, name string, hook string, hookDeletion
 	}
 	s.setupWebhook()
 
-	namespace := fmt.Sprintf("hook-%s", name)
-
-	s.p.init(t, s.k, namespace)
+	s.p.init(t, s.k)
 	t.Cleanup(func() {
 		s.removeWebhook()
 	})
 
-	createNamespace(s.t, s.k, namespace)
+	createNamespace(s.t, s.k, s.p.testSlug())
 
 	s.p.updateTarget("test", nil)
 
 	s.p.addKustomizeDeployment("hook", nil, nil)
 
-	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: namespace})
-	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: namespace}, false, hook, hookDeletionPolicy)
+	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.testSlug()})
+	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.testSlug()}, false, hook, hookDeletionPolicy)
 
 	return s
 }
@@ -127,10 +125,10 @@ func (s *hooksTestContext) ensureHookExecuted(expectedCms ...string) {
 
 func (s *hooksTestContext) ensureHookNotExecuted() {
 	_ = s.k.DynamicClient.Resource(corev1.SchemeGroupVersion.WithResource("configmaps")).
-		Namespace(s.p.projectName).
+		Namespace(s.p.testSlug()).
 		Delete(context.Background(), "cm1", metav1.DeleteOptions{})
 	s.p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapNotExists(s.t, s.k, s.p.projectName, "cm1")
+	assertConfigMapNotExists(s.t, s.k, s.p.testSlug(), "cm1")
 }
 
 func TestHooksPreDeployInitial(t *testing.T) {

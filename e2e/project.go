@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
+	"github.com/huandu/xstrings"
 	"github.com/imdario/mergo"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -18,20 +19,17 @@ import (
 )
 
 type testProject struct {
-	t           *testing.T
-	extraEnv    []string
-	projectName string
+	t        *testing.T
+	extraEnv []string
 
 	mergedKubeconfig string
 
 	gitServer *test_utils.GitServer
 }
 
-func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectName string) {
+func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster) {
 	p.t = t
 	p.gitServer = test_utils.NewGitServer(t)
-	p.projectName = projectName
-
 	p.gitServer.GitInit(p.getKluctlProjectRepo())
 
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
@@ -41,7 +39,7 @@ func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectNa
 		return nil
 	})
 
-	tmpFile, err := os.CreateTemp("", projectName+"-kubeconfig-")
+	tmpFile, err := os.CreateTemp("", p.testSlug()+"-kubeconfig-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,6 +49,12 @@ func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster, projectNa
 		os.Remove(p.mergedKubeconfig)
 	})
 	p.mergeKubeconfig(k)
+}
+
+func (p *testProject) testSlug() string {
+	n := p.t.Name()
+	n = xstrings.ToKebabCase(n)
+	return n
 }
 
 func (p *testProject) mergeKubeconfig(k *test_utils.EnvTestCluster) {
@@ -88,7 +92,7 @@ func (p *testProject) updateKluctlYaml(update func(o *uo.UnstructuredObject) err
 func (p *testProject) updateDeploymentYaml(dir string, update func(o *uo.UnstructuredObject) error) {
 	p.updateYaml(filepath.Join(dir, "deployment.yml"), func(o *uo.UnstructuredObject) error {
 		if dir == "." {
-			o.SetNestedField(p.projectName, "commonLabels", "project_name")
+			o.SetNestedField(p.testSlug(), "commonLabels", "project_name")
 		}
 		return update(o)
 	}, "")
