@@ -97,20 +97,20 @@ func addProxyVars(p *testProject) {
 	f(1, defaultCluster2, certServer2)
 }
 
-func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, namespace string, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *testProject {
+func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *testProject {
 	p := &testProject{}
-	p.init(t, k, fmt.Sprintf("seal-%s", namespace))
+	p.init(t, k)
 
 	if proxy {
 		addProxyVars(p)
 	}
 
-	createNamespace(t, k, namespace)
+	createNamespace(t, k, p.testSlug())
 
 	addSecretsSet(p, "test", varsSources)
 	addSecretsSetToTarget(p, "test-target", "test")
 
-	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: namespace})
+	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: p.testSlug()})
 
 	return p
 }
@@ -162,9 +162,8 @@ func assertSealedSecret(t *testing.T, k *test_utils.EnvTestCluster, namespace st
 func TestSeal_WithOperator(t *testing.T) {
 	t.Parallel()
 	k := defaultCluster1
-	namespace := "seal-with-operator"
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -184,7 +183,7 @@ func TestSeal_WithOperator(t *testing.T) {
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -194,13 +193,12 @@ func TestSeal_WithBootstrap(t *testing.T) {
 	// this test must NOT run in parallel
 
 	k := defaultCluster1
-	namespace := "seal-with-bootstrap"
 
 	// deleting the crd causes kluctl to not recognize the operator, so it will do a bootstrap
 	_ = k.DynamicClient.Resource(apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")).
 		Delete(context.Background(), "sealedsecrets.bitnami.com", metav1.DeleteOptions{})
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -233,7 +231,7 @@ func TestSeal_WithBootstrap(t *testing.T) {
 	certHash, err := seal.HashPublicKey(cert)
 	assert.NoError(t, err)
 
-	assertSealedSecret(t, k, namespace, "secret", certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -243,9 +241,8 @@ func TestSeal_MultipleVarSources(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-multiple-vs"
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -270,7 +267,7 @@ func TestSeal_MultipleVarSources(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -280,9 +277,8 @@ func TestSeal_MultipleSecretSets(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-multiple-ss"
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -311,7 +307,7 @@ func TestSeal_MultipleSecretSets(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -321,9 +317,8 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-multiple-targets"
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -348,7 +343,7 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	addSecretsSetToTarget(p, "test-target2", "test2")
 
 	p.mergeKubeconfig(defaultCluster2)
-	createNamespace(t, defaultCluster2, namespace)
+	createNamespace(t, defaultCluster2, p.testSlug())
 	p.updateTarget("test-target", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
 	})
@@ -366,11 +361,11 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 	p.KluctlMust("deploy", "--yes", "-t", "test-target2")
 
-	assertSealedSecret(t, defaultCluster1, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, defaultCluster1, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
-	assertSealedSecret(t, defaultCluster2, namespace, "secret", certServer2.certHash, map[string]string{
+	assertSealedSecret(t, defaultCluster2, p.testSlug(), "secret", certServer2.certHash, map[string]string{
 		"s1": "v3",
 		"s2": "v4",
 	})
@@ -380,7 +375,6 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-multiple-secrets"
 
 	secret1 := map[string]string{
 		"s1": "{{ secrets.s1 }}",
@@ -389,7 +383,7 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 		"s2": "{{ secrets.s2 }}",
 	}
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		secret1,
 		[]*uo.UnstructuredObject{
 			uo.FromMap(map[string]interface{}{
@@ -399,7 +393,7 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 				},
 			}),
 		}, true)
-	addSecretDeployment(p, "secret-deployment2", secret2, resourceOpts{name: "secret2", namespace: namespace})
+	addSecretDeployment(p, "secret-deployment2", secret2, resourceOpts{name: "secret2", namespace: p.testSlug()})
 
 	p.KluctlMust("seal", "-t", "test-target")
 
@@ -409,10 +403,10 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 	})
-	assertSealedSecret(t, k, namespace, "secret2", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret2", certServer1.certHash, map[string]string{
 		"s2": "v2",
 	})
 }
@@ -421,7 +415,6 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-multiple-secrets2"
 
 	secret1 := map[string]string{
 		"s1": "{{ secrets.s1 }}",
@@ -429,9 +422,8 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 	secret2 := map[string]string{
 		"s2": "{{ secrets.s2 }}",
 	}
-	secret2Text, _ := yaml.WriteYamlString(createSecretObject(secret2, resourceOpts{name: "secret2", namespace: namespace}))
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		secret1,
 		[]*uo.UnstructuredObject{
 			uo.FromMap(map[string]interface{}{
@@ -441,6 +433,8 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 				},
 			}),
 		}, true)
+
+	secret2Text, _ := yaml.WriteYamlString(createSecretObject(secret2, resourceOpts{name: "secret2", namespace: p.testSlug()}))
 
 	p.gitServer.UpdateFile(p.getKluctlProjectRepo(), "secret-deployment/secret-secret.yml.sealme", func(f string) (string, error) {
 		f += "---\n"
@@ -455,10 +449,10 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 	})
-	assertSealedSecret(t, k, namespace, "secret2", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret2", certServer1.certHash, map[string]string{
 		"s2": "v2",
 	})
 }
@@ -467,9 +461,8 @@ func TestSeal_File(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-file"
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -497,7 +490,7 @@ func TestSeal_File(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -507,7 +500,6 @@ func TestSeal_Vault(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	namespace := "seal-vault"
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/v1/secret/data/secret" {
@@ -531,7 +523,7 @@ func TestSeal_Vault(t *testing.T) {
 
 	vaultUrl := server.URL
 
-	p := prepareSealTest(t, k, namespace,
+	p := prepareSealTest(t, k,
 		map[string]string{
 			"s1": "{{ secrets.s1 }}",
 			"s2": "{{ secrets.s2 }}",
@@ -553,7 +545,7 @@ func TestSeal_Vault(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, namespace, "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})

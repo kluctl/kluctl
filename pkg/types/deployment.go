@@ -53,11 +53,6 @@ func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
 	}
 }
 
-type DeploymentArg struct {
-	Name    string      `yaml:"name" validate:"required"`
-	Default interface{} `yaml:"default,omitempty"`
-}
-
 type SealedSecretsConfig struct {
 	OutputPattern *string `yaml:"outputPattern,omitempty"`
 }

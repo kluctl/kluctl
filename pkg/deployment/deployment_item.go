@@ -123,6 +123,8 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	}
 
 	var excludePatterns []string
+	excludePatterns = append(excludePatterns, "**/.git")
+
 	if len(di.Project.Config.TemplateExcludes) != 0 {
 		status.Deprecation(di.ctx.Ctx, "template-excludes", "'templateExcludes' are deprecated, use .templateignore files instead.")
 	}

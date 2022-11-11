@@ -11,27 +11,27 @@ func TestKustomize(t *testing.T) {
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "di-kustomize")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", nil)
 
 	addConfigMapDeployment(p, "cm", nil, resourceOpts{
 		name:      "cm",
-		namespace: p.projectName,
+		namespace: p.testSlug(),
 	})
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapExists(t, k, p.projectName, "cm")
+	assertConfigMapExists(t, k, p.testSlug(), "cm")
 
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
 		name:      "cm2",
-		namespace: p.projectName,
+		namespace: p.testSlug(),
 	})
 	p.KluctlMust("deploy", "--yes", "-t", "test", "--dry-run")
-	assertConfigMapNotExists(t, k, p.projectName, "cm2")
+	assertConfigMapNotExists(t, k, p.testSlug(), "cm2")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapExists(t, k, p.projectName, "cm2")
+	assertConfigMapExists(t, k, p.testSlug(), "cm2")
 }
 
 func TestGeneratedKustomize(t *testing.T) {
@@ -40,9 +40,9 @@ func TestGeneratedKustomize(t *testing.T) {
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "di-generated-kustomize")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", nil)
 
@@ -57,27 +57,27 @@ func TestGeneratedKustomize(t *testing.T) {
 	p.updateYaml("generated-kustomize/cm1.yaml", func(o *uo.UnstructuredObject) error {
 		*o = *createConfigMapObject(nil, resourceOpts{
 			name:      "cm1",
-			namespace: p.projectName,
+			namespace: p.testSlug(),
 		})
 		return nil
 	}, "")
 	p.updateYaml("generated-kustomize/cm2.yaml", func(o *uo.UnstructuredObject) error {
 		*o = *createConfigMapObject(nil, resourceOpts{
 			name:      "cm2",
-			namespace: p.projectName,
+			namespace: p.testSlug(),
 		})
 		return nil
 	}, "")
 	p.updateYaml("generated-kustomize/cm3._yaml", func(o *uo.UnstructuredObject) error {
 		*o = *createConfigMapObject(nil, resourceOpts{
 			name:      "cm3",
-			namespace: p.projectName,
+			namespace: p.testSlug(),
 		})
 		return nil
 	}, "")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapExists(t, k, p.projectName, "cm1")
-	assertConfigMapExists(t, k, p.projectName, "cm2")
-	assertConfigMapNotExists(t, k, p.projectName, "cm3")
+	assertConfigMapExists(t, k, p.testSlug(), "cm1")
+	assertConfigMapExists(t, k, p.testSlug(), "cm2")
+	assertConfigMapNotExists(t, k, p.testSlug(), "cm3")
 }

@@ -14,9 +14,9 @@ func TestSopsVars(t *testing.T) {
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "sops-vars")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", nil)
 
@@ -24,7 +24,7 @@ func TestSopsVars(t *testing.T) {
 		"v1": "{{ test1.test2 }}",
 	}, resourceOpts{
 		name:      "cm",
-		namespace: p.projectName,
+		namespace: p.testSlug(),
 	})
 	p.updateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField([]map[string]any{
@@ -42,7 +42,7 @@ func TestSopsVars(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 
-	cm := assertConfigMapExists(t, k, p.projectName, "cm")
+	cm := assertConfigMapExists(t, k, p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
 		"v1": "42",
 	}, "data")
@@ -55,13 +55,13 @@ func TestSopsResources(t *testing.T) {
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "sops-resources")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", nil)
 	p.updateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(p.projectName, "overrideNamespace")
+		_ = o.SetNestedField(p.testSlug(), "overrideNamespace")
 		return nil
 	})
 
@@ -76,7 +76,7 @@ func TestSopsResources(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 
-	cm := assertConfigMapExists(t, k, p.projectName, "encrypted-cm")
+	cm := assertConfigMapExists(t, k, p.testSlug(), "encrypted-cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
 		"a": "b",
 	}, "data")

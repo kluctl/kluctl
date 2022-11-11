@@ -50,8 +50,22 @@ for a given cluster.
 The `kluctl` command-line interface (CLI) is required to perform deployments. Read the [installation instructions](./installation.md)
 to figure out how to install it.
 
-## Clone the kluctl examples
+## Use Kluctl with a plain Kustomize deployment
 
+The simplest way to test out Kluctl is to use an existing Kustomize deployment and just test out the CLI. For example,
+try it with the [podtato-head project](https://github.com/podtato-head/podtato-head):
+
+```shell
+$ git clone https://github.com/podtato-head/podtato-head.git
+$ cd podtato-head/delivery/kustomize/base
+$ kluctl deploy
+```
+
+Then try to modify something inside the Kustomize deployment and retry the `kluctl deploy` call.
+
+## Try out the Kluctl examples
+
+For more advanced examples, check out the Kluctl example projects.
 Clone the example project found at https://github.com/kluctl/kluctl-examples
 
 ```sh

@@ -7,36 +7,46 @@ import (
 	"testing"
 )
 
-func TestArgs(t *testing.T) {
+func testArgs(t *testing.T, deprecated bool) {
 	t.Parallel()
 
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "args")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", func(target *uo.UnstructuredObject) {
 	})
-	p.updateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField([]any{
-			map[string]any{
-				"name": "a",
+
+	args := []any{
+		map[string]any{
+			"name": "a",
+		},
+		map[string]any{
+			"name":    "b",
+			"default": "default",
+		},
+		map[string]any{
+			"name": "d",
+			"default": map[string]any{
+				"nested": "default",
 			},
-			map[string]any{
-				"name":    "b",
-				"default": "default",
-			},
-			map[string]any{
-				"name": "d",
-				"default": map[string]any{
-					"nested": "default",
-				},
-			},
-		}, "args")
-		return nil
-	})
+		},
+	}
+
+	if deprecated {
+		p.updateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField(args, "args")
+			return nil
+		})
+	} else {
+		p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField(args, "args")
+			return nil
+		})
+	}
 
 	addConfigMapDeployment(p, "cm", map[string]string{
 		"a": `{{ args.a | default("na") }}`,
@@ -45,36 +55,36 @@ func TestArgs(t *testing.T) {
 		"d": "{{ args.d | to_json }}",
 	}, resourceOpts{
 		name:      "cm",
-		namespace: p.projectName,
+		namespace: p.testSlug(),
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a")
-	cm := k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm := k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "na", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "na", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c")
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", "-ad.nested=d")
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": "d"}`, "data", "d")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", `-ad={"nested": "d2"}`)
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": "d2"}`, "data", "d")
 
 	tmpFile, err := os.CreateTemp("", "")
@@ -88,7 +98,7 @@ nested:
 `)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", fmt.Sprintf(`-ad=@%s`, tmpFile.Name()))
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d3"}}`, "data", "d")
 
 	_ = tmpFile.Truncate(0)
@@ -102,11 +112,19 @@ d:
 `)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", fmt.Sprintf(`--args-from-file=%s`, tmpFile.Name()))
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a2", "data", "a")
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d4"}}`, "data", "d")
+}
+
+func TestDeprecatedArgs(t *testing.T) {
+	testArgs(t, true)
+}
+
+func TestArgs(t *testing.T) {
+	testArgs(t, false)
 }
 
 func TestArgsFromEnv(t *testing.T) {
@@ -119,9 +137,9 @@ func TestArgsFromEnv(t *testing.T) {
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "args-from-envs")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", func(target *uo.UnstructuredObject) {
 	})
@@ -134,11 +152,11 @@ func TestArgsFromEnv(t *testing.T) {
 		"e": `{{ args.e }}`,
 	}, resourceOpts{
 		name:      "cm",
-		namespace: p.projectName,
+		namespace: p.testSlug(),
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	cm := k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm := k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "c"}}`, "data", "c")
@@ -153,9 +171,9 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 	k := defaultCluster1
 
 	p := &testProject{}
-	p.init(t, k, "args-from-envs-and-cli")
+	p.init(t, k)
 
-	createNamespace(t, k, p.projectName)
+	createNamespace(t, k, p.testSlug())
 
 	p.updateTarget("test", func(target *uo.UnstructuredObject) {
 	})
@@ -166,18 +184,18 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 		"c": `{{ args.c }}`,
 	}, resourceOpts{
 		name:      "cm",
-		namespace: p.projectName,
+		namespace: p.testSlug(),
 	})
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "b=b")
-	cm := k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm := k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c", "data", "c")
 
 	// make sure the CLI overrides values from env
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "b=b", "-a", "c=c2")
-	cm = k.MustGetCoreV1(t, "configmaps", p.projectName, "cm")
+	cm = k.MustGetCoreV1(t, "configmaps", p.testSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")

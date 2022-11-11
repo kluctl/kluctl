@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -30,6 +31,10 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.Ob
 		labels = cmd.OverrideDeleteByLabels
 	} else {
 		labels = cmd.c.Project.GetCommonLabels()
+	}
+
+	if len(labels) == 0 {
+		return nil, fmt.Errorf("deletion without using commonLabels in the root deployment.yaml is not allowed")
 	}
 
 	var inclusion *utils.Inclusion

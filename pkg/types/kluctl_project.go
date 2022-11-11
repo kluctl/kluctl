@@ -41,6 +41,11 @@ type DynamicTarget struct {
 	BaseTargetName string  `yaml:"baseTargetName"`
 }
 
+type DeploymentArg struct {
+	Name    string      `yaml:"name" validate:"required"`
+	Default interface{} `yaml:"default,omitempty"`
+}
+
 type SecretSet struct {
 	Name string        `yaml:"name" validate:"required"`
 	Vars []*VarsSource `yaml:"vars,omitempty"`
@@ -58,6 +63,7 @@ type SecretsConfig struct {
 }
 
 type KluctlProject struct {
-	Targets       []*Target      `yaml:"targets,omitempty"`
-	SecretsConfig *SecretsConfig `yaml:"secretsConfig,omitempty"`
+	Targets       []*Target        `yaml:"targets,omitempty"`
+	Args          []*DeploymentArg `yaml:"args,omitempty"`
+	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
 }

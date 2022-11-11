@@ -77,3 +77,10 @@ Some visualized files/directories have links attached, follow them to get more i
 Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control
 order, is by placing [barriers](./deployment-yml.md#barriers) between kustomize deployments.
 You should however not overuse barriers, as they negatively impact the speed of kluctl.
+
+## Plain Kustomize
+
+It's also possible to use Kluctl on plain Kustomize deployments. Simply run `kluctl deploy` from inside the
+folder of your `kustomization.yaml`. If you also don't have a `.kluctl.yaml`, you can also work without targets.
+
+Please note that pruning and deletion is not supported in this mode.

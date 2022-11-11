@@ -1,7 +1,9 @@
 package deployment
 
 import (
+	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
@@ -56,10 +58,14 @@ func ConvertArgsToVars(args map[string]string, allowLoadFromFiles bool) (*uo.Uns
 	return vars, nil
 }
 
-func LoadDeploymentArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) error {
+func LoadDeprecatedDeploymentArgs(ctx context.Context, dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) (bool, error) {
 	// First try to load the config without templating to avoid getting errors while rendering because required
 	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
 	// when the rendering error is actually args related.
+
+	if !yaml.Exists(filepath.Join(dir, "deployment.yml")) {
+		return false, nil
+	}
 
 	var conf types.DeploymentProjectConfig
 
@@ -72,17 +78,23 @@ func LoadDeploymentArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.Unstru
 		varsCtx2.UpdateChild("args", deployArgs)
 		err = varsCtx2.RenderYamlFile(yaml.FixNameExt(dir, "deployment.yml"), []string{dir}, &conf)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	if len(conf.Args) == 0 {
-		return nil
+		return false, nil
 	}
 
+	status.Deprecation(ctx, "deployment-args", "'args' in deployment.yaml is deprecated, please use 'args' from .kluctl.yaml instead.")
+
+	return true, LoadDefaultArgs(conf.Args, deployArgs)
+}
+
+func LoadDefaultArgs(args []*types.DeploymentArg, deployArgs *uo.UnstructuredObject) error {
 	// load defaults
 	defaults := uo.New()
-	for _, a := range conf.Args {
+	for _, a := range args {
 		if a.Default != nil {
 			a2 := uo.FromMap(map[string]interface{}{
 				a.Name: a.Default,
@@ -93,7 +105,7 @@ func LoadDeploymentArgs(dir string, varsCtx *vars.VarsCtx, deployArgs *uo.Unstru
 	defaults.Merge(deployArgs)
 	*deployArgs = *defaults
 
-	err = checkRequiredArgs(conf.Args, deployArgs)
+	err := checkRequiredArgs(args, deployArgs)
 	if err != nil {
 		return err
 	}

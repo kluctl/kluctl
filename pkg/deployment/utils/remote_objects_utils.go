@@ -8,7 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sync"
 )
 
 type RemoteObjectUtils struct {
@@ -16,7 +15,6 @@ type RemoteObjectUtils struct {
 	dew              *DeploymentErrorsAndWarnings
 	remoteObjects    map[k8s2.ObjectRef]*uo.UnstructuredObject
 	remoteNamespaces map[string]*uo.UnstructuredObject
-	mutex            sync.Mutex
 }
 
 func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
@@ -36,17 +34,17 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 	s := status.Start(u.ctx, "Getting remote objects by commonLabels")
 	defer s.Failed()
 
-	allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels)
-	for gvk, aw := range apiWarnings {
-		u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
-	}
-	if err != nil {
-		return err
-	}
-
-	u.mutex.Lock()
-	for _, o := range allObjects {
-		u.remoteObjects[o.GetK8sRef()] = o
+	if len(labels) != 0 {
+		allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels)
+		for gvk, aw := range apiWarnings {
+			u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
+		}
+		if err != nil {
+			return err
+		}
+		for _, o := range allObjects {
+			u.remoteObjects[o.GetK8sRef()] = o
+		}
 	}
 
 	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
@@ -59,7 +57,6 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 			}
 		}
 	}
-	u.mutex.Unlock()
 
 	if len(notFoundRefsList) != 0 {
 		s.UpdateAndInfoFallback("Getting %d additional remote objects", len(notFoundRefsList))
@@ -70,11 +67,9 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		if err != nil {
 			return err
 		}
-		u.mutex.Lock()
 		for _, o := range r {
 			u.remoteObjects[o.GetK8sRef()] = o
 		}
-		u.mutex.Unlock()
 	}
 
 	s.UpdateAndInfoFallback("Getting namespaces")
@@ -96,30 +91,21 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 }
 
 func (u *RemoteObjectUtils) GetRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
 	o, _ := u.remoteObjects[ref]
 	return o
 }
 
 func (u *RemoteObjectUtils) GetRemoteNamespace(name string) *uo.UnstructuredObject {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
 	o, _ := u.remoteNamespaces[name]
 	return o
 }
 
 func (u *RemoteObjectUtils) ForgetRemoteObject(ref k8s2.ObjectRef) {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
 	delete(u.remoteObjects, ref)
 }
 
 func (u *RemoteObjectUtils) GetFilteredRemoteObjects(inclusion *utils.Inclusion) []*uo.UnstructuredObject {
 	var ret []*uo.UnstructuredObject
-
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
 
 	for _, o := range u.remoteObjects {
 		iv := u.getInclusionEntries(o)
