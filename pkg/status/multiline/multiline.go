@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"github.com/mattn/go-runewidth"
 	"io"
+	"strings"
 	"sync"
 	"time"
 )
@@ -72,7 +73,9 @@ func (ml *MultiLinePrinter) Flush() {
 	// Count the number of lines that need to be cleared. We need to take wrapping into account as well
 	prevTotalLines := 0
 	for _, line := range ml.prevLines {
-		prevTotalLines += ml.countConsoleLines(line, tw)
+		for _, sl := range strings.Split(line, "\n") {
+			prevTotalLines += ml.countWrappedLines(sl, tw)
+		}
 	}
 	if prevTotalLines > 0 {
 		ml.clearLines(prevTotalLines)
@@ -93,7 +96,7 @@ func (ml *MultiLinePrinter) Flush() {
 	}
 }
 
-func (ml *MultiLinePrinter) countConsoleLines(s string, tw int) int {
+func (ml *MultiLinePrinter) countWrappedLines(s string, tw int) int {
 	s = stripansi.Strip(s)
 	w := runewidth.StringWidth(s)
 	cnt := 1
