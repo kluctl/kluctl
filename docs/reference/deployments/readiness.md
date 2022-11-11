@@ -3,7 +3,7 @@
 ---
 title: "Readiness"
 linkTitle: "Readiness"
-weight: 5
+weight: 7
 description:
   Definition of readiness.
 ---

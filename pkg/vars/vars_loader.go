@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -15,6 +14,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/cmd/sops/formats"
+	"go.mozilla.org/sops/v3/decrypt"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
@@ -103,8 +105,25 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 }
 
 func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string, rootKey string) error {
+	rendered, err := varsCtx.RenderFile(path, searchDirs)
+	if err != nil {
+		return fmt.Errorf("failed to render vars file %s: %w", path, err)
+	}
+
+	if yaml.IsMaybeSopsFile([]byte(rendered)) {
+		decrypted, err := decrypt.DataWithFormat([]byte(rendered), formats.FormatForPath(path))
+		if err != nil && err != sops.MetadataNotFound {
+			return fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
+		} else if err == nil {
+			rendered = string(decrypted)
+		}
+	}
+
 	newVars := uo.New()
-	err := varsCtx.RenderYamlFile(path, searchDirs, newVars)
+	err = yaml.ReadYamlString(rendered, newVars)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("failed to load vars from %s: %w", path, err)
 	}
@@ -199,17 +218,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
-	path, err := securejoin.SecureJoin(clonedDir, gitFile.Path)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	return v.loadFromString(varsCtx, string(f), "git", rootKey)
+	return v.loadFile(varsCtx, gitFile.Path, []string{clonedDir}, rootKey)
 }
 
 func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
@@ -297,7 +306,7 @@ func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, secretType strin
 }
 
 func (v *VarsLoader) renderYamlString(varsCtx *VarsCtx, s string, out interface{}) error {
-	ret, err := varsCtx.RenderString(s)
+	ret, err := varsCtx.RenderString(s, nil)
 	if err != nil {
 		return err
 	}

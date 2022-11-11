@@ -8,6 +8,9 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"go.mozilla.org/sops/v3"
+	"go.mozilla.org/sops/v3/cmd/sops/formats"
+	"go.mozilla.org/sops/v3/decrypt"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
@@ -450,19 +453,19 @@ func (di *DeploymentItem) writeKustomizationYaml(ky *uo.UnstructuredObject) erro
 	return yaml.WriteYamlFile(kustomizeYamlPath, ky)
 }
 
-func (di *DeploymentItem) prepareKustomizationYaml() error {
+func (di *DeploymentItem) prepareKustomizationYaml() (*uo.UnstructuredObject, error) {
 	ky, err := di.readKustomizationYaml("")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if ky == nil {
 		ky, err = di.generateKustomizationYaml("")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		err = di.writeKustomizationYaml(ky)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -470,7 +473,7 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	if overrideNamespace != nil {
 		_, ok, err := ky.GetNestedString("namespace")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !ok {
 			ky.SetNestedField(*overrideNamespace, "namespace")
@@ -480,8 +483,32 @@ func (di *DeploymentItem) prepareKustomizationYaml() error {
 	di.Barrier = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/barrier"))
 	di.WaitReadiness = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/wait-readiness"))
 
-	// Save modified kustomization.yml
-	return di.writeKustomizationYaml(ky)
+	return ky, nil
+}
+
+func (di *DeploymentItem) decryptSopsFile(p string) error {
+	file, err := os.ReadFile(p)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", p, err)
+	}
+
+	if !yaml.IsMaybeSopsFile(file) {
+		return nil
+	}
+
+	decrypted, err := decrypt.DataWithFormat(file, formats.FormatForPath(p))
+	if err == sops.MetadataNotFound {
+		// not encrypted, so bail out
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to decrypt file %s: %w", p, err)
+	}
+
+	err = os.WriteFile(p, decrypted, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to save decrypted file %s: %w", p, err)
+	}
+	return nil
 }
 
 func (di *DeploymentItem) buildKustomize() error {
@@ -489,9 +516,26 @@ func (di *DeploymentItem) buildKustomize() error {
 		return nil
 	}
 
-	err := di.prepareKustomizationYaml()
+	ky, err := di.prepareKustomizationYaml()
 	if err != nil {
 		return err
+	}
+
+	// Save modified kustomization.yml
+	err = di.writeKustomizationYaml(ky)
+	if err != nil {
+		return err
+	}
+
+	resources, _, _ := ky.GetNestedStringList("resources")
+	for _, r := range resources {
+		p := filepath.Join(di.RenderedDir, r)
+		if utils.IsFile(p) {
+			err = di.decryptSopsFile(p)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	rm, err := utils.SecureBuildKustomization(di.RenderedSourceRootDir, di.RenderedDir, true)

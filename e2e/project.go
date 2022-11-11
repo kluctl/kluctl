@@ -100,6 +100,10 @@ func (p *testProject) updateYaml(path string, update func(o *uo.UnstructuredObje
 	}, message)
 }
 
+func (p *testProject) updateFile(path string, update func(f string) (string, error), message string) {
+	p.gitServer.UpdateFile(p.getKluctlProjectRepo(), path, update, message)
+}
+
 func (p *testProject) getDeploymentYaml(dir string) *uo.UnstructuredObject {
 	o, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, "deployment.yml"))
 	if err != nil {
@@ -284,18 +288,20 @@ func (p *testProject) addKustomizeResources(dir string, resources []kustomizeRes
 		l, _, _ := o.GetNestedList("resources")
 		for _, r := range resources {
 			l = append(l, r.name)
-			x := p.convertInterfaceToList(r.content)
 			fileName := r.fileName
 			if fileName == "" {
 				fileName = r.name
 			}
-			err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, fileName), x)
-			if err != nil {
-				return err
-			}
-			_, err = wt.Add(filepath.Join(dir, fileName))
-			if err != nil {
-				return err
+			if r.content != nil {
+				x := p.convertInterfaceToList(r.content)
+				err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, fileName), x)
+				if err != nil {
+					return err
+				}
+				_, err = wt.Add(filepath.Join(dir, fileName))
+				if err != nil {
+					return err
+				}
 			}
 		}
 		o.SetNestedField(l, "resources")

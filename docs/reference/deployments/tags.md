@@ -3,7 +3,7 @@
 ---
 title: "Tags"
 linkTitle: "Tags"
-weight: 6
+weight: 8
 ---
 -->
 
