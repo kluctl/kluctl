@@ -54,6 +54,9 @@ vars:
 
 After which all included deployments and sub-deployments can use the jinja2 variables from `vars1.yaml`.
 
+Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
+[sops integration](../deployments/sops.md) integration for more details.
+
 ### values
 An inline definition of variables. Example:
 
@@ -76,6 +79,9 @@ vars:
       ref: my-branch
       path: path/to/vars.yaml
 ```
+
+Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
+[sops integration](../deployments/sops.md) integration for more details.
 
 ### clusterConfigMap
 Loads a configmap from the target's cluster and loads the specified key's value as a yaml file into the jinja2 variables
