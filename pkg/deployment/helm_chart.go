@@ -30,27 +30,27 @@ import (
 	"strings"
 )
 
-type helmChart struct {
-	configFile  string
+type HelmChart struct {
+	ConfigFile  string
 	Config      *types.HelmChartConfig
 	credentials *repo.Entry
 }
 
-func NewHelmChart(configFile string) (*helmChart, error) {
+func NewHelmChart(configFile string) (*HelmChart, error) {
 	var config types.HelmChartConfig
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
 	}
 
-	hc := &helmChart{
-		configFile: configFile,
+	hc := &HelmChart{
+		ConfigFile: configFile,
 		Config:     &config,
 	}
 	return hc, nil
 }
 
-func (c *helmChart) GetChartName() (string, error) {
+func (c *HelmChart) GetChartName() (string, error) {
 	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
 		s := strings.Split(*c.Config.Repo, "/")
 		chartName := s[len(s)-1]
@@ -65,18 +65,18 @@ func (c *helmChart) GetChartName() (string, error) {
 	return *c.Config.ChartName, nil
 }
 
-func (c *helmChart) GetChartDir() (string, error) {
+func (c *HelmChart) GetChartDir() (string, error) {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return "", err
 	}
 
-	dir := filepath.Dir(c.configFile)
+	dir := filepath.Dir(c.ConfigFile)
 	targetDir := filepath.Join(dir, "charts")
 	return securejoin.SecureJoin(targetDir, chartName)
 }
 
-func (c *helmChart) GetOutputPath() string {
+func (c *HelmChart) GetOutputPath() string {
 	output := "helm-rendered.yaml"
 	if c.Config.Output != nil {
 		output = *c.Config.Output
@@ -84,12 +84,12 @@ func (c *helmChart) GetOutputPath() string {
 	return output
 }
 
-func (c *helmChart) GetFullOutputPath() (string, error) {
-	dir := filepath.Dir(c.configFile)
+func (c *HelmChart) GetFullOutputPath() (string, error) {
+	dir := filepath.Dir(c.ConfigFile)
 	return securejoin.SecureJoin(dir, c.GetOutputPath())
 }
 
-func (c *helmChart) buildHelmConfig(k *k8s.K8sCluster) (*action.Configuration, error) {
+func (c *HelmChart) buildHelmConfig(k *k8s.K8sCluster) (*action.Configuration, error) {
 	rc, err := registry.NewClient()
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (c *helmChart) buildHelmConfig(k *k8s.K8sCluster) (*action.Configuration, e
 	}, nil
 }
 
-func (c *helmChart) Pull(ctx context.Context) error {
+func (c *HelmChart) Pull(ctx context.Context) error {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (c *helmChart) Pull(ctx context.Context) error {
 		return err
 	}
 
-	targetDir := filepath.Join(filepath.Dir(c.configFile), "charts")
+	targetDir := filepath.Join(filepath.Dir(c.ConfigFile), "charts")
 	_ = os.RemoveAll(chartDir)
 
 	cfg, err := c.buildHelmConfig(nil)
@@ -154,7 +154,7 @@ func (c *helmChart) Pull(ctx context.Context) error {
 	return nil
 }
 
-func (c *helmChart) CheckUpdate() (string, bool, error) {
+func (c *HelmChart) CheckUpdate() (string, bool, error) {
 	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
 		return "", false, nil
 	}
@@ -203,7 +203,7 @@ func (c *helmChart) CheckUpdate() (string, bool, error) {
 	return latestVersion, updated, nil
 }
 
-func (c *helmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
+func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ func (c *helmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
+func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	chartDir, err := c.GetChartDir()
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	if err != nil {
 		return err
 	}
-	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(c.configFile), "helm-values.yml"))
+	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(c.ConfigFile), "helm-values.yml"))
 
 	var gvs []schema.GroupVersion
 	if k != nil {
@@ -345,7 +345,7 @@ func (c *helmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	return nil
 }
 
-func (c *helmChart) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, error) {
+func (c *HelmChart) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, error) {
 	var parsed []*uo.UnstructuredObject
 
 	duplicatesRemoved, err := yaml.RemoveDuplicateFields(strings.NewReader(s))
@@ -367,7 +367,7 @@ func (c *helmChart) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, 
 	return parsed, nil
 }
 
-func (c *helmChart) SetCredentials(credentials *repo.Entry) {
+func (c *HelmChart) SetCredentials(credentials *repo.Entry) {
 	c.credentials = credentials
 }
 
@@ -388,6 +388,6 @@ func isTestHook(h *release.Hook) bool {
 	return false
 }
 
-func (c *helmChart) Save() error {
-	return yaml.WriteYamlFile(c.configFile, c.Config)
+func (c *HelmChart) Save() error {
+	return yaml.WriteYamlFile(c.ConfigFile, c.Config)
 }
