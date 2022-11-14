@@ -8,15 +8,15 @@ import (
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"io/fs"
+	"os"
 	"path/filepath"
 )
 
 type helmUpdateCmd struct {
 	args.HelmCredentials
 
-	LocalDeployment string `group:"project" help:"Local deployment directory. Defaults to current directory"`
-	Upgrade         bool   `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
-	Commit          bool   `group:"misc" help:"Create a git commit for every updated chart"`
+	Upgrade bool `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
+	Commit  bool `group:"misc" help:"Create a git commit for every updated chart"`
 }
 
 func (cmd *helmUpdateCmd) Help() string {
@@ -24,16 +24,17 @@ func (cmd *helmUpdateCmd) Help() string {
 }
 
 func (cmd *helmUpdateCmd) Run() error {
-	rootPath := "."
-	if cmd.LocalDeployment != "" {
-		rootPath = cmd.LocalDeployment
-	}
-	gitRootPath, err := git2.DetectGitRepositoryRoot(rootPath)
+	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	err = filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
+	gitRootPath, err := git2.DetectGitRepositoryRoot(cwd)
+	if err != nil {
+		return err
+	}
+
+	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
 			statusPrefix := filepath.Base(filepath.Dir(p))
@@ -134,7 +135,7 @@ func (cmd *helmUpdateCmd) Run() error {
 						return err
 					}
 					for p := range gitFiles {
-						absPath, err := filepath.Abs(filepath.Join(rootPath, p))
+						absPath, err := filepath.Abs(filepath.Join(cwd, p))
 						if err != nil {
 							return err
 						}

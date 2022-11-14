@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"io/fs"
+	"os"
 	"path/filepath"
 )
 
 type helmPullCmd struct {
 	args.HelmCredentials
-
-	LocalDeployment string `group:"project" help:"Local deployment directory. Defaults to current directory"`
 }
 
 func (cmd *helmPullCmd) Help() string {
@@ -22,12 +22,17 @@ pulling is only needed when really required (e.g. when the chart version changes
 }
 
 func (cmd *helmPullCmd) Run() error {
-	rootPath := "."
-	if cmd.LocalDeployment != "" {
-		rootPath = cmd.LocalDeployment
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
 	}
 
-	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
+	gitRootPath, err := git2.DetectGitRepositoryRoot(cwd)
+	if err != nil {
+		return err
+	}
+
+	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
 			s := status.Start(cliCtx, "Pulling for %s", p)
