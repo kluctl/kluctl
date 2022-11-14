@@ -47,10 +47,10 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.2
-	k8s.io/api v0.25.3
+	k8s.io/api v0.25.4
 	k8s.io/apiextensions-apiserver v0.25.3
-	k8s.io/apimachinery v0.25.3
-	k8s.io/client-go v0.25.3
+	k8s.io/apimachinery v0.25.4
+	k8s.io/client-go v0.25.4
 	k8s.io/klog/v2 v2.80.1
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/kustomize/kyaml v0.13.9
@@ -59,6 +59,7 @@ require (
 
 require (
 	github.com/go-logr/logr v1.2.3
+	github.com/huandu/xstrings v1.3.2
 	go.mozilla.org/sops/v3 v3.7.3
 	sigs.k8s.io/controller-runtime v0.13.0
 )
@@ -156,7 +157,6 @@ require (
 	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef // indirect
-	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
