@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -12,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/pkg/errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -28,6 +31,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 type HelmChart struct {
@@ -101,19 +105,96 @@ func (c *HelmChart) buildHelmConfig(k *k8s.K8sCluster) (*action.Configuration, e
 	}, nil
 }
 
+func (c *HelmChart) checkNeedsPull(chartDir string, isTmp bool) (bool, bool, string, error) {
+	if !utils.IsDirectory(chartDir) {
+		return true, false, "", nil
+	}
+
+	chartYamlPath := yaml.FixPathExt(filepath.Join(chartDir, "Chart.yaml"))
+	st, err := os.Stat(chartYamlPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, false, "", nil
+		}
+		return false, false, "", err
+	}
+	if isTmp && time.Now().Sub(st.ModTime()) >= time.Hour*24 {
+		// MacOS will delete tmp files after 3 days, so lets be safe and re-pull every day
+		return true, false, "", nil
+	}
+
+	chartYaml, err := uo.FromFile(chartYamlPath)
+	if err != nil {
+		return false, false, "", err
+	}
+
+	version, _, _ := chartYaml.GetNestedString("version")
+	if version != *c.Config.ChartVersion {
+		return true, true, version, nil
+	}
+	return false, false, "", nil
+}
+
 func (c *HelmChart) Pull(ctx context.Context) error {
+	chartDir, err := c.GetChartDir()
+	if err != nil {
+		return err
+	}
+	return c.doPull(ctx, chartDir)
+}
+
+func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
+	chartName, err := c.GetChartName()
+	if err != nil {
+		return "", err
+	}
+
+	hash := sha256.New()
+	_, _ = fmt.Fprintf(hash, "%s\n", *c.Config.Repo)
+	_, _ = fmt.Fprintf(hash, "%s\n", chartName)
+	_, _ = fmt.Fprintf(hash, "%s\n", *c.Config.ChartVersion)
+	h := hex.EncodeToString(hash.Sum(nil))
+	tmpDir := filepath.Join(utils.GetTmpBaseDir(), "helm-charts")
+	_ = os.MkdirAll(tmpDir, 0o700)
+	tmpDir = filepath.Join(tmpDir, fmt.Sprintf("%s-%s", chartName, h))
+
+	lockFile := tmpDir + ".lock"
+	lock, err := lockedfile.Create(lockFile)
+	if err != nil {
+		return "", err
+	}
+	defer lock.Close()
+
+	needsPull, _, _, err := c.checkNeedsPull(tmpDir, true)
+	if err != nil {
+		return "", err
+	}
+	if !needsPull {
+		return tmpDir, nil
+	}
+	err = c.doPull(ctx, tmpDir)
+	if err != nil {
+		return "", err
+	}
+	return tmpDir, nil
+}
+
+func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return err
 	}
 
-	chartDir, err := c.GetChartDir()
+	_ = os.RemoveAll(chartDir)
+	_ = os.MkdirAll(filepath.Dir(chartDir), 0o700)
+
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "helm-pull-")
 	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(tmpDir)
 
-	targetDir := filepath.Join(filepath.Dir(c.ConfigFile), "charts")
-	_ = os.RemoveAll(chartDir)
+	tmpChartDir := filepath.Join(tmpDir, chartName)
 
 	cfg, err := c.buildHelmConfig(nil)
 	if err != nil {
@@ -122,7 +203,7 @@ func (c *HelmChart) Pull(ctx context.Context) error {
 	a := action.NewPullWithOpts(action.WithConfig(cfg))
 	a.Settings = cli.New()
 	a.Untar = true
-	a.DestDir = targetDir
+	a.DestDir = tmpDir
 	a.Version = *c.Config.ChartVersion
 
 	if c.credentials != nil {
@@ -142,15 +223,22 @@ func (c *HelmChart) Pull(ctx context.Context) error {
 		a.RepoURL = *c.Config.Repo
 		out, err = a.Run(chartName)
 	}
-	// a bug in the Pull command causes this directory to be created by accident
-	_ = os.RemoveAll(chartDir + fmt.Sprintf("-%s.tar.gz", a.Version))
-	_ = os.RemoveAll(chartDir + fmt.Sprintf("-%s.tgz", a.Version))
-	if out != "" {
-		status.PlainText(ctx, out)
-	}
 	if err != nil {
 		return err
 	}
+
+	// a bug in the Pull command causes this directory to be created by accident
+	_ = os.RemoveAll(tmpChartDir + fmt.Sprintf("-%s.tar.gz", a.Version))
+	_ = os.RemoveAll(tmpChartDir + fmt.Sprintf("-%s.tgz", a.Version))
+	if out != "" {
+		status.PlainText(ctx, out)
+	}
+
+	err = os.Rename(tmpChartDir, chartDir)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -216,10 +304,39 @@ func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
 }
 
 func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
+	chartName, err := c.GetChartName()
+	if err != nil {
+		return err
+	}
+
 	chartDir, err := c.GetChartDir()
 	if err != nil {
 		return err
 	}
+
+	needsPull, versionChanged, prePulledVersion, err := c.checkNeedsPull(chartDir, false)
+	if err != nil {
+		return err
+	}
+	if needsPull {
+		if versionChanged {
+			return fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
+				"Desired version is %s while pre-pulled version is %s", chartName, *c.Config.ChartVersion, prePulledVersion)
+		} else {
+			status.Warning(ctx, "Warning, need to pull Helm Chart %s with version %s. "+
+				"Please consider pre-pulling it with 'kluctl helm-pull'", chartName, *c.Config.ChartVersion)
+		}
+
+		s := status.Start(ctx, "Pulling Helm Chart %s with version %s", chartName, *c.Config.ChartVersion)
+		defer s.Failed()
+
+		chartDir, err = c.pullTmpChart(ctx)
+		if err != nil {
+			return err
+		}
+		s.Success()
+	}
+
 	outputPath, err := c.GetFullOutputPath()
 	if err != nil {
 		return err
