@@ -37,7 +37,11 @@ func (cmd *helmUpdateCmd) Run() error {
 	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
-			statusPrefix := filepath.Base(filepath.Dir(p))
+			statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
+			if err != nil {
+				return err
+			}
+
 			s := status.Start(cliCtx, "%s: Checking for updates", statusPrefix)
 			defer s.Failed()
 

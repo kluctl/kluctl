@@ -35,16 +35,29 @@ func (cmd *helmPullCmd) Run() error {
 	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
-			s := status.Start(cliCtx, "Pulling for %s", p)
-			chart, err := deployment.NewHelmChart(p)
+			statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
 			if err != nil {
-				s.FailedWithMessage(err.Error())
 				return err
 			}
 
+			s := status.Start(cliCtx, "%s: Pulling Chart %s", statusPrefix)
+			chart, err := deployment.NewHelmChart(p)
+			if err != nil {
+				s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
+				return err
+			}
+
+			chartName, err := chart.GetChartName()
+			if err != nil {
+				s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
+				return err
+			}
+
+			s.Update("%s: Pulling Chart %s with version %s", statusPrefix, chartName, *chart.Config.ChartVersion)
+
 			creds := cmd.HelmCredentials.FindCredentials(*chart.Config.Repo, chart.Config.CredentialsId)
 			if chart.Config.CredentialsId != nil && creds == nil {
-				err := fmt.Errorf("no credentials provided for %s", p)
+				err := fmt.Errorf("%s: no credentials provided", statusPrefix)
 				s.FailedWithMessage(err.Error())
 				return err
 			}
@@ -52,7 +65,7 @@ func (cmd *helmPullCmd) Run() error {
 
 			err = chart.Pull(cliCtx)
 			if err != nil {
-				s.FailedWithMessage(err.Error())
+				s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
 				return err
 			}
 			s.Success()
