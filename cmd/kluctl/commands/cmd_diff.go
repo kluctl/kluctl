@@ -12,6 +12,7 @@ type diffCmd struct {
 	args.ArgsFlags
 	args.InclusionFlags
 	args.ImageFlags
+	args.HelmCredentials
 	args.ForceApplyFlags
 	args.ReplaceOnErrorFlags
 	args.IgnoreFlags
@@ -33,6 +34,7 @@ func (cmd *diffCmd) Run() error {
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {

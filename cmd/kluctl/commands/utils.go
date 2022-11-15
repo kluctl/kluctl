@@ -85,6 +85,7 @@ type projectTargetCommandArgs struct {
 	argsFlags            args.ArgsFlags
 	imageFlags           args.ImageFlags
 	inclusionFlags       args.InclusionFlags
+	helmCredentials      args.HelmCredentials
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
 
@@ -162,6 +163,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		ForSeal:            args.forSeal,
 		Images:             images,
 		Inclusion:          inclusion,
+		HelmCredentials:    &args.helmCredentials,
 		RenderOutputDir:    renderOutputDir,
 	}
 

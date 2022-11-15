@@ -146,11 +146,7 @@ func (cmd *helmUpdateCmd) doCheckUpdate(gitRootPath string, p string) (*deployme
 		return doError(err)
 	}
 
-	creds := cmd.HelmCredentials.FindCredentials(*chart.Config.Repo, chart.Config.CredentialsId)
-	if chart.Config.CredentialsId != nil && creds == nil {
-		return doError(fmt.Errorf("no credentials provided"))
-	}
-	chart.SetCredentials(creds)
+	chart.SetCredentials(&cmd.HelmCredentials)
 
 	newVersion, updated, err := chart.CheckUpdate(cliCtx)
 	if err != nil {

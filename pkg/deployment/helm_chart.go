@@ -35,10 +35,15 @@ import (
 	"time"
 )
 
+type HelmCredentialsProvider interface {
+	FindCredentials(repoUrl string, credentialsId *string) *repo.Entry
+}
+
 type HelmChart struct {
-	ConfigFile  string
-	Config      *types.HelmChartConfig
-	credentials *repo.Entry
+	ConfigFile string
+	Config     *types.HelmChartConfig
+
+	credentials HelmCredentialsProvider
 }
 
 func NewHelmChart(configFile string) (*HelmChart, error) {
@@ -207,14 +212,21 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	a.DestDir = tmpDir
 	a.Version = *c.Config.ChartVersion
 
-	if c.credentials != nil {
-		a.Username = c.credentials.Username
-		a.Password = c.credentials.Password
-		a.CertFile = c.credentials.CertFile
-		a.CaFile = c.credentials.CAFile
-		a.KeyFile = c.credentials.KeyFile
-		a.InsecureSkipTLSverify = c.credentials.InsecureSkipTLSverify
-		a.PassCredentialsAll = c.credentials.PassCredentialsAll
+	if c.Config.CredentialsId != nil {
+		if c.credentials == nil {
+			return fmt.Errorf("no credentials provider")
+		}
+		creds := c.credentials.FindCredentials(*c.Config.Repo, c.Config.CredentialsId)
+		if creds == nil {
+			return fmt.Errorf("no credentials provided for Chart %s", chartName)
+		}
+		a.Username = creds.Username
+		a.Password = creds.Password
+		a.CertFile = creds.CertFile
+		a.CaFile = creds.CAFile
+		a.KeyFile = creds.KeyFile
+		a.InsecureSkipTLSverify = creds.InsecureSkipTLSverify
+		a.PassCredentialsAll = creds.PassCredentialsAll
 	}
 
 	var out string
@@ -278,8 +290,17 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 	var latestVersion string
 
 	settings := cli.New()
-	e := c.credentials
-	if e == nil {
+
+	var e *repo.Entry
+	if c.Config.CredentialsId != nil {
+		if c.credentials == nil {
+			return "", false, fmt.Errorf("no credentials provider")
+		}
+		e = c.credentials.FindCredentials(*c.Config.Repo, c.Config.CredentialsId)
+		if e == nil {
+			return "", false, fmt.Errorf("no credentials provided for Chart %s", chartName)
+		}
+	} else {
 		e = &repo.Entry{
 			URL: *c.Config.Repo,
 		}
@@ -515,8 +536,8 @@ func (c *HelmChart) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, 
 	return parsed, nil
 }
 
-func (c *HelmChart) SetCredentials(credentials *repo.Entry) {
-	c.credentials = credentials
+func (c *HelmChart) SetCredentials(p HelmCredentialsProvider) {
+	c.credentials = p
 }
 
 func checkIfInstallable(ch *chart.Chart) error {

@@ -17,6 +17,7 @@ import (
 type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
+	args.HelmCredentials
 
 	ForceReseal       bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
 	CertFile          string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
@@ -44,6 +45,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:      cmd.ProjectFlags,
 		targetFlags:       cmd.TargetFlags,
+		helmCredentials:   cmd.HelmCredentials,
 		forSeal:           true,
 		offlineKubernetes: cmd.OfflineKubernetes,
 	}

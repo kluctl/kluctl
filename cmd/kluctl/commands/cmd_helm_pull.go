@@ -90,18 +90,14 @@ func doPull(statusPrefix string, p string, helmCredentials args.HelmCredentials,
 		return doError(err)
 	}
 
+	chart.SetCredentials(&helmCredentials)
+
 	chartName, err := chart.GetChartName()
 	if err != nil {
 		return doError(err)
 	}
 
 	s.Update("%s: Pulling Chart %s with version %s", statusPrefix, chartName, *chart.Config.ChartVersion)
-
-	creds := helmCredentials.FindCredentials(*chart.Config.Repo, chart.Config.CredentialsId)
-	if chart.Config.CredentialsId != nil && creds == nil {
-		return doError(fmt.Errorf("no credentials provided"))
-	}
-	chart.SetCredentials(creds)
 
 	err = chart.Pull(cliCtx)
 	if err != nil {

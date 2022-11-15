@@ -14,6 +14,7 @@ type renderCmd struct {
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
+	args.HelmCredentials
 	args.RenderOutputDirFlags
 
 	OfflineKubernetes bool `group:"misc" help:"Run render in offline mode, meaning that it will not try to connect the target cluster"`
@@ -41,6 +42,7 @@ func (cmd *renderCmd) Run() error {
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
+		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		offlineKubernetes:    cmd.OfflineKubernetes,
 	}

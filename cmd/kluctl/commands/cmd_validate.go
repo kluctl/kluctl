@@ -13,6 +13,7 @@ type validateCmd struct {
 	args.TargetFlags
 	args.ArgsFlags
 	args.InclusionFlags
+	args.HelmCredentials
 	args.OutputFlags
 	args.RenderOutputDirFlags
 
@@ -33,6 +34,7 @@ func (cmd *validateCmd) Run() error {
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
