@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"os/exec"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -69,7 +70,9 @@ func runHelper(t *testing.T, cmd *exec.Cmd) (string, string, error) {
 		return "", "", err
 	}
 
+	var wg sync.WaitGroup
 	stdReader := func(testLogPrefix string, buf io.StringWriter, pipe io.Reader) {
+		defer wg.Done()
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
 			l := scanner.Text()
@@ -81,9 +84,15 @@ func runHelper(t *testing.T, cmd *exec.Cmd) (string, string, error) {
 	stdoutBuf := bytes.NewBuffer(nil)
 	stderrBuf := bytes.NewBuffer(nil)
 
+	wg.Add(2)
 	go stdReader("stdout: ", stdoutBuf, stdoutPipe)
 	go stdReader("stderr: ", stderrBuf, stderrPipe)
 
-	err = cmd.Run()
+	err = cmd.Start()
+	if err != nil {
+		return "", "", err
+	}
+	wg.Wait()
+	err = cmd.Wait()
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
