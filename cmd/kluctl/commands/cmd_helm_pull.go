@@ -47,12 +47,17 @@ func (cmd *helmPullCmd) Run() error {
 			return nil
 		}
 
+		statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
+		if err != nil {
+			return err
+		}
+
 		wg.Add(1)
 		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, func() error {
 			defer wg.Done()
-			s := status.Start(cliCtx, "%s: Pulling Chart")
+			s := status.Start(cliCtx, "%s: Pulling Chart", statusPrefix)
 			defer s.Failed()
-			err := doPull(gitRootPath, p, cmd.HelmCredentials, s)
+			err := doPull(statusPrefix, p, cmd.HelmCredentials, s)
 			if err != nil {
 				return err
 			}
@@ -74,12 +79,7 @@ func (cmd *helmPullCmd) Run() error {
 	return nil
 }
 
-func doPull(gitRootPath string, p string, helmCredentials args.HelmCredentials, s *status.StatusContext) error {
-	statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
-	if err != nil {
-		return err
-	}
-
+func doPull(statusPrefix string, p string, helmCredentials args.HelmCredentials, s *status.StatusContext) error {
 	doError := func(err error) error {
 		s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
 		return err

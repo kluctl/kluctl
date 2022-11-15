@@ -192,7 +192,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 		return err
 	}
 
-	err = doPull(gitRootPath, chart.ConfigFile, cmd.HelmCredentials, s)
+	err = doPull(statusPrefix, chart.ConfigFile, cmd.HelmCredentials, s)
 	if err != nil {
 		return err
 	}
