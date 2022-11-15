@@ -141,13 +141,13 @@ func (cmd *helmUpdateCmd) doCheckUpdate(gitRootPath string, p string) (*deployme
 		return doError(err)
 	}
 	if !updated {
-		s.Update("%s: Version %s is already up-to-date.", statusPrefix, *chart.Config.ChartVersion)
+		s.UpdateAndInfoFallback("%s: Version %s is already up-to-date.", statusPrefix, *chart.Config.ChartVersion)
 	} else {
 		msg := fmt.Sprintf("%s: Chart has new version %s available. Old version is %s.", statusPrefix, newVersion, *chart.Config.ChartVersion)
 		if chart.Config.SkipUpdate {
 			msg += " skipUpdate is set to true."
 		}
-		s.Update(msg)
+		s.UpdateAndInfoFallback(msg)
 	}
 	s.Success()
 
