@@ -206,6 +206,10 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	a.Version = *c.Config.ChartVersion
 
 	if c.Config.CredentialsId != nil {
+		if registry.IsOCI(*c.Config.Repo) {
+			return fmt.Errorf("OCI charts can currently only be authenticated via registry login and not via cli arguments")
+		}
+
 		if c.credentials == nil {
 			return fmt.Errorf("no credentials provider")
 		}
