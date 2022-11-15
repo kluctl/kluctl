@@ -21,6 +21,8 @@ type helmUpdateCmd struct {
 
 	Upgrade bool `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
 	Commit  bool `group:"misc" help:"Create a git commit for every updated chart"`
+
+	Interactive bool `group:"misc" short:"i" help:"Ask for every Helm Chart if it should be upgraded."`
 }
 
 func (cmd *helmUpdateCmd) Help() string {
@@ -44,6 +46,7 @@ func (cmd *helmUpdateCmd) Run() error {
 	sem := semaphore.NewWeighted(8)
 
 	type updatedChart struct {
+		path        string
 		chart       *deployment.HelmChart
 		newVersion  string
 		oldVersion  string
@@ -71,6 +74,7 @@ func (cmd *helmUpdateCmd) Run() error {
 
 			if !chart.Config.SkipUpdate && updated {
 				updatedCharts = append(updatedCharts, &updatedChart{
+					path:       p,
 					chart:      chart,
 					newVersion: newVersion,
 					oldVersion: *chart.Config.ChartVersion,
@@ -90,12 +94,24 @@ func (cmd *helmUpdateCmd) Run() error {
 		return errs.ErrorOrNil()
 	}
 
+	if cmd.Interactive {
+		sem = semaphore.NewWeighted(1)
+	}
+
 	for _, uc := range updatedCharts {
 		uc := uc
 
 		wg.Add(1)
 		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, func() error {
 			defer wg.Done()
+
+			if cmd.Interactive {
+				statusPrefix, _ := filepath.Rel(gitRootPath, filepath.Dir(uc.path))
+				chartName, _ := uc.chart.GetChartName()
+				if !status.AskForConfirmation(cliCtx, fmt.Sprintf("%s: Do you want to upgrade Chart %s from version %s to %s?", statusPrefix, chartName, uc.oldVersion, uc.newVersion)) {
+					return nil
+				}
+			}
 
 			err := cmd.pullAndCommitChart(gitRootPath, uc.chart, uc.oldVersion, uc.newVersion, &mutex)
 			if err != nil {
