@@ -45,11 +45,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-20.04
-            binary-suffix: linux-amd64
+            run_on_pull_requests: true
           - os: macos-11
-            binary-suffix: darwin-amd64
+            run_on_pull_requests: false
           - os: windows-2019
-            binary-suffix: windows-amd64
+            run_on_pull_requests: false
         os: [ubuntu-20.04, macos-11, windows-2019]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -67,15 +67,17 @@ jobs:
           key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             tests-go-${{ runner.os }}-
-      - name: setup-envtest
-        shell: bash
-        run: |
-          make install-envtest
       - name: Run unit tests
         shell: bash
         run: |
           make test-unit
+      - name: setup-envtest
+        if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          make install-envtest
       - name: Run e2e tests
+        if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
         shell: bash
         run: |
           make test-e2e
