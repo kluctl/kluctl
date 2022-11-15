@@ -367,7 +367,7 @@ func (rh *RegistryHelper) writeCachedResponse(key string, data []byte) {
 }
 
 func (rh *RegistryHelper) RoundTripCached(req *http.Request, extraKey string, onNew func(res *http.Response) error) (*http.Response, error) {
-	key := fmt.Sprintf("%s\n%s\n%s\n", req.Host, req.URL.Path, extraKey)
+	key := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n", req.URL.Scheme, req.URL.Host, req.Host, req.URL.Path, extraKey)
 	key = utils.Sha256String(key)
 
 	isNew := false
