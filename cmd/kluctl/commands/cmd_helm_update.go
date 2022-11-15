@@ -136,7 +136,7 @@ func (cmd *helmUpdateCmd) doCheckUpdate(gitRootPath string, p string) (*deployme
 	}
 	chart.SetCredentials(creds)
 
-	newVersion, updated, err := chart.CheckUpdate()
+	newVersion, updated, err := chart.CheckUpdate(cliCtx)
 	if err != nil {
 		return doError(err)
 	}

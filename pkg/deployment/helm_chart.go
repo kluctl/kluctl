@@ -7,6 +7,7 @@ import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -242,10 +243,34 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	return nil
 }
 
-func (c *HelmChart) CheckUpdate() (string, bool, error) {
+func (c *HelmChart) CheckUpdate(ctx context.Context) (string, bool, error) {
 	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
-		return "", false, nil
+		return c.checkUpdateOciRepo(ctx)
 	}
+	return c.checkUpdateHelmRepo()
+}
+
+func (c *HelmChart) checkUpdateOciRepo(ctx context.Context) (string, bool, error) {
+	rh := registries.NewRegistryHelper(ctx)
+
+	imageName := strings.TrimPrefix(*c.Config.Repo, "oci://")
+	tags, err := rh.ListImageTags(imageName)
+	if err != nil {
+		return "", false, err
+	}
+
+	var ls versions.LooseVersionSlice
+	for _, x := range tags {
+		ls = append(ls, versions.LooseVersion(x))
+	}
+	sort.Stable(ls)
+	latestVersion := string(ls[len(ls)-1])
+
+	updated := latestVersion != *c.Config.ChartVersion
+	return latestVersion, updated, nil
+}
+
+func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 	chartName, err := c.GetChartName()
 	if err != nil {
 		return "", false, err
