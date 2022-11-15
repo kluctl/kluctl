@@ -16,11 +16,17 @@ kluctl offers a simple-to-use Helm integration, which allows you to reuse many c
 The integration is split into 2 parts/steps/layers. The first is the management and pulling of the Helm Charts, while
 the second part handles configuration/customization and deployment of the chart.
 
-Pulled Helm Charts are meant to be added to version control to ensure proper speed and consistency.
+It is recommended to pre-pull Helm Charts with [`kluctl helm-pull`](../commands/helm-pull.md), which will store the
+pulled charts near the `helm-chart.yaml` file (inside the `charts` sub-directory). It is however also possible (but not
+recommended) to skip the pre-pulling phase and let kluctl pull Charts on-demand.
+
+When pre-pulling Helm Charts, you can also add the resulting Chart contents into version control. This is actually
+recommended as it ensures that the deployment will always behave the same. It also allows pull-request based reviews
+on third-party Helm Charts.
 
 ## How it works
 
-Helm charts are not directly deployed via Helm. Instead, kluctl renders the Helm Chart into a single file and then
+Helm charts are not directly installed via Helm. Instead, kluctl renders the Helm Chart into a single file and then
 hands over the rendered yaml to [kustomize](https://kustomize.io/). Rendering is done in combination with a provided
 `helm-values.yaml`, which contains the necessary values to configure the Helm Chart.
 
@@ -82,7 +88,7 @@ resource. If `output` is omitted, the default value `helm-rendered.yaml` is used
 The url to the Helm repository where the Helm Chart is located. You can use hub.helm.sh to search for repositories and
 charts and then use the repos found there.
 
-oci based repositories are also supported, for example:
+OCI based repositories are also supported, for example:
 ```yaml
 helmChart:
   repo: oci://r.myreg.io/mycharts/pepper

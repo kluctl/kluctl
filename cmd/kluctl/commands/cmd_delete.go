@@ -20,6 +20,7 @@ type deleteCmd struct {
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.HelmCredentials
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
@@ -43,6 +44,7 @@ func (cmd *deleteCmd) Run() error {
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}

@@ -8,10 +8,11 @@ import (
 )
 
 type SharedContext struct {
-	Ctx        context.Context
-	K          *k8s.K8sCluster
-	RP         *repocache.GitRepoCache
-	VarsLoader *vars.VarsLoader
+	Ctx             context.Context
+	K               *k8s.K8sCluster
+	RP              *repocache.GitRepoCache
+	VarsLoader      *vars.VarsLoader
+	HelmCredentials HelmCredentialsProvider
 
 	RenderDir                         string
 	SealedSecretsDir                  string

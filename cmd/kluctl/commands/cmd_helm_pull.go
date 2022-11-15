@@ -2,17 +2,21 @@ package commands
 
 import (
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"golang.org/x/sync/semaphore"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"sync"
 )
 
 type helmPullCmd struct {
 	args.HelmCredentials
-
-	LocalDeployment string `group:"project" help:"Local deployment directory. Defaults to current directory"`
 }
 
 func (cmd *helmPullCmd) Help() string {
@@ -22,42 +26,77 @@ pulling is only needed when really required (e.g. when the chart version changes
 }
 
 func (cmd *helmPullCmd) Run() error {
-	rootPath := "."
-	if cmd.LocalDeployment != "" {
-		rootPath = cmd.LocalDeployment
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
 	}
 
-	err := filepath.WalkDir(rootPath, func(p string, d fs.DirEntry, err error) error {
+	gitRootPath, err := git2.DetectGitRepositoryRoot(cwd)
+	if err != nil {
+		return err
+	}
+
+	var errs *multierror.Error
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	sem := semaphore.NewWeighted(8)
+
+	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
-		if fname == "helm-chart.yml" || fname == "helm-chart.yaml" {
-			s := status.Start(cliCtx, "Pulling for %s", p)
-			chart, err := deployment.NewHelmChart(p)
-			if err != nil {
-				s.FailedWithMessage(err.Error())
-				return err
-			}
+		if fname != "helm-chart.yml" && fname != "helm-chart.yaml" {
+			return nil
+		}
 
-			creds := cmd.HelmCredentials.FindCredentials(*chart.Config.Repo, chart.Config.CredentialsId)
-			if chart.Config.CredentialsId != nil && creds == nil {
-				err := fmt.Errorf("no credentials provided for %s", p)
-				s.FailedWithMessage(err.Error())
-				return err
-			}
-			chart.SetCredentials(creds)
+		statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
+		if err != nil {
+			return err
+		}
 
-			err = chart.Pull(cliCtx)
+		wg.Add(1)
+		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, func() error {
+			defer wg.Done()
+			s := status.Start(cliCtx, "%s: Pulling Chart", statusPrefix)
+			defer s.Failed()
+			err := doPull(statusPrefix, p, cmd.HelmCredentials, s)
 			if err != nil {
-				s.FailedWithMessage(err.Error())
 				return err
 			}
 			s.Success()
-		}
+			return nil
+		})
+
 		return nil
 	})
-
+	wg.Wait()
 	if err != nil {
+		errs = multierror.Append(errs, err)
+	}
+
+	if errs.ErrorOrNil() != nil {
 		return fmt.Errorf("command failed")
 	}
 
-	return err
+	return nil
+}
+
+func doPull(statusPrefix string, p string, helmCredentials args.HelmCredentials, s *status.StatusContext) error {
+	doError := func(err error) error {
+		s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
+		return err
+	}
+
+	chart, err := deployment.NewHelmChart(p)
+	if err != nil {
+		return doError(err)
+	}
+
+	chart.SetCredentials(&helmCredentials)
+
+	s.Update("%s: Pulling Chart %s with version %s", statusPrefix, chart.GetChartName(), *chart.Config.ChartVersion)
+
+	err = chart.Pull(cliCtx)
+	if err != nil {
+		return doError(err)
+	}
+	return nil
 }

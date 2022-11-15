@@ -11,6 +11,7 @@ type listImagesCmd struct {
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.HelmCredentials
 	args.OutputFlags
 	args.RenderOutputDirFlags
 
@@ -32,6 +33,7 @@ func (cmd *listImagesCmd) Run() error {
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		offlineKubernetes:    cmd.OfflineKubernetes,
 	}

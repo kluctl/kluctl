@@ -243,11 +243,16 @@ func (p *GitServer) LocalRepoDir(repo string) string {
 	return filepath.Join(p.baseDir, repo)
 }
 
-func (p *GitServer) GetWorktree(repo string) *git.Worktree {
+func (p *GitServer) GetGitRepo(repo string) *git.Repository {
 	r, err := git.PlainOpen(p.LocalRepoDir(repo))
 	if err != nil {
 		p.t.Fatal(err)
 	}
+	return r
+}
+
+func (p *GitServer) GetWorktree(repo string) *git.Worktree {
+	r := p.GetGitRepo(repo)
 	wt, err := r.Worktree()
 	if err != nil {
 		p.t.Fatal(err)

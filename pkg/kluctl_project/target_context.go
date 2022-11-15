@@ -36,6 +36,7 @@ type TargetContextParams struct {
 	ForSeal            bool
 	Images             *deployment.Images
 	Inclusion          *utils.Inclusion
+	HelmCredentials    deployment.HelmCredentialsProvider
 	RenderOutputDir    string
 }
 
@@ -104,6 +105,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		K:                                 k,
 		RP:                                p.RP,
 		VarsLoader:                        varsLoader,
+		HelmCredentials:                   params.HelmCredentials,
 		RenderDir:                         params.RenderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,
 		DefaultSealedSecretsOutputPattern: target.Name,

@@ -131,9 +131,16 @@ func (c *DeploymentCollection) RenderDeployments() error {
 		return utils.NewErrorListOrNil(errors)
 	}
 	s.Success()
+	return nil
+}
 
-	s = status.Start(c.ctx.Ctx, "Rendering Helm Charts")
+func (c *DeploymentCollection) renderHelmCharts() error {
+	s := status.Start(c.ctx.Ctx, "Rendering Helm Charts")
 	defer s.Failed()
+
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	var errors []error
 
 	for _, d := range c.Deployments {
 		d := d
@@ -268,6 +275,10 @@ func (c *DeploymentCollection) LocalObjectRefs() []k8s2.ObjectRef {
 
 func (c *DeploymentCollection) Prepare() error {
 	err := c.RenderDeployments()
+	if err != nil {
+		return err
+	}
+	err = c.renderHelmCharts()
 	if err != nil {
 		return err
 	}

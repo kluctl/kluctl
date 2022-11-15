@@ -201,7 +201,7 @@ func (s *StatusContext) FailedWithMessage(msg string, args ...any) {
 	if s.finished {
 		return
 	}
-	s.Update(msg, args...)
+	s.UpdateAndInfoFallback(msg, args...)
 	s.Failed()
 }
 

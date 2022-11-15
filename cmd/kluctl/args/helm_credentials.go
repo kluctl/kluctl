@@ -8,10 +8,10 @@ import (
 )
 
 type HelmCredentials struct {
-	Username              []string `group:"misc" help:"Specify username to use for Helm Repository authentication. Must be in the form --username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	Password              []string `group:"misc" help:"Specify password to use for Helm Repository authentication. Must be in the form --password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	KeyFile               []string `group:"misc" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --key-file=<credentialsId>:<path>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	InsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmUsername              []string `group:"misc" help:"Specify username to use for Helm Repository authentication. Must be in the form --helm-username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmPassword              []string `group:"misc" help:"Specify password to use for Helm Repository authentication. Must be in the form --helm-password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmKeyFile               []string `group:"misc" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --helm-key-file=<credentialsId>:<path>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmInsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 }
 
 func (c *HelmCredentials) FindCredentials(repoUrl string, credentialsId *string) *repo.Entry {
@@ -28,28 +28,29 @@ func (c *HelmCredentials) FindCredentials(repoUrl string, credentialsId *string)
 		}
 
 		var e repo.Entry
-		for _, x := range c.Username {
+		for _, x := range c.HelmUsername {
 			if v, ok := splitIdAndValue(x); ok {
 				e.Username = v
 			}
 		}
-		for _, x := range c.Password {
+		for _, x := range c.HelmPassword {
 			if v, ok := splitIdAndValue(x); ok {
 				e.Password = v
 			}
 		}
-		for _, x := range c.KeyFile {
+		for _, x := range c.HelmKeyFile {
 			if v, ok := splitIdAndValue(x); ok {
 				e.KeyFile = v
 			}
 		}
-		for _, x := range c.InsecureSkipTlsVerify {
+		for _, x := range c.HelmInsecureSkipTlsVerify {
 			if x == *credentialsId {
 				e.InsecureSkipTLSverify = true
 			}
 		}
 
 		if e != (repo.Entry{}) {
+			e.URL = repoUrl
 			return &e
 		}
 	}

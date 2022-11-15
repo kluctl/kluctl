@@ -198,6 +198,8 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			return err
 		}
 
+		chart.SetCredentials(di.ctx.HelmCredentials)
+
 		ky, err := di.readKustomizationYaml(subDir)
 		if err == nil && ky != nil {
 			resources, _, _ := ky.GetNestedStringList("resources")

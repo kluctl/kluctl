@@ -33,12 +33,27 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --offline-kubernetes         Run list-images in offline mode, meaning that it will not try to connect the
-                                   target cluster
-  -o, --output stringArray         Specify output target file. Can be specified multiple times
-      --render-output-dir string   Specifies the target directory to render the project into. If omitted, a
-                                   temporary directory is used.
-      --simple                     Output a simplified version of the images list
+      --helm-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
+                                                    --helm-insecure-skip-tls-verify=<credentialsId>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-key-file stringArray                   Specify client certificate to use for Helm Repository
+                                                    authentication. Must be in the form
+                                                    --helm-key-file=<credentialsId>:<path>, where <credentialsId>
+                                                    must match the id specified in the helm-chart.yaml.
+      --helm-password stringArray                   Specify password to use for Helm Repository authentication.
+                                                    Must be in the form
+                                                    --helm-password=<credentialsId>:<password>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-username stringArray                   Specify username to use for Helm Repository authentication.
+                                                    Must be in the form
+                                                    --helm-username=<credentialsId>:<username>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --offline-kubernetes                          Run list-images in offline mode, meaning that it will not try
+                                                    to connect the target cluster
+  -o, --output stringArray                          Specify output target file. Can be specified multiple times
+      --render-output-dir string                    Specifies the target directory to render the project into. If
+                                                    omitted, a temporary directory is used.
+      --simple                                      Output a simplified version of the images list
 
 ```
 <!-- END SECTION -->

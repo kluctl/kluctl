@@ -42,7 +42,7 @@ func parseEnv(prefix string, withIndex bool, withSuffix bool) map[int]map[string
 	for _, e := range os.Environ() {
 		eq := strings.Index(e, "=")
 		if eq == -1 {
-			panic(fmt.Sprintf("unexpected env var %s", e))
+			continue
 		}
 		n := e[:eq]
 		v := e[eq+1:]
