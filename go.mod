@@ -61,7 +61,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/huandu/xstrings v1.3.2
 	go.mozilla.org/sops/v3 v3.7.3
-	sigs.k8s.io/controller-runtime v0.13.0
+	sigs.k8s.io/controller-runtime v0.13.1
 )
 
 require (
