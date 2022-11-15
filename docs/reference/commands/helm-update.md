@@ -28,21 +28,25 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --commit                                 Create a git commit for every updated chart
-      --insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
-                                               --insecure-skip-tls-verify=<credentialsId>, where <credentialsId>
-                                               must match the id specified in the helm-chart.yaml.
-      --key-file stringArray                   Specify client certificate to use for Helm Repository
-                                               authentication. Must be in the form
-                                               --key-file=<credentialsId>:<path>, where <credentialsId> must match
-                                               the id specified in the helm-chart.yaml.
-      --password stringArray                   Specify password to use for Helm Repository authentication. Must be
-                                               in the form --password=<credentialsId>:<password>, where
-                                               <credentialsId> must match the id specified in the helm-chart.yaml.
-      --upgrade                                Write new versions into helm-chart.yaml and perform helm-pull afterwards
-      --username stringArray                   Specify username to use for Helm Repository authentication. Must be
-                                               in the form --username=<credentialsId>:<username>, where
-                                               <credentialsId> must match the id specified in the helm-chart.yaml.
+      --commit                                      Create a git commit for every updated chart
+      --helm-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
+                                                    --helm-insecure-skip-tls-verify=<credentialsId>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-key-file stringArray                   Specify client certificate to use for Helm Repository
+                                                    authentication. Must be in the form
+                                                    --helm-key-file=<credentialsId>:<path>, where <credentialsId>
+                                                    must match the id specified in the helm-chart.yaml.
+      --helm-password stringArray                   Specify password to use for Helm Repository authentication.
+                                                    Must be in the form
+                                                    --helm-password=<credentialsId>:<password>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-username stringArray                   Specify username to use for Helm Repository authentication.
+                                                    Must be in the form
+                                                    --helm-username=<credentialsId>:<username>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+  -i, --interactive                                 Ask for every Helm Chart if it should be upgraded.
+      --upgrade                                     Write new versions into helm-chart.yaml and perform helm-pull
+                                                    afterwards
 
 ```
 <!-- END SECTION -->
