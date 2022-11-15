@@ -26,7 +26,7 @@ jobs:
             ~/.cache/go-build
           key: docs-check-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            docs-check-go-${{ runner.os }}-
+            docs1-check-go-${{ runner.os }}-
       - name: Check links on changed files
         run: |
           make markdown-link-check
@@ -64,9 +64,9 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          key: tests1-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            tests-go-${{ runner.os }}-
+            tests1-go-${{ runner.os }}-
       - name: Run unit tests
         shell: bash
         run: |
