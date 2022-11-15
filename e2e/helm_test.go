@@ -3,6 +3,7 @@ package e2e
 import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/google/go-containerregistry/pkg/registry"
 	test_resources "github.com/kluctl/kluctl/v2/e2e/test-helm-chart"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -12,12 +13,16 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/pusher"
+	registry2 "helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/uploader"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -85,7 +90,50 @@ func createHelmRepo(t *testing.T, charts []repoChart) string {
 	return s.URL
 }
 
+func createOciRepo(t *testing.T, charts []repoChart) string {
+	tmpDir := t.TempDir()
+
+	ociRegistry := registry.New()
+	ociServer := httptest.NewServer(ociRegistry)
+
+	t.Cleanup(ociServer.Close)
+
+	ociUrl := strings.ReplaceAll(ociServer.URL, "http://", "oci://")
+
+	var out strings.Builder
+	settings := cli.New()
+	c := uploader.ChartUploader{
+		Out:     &out,
+		Pushers: pusher.All(settings),
+		Options: []pusher.Option{},
+	}
+
+	for _, chart := range charts {
+		tgz := createHelmPackage(t, chart.chartName, chart.version)
+		_ = utils.CopyFile(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
+
+		err := c.UploadTo(tgz, ociUrl)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return ociUrl
+}
+
+func createHelmOrOciRepo(t *testing.T, charts []repoChart, oci bool) string {
+	if oci {
+		return createOciRepo(t, charts)
+	} else {
+		return createHelmRepo(t, charts)
+	}
+}
+
 func addHelmDeployment(p *testProject, dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
+	if registry2.IsOCI(repoUrl) {
+		repoUrl += "/" + chartName
+		chartName = ""
+	}
 
 	p.addKustomizeDeployment(dir, []kustomizeResource{
 		{name: "helm-rendered.yaml"},
@@ -95,12 +143,14 @@ func addHelmDeployment(p *testProject, dir string, repoUrl string, chartName, ve
 		*o = *uo.FromMap(map[string]interface{}{
 			"helmChart": map[string]any{
 				"repo":         repoUrl,
-				"chartName":    chartName,
 				"chartVersion": version,
 				"releaseName":  releaseName,
 				"namespace":    namespace,
 			},
 		})
+		if chartName != "" {
+			_ = o.SetNestedField(chartName, "helmChart", "chartName")
+		}
 		return nil
 	}, "")
 
@@ -112,7 +162,7 @@ func addHelmDeployment(p *testProject, dir string, repoUrl string, chartName, ve
 	}
 }
 
-func TestHelmNoPrePull(t *testing.T) {
+func testHelmNoPrePull(t *testing.T, oci bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -122,9 +172,9 @@ func TestHelmNoPrePull(t *testing.T) {
 
 	createNamespace(t, k, p.testSlug())
 
-	repoUrl := createHelmRepo(p.t, []repoChart{
+	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
-	})
+	}, oci)
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -132,7 +182,15 @@ func TestHelmNoPrePull(t *testing.T) {
 	assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
 }
 
-func TestHelmPrePull(t *testing.T) {
+func TestHelmNoPrePull(t *testing.T) {
+	testHelmNoPrePull(t, false)
+}
+
+func TestHelmNoPrePullOci(t *testing.T) {
+	testHelmNoPrePull(t, true)
+}
+
+func testHelmPrePull(t *testing.T, oci bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -142,10 +200,10 @@ func TestHelmPrePull(t *testing.T) {
 
 	createNamespace(t, k, p.testSlug())
 
-	repoUrl := createHelmRepo(p.t, []repoChart{
+	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
 		{chartName: "test-chart2", version: "0.1.0"},
-	})
+	}, oci)
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -163,7 +221,15 @@ func TestHelmPrePull(t *testing.T) {
 	assertConfigMapExists(t, k, p.testSlug(), "test-helm2-test-chart2")
 }
 
-func TestHelmManualUpgrade(t *testing.T) {
+func TestHelmPrePull(t *testing.T) {
+	testHelmPrePull(t, false)
+}
+
+func TestHelmPrePullOci(t *testing.T) {
+	testHelmPrePull(t, true)
+}
+
+func testHelmManualUpgrade(t *testing.T, oci bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -173,10 +239,10 @@ func TestHelmManualUpgrade(t *testing.T) {
 
 	createNamespace(t, k, p.testSlug())
 
-	repoUrl := createHelmRepo(p.t, []repoChart{
+	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
 		{chartName: "test-chart1", version: "0.2.0"},
-	})
+	}, oci)
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -200,7 +266,15 @@ func TestHelmManualUpgrade(t *testing.T) {
 	assert.Equal(t, "0.2.0", v)
 }
 
-func testHelmUpdate(t *testing.T, upgrade bool, commit bool) {
+func TestHelmManualUpgrade(t *testing.T) {
+	testHelmManualUpgrade(t, false)
+}
+
+func TestHelmManualUpgradeOci(t *testing.T) {
+	testHelmManualUpgrade(t, true)
+}
+
+func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -210,12 +284,12 @@ func testHelmUpdate(t *testing.T, upgrade bool, commit bool) {
 
 	createNamespace(t, k, p.testSlug())
 
-	repoUrl := createHelmRepo(p.t, []repoChart{
+	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
 		{chartName: "test-chart1", version: "0.2.0"},
 		{chartName: "test-chart2", version: "0.1.0"},
 		{chartName: "test-chart2", version: "0.3.0"},
-	})
+	}, oci)
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -288,15 +362,27 @@ func testHelmUpdate(t *testing.T, upgrade bool, commit bool) {
 }
 
 func TestHelmUpdate(t *testing.T) {
-	testHelmUpdate(t, false, false)
+	testHelmUpdate(t, false, false, false)
+}
+
+func TestHelmUpdateOci(t *testing.T) {
+	testHelmUpdate(t, true, false, false)
 }
 
 func TestHelmUpdateAndUpgrade(t *testing.T) {
-	testHelmUpdate(t, true, false)
+	testHelmUpdate(t, false, true, false)
+}
+
+func TestHelmUpdateAndUpgradeOci(t *testing.T) {
+	testHelmUpdate(t, true, true, false)
 }
 
 func TestHelmUpdateAndUpgradeAndCommit(t *testing.T) {
-	testHelmUpdate(t, true, true)
+	testHelmUpdate(t, false, true, true)
+}
+
+func TestHelmUpdateAndUpgradeAndCommitOci(t *testing.T) {
+	testHelmUpdate(t, true, true, true)
 }
 
 func TestHelmValues(t *testing.T) {
