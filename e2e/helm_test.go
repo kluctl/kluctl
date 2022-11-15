@@ -19,6 +19,7 @@ import (
 	"helm.sh/helm/v3/pkg/uploader"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -65,7 +66,7 @@ type repoChart struct {
 	version   string
 }
 
-func createHelmRepo(t *testing.T, charts []repoChart) string {
+func createHelmRepo(t *testing.T, charts []repoChart, password string) string {
 	tmpDir := t.TempDir()
 
 	for _, c := range charts {
@@ -73,7 +74,18 @@ func createHelmRepo(t *testing.T, charts []repoChart) string {
 		_ = utils.CopyFile(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
 	}
 
-	s := httptest.NewServer(http.FileServer(http.FS(os.DirFS(tmpDir))))
+	fs := http.FileServer(http.FS(os.DirFS(tmpDir)))
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if password != "" {
+			_, p, ok := r.BasicAuth()
+			if !ok || p != password {
+				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
+				return
+			}
+		}
+		fs.ServeHTTP(w, r)
+	}))
+
 	t.Cleanup(s.Close)
 
 	i, err := repo.IndexDirectory(tmpDir, s.URL)
@@ -90,15 +102,30 @@ func createHelmRepo(t *testing.T, charts []repoChart) string {
 	return s.URL
 }
 
-func createOciRepo(t *testing.T, charts []repoChart) string {
+func createOciRepo(t *testing.T, charts []repoChart, password string) string {
 	tmpDir := t.TempDir()
 
 	ociRegistry := registry.New()
-	ociServer := httptest.NewServer(ociRegistry)
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if password != "" {
+			_, p, ok := r.BasicAuth()
+			if !ok {
+				w.Header().Add("WWW-Authenticate", "Basic")
+				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
+				return
+			}
+			if !ok || p != password {
+				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
+				return
+			}
+		}
+		ociRegistry.ServeHTTP(w, r)
+	}))
 
-	t.Cleanup(ociServer.Close)
+	t.Cleanup(s.Close)
 
-	ociUrl := strings.ReplaceAll(ociServer.URL, "http://", "oci://")
+	ociUrl := strings.ReplaceAll(s.URL, "http://", "oci://")
+	ociUrl2, _ := url.Parse(ociUrl)
 
 	var out strings.Builder
 	settings := cli.New()
@@ -106,6 +133,20 @@ func createOciRepo(t *testing.T, charts []repoChart) string {
 		Out:     &out,
 		Pushers: pusher.All(settings),
 		Options: []pusher.Option{},
+	}
+
+	var registryClient *registry2.Client
+	if password != "" {
+		var err error
+		registryClient, err = registry2.NewClient()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = registryClient.Login(ociUrl2.Host, registry2.LoginOptBasicAuth("test-user", password), registry2.LoginOptInsecure(true))
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Options = append(c.Options, pusher.WithRegistryClient(registryClient))
 	}
 
 	for _, chart := range charts {
@@ -118,14 +159,18 @@ func createOciRepo(t *testing.T, charts []repoChart) string {
 		}
 	}
 
+	if registryClient != nil {
+		registryClient.Logout(ociUrl2.Host)
+	}
+
 	return ociUrl
 }
 
-func createHelmOrOciRepo(t *testing.T, charts []repoChart, oci bool) string {
+func createHelmOrOciRepo(t *testing.T, charts []repoChart, oci bool, password string) string {
 	if oci {
-		return createOciRepo(t, charts)
+		return createOciRepo(t, charts, password)
 	} else {
-		return createHelmRepo(t, charts)
+		return createHelmRepo(t, charts, password)
 	}
 }
 
@@ -162,7 +207,16 @@ func addHelmDeployment(p *testProject, dir string, repoUrl string, chartName, ve
 	}
 }
 
-func testHelmNoPrePull(t *testing.T, oci bool) {
+type testCase struct {
+	name          string
+	oci           bool
+	testAuth      bool
+	credsId       string
+	extraArgs     []string
+	expectedError string
+}
+
+func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -172,61 +226,84 @@ func testHelmNoPrePull(t *testing.T, oci bool) {
 
 	createNamespace(t, k, p.testSlug())
 
-	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
-		{chartName: "test-chart1", version: "0.1.0"},
-	}, oci)
-
-	p.updateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
-	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
-}
-
-func TestHelmNoPrePull(t *testing.T) {
-	testHelmNoPrePull(t, false)
-}
-
-func TestHelmNoPrePullOci(t *testing.T) {
-	testHelmNoPrePull(t, true)
-}
-
-func testHelmPrePull(t *testing.T, oci bool) {
-	t.Parallel()
-
-	k := defaultCluster1
-
-	p := &testProject{}
-	p.init(t, k)
-
-	createNamespace(t, k, p.testSlug())
+	password := ""
+	if tc.testAuth {
+		password = "secret-password"
+	}
 
 	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
-		{chartName: "test-chart2", version: "0.1.0"},
-	}, oci)
+	}, tc.oci, password)
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
 
-	p.KluctlMust("helm-pull")
-	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
-	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
+	if tc.testAuth {
+		if tc.credsId != "" {
+			p.updateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+				_ = o.SetNestedField(tc.credsId, "helmChart", "credentialsId")
+				return nil
+			}, "")
+		}
+	}
 
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.testSlug(), nil)
+	if prePull {
+		args := []string{"helm-pull"}
+		args = append(args, tc.extraArgs...)
 
-	p.KluctlMust("helm-pull")
-	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm2/charts/test-chart2/Chart.yaml"))
-	p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapExists(t, k, p.testSlug(), "test-helm2-test-chart2")
+		_, stderr, err := p.Kluctl(args...)
+		if tc.expectedError != "" {
+			assert.Error(t, err)
+			assert.Contains(t, stderr, tc.expectedError)
+			return
+		} else {
+			assert.NoError(t, err)
+			assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
+		}
+	}
+
+	args := []string{"deploy", "--yes", "-t", "test"}
+	args = append(args, tc.extraArgs...)
+	_, stderr, err := p.Kluctl(args...)
+	prePullWarning := "Warning, need to pull Helm Chart test-chart1 with version 0.1.0."
+	if prePull {
+		assert.NotContains(t, stderr, prePullWarning)
+	} else {
+		assert.Contains(t, stderr, prePullWarning)
+	}
+	if tc.expectedError != "" {
+		assert.Error(t, err)
+		assert.Contains(t, stderr, tc.expectedError)
+	} else {
+		assert.NoError(t, err)
+		assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
+	}
 }
 
-func TestHelmPrePull(t *testing.T) {
-	testHelmPrePull(t, false)
-}
+func TestHelmPull(t *testing.T) {
+	tests := []testCase{
+		{name: "helm-no-creds"},
+		{name: "helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
+			expectedError: "no credentials provided for Chart test-chart1"},
+		{name: "helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
+			extraArgs:     []string{"--helm-username=test-creds:user", "--helm-password=test-creds:invalid"},
+			expectedError: "401 Unauthorized"},
+		{name: "helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
+			extraArgs: []string{"--helm-username=test-creds:user", "--helm-password=test-creds:secret-password"}},
+		{name: "oci", oci: true},
+		{name: "oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
+			extraArgs:     []string{"--helm-username=test-creds:user", "--helm-password=test-creds:secret-password"},
+			expectedError: "OCI charts can currently only be authenticated via registry login and not via cli arguments"},
+	}
 
-func TestHelmPrePullOci(t *testing.T) {
-	testHelmPrePull(t, true)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testHelmPull(t, tc, false)
+		})
+		t.Run(tc.name+"-prepull", func(t *testing.T) {
+			testHelmPull(t, tc, true)
+		})
+	}
 }
 
 func testHelmManualUpgrade(t *testing.T, oci bool) {
@@ -242,7 +319,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	repoUrl := createHelmOrOciRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
 		{chartName: "test-chart1", version: "0.2.0"},
-	}, oci)
+	}, oci, "")
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -289,7 +366,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 		{chartName: "test-chart1", version: "0.2.0"},
 		{chartName: "test-chart2", version: "0.1.0"},
 		{chartName: "test-chart2", version: "0.3.0"},
-	}, oci)
+	}, oci, "")
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -398,7 +475,7 @@ func TestHelmValues(t *testing.T) {
 	repoUrl := createHelmRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
 		{chartName: "test-chart2", version: "0.1.0"},
-	})
+	}, "")
 
 	values1 := map[string]any{
 		"data": map[string]any{
@@ -463,7 +540,7 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 	repoUrl := createHelmRepo(p.t, []repoChart{
 		{chartName: "test-chart1", version: "0.1.0"},
 		{chartName: "test-chart2", version: "0.1.0"},
-	})
+	}, "")
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.testSlug(), nil)
