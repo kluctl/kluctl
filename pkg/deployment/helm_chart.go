@@ -44,6 +44,9 @@ type HelmChart struct {
 	Config     *types.HelmChartConfig
 
 	credentials HelmCredentialsProvider
+
+	chartName string
+	chartDir  string
 }
 
 func NewHelmChart(configFile string) (*HelmChart, error) {
@@ -57,33 +60,37 @@ func NewHelmChart(configFile string) (*HelmChart, error) {
 		ConfigFile: configFile,
 		Config:     &config,
 	}
+
+	if hc.Config.Repo != nil && registry.IsOCI(*hc.Config.Repo) {
+		s := strings.Split(*hc.Config.Repo, "/")
+		chartName := s[len(s)-1]
+		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
+			return nil, fmt.Errorf("invalid oci chart url: %s", *hc.Config.Repo)
+		}
+		hc.chartName = chartName
+	} else if hc.Config.ChartName == nil {
+		return nil, fmt.Errorf("chartName is missing in helm-chart.yml")
+	} else {
+		hc.chartName = *hc.Config.ChartName
+	}
+
+	dir := filepath.Dir(configFile)
+	chartDir := filepath.Join(dir, "charts")
+	chartDir, err = securejoin.SecureJoin(chartDir, hc.chartName)
+	if err != nil {
+		return nil, err
+	}
+	hc.chartDir = chartDir
+
 	return hc, nil
 }
 
-func (c *HelmChart) GetChartName() (string, error) {
-	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
-		s := strings.Split(*c.Config.Repo, "/")
-		chartName := s[len(s)-1]
-		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
-			return "", fmt.Errorf("invalid oci chart url: %s", *c.Config.Repo)
-		}
-		return chartName, nil
-	}
-	if c.Config.ChartName == nil {
-		return "", fmt.Errorf("chartName is missing in helm-chart.yml")
-	}
-	return *c.Config.ChartName, nil
+func (c *HelmChart) GetChartName() string {
+	return c.chartName
 }
 
-func (c *HelmChart) GetChartDir() (string, error) {
-	chartName, err := c.GetChartName()
-	if err != nil {
-		return "", err
-	}
-
-	dir := filepath.Dir(c.ConfigFile)
-	targetDir := filepath.Join(dir, "charts")
-	return securejoin.SecureJoin(targetDir, chartName)
+func (c *HelmChart) GetChartDir() string {
+	return c.chartDir
 }
 
 func (c *HelmChart) GetOutputPath() string {
@@ -142,27 +149,18 @@ func (c *HelmChart) checkNeedsPull(chartDir string, isTmp bool) (bool, bool, str
 }
 
 func (c *HelmChart) Pull(ctx context.Context) error {
-	chartDir, err := c.GetChartDir()
-	if err != nil {
-		return err
-	}
-	return c.doPull(ctx, chartDir)
+	return c.doPull(ctx, c.chartDir)
 }
 
 func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
-	chartName, err := c.GetChartName()
-	if err != nil {
-		return "", err
-	}
-
 	hash := sha256.New()
 	_, _ = fmt.Fprintf(hash, "%s\n", *c.Config.Repo)
-	_, _ = fmt.Fprintf(hash, "%s\n", chartName)
+	_, _ = fmt.Fprintf(hash, "%s\n", c.chartName)
 	_, _ = fmt.Fprintf(hash, "%s\n", *c.Config.ChartVersion)
 	h := hex.EncodeToString(hash.Sum(nil))
 	tmpDir := filepath.Join(utils.GetTmpBaseDir(), "helm-charts")
 	_ = os.MkdirAll(tmpDir, 0o700)
-	tmpDir = filepath.Join(tmpDir, fmt.Sprintf("%s-%s", chartName, h))
+	tmpDir = filepath.Join(tmpDir, fmt.Sprintf("%s-%s", c.chartName, h))
 
 	lockFile := tmpDir + ".lock"
 	lock, err := lockedfile.Create(lockFile)
@@ -186,11 +184,6 @@ func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
 }
 
 func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
-	chartName, err := c.GetChartName()
-	if err != nil {
-		return err
-	}
-
 	_ = os.RemoveAll(chartDir)
 	_ = os.MkdirAll(filepath.Dir(chartDir), 0o700)
 
@@ -200,7 +193,7 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	tmpChartDir := filepath.Join(tmpDir, chartName)
+	tmpChartDir := filepath.Join(tmpDir, c.chartName)
 
 	cfg, err := c.buildHelmConfig(nil)
 	if err != nil {
@@ -218,7 +211,7 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 		}
 		creds := c.credentials.FindCredentials(*c.Config.Repo, c.Config.CredentialsId)
 		if creds == nil {
-			return fmt.Errorf("no credentials provided for Chart %s", chartName)
+			return fmt.Errorf("no credentials provided for Chart %s", c.chartName)
 		}
 		a.Username = creds.Username
 		a.Password = creds.Password
@@ -234,7 +227,7 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 		out, err = a.Run(*c.Config.Repo)
 	} else {
 		a.RepoURL = *c.Config.Repo
-		out, err = a.Run(chartName)
+		out, err = a.Run(c.chartName)
 	}
 	if err != nil {
 		return err
@@ -283,10 +276,6 @@ func (c *HelmChart) checkUpdateOciRepo(ctx context.Context) (string, bool, error
 }
 
 func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
-	chartName, err := c.GetChartName()
-	if err != nil {
-		return "", false, err
-	}
 	var latestVersion string
 
 	settings := cli.New()
@@ -298,7 +287,7 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 		}
 		e = c.credentials.FindCredentials(*c.Config.Repo, c.Config.CredentialsId)
 		if e == nil {
-			return "", false, fmt.Errorf("no credentials provided for Chart %s", chartName)
+			return "", false, fmt.Errorf("no credentials provided for Chart %s", c.chartName)
 		}
 	} else {
 		e = &repo.Entry{
@@ -327,9 +316,9 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 		return "", false, err
 	}
 
-	indexEntry, ok := index.Entries[chartName]
+	indexEntry, ok := index.Entries[c.chartName]
 	if !ok || len(indexEntry) == 0 {
-		return "", false, fmt.Errorf("helm chart %s not found in repo index", chartName)
+		return "", false, fmt.Errorf("helm chart %s not found in repo index", c.chartName)
 	}
 
 	var ls versions.LooseVersionSlice
@@ -344,27 +333,15 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 }
 
 func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
-	chartName, err := c.GetChartName()
+	err := c.doRender(ctx, k)
 	if err != nil {
-		return err
-	}
-	err = c.doRender(ctx, k)
-	if err != nil {
-		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", chartName, c.Config.ReleaseName, err)
+		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", c.chartName, c.Config.ReleaseName, err)
 	}
 	return nil
 }
 
 func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
-	chartName, err := c.GetChartName()
-	if err != nil {
-		return err
-	}
-
-	chartDir, err := c.GetChartDir()
-	if err != nil {
-		return err
-	}
+	chartDir := c.chartDir
 
 	needsPull, versionChanged, prePulledVersion, err := c.checkNeedsPull(chartDir, false)
 	if err != nil {
@@ -373,13 +350,13 @@ func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	if needsPull {
 		if versionChanged {
 			return fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
-				"Desired version is %s while pre-pulled version is %s", chartName, *c.Config.ChartVersion, prePulledVersion)
+				"Desired version is %s while pre-pulled version is %s", c.chartName, *c.Config.ChartVersion, prePulledVersion)
 		} else {
 			status.Warning(ctx, "Warning, need to pull Helm Chart %s with version %s. "+
-				"Please consider pre-pulling it with 'kluctl helm-pull'", chartName, *c.Config.ChartVersion)
+				"Please consider pre-pulling it with 'kluctl helm-pull'", c.chartName, *c.Config.ChartVersion)
 		}
 
-		s := status.Start(ctx, "Pulling Helm Chart %s with version %s", chartName, *c.Config.ChartVersion)
+		s := status.Start(ctx, "Pulling Helm Chart %s with version %s", c.chartName, *c.Config.ChartVersion)
 		defer s.Failed()
 
 		chartDir, err = c.pullTmpChart(ctx)

@@ -92,12 +92,7 @@ func doPull(statusPrefix string, p string, helmCredentials args.HelmCredentials,
 
 	chart.SetCredentials(&helmCredentials)
 
-	chartName, err := chart.GetChartName()
-	if err != nil {
-		return doError(err)
-	}
-
-	s.Update("%s: Pulling Chart %s with version %s", statusPrefix, chartName, *chart.Config.ChartVersion)
+	s.Update("%s: Pulling Chart %s with version %s", statusPrefix, chart.GetChartName(), *chart.Config.ChartVersion)
 
 	err = chart.Pull(cliCtx)
 	if err != nil {

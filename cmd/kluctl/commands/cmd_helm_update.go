@@ -107,8 +107,8 @@ func (cmd *helmUpdateCmd) Run() error {
 
 			if cmd.Interactive {
 				statusPrefix, _ := filepath.Rel(gitRootPath, filepath.Dir(uc.path))
-				chartName, _ := uc.chart.GetChartName()
-				if !status.AskForConfirmation(cliCtx, fmt.Sprintf("%s: Do you want to upgrade Chart %s from version %s to %s?", statusPrefix, chartName, uc.oldVersion, uc.newVersion)) {
+				if !status.AskForConfirmation(cliCtx, fmt.Sprintf("%s: Do you want to upgrade Chart %s from version %s to %s?",
+					statusPrefix, uc.chart.GetChartName(), uc.oldVersion, uc.newVersion)) {
 					return nil
 				}
 			}
@@ -181,15 +181,10 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 		return err
 	}
 
-	chartsDir, err := chart.GetChartDir()
-	if err != nil {
-		return err
-	}
-
 	// we need to list all files contained inside the charts dir BEFORE doing the pull, so that we later
 	// know what got deleted
 	oldFiles := map[string]bool{}
-	err = filepath.WalkDir(chartsDir, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(chart.GetChartDir(), func(p string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
 		}
@@ -216,7 +211,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 	}
 	toAdd = append(toAdd, relToGit)
 
-	relToGit, err = filepath.Rel(gitRootPath, chartsDir)
+	relToGit, err = filepath.Rel(gitRootPath, chart.GetChartDir())
 	if err != nil {
 		return err
 	}
