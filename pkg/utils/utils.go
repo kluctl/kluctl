@@ -25,6 +25,12 @@ func GetTmpBaseDir() string {
 }
 
 func createTmpBaseDir() {
+	envTmpDir := os.Getenv("KLUCTL_BASE_TMP_DIR")
+	if envTmpDir != "" {
+		tmpBaseDir = envTmpDir
+		return
+	}
+
 	dir := filepath.Join(os.TempDir(), "kluctl-workdir")
 
 	ensureDir(dir, 0o777, true)
