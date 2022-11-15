@@ -1,0 +1,36 @@
+name: cross-compile
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cross-compile:
+    runs-on: ubuntu-20.04
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.19'
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: cross-compile-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            cross-compile-go-${{ runner.os }}-
+      - name: Build kluctl (linux)
+        run: |
+          make build GOARCH=amd64 GOOS=linux
+      - name: Build kluctl (darwin)
+        run: |
+          make build GOARCH=amd64 GOOS=darwin
+      - name: Build kluctl (windows)
+        run: |
+          make build GOARCH=amd64 GOOS=windows
