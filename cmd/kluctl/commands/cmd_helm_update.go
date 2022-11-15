@@ -69,7 +69,7 @@ func (cmd *helmUpdateCmd) Run() error {
 			mutex.Lock()
 			defer mutex.Unlock()
 
-			if updated {
+			if !chart.Config.SkipUpdate && updated {
 				updatedCharts = append(updatedCharts, &updatedChart{
 					chart:      chart,
 					newVersion: newVersion,
