@@ -265,6 +265,12 @@ func (c *HelmChart) CheckUpdate() (string, bool, error) {
 		return "", false, err
 	}
 
+	r.CachePath, err = os.MkdirTemp(utils.GetTmpBaseDir(), "helm-check-update-")
+	if err != nil {
+		return "", false, err
+	}
+	defer os.RemoveAll(r.CachePath)
+
 	indexFile, err := r.DownloadIndexFile()
 	if err != nil {
 		return "", false, err
