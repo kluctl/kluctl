@@ -54,6 +54,7 @@ func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster) {
 func (p *testProject) testSlug() string {
 	n := p.t.Name()
 	n = xstrings.ToKebabCase(n)
+	n = strings.ReplaceAll(n, "/", "-")
 	return n
 }
 
