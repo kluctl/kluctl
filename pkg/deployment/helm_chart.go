@@ -184,10 +184,14 @@ func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
 }
 
 func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
-	_ = os.RemoveAll(chartDir)
-	_ = os.MkdirAll(filepath.Dir(chartDir), 0o700)
+	baseDir := filepath.Dir(chartDir)
 
-	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "helm-pull-")
+	_ = os.RemoveAll(chartDir)
+	_ = os.MkdirAll(baseDir, 0o700)
+
+	// need to use the same filesystem/volume that we later os.Rename the final pull chart to, as otherwise
+	// the rename operation will lead to errors
+	tmpDir, err := os.MkdirTemp(baseDir, c.chartName+"-pull-")
 	if err != nil {
 		return err
 	}
