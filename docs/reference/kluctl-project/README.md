@@ -35,13 +35,59 @@ targets:
     context: prod.example.com
     args:
       environment_name: prod
+
+args:
+  - name: environment
 ```
 
 ## Allowed fields
 
-Please check the following sub-sections of this section to see which fields are allowed at the root level of `.kluctl.yaml`.
+### targets
 
-1. [targets](./targets)
+Please check the [targets](./targets) sub-section for details.
+
+### args
+
+A list of arguments that can or must be passed to most kluctl operations. Each of these arguments is then available
+in templating via the global `args` object.
+
+An example looks like this:
+```yaml
+targets:
+...
+
+args:
+  - name: environment
+  - name: enable_debug
+    default: false
+  - name: complex_arg
+    default:
+      my:
+        nested1: arg1
+        nested2: arg2
+```
+
+These arguments can then be used in templating, e.g. by using `{{ args.environment }}`.
+
+When calling kluctl, most of the commands will then require you to specify at least `-a environment=xxx` and optionally
+`-a enable_debug=true`
+
+The following sub chapters describe the fields for argument entries.
+
+#### name
+The name of the argument.
+
+#### default
+If specified, the argument becomes optional and will use the given value as default when not specified.
+
+The default value can be an arbitrary yaml value, meaning that it can also be a nested dictionary. In that case, passing
+args in nested form will only set the nested value. With the above example of `complex_arg`, running:
+
+```
+kluctl deploy -t my-target -a my.nested1=override`
+```
+
+will only modify the value below `my.nested1` and keep the value of `my.nested2`.
 
 ## Using Kluctl without .kluctl.yaml
 
