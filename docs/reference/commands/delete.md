@@ -17,7 +17,7 @@ Delete a target (or parts of it) from the corresponding cluster
 Objects are located based on 'commonLabels', configured in 'deployment.yaml'
 
 WARNING: This command will also delete objects which are not part of your deployment
-project (anymore). It really only decides based on the 'deleteByLabel' labels and does NOT
+project (anymore). It really only decides based on the 'commonLabels' labels and does NOT
 take the local target/state into account!
 
 <!-- END SECTION -->
