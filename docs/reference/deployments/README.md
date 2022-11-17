@@ -49,7 +49,6 @@ Some visualized files/directories have links attached, follow them to get more i
    |-- sub-deployment/
    |   |-- deployment.yaml
    |   |-- kustomize-deployment2/
-   |   |   |-- kustomization.yaml
    |   |   |-- resource1.yaml
    |   |   `-- ...
    |   |-- kustomize-deployment3/
