@@ -52,9 +52,7 @@ func (cmd *helmPullCmd) Run() error {
 			return err
 		}
 
-		wg.Add(1)
-		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, func() error {
-			defer wg.Done()
+		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, &wg, func() error {
 			s := status.Start(cliCtx, "%s: Pulling Chart", statusPrefix)
 			defer s.Failed()
 			err := doPull(statusPrefix, p, cmd.HelmCredentials, s)
