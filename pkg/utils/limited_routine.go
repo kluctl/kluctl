@@ -7,8 +7,14 @@ import (
 	"sync"
 )
 
-func GoLimited(ctx context.Context, sem *semaphore.Weighted, fn func(), errCb func(err error)) {
+func GoLimited(ctx context.Context, sem *semaphore.Weighted, wg *sync.WaitGroup, fn func(), errCb func(err error)) {
+	if wg != nil {
+		wg.Add(1)
+	}
 	go func() {
+		if wg != nil {
+			defer wg.Done()
+		}
 		err := sem.Acquire(ctx, 1)
 		if err != nil {
 			if errCb != nil {
@@ -21,13 +27,13 @@ func GoLimited(ctx context.Context, sem *semaphore.Weighted, fn func(), errCb fu
 	}()
 }
 
-func GoLimitedMultiError(ctx context.Context, sem *semaphore.Weighted, merr **multierror.Error, mutex *sync.Mutex, fn func() error) {
+func GoLimitedMultiError(ctx context.Context, sem *semaphore.Weighted, merr **multierror.Error, mutex *sync.Mutex, wg *sync.WaitGroup, fn func() error) {
 	errCb := func(err error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		*merr = multierror.Append(*merr, err)
 	}
-	GoLimited(ctx, sem, func() {
+	GoLimited(ctx, sem, wg, func() {
 		err := fn()
 		if err != nil {
 			errCb(err)

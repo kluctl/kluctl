@@ -60,10 +60,7 @@ func (cmd *helmUpdateCmd) Run() error {
 			return nil
 		}
 
-		wg.Add(1)
-		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, func() error {
-			defer wg.Done()
-
+		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, &wg, func() error {
 			chart, newVersion, updated, err := cmd.doCheckUpdate(gitRootPath, p)
 			if err != nil {
 				return err
@@ -101,10 +98,7 @@ func (cmd *helmUpdateCmd) Run() error {
 	for _, uc := range updatedCharts {
 		uc := uc
 
-		wg.Add(1)
-		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, func() error {
-			defer wg.Done()
-
+		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, &wg, func() error {
 			if cmd.Interactive {
 				statusPrefix, _ := filepath.Rel(gitRootPath, filepath.Dir(uc.path))
 				if !status.AskForConfirmation(cliCtx, fmt.Sprintf("%s: Do you want to upgrade Chart %s from version %s to %s?",
