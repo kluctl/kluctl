@@ -46,7 +46,8 @@ type ApplyUtil struct {
 	deletedHookObjects map[k8s2.ObjectRef]bool
 	mutex              sync.Mutex
 
-	abortSignal *atomic.Value
+	abortSignal   *atomic.Value
+	allNamespaces *sync.Map
 
 	ru   *RemoteObjectUtils
 	k    *k8s.K8sCluster
@@ -64,6 +65,11 @@ type ApplyDeploymentsUtil struct {
 	o           *ApplyUtilOptions
 
 	abortSignal atomic.Value
+
+	// Used to track all created namespaces
+	// All ApplyUtil instances write to this in parallel and we ignore that order might be unstable
+	// This is only used to simulate dryRun apply into new namespaces
+	allNamespaces sync.Map
 
 	resultsMutex sync.Mutex
 	results      []*ApplyUtil
@@ -94,6 +100,7 @@ func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *sta
 		deletedObjects:     map[k8s2.ObjectRef]bool{},
 		deletedHookObjects: map[k8s2.ObjectRef]bool{},
 		abortSignal:        &ad.abortSignal,
+		allNamespaces:      &ad.allNamespaces,
 		ru:                 ad.ru,
 		k:                  ad.k,
 		o:                  ad.o,
@@ -297,8 +304,7 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		x = x.Clone()
 		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
 	} else if a.o.DryRun && remoteNamespace == nil && ref.Namespace != "" {
-		nsRef := k8s2.NewObjectRef("", "v1", "Namespace", ref.Namespace, "")
-		if _, ok := a.appliedObjects[nsRef]; ok {
+		if _, ok := a.allNamespaces.Load(ref.Namespace); ok {
 			// The namespace does not really exist, but would have been created if dryRun would be false.
 			// So let's pretend we deploy it to the default namespace with a dummy name
 			usesDummyName = true
@@ -317,6 +323,9 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		_ = r.ReplaceKeys(tmpName, ref.Name)
 		_ = r.ReplaceValues(tmpName, ref.Name)
 		r.SetK8sNamespace(ref.Namespace)
+	}
+	if r != nil && ref.GVK.GroupKind().String() == "Namespace" {
+		a.allNamespaces.Store(ref.Name, r)
 	}
 	a.handleApiWarnings(ref, apiWarnings)
 	if err == nil {
