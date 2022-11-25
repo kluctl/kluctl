@@ -2,6 +2,7 @@ package kluctl_project
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -15,7 +16,8 @@ type LoadKluctlProjectArgs struct {
 	ProjectDir    string
 	ProjectConfig string
 
-	RP *repocache.GitRepoCache
+	SopsDecrypter sops.SopsDecrypter
+	RP            *repocache.GitRepoCache
 
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)
 }
