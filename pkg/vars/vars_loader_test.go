@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -56,7 +57,7 @@ func testVarsLoader(t *testing.T, test func(vl *VarsLoader, vc *VarsCtx, aws *aw
 	grc := newRP(t)
 	fakeAws := aws.NewFakeClientFactory()
 
-	vl := NewVarsLoader(context.TODO(), k, grc, fakeAws)
+	vl := NewVarsLoader(context.TODO(), k, &sops.LocalSopsDecrypter{}, grc, fakeAws)
 	vc := NewVarsCtx(newJinja2Must(t))
 
 	test(vl, vc, fakeAws)

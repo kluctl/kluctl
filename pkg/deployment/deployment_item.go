@@ -3,14 +3,12 @@ package deployment
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/cmd/sops/formats"
-	"go.mozilla.org/sops/v3/decrypt"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
@@ -490,31 +488,6 @@ func (di *DeploymentItem) prepareKustomizationYaml() (*uo.UnstructuredObject, er
 	return ky, nil
 }
 
-func (di *DeploymentItem) decryptSopsFile(p string) error {
-	file, err := os.ReadFile(p)
-	if err != nil {
-		return fmt.Errorf("failed to read file %s: %w", p, err)
-	}
-
-	if !yaml.IsMaybeSopsFile(file) {
-		return nil
-	}
-
-	decrypted, err := decrypt.DataWithFormat(file, formats.FormatForPath(p))
-	if err == sops.MetadataNotFound {
-		// not encrypted, so bail out
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to decrypt file %s: %w", p, err)
-	}
-
-	err = os.WriteFile(p, decrypted, 0o600)
-	if err != nil {
-		return fmt.Errorf("failed to save decrypted file %s: %w", p, err)
-	}
-	return nil
-}
-
 func (di *DeploymentItem) buildKustomize() error {
 	if di.dir == nil {
 		return nil
@@ -535,7 +508,7 @@ func (di *DeploymentItem) buildKustomize() error {
 	for _, r := range resources {
 		p := filepath.Join(di.RenderedDir, r)
 		if utils.IsFile(p) {
-			err = di.decryptSopsFile(p)
+			err = sops.MaybeDecryptFile(di.ctx.SopsDecrypter, p)
 			if err != nil {
 				return err
 			}

@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -14,9 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
-	"go.mozilla.org/sops/v3/decrypt"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
@@ -28,18 +27,20 @@ type usernamePassword struct {
 }
 
 type VarsLoader struct {
-	ctx context.Context
-	k   *k8s.K8sCluster
-	rp  *repocache.GitRepoCache
-	aws aws.AwsClientFactory
+	ctx  context.Context
+	k    *k8s.K8sCluster
+	sops sops.SopsDecrypter
+	rp   *repocache.GitRepoCache
+	aws  aws.AwsClientFactory
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, rp *repocache.GitRepoCache, aws aws.AwsClientFactory) *VarsLoader {
+func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops sops.SopsDecrypter, rp *repocache.GitRepoCache, aws aws.AwsClientFactory) *VarsLoader {
 	return &VarsLoader{
 		ctx:              ctx,
 		k:                k,
+		sops:             sops,
 		rp:               rp,
 		aws:              aws,
 		credentialsCache: map[string]usernamePassword{},
@@ -110,14 +111,12 @@ func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string
 		return fmt.Errorf("failed to render vars file %s: %w", path, err)
 	}
 
-	if yaml.IsMaybeSopsFile([]byte(rendered)) {
-		decrypted, err := decrypt.DataWithFormat([]byte(rendered), formats.FormatForPath(path))
-		if err != nil && err != sops.MetadataNotFound {
-			return fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
-		} else if err == nil {
-			rendered = string(decrypted)
-		}
+	format := formats.FormatForPath(path)
+	decrypted, _, err := sops.MaybeDecrypt(v.sops, []byte(rendered), format, format)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
 	}
+	rendered = string(decrypted)
 
 	newVars := uo.New()
 	err = yaml.ReadYamlString(rendered, newVars)

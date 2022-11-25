@@ -91,7 +91,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		s.Success()
 	}
 
-	varsLoader := vars.NewVarsLoader(ctx, k, p.RP, aws.NewClientFactory())
+	varsLoader := vars.NewVarsLoader(ctx, k, p.SopsDecrypter, p.RP, aws.NewClientFactory())
 
 	if params.ForSeal {
 		err = p.loadSecrets(target, varsCtx, varsLoader)
@@ -104,6 +104,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		Ctx:                               ctx,
 		K:                                 k,
 		RP:                                p.RP,
+		SopsDecrypter:                     p.SopsDecrypter,
 		VarsLoader:                        varsLoader,
 		HelmCredentials:                   params.HelmCredentials,
 		RenderDir:                         params.RenderOutputDir,

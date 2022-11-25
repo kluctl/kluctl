@@ -3,6 +3,7 @@ package kluctl_project
 import (
 	"context"
 	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 )
 
@@ -11,11 +12,16 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 	defer status.Trace(ctx, "leave LoadKluctlProject")
 
 	p := &LoadedKluctlProject{
-		ctx:      ctx,
-		loadArgs: args,
-		TmpDir:   tmpDir,
-		J2:       j2,
-		RP:       args.RP,
+		ctx:           ctx,
+		loadArgs:      args,
+		TmpDir:        tmpDir,
+		J2:            j2,
+		RP:            args.RP,
+		SopsDecrypter: args.SopsDecrypter,
+	}
+
+	if p.SopsDecrypter == nil {
+		p.SopsDecrypter = &sops.LocalSopsDecrypter{}
 	}
 
 	err := p.loadKluctlProject()
