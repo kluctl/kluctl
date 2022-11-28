@@ -97,7 +97,7 @@ func TestHelmPull(t *testing.T) {
 	tests := []testCase{
 		{name: "helm-no-creds"},
 		{name: "helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
-			expectedError: "no credentials provided for Chart test-chart1"},
+			expectedError: "401 Unauthorized"},
 		{name: "helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
 			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:invalid"},
 			expectedError: "401 Unauthorized"},
