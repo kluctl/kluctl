@@ -1,0 +1,163 @@
+package test_utils
+
+import (
+	"github.com/google/go-containerregistry/pkg/registry"
+	test_resources "github.com/kluctl/kluctl/v2/e2e/test-helm-chart"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/pusher"
+	registry2 "helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v3/pkg/uploader"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func createHelmPackage(t *testing.T, name string, version string) string {
+	tmpDir := t.TempDir()
+	err := utils.FsCopyDir(test_resources.HelmChartFS, ".", tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := uo.FromFile(filepath.Join(tmpDir, "Chart.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_ = c.SetNestedField(name, "name")
+	_ = c.SetNestedField(version, "version")
+
+	err = yaml.WriteYamlFile(filepath.Join(tmpDir, "Chart.yaml"), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	settings := cli.New()
+	client := action.NewPackage()
+	client.Destination = tmpDir
+	valueOpts := &values.Options{}
+	p := getter.All(settings)
+	vals, err := valueOpts.MergeValues(p)
+	retName, err := client.Run(tmpDir, vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return retName
+}
+
+type RepoChart struct {
+	ChartName string
+	Version   string
+}
+
+func CreateHelmRepo(t *testing.T, charts []RepoChart, password string) string {
+	tmpDir := t.TempDir()
+
+	for _, c := range charts {
+		tgz := createHelmPackage(t, c.ChartName, c.Version)
+		_ = utils.CopyFile(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
+	}
+
+	fs := http.FileServer(http.FS(os.DirFS(tmpDir)))
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if password != "" {
+			_, p, ok := r.BasicAuth()
+			if !ok || p != password {
+				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
+				return
+			}
+		}
+		fs.ServeHTTP(w, r)
+	}))
+
+	t.Cleanup(s.Close)
+
+	i, err := repo.IndexDirectory(tmpDir, s.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	i.SortEntries()
+	err = i.WriteFile(filepath.Join(tmpDir, "index.yaml"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return s.URL
+}
+
+func CreateOciRepo(t *testing.T, charts []RepoChart, password string) string {
+	tmpDir := t.TempDir()
+
+	ociRegistry := registry.New()
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if password != "" {
+			_, p, ok := r.BasicAuth()
+			if !ok {
+				w.Header().Add("WWW-Authenticate", "Basic")
+				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
+				return
+			}
+			if !ok || p != password {
+				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
+				return
+			}
+		}
+		ociRegistry.ServeHTTP(w, r)
+	}))
+
+	t.Cleanup(s.Close)
+
+	ociUrl := strings.ReplaceAll(s.URL, "http://", "oci://")
+	ociUrl2, _ := url.Parse(ociUrl)
+
+	var out strings.Builder
+	settings := cli.New()
+	c := uploader.ChartUploader{
+		Out:     &out,
+		Pushers: pusher.All(settings),
+		Options: []pusher.Option{},
+	}
+
+	var registryClient *registry2.Client
+	if password != "" {
+		var err error
+		registryClient, err = registry2.NewClient()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = registryClient.Login(ociUrl2.Host, registry2.LoginOptBasicAuth("test-user", password), registry2.LoginOptInsecure(true))
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Options = append(c.Options, pusher.WithRegistryClient(registryClient))
+	}
+
+	for _, chart := range charts {
+		tgz := createHelmPackage(t, chart.ChartName, chart.Version)
+		_ = utils.CopyFile(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
+
+		err := c.UploadTo(tgz, ociUrl)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if registryClient != nil {
+		registryClient.Logout(ociUrl2.Host)
+	}
+
+	return ociUrl
+}
