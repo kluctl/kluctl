@@ -24,12 +24,12 @@ type testProject struct {
 
 	mergedKubeconfig string
 
-	gitServer *test_utils.GitServer
+	gitServer *test_utils.TestGitServer
 }
 
 func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster) {
 	p.t = t
-	p.gitServer = test_utils.NewGitServer(t)
+	p.gitServer = test_utils.NewTestGitServer(t)
 	p.gitServer.GitInit(p.getKluctlProjectRepo())
 
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {
