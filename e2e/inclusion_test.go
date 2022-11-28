@@ -12,29 +12,29 @@ func prepareInclusionTestProject(t *testing.T, withIncludes bool) (*TestProject,
 	k := defaultCluster1
 	p := NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
-	p.updateTarget("test", nil)
+	p.UpdateTarget("test", nil)
 
-	addConfigMapDeployment(p, "cm1", nil, resourceOpts{name: "cm1", namespace: p.testSlug()})
-	addConfigMapDeployment(p, "cm2", nil, resourceOpts{name: "cm2", namespace: p.testSlug()})
-	addConfigMapDeployment(p, "cm3", nil, resourceOpts{name: "cm3", namespace: p.testSlug(), tags: []string{"tag1", "tag2"}})
-	addConfigMapDeployment(p, "cm4", nil, resourceOpts{name: "cm4", namespace: p.testSlug(), tags: []string{"tag1", "tag3"}})
-	addConfigMapDeployment(p, "cm5", nil, resourceOpts{name: "cm5", namespace: p.testSlug(), tags: []string{"tag1", "tag4"}})
-	addConfigMapDeployment(p, "cm6", nil, resourceOpts{name: "cm6", namespace: p.testSlug(), tags: []string{"tag1", "tag5"}})
-	addConfigMapDeployment(p, "cm7", nil, resourceOpts{name: "cm7", namespace: p.testSlug(), tags: []string{"tag1", "tag6"}})
+	addConfigMapDeployment(p, "cm1", nil, resourceOpts{name: "cm1", namespace: p.TestSlug()})
+	addConfigMapDeployment(p, "cm2", nil, resourceOpts{name: "cm2", namespace: p.TestSlug()})
+	addConfigMapDeployment(p, "cm3", nil, resourceOpts{name: "cm3", namespace: p.TestSlug(), tags: []string{"tag1", "tag2"}})
+	addConfigMapDeployment(p, "cm4", nil, resourceOpts{name: "cm4", namespace: p.TestSlug(), tags: []string{"tag1", "tag3"}})
+	addConfigMapDeployment(p, "cm5", nil, resourceOpts{name: "cm5", namespace: p.TestSlug(), tags: []string{"tag1", "tag4"}})
+	addConfigMapDeployment(p, "cm6", nil, resourceOpts{name: "cm6", namespace: p.TestSlug(), tags: []string{"tag1", "tag5"}})
+	addConfigMapDeployment(p, "cm7", nil, resourceOpts{name: "cm7", namespace: p.TestSlug(), tags: []string{"tag1", "tag6"}})
 
 	if withIncludes {
-		p.addDeploymentInclude(".", "include1", nil)
-		addConfigMapDeployment(p, "include1/icm1", nil, resourceOpts{name: "icm1", namespace: p.testSlug(), tags: []string{"itag1", "itag2"}})
+		p.AddDeploymentInclude(".", "include1", nil)
+		addConfigMapDeployment(p, "include1/icm1", nil, resourceOpts{name: "icm1", namespace: p.TestSlug(), tags: []string{"itag1", "itag2"}})
 
-		p.addDeploymentInclude(".", "include2", nil)
-		addConfigMapDeployment(p, "include2/icm2", nil, resourceOpts{name: "icm2", namespace: p.testSlug()})
-		addConfigMapDeployment(p, "include2/icm3", nil, resourceOpts{name: "icm3", namespace: p.testSlug(), tags: []string{"itag3", "itag4"}})
+		p.AddDeploymentInclude(".", "include2", nil)
+		addConfigMapDeployment(p, "include2/icm2", nil, resourceOpts{name: "icm2", namespace: p.TestSlug()})
+		addConfigMapDeployment(p, "include2/icm3", nil, resourceOpts{name: "icm3", namespace: p.TestSlug(), tags: []string{"itag3", "itag4"}})
 
-		p.addDeploymentInclude(".", "include3", []string{"itag5"})
-		addConfigMapDeployment(p, "include3/icm4", nil, resourceOpts{name: "icm4", namespace: p.testSlug()})
-		addConfigMapDeployment(p, "include3/icm5", nil, resourceOpts{name: "icm5", namespace: p.testSlug(), tags: []string{"itag5", "itag6"}})
+		p.AddDeploymentInclude(".", "include3", []string{"itag5"})
+		addConfigMapDeployment(p, "include3/icm4", nil, resourceOpts{name: "icm4", namespace: p.TestSlug()})
+		addConfigMapDeployment(p, "include3/icm5", nil, resourceOpts{name: "icm5", namespace: p.TestSlug(), tags: []string{"itag5", "itag6"}})
 	}
 
 	return p, k
@@ -49,7 +49,7 @@ func assertExistsHelper(t *testing.T, p *TestProject, k *test_utils.EnvTestClust
 			delete(shouldExists, x)
 		}
 	}
-	items, err := k.List(corev1.SchemeGroupVersion.WithResource("configmaps"), p.testSlug(), map[string]string{"project_name": p.testSlug()})
+	items, err := k.List(corev1.SchemeGroupVersion.WithResource("configmaps"), p.TestSlug(), map[string]string{"project_name": p.TestSlug()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestInclusionDeploymentDirs(t *testing.T) {
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "--exclude-deployment-dir", "include3/icm5")
 	var a []string
-	for _, x := range p.listDeploymentItemPathes(".", false) {
+	for _, x := range p.ListDeploymentItemPathes(".", false) {
 		if x != "icm5" {
 			a = append(a, filepath.Base(x))
 		}
@@ -180,20 +180,20 @@ func TestInclusionPrune(t *testing.T) {
 	doAssertExists(nil, nil)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	doAssertExists(p.listDeploymentItemPathes(".", false), nil)
+	doAssertExists(p.ListDeploymentItemPathes(".", false), nil)
 
-	p.deleteKustomizeDeployment("cm1")
+	p.DeleteKustomizeDeployment("cm1")
 	p.KluctlMust("prune", "--yes", "-t", "test", "-I", "non-existent-tag")
 	doAssertExists(nil, nil)
 
 	p.KluctlMust("prune", "--yes", "-t", "test", "-I", "cm1")
 	doAssertExists(nil, []string{"cm1"})
 
-	p.deleteKustomizeDeployment("cm2")
+	p.DeleteKustomizeDeployment("cm2")
 	p.KluctlMust("prune", "--yes", "-t", "test", "-E", "cm2")
 	doAssertExists(nil, nil)
 
-	p.deleteKustomizeDeployment("cm3")
+	p.DeleteKustomizeDeployment("cm3")
 	p.KluctlMust("prune", "--yes", "-t", "test", "--exclude-deployment-dir", "cm3")
 	doAssertExists(nil, []string{"cm2"})
 
@@ -211,7 +211,7 @@ func TestInclusionDelete(t *testing.T) {
 	}
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	doAssertExists(p.listDeploymentItemPathes(".", false), nil)
+	doAssertExists(p.ListDeploymentItemPathes(".", false), nil)
 
 	p.KluctlMust("delete", "--yes", "-t", "test", "-I", "non-existent-tag")
 	doAssertExists(nil, nil)
@@ -221,7 +221,7 @@ func TestInclusionDelete(t *testing.T) {
 
 	p.KluctlMust("delete", "--yes", "-t", "test", "-E", "cm2")
 	var a []string
-	for _, x := range p.listDeploymentItemPathes(".", false) {
+	for _, x := range p.ListDeploymentItemPathes(".", false) {
 		if x != "cm1" && x != "cm2" {
 			a = append(a, x)
 		}

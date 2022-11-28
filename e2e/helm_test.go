@@ -26,11 +26,11 @@ func addHelmDeployment(p *TestProject, dir string, repoUrl string, chartName, ve
 		chartName = ""
 	}
 
-	p.addKustomizeDeployment(dir, []kustomizeResource{
+	p.AddKustomizeDeployment(dir, []kustomizeResource{
 		{name: "helm-rendered.yaml"},
 	}, nil)
 
-	p.updateYaml(filepath.Join(dir, "helm-chart.yaml"), func(o *uo.UnstructuredObject) error {
+	p.UpdateYaml(filepath.Join(dir, "helm-chart.yaml"), func(o *uo.UnstructuredObject) error {
 		*o = *uo.FromMap(map[string]interface{}{
 			"helmChart": map[string]any{
 				"repo":         repoUrl,
@@ -46,7 +46,7 @@ func addHelmDeployment(p *TestProject, dir string, repoUrl string, chartName, ve
 	}, "")
 
 	if values != nil {
-		p.updateYaml(filepath.Join(dir, "helm-values.yaml"), func(o *uo.UnstructuredObject) error {
+		p.UpdateYaml(filepath.Join(dir, "helm-values.yaml"), func(o *uo.UnstructuredObject) error {
 			*o = *uo.FromMap(values)
 			return nil
 		}, "")
@@ -69,7 +69,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	p := NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
 	user := ""
 	password := ""
@@ -82,12 +82,12 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 		{ChartName: "test-chart1", Version: "0.1.0"},
 	}, tc.oci, user, password)
 
-	p.updateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
+	p.UpdateTarget("test", nil)
+	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	if tc.testAuth {
 		if tc.credsId != "" {
-			p.updateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+			p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 				_ = o.SetNestedField(tc.credsId, "helmChart", "credentialsId")
 				return nil
 			}, "")
@@ -123,7 +123,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 		assert.Contains(t, stderr, tc.expectedError)
 	} else {
 		assert.NoError(t, err)
-		assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
+		assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	}
 }
 
@@ -160,31 +160,31 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 
 	p := NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
 	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart1", Version: "0.2.0"},
 	}, oci, "", "")
 
-	p.updateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
+	p.UpdateTarget("test", nil)
+	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	p.KluctlMust("helm-pull")
 	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	cm := assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
+	cm := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ := cm.GetNestedString("data", "version")
 	assert.Equal(t, "0.1.0", v)
 
-	p.updateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField("0.2.0", "helmChart", "chartVersion")
 		return nil
 	}, "")
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test")
-	cm = assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
+	cm = assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ = cm.GetNestedString("data", "version")
 	assert.Equal(t, "0.2.0", v)
 }
@@ -204,7 +204,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	p := NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
 	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
@@ -213,12 +213,12 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 		{ChartName: "test-chart2", Version: "0.3.0"},
 	}, oci, "", "")
 
-	p.updateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.testSlug(), nil)
-	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.testSlug(), nil)
+	p.UpdateTarget("test", nil)
+	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), nil)
+	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
 
-	p.updateYaml("helm3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+	p.UpdateYaml("helm3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipUpdate")
 		return nil
 	}, "")
@@ -314,7 +314,7 @@ func TestHelmValues(t *testing.T) {
 
 	p := NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
 	repoUrl := test_utils.CreateHelmRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
@@ -340,17 +340,17 @@ func TestHelmValues(t *testing.T) {
 		},
 	}
 
-	p.updateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), values1)
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.testSlug(), values2)
-	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.testSlug(), values3)
+	p.UpdateTarget("test", nil)
+	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
+	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), values2)
+	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), values3)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
 
-	cm1 := assertConfigMapExists(t, k, p.testSlug(), "test-helm1-test-chart1")
-	cm2 := assertConfigMapExists(t, k, p.testSlug(), "test-helm2-test-chart2")
-	cm3 := assertConfigMapExists(t, k, p.testSlug(), "test-helm3-test-chart1")
+	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
+	cm2 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm2-test-chart2")
+	cm3 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm3-test-chart1")
 
 	assert.Equal(t, map[string]any{
 		"a":       "x1",
@@ -376,26 +376,26 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 
 	p := NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
-	createNamespace(t, k, p.testSlug()+"-a")
-	createNamespace(t, k, p.testSlug()+"-b")
+	createNamespace(t, k, p.TestSlug())
+	createNamespace(t, k, p.TestSlug()+"-a")
+	createNamespace(t, k, p.TestSlug()+"-b")
 
 	repoUrl := test_utils.CreateHelmRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
 	}, "", "")
 
-	p.updateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.testSlug(), nil)
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm-{{ args.b }}", p.testSlug(), nil)
-	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.testSlug()+"-{{ args.a }}", nil)
-	addHelmDeployment(p, "helm4", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.testSlug()+"-{{ args.b }}", nil)
+	p.UpdateTarget("test", nil)
+	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.TestSlug(), nil)
+	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm-{{ args.b }}", p.TestSlug(), nil)
+	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.a }}", nil)
+	addHelmDeployment(p, "helm4", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.b }}", nil)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
 
-	assertConfigMapExists(t, k, p.testSlug(), "test-helm-a-test-chart1")
-	assertConfigMapExists(t, k, p.testSlug(), "test-helm-b-test-chart2")
-	assertConfigMapExists(t, k, p.testSlug()+"-a", "test-helm-ns-test-chart1")
-	assertConfigMapExists(t, k, p.testSlug()+"-b", "test-helm-ns-test-chart1")
+	assertConfigMapExists(t, k, p.TestSlug(), "test-helm-a-test-chart1")
+	assertConfigMapExists(t, k, p.TestSlug(), "test-helm-b-test-chart2")
+	assertConfigMapExists(t, k, p.TestSlug()+"-a", "test-helm-ns-test-chart1")
+	assertConfigMapExists(t, k, p.TestSlug()+"-b", "test-helm-ns-test-chart1")
 }

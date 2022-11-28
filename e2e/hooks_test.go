@@ -36,7 +36,7 @@ func (s *hooksTestContext) removeWebhook() {
 }
 
 func (s *hooksTestContext) handleConfigmap(request admission.Request) {
-	if s.p.testSlug() != request.Namespace {
+	if s.p.TestSlug() != request.Namespace {
 		return
 	}
 
@@ -87,7 +87,7 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
-	s.p.addKustomizeResources(dir, []kustomizeResource{
+	s.p.AddKustomizeResources(dir, []kustomizeResource{
 		{fmt.Sprintf("%s.yml", opts.name), "", o},
 	})
 }
@@ -104,14 +104,14 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 		s.removeWebhook()
 	})
 
-	createNamespace(s.t, s.k, s.p.testSlug())
+	createNamespace(s.t, s.k, s.p.TestSlug())
 
-	s.p.updateTarget("test", nil)
+	s.p.UpdateTarget("test", nil)
 
-	s.p.addKustomizeDeployment("hook", nil, nil)
+	s.p.AddKustomizeDeployment("hook", nil, nil)
 
-	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.testSlug()})
-	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.testSlug()}, false, hook, hookDeletionPolicy)
+	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.TestSlug()})
+	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.TestSlug()}, false, hook, hookDeletionPolicy)
 
 	return s
 }
@@ -124,10 +124,10 @@ func (s *hooksTestContext) ensureHookExecuted(expectedCms ...string) {
 
 func (s *hooksTestContext) ensureHookNotExecuted() {
 	_ = s.k.DynamicClient.Resource(corev1.SchemeGroupVersion.WithResource("configmaps")).
-		Namespace(s.p.testSlug()).
+		Namespace(s.p.TestSlug()).
 		Delete(context.Background(), "cm1", metav1.DeleteOptions{})
 	s.p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapNotExists(s.t, s.k, s.p.testSlug(), "cm1")
+	assertConfigMapNotExists(s.t, s.k, s.p.TestSlug(), "cm1")
 }
 
 func TestHooksPreDeployInitial(t *testing.T) {
