@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
 )
@@ -10,7 +11,7 @@ func TestKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -38,7 +39,7 @@ func TestGeneratedKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 

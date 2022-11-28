@@ -20,13 +20,13 @@ func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, 
 	}
 }
 
-func addHelmDeployment(p *TestProject, dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
+func addHelmDeployment(p *test_utils.TestProject, dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
 	if registry2.IsOCI(repoUrl) {
 		repoUrl += "/" + chartName
 		chartName = ""
 	}
 
-	p.AddKustomizeDeployment(dir, []KustomizeResource{
+	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
 		{Name: "helm-rendered.yaml"},
 	}, nil)
 
@@ -67,7 +67,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -78,7 +78,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 		password = "secret-password"
 	}
 
-	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
+	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 	}, tc.oci, user, password)
 
@@ -158,11 +158,11 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
+	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart1", Version: "0.2.0"},
 	}, oci, "", "")
@@ -202,11 +202,11 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
+	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart1", Version: "0.2.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
@@ -312,11 +312,11 @@ func TestHelmValues(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := test_utils.CreateHelmRepo(p.t, []test_utils.RepoChart{
+	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
 	}, "", "")
@@ -374,13 +374,13 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 	createNamespace(t, k, p.TestSlug()+"-a")
 	createNamespace(t, k, p.TestSlug()+"-b")
 
-	repoUrl := test_utils.CreateHelmRepo(p.t, []test_utils.RepoChart{
+	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
 	}, "", "")

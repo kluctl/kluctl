@@ -85,7 +85,7 @@ func startCertServer() (*certServer, error) {
 	return &cs, nil
 }
 
-func addProxyVars(p *TestProject) {
+func addProxyVars(p *test_utils.TestProject) {
 	f := func(idx int, k *test_utils.EnvTestCluster, cs *certServer) {
 		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_API_HOST=%s", idx, k.RESTConfig().Host))
 		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAMESPACE=%s", idx, "kube-system"))
@@ -97,8 +97,8 @@ func addProxyVars(p *TestProject) {
 	f(1, defaultCluster2, certServer2)
 }
 
-func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *TestProject {
-	p := NewTestProject(t, k)
+func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *test_utils.TestProject {
+	p := test_utils.NewTestProject(t, k)
 
 	if proxy {
 		addProxyVars(p)
@@ -114,13 +114,13 @@ func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[str
 	return p
 }
 
-func addSecretsSet(p *TestProject, name string, varsSources []*uo.UnstructuredObject) {
-	p.updateSecretSet(name, func(secretSet *uo.UnstructuredObject) {
+func addSecretsSet(p *test_utils.TestProject, name string, varsSources []*uo.UnstructuredObject) {
+	p.UpdateSecretSet(name, func(secretSet *uo.UnstructuredObject) {
 		_ = secretSet.SetNestedField(varsSources, "vars")
 	})
 }
 
-func addSecretsSetToTarget(p *TestProject, targetName string, secretSetName string) {
+func addSecretsSetToTarget(p *test_utils.TestProject, targetName string, secretSetName string) {
 	p.UpdateTarget(targetName, func(target *uo.UnstructuredObject) {
 		l, _, _ := target.GetNestedList("sealingConfig", "secretSets")
 		l = append(l, secretSetName)

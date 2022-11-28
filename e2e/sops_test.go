@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"go.mozilla.org/sops/v3/age"
@@ -13,7 +14,7 @@ func TestSopsVars(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -53,7 +54,7 @@ func TestSopsResources(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -63,7 +64,7 @@ func TestSopsResources(t *testing.T) {
 		return nil
 	})
 
-	p.AddKustomizeDeployment("cm", []KustomizeResource{
+	p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{
 		{Name: "encrypted-cm.yaml"},
 	}, nil)
 

@@ -1,14 +1,15 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *TestProject {
-	p := NewTestProject(t, defaultCluster1)
+func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_utils.TestProject {
+	p := test_utils.NewTestProject(t, defaultCluster1)
 	p.MergeKubeconfig(defaultCluster2)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())
@@ -23,9 +24,9 @@ func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *TestProject {
 	})
 
 	if withDeploymentYaml {
-		p.AddKustomizeDeployment("cm", []KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
+		p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
 	} else {
-		p.AddKustomizeResources("", []KustomizeResource{{Name: "cm.yaml", Content: cm}})
+		p.AddKustomizeResources("", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}})
 		err := os.Remove(filepath.Join(p.LocalRepoDir(), "deployment.yml"))
 		assert.NoError(t, err)
 	}

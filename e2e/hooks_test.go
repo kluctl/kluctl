@@ -18,7 +18,7 @@ type hooksTestContext struct {
 	t *testing.T
 	k *test_utils.EnvTestCluster
 
-	p *TestProject
+	p *test_utils.TestProject
 
 	seenConfigMaps []string
 
@@ -87,7 +87,7 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
-	s.p.AddKustomizeResources(dir, []KustomizeResource{
+	s.p.AddKustomizeResources(dir, []test_utils.KustomizeResource{
 		{fmt.Sprintf("%s.yml", opts.name), "", o},
 	})
 }
@@ -99,7 +99,7 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	}
 	s.setupWebhook()
 
-	s.p = NewTestProject(t, s.k)
+	s.p = test_utils.NewTestProject(t, s.k)
 	t.Cleanup(func() {
 		s.removeWebhook()
 	})

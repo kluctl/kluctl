@@ -1,19 +1,14 @@
 package e2e
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"io"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"os/exec"
 	"reflect"
-	"sync"
 	"testing"
 )
 
@@ -57,42 +52,4 @@ func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected in
 	if !reflect.DeepEqual(v, expected) {
 		t.Fatalf("%v != %v", v, expected)
 	}
-}
-
-func runHelper(t *testing.T, cmd *exec.Cmd) (string, string, error) {
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return "", "", err
-	}
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		_ = stdoutPipe.Close()
-		return "", "", err
-	}
-
-	var wg sync.WaitGroup
-	stdReader := func(testLogPrefix string, buf io.StringWriter, pipe io.Reader) {
-		defer wg.Done()
-		scanner := bufio.NewScanner(pipe)
-		for scanner.Scan() {
-			l := scanner.Text()
-			t.Log(testLogPrefix + l)
-			_, _ = buf.WriteString(l + "\n")
-		}
-	}
-
-	stdoutBuf := bytes.NewBuffer(nil)
-	stderrBuf := bytes.NewBuffer(nil)
-
-	wg.Add(2)
-	go stdReader("stdout: ", stdoutBuf, stdoutPipe)
-	go stdReader("stderr: ", stderrBuf, stderrPipe)
-
-	err = cmd.Start()
-	if err != nil {
-		return "", "", err
-	}
-	wg.Wait()
-	err = cmd.Wait()
-	return stdoutBuf.String(), stderrBuf.String(), err
 }

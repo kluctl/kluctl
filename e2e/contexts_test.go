@@ -1,13 +1,14 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"testing"
 )
 
-func prepareContextTest(t *testing.T) *TestProject {
-	p := NewTestProject(t, defaultCluster1)
+func prepareContextTest(t *testing.T) *test_utils.TestProject {
+	p := test_utils.NewTestProject(t, defaultCluster1)
 	p.MergeKubeconfig(defaultCluster2)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())

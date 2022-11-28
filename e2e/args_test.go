@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"testing"
@@ -12,7 +13,7 @@ func testArgs(t *testing.T, deprecated bool) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -135,7 +136,7 @@ func TestArgsFromEnv(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -168,7 +169,7 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, k)
 
 	createNamespace(t, k, p.TestSlug())
 

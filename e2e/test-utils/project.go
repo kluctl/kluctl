@@ -1,11 +1,10 @@
-package e2e
+package test_utils
 
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/imdario/mergo"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/client-go/tools/clientcmd"
@@ -24,15 +23,15 @@ type TestProject struct {
 
 	mergedKubeconfig string
 
-	gitServer *test_utils.GitServer
+	gitServer *GitServer
 }
 
-func NewTestProject(t *testing.T, k *test_utils.EnvTestCluster) *TestProject {
+func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
 	p := &TestProject{
 		t: t,
 	}
 
-	p.gitServer = test_utils.NewGitServer(t)
+	p.gitServer = NewGitServer(t)
 	p.gitServer.GitInit("kluctl-project")
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
@@ -64,7 +63,7 @@ func (p *TestProject) TestSlug() string {
 	return n
 }
 
-func (p *TestProject) MergeKubeconfig(k *test_utils.EnvTestCluster) {
+func (p *TestProject) MergeKubeconfig(k *EnvTestCluster) {
 	p.UpdateMergedKubeconfig(func(config *clientcmdapi.Config) {
 		nkcfg, err := clientcmd.Load(k.Kubeconfig)
 		if err != nil {
@@ -164,7 +163,7 @@ func (p *TestProject) UpdateTarget(name string, cb func(target *uo.UnstructuredO
 	p.UpdateNamedListItem(uo.KeyPath{"targets"}, name, cb)
 }
 
-func (p *TestProject) updateSecretSet(name string, cb func(secretSet *uo.UnstructuredObject)) {
+func (p *TestProject) UpdateSecretSet(name string, cb func(secretSet *uo.UnstructuredObject)) {
 	p.UpdateNamedListItem(uo.KeyPath{"secretsConfig", "secretSets"}, name, cb)
 }
 
