@@ -1,8 +1,8 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
 )

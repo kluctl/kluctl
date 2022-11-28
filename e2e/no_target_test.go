@@ -1,33 +1,33 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *testProject {
-	p := &testProject{}
-	p.init(t, defaultCluster1)
-	p.mergeKubeconfig(defaultCluster2)
+func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_utils.TestProject {
+	p := test_utils.NewTestProject(t, defaultCluster1)
+	p.MergeKubeconfig(defaultCluster2)
 
-	createNamespace(t, defaultCluster1, p.testSlug())
-	createNamespace(t, defaultCluster2, p.testSlug())
+	createNamespace(t, defaultCluster1, p.TestSlug())
+	createNamespace(t, defaultCluster2, p.TestSlug())
 
 	cm := createConfigMapObject(map[string]string{
 		"targetName":    `{{ target.name }}`,
 		"targetContext": `{{ target.context }}`,
 	}, resourceOpts{
 		name:      "cm",
-		namespace: p.testSlug(),
+		namespace: p.TestSlug(),
 	})
 
 	if withDeploymentYaml {
-		p.addKustomizeDeployment("cm", []kustomizeResource{{name: "cm.yaml", content: cm}}, nil)
+		p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
 	} else {
-		p.addKustomizeResources("", []kustomizeResource{{name: "cm.yaml", content: cm}})
-		err := os.Remove(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "deployment.yml"))
+		p.AddKustomizeResources("", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}})
+		err := os.Remove(filepath.Join(p.LocalRepoDir(), "deployment.yml"))
 		assert.NoError(t, err)
 	}
 
@@ -40,22 +40,22 @@ func testNoTarget(t *testing.T, withDeploymentYaml bool) {
 	p := prepareNoTargetTest(t, withDeploymentYaml)
 
 	p.KluctlMust("deploy", "--yes")
-	cm := assertConfigMapExists(t, defaultCluster1, p.testSlug(), "cm")
-	assertConfigMapNotExists(t, defaultCluster2, p.testSlug(), "cm")
+	cm := assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
+	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "",
 		"targetContext": defaultCluster1.Context,
 	}, cm.Object["data"])
 
 	p.KluctlMust("deploy", "--yes", "-T", "override-name")
-	cm = assertConfigMapExists(t, defaultCluster1, p.testSlug(), "cm")
+	cm = assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "override-name",
 		"targetContext": defaultCluster1.Context,
 	}, cm.Object["data"])
 
 	p.KluctlMust("deploy", "--yes", "-T", "override-name", "--context", defaultCluster2.Context)
-	cm = assertConfigMapExists(t, defaultCluster2, p.testSlug(), "cm")
+	cm = assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "override-name",
 		"targetContext": defaultCluster2.Context,

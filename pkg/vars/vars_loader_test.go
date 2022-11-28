@@ -4,7 +4,7 @@ import (
 	"context"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
@@ -163,7 +163,7 @@ func TestVarsLoader_Git(t *testing.T) {
 	}, "")
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.LocalGitUrl("repo"))
+		url, _ := git_url.Parse(gs.GitUrl("repo"))
 		err := vl.LoadVars(vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
@@ -199,7 +199,7 @@ func TestVarsLoader_GitBranch(t *testing.T) {
 	assert.NoError(t, err)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.LocalGitUrl("repo"))
+		url, _ := git_url.Parse(gs.GitUrl("repo"))
 		err = vl.LoadVars(vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,

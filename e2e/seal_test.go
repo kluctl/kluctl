@@ -6,8 +6,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
-	"github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -85,44 +85,43 @@ func startCertServer() (*certServer, error) {
 	return &cs, nil
 }
 
-func addProxyVars(p *testProject) {
+func addProxyVars(p *test_utils.TestProject) {
 	f := func(idx int, k *test_utils.EnvTestCluster, cs *certServer) {
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_API_HOST=%s", idx, k.RESTConfig().Host))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAMESPACE=%s", idx, "kube-system"))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAME=%s", idx, "sealed-secrets-controller"))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_PORT=%s", idx, "http"))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_LOCAL_URL=%s", idx, cs.url))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_API_HOST=%s", idx, k.RESTConfig().Host))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAMESPACE=%s", idx, "kube-system"))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAME=%s", idx, "sealed-secrets-controller"))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_PORT=%s", idx, "http"))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_LOCAL_URL=%s", idx, cs.url))
 	}
 	f(0, defaultCluster1, certServer1)
 	f(1, defaultCluster2, certServer2)
 }
 
-func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *testProject {
-	p := &testProject{}
-	p.init(t, k)
+func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *test_utils.TestProject {
+	p := test_utils.NewTestProject(t, k)
 
 	if proxy {
 		addProxyVars(p)
 	}
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
 	addSecretsSet(p, "test", varsSources)
 	addSecretsSetToTarget(p, "test-target", "test")
 
-	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: p.testSlug()})
+	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: p.TestSlug()})
 
 	return p
 }
 
-func addSecretsSet(p *testProject, name string, varsSources []*uo.UnstructuredObject) {
-	p.updateSecretSet(name, func(secretSet *uo.UnstructuredObject) {
+func addSecretsSet(p *test_utils.TestProject, name string, varsSources []*uo.UnstructuredObject) {
+	p.UpdateSecretSet(name, func(secretSet *uo.UnstructuredObject) {
 		_ = secretSet.SetNestedField(varsSources, "vars")
 	})
 }
 
-func addSecretsSetToTarget(p *testProject, targetName string, secretSetName string) {
-	p.updateTarget(targetName, func(target *uo.UnstructuredObject) {
+func addSecretsSetToTarget(p *test_utils.TestProject, targetName string, secretSetName string) {
+	p.UpdateTarget(targetName, func(target *uo.UnstructuredObject) {
 		l, _, _ := target.GetNestedList("sealingConfig", "secretSets")
 		l = append(l, secretSetName)
 		_ = target.SetNestedField(l, "sealingConfig", "secretSets")
@@ -179,11 +178,11 @@ func TestSeal_WithOperator(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -214,7 +213,7 @@ func TestSeal_WithBootstrap(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	test_resources.ApplyYaml("sealed-secrets.yaml", k)
@@ -231,7 +230,7 @@ func TestSeal_WithBootstrap(t *testing.T) {
 	certHash, err := seal.HashPublicKey(cert)
 	assert.NoError(t, err)
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -262,12 +261,12 @@ func TestSeal_MultipleVarSources(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -302,12 +301,12 @@ func TestSeal_MultipleSecretSets(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -342,30 +341,30 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	})
 	addSecretsSetToTarget(p, "test-target2", "test2")
 
-	p.mergeKubeconfig(defaultCluster2)
-	createNamespace(t, defaultCluster2, p.testSlug())
-	p.updateTarget("test-target", func(target *uo.UnstructuredObject) {
+	p.MergeKubeconfig(defaultCluster2)
+	createNamespace(t, defaultCluster2, p.TestSlug())
+	p.UpdateTarget("test-target", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
 	})
-	p.updateTarget("test-target2", func(target *uo.UnstructuredObject) {
+	p.UpdateTarget("test-target2", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster2.Context, "context")
 	})
 
 	p.KluctlMust("seal", "-t", "test-target")
 	p.KluctlMust("seal", "-t", "test-target2")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target2/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 	p.KluctlMust("deploy", "--yes", "-t", "test-target2")
 
-	assertSealedSecret(t, defaultCluster1, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, defaultCluster1, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
-	assertSealedSecret(t, defaultCluster2, p.testSlug(), "secret", certServer2.certHash, map[string]string{
+	assertSealedSecret(t, defaultCluster2, p.TestSlug(), "secret", certServer2.certHash, map[string]string{
 		"s1": "v3",
 		"s2": "v4",
 	})
@@ -393,20 +392,20 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 				},
 			}),
 		}, true)
-	addSecretDeployment(p, "secret-deployment2", secret2, resourceOpts{name: "secret2", namespace: p.testSlug()})
+	addSecretDeployment(p, "secret-deployment2", secret2, resourceOpts{name: "secret2", namespace: p.TestSlug()})
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment2/test-target/secret-secret2.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 	})
-	assertSealedSecret(t, k, p.testSlug(), "secret2", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret2", certServer1.certHash, map[string]string{
 		"s2": "v2",
 	})
 }
@@ -434,9 +433,9 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 			}),
 		}, true)
 
-	secret2Text, _ := yaml.WriteYamlString(createSecretObject(secret2, resourceOpts{name: "secret2", namespace: p.testSlug()}))
+	secret2Text, _ := yaml.WriteYamlString(createSecretObject(secret2, resourceOpts{name: "secret2", namespace: p.TestSlug()}))
 
-	p.gitServer.UpdateFile(p.getKluctlProjectRepo(), "secret-deployment/secret-secret.yml.sealme", func(f string) (string, error) {
+	p.UpdateFile("secret-deployment/secret-secret.yml.sealme", func(f string) (string, error) {
 		f += "---\n"
 		f += secret2Text
 		return f, nil
@@ -444,15 +443,15 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 	})
-	assertSealedSecret(t, k, p.testSlug(), "secret2", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret2", certServer1.certHash, map[string]string{
 		"s2": "v2",
 	})
 }
@@ -473,7 +472,7 @@ func TestSeal_File(t *testing.T) {
 			}),
 		}, true)
 
-	p.updateYaml("secret-values.yaml", func(o *uo.UnstructuredObject) error {
+	p.UpdateYaml("secret-values.yaml", func(o *uo.UnstructuredObject) error {
 		*o = *uo.FromMap(map[string]interface{}{
 			"secrets": map[string]interface{}{
 				"s1": "v1",
@@ -485,12 +484,12 @@ func TestSeal_File(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})
@@ -537,15 +536,15 @@ func TestSeal_Vault(t *testing.T) {
 			}),
 		}, true)
 
-	p.extraEnv = append(p.extraEnv, "VAULT_TOKEN=root")
+	p.AddExtraEnv("VAULT_TOKEN=root")
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	sealedSecretsDir := p.LocalRepoDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
-	assertSealedSecret(t, k, p.testSlug(), "secret", certServer1.certHash, map[string]string{
+	assertSealedSecret(t, k, p.TestSlug(), "secret", certServer1.certHash, map[string]string{
 		"s1": "v1",
 		"s2": "v2",
 	})

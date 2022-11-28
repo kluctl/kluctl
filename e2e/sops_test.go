@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"go.mozilla.org/sops/v3/age"
@@ -13,20 +14,19 @@ func TestSopsVars(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := test_utils.NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
-	p.updateTarget("test", nil)
+	p.UpdateTarget("test", nil)
 
 	addConfigMapDeployment(p, "cm", map[string]string{
 		"v1": "{{ test1.test2 }}",
 	}, resourceOpts{
 		name:      "cm",
-		namespace: p.testSlug(),
+		namespace: p.TestSlug(),
 	})
-	p.updateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
+	p.UpdateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField([]map[string]any{
 			{
 				"file": "encrypted-vars.yaml",
@@ -35,14 +35,14 @@ func TestSopsVars(t *testing.T) {
 		return nil
 	})
 
-	p.updateFile("encrypted-vars.yaml", func(f string) (string, error) {
+	p.UpdateFile("encrypted-vars.yaml", func(f string) (string, error) {
 		b, _ := sops_test_resources.TestResources.ReadFile("test.yaml")
 		return string(b), nil
 	}, "")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 
-	cm := assertConfigMapExists(t, k, p.testSlug(), "cm")
+	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
 		"v1": "42",
 	}, "data")
@@ -54,29 +54,28 @@ func TestSopsResources(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := test_utils.NewTestProject(t, k)
 
-	createNamespace(t, k, p.testSlug())
+	createNamespace(t, k, p.TestSlug())
 
-	p.updateTarget("test", nil)
-	p.updateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(p.testSlug(), "overrideNamespace")
+	p.UpdateTarget("test", nil)
+	p.UpdateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(p.TestSlug(), "overrideNamespace")
 		return nil
 	})
 
-	p.addKustomizeDeployment("cm", []kustomizeResource{
-		{name: "encrypted-cm.yaml"},
+	p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{
+		{Name: "encrypted-cm.yaml"},
 	}, nil)
 
-	p.updateFile("cm/encrypted-cm.yaml", func(f string) (string, error) {
+	p.UpdateFile("cm/encrypted-cm.yaml", func(f string) (string, error) {
 		b, _ := sops_test_resources.TestResources.ReadFile("test-configmap.yaml")
 		return string(b), nil
 	}, "")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 
-	cm := assertConfigMapExists(t, k, p.testSlug(), "encrypted-cm")
+	cm := assertConfigMapExists(t, k, p.TestSlug(), "encrypted-cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
 		"a": "b",
 	}, "data")
