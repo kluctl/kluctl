@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-func prepareContextTest(t *testing.T) *testProject {
-	p := &testProject{}
-	p.init(t, defaultCluster1)
+func prepareContextTest(t *testing.T) *TestProject {
+	p := NewTestProject(t, defaultCluster1)
 	p.mergeKubeconfig(defaultCluster2)
 
 	createNamespace(t, defaultCluster1, p.testSlug())

@@ -18,7 +18,7 @@ type hooksTestContext struct {
 	t *testing.T
 	k *test_utils.EnvTestCluster
 
-	p *testProject
+	p *TestProject
 
 	seenConfigMaps []string
 
@@ -96,11 +96,10 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	s := &hooksTestContext{
 		t: t,
 		k: defaultCluster2, // use cluster2 as it has webhooks setup
-		p: &testProject{},
 	}
 	s.setupWebhook()
 
-	s.p.init(t, s.k)
+	s.p = NewTestProject(t, s.k)
 	t.Cleanup(func() {
 		s.removeWebhook()
 	})

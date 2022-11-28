@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *testProject {
-	p := &testProject{}
-	p.init(t, defaultCluster1)
+func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *TestProject {
+	p := NewTestProject(t, defaultCluster1)
 	p.mergeKubeconfig(defaultCluster2)
 
 	createNamespace(t, defaultCluster1, p.testSlug())

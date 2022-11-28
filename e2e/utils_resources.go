@@ -51,14 +51,14 @@ func createSecretObject(data map[string]string, opts resourceOpts) *uo.Unstructu
 	return o
 }
 
-func addConfigMapDeployment(p *testProject, dir string, data map[string]string, opts resourceOpts) {
+func addConfigMapDeployment(p *TestProject, dir string, data map[string]string, opts resourceOpts) {
 	o := createConfigMapObject(data, opts)
 	p.addKustomizeDeployment(dir, []kustomizeResource{
 		{fmt.Sprintf("configmap-%s.yml", opts.name), "", o},
 	}, opts.tags)
 }
 
-func addSecretDeployment(p *testProject, dir string, data map[string]string, opts resourceOpts) {
+func addSecretDeployment(p *TestProject, dir string, data map[string]string, opts resourceOpts) {
 	o := createSecretObject(data, opts)
 	fname := fmt.Sprintf("secret-%s.yml", opts.name)
 	p.addKustomizeDeployment(dir, []kustomizeResource{

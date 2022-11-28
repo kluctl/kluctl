@@ -20,7 +20,7 @@ func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, 
 	}
 }
 
-func addHelmDeployment(p *testProject, dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
+func addHelmDeployment(p *TestProject, dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
 	if registry2.IsOCI(repoUrl) {
 		repoUrl += "/" + chartName
 		chartName = ""
@@ -67,8 +67,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 
@@ -159,8 +158,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 
@@ -204,8 +202,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 
@@ -315,8 +312,7 @@ func TestHelmValues(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 
@@ -378,8 +374,7 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 	createNamespace(t, k, p.testSlug()+"-a")

@@ -10,8 +10,7 @@ func TestKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 
@@ -39,8 +38,7 @@ func TestGeneratedKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := &testProject{}
-	p.init(t, k)
+	p := NewTestProject(t, k)
 
 	createNamespace(t, k, p.testSlug())
 
