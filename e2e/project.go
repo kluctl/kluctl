@@ -6,6 +6,7 @@ import (
 	"github.com/huandu/xstrings"
 	"github.com/imdario/mergo"
 	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/client-go/tools/clientcmd"
@@ -24,12 +25,12 @@ type testProject struct {
 
 	mergedKubeconfig string
 
-	gitServer *test_utils.TestGitServer
+	gitServer *git2.TestGitServer
 }
 
 func (p *testProject) init(t *testing.T, k *test_utils.EnvTestCluster) {
 	p.t = t
-	p.gitServer = test_utils.NewTestGitServer(t)
+	p.gitServer = git2.NewTestGitServer(t)
 	p.gitServer.GitInit(p.getKluctlProjectRepo())
 
 	p.updateKluctlYaml(func(o *uo.UnstructuredObject) error {

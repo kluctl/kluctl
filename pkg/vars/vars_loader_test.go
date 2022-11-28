@@ -4,7 +4,7 @@ import (
 	"context"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	test_utils "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
