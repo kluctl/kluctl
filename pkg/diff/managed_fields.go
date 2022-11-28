@@ -18,11 +18,11 @@ type LostOwnership struct {
 
 var forceApplyFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/force-apply-field(-\d*)?$`)
 var overwriteAllowedManagers = []*regexp.Regexp{
-	regexp.MustCompile("kluctl"),
-	regexp.MustCompile("kubectl"),
-	regexp.MustCompile("kubectl-.*"),
-	regexp.MustCompile("rancher"),
-	regexp.MustCompile("k9s"),
+	regexp.MustCompile("^kluctl$"),
+	regexp.MustCompile("^kubectl$"),
+	regexp.MustCompile("^kubectl-.*$"),
+	regexp.MustCompile("^rancher$"),
+	regexp.MustCompile("^k9s$"),
 }
 
 func checkListItemMatch(o interface{}, pathElement fieldpath.PathElement, index int) (bool, error) {
