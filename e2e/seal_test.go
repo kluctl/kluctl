@@ -87,11 +87,11 @@ func startCertServer() (*certServer, error) {
 
 func addProxyVars(p *TestProject) {
 	f := func(idx int, k *test_utils.EnvTestCluster, cs *certServer) {
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_API_HOST=%s", idx, k.RESTConfig().Host))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAMESPACE=%s", idx, "kube-system"))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAME=%s", idx, "sealed-secrets-controller"))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_PORT=%s", idx, "http"))
-		p.extraEnv = append(p.extraEnv, fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_LOCAL_URL=%s", idx, cs.url))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_API_HOST=%s", idx, k.RESTConfig().Host))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAMESPACE=%s", idx, "kube-system"))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_NAME=%s", idx, "sealed-secrets-controller"))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_SERVICE_PORT=%s", idx, "http"))
+		p.AddExtraEnv(fmt.Sprintf("KLUCTL_K8S_SERVICE_PROXY_%d_LOCAL_URL=%s", idx, cs.url))
 	}
 	f(0, defaultCluster1, certServer1)
 	f(1, defaultCluster2, certServer2)
@@ -536,7 +536,7 @@ func TestSeal_Vault(t *testing.T) {
 			}),
 		}, true)
 
-	p.extraEnv = append(p.extraEnv, "VAULT_TOKEN=root")
+	p.AddExtraEnv("VAULT_TOKEN=root")
 	p.KluctlMust("seal", "-t", "test-target")
 
 	sealedSecretsDir := p.LocalRepoDir()

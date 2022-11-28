@@ -92,6 +92,10 @@ func (p *TestProject) UpdateMergedKubeconfig(cb func(config *clientcmdapi.Config
 	}
 }
 
+func (p *TestProject) AddExtraEnv(e string) {
+	p.extraEnv = append(p.extraEnv, e)
+}
+
 func (p *TestProject) UpdateKluctlYaml(update func(o *uo.UnstructuredObject) error) {
 	p.UpdateYaml(".kluctl.yml", update, "")
 }
