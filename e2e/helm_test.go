@@ -26,8 +26,8 @@ func addHelmDeployment(p *TestProject, dir string, repoUrl string, chartName, ve
 		chartName = ""
 	}
 
-	p.AddKustomizeDeployment(dir, []kustomizeResource{
-		{name: "helm-rendered.yaml"},
+	p.AddKustomizeDeployment(dir, []KustomizeResource{
+		{Name: "helm-rendered.yaml"},
 	}, nil)
 
 	p.UpdateYaml(filepath.Join(dir, "helm-chart.yaml"), func(o *uo.UnstructuredObject) error {

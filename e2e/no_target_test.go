@@ -23,9 +23,9 @@ func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *TestProject {
 	})
 
 	if withDeploymentYaml {
-		p.AddKustomizeDeployment("cm", []kustomizeResource{{name: "cm.yaml", content: cm}}, nil)
+		p.AddKustomizeDeployment("cm", []KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
 	} else {
-		p.AddKustomizeResources("", []kustomizeResource{{name: "cm.yaml", content: cm}})
+		p.AddKustomizeResources("", []KustomizeResource{{Name: "cm.yaml", Content: cm}})
 		err := os.Remove(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "deployment.yml"))
 		assert.NoError(t, err)
 	}

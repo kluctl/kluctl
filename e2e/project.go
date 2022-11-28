@@ -234,7 +234,7 @@ func (p *TestProject) AddDeploymentIncludes(dir string) {
 	}
 }
 
-func (p *TestProject) AddKustomizeDeployment(dir string, resources []kustomizeResource, tags []string) {
+func (p *TestProject) AddKustomizeDeployment(dir string, resources []KustomizeResource, tags []string) {
 	deploymentDir := filepath.Dir(dir)
 	if deploymentDir != "" {
 		p.AddDeploymentIncludes(deploymentDir)
@@ -288,23 +288,23 @@ func (p *TestProject) convertInterfaceToList(x interface{}) []interface{} {
 	return []interface{}{x}
 }
 
-type kustomizeResource struct {
-	name     string
-	fileName string
-	content  interface{}
+type KustomizeResource struct {
+	Name     string
+	FileName string
+	Content  interface{}
 }
 
-func (p *TestProject) AddKustomizeResources(dir string, resources []kustomizeResource) {
+func (p *TestProject) AddKustomizeResources(dir string, resources []KustomizeResource) {
 	p.UpdateKustomizeDeployment(dir, func(o *uo.UnstructuredObject, wt *git.Worktree) error {
 		l, _, _ := o.GetNestedList("resources")
 		for _, r := range resources {
-			l = append(l, r.name)
-			fileName := r.fileName
+			l = append(l, r.Name)
+			fileName := r.FileName
 			if fileName == "" {
-				fileName = r.name
+				fileName = r.Name
 			}
-			if r.content != nil {
-				x := p.convertInterfaceToList(r.content)
+			if r.Content != nil {
+				x := p.convertInterfaceToList(r.Content)
 				err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, fileName), x)
 				if err != nil {
 					return err

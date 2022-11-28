@@ -63,8 +63,8 @@ func TestSopsResources(t *testing.T) {
 		return nil
 	})
 
-	p.AddKustomizeDeployment("cm", []kustomizeResource{
-		{name: "encrypted-cm.yaml"},
+	p.AddKustomizeDeployment("cm", []KustomizeResource{
+		{Name: "encrypted-cm.yaml"},
 	}, nil)
 
 	p.UpdateFile("cm/encrypted-cm.yaml", func(f string) (string, error) {

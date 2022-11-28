@@ -87,7 +87,7 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
-	s.p.AddKustomizeResources(dir, []kustomizeResource{
+	s.p.AddKustomizeResources(dir, []KustomizeResource{
 		{fmt.Sprintf("%s.yml", opts.name), "", o},
 	})
 }
