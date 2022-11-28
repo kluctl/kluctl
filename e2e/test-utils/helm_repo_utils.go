@@ -2,7 +2,7 @@ package test_utils
 
 import (
 	"github.com/google/go-containerregistry/pkg/registry"
-	test_resources "github.com/kluctl/kluctl/v2/e2e/test-helm-chart"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils/test-helm-chart"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
