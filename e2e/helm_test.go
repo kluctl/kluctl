@@ -12,11 +12,11 @@ import (
 	"testing"
 )
 
-func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, password string) string {
+func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, user string, password string) string {
 	if oci {
-		return test_utils.CreateOciRepo(t, charts, password)
+		return test_utils.CreateOciRepo(t, charts, user, password)
 	} else {
-		return test_utils.CreateHelmRepo(t, charts, password)
+		return test_utils.CreateHelmRepo(t, charts, user, password)
 	}
 }
 
@@ -72,14 +72,16 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	createNamespace(t, k, p.testSlug())
 
+	user := ""
 	password := ""
 	if tc.testAuth {
+		user = "test-user"
 		password = "secret-password"
 	}
 
 	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, tc.oci, password)
+	}, tc.oci, user, password)
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -132,13 +134,13 @@ func TestHelmPull(t *testing.T) {
 		{name: "helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
 			expectedError: "no credentials provided for Chart test-chart1"},
 		{name: "helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
-			extraArgs:     []string{"--helm-username=test-creds:user", "--helm-password=test-creds:invalid"},
+			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:invalid"},
 			expectedError: "401 Unauthorized"},
 		{name: "helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
-			extraArgs: []string{"--helm-username=test-creds:user", "--helm-password=test-creds:secret-password"}},
+			extraArgs: []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"}},
 		{name: "oci", oci: true},
 		{name: "oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
-			extraArgs:     []string{"--helm-username=test-creds:user", "--helm-password=test-creds:secret-password"},
+			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"},
 			expectedError: "OCI charts can currently only be authenticated via registry login and not via cli arguments"},
 	}
 
@@ -165,7 +167,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	repoUrl := createHelmOrOciRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart1", Version: "0.2.0"},
-	}, oci, "")
+	}, oci, "", "")
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -212,7 +214,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 		{ChartName: "test-chart1", Version: "0.2.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.3.0"},
-	}, oci, "")
+	}, oci, "", "")
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.testSlug(), nil)
@@ -321,7 +323,7 @@ func TestHelmValues(t *testing.T) {
 	repoUrl := test_utils.CreateHelmRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "")
+	}, "", "")
 
 	values1 := map[string]any{
 		"data": map[string]any{
@@ -386,7 +388,7 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 	repoUrl := test_utils.CreateHelmRepo(p.t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "")
+	}, "", "")
 
 	p.updateTarget("test", nil)
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.testSlug(), nil)

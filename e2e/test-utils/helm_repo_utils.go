@@ -62,7 +62,7 @@ type RepoChart struct {
 	Version   string
 }
 
-func CreateHelmRepo(t *testing.T, charts []RepoChart, password string) string {
+func CreateHelmRepo(t *testing.T, charts []RepoChart, username string, password string) string {
 	tmpDir := t.TempDir()
 
 	for _, c := range charts {
@@ -73,8 +73,8 @@ func CreateHelmRepo(t *testing.T, charts []RepoChart, password string) string {
 	fs := http.FileServer(http.FS(os.DirFS(tmpDir)))
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if password != "" {
-			_, p, ok := r.BasicAuth()
-			if !ok || p != password {
+			u, p, ok := r.BasicAuth()
+			if !ok || u != username || p != password {
 				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
 				return
 			}
@@ -98,19 +98,19 @@ func CreateHelmRepo(t *testing.T, charts []RepoChart, password string) string {
 	return s.URL
 }
 
-func CreateOciRepo(t *testing.T, charts []RepoChart, password string) string {
+func CreateOciRepo(t *testing.T, charts []RepoChart, username string, password string) string {
 	tmpDir := t.TempDir()
 
 	ociRegistry := registry.New()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if password != "" {
-			_, p, ok := r.BasicAuth()
+		if username != "" || password != "" {
+			u, p, ok := r.BasicAuth()
 			if !ok {
 				w.Header().Add("WWW-Authenticate", "Basic")
 				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
 				return
 			}
-			if !ok || p != password {
+			if u != username || p != password {
 				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
 				return
 			}
@@ -138,7 +138,7 @@ func CreateOciRepo(t *testing.T, charts []RepoChart, password string) string {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = registryClient.Login(ociUrl2.Host, registry2.LoginOptBasicAuth("test-user", password), registry2.LoginOptInsecure(true))
+		err = registryClient.Login(ociUrl2.Host, registry2.LoginOptBasicAuth(username, password), registry2.LoginOptInsecure(true))
 		if err != nil {
 			t.Fatal(err)
 		}
