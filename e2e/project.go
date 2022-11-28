@@ -33,7 +33,7 @@ func NewTestProject(t *testing.T, k *test_utils.EnvTestCluster) *TestProject {
 	}
 
 	p.gitServer = test_utils.NewGitServer(t)
-	p.gitServer.GitInit(p.getKluctlProjectRepo())
+	p.gitServer.GitInit("kluctl-project")
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
 		return nil
@@ -106,17 +106,17 @@ func (p *TestProject) UpdateDeploymentYaml(dir string, update func(o *uo.Unstruc
 }
 
 func (p *TestProject) UpdateYaml(path string, update func(o *uo.UnstructuredObject) error, message string) {
-	p.gitServer.UpdateYaml(p.getKluctlProjectRepo(), path, func(o *uo.UnstructuredObject) error {
+	p.gitServer.UpdateYaml("kluctl-project", path, func(o *uo.UnstructuredObject) error {
 		return update(o)
 	}, message)
 }
 
 func (p *TestProject) UpdateFile(path string, update func(f string) (string, error), message string) {
-	p.gitServer.UpdateFile(p.getKluctlProjectRepo(), path, update, message)
+	p.gitServer.UpdateFile("kluctl-project", path, update, message)
 }
 
 func (p *TestProject) GetDeploymentYaml(dir string) *uo.UnstructuredObject {
-	o, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, "deployment.yml"))
+	o, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), dir, "deployment.yml"))
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func (p *TestProject) ListDeploymentItemPathes(dir string, fullPath bool) []stri
 }
 
 func (p *TestProject) UpdateKustomizeDeployment(dir string, update func(o *uo.UnstructuredObject, wt *git.Worktree) error) {
-	wt := p.gitServer.GetWorktree(p.getKluctlProjectRepo())
+	wt := p.gitServer.GetWorktree("kluctl-project")
 
 	pth := filepath.Join(dir, "kustomization.yml")
 	p.UpdateYaml(pth, func(o *uo.UnstructuredObject) error {
@@ -240,7 +240,7 @@ func (p *TestProject) AddKustomizeDeployment(dir string, resources []KustomizeRe
 		p.AddDeploymentIncludes(deploymentDir)
 	}
 
-	absKustomizeDir := filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir)
+	absKustomizeDir := filepath.Join(p.LocalRepoDir(), dir)
 
 	err := os.MkdirAll(absKustomizeDir, 0o700)
 	if err != nil {
@@ -305,7 +305,7 @@ func (p *TestProject) AddKustomizeResources(dir string, resources []KustomizeRes
 			}
 			if r.Content != nil {
 				x := p.convertInterfaceToList(r.Content)
-				err := yaml.WriteYamlAllFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), dir, fileName), x)
+				err := yaml.WriteYamlAllFile(filepath.Join(p.LocalRepoDir(), dir, fileName), x)
 				if err != nil {
 					return err
 				}
@@ -335,8 +335,16 @@ func (p *TestProject) DeleteKustomizeDeployment(dir string) {
 	})
 }
 
-func (p *TestProject) getKluctlProjectRepo() string {
-	return "kluctl-project"
+func (p *TestProject) GitUrl() string {
+	return p.gitServer.GitUrl("kluctl-project")
+}
+
+func (p *TestProject) LocalRepoDir() string {
+	return p.gitServer.LocalRepoDir("kluctl-project")
+}
+
+func (p *TestProject) GetGitRepo() *git.Repository {
+	return p.gitServer.GetGitRepo("kluctl-project")
 }
 
 func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
@@ -344,7 +352,7 @@ func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
 	args = append(args, argsIn...)
 	args = append(args, "--no-update-check")
 
-	cwd := p.gitServer.LocalRepoDir(p.getKluctlProjectRepo())
+	cwd := p.LocalRepoDir()
 
 	args = append(args, "--debug")
 

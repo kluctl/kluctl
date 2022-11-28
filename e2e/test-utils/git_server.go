@@ -235,7 +235,7 @@ func (p *GitServer) convertInterfaceToList(x interface{}) []interface{} {
 	return []interface{}{x}
 }
 
-func (p *GitServer) LocalGitUrl(repo string) string {
+func (p *GitServer) GitUrl(repo string) string {
 	return fmt.Sprintf("http://localhost:%d/%s/.git", p.gitServerPort, repo)
 }
 

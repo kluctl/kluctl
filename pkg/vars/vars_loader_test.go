@@ -163,7 +163,7 @@ func TestVarsLoader_Git(t *testing.T) {
 	}, "")
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.LocalGitUrl("repo"))
+		url, _ := git_url.Parse(gs.GitUrl("repo"))
 		err := vl.LoadVars(vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
@@ -199,7 +199,7 @@ func TestVarsLoader_GitBranch(t *testing.T) {
 	assert.NoError(t, err)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.LocalGitUrl("repo"))
+		url, _ := git_url.Parse(gs.GitUrl("repo"))
 		err = vl.LoadVars(vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,

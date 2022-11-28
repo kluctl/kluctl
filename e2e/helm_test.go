@@ -105,7 +105,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 			return
 		} else {
 			assert.NoError(t, err)
-			assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
+			assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
 		}
 	}
 
@@ -171,7 +171,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	p.KluctlMust("helm-pull")
-	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
+	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ := cm.GetNestedString("data", "version")
@@ -224,9 +224,9 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}, "")
 
 	p.KluctlMust("helm-pull")
-	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
-	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm2/charts/test-chart2/Chart.yaml"))
-	assert.FileExists(t, filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm3/charts/test-chart1/Chart.yaml"))
+	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
+	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm2/charts/test-chart2/Chart.yaml"))
+	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm3/charts/test-chart1/Chart.yaml"))
 
 	args := []string{"helm-update"}
 	if upgrade {
@@ -241,11 +241,11 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	assert.Contains(t, stderr, "helm2: Chart has new version 0.3.0 available.")
 	assert.Contains(t, stderr, "helm3: Chart has new version 0.2.0 available. Old version is 0.1.0. skipUpdate is set to true.")
 
-	c1, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm1/charts/test-chart1/Chart.yaml"))
+	c1, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
 	assert.NoError(t, err)
-	c2, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm2/charts/test-chart2/Chart.yaml"))
+	c2, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), "helm2/charts/test-chart2/Chart.yaml"))
 	assert.NoError(t, err)
-	c3, err := uo.FromFile(filepath.Join(p.gitServer.LocalRepoDir(p.getKluctlProjectRepo()), "helm3/charts/test-chart1/Chart.yaml"))
+	c3, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), "helm3/charts/test-chart1/Chart.yaml"))
 	assert.NoError(t, err)
 
 	v1, _, _ := c1.GetNestedString("version")
@@ -262,7 +262,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}
 
 	if commit {
-		r := p.gitServer.GetGitRepo(p.getKluctlProjectRepo())
+		r := p.GetGitRepo()
 
 		commits, err := r.Log(&git.LogOptions{})
 		assert.NoError(t, err)
