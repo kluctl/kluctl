@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	"github.com/kluctl/kluctl/v2/internal/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	corev1 "k8s.io/api/core/v1"
 	"path/filepath"
 	"reflect"

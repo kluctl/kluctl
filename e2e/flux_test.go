@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -10,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/stretchr/testify/assert"
 )
 

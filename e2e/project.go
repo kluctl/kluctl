@@ -5,7 +5,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/imdario/mergo"
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/client-go/tools/clientcmd"

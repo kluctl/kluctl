@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"testing"
 
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 

@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	test_utils "github.com/kluctl/kluctl/v2/internal/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io"
 	v1 "k8s.io/api/core/v1"
