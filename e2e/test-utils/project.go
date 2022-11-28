@@ -7,6 +7,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	registry2 "helm.sh/helm/v3/pkg/registry"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"os"
@@ -269,6 +270,39 @@ func (p *TestProject) AddKustomizeDeployment(dir string, resources []KustomizeRe
 		_ = o.SetNestedObjectList(d, "deployments")
 		return nil
 	})
+}
+
+func (p *TestProject) AddHelmDeployment(dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
+	if registry2.IsOCI(repoUrl) {
+		repoUrl += "/" + chartName
+		chartName = ""
+	}
+
+	p.AddKustomizeDeployment(dir, []KustomizeResource{
+		{Name: "helm-rendered.yaml"},
+	}, nil)
+
+	p.UpdateYaml(filepath.Join(dir, "helm-chart.yaml"), func(o *uo.UnstructuredObject) error {
+		*o = *uo.FromMap(map[string]interface{}{
+			"helmChart": map[string]any{
+				"repo":         repoUrl,
+				"chartVersion": version,
+				"releaseName":  releaseName,
+				"namespace":    namespace,
+			},
+		})
+		if chartName != "" {
+			_ = o.SetNestedField(chartName, "helmChart", "chartName")
+		}
+		return nil
+	}, "")
+
+	if values != nil {
+		p.UpdateYaml(filepath.Join(dir, "helm-values.yaml"), func(o *uo.UnstructuredObject) error {
+			*o = *uo.FromMap(values)
+			return nil
+		}, "")
+	}
 }
 
 func (p *TestProject) convertInterfaceToList(x interface{}) []interface{} {

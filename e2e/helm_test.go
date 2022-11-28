@@ -6,7 +6,6 @@ import (
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
-	registry2 "helm.sh/helm/v3/pkg/registry"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -17,39 +16,6 @@ func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, 
 		return test_utils.CreateOciRepo(t, charts, user, password)
 	} else {
 		return test_utils.CreateHelmRepo(t, charts, user, password)
-	}
-}
-
-func addHelmDeployment(p *test_utils.TestProject, dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
-	if registry2.IsOCI(repoUrl) {
-		repoUrl += "/" + chartName
-		chartName = ""
-	}
-
-	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
-		{Name: "helm-rendered.yaml"},
-	}, nil)
-
-	p.UpdateYaml(filepath.Join(dir, "helm-chart.yaml"), func(o *uo.UnstructuredObject) error {
-		*o = *uo.FromMap(map[string]interface{}{
-			"helmChart": map[string]any{
-				"repo":         repoUrl,
-				"chartVersion": version,
-				"releaseName":  releaseName,
-				"namespace":    namespace,
-			},
-		})
-		if chartName != "" {
-			_ = o.SetNestedField(chartName, "helmChart", "chartName")
-		}
-		return nil
-	}, "")
-
-	if values != nil {
-		p.UpdateYaml(filepath.Join(dir, "helm-values.yaml"), func(o *uo.UnstructuredObject) error {
-			*o = *uo.FromMap(values)
-			return nil
-		}, "")
 	}
 }
 
@@ -83,7 +49,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 	}, tc.oci, user, password)
 
 	p.UpdateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	if tc.testAuth {
 		if tc.credsId != "" {
@@ -168,7 +134,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	}, oci, "", "")
 
 	p.UpdateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	p.KluctlMust("helm-pull")
 	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
@@ -214,9 +180,9 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}, oci, "", "")
 
 	p.UpdateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), nil)
-	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
 
 	p.UpdateYaml("helm3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipUpdate")
@@ -341,9 +307,9 @@ func TestHelmValues(t *testing.T) {
 	}
 
 	p.UpdateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), values2)
-	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), values3)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
+	p.AddHelmDeployment("helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), values2)
+	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), values3)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
@@ -386,10 +352,10 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 	}, "", "")
 
 	p.UpdateTarget("test", nil)
-	addHelmDeployment(p, "helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.TestSlug(), nil)
-	addHelmDeployment(p, "helm2", repoUrl, "test-chart2", "0.1.0", "test-helm-{{ args.b }}", p.TestSlug(), nil)
-	addHelmDeployment(p, "helm3", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.a }}", nil)
-	addHelmDeployment(p, "helm4", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.b }}", nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repoUrl, "test-chart2", "0.1.0", "test-helm-{{ args.b }}", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.a }}", nil)
+	p.AddHelmDeployment("helm4", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.b }}", nil)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
