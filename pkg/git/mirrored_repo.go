@@ -11,7 +11,6 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	_ "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"os"
@@ -105,7 +104,6 @@ func (g *MirroredGitRepo) Unlock() error {
 
 	err := g.fileLock.Close()
 	if err != nil {
-		status.Warning(g.ctx, "Unlock of %s failed: %v", g.fileLockPath, err)
 		return err
 	}
 	g.fileLock = nil
@@ -196,7 +194,7 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error {
+func (g *MirroredGitRepo) update(repoDir string) error {
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		return err
@@ -284,10 +282,10 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error 
 	return nil
 }
 
-func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
+func (g *MirroredGitRepo) cloneOrUpdate() error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	if utils.IsFile(initMarker) {
-		return g.update(s, g.mirrorDir)
+		return g.update(g.mirrorDir)
 	}
 	err := g.cleanupMirrorDir()
 	if err != nil {
@@ -314,7 +312,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 		return err
 	}
 
-	err = g.update(s, tmpMirrorDir)
+	err = g.update(tmpMirrorDir)
 	if err != nil {
 		return err
 	}
@@ -337,14 +335,11 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 }
 
 func (g *MirroredGitRepo) Update() error {
-	s := status.Start(g.ctx, "Updating git cache for %s", g.url.String())
-	err := g.cloneOrUpdate(s)
+	err := g.cloneOrUpdate()
 	if err != nil {
-		s.FailedWithMessage(err.Error())
 		return err
 	}
 	g.hasUpdated = true
-	s.Success()
 	return nil
 }
 
@@ -352,8 +347,6 @@ func (g *MirroredGitRepo) CloneProjectByCommit(commit string, targetDir string) 
 	if !g.IsLocked() || !g.hasUpdated {
 		panic("tried to clone from a project that is not locked/updated")
 	}
-
-	status.Trace(g.ctx, "Cloning git project: url='%s', commit='%s', target='%s'", g.url.String(), commit, targetDir)
 
 	err := PoorMansClone(g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
 	if err != nil {

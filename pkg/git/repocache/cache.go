@@ -118,10 +118,15 @@ func (e *CacheEntry) Update() error {
 		if time.Now().Sub(e.mr.LastUpdateTime()) <= e.rp.updateInterval {
 			e.mr.SetUpdated(true)
 		} else {
+			url := e.mr.Url()
+			s := status.Start(e.rp.ctx, "Updating git cache for %s", url.String())
+			defer s.Failed()
 			err := e.mr.Update()
 			if err != nil {
+				s.FailedWithMessage(err.Error())
 				return err
 			}
+			s.Success()
 		}
 	}
 
