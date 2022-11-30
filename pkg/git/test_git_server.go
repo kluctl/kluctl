@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
+	"github.com/jinzhu/copier"
 	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"gopkg.in/yaml.v3"
 	"log"
 	"net"
 	"net/http"
@@ -147,7 +147,7 @@ func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message
 	}
 }
 
-func (p *TestGitServer) CommitYaml(repo string, pth string, message string, y *uo.UnstructuredObject) {
+func (p *TestGitServer) CommitYaml(repo string, pth string, message string, o map[string]any) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
 	dir, _ := filepath.Split(fullPath)
@@ -158,7 +158,11 @@ func (p *TestGitServer) CommitYaml(repo string, pth string, message string, y *u
 		}
 	}
 
-	err := yaml.WriteYamlFile(fullPath, y)
+	b, err := yaml.Marshal(o)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	err = os.WriteFile(fullPath, b, 0o600)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -194,18 +198,30 @@ func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string
 	p.CommitFiles(repo, []string{pth}, false, message)
 }
 
-func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *uo.UnstructuredObject) error, message string) {
+func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *map[string]any) error, message string) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
-	o := uo.New()
+	var o map[string]any
 	if _, err := os.Stat(fullPath); err == nil {
-		err := yaml.ReadYamlFile(fullPath, o)
+		b, err := os.ReadFile(fullPath)
 		if err != nil {
 			p.t.Fatal(err)
 		}
+		err = yaml.Unmarshal(b, &o)
+		if err != nil {
+			p.t.Fatal(err)
+		}
+	} else {
+		o = map[string]any{}
 	}
-	orig := o.Clone()
-	err := update(o)
+
+	var orig map[string]any
+	err := copier.CopyWithOption(&orig, &o, copier.Option{DeepCopy: true})
+	if err != nil {
+		p.t.Fatal(err)
+	}
+
+	err = update(&o)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -213,26 +229,6 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *uo.Un
 		return
 	}
 	p.CommitYaml(repo, pth, message, o)
-}
-
-func (p *TestGitServer) convertInterfaceToList(x interface{}) []interface{} {
-	var ret []interface{}
-	if l, ok := x.([]interface{}); ok {
-		return l
-	}
-	if l, ok := x.([]*uo.UnstructuredObject); ok {
-		for _, y := range l {
-			ret = append(ret, y)
-		}
-		return ret
-	}
-	if l, ok := x.([]map[string]interface{}); ok {
-		for _, y := range l {
-			ret = append(ret, y)
-		}
-		return ret
-	}
-	return []interface{}{x}
 }
 
 func (p *TestGitServer) GitUrl(repo string) string {
