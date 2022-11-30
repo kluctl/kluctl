@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth/goph"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/crypto/ssh"
 	"net"
 	"os"
@@ -47,7 +46,7 @@ func verifyHost(messageCallbacks messages.MessageCallbacks, host string, remote 
 			}
 
 			f := filepath.Join(home, ".ssh", "known_hosts")
-			if !utils.Exists(filepath.Dir(f)) {
+			if _, err := os.Stat(filepath.Dir(f)); err != nil {
 				err = os.MkdirAll(filepath.Dir(f), 0o700)
 				if err != nil {
 					return err
@@ -58,7 +57,7 @@ func verifyHost(messageCallbacks messages.MessageCallbacks, host string, remote 
 			allowAdd = true
 		}
 	} else {
-		tmpFile, err := os.CreateTemp(utils.GetTmpBaseDir(), "known_hosts-")
+		tmpFile, err := os.CreateTemp("", "known_hosts-")
 		if err != nil {
 			return err
 		}
