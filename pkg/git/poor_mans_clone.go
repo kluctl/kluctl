@@ -3,7 +3,7 @@ package git
 import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
+	cp "github.com/otiai10/copy"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -32,15 +32,13 @@ func PoorMansClone(sourceDir string, targetDir string, coOptions *git.CheckoutOp
 		if de.Name() == "objects" {
 			err = os.Symlink(s, d)
 			if err != nil && runtime.GOOS == "windows" {
-				// windows 10 does not support symlinks as unprivileged users...
-				err = utils.CopyDir(s, d)
+				// Windows 10 does not support symlinks as unprivileged users, so we revert to deep copying
+				err = cp.Copy(s, d, cp.Options{OnSymlink: func(src string) cp.SymlinkAction {
+					return cp.Deep
+				}})
 			}
 		} else {
-			if de.IsDir() {
-				err = utils.CopyDir(s, d)
-			} else {
-				err = utils.CopyFile(s, d)
-			}
+			err = cp.Copy(s, d)
 		}
 		if err != nil {
 			return err

@@ -3,7 +3,7 @@ package git
 import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"os"
 	"path/filepath"
 )
 
@@ -32,7 +32,8 @@ func DetectGitRepositoryRoot(path string) (string, error) {
 		return "", err
 	}
 	for true {
-		if utils.Exists(filepath.Join(path, ".git")) {
+		st, err := os.Stat(filepath.Join(path, ".git"))
+		if err == nil && st.IsDir() {
 			break
 		}
 		old := path

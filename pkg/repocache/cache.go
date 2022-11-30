@@ -9,6 +9,7 @@ import (
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	cp "github.com/otiai10/copy"
 	"os"
 	"path"
 	"path/filepath"
@@ -86,7 +87,7 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 
 	e, ok := rp.repos[url.NormalizedRepoKey()]
 	if !ok {
-		mr, err := git.NewMirroredGitRepo(rp.ctx, url, rp.sshPool, rp.authProviders)
+		mr, err := git.NewMirroredGitRepo(rp.ctx, url, filepath.Join(utils.GetTmpBaseDir(), "git-cache"), rp.sshPool, rp.authProviders)
 		if err != nil {
 			return nil, err
 		}
@@ -118,10 +119,15 @@ func (e *CacheEntry) Update() error {
 		if time.Now().Sub(e.mr.LastUpdateTime()) <= e.rp.updateInterval {
 			e.mr.SetUpdated(true)
 		} else {
+			url := e.mr.Url()
+			s := status.Start(e.rp.ctx, "Updating git cache for %s", url.String())
+			defer s.Failed()
 			err := e.mr.Update()
 			if err != nil {
+				s.FailedWithMessage(err.Error())
 				return err
 			}
+			s.Success()
 		}
 	}
 
@@ -230,7 +236,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	if foundRo != nil {
 		u := e.mr.Url()
 		status.WarningOnce(e.rp.ctx, fmt.Sprintf("git-override-%s|%s", foundRo.RepoKey, foundRo.Ref), "Overriding git repo %s with local directory %s", u.String(), foundRo.Override)
-		err = utils.CopyDir(foundRo.Override, p)
+		err = cp.Copy(foundRo.Override, p)
 		if err != nil {
 			return "", git.CheckoutInfo{}, err
 		}

@@ -3,9 +3,9 @@ package test_utils
 import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils/test-helm-chart"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	cp "github.com/otiai10/copy"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
@@ -14,6 +14,7 @@ import (
 	registry2 "helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/uploader"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -25,7 +26,18 @@ import (
 
 func createHelmPackage(t *testing.T, name string, version string) string {
 	tmpDir := t.TempDir()
-	err := utils.FsCopyDir(test_resources.HelmChartFS, ".", tmpDir)
+
+	err := fs.WalkDir(test_resources.HelmChartFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if d.IsDir() {
+			return os.MkdirAll(filepath.Join(tmpDir, path), 0o700)
+		} else {
+			b, err := test_resources.HelmChartFS.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(tmpDir, path), b, 0o600)
+		}
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +79,7 @@ func CreateHelmRepo(t *testing.T, charts []RepoChart, username string, password 
 
 	for _, c := range charts {
 		tgz := createHelmPackage(t, c.ChartName, c.Version)
-		_ = utils.CopyFile(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
+		_ = cp.Copy(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
 	}
 
 	fs := http.FileServer(http.FS(os.DirFS(tmpDir)))
@@ -147,7 +159,7 @@ func CreateOciRepo(t *testing.T, charts []RepoChart, username string, password s
 
 	for _, chart := range charts {
 		tgz := createHelmPackage(t, chart.ChartName, chart.Version)
-		_ = utils.CopyFile(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
+		_ = cp.Copy(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
 
 		err := c.UploadTo(tgz, ociUrl)
 		if err != nil {

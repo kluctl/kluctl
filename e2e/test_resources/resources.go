@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -28,7 +27,11 @@ func GetYamlTmpFile(name string) string {
 	}
 	tmpFile.Close()
 
-	err = utils.FsCopyFile(Yamls, name, tmpFile.Name())
+	b, err := Yamls.ReadFile(name)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(tmpFile.Name(), b, 0o600)
 	if err != nil {
 		panic(err)
 	}

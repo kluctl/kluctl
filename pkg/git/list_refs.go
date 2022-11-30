@@ -12,7 +12,6 @@ import (
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"strconv"
 )
 
@@ -100,7 +99,6 @@ func ListRemoteRefs(ctx context.Context, url git_url.GitUrl, sshPool *ssh_pool.S
 		if err == nil {
 			return refs, nil
 		}
-		status.Warning(ctx, "Fast listing of remote refs failed: %s", err.Error())
 	}
 	return ListRemoteRefsSlow(ctx, url, auth)
 }

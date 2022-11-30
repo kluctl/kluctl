@@ -4,12 +4,12 @@ import (
 	"context"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -42,7 +42,7 @@ func newTestDir(t *testing.T) string {
 }
 
 func newRP(t *testing.T) *repocache.GitRepoCache {
-	grc := repocache.NewGitRepoCache(context.TODO(), &ssh_pool.SshPool{}, auth.NewDefaultAuthProviders(), nil, 0)
+	grc := repocache.NewGitRepoCache(context.TODO(), &ssh_pool.SshPool{}, auth.NewDefaultAuthProviders("KLUCTL_GIT", nil), nil, 0)
 	t.Cleanup(func() {
 		grc.Clear()
 	})
@@ -155,10 +155,12 @@ func TestVarsLoader_FileWithLoadNotExists(t *testing.T) {
 }
 
 func TestVarsLoader_Git(t *testing.T) {
-	gs := test_utils.NewGitServer(t)
+	gs := git.NewTestGitServer(t)
 	gs.GitInit("repo")
-	gs.UpdateYaml("repo", "test.yaml", func(o *uo.UnstructuredObject) error {
-		*o = *uo.FromStringMust(`{"test1": {"test2": 42}}`)
+	gs.UpdateYaml("repo", "test.yaml", func(o map[string]any) error {
+		o["test1"] = map[string]any{
+			"test2": 42,
+		}
 		return nil
 	}, "")
 
@@ -178,7 +180,7 @@ func TestVarsLoader_Git(t *testing.T) {
 }
 
 func TestVarsLoader_GitBranch(t *testing.T) {
-	gs := test_utils.NewGitServer(t)
+	gs := git.NewTestGitServer(t)
 	gs.GitInit("repo")
 
 	wt := gs.GetWorktree("repo")
@@ -188,8 +190,10 @@ func TestVarsLoader_GitBranch(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	gs.UpdateYaml("repo", "test.yaml", func(o *uo.UnstructuredObject) error {
-		*o = *uo.FromStringMust(`{"test1": {"test2": 42}}`)
+	gs.UpdateYaml("repo", "test.yaml", func(o map[string]any) error {
+		o["test1"] = map[string]any{
+			"test2": 42,
+		}
 		return nil
 	}, "")
 

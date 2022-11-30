@@ -61,6 +61,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.3.3
+	github.com/otiai10/copy v1.9.0
 	go.mozilla.org/sops/v3 v3.7.3
 	sigs.k8s.io/controller-runtime v0.13.1
 )

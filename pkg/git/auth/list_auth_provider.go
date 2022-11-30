@@ -4,12 +4,14 @@ import (
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"strings"
 )
 
 type ListAuthProvider struct {
+	MessageCallbacks messages.MessageCallbacks
+
 	entries []AuthEntry
 }
 
@@ -30,10 +32,10 @@ func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 }
 
 func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
-	status.Trace(ctx, "ListAuthProvider: BuildAuth for %s", gitUrl.String())
-	status.Trace(ctx, "ListAuthProvider: path=%s, username=%s, scheme=%s", gitUrl.Path, gitUrl.User.Username(), gitUrl.Scheme)
+	a.MessageCallbacks.Trace("ListAuthProvider: BuildAuth for %s", gitUrl.String())
+	a.MessageCallbacks.Trace("ListAuthProvider: path=%s, username=%s, scheme=%s", gitUrl.Path, gitUrl.User.Username(), gitUrl.Scheme)
 	for _, e := range a.entries {
-		status.Trace(ctx, "ListAuthProvider: try host=%s, pathPrefix=%s, username=%s", e.Host, e.PathPrefix, e.Username)
+		a.MessageCallbacks.Trace("ListAuthProvider: try host=%s, pathPrefix=%s, username=%s", e.Host, e.PathPrefix, e.Username)
 
 		if e.Host != "*" && e.Host != gitUrl.Hostname() {
 			continue
@@ -69,29 +71,29 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 
 		if gitUrl.IsSsh() {
 			if e.SshKey == nil {
-				status.Trace(ctx, "ListAuthProvider: empty ssh key is not accepted")
+				a.MessageCallbacks.Trace("ListAuthProvider: empty ssh key is not accepted")
 				continue
 			}
-			status.Trace(ctx, "ListAuthProvider: using username+sshKey")
-			a, err := ssh.NewPublicKeys(username, e.SshKey, "")
+			a.MessageCallbacks.Trace("ListAuthProvider: using username+sshKey")
+			pk, err := ssh.NewPublicKeys(username, e.SshKey, "")
 			if err != nil {
-				status.Trace(ctx, "ListAuthProvider: failed to parse private key: %v", err)
+				a.MessageCallbacks.Trace("ListAuthProvider: failed to parse private key: %v", err)
 			} else {
-				a.HostKeyCallback = buildVerifyHostCallback(ctx, e.KnownHosts)
+				pk.HostKeyCallback = buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts)
 				return AuthMethodAndCA{
-					AuthMethod: a,
+					AuthMethod: pk,
 					Hash: func() ([]byte, error) {
-						return buildHash(a.Signer)
+						return buildHash(pk.Signer)
 					},
-					ClientConfig: a.ClientConfig,
+					ClientConfig: pk.ClientConfig,
 				}
 			}
 		} else {
 			if e.Password == "" {
-				status.Trace(ctx, "ListAuthProvider: empty password is not accepted")
+				a.MessageCallbacks.Trace("ListAuthProvider: empty password is not accepted")
 				continue
 			}
-			status.Trace(ctx, "ListAuthProvider: using username+password")
+			a.MessageCallbacks.Trace("ListAuthProvider: using username+password")
 			return AuthMethodAndCA{
 				AuthMethod: &http.BasicAuth{
 					Username: username,

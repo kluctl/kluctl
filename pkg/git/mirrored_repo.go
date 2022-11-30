@@ -2,6 +2,8 @@ package git
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -11,8 +13,6 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	_ "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"os"
 	"path/filepath"
@@ -20,8 +20,6 @@ import (
 	"sync"
 	"time"
 )
-
-var cacheBaseDir = filepath.Join(utils.GetTmpBaseDir(), "git-cache")
 
 var defaultFetch = []config.RefSpec{
 	"+refs/heads/*:refs/heads/*",
@@ -31,6 +29,7 @@ var defaultFetch = []config.RefSpec{
 type MirroredGitRepo struct {
 	ctx context.Context
 
+	baseDir       string
 	sshPool       *ssh_pool.SshPool
 	authProviders *auth2.GitAuthProviders
 
@@ -45,21 +44,25 @@ type MirroredGitRepo struct {
 	mutex sync.Mutex
 }
 
-func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl, sshPool *ssh_pool.SshPool, authProviders *auth2.GitAuthProviders) (*MirroredGitRepo, error) {
+func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl, baseDir string, sshPool *ssh_pool.SshPool, authProviders *auth2.GitAuthProviders) (*MirroredGitRepo, error) {
 	mirrorRepoName := buildMirrorRepoName(u)
 	o := &MirroredGitRepo{
 		ctx:           ctx,
+		baseDir:       baseDir,
 		sshPool:       sshPool,
 		authProviders: authProviders,
 		url:           u,
-		mirrorDir:     filepath.Join(cacheBaseDir, mirrorRepoName),
+		mirrorDir:     filepath.Join(baseDir, mirrorRepoName),
 	}
 
-	if !utils.IsDirectory(o.mirrorDir) {
-		err := os.MkdirAll(o.mirrorDir, 0o700)
+	st, err := os.Stat(o.mirrorDir)
+	if err != nil {
+		err = os.MkdirAll(o.mirrorDir, 0o700)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create mirror repo for %v: %w", u.String(), err)
 		}
+	} else if !st.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory", o.mirrorDir)
 	}
 
 	o.fileLockPath = filepath.Join(o.mirrorDir, ".cache.lock")
@@ -105,7 +108,6 @@ func (g *MirroredGitRepo) Unlock() error {
 
 	err := g.fileLock.Close()
 	if err != nil {
-		status.Warning(g.ctx, "Unlock of %s failed: %v", g.fileLockPath, err)
 		return err
 	}
 	g.fileLock = nil
@@ -181,7 +183,8 @@ func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {
 }
 
 func (g *MirroredGitRepo) cleanupMirrorDir() error {
-	if utils.IsDirectory(g.mirrorDir) {
+	st, err := os.Stat(g.mirrorDir)
+	if err == nil && st.IsDir() {
 		files, err := os.ReadDir(g.mirrorDir)
 		if err != nil {
 			return err
@@ -196,7 +199,7 @@ func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error {
+func (g *MirroredGitRepo) update(repoDir string) error {
 	r, err := git.PlainOpen(repoDir)
 	if err != nil {
 		return err
@@ -284,17 +287,18 @@ func (g *MirroredGitRepo) update(s *status.StatusContext, repoDir string) error 
 	return nil
 }
 
-func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
+func (g *MirroredGitRepo) cloneOrUpdate() error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
-	if utils.IsFile(initMarker) {
-		return g.update(s, g.mirrorDir)
+	st, err := os.Stat(initMarker)
+	if err == nil && st.Mode().IsRegular() {
+		return g.update(g.mirrorDir)
 	}
-	err := g.cleanupMirrorDir()
+	err = g.cleanupMirrorDir()
 	if err != nil {
 		return err
 	}
 
-	tmpMirrorDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "mirror-")
+	tmpMirrorDir, err := os.MkdirTemp(g.baseDir, "tmp-mirror-")
 	if err != nil {
 		return err
 	}
@@ -314,7 +318,7 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 		return err
 	}
 
-	err = g.update(s, tmpMirrorDir)
+	err = g.update(tmpMirrorDir)
 	if err != nil {
 		return err
 	}
@@ -329,22 +333,20 @@ func (g *MirroredGitRepo) cloneOrUpdate(s *status.StatusContext) error {
 			return err
 		}
 	}
-	err = utils.Touch(initMarker)
+	f, err := os.Create(initMarker)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	return nil
 }
 
 func (g *MirroredGitRepo) Update() error {
-	s := status.Start(g.ctx, "Updating git cache for %s", g.url.String())
-	err := g.cloneOrUpdate(s)
+	err := g.cloneOrUpdate()
 	if err != nil {
-		s.FailedWithMessage(err.Error())
 		return err
 	}
 	g.hasUpdated = true
-	s.Success()
 	return nil
 }
 
@@ -352,8 +354,6 @@ func (g *MirroredGitRepo) CloneProjectByCommit(commit string, targetDir string) 
 	if !g.IsLocked() || !g.hasUpdated {
 		panic("tried to clone from a project that is not locked/updated")
 	}
-
-	status.Trace(g.ctx, "Cloning git project: url='%s', commit='%s', target='%s'", g.url.String(), commit, targetDir)
 
 	err := PoorMansClone(g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
 	if err != nil {
@@ -390,12 +390,16 @@ func (g *MirroredGitRepo) GetGitTreeByCommit(commitHash string) (*object.Tree, e
 }
 
 func buildMirrorRepoName(u git_url.GitUrl) string {
+	h := sha256.New()
+	h.Write([]byte(u.String()))
+	h2 := hex.EncodeToString(h.Sum(nil))
+
 	r := filepath.Base(u.Path)
 	r = strings.ReplaceAll(r, "/", "-")
 	r = strings.ReplaceAll(r, "\\", "-")
 	if strings.HasSuffix(r, ".git") {
 		r = r[:len(r)-len(".git")]
 	}
-	r += "-" + utils.Sha256String(u.String())[:6]
+	r += "-" + h2[:6]
 	return r
 }

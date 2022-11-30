@@ -8,11 +8,12 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -60,7 +61,15 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		repoOverrides = append(repoOverrides, ro)
 	}
 
-	rp := repocache.NewGitRepoCache(ctx, sshPool, auth.NewDefaultAuthProviders(), repoOverrides, projectFlags.GitCacheUpdateInterval)
+	messageCallbacks := &messages.MessageCallbacks{
+		WarningFn:            func(s string) { status.Warning(ctx, s) },
+		TraceFn:              func(s string) { status.Trace(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return status.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return status.AskForConfirmation(ctx, s) },
+	}
+	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
+
+	rp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer rp.Clear()
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
