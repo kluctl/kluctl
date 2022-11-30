@@ -5,7 +5,6 @@ import (
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	giturls "github.com/whilp/git-urls"
 	"os"
@@ -46,7 +45,8 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl g
 }
 
 func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
-	if !utils.IsFile(gitCredentialsPath) {
+	st, err := os.Stat(gitCredentialsPath)
+	if err != nil || !st.Mode().IsDir() {
 		return nil
 	}
 

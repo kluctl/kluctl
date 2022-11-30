@@ -34,7 +34,7 @@ func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 		a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: adding entry host=%s, pathPrefix=%s, username=%s, ssh_key=%s", e.Host, e.PathPrefix, e.Username, ssh_key_path))
 
 		if ssh_key_path != "" {
-			ssh_key_path = utils.ExpandPath(ssh_key_path)
+			ssh_key_path = expandHomeDir(ssh_key_path)
 			b, err := os.ReadFile(ssh_key_path)
 			if err != nil {
 				a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: failed to read key %s: %v", ssh_key_path, err))
@@ -44,7 +44,7 @@ func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 		}
 		ca_bundle_path := m["CA_BUNDLE"]
 		if ca_bundle_path != "" {
-			ca_bundle_path = utils.ExpandPath(ca_bundle_path)
+			ca_bundle_path = expandHomeDir(ca_bundle_path)
 			b, err := os.ReadFile(ca_bundle_path)
 			if err != nil {
 				a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: failed to read ca bundle %s: %v", ca_bundle_path, err))

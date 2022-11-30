@@ -8,7 +8,6 @@ import (
 	"github.com/kevinburke/ssh_config"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -74,7 +73,7 @@ func (a *sshDefaultIdentityAndAgent) addDefaultIdentity(gitUrl git_url.GitUrl) {
 func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) {
 	a.authProvider.MessageCallbacks.Trace("trying to add identities from ssh config")
 	for _, id := range ssh_config.GetAll(gitUrl.Hostname(), "IdentityFile") {
-		expanded := utils.ExpandPath(id)
+		expanded := expandHomeDir(id)
 		a.authProvider.MessageCallbacks.Trace("...trying '%s' (expanded: '%s')", id, expanded)
 		signer, err := a.authProvider.readKey(a.ctx, expanded)
 		if err != nil && !os.IsNotExist(err) {

@@ -86,7 +86,7 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 
 	e, ok := rp.repos[url.NormalizedRepoKey()]
 	if !ok {
-		mr, err := git.NewMirroredGitRepo(rp.ctx, url, rp.sshPool, rp.authProviders)
+		mr, err := git.NewMirroredGitRepo(rp.ctx, url, filepath.Join(utils.GetTmpBaseDir(), "git-cache"), rp.sshPool, rp.authProviders)
 		if err != nil {
 			return nil, err
 		}
