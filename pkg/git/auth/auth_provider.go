@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -41,10 +42,14 @@ func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 	return AuthMethodAndCA{}
 }
 
-func NewDefaultAuthProviders() *GitAuthProviders {
+func NewDefaultAuthProviders(messageCallbacks *messages.MessageCallbacks) *GitAuthProviders {
+	if messageCallbacks == nil {
+		messageCallbacks = &messages.MessageCallbacks{}
+	}
+
 	a := &GitAuthProviders{}
-	a.RegisterAuthProvider(&GitEnvAuthProvider{}, true)
-	a.RegisterAuthProvider(&GitCredentialsFileAuthProvider{}, true)
-	a.RegisterAuthProvider(&GitSshAuthProvider{}, true)
+	a.RegisterAuthProvider(&GitEnvAuthProvider{MessageCallbacks: *messageCallbacks}, true)
+	a.RegisterAuthProvider(&GitCredentialsFileAuthProvider{MessageCallbacks: *messageCallbacks}, true)
+	a.RegisterAuthProvider(&GitSshAuthProvider{MessageCallbacks: *messageCallbacks}, true)
 	return a
 }

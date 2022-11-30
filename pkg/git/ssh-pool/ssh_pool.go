@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
 	"sync"
@@ -78,7 +77,6 @@ func (p *SshPool) GetSession(ctx context.Context, host string, port int, auth au
 
 	s, err := pe.pc.client.NewSession()
 	if err != nil {
-		origErr := err
 		_ = pe.pc.client.Close()
 		pe.pc = nil
 		if isNew {
@@ -92,7 +90,7 @@ func (p *SshPool) GetSession(ctx context.Context, host string, port int, auth au
 				p.pool.Delete(h)
 				return nil, err
 			}
-			status.Trace(ctx, "Successfully retries failed ssh connection. Old error: %s", origErr)
+
 			pe.pc = &poolClient{
 				time:   time.Now(),
 				client: client,

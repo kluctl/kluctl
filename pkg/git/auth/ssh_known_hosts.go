@@ -1,10 +1,9 @@
 package auth
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth/goph"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/crypto/ssh"
 	"net"
@@ -16,13 +15,13 @@ import (
 
 var askHostMutex sync.Mutex
 
-func buildVerifyHostCallback(ctx context.Context, knownHosts []byte) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+func buildVerifyHostCallback(messageCallbacks messages.MessageCallbacks, knownHosts []byte) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		return verifyHost(ctx, hostname, remote, key, knownHosts)
+		return verifyHost(messageCallbacks, hostname, remote, key, knownHosts)
 	}
 }
 
-func verifyHost(ctx context.Context, host string, remote net.Addr, key ssh.PublicKey, knownHosts []byte) error {
+func verifyHost(messageCallbacks messages.MessageCallbacks, host string, remote net.Addr, key ssh.PublicKey, knownHosts []byte) error {
 	// Ensure only one prompt happens at a time
 	askHostMutex.Lock()
 	defer askHostMutex.Unlock()
@@ -87,14 +86,14 @@ func verifyHost(ctx context.Context, host string, remote net.Addr, key ssh.Publi
 		return fmt.Errorf("host not found and SSH_KNOWN_HOSTS has been set")
 	}
 
-	if !askIsHostTrusted(ctx, host, key) {
+	if !askIsHostTrusted(messageCallbacks, host, key) {
 		return fmt.Errorf("aborted")
 	}
 
 	return goph.AddKnownHost(host, remote, key, "")
 }
 
-func askIsHostTrusted(ctx context.Context, host string, key ssh.PublicKey) bool {
+func askIsHostTrusted(messageCallbacks messages.MessageCallbacks, host string, key ssh.PublicKey) bool {
 	prompt := fmt.Sprintf("Unknown Host: %s\nFingerprint: %s\nWould you like to add it? ", host, ssh.FingerprintSHA256(key))
-	return status.AskForConfirmation(ctx, prompt)
+	return messageCallbacks.AskForConfirmation(prompt)
 }
