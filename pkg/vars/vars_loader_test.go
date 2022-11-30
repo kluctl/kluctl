@@ -157,8 +157,10 @@ func TestVarsLoader_FileWithLoadNotExists(t *testing.T) {
 func TestVarsLoader_Git(t *testing.T) {
 	gs := git.NewTestGitServer(t)
 	gs.GitInit("repo")
-	gs.UpdateYaml("repo", "test.yaml", func(o *uo.UnstructuredObject) error {
-		*o = *uo.FromStringMust(`{"test1": {"test2": 42}}`)
+	gs.UpdateYaml("repo", "test.yaml", func(o map[string]any) error {
+		o["test1"] = map[string]any{
+			"test2": 42,
+		}
 		return nil
 	}, "")
 
@@ -188,8 +190,10 @@ func TestVarsLoader_GitBranch(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	gs.UpdateYaml("repo", "test.yaml", func(o *uo.UnstructuredObject) error {
-		*o = *uo.FromStringMust(`{"test1": {"test2": 42}}`)
+	gs.UpdateYaml("repo", "test.yaml", func(o map[string]any) error {
+		o["test1"] = map[string]any{
+			"test2": 42,
+		}
 		return nil
 	}, "")
 

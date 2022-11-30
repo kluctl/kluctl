@@ -198,7 +198,7 @@ func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string
 	p.CommitFiles(repo, []string{pth}, false, message)
 }
 
-func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *map[string]any) error, message string) {
+func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[string]any) error, message string) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
 	var o map[string]any
@@ -221,7 +221,7 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *map[s
 		p.t.Fatal(err)
 	}
 
-	err = update(&o)
+	err = update(o)
 	if err != nil {
 		p.t.Fatal(err)
 	}

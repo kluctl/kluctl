@@ -5,6 +5,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/imdario/mergo"
+	"github.com/jinzhu/copier"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -111,8 +112,14 @@ func (p *TestProject) UpdateDeploymentYaml(dir string, update func(o *uo.Unstruc
 }
 
 func (p *TestProject) UpdateYaml(path string, update func(o *uo.UnstructuredObject) error, message string) {
-	p.gitServer.UpdateYaml("kluctl-project", path, func(o *uo.UnstructuredObject) error {
-		return update(o)
+	p.gitServer.UpdateYaml("kluctl-project", path, func(o map[string]any) error {
+		u := uo.FromMap(o)
+		err := update(u)
+		if err != nil {
+			return err
+		}
+		_ = copier.CopyWithOption(&o, &u.Object, copier.Option{DeepCopy: true})
+		return nil
 	}, message)
 }
 
