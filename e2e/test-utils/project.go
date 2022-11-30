@@ -5,6 +5,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/imdario/mergo"
+	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
@@ -24,7 +25,7 @@ type TestProject struct {
 
 	mergedKubeconfig string
 
-	gitServer *TestGitServer
+	gitServer *git2.TestGitServer
 }
 
 func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
@@ -32,7 +33,7 @@ func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
 		t: t,
 	}
 
-	p.gitServer = NewTestGitServer(t)
+	p.gitServer = git2.NewTestGitServer(t)
 	p.gitServer.GitInit("kluctl-project")
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
