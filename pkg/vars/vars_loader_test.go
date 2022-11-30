@@ -42,7 +42,7 @@ func newTestDir(t *testing.T) string {
 }
 
 func newRP(t *testing.T) *repocache.GitRepoCache {
-	grc := repocache.NewGitRepoCache(context.TODO(), &ssh_pool.SshPool{}, auth.NewDefaultAuthProviders(nil), nil, 0)
+	grc := repocache.NewGitRepoCache(context.TODO(), &ssh_pool.SshPool{}, auth.NewDefaultAuthProviders("KLUCTL_GIT", nil), nil, 0)
 	t.Cleanup(func() {
 		grc.Clear()
 	})

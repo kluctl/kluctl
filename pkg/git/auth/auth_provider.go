@@ -42,13 +42,13 @@ func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 	return AuthMethodAndCA{}
 }
 
-func NewDefaultAuthProviders(messageCallbacks *messages.MessageCallbacks) *GitAuthProviders {
+func NewDefaultAuthProviders(envPrefix string, messageCallbacks *messages.MessageCallbacks) *GitAuthProviders {
 	if messageCallbacks == nil {
 		messageCallbacks = &messages.MessageCallbacks{}
 	}
 
 	a := &GitAuthProviders{}
-	a.RegisterAuthProvider(&GitEnvAuthProvider{MessageCallbacks: *messageCallbacks}, true)
+	a.RegisterAuthProvider(&GitEnvAuthProvider{MessageCallbacks: *messageCallbacks, Prefix: envPrefix}, true)
 	a.RegisterAuthProvider(&GitCredentialsFileAuthProvider{MessageCallbacks: *messageCallbacks}, true)
 	a.RegisterAuthProvider(&GitSshAuthProvider{MessageCallbacks: *messageCallbacks}, true)
 	return a

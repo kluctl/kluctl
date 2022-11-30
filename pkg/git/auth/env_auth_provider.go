@@ -11,12 +11,14 @@ import (
 
 type GitEnvAuthProvider struct {
 	MessageCallbacks messages.MessageCallbacks
+
+	Prefix string
 }
 
 func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
 	var la ListAuthProvider
 
-	for _, m := range utils.ParseEnvConfigSets("KLUCTL_GIT") {
+	for _, m := range utils.ParseEnvConfigSets(a.Prefix) {
 		e := AuthEntry{
 			Host:       m["HOST"],
 			PathPrefix: m["PATH_PREFIX"],

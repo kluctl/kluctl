@@ -67,7 +67,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 		AskForPasswordFn:     func(s string) (string, error) { return status.AskForPassword(ctx, s) },
 		AskForConfirmationFn: func(s string) bool { return status.AskForConfirmation(ctx, s) },
 	}
-	gitAuth := auth.NewDefaultAuthProviders(messageCallbacks)
+	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 
 	rp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer rp.Clear()
