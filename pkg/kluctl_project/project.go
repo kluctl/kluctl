@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/go-jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/git/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 )
