@@ -9,6 +9,7 @@ import (
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	cp "github.com/otiai10/copy"
 	"os"
 	"path"
 	"path/filepath"
@@ -235,7 +236,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	if foundRo != nil {
 		u := e.mr.Url()
 		status.WarningOnce(e.rp.ctx, fmt.Sprintf("git-override-%s|%s", foundRo.RepoKey, foundRo.Ref), "Overriding git repo %s with local directory %s", u.String(), foundRo.Override)
-		err = utils.CopyDir(foundRo.Override, p)
+		err = cp.Copy(foundRo.Override, p)
 		if err != nil {
 			return "", git.CheckoutInfo{}, err
 		}
