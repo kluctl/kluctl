@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"log"
@@ -110,10 +109,11 @@ func (p *TestGitServer) GitInit(repo string) {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	err = utils.Touch(filepath.Join(dir, ".dummy"))
+	f, err := os.Create(filepath.Join(dir, ".dummy"))
 	if err != nil {
 		p.t.Fatal(err)
 	}
+	_ = f.Close()
 	_, err = wt.Add(".dummy")
 	if err != nil {
 		p.t.Fatal(err)
@@ -171,7 +171,7 @@ func (p *TestGitServer) CommitYaml(repo string, pth string, message string, y *u
 func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string) (string, error), message string) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 	f := ""
-	if utils.Exists(fullPath) {
+	if _, err := os.Stat(fullPath); err == nil {
 		b, err := os.ReadFile(fullPath)
 		if err != nil {
 			p.t.Fatal(err)
@@ -198,7 +198,7 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *uo.Un
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
 	o := uo.New()
-	if utils.Exists(fullPath) {
+	if _, err := os.Stat(fullPath); err == nil {
 		err := yaml.ReadYamlFile(fullPath, o)
 		if err != nil {
 			p.t.Fatal(err)
