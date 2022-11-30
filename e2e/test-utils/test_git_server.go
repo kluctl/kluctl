@@ -17,7 +17,7 @@ import (
 	"testing"
 )
 
-type GitServer struct {
+type TestGitServer struct {
 	t *testing.T
 
 	baseDir string
@@ -27,8 +27,8 @@ type GitServer struct {
 	gitServerPort int
 }
 
-func NewGitServer(t *testing.T) *GitServer {
-	p := &GitServer{
+func NewTestGitServer(t *testing.T) *TestGitServer {
+	p := &TestGitServer{
 		t: t,
 	}
 
@@ -47,7 +47,7 @@ func NewGitServer(t *testing.T) *GitServer {
 	return p
 }
 
-func (p *GitServer) initGitServer() {
+func (p *TestGitServer) initGitServer() {
 	p.gitServer = http_server.New(p.baseDir)
 
 	p.gitHttpServer = &http.Server{
@@ -67,7 +67,7 @@ func (p *GitServer) initGitServer() {
 	}()
 }
 
-func (p *GitServer) Cleanup() {
+func (p *TestGitServer) Cleanup() {
 	if p.gitHttpServer != nil {
 		_ = p.gitHttpServer.Shutdown(context.Background())
 		p.gitHttpServer = nil
@@ -81,7 +81,7 @@ func (p *GitServer) Cleanup() {
 	p.baseDir = ""
 }
 
-func (p *GitServer) GitInit(repo string) {
+func (p *TestGitServer) GitInit(repo string) {
 	dir := p.LocalRepoDir(repo)
 
 	err := os.MkdirAll(dir, 0o700)
@@ -124,7 +124,7 @@ func (p *GitServer) GitInit(repo string) {
 	}
 }
 
-func (p *GitServer) CommitFiles(repo string, add []string, all bool, message string) {
+func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message string) {
 	r, err := git.PlainOpen(p.LocalRepoDir(repo))
 	if err != nil {
 		p.t.Fatal(err)
@@ -147,7 +147,7 @@ func (p *GitServer) CommitFiles(repo string, add []string, all bool, message str
 	}
 }
 
-func (p *GitServer) CommitYaml(repo string, pth string, message string, y *uo.UnstructuredObject) {
+func (p *TestGitServer) CommitYaml(repo string, pth string, message string, y *uo.UnstructuredObject) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
 	dir, _ := filepath.Split(fullPath)
@@ -168,7 +168,7 @@ func (p *GitServer) CommitYaml(repo string, pth string, message string, y *uo.Un
 	p.CommitFiles(repo, []string{pth}, false, message)
 }
 
-func (p *GitServer) UpdateFile(repo string, pth string, update func(f string) (string, error), message string) {
+func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string) (string, error), message string) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 	f := ""
 	if utils.Exists(fullPath) {
@@ -194,7 +194,7 @@ func (p *GitServer) UpdateFile(repo string, pth string, update func(f string) (s
 	p.CommitFiles(repo, []string{pth}, false, message)
 }
 
-func (p *GitServer) UpdateYaml(repo string, pth string, update func(o *uo.UnstructuredObject) error, message string) {
+func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o *uo.UnstructuredObject) error, message string) {
 	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
 
 	o := uo.New()
@@ -215,7 +215,7 @@ func (p *GitServer) UpdateYaml(repo string, pth string, update func(o *uo.Unstru
 	p.CommitYaml(repo, pth, message, o)
 }
 
-func (p *GitServer) convertInterfaceToList(x interface{}) []interface{} {
+func (p *TestGitServer) convertInterfaceToList(x interface{}) []interface{} {
 	var ret []interface{}
 	if l, ok := x.([]interface{}); ok {
 		return l
@@ -235,15 +235,15 @@ func (p *GitServer) convertInterfaceToList(x interface{}) []interface{} {
 	return []interface{}{x}
 }
 
-func (p *GitServer) GitUrl(repo string) string {
+func (p *TestGitServer) GitUrl(repo string) string {
 	return fmt.Sprintf("http://localhost:%d/%s/.git", p.gitServerPort, repo)
 }
 
-func (p *GitServer) LocalRepoDir(repo string) string {
+func (p *TestGitServer) LocalRepoDir(repo string) string {
 	return filepath.Join(p.baseDir, repo)
 }
 
-func (p *GitServer) GetGitRepo(repo string) *git.Repository {
+func (p *TestGitServer) GetGitRepo(repo string) *git.Repository {
 	r, err := git.PlainOpen(p.LocalRepoDir(repo))
 	if err != nil {
 		p.t.Fatal(err)
@@ -251,7 +251,7 @@ func (p *GitServer) GetGitRepo(repo string) *git.Repository {
 	return r
 }
 
-func (p *GitServer) GetWorktree(repo string) *git.Worktree {
+func (p *TestGitServer) GetWorktree(repo string) *git.Worktree {
 	r := p.GetGitRepo(repo)
 	wt, err := r.Worktree()
 	if err != nil {

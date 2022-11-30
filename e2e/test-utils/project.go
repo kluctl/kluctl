@@ -24,7 +24,7 @@ type TestProject struct {
 
 	mergedKubeconfig string
 
-	gitServer *GitServer
+	gitServer *TestGitServer
 }
 
 func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
@@ -32,7 +32,7 @@ func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
 		t: t,
 	}
 
-	p.gitServer = NewGitServer(t)
+	p.gitServer = NewTestGitServer(t)
 	p.gitServer.GitInit("kluctl-project")
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
