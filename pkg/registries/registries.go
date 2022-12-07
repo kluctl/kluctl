@@ -15,6 +15,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -324,7 +325,13 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 		return nil
 	}
 
-	b, err := os.ReadFile(cachePath)
+	f, err := lockedfile.OpenFile(cachePath, os.O_RDONLY, 0)
+	if err != nil {
+		status.Warning(rh.ctx, "readCachedResponse failed: %v", err)
+		return nil
+	}
+	b, err := io.ReadAll(f)
+	_ = f.Close()
 	if err != nil {
 		return nil
 	}
@@ -346,20 +353,23 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 
 func (rh *RegistryHelper) writeCachedResponse(key string, data []byte) {
 	cachePath := rh.getCachePath(key)
-	if !utils.Exists(filepath.Dir(cachePath)) {
-		err := os.MkdirAll(filepath.Dir(cachePath), 0o700)
+	cacheDir := filepath.Dir(cachePath)
+	if !utils.Exists(cacheDir) {
+		err := os.MkdirAll(cacheDir, 0o700)
 		if err != nil {
 			status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 			return
 		}
 	}
 
-	err := os.WriteFile(cachePath+".tmp", data, 0o600)
+	f, err := lockedfile.OpenFile(cachePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 		return
 	}
-	err = os.Rename(cachePath+".tmp", cachePath)
+	defer f.Close()
+
+	_, err = f.Write(data)
 	if err != nil {
 		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
 		return
