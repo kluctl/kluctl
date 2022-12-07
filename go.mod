@@ -10,7 +10,7 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.19.2
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/fluxcd/pkg/kustomize v0.8.0
+	github.com/fluxcd/pkg/kustomize v0.11.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/gobwas/glob v0.2.3 // indirect
@@ -48,7 +48,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.2
 	k8s.io/api v0.25.4
-	k8s.io/apiextensions-apiserver v0.25.3
+	k8s.io/apiextensions-apiserver v0.25.4
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v0.25.4
 	k8s.io/klog/v2 v2.80.1
@@ -108,7 +108,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
+	github.com/emicklei/go-restful/v3 v3.10.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -216,11 +216,11 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.5 // indirect
 	go.mozilla.org/gopgagent v0.0.0-20170926210634-4d7ea76ff71a // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.starlark.net v0.0.0-20221020143700-22309ac47eac // indirect
+	go.starlark.net v0.0.0-20221028183056-acb66ad56dd2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/mod v0.6.0 // indirect
-	golang.org/x/oauth2 v0.1.0 // indirect
-	golang.org/x/time v0.1.0 // indirect
+	golang.org/x/oauth2 v0.2.0 // indirect
+	golang.org/x/time v0.2.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/api v0.102.0 // indirect
@@ -233,12 +233,12 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiserver v0.25.3 // indirect
+	k8s.io/apiserver v0.25.4 // indirect
 	k8s.io/cli-runtime v0.25.3 // indirect
-	k8s.io/component-base v0.25.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
+	k8s.io/component-base v0.25.4 // indirect
+	k8s.io/kube-openapi v0.0.0-20221110221610-a28e98eb7c70 // indirect
 	k8s.io/kubectl v0.25.3 // indirect
-	k8s.io/utils v0.0.0-20221012122500-cfd413dd9e85 // indirect
+	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
 	oras.land/oras-go v1.2.1 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
