@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	"github.com/fluxcd/pkg/kustomize"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -515,7 +516,7 @@ func (di *DeploymentItem) buildKustomize() error {
 		}
 	}
 
-	rm, err := utils.SecureBuildKustomization(di.RenderedSourceRootDir, di.RenderedDir, true)
+	rm, err := kustomize.SecureBuild(di.RenderedSourceRootDir, di.RenderedDir, true)
 	if err != nil {
 		return err
 	}
