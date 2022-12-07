@@ -214,7 +214,7 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			}
 		}
 
-		return chart.Render(di.ctx.Ctx, di.ctx.K)
+		return chart.Render(di.ctx.Ctx, di.ctx.K, di.ctx.SopsDecrypter)
 	})
 	if err != nil {
 		return err
