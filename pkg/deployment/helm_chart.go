@@ -8,6 +8,7 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -341,15 +342,15 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 	return latestVersion, updated, nil
 }
 
-func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster) error {
-	err := c.doRender(ctx, k)
+func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster, sopsDecrypter sops.SopsDecrypter) error {
+	err := c.doRender(ctx, k, sopsDecrypter)
 	if err != nil {
 		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", c.chartName, c.Config.ReleaseName, err)
 	}
 	return nil
 }
 
-func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
+func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster, sopsDecrypter sops.SopsDecrypter) error {
 	chartDir := c.chartDir
 
 	needsPull, versionChanged, prePulledVersion, err := c.checkNeedsPull(chartDir, false)
@@ -397,7 +398,12 @@ func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster) error {
 	valueOpts := values.Options{}
 
 	if utils.Exists(valuesPath) {
-		valueOpts.ValueFiles = append(valueOpts.ValueFiles, valuesPath)
+		tmpValues, err := sops.MaybeDecryptFileToTmp(sopsDecrypter, valuesPath)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tmpValues)
+		valueOpts.ValueFiles = append(valueOpts.ValueFiles, tmpValues)
 	}
 
 	var kubeVersion *chartutil.KubeVersion

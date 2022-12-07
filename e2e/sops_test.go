@@ -4,6 +4,7 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
+	"github.com/stretchr/testify/assert"
 	"go.mozilla.org/sops/v3/age"
 	"testing"
 )
@@ -79,4 +80,37 @@ func TestSopsResources(t *testing.T) {
 	assertNestedFieldEquals(t, cm, map[string]any{
 		"a": "b",
 	}, "data")
+}
+
+func TestSopsHelmValues(t *testing.T) {
+	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
+	t.Setenv(age.SopsAgeKeyEnv, string(key))
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t, k)
+
+	createNamespace(t, k, p.TestSlug())
+
+	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
+		{ChartName: "test-chart1", Version: "0.1.0"},
+	}, "", "")
+
+	valuesBytes, err := sops_test_resources.TestResources.ReadFile("helm-values.yaml")
+	assert.NoError(t, err)
+	values1, err := uo.FromString(string(valuesBytes))
+	assert.NoError(t, err)
+
+	p.UpdateTarget("test", nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1.Object)
+
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+
+	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
+
+	assert.Equal(t, map[string]any{
+		"a":       "secret1",
+		"b":       "secret2",
+		"version": "0.1.0",
+	}, cm1.Object["data"])
 }

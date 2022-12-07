@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
 	"os"
@@ -33,6 +34,10 @@ func MaybeDecrypt(decrypter SopsDecrypter, encrypted []byte, inputFormat, output
 }
 
 func MaybeDecryptFile(decrypter SopsDecrypter, path string) error {
+	return MaybeDecryptFileTo(decrypter, path, path)
+}
+
+func MaybeDecryptFileTo(decrypter SopsDecrypter, path string, to string) error {
 	format := formats.FormatForPath(path)
 
 	file, err := os.ReadFile(path)
@@ -44,13 +49,22 @@ func MaybeDecryptFile(decrypter SopsDecrypter, path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to decrypt file %s: %w", path, err)
 	}
-	if !encrypted {
+	if !encrypted && path == to {
 		return nil
 	}
 
-	err = os.WriteFile(path, decrypted, 0o600)
+	err = os.WriteFile(to, decrypted, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to save decrypted file %s: %w", path, err)
 	}
 	return nil
+}
+
+func MaybeDecryptFileToTmp(decrypter SopsDecrypter, path string) (string, error) {
+	tmp, err := os.CreateTemp(utils.GetTmpBaseDir(), "sops-decrypt-")
+	if err != nil {
+		return "", err
+	}
+	_ = tmp.Close()
+	return tmp.Name(), MaybeDecryptFileTo(decrypter, path, tmp.Name())
 }
