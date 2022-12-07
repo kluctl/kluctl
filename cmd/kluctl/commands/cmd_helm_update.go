@@ -179,7 +179,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 	// know what got deleted
 	oldFiles := map[string]bool{}
 	err = filepath.WalkDir(chart.GetChartDir(), func(p string, d fs.DirEntry, err error) error {
-		if d.IsDir() {
+		if d == nil || d.IsDir() {
 			return nil
 		}
 		relToGit, err := filepath.Rel(gitRootPath, p)
