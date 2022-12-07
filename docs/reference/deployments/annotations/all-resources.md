@@ -32,6 +32,16 @@ fields will be overwritten in case of field manager conflicts.
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
+### kluctl.io/ignore-conflicts
+If set to "true", the whole all fields of the object are going to be ignored when conflicts arise.
+This effectively disables the warnings that are shown when field ownership is lost.
+
+### kluctl.io/ignore-conflicts-field
+Specifies a [JSON Path](https://goessner.net/articles/JsonPath/) for fields that should be ignored when conflicts arise.
+This effectively disables the warnings that are shown when field ownership is lost.
+
+If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
+
 ## Control deletion/pruning
 
 The following annotations control how delete/prune is behaving.
