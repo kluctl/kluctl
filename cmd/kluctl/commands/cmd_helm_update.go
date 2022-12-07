@@ -218,7 +218,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 		}
 	}
 
-	s.Update("%s: Committing chart", statusPrefix)
+	s.UpdateAndInfoFallback("%s: Committing chart", statusPrefix)
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -235,14 +235,14 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 	for _, p := range toAdd {
 		_, err = wt.Add(p)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to add %s to git index: %w", p, err)
 		}
 	}
 
 	commitMsg := fmt.Sprintf("Updated helm chart %s from %s to %s", statusPrefix, oldVersion, newVersion)
 	_, err = wt.Commit(commitMsg, &git.CommitOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to commit: %w", err)
 	}
 
 	s.Update("%s: Committed helm chart with version %s", statusPrefix, newVersion)
