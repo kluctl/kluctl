@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
@@ -13,7 +14,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/pkg/errors"
 	"github.com/rogpeppe/go-internal/lockedfile"
@@ -55,6 +55,11 @@ func NewHelmChart(configFile string) (*HelmChart, error) {
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
+	}
+
+	_, err = semver.NewVersion(*config.ChartVersion)
+	if err != nil {
+		return nil, fmt.Errorf("invalid chart version '%s': %w", *config.ChartVersion, err)
 	}
 
 	hc := &HelmChart{
@@ -274,20 +279,16 @@ func (c *HelmChart) checkUpdateOciRepo(ctx context.Context) (string, bool, error
 		return "", false, err
 	}
 
-	var ls versions.LooseVersionSlice
-	for _, x := range tags {
-		ls = append(ls, versions.LooseVersion(x))
+	latestVersion, err := c.findLatestVersion(tags)
+	if err != nil {
+		return "", false, err
 	}
-	sort.Stable(ls)
-	latestVersion := string(ls[len(ls)-1])
 
 	updated := latestVersion != *c.Config.ChartVersion
 	return latestVersion, updated, nil
 }
 
 func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
-	var latestVersion string
-
 	settings := cli.New()
 
 	var e *repo.Entry
@@ -331,15 +332,37 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 		return "", false, fmt.Errorf("helm chart %s not found in repo index", c.chartName)
 	}
 
-	var ls versions.LooseVersionSlice
+	versions := make([]string, 0, indexEntry.Len())
 	for _, x := range indexEntry {
-		ls = append(ls, versions.LooseVersion(x.Version))
+		versions = append(versions, x.Version)
 	}
-	sort.Stable(ls)
-	latestVersion = string(ls[len(ls)-1])
+
+	latestVersion, err := c.findLatestVersion(versions)
+	if err != nil {
+		return "", false, err
+	}
 
 	updated := latestVersion != *c.Config.ChartVersion
 	return latestVersion, updated, nil
+}
+
+func (c *HelmChart) findLatestVersion(inputVersions []string) (string, error) {
+	var versions semver.Collection
+	for _, x := range inputVersions {
+		v, err := semver.NewVersion(x)
+		if err != nil {
+			continue
+		}
+
+		versions = append(versions, v)
+	}
+	if len(versions) == 0 {
+		return "", fmt.Errorf("no version found")
+	}
+
+	sort.Stable(versions)
+	latestVersion := versions[len(versions)-1].Original()
+	return latestVersion, nil
 }
 
 func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster, sopsDecrypter sops.SopsDecrypter) error {
