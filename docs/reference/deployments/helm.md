@@ -68,6 +68,7 @@ helmChart:
   repo: https://charts.bitnami.com/bitnami
   chartName: redis
   chartVersion: 12.1.1
+  updateConstraints: ~12.1.0
   skipUpdate: false
   releaseName: redis-cache
   namespace: "{{ my.jinja2.var }}"
@@ -102,7 +103,15 @@ helmChart:
 The name of the chart that can be found in the repository.
 
 ### chartVersion
-The version of the chart.
+The version of the chart. Must be a valid semantic version.
+
+### updateConstraints
+Specifies version constraints to be used when running [helm-update](../commands/helm-update.md). See
+[Checking Version Constraints](https://github.com/Masterminds/semver#checking-version-constraints) for details on the
+supported syntax.
+
+If omitted, Kluctl will filter out pre-releases by default. Use a `updateConstraings` like `~1.2.3-0` to enable
+pre-releases.
 
 ### skipUpdate
 Skip this Helm Chart when the [helm-update](../commands/helm-update.md) command is called.

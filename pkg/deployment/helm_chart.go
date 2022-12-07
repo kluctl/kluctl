@@ -347,6 +347,15 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 }
 
 func (c *HelmChart) findLatestVersion(inputVersions []string) (string, error) {
+	var err error
+	var updateConstraints *semver.Constraints
+	if c.Config.UpdateConstraints != nil {
+		updateConstraints, err = semver.NewConstraint(*c.Config.UpdateConstraints)
+		if err != nil {
+			return "", fmt.Errorf("invalid update constraints '%s': %w", *c.Config.UpdateConstraints, err)
+		}
+	}
+
 	var versions semver.Collection
 	for _, x := range inputVersions {
 		v, err := semver.NewVersion(x)
@@ -354,10 +363,22 @@ func (c *HelmChart) findLatestVersion(inputVersions []string) (string, error) {
 			continue
 		}
 
+		if updateConstraints == nil {
+			if v.Prerelease() != "" {
+				// we don't allow pre-releases by default. To allow pre-releases, use 1.0.0-0 as constraint
+				continue
+			}
+		} else if !updateConstraints.Check(v) {
+			continue
+		}
 		versions = append(versions, v)
 	}
 	if len(versions) == 0 {
-		return "", fmt.Errorf("no version found")
+		if c.Config.UpdateConstraints == nil {
+			return "", fmt.Errorf("no version found")
+		} else {
+			return "", fmt.Errorf("no version found that satisfies constraints '%s'", *c.Config.UpdateConstraints)
+		}
 	}
 
 	sort.Stable(versions)
