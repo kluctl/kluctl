@@ -2,6 +2,7 @@ package diff
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
@@ -17,6 +18,7 @@ type LostOwnership struct {
 }
 
 var forceApplyFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/force-apply-field(-\d*)?$`)
+var ignoreConflictsFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-conflicts-field(-\d*)?$`)
 var overwriteAllowedManagers = []*regexp.Regexp{
 	regexp.MustCompile("^kluctl$"),
 	regexp.MustCompile("^kubectl$"),
@@ -98,6 +100,24 @@ func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) (uo.Ke
 	return ret, true, nil
 }
 
+func collectFields(o *uo.UnstructuredObject, regex *regexp.Regexp) (map[string]bool, error) {
+	result := map[string]bool{}
+	for _, v := range o.GetK8sAnnotationsWithRegex(regex) {
+		j, err := uo.NewMyJsonPath(v)
+		if err != nil {
+			return nil, err
+		}
+		fields, err := j.ListMatchingFields(o)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range fields {
+			result[f.ToJsonPath()] = true
+		}
+	}
+	return result, nil
+}
+
 func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
 	managedFields := remote.GetK8sManagedFields()
 
@@ -154,24 +174,19 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 
 	ret := local.Clone()
 
-	forceApplyAll := false
+	forceApplyAll := utils.ParseBoolOrFalse(local.GetK8sAnnotation("kluctl.io/force-apply"))
+	ignoreConflictsAll := utils.ParseBoolOrFalse(local.GetK8sAnnotation("kluctl.io/ignore-conflicts"))
 	if x := local.GetK8sAnnotation("kluctl.io/force-apply"); x != nil {
 		forceApplyAll, _ = strconv.ParseBool(*x)
 	}
 
-	forceApplyFields := make(map[string]bool)
-	for _, v := range local.GetK8sAnnotationsWithRegex(forceApplyFieldAnnotationRegex) {
-		j, err := uo.NewMyJsonPath(v)
-		if err != nil {
-			return nil, nil, err
-		}
-		fields, err := j.ListMatchingFields(ret)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, f := range fields {
-			forceApplyFields[f.ToJsonPath()] = true
-		}
+	forceApplyFields, err := collectFields(ret, forceApplyFieldAnnotationRegex)
+	if err != nil {
+		return nil, nil, err
+	}
+	ignoreConflictFields, err := collectFields(ret, ignoreConflictsFieldAnnotationRegex)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var lostOwnership []LostOwnership
@@ -215,6 +230,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 		}
 
 		overwrite := true
+		ignoreConflict := ignoreConflictsAll
 		if !forceApplyAll {
 			for _, mfn := range mf.managers {
 				found := false
@@ -236,6 +252,12 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 				overwrite = true
 			}
 		}
+		if _, ok := ignoreConflictFields[localKeyPath.ToJsonPath()]; ok {
+			ignoreConflict = true
+		}
+		if _, ok := ignoreConflictFields[remoteKeyPath.ToJsonPath()]; ok {
+			ignoreConflict = true
+		}
 
 		if !overwrite {
 			j, err := uo.NewMyJsonPath(localKeyPath.ToJsonPath())
@@ -247,7 +269,7 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 				return nil, nil, err
 			}
 
-			if !reflect.DeepEqual(localValue, remoteValue) {
+			if !reflect.DeepEqual(localValue, remoteValue) && !ignoreConflict {
 				lostOwnership = append(lostOwnership, LostOwnership{
 					Field:   cause.Field,
 					Message: cause.Message,
