@@ -7,6 +7,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
@@ -28,6 +30,7 @@ type EnvTestCluster struct {
 
 	HttpClient    *http.Client
 	DynamicClient dynamic.Interface
+	ServerVersion *version.Info
 
 	callbackServer     webhook.Server
 	callbackServerStop context.CancelFunc
@@ -84,6 +87,15 @@ func (k *EnvTestCluster) Start() error {
 		return err
 	}
 	k.DynamicClient = dynamicClient
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(k.config, client)
+	if err != nil {
+		return err
+	}
+	k.ServerVersion, err = discoveryClient.ServerVersion()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

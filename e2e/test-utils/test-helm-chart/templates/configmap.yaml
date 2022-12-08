@@ -8,3 +8,4 @@ data:
   a: {{ .Values.data.a }}
   b: {{ .Values.data.b }}
   version: {{ .Chart.Version }}
+  kubeVersion: {{ .Capabilities.KubeVersion }}

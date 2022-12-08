@@ -109,8 +109,9 @@ func TestSopsHelmValues(t *testing.T) {
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 
 	assert.Equal(t, map[string]any{
-		"a":       "secret1",
-		"b":       "secret2",
-		"version": "0.1.0",
+		"a":           "secret1",
+		"b":           "secret2",
+		"version":     "0.1.0",
+		"kubeVersion": k.ServerVersion.String(),
 	}, cm1.Object["data"])
 }
