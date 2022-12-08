@@ -48,6 +48,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 		helmCredentials:   cmd.HelmCredentials,
 		forSeal:           true,
 		offlineKubernetes: cmd.OfflineKubernetes,
+		kubernetesVersion: cmd.KubernetesVersion,
 	}
 	ptArgs.targetFlags.Target = targetName
 

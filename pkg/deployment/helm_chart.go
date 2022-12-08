@@ -386,15 +386,15 @@ func (c *HelmChart) findLatestVersion(inputVersions []string) (string, error) {
 	return latestVersion, nil
 }
 
-func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster, sopsDecrypter sops.SopsDecrypter) error {
-	err := c.doRender(ctx, k, sopsDecrypter)
+func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter sops.SopsDecrypter) error {
+	err := c.doRender(ctx, k, k8sVersion, sopsDecrypter)
 	if err != nil {
 		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", c.chartName, c.Config.ReleaseName, err)
 	}
 	return nil
 }
 
-func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster, sopsDecrypter sops.SopsDecrypter) error {
+func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter sops.SopsDecrypter) error {
 	chartDir := c.chartDir
 
 	needsPull, versionChanged, prePulledVersion, err := c.checkNeedsPull(chartDir, false)
@@ -453,6 +453,12 @@ func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster, sopsDecrypt
 	var kubeVersion *chartutil.KubeVersion
 	if k != nil {
 		kubeVersion, err = chartutil.ParseKubeVersion(k.ServerVersion.String())
+		if err != nil {
+			return err
+		}
+	}
+	if k8sVersion != "" {
+		kubeVersion, err = chartutil.ParseKubeVersion(k8sVersion)
 		if err != nil {
 			return err
 		}

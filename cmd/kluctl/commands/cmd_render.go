@@ -45,6 +45,7 @@ func (cmd *renderCmd) Run() error {
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		offlineKubernetes:    cmd.OfflineKubernetes,
+		kubernetesVersion:    cmd.KubernetesVersion,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		if cmd.PrintAll {

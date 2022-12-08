@@ -9,7 +9,8 @@ type YesFlags struct {
 }
 
 type OfflineKubernetesFlags struct {
-	OfflineKubernetes bool `group:"misc" help:"Run command in offline mode, meaning that it will not try to connect the target cluster"`
+	OfflineKubernetes bool   `group:"misc" help:"Run command in offline mode, meaning that it will not try to connect the target cluster"`
+	KubernetesVersion string `group:"misc" help:"Specify the Kubernetes version that will be assumed. This will also override the kubeVersion used when rendering Helm Charts."`
 }
 
 type DryRunFlags struct {

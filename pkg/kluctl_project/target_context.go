@@ -31,6 +31,7 @@ type TargetContextParams struct {
 	TargetNameOverride string
 	ContextOverride    string
 	OfflineK8s         bool
+	K8sVersion         string
 	DryRun             bool
 	ExternalArgs       *uo.UnstructuredObject
 	ForSeal            bool
@@ -103,6 +104,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	dctx := deployment.SharedContext{
 		Ctx:                               ctx,
 		K:                                 k,
+		K8sVersion:                        params.K8sVersion,
 		RP:                                p.RP,
 		SopsDecrypter:                     p.SopsDecrypter,
 		VarsLoader:                        varsLoader,
