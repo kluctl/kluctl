@@ -11,9 +11,11 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/sync/semaphore"
 	"io/fs"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 type helmUpdateCmd struct {
@@ -179,7 +181,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 	// know what got deleted
 	oldFiles := map[string]bool{}
 	err = filepath.WalkDir(chart.GetChartDir(), func(p string, d fs.DirEntry, err error) error {
-		if d.IsDir() {
+		if d == nil || d.IsDir() {
 			return nil
 		}
 		relToGit, err := filepath.Rel(gitRootPath, p)
@@ -218,7 +220,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 		}
 	}
 
-	s.Update("%s: Committing chart", statusPrefix)
+	s.UpdateAndInfoFallback("%s: Committing chart", statusPrefix)
 
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -233,16 +235,28 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 	}
 
 	for _, p := range toAdd {
-		_, err = wt.Add(p)
+		// we have to retry a few times as Add() might fail with "no such file or directly"
+		// This is because it internally tries to get the git status, which fails if files are added/deleted in
+		// parallel by another goroutine (we're pulling in parallel). We're guarding the repo via the mutex from above
+		// so this is actually safe.
+		for i := 0; i < 10; i++ {
+			_, err = wt.Add(p)
+			if err == nil || !os.IsNotExist(err) {
+				break
+			}
+			// let's have some randomness in waiting time to ensure we don't run into the same problem again and again
+			s := time.Duration(rand.Intn(10) + 10)
+			time.Sleep(s * time.Millisecond)
+		}
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to add %s to git index: %w", p, err)
 		}
 	}
 
 	commitMsg := fmt.Sprintf("Updated helm chart %s from %s to %s", statusPrefix, oldVersion, newVersion)
 	_, err = wt.Commit(commitMsg, &git.CommitOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to commit: %w", err)
 	}
 
 	s.Update("%s: Committed helm chart with version %s", statusPrefix, newVersion)

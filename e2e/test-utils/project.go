@@ -127,12 +127,16 @@ func (p *TestProject) UpdateFile(path string, update func(f string) (string, err
 	p.gitServer.UpdateFile("kluctl-project", path, update, message)
 }
 
-func (p *TestProject) GetDeploymentYaml(dir string) *uo.UnstructuredObject {
-	o, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), dir, "deployment.yml"))
+func (p *TestProject) GetYaml(path string) *uo.UnstructuredObject {
+	o, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), path))
 	if err != nil {
 		p.t.Fatal(err)
 	}
 	return o
+}
+
+func (p *TestProject) GetDeploymentYaml(dir string) *uo.UnstructuredObject {
+	return p.GetYaml(filepath.Join(dir, "deployment.yml"))
 }
 
 func (p *TestProject) ListDeploymentItemPathes(dir string, fullPath bool) []string {

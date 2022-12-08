@@ -273,6 +273,69 @@ func TestHelmUpdateAndUpgradeAndCommitOci(t *testing.T) {
 	testHelmUpdate(t, true, true, true)
 }
 
+func testHelmUpdateConstraints(t *testing.T, oci bool) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t, k)
+
+	createNamespace(t, k, p.TestSlug())
+
+	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
+		{ChartName: "test-chart1", Version: "0.1.0"},
+		{ChartName: "test-chart1", Version: "0.1.1"},
+		{ChartName: "test-chart1", Version: "0.2.0"},
+		{ChartName: "test-chart1", Version: "1.1.0"},
+		{ChartName: "test-chart1", Version: "1.1.1"},
+		{ChartName: "test-chart1", Version: "1.2.1"},
+	}, oci, "", "")
+
+	p.UpdateTarget("test", nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repoUrl, "test-chart1", "0.1.0", "test-helm2", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
+
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField("~0.1.0", "helmChart", "updateConstraints")
+		return nil
+	}, "")
+	p.UpdateYaml("helm2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField("~0.2.0", "helmChart", "updateConstraints")
+		return nil
+	}, "")
+	p.UpdateYaml("helm3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField("~1.2.0", "helmChart", "updateConstraints")
+		return nil
+	}, "")
+
+	args := []string{"helm-update", "--upgrade"}
+
+	_, stderr := p.KluctlMust(args...)
+	assert.Contains(t, stderr, "helm1: Chart has new version 0.1.1 available.")
+	assert.Contains(t, stderr, "helm2: Chart has new version 0.2.0 available.")
+	assert.Contains(t, stderr, "helm3: Chart has new version 1.2.1 available.")
+
+	c1 := p.GetYaml("helm1/helm-chart.yaml")
+	c2 := p.GetYaml("helm2/helm-chart.yaml")
+	c3 := p.GetYaml("helm3/helm-chart.yaml")
+
+	v1, _, _ := c1.GetNestedString("helmChart", "chartVersion")
+	v2, _, _ := c2.GetNestedString("helmChart", "chartVersion")
+	v3, _, _ := c3.GetNestedString("helmChart", "chartVersion")
+	assert.Equal(t, "0.1.1", v1)
+	assert.Equal(t, "0.2.0", v2)
+	assert.Equal(t, "1.2.1", v3)
+}
+
+func TestHelmUpdateConstraints(t *testing.T) {
+	testHelmUpdateConstraints(t, false)
+}
+
+func TestHelmUpdateConstraintsOci(t *testing.T) {
+	testHelmUpdateConstraints(t, true)
+}
+
 func TestHelmValues(t *testing.T) {
 	t.Parallel()
 
