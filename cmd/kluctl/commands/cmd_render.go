@@ -16,9 +16,9 @@ type renderCmd struct {
 	args.ImageFlags
 	args.HelmCredentials
 	args.RenderOutputDirFlags
+	args.OfflineKubernetesFlags
 
-	OfflineKubernetes bool `group:"misc" help:"Run render in offline mode, meaning that it will not try to connect the target cluster"`
-	PrintAll          bool `group:"misc" help:"Write all rendered manifests to stdout"`
+	PrintAll bool `group:"misc" help:"Write all rendered manifests to stdout"`
 }
 
 func (cmd *renderCmd) Help() string {
