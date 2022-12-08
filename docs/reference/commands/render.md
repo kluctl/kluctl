@@ -45,7 +45,9 @@ Misc arguments:
                                                     Must be in the form
                                                     --helm-username=<credentialsId>:<username>, where
                                                     <credentialsId> must match the id specified in the helm-chart.yaml.
-      --offline-kubernetes                          Run render in offline mode, meaning that it will not try to
+      --kubernetes-version string                   Specify the Kubernetes version that will be assumed. This will
+                                                    also override the kubeVersion used when rendering Helm Charts.
+      --offline-kubernetes                          Run command in offline mode, meaning that it will not try to
                                                     connect the target cluster
       --print-all                                   Write all rendered manifests to stdout
       --render-output-dir string                    Specifies the target directory to render the project into. If
