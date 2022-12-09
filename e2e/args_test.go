@@ -13,7 +13,7 @@ func testArgs(t *testing.T, deprecated bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -136,7 +136,7 @@ func TestArgsFromEnv(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -169,7 +169,7 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 

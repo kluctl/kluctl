@@ -99,14 +99,16 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	}
 	s.setupWebhook()
 
-	s.p = test_utils.NewTestProject(t, s.k)
+	s.p = test_utils.NewTestProject(t)
 	t.Cleanup(func() {
 		s.removeWebhook()
 	})
 
 	createNamespace(s.t, s.k, s.p.TestSlug())
 
-	s.p.UpdateTarget("test", nil)
+	s.p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
+		_ = target.SetNestedField(s.k.Context, "context")
+	})
 
 	s.p.AddKustomizeDeployment("hook", nil, nil)
 

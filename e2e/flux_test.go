@@ -36,7 +36,7 @@ func TestFluxCommands(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	var wg sync.WaitGroup
 	wg.Add(2)

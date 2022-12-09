@@ -4,14 +4,11 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
-	"github.com/imdario/mergo"
 	"github.com/jinzhu/copier"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,12 +21,10 @@ type TestProject struct {
 	t        *testing.T
 	extraEnv []string
 
-	mergedKubeconfig string
-
 	gitServer *git2.TestGitServer
 }
 
-func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
+func NewTestProject(t *testing.T) *TestProject {
 	p := &TestProject{
 		t: t,
 	}
@@ -43,19 +38,6 @@ func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
 	p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
 		return nil
 	})
-
-	tmpFile, err := os.CreateTemp("", p.TestSlug()+"-kubeconfig-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = tmpFile.Close()
-	p.mergedKubeconfig = tmpFile.Name()
-	t.Cleanup(func() {
-		os.Remove(p.mergedKubeconfig)
-	})
-	if k != nil {
-		p.MergeKubeconfig(k)
-	}
 	return p
 }
 
@@ -64,34 +46,6 @@ func (p *TestProject) TestSlug() string {
 	n = xstrings.ToKebabCase(n)
 	n = strings.ReplaceAll(n, "/", "-")
 	return n
-}
-
-func (p *TestProject) MergeKubeconfig(k *EnvTestCluster) {
-	p.UpdateMergedKubeconfig(func(config *clientcmdapi.Config) {
-		nkcfg, err := clientcmd.Load(k.Kubeconfig)
-		if err != nil {
-			p.t.Fatal(err)
-		}
-
-		err = mergo.Merge(config, nkcfg)
-		if err != nil {
-			p.t.Fatal(err)
-		}
-	})
-}
-
-func (p *TestProject) UpdateMergedKubeconfig(cb func(config *clientcmdapi.Config)) {
-	mkcfg, err := clientcmd.LoadFromFile(p.mergedKubeconfig)
-	if err != nil {
-		p.t.Fatal(err)
-	}
-
-	cb(mkcfg)
-
-	err = clientcmd.WriteToFile(*mkcfg, p.mergedKubeconfig)
-	if err != nil {
-		p.t.Fatal(err)
-	}
 }
 
 func (p *TestProject) AddExtraEnv(e string) {

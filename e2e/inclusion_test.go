@@ -10,7 +10,7 @@ import (
 
 func prepareInclusionTestProject(t *testing.T, withIncludes bool) (*test_utils.TestProject, *test_utils.EnvTestCluster) {
 	k := defaultCluster1
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
