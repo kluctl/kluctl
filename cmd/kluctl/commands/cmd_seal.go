@@ -18,10 +18,10 @@ type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
 	args.HelmCredentials
+	args.OfflineKubernetesFlags
 
-	ForceReseal       bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
-	CertFile          string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
-	OfflineKubernetes bool   `group:"misc" help:"Run seal in offline mode, meaning that it will not try to connect the target cluster"`
+	ForceReseal bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
+	CertFile    string `group:"misc" help:"Use the given certificate for sealing instead of requesting it from the sealed-secrets controller"`
 }
 
 func (cmd *sealCmd) Help() string {
@@ -48,6 +48,7 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 		helmCredentials:   cmd.HelmCredentials,
 		forSeal:           true,
 		offlineKubernetes: cmd.OfflineKubernetes,
+		kubernetesVersion: cmd.KubernetesVersion,
 	}
 	ptArgs.targetFlags.Target = targetName
 

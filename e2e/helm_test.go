@@ -382,19 +382,22 @@ func TestHelmValues(t *testing.T) {
 	cm3 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm3-test-chart1")
 
 	assert.Equal(t, map[string]any{
-		"a":       "x1",
-		"b":       "y1",
-		"version": "0.1.0",
+		"a":           "x1",
+		"b":           "y1",
+		"version":     "0.1.0",
+		"kubeVersion": k.ServerVersion.String(),
 	}, cm1.Object["data"])
 	assert.Equal(t, map[string]any{
-		"a":       "x2",
-		"b":       "y2",
-		"version": "0.1.0",
+		"a":           "x2",
+		"b":           "y2",
+		"version":     "0.1.0",
+		"kubeVersion": k.ServerVersion.String(),
 	}, cm2.Object["data"])
 	assert.Equal(t, map[string]any{
-		"a":       "a",
-		"b":       "b",
-		"version": "0.1.0",
+		"a":           "a",
+		"b":           "b",
+		"version":     "0.1.0",
+		"kubeVersion": k.ServerVersion.String(),
 	}, cm3.Object["data"])
 }
 
@@ -427,4 +430,41 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "test-helm-b-test-chart2")
 	assertConfigMapExists(t, k, p.TestSlug()+"-a", "test-helm-ns-test-chart1")
 	assertConfigMapExists(t, k, p.TestSlug()+"-b", "test-helm-ns-test-chart1")
+}
+
+func TestHelmRenderOfflineKubernetes(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t, k)
+
+	createNamespace(t, k, p.TestSlug())
+
+	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
+		{ChartName: "test-chart1", Version: "0.1.0"},
+	}, "", "")
+
+	p.UpdateTarget("test", nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+
+	stdout, _ := p.KluctlMust("render", "--print-all", "--offline-kubernetes", "-t", "test")
+	cm1 := uo.FromStringMust(stdout)
+
+	assert.Equal(t, map[string]any{
+		"a":           "v1",
+		"b":           "v2",
+		"version":     "0.1.0",
+		"kubeVersion": "v1.20.0",
+	}, cm1.Object["data"])
+
+	stdout, _ = p.KluctlMust("render", "--print-all", "--offline-kubernetes", "--kubernetes-version", "1.22.1", "-t", "test")
+	cm1 = uo.FromStringMust(stdout)
+
+	assert.Equal(t, map[string]any{
+		"a":           "v1",
+		"b":           "v2",
+		"version":     "0.1.0",
+		"kubeVersion": "v1.22.1",
+	}, cm1.Object["data"])
 }

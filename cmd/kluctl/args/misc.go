@@ -8,6 +8,11 @@ type YesFlags struct {
 	Yes bool `group:"misc" short:"y" help:"Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'."`
 }
 
+type OfflineKubernetesFlags struct {
+	OfflineKubernetes bool   `group:"misc" help:"Run command in offline mode, meaning that it will not try to connect the target cluster"`
+	KubernetesVersion string `group:"misc" help:"Specify the Kubernetes version that will be assumed. This will also override the kubeVersion used when rendering Helm Charts."`
+}
+
 type DryRunFlags struct {
 	DryRun bool `group:"misc" help:"Performs all kubernetes API calls in dry-run mode."`
 }

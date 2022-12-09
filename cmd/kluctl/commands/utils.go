@@ -101,6 +101,7 @@ type projectTargetCommandArgs struct {
 	forSeal           bool
 	forCompletion     bool
 	offlineKubernetes bool
+	kubernetesVersion string
 }
 
 type commandCtx struct {
@@ -167,6 +168,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		TargetNameOverride: args.targetFlags.TargetNameOverride,
 		ContextOverride:    args.targetFlags.Context,
 		OfflineK8s:         args.offlineKubernetes,
+		K8sVersion:         args.kubernetesVersion,
 		DryRun:             args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
 		ExternalArgs:       optionArgs2,
 		ForSeal:            args.forSeal,

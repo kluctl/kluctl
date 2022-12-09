@@ -14,9 +14,9 @@ type listImagesCmd struct {
 	args.HelmCredentials
 	args.OutputFlags
 	args.RenderOutputDirFlags
+	args.OfflineKubernetesFlags
 
-	OfflineKubernetes bool `group:"misc" help:"Run list-images in offline mode, meaning that it will not try to connect the target cluster"`
-	Simple            bool `group:"misc" help:"Output a simplified version of the images list"`
+	Simple bool `group:"misc" help:"Output a simplified version of the images list"`
 }
 
 func (cmd *listImagesCmd) Help() string {
@@ -36,6 +36,7 @@ func (cmd *listImagesCmd) Run() error {
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		offlineKubernetes:    cmd.OfflineKubernetes,
+		kubernetesVersion:    cmd.KubernetesVersion,
 	}
 	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
 		result := types.FixedImagesConfig{

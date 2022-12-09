@@ -11,6 +11,7 @@ import (
 type SharedContext struct {
 	Ctx             context.Context
 	K               *k8s.K8sCluster
+	K8sVersion      string
 	RP              *repocache.GitRepoCache
 	SopsDecrypter   sops.SopsDecrypter
 	VarsLoader      *vars.VarsLoader
