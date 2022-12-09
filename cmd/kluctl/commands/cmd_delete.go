@@ -11,7 +11,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"os"
 )
 
 type deleteCmd struct {
@@ -37,7 +36,7 @@ project (anymore). It really only decides based on the 'deleteByLabel' labels an
 take the local target/state into account!`
 }
 
-func (cmd *deleteCmd) Run() error {
+func (cmd *deleteCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -48,8 +47,8 @@ func (cmd *deleteCmd) Run() error {
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		cmd2 := commands.NewDeleteCommand(ctx.targetCtx.DeploymentCollection)
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
+		cmd2 := commands.NewDeleteCommand(cmdCtx.targetCtx.DeploymentCollection)
 
 		deleteByLabels, err := deployment.ParseArgs(cmd.DeleteByLabel)
 		if err != nil {
@@ -58,15 +57,15 @@ func (cmd *deleteCmd) Run() error {
 
 		cmd2.OverrideDeleteByLabels = deleteByLabels
 
-		objects, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
+		objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		result, err := confirmedDeleteObjects(ctx.ctx, ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+		result, err := confirmedDeleteObjects(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(cmd.OutputFormat, result)
+		err = outputCommandResult(ctx, cmd.OutputFormat, result)
 		if err != nil {
 			return err
 		}
@@ -79,9 +78,9 @@ func (cmd *deleteCmd) Run() error {
 
 func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
 	if len(refs) != 0 {
-		_, _ = os.Stderr.WriteString("The following objects will be deleted:\n")
+		_, _ = getStderr(ctx).WriteString("The following objects will be deleted:\n")
 		for _, ref := range refs {
-			_, _ = os.Stderr.WriteString(fmt.Sprintf("  %s\n", ref.String()))
+			_, _ = getStderr(ctx).WriteString(fmt.Sprintf("  %s\n", ref.String()))
 		}
 		if !forceYes && !dryRun {
 			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {

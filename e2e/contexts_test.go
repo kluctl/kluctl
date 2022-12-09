@@ -3,13 +3,11 @@ package e2e
 import (
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"k8s.io/client-go/tools/clientcmd/api"
 	"testing"
 )
 
 func prepareContextTest(t *testing.T) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t, defaultCluster1)
-	p.MergeKubeconfig(defaultCluster2)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())
 	createNamespace(t, defaultCluster2, p.TestSlug())
@@ -23,8 +21,6 @@ func prepareContextTest(t *testing.T) *test_utils.TestProject {
 }
 
 func TestContextCurrent(t *testing.T) {
-	t.Parallel()
-
 	p := prepareContextTest(t)
 
 	p.UpdateTarget("test1", func(target *uo.UnstructuredObject) {
@@ -35,9 +31,7 @@ func TestContextCurrent(t *testing.T) {
 	assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 
-	p.UpdateMergedKubeconfig(func(config *api.Config) {
-		config.CurrentContext = defaultCluster2.Context
-	})
+	setMergedKubeconfigContext(t, defaultCluster2.Context)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")

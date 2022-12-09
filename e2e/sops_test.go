@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
@@ -9,13 +10,18 @@ import (
 	"testing"
 )
 
-func TestSopsVars(t *testing.T) {
+func setSopsKey(p *test_utils.TestProject) {
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
-	t.Setenv(age.SopsAgeKeyEnv, string(key))
+	p.AddExtraEnv(fmt.Sprintf("%s=%s", age.SopsAgeKeyEnv, string(key)))
+}
+
+func TestSopsVars(t *testing.T) {
+	t.Parallel()
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -50,12 +56,12 @@ func TestSopsVars(t *testing.T) {
 }
 
 func TestSopsResources(t *testing.T) {
-	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
-	t.Setenv(age.SopsAgeKeyEnv, string(key))
+	t.Parallel()
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -83,12 +89,12 @@ func TestSopsResources(t *testing.T) {
 }
 
 func TestSopsHelmValues(t *testing.T) {
-	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
-	t.Setenv(age.SopsAgeKeyEnv, string(key))
+	t.Parallel()
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
 

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -27,7 +28,7 @@ func (cmd *pruneCmd) Help() string {
   3. Remove all objects from the list of 1. that are part of the list in 2.`
 }
 
-func (cmd *pruneCmd) Run() error {
+func (cmd *pruneCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -38,22 +39,22 @@ func (cmd *pruneCmd) Run() error {
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		return cmd.runCmdPrune(ctx)
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
+		return cmd.runCmdPrune(cmdCtx)
 	})
 }
 
-func (cmd *pruneCmd) runCmdPrune(ctx *commandCtx) error {
-	cmd2 := commands.NewPruneCommand(ctx.targetCtx.DeploymentCollection)
-	objects, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
+func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
+	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.DeploymentCollection)
+	objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
 	if err != nil {
 		return err
 	}
-	result, err := confirmedDeleteObjects(ctx.ctx, ctx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+	result, err := confirmedDeleteObjects(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmd.OutputFormat, result)
+	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormat, result)
 	if err != nil {
 		return err
 	}

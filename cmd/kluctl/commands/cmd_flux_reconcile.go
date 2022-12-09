@@ -16,7 +16,7 @@ type fluxReconcileCmd struct {
 	args.KluctlDeploymentFlags
 }
 
-func (cmd *fluxReconcileCmd) Run() error {
+func (cmd *fluxReconcileCmd) Run(ctx context.Context) error {
 	var (
 		sourceNamespace string
 		sourceName      string
@@ -27,7 +27,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 	noWait := cmd.KluctlDeploymentFlags.NoWait
 	timestamp := time.Now().Format(time.RFC3339)
 
-	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
+	cf, err := k8s.NewClientFactoryFromDefaultConfig(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 		}
 		ref2 := k8s2.ObjectRef{GVK: args.GitRepositoryGVK, Name: sourceName, Namespace: sourceNamespace}
 
-		s := status.Start(cliCtx, "Annotating Source %s in %s namespace", sourceName, sourceNamespace)
+		s := status.Start(ctx, "Annotating Source %s in %s namespace", sourceName, sourceNamespace)
 		defer s.Failed()
 
 		_, _, err = k.PatchObjectWithJsonPatch(ref2, patch, k8s.PatchOptions{})
@@ -70,7 +70,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 		}
 		s.Success()
 
-		s = status.Start(cliCtx, "Waiting for Source %s to finish reconciliation", sourceName)
+		s = status.Start(ctx, "Waiting for Source %s to finish reconciliation", sourceName)
 
 		if !noWait {
 			ready, err := WaitForReady(k, ref2)
@@ -83,7 +83,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 		s.Success()
 	}
 
-	s := status.Start(cliCtx, "Annotating KluctlDeployment %s in %s namespace", kd, ns)
+	s := status.Start(ctx, "Annotating KluctlDeployment %s in %s namespace", kd, ns)
 	defer s.Failed()
 
 	_, _, err = k.PatchObjectWithJsonPatch(ref, patch, k8s.PatchOptions{})
@@ -92,7 +92,7 @@ func (cmd *fluxReconcileCmd) Run() error {
 	}
 	s.Success()
 
-	s = status.Start(cliCtx, "Waiting for KluctlDeployment %s in %s namespace to finish reconciliation", kd, ns)
+	s = status.Start(ctx, "Waiting for KluctlDeployment %s in %s namespace to finish reconciliation", kd, ns)
 
 	if !noWait {
 		ready, err := WaitForReady(k, ref)

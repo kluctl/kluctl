@@ -98,7 +98,7 @@ func addProxyVars(p *test_utils.TestProject) {
 }
 
 func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
 
 	if proxy {
 		addProxyVars(p)
@@ -341,7 +341,6 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	})
 	addSecretsSetToTarget(p, "test-target2", "test2")
 
-	p.MergeKubeconfig(defaultCluster2)
 	createNamespace(t, defaultCluster2, p.TestSlug())
 	p.UpdateTarget("test-target", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")

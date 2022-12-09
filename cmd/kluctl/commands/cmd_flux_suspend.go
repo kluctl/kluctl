@@ -13,11 +13,11 @@ type fluxSuspendCmd struct {
 	args.KluctlDeploymentFlags
 }
 
-func (cmd *fluxSuspendCmd) Run() error {
+func (cmd *fluxSuspendCmd) Run(ctx context.Context) error {
 	ns := cmd.KluctlDeploymentFlags.Namespace
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment
 
-	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
+	cf, err := k8s.NewClientFactoryFromDefaultConfig(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func (cmd *fluxSuspendCmd) Run() error {
 		Value: true,
 	}}
 
-	s := status.Start(cliCtx, "Suspending KluctlDeployment %s in %s namespace", kd, ns)
+	s := status.Start(ctx, "Suspending KluctlDeployment %s in %s namespace", kd, ns)
 	defer s.Failed()
 
 	_, _, err = k.PatchObjectWithJsonPatch(ref, patch, k8s.PatchOptions{})

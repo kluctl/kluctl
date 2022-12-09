@@ -24,5 +24,5 @@ var version = "0.0.0"
 
 func main() {
 	version2.SetVersion(version)
-	commands.Execute()
+	commands.Main()
 }

@@ -24,8 +24,8 @@ import (
 	"strings"
 )
 
-func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "project-")
+func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
 	}
@@ -37,17 +37,17 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 	}
 	defer j2.Close()
 
-	cwd, err := os.Getwd()
+	projectDir, err := projectFlags.ProjectDir.GetProjectDir()
 	if err != nil {
 		return err
 	}
 
-	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
+	repoRoot, err := git.DetectGitRepositoryRoot(projectDir)
 	if err != nil {
-		status.Warning(cliCtx, "Failed to detect git project root. This might cause follow-up errors")
+		status.Warning(ctx, "Failed to detect git project root. This might cause follow-up errors")
 	}
 
-	ctx, cancel := context.WithTimeout(cliCtx, projectFlags.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, projectFlags.Timeout)
 	defer cancel()
 
 	sshPool := &ssh_pool.SshPool{}
@@ -74,7 +74,7 @@ func withKluctlProjectFromArgs(projectFlags args.ProjectFlags, strictTemplates b
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:           repoRoot,
-		ProjectDir:         cwd,
+		ProjectDir:         projectDir,
 		ProjectConfig:      projectFlags.ProjectConfig.String(),
 		RP:                 rp,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
@@ -110,13 +110,13 @@ type commandCtx struct {
 	images    *deployment.Images
 }
 
-func withProjectCommandContext(args projectTargetCommandArgs, cb func(ctx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(args.projectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
+	return withKluctlProjectFromArgs(ctx, args.projectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
 
-func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(ctx *commandCtx) error) error {
+func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(cmdCtx *commandCtx) error) error {
 	rh := registries.NewRegistryHelper(ctx)
 	err := rh.ParseAuthEntriesFromEnv()
 	if err != nil {

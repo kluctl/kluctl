@@ -9,8 +9,7 @@ import (
 )
 
 func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t, defaultCluster1)
-	p.MergeKubeconfig(defaultCluster2)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())
 	createNamespace(t, defaultCluster2, p.TestSlug())

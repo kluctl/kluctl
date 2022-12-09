@@ -1,37 +1,52 @@
 package test_utils
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
-	"github.com/imdario/mergo"
 	"github.com/jinzhu/copier"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
 type TestProject struct {
-	t        *testing.T
-	extraEnv []string
+	t *testing.T
 
-	mergedKubeconfig string
+	extraEnv   []string
+	useProcess bool
 
 	gitServer *git2.TestGitServer
 }
 
-func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
+type TestProjectOption func(p *TestProject)
+
+func WithUseProcess(useProcess bool) TestProjectOption {
+	return func(p *TestProject) {
+		p.useProcess = useProcess
+	}
+}
+
+func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	p := &TestProject{
 		t: t,
+	}
+
+	for _, o := range opts {
+		o(p)
 	}
 
 	p.gitServer = git2.NewTestGitServer(t)
@@ -43,19 +58,6 @@ func NewTestProject(t *testing.T, k *EnvTestCluster) *TestProject {
 	p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
 		return nil
 	})
-
-	tmpFile, err := os.CreateTemp("", p.TestSlug()+"-kubeconfig-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = tmpFile.Close()
-	p.mergedKubeconfig = tmpFile.Name()
-	t.Cleanup(func() {
-		os.Remove(p.mergedKubeconfig)
-	})
-	if k != nil {
-		p.MergeKubeconfig(k)
-	}
 	return p
 }
 
@@ -64,34 +66,6 @@ func (p *TestProject) TestSlug() string {
 	n = xstrings.ToKebabCase(n)
 	n = strings.ReplaceAll(n, "/", "-")
 	return n
-}
-
-func (p *TestProject) MergeKubeconfig(k *EnvTestCluster) {
-	p.UpdateMergedKubeconfig(func(config *clientcmdapi.Config) {
-		nkcfg, err := clientcmd.Load(k.Kubeconfig)
-		if err != nil {
-			p.t.Fatal(err)
-		}
-
-		err = mergo.Merge(config, nkcfg)
-		if err != nil {
-			p.t.Fatal(err)
-		}
-	})
-}
-
-func (p *TestProject) UpdateMergedKubeconfig(cb func(config *clientcmdapi.Config)) {
-	mkcfg, err := clientcmd.LoadFromFile(p.mergedKubeconfig)
-	if err != nil {
-		p.t.Fatal(err)
-	}
-
-	cb(mkcfg)
-
-	err = clientcmd.WriteToFile(*mkcfg, p.mergedKubeconfig)
-	if err != nil {
-		p.t.Fatal(err)
-	}
 }
 
 func (p *TestProject) AddExtraEnv(e string) {
@@ -396,7 +370,7 @@ func (p *TestProject) GetGitRepo() *git.Repository {
 	return p.gitServer.GetGitRepo("kluctl-project")
 }
 
-func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
+func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
 	args = append(args, "--no-update-check")
@@ -407,7 +381,6 @@ func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
 
 	env := os.Environ()
 	env = append(env, p.extraEnv...)
-	env = append(env, fmt.Sprintf("KUBECONFIG=%s", p.mergedKubeconfig))
 
 	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
 	env = append(env, "CALL_KLUCTL=true")
@@ -428,10 +401,56 @@ func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
 	return stdout, stderr, err
 }
 
+func (p *TestProject) KluctlProcessMust(argsIn ...string) (string, string) {
+	stdout, stderr, err := p.KluctlProcess(argsIn...)
+	if err != nil {
+		p.t.Logf(stderr)
+		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
+	}
+	return stdout, stderr
+}
+
+func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
+	if len(p.extraEnv) != 0 {
+		p.t.Fatal("extraEnv is only supported in KluctlProcess(...)")
+	}
+
+	var args []string
+	args = append(args, "--project-dir", p.LocalRepoDir())
+	args = append(args, argsIn...)
+
+	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
+
+	var m sync.Mutex
+	stdout := bytes.NewBuffer(nil)
+	stderr := bytes.NewBuffer(nil)
+
+	ctx := context.Background()
+	ctx = utils.WithTmpBaseDir(ctx, p.t.TempDir())
+	ctx = commands.WithStdStreams(ctx, stdout, stderr)
+	sh := status.NewSimpleStatusHandler(func(message string) {
+		m.Lock()
+		defer m.Unlock()
+		p.t.Log(message)
+		stderr.WriteString(message + "\n")
+	}, false, true)
+	defer sh.Stop()
+	ctx = status.NewContext(ctx, sh)
+	err := commands.Execute(ctx, args, nil)
+	return stdout.String(), stderr.String(), err
+}
+
+func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
+	if p.useProcess {
+		return p.KluctlProcess(argsIn...)
+	} else {
+		return p.KluctlExecute(argsIn...)
+	}
+}
+
 func (p *TestProject) KluctlMust(argsIn ...string) (string, string) {
 	stdout, stderr, err := p.Kluctl(argsIn...)
 	if err != nil {
-		p.t.Logf(stderr)
 		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr

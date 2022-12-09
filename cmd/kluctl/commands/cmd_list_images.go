@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 )
@@ -26,7 +27,7 @@ If fixed images ('-f/--fixed-image') are provided, these are also taken into acc
 as described in the deploy command.`
 }
 
-func (cmd *listImagesCmd) Run() error {
+func (cmd *listImagesCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -38,10 +39,10 @@ func (cmd *listImagesCmd) Run() error {
 		offlineKubernetes:    cmd.OfflineKubernetes,
 		kubernetesVersion:    cmd.KubernetesVersion,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		result := types.FixedImagesConfig{
-			Images: ctx.images.SeenImages(cmd.Simple),
+			Images: cmdCtx.images.SeenImages(cmd.Simple),
 		}
-		return outputYamlResult(cmd.Output, result, false)
+		return outputYamlResult(ctx, cmd.Output, result, false)
 	})
 }

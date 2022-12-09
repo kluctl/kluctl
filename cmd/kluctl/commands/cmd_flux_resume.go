@@ -14,11 +14,11 @@ type fluxResumeCmd struct {
 }
 
 // TODO add reconciliation after resume
-func (cmd *fluxResumeCmd) Run() error {
+func (cmd *fluxResumeCmd) Run(ctx context.Context) error {
 	ns := cmd.KluctlDeploymentFlags.Namespace
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment
 
-	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
+	cf, err := k8s.NewClientFactoryFromDefaultConfig(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (cmd *fluxResumeCmd) Run() error {
 		Value: false,
 	}}
 
-	s := status.Start(cliCtx, "Resuming KluctlDeployment %s in %s namespace", kd, ns)
+	s := status.Start(ctx, "Resuming KluctlDeployment %s in %s namespace", kd, ns)
 	defer s.Failed()
 
 	_, _, err = k.PatchObjectWithJsonPatch(ref, patch, k8s.PatchOptions{})

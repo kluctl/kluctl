@@ -87,7 +87,7 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 
 	e, ok := rp.repos[url.NormalizedRepoKey()]
 	if !ok {
-		mr, err := git.NewMirroredGitRepo(rp.ctx, url, filepath.Join(utils.GetTmpBaseDir(), "git-cache"), rp.sshPool, rp.authProviders)
+		mr, err := git.NewMirroredGitRepo(rp.ctx, url, filepath.Join(utils.GetTmpBaseDir(rp.ctx), "git-cache"), rp.sshPool, rp.authProviders)
 		if err != nil {
 			return nil, err
 		}
@@ -198,7 +198,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 		return "", git.CheckoutInfo{}, err
 	}
 
-	tmpDir := filepath.Join(utils.GetTmpBaseDir(), "git-cloned")
+	tmpDir := filepath.Join(utils.GetTmpBaseDir(e.rp.ctx), "git-cloned")
 	err = os.MkdirAll(tmpDir, 0700)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err

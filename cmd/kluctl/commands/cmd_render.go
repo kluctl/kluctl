@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -26,10 +27,10 @@ func (cmd *renderCmd) Help() string {
 a temporary directory or a specified directory.`
 }
 
-func (cmd *renderCmd) Run() error {
+func (cmd *renderCmd) Run(ctx context.Context) error {
 	isTmp := false
 	if cmd.RenderOutputDir == "" {
-		p, err := ioutil.TempDir(utils.GetTmpBaseDir(), "rendered-")
+		p, err := ioutil.TempDir(utils.GetTmpBaseDir(ctx), "rendered-")
 		if err != nil {
 			return err
 		}
@@ -47,10 +48,10 @@ func (cmd *renderCmd) Run() error {
 		offlineKubernetes:    cmd.OfflineKubernetes,
 		kubernetesVersion:    cmd.KubernetesVersion,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		if cmd.PrintAll {
 			var all []any
-			for _, d := range ctx.targetCtx.DeploymentCollection.Deployments {
+			for _, d := range cmdCtx.targetCtx.DeploymentCollection.Deployments {
 				for _, o := range d.Objects {
 					all = append(all, o)
 				}
@@ -58,10 +59,10 @@ func (cmd *renderCmd) Run() error {
 			if isTmp {
 				defer os.RemoveAll(cmd.RenderOutputDir)
 			}
-			status.Flush(ctx.ctx)
-			return yaml.WriteYamlAllStream(os.Stdout, all)
+			status.Flush(cmdCtx.ctx)
+			return yaml.WriteYamlAllStream(getStdout(ctx), all)
 		} else {
-			status.Info(ctx.ctx, "Rendered into %s", ctx.targetCtx.SharedContext.RenderDir)
+			status.Info(cmdCtx.ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
 		}
 		return nil
 	})

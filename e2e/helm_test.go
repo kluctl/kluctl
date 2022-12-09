@@ -33,7 +33,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -124,7 +124,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -168,7 +168,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -278,7 +278,7 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -341,7 +341,7 @@ func TestHelmValues(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -406,7 +406,7 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 	createNamespace(t, k, p.TestSlug()+"-a")
@@ -437,7 +437,7 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, k)
+	p := test_utils.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 

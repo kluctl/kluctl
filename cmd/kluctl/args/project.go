@@ -1,8 +1,28 @@
 package args
 
-import "time"
+import (
+	"os"
+	"time"
+)
+
+type ProjectDir struct {
+	ProjectDir existingDirType `group:"project" help:"Specify the project directory. Defaults to the current working directory."`
+}
+
+func (a ProjectDir) GetProjectDir() (string, error) {
+	if a.ProjectDir != "" {
+		return a.ProjectDir.String(), nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return cwd, nil
+}
 
 type ProjectFlags struct {
+	ProjectDir
+
 	ProjectConfig existingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
 
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`

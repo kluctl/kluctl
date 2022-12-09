@@ -1,12 +1,12 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -22,20 +22,20 @@ func (cmd *checkImageUpdatesCmd) Help() string {
 	return `This is based on a best effort approach and might give many false-positives.`
 }
 
-func (cmd *checkImageUpdatesCmd) Run() error {
+func (cmd *checkImageUpdatesCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		return runCheckImageUpdates(ctx)
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
+		return runCheckImageUpdates(cmdCtx)
 	})
 }
 
-func runCheckImageUpdates(ctx *commandCtx) error {
-	renderedImages := ctx.targetCtx.DeploymentCollection.FindRenderedImages()
+func runCheckImageUpdates(cmdCtx *commandCtx) error {
+	renderedImages := cmdCtx.targetCtx.DeploymentCollection.FindRenderedImages()
 
-	rh := registries.NewRegistryHelper(ctx.ctx)
+	rh := registries.NewRegistryHelper(cmdCtx.ctx)
 
 	imageTags := make(map[string]interface{})
 	var mutex sync.Mutex
@@ -76,7 +76,7 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 		for _, image := range images {
 			s := strings.SplitN(image, ":", 2)
 			if len(s) == 1 {
-				status.Warning(ctx.ctx, "%s: Ignoring image %s as it doesn't specify a tag", ref.String(), image)
+				status.Warning(cmdCtx.ctx, "%s: Ignoring image %s as it doesn't specify a tag", ref.String(), image)
 				continue
 			}
 			repo := s[0]
@@ -84,7 +84,7 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 			repoTags, _ := imageTags[repo].([]string)
 			err, _ := imageTags[repo].(error)
 			if err != nil {
-				status.Warning(ctx.ctx, "%s: Failed to list tags for %s. %v", ref.String(), repo, err)
+				status.Warning(cmdCtx.ctx, "%s: Failed to list tags for %s. %v", ref.String(), repo, err)
 				continue
 			}
 
@@ -129,6 +129,6 @@ func runCheckImageUpdates(ctx *commandCtx) error {
 	}
 
 	table.SortRows(1)
-	_, _ = os.Stdout.WriteString(table.Render([]int{60}))
+	_, _ = getStdout(cmdCtx.ctx).WriteString(table.Render([]int{60}))
 	return nil
 }

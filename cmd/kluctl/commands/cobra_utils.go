@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/term"
@@ -20,7 +21,7 @@ type helpProvider interface {
 }
 
 type runProvider interface {
-	Run() error
+	Run(ctx context.Context) error
 }
 
 type rootCommand struct {
@@ -68,7 +69,7 @@ func (c *rootCommand) buildCobraCmd(parent *commandAndGroups, cmdStruct interfac
 	runP, ok := cmdStruct.(runProvider)
 	if ok {
 		cg.cmd.RunE = func(cmd *cobra.Command, args []string) error {
-			return runP.Run()
+			return runP.Run(cmd.Context())
 		}
 	}
 

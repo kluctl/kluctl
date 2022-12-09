@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -27,7 +28,7 @@ is currently not documented and prone to changes.
 After the diff is performed, the command will also search for prunable objects and list them.`
 }
 
-func (cmd *diffCmd) Run() error {
+func (cmd *diffCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -37,19 +38,19 @@ func (cmd *diffCmd) Run() error {
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		cmd2 := commands.NewDiffCommand(ctx.targetCtx.DeploymentCollection)
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
+		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx.DeploymentCollection)
 		cmd2.ForceApply = cmd.ForceApply
 		cmd2.ReplaceOnError = cmd.ReplaceOnError
 		cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
 		cmd2.IgnoreTags = cmd.IgnoreTags
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
-		result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
+		result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(cmd.OutputFormat, result)
+		err = outputCommandResult(ctx, cmd.OutputFormat, result)
 		if err != nil {
 			return err
 		}
