@@ -25,7 +25,7 @@ import (
 )
 
 func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(), "project-")
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
 	}

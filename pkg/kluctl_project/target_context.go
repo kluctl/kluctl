@@ -80,7 +80,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	var k *k8s.K8sCluster
 	if clientConfig != nil {
 		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
-		clientFactory, err := k8s.NewClientFactory(clientConfig)
+		clientFactory, err := k8s.NewClientFactory(ctx, clientConfig)
 		if err != nil {
 			return nil, err
 		}

@@ -2,6 +2,7 @@ package sops
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -60,8 +61,8 @@ func MaybeDecryptFileTo(decrypter SopsDecrypter, path string, to string) error {
 	return nil
 }
 
-func MaybeDecryptFileToTmp(decrypter SopsDecrypter, path string) (string, error) {
-	tmp, err := os.CreateTemp(utils.GetTmpBaseDir(), "sops-decrypt-")
+func MaybeDecryptFileToTmp(ctx context.Context, decrypter SopsDecrypter, path string) (string, error) {
+	tmp, err := os.CreateTemp(utils.GetTmpBaseDir(ctx), "sops-decrypt-")
 	if err != nil {
 		return "", err
 	}

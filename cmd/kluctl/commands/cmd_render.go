@@ -30,7 +30,7 @@ a temporary directory or a specified directory.`
 func (cmd *renderCmd) Run(ctx context.Context) error {
 	isTmp := false
 	if cmd.RenderOutputDir == "" {
-		p, err := ioutil.TempDir(utils.GetTmpBaseDir(), "rendered-")
+		p, err := ioutil.TempDir(utils.GetTmpBaseDir(ctx), "rendered-")
 		if err != nil {
 			return err
 		}

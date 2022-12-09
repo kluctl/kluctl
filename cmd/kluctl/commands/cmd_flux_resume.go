@@ -18,7 +18,7 @@ func (cmd *fluxResumeCmd) Run(ctx context.Context) error {
 	ns := cmd.KluctlDeploymentFlags.Namespace
 	kd := cmd.KluctlDeploymentFlags.KluctlDeployment
 
-	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
+	cf, err := k8s.NewClientFactoryFromDefaultConfig(ctx, nil)
 	if err != nil {
 		return err
 	}

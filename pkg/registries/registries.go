@@ -284,7 +284,7 @@ func (rh *RegistryHelper) realmFromRequest(req *http.Request) string {
 }
 
 func (rh *RegistryHelper) getCachePath(key string) string {
-	return filepath.Join(utils.GetTmpBaseDir(), "registries-cache", key[0:2], key[2:4], key)
+	return filepath.Join(utils.GetTmpBaseDir(rh.ctx), "registries-cache", key[0:2], key[2:4], key)
 }
 
 func (rh *RegistryHelper) checkInvalidToken(resBody []byte) bool {

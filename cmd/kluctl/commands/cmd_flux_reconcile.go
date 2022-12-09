@@ -27,7 +27,7 @@ func (cmd *fluxReconcileCmd) Run(ctx context.Context) error {
 	noWait := cmd.KluctlDeploymentFlags.NoWait
 	timestamp := time.Now().Format(time.RFC3339)
 
-	cf, err := k8s.NewClientFactoryFromDefaultConfig(nil)
+	cf, err := k8s.NewClientFactoryFromDefaultConfig(ctx, nil)
 	if err != nil {
 		return err
 	}

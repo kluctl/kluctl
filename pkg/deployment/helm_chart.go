@@ -164,7 +164,7 @@ func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
 	_, _ = fmt.Fprintf(hash, "%s\n", c.chartName)
 	_, _ = fmt.Fprintf(hash, "%s\n", *c.Config.ChartVersion)
 	h := hex.EncodeToString(hash.Sum(nil))
-	tmpDir := filepath.Join(utils.GetTmpBaseDir(), "helm-charts")
+	tmpDir := filepath.Join(utils.GetTmpBaseDir(ctx), "helm-charts")
 	_ = os.MkdirAll(tmpDir, 0o700)
 	tmpDir = filepath.Join(tmpDir, fmt.Sprintf("%s-%s", c.chartName, h))
 
@@ -267,7 +267,7 @@ func (c *HelmChart) CheckUpdate(ctx context.Context) (string, bool, error) {
 	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
 		return c.checkUpdateOciRepo(ctx)
 	}
-	return c.checkUpdateHelmRepo()
+	return c.checkUpdateHelmRepo(ctx)
 }
 
 func (c *HelmChart) checkUpdateOciRepo(ctx context.Context) (string, bool, error) {
@@ -288,7 +288,7 @@ func (c *HelmChart) checkUpdateOciRepo(ctx context.Context) (string, bool, error
 	return latestVersion, updated, nil
 }
 
-func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
+func (c *HelmChart) checkUpdateHelmRepo(ctx context.Context) (string, bool, error) {
 	settings := cli.New()
 
 	var e *repo.Entry
@@ -311,7 +311,7 @@ func (c *HelmChart) checkUpdateHelmRepo() (string, bool, error) {
 		return "", false, err
 	}
 
-	r.CachePath, err = os.MkdirTemp(utils.GetTmpBaseDir(), "helm-check-update-")
+	r.CachePath, err = os.MkdirTemp(utils.GetTmpBaseDir(ctx), "helm-check-update-")
 	if err != nil {
 		return "", false, err
 	}
@@ -442,7 +442,7 @@ func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion 
 	valueOpts := values.Options{}
 
 	if utils.Exists(valuesPath) {
-		tmpValues, err := sops.MaybeDecryptFileToTmp(sopsDecrypter, valuesPath)
+		tmpValues, err := sops.MaybeDecryptFileToTmp(ctx, sopsDecrypter, valuesPath)
 		if err != nil {
 			return err
 		}

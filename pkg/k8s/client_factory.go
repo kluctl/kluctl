@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/disk"
@@ -26,6 +27,7 @@ type ClientFactory interface {
 }
 
 type realClientFactory struct {
+	ctx        context.Context
 	config     *rest.Config
 	httpClient *http.Client
 }
@@ -43,7 +45,7 @@ func (r *realClientFactory) DiscoveryClient() (discovery.DiscoveryInterface, err
 	if err != nil {
 		return nil, err
 	}
-	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(), "kube-cache/discovery", apiHost.Hostname())
+	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(r.ctx), "kube-cache/discovery", apiHost.Hostname())
 	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(r.config), discoveryCacheDir, "", time.Hour*24)
 	if err != nil {
 		return nil, err
@@ -67,7 +69,7 @@ func (r *realClientFactory) CloseIdleConnections() {
 	r.httpClient.CloseIdleConnections()
 }
 
-func NewClientFactory(configIn *rest.Config) (ClientFactory, error) {
+func NewClientFactory(ctx context.Context, configIn *rest.Config) (ClientFactory, error) {
 	restConfig := rest.CopyConfig(configIn)
 	restConfig.QPS = 10
 	restConfig.Burst = 20
@@ -78,12 +80,13 @@ func NewClientFactory(configIn *rest.Config) (ClientFactory, error) {
 	}
 
 	return &realClientFactory{
+		ctx:        ctx,
 		config:     restConfig,
 		httpClient: httpClient,
 	}, nil
 }
 
-func NewClientFactoryFromDefaultConfig(context *string) (ClientFactory, error) {
+func NewClientFactoryFromDefaultConfig(ctx context.Context, context *string) (ClientFactory, error) {
 	configOverrides := &clientcmd.ConfigOverrides{}
 	if context != nil {
 		configOverrides.CurrentContext = *context
@@ -96,5 +99,5 @@ func NewClientFactoryFromDefaultConfig(context *string) (ClientFactory, error) {
 		return nil, err
 	}
 
-	return NewClientFactory(config)
+	return NewClientFactory(ctx, config)
 }
