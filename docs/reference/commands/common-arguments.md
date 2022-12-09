@@ -62,6 +62,7 @@ Project arguments:
                                              'github.com:my-org/my-repo:my-branch=/local/path/to/override'
   -c, --project-config existingfile          Location of the .kluctl.yaml config file. Defaults to
                                              $PROJECT/.kluctl.yaml
+      --project-dir existingdir              Specify the project directory. Defaults to the current working directory.
   -t, --target string                        Target name to run command for. Target must exist in .kluctl.yaml.
   -T, --target-name-override string          Overrides the target name. If -t is used at the same time, then the
                                              target will be looked up based on -t <name> and then renamed to the
