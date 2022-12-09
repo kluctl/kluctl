@@ -96,10 +96,9 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	s := &hooksTestContext{
 		t: t,
 		k: defaultCluster2, // use cluster2 as it has webhooks setup
+		p: test_utils.NewTestProject(t),
 	}
 	s.setupWebhook()
-
-	s.p = test_utils.NewTestProject(t)
 	t.Cleanup(func() {
 		s.removeWebhook()
 	})
