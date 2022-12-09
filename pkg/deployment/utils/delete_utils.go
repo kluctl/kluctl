@@ -5,11 +5,11 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"strconv"
 	"sync"
 )
 
@@ -73,13 +73,19 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 			continue
 		}
 
-		annotations := o.GetK8sAnnotations()
 		ownerRefs := o.GetK8sOwnerReferences()
 		managedFields := o.GetK8sManagedFields()
 
 		// exclude when explicitly requested
-		skipDelete, err := strconv.ParseBool(annotations["kluctl.io/skip-delete"])
-		if err == nil && skipDelete {
+		if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete")) {
+			continue
+		}
+
+		helmResourcePolicy := o.GetK8sAnnotation("helm.sh/resource-policy")
+		if helmResourcePolicy != nil && *helmResourcePolicy == "keep" {
+			// warning, this is currently not how Helm handles it. Helm will only respect annotations set in the Chart
+			// itself, while Kluctl will also respect it when manually set on the live resource
+			// See: https://github.com/helm/helm/issues/8132
 			continue
 		}
 
@@ -114,8 +120,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 
 		// exclude resources which have the 'kluctl.io/skip-delete-if-tags' annotation set
 		if inclusionHasTags {
-			skipDeleteIfTags, err := strconv.ParseBool(annotations["kluctl.io/skip-delete-if-tags"])
-			if err == nil && skipDeleteIfTags {
+			if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete-if-tags")) {
 				continue
 			}
 		}

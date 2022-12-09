@@ -578,8 +578,12 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 			}
 
 			// Set common labels/annotations
-			o.SetK8sLabels(uo.CopyMergeStrMap(o.GetK8sLabels(), commonLabels))
-			o.SetK8sAnnotations(uo.CopyMergeStrMap(o.GetK8sAnnotations(), commonAnnotations))
+			for n, v := range commonLabels {
+				o.SetK8sLabel(n, v)
+			}
+			for n, v := range commonAnnotations {
+				o.SetK8sAnnotation(n, v)
+			}
 
 			// Resolve image placeholders
 			err := images.ResolvePlaceholders(di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys())
