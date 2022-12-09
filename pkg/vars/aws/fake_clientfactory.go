@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 )
@@ -27,7 +28,7 @@ func (f *FakeAwsClientFactory) GetSecretValue(in *secretsmanager.GetSecretValueI
 		}, nil
 	}
 
-	return nil, fmt.Errorf("secret %s not found", *in.SecretId)
+	return nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, fmt.Sprintf("secret %s not found", *in.SecretId), nil)
 }
 
 func (f *FakeAwsClientFactory) SecretsManagerClient(profile *string, region *string) (secretsmanageriface.SecretsManagerAPI, error) {

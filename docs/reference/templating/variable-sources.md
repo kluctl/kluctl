@@ -27,10 +27,15 @@ following example.
 vars:
 - file: vars1.yaml
 - file: vars2.yaml
+- file: optional-vars.yaml
+  ignoreMissing: true
 ```
 
 `vars2.yaml` can now use variables that are defined in `vars1.yaml`. At all times, variables defined by
 parents of the current sub-deployment project can be used in the current vars file.
+
+Each variable source can have the optional field `ignoreMissing` set to `true`, causing Kluctl to ignore if the source
+can not be found.
 
 Different types of vars entries are possible:
 

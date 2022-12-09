@@ -3,7 +3,10 @@ package vars
 import (
 	"context"
 	"encoding/base64"
+	errors2 "errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
@@ -16,6 +19,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"strings"
@@ -74,25 +78,30 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		return err
 	}
 
+	ignoreMissing := false
+	if source.IgnoreMissing != nil {
+		ignoreMissing = *source.IgnoreMissing
+	}
+
 	if source.Values != nil {
 		v.mergeVars(varsCtx, source.Values, rootKey)
 		return nil
 	} else if source.File != nil {
-		return v.loadFile(varsCtx, *source.File, searchDirs, rootKey)
+		return v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs, rootKey)
 	} else if source.Git != nil {
-		return v.loadGit(varsCtx, source.Git, rootKey)
+		return v.loadGit(varsCtx, source.Git, ignoreMissing, rootKey)
 	} else if source.ClusterConfigMap != nil {
-		return v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", source.ClusterConfigMap.Key, rootKey, false)
+		return v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", source.ClusterConfigMap.Key, rootKey, ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
-		return v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", source.ClusterSecret.Key, rootKey, true)
+		return v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", source.ClusterSecret.Key, rootKey, ignoreMissing, true)
 	} else if source.SystemEnvVars != nil {
-		return v.loadSystemEnvs(varsCtx, &source, rootKey)
+		return v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
 	} else if source.Http != nil {
-		return v.loadHttp(varsCtx, &source, rootKey)
+		return v.loadHttp(varsCtx, &source, ignoreMissing, rootKey)
 	} else if source.AwsSecretsManager != nil {
-		return v.loadAwsSecretsManager(varsCtx, &source, rootKey)
+		return v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing, rootKey)
 	} else if source.Vault != nil {
-		return v.loadVault(varsCtx, &source, rootKey)
+		return v.loadVault(varsCtx, &source, ignoreMissing, rootKey)
 	}
 	return fmt.Errorf("invalid vars source")
 }
@@ -105,7 +114,11 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 	}
 }
 
-func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string, rootKey string) error {
+func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string, rootKey string) error {
+	if ignoreMissing && !utils.Exists(path) {
+		return nil
+	}
+
 	rendered, err := varsCtx.RenderFile(path, searchDirs)
 	if err != nil {
 		return fmt.Errorf("failed to render vars file %s: %w", path, err)
@@ -139,7 +152,7 @@ func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, searchDirs []string
 	return nil
 }
 
-func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
+func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
 	newVars := uo.New()
 	err := source.SystemEnvVars.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 		envName, ok := it.Value().(string)
@@ -164,6 +177,9 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 				envValueStr = `""`
 			}
 		} else {
+			if ignoreMissing {
+				return nil
+			}
 			return fmt.Errorf("environment variable %s not found for %s", envName, it.KeyPath().ToJsonPath())
 		}
 
@@ -186,27 +202,39 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 	return nil
 }
 
-func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
+func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
 	if v.aws == nil {
 		return fmt.Errorf("no AWS client factory provided")
 	}
 
 	secret, err := aws.GetAwsSecretsManagerSecret(v.aws, source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
 	if err != nil {
+		var aerr awserr.Error
+		if errors2.As(err, &aerr) {
+			if ignoreMissing && aerr.Code() == secretsmanager.ErrCodeResourceNotFoundException {
+				return nil
+			}
+		}
 		return err
 	}
 	return v.loadFromString(varsCtx, secret, "awsSecretsManager", rootKey)
 }
 
-func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
+func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
 	secret, err := vault.GetSecret(source.Vault.Address, source.Vault.Path)
 	if err != nil {
 		return err
 	}
-	return v.loadFromString(varsCtx, secret, "vault", rootKey)
+	if secret == nil {
+		if ignoreMissing {
+			return nil
+		}
+		return fmt.Errorf("the specified vault secret was not found")
+	}
+	return v.loadFromString(varsCtx, *secret, "vault", rootKey)
 }
 
-func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, rootKey string) error {
+func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool, rootKey string) error {
 	ge, err := v.rp.GetEntry(gitFile.Url)
 	if err != nil {
 		return err
@@ -217,10 +245,10 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, roo
 		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
-	return v.loadFile(varsCtx, gitFile.Path, []string{clonedDir}, rootKey)
+	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir}, rootKey)
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, base64Decode bool) error {
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, ignoreMissing bool, base64Decode bool) error {
 	if v.k == nil {
 		return fmt.Errorf("loading vars from cluster is disabled")
 	}
@@ -231,6 +259,9 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 	if varsSource.Name != "" {
 		o, _, err = v.k.GetSingleObject(k8s2.NewObjectRef("", "v1", kind, varsSource.Name, varsSource.Namespace))
 		if err != nil {
+			if ignoreMissing && errors.IsNotFound(err) {
+				return nil
+			}
 			return err
 		}
 	} else {
@@ -243,6 +274,9 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 			return err
 		}
 		if len(objs) == 0 {
+			if ignoreMissing {
+				return nil
+			}
 			return fmt.Errorf("no object found with labels %v", varsSource.Labels)
 		}
 		if len(objs) > 1 {
