@@ -47,6 +47,22 @@ func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef
 	return ref
 }
 
+func isSkipDelete(o *uo.UnstructuredObject) bool {
+	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete")) {
+		return true
+	}
+
+	helmResourcePolicy := o.GetK8sAnnotation("helm.sh/resource-policy")
+	if helmResourcePolicy != nil && *helmResourcePolicy == "keep" {
+		// warning, this is currently not how Helm handles it. Helm will only respect annotations set in the Chart
+		// itself, while Kluctl will also respect it when manually set on the live resource
+		// See: https://github.com/helm/helm/issues/8132
+		return true
+	}
+
+	return false
+}
+
 func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusionHasTags bool, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
 	filterFunc := func(ar *v1.APIResource) bool {
 		if len(apiFilter) == 0 {
@@ -77,15 +93,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 		managedFields := o.GetK8sManagedFields()
 
 		// exclude when explicitly requested
-		if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete")) {
-			continue
-		}
-
-		helmResourcePolicy := o.GetK8sAnnotation("helm.sh/resource-policy")
-		if helmResourcePolicy != nil && *helmResourcePolicy == "keep" {
-			// warning, this is currently not how Helm handles it. Helm will only respect annotations set in the Chart
-			// itself, while Kluctl will also respect it when manually set on the live resource
-			// See: https://github.com/helm/helm/issues/8132
+		if isSkipDelete(o) {
 			continue
 		}
 

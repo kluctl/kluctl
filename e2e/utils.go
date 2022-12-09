@@ -4,10 +4,12 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"testing"
 )
@@ -52,4 +54,12 @@ func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected in
 	if !reflect.DeepEqual(v, expected) {
 		t.Fatalf("%v != %v", v, expected)
 	}
+}
+
+func updateObject(t *testing.T, k *test_utils.EnvTestCluster, o *uo.UnstructuredObject) {
+	_, err := k.DynamicClient.Resource(schema.GroupVersionResource{
+		Version:  "v1",
+		Resource: "configmaps",
+	}).Namespace(o.GetK8sNamespace()).Update(context.Background(), o.ToUnstructured(), metav1.UpdateOptions{})
+	assert.NoError(t, err)
 }
