@@ -15,7 +15,7 @@ func GetWidth() int {
 		}
 	}
 	w, _, err := GetSize(int(origStdout.Fd()))
-	if err != nil {
+	if err != nil || w == 0 {
 		return 80
 	}
 	return w
