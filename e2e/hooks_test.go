@@ -1,14 +1,12 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"sync"
 	"testing"
 
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -20,7 +18,9 @@ type hooksTestContext struct {
 
 	p *test_utils.TestProject
 
+	m              sync.Mutex
 	seenConfigMaps []string
+	runCount       int
 
 	whh *test_utils.CallbackHandlerEntry
 }
@@ -39,6 +39,8 @@ func (s *hooksTestContext) handleConfigmap(request admission.Request) {
 	if s.p.TestSlug() != request.Namespace {
 		return
 	}
+	s.m.Lock()
+	defer s.m.Unlock()
 
 	x, err := uo.FromString(string(request.Object.Raw))
 	if err != nil {
@@ -52,6 +54,10 @@ func (s *hooksTestContext) handleConfigmap(request admission.Request) {
 	if err != nil {
 		s.t.Fatal(err)
 	}
+	runCount := x.GetK8sLabel("tests.kluctl.io/runCount")
+	if runCount == nil || *runCount != fmt.Sprintf("%d", s.runCount) {
+		return
+	}
 
 	s.t.Logf("handleConfigmap: op=%s, name=%s/%s, generation=%d, uid=%s", request.Operation, request.Namespace, request.Name, generation, uid)
 
@@ -59,6 +65,8 @@ func (s *hooksTestContext) handleConfigmap(request admission.Request) {
 }
 
 func (s *hooksTestContext) clearSeenConfigmaps() {
+	s.m.Lock()
+	defer s.m.Unlock()
 	s.t.Logf("clearSeenConfigmaps: %v", s.seenConfigMaps)
 	s.seenConfigMaps = nil
 }
@@ -117,18 +125,20 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	return s
 }
 
-func (s *hooksTestContext) ensureHookExecuted(expectedCms ...string) {
-	s.clearSeenConfigmaps()
-	s.p.KluctlMust("deploy", "--yes", "-t", "test")
-	assert.Equal(s.t, expectedCms, s.seenConfigMaps)
+func (s *hooksTestContext) incRunCount() {
+	s.runCount++
+	s.t.Logf("incRunCount: %d", s.runCount)
+	s.p.UpdateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(fmt.Sprintf("%d", s.runCount), "commonLabels", "tests.kluctl.io/runCount")
+		return nil
+	})
 }
 
-func (s *hooksTestContext) ensureHookNotExecuted() {
-	_ = s.k.DynamicClient.Resource(corev1.SchemeGroupVersion.WithResource("configmaps")).
-		Namespace(s.p.TestSlug()).
-		Delete(context.Background(), "cm1", metav1.DeleteOptions{})
+func (s *hooksTestContext) ensureHookExecuted(expectedCms ...string) {
+	s.clearSeenConfigmaps()
+	s.incRunCount()
 	s.p.KluctlMust("deploy", "--yes", "-t", "test")
-	assertConfigMapNotExists(s.t, s.k, s.p.TestSlug(), "cm1")
+	assert.Equal(s.t, expectedCms, s.seenConfigMaps)
 }
 
 func TestHooksPreDeployInitial(t *testing.T) {
