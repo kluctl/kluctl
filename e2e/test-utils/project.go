@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -420,6 +421,7 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 
 	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
+	var m sync.Mutex
 	stdout := bytes.NewBuffer(nil)
 	stderr := bytes.NewBuffer(nil)
 
@@ -427,6 +429,8 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 	ctx = utils.WithTmpBaseDir(ctx, p.t.TempDir())
 	ctx = commands.WithStdStreams(ctx, stdout, stderr)
 	sh := status.NewSimpleStatusHandler(func(message string) {
+		m.Lock()
+		defer m.Unlock()
 		p.t.Log(message)
 		stderr.WriteString(message + "\n")
 	}, false, true)
