@@ -46,7 +46,7 @@ func main() {
 }
 
 func kluctlMain() {
-	commands.Execute()
+	commands.Main()
 }
 
 func processFile(path string) {

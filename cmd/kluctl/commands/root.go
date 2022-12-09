@@ -42,12 +42,16 @@ import (
 
 const latestReleaseUrl = "https://api.github.com/repos/kluctl/kluctl/releases/latest"
 
-type cli struct {
+type GlobalFlags struct {
 	Debug         bool `group:"global" help:"Enable debug logging"`
 	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
 	NoColor       bool `group:"global" help:"Disable colored output"`
 
 	CpuProfile string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
+}
+
+type cli struct {
+	GlobalFlags
 
 	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
 	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
@@ -76,30 +80,35 @@ var flagGroups = []groupInfo{
 	{group: "flux", title: "Flux arguments:", description: "EXPERIMENTAL: Subcommands for interaction with flux-kluctl-controller"},
 }
 
-var cliCtx = context.Background()
-var didSetupStatusHandler bool
+var origStderr = os.Stderr
 
-func setupStatusHandler(debug bool, noColor bool) {
-	didSetupStatusHandler = true
-
-	origStderr := os.Stderr
-
+func initStatusHandler(ctx context.Context, debug bool, noColor bool) context.Context {
 	// we must determine isTerminal before we override os.Stderr
-	isTerminal := isatty.IsTerminal(os.Stderr.Fd())
+	isTerminal := isatty.IsTerminal(origStderr.Fd())
 	var sh status.StatusHandler
-	if !debug && isatty.IsTerminal(os.Stderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(cliCtx, os.Stderr, isTerminal, !noColor, false)
+	if !debug && isatty.IsTerminal(origStderr.Fd()) {
+		sh = status.NewMultiLineStatusHandler(ctx, origStderr, isTerminal, !noColor, false)
 	} else {
 		sh = status.NewSimpleStatusHandler(func(message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
 		}, isTerminal, false)
 	}
 	sh.SetTrace(debug)
-	cliCtx = status.NewContext(cliCtx, sh)
+	ctx = status.NewContext(ctx, sh)
+	return ctx
+}
+
+func redirectLogsAndStderr(ctxGetter func() context.Context) {
+	f := func(line string) {
+		status.Info(ctxGetter(), line)
+	}
+
+	lr1 := status.NewLineRedirector(f)
+	lr2 := status.NewLineRedirector(f)
 
 	klog.LogToStderr(false)
-	klog.SetOutput(status.NewLineRedirector(sh.Info))
-	log.SetOutput(status.NewLineRedirector(sh.Info))
+	klog.SetOutput(lr1)
+	log.SetOutput(lr2)
 
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -107,7 +116,7 @@ func setupStatusHandler(debug bool, noColor bool) {
 	}
 
 	go func() {
-		x := status.NewLineRedirector(sh.Info)
+		x := status.NewLineRedirector(f)
 		_, _ = io.Copy(x, pr)
 	}()
 
@@ -135,10 +144,7 @@ type VersionCheckState struct {
 	LastVersionCheck time.Time `yaml:"lastVersionCheck"`
 }
 
-func (c *cli) checkNewVersion() {
-	if c.NoUpdateCheck {
-		return
-	}
+func checkNewVersion(ctx context.Context) {
 	if version.GetVersion() == "0.0.0" {
 		return
 	}
@@ -155,7 +161,7 @@ func (c *cli) checkNewVersion() {
 	versionCheckState.LastVersionCheck = time.Now()
 	_ = yaml.WriteYamlFile(versionCheckPath, &versionCheckState)
 
-	s := status.Start(cliCtx, "Checking for new kluctl version")
+	s := status.Start(ctx, "Checking for new kluctl version")
 	defer s.Failed()
 
 	r, err := http.Get(latestReleaseUrl)
@@ -187,36 +193,70 @@ func (c *cli) checkNewVersion() {
 	s.Success()
 }
 
-func (c *cli) preRun() error {
-	err := setupProfiling(c.CpuProfile)
-	if err != nil {
-		return err
-	}
-	setupStatusHandler(c.Debug, c.NoColor)
-	c.checkNewVersion()
-	return nil
-}
-
 func (c *cli) Run(ctx context.Context) error {
 	return nil
 }
 
-func initViper() {
+func initViper(ctx context.Context) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("/etc/kluctl/")
 	viper.AddConfigPath("$HOME/.kluctl")
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			status.Error(cliCtx, err.Error())
+			status.Error(ctx, err.Error())
 			os.Exit(1)
 		}
 	}
 }
 
-func Execute() {
+func Main() {
 	colorable.EnableColorsStdout(nil)
+	ctx := context.Background()
 
+	ctx = initStatusHandler(ctx, false, true)
+	redirectLogsAndStderr(func() context.Context {
+		// ctx might be replaced later in preRun() of Execute()
+		return ctx
+	})
+
+	initViper(ctx)
+
+	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags GlobalFlags) (context.Context, error) {
+		err := copyViperValuesToCobraCmd(cmd)
+		if err != nil {
+			return ctx, err
+		}
+		err = setupProfiling(flags.CpuProfile)
+		if err != nil {
+			return ctx, err
+		}
+		oldSh := status.FromContext(ctxIn)
+		if oldSh != nil {
+			oldSh.Stop()
+		}
+		ctx = initStatusHandler(ctxIn, flags.Debug, flags.NoColor)
+		if !flags.NoUpdateCheck {
+			checkNewVersion(ctx)
+		}
+		return ctx, nil
+	})
+
+	if cpuProfileFile != nil {
+		pprof.StopCPUProfile()
+		_ = cpuProfileFile.Close()
+		cpuProfileFile = nil
+	}
+
+	sh := status.FromContext(ctx)
+	sh.Stop()
+
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags GlobalFlags) (context.Context, error)) error {
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
 		"Deploy and manage complex deployments on Kubernetes",
@@ -225,44 +265,34 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		flagGroups)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
+	rootCmd.SetContext(ctx)
+	rootCmd.SetArgs(args)
 	rootCmd.Version = version.GetVersion()
 	rootCmd.SilenceUsage = true
 	rootCmd.SilenceErrors = true
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		err := copyViperValuesToCobraCmd(cmd)
-		if err != nil {
-			return err
+		if preRun != nil {
+			ctx, err = preRun(ctx, cmd, root.GlobalFlags)
+			if ctx != nil {
+				for c := cmd; c != nil; c = c.Parent() {
+					c.SetContext(ctx)
+				}
+			}
+			if err != nil {
+				return err
+			}
 		}
-		err = root.preRun()
-		for c := cmd; c != nil; c = c.Parent() {
-			c.SetContext(cliCtx)
-		}
+		return nil
+	}
+
+	err = rootCmd.Execute()
+	if err != nil {
+		status.Error(ctx, err.Error())
 		return err
 	}
-
-	initViper()
-
-	err = rootCmd.ExecuteContext(cliCtx)
-	if !didSetupStatusHandler {
-		setupStatusHandler(false, true)
-	}
-
-	if cpuProfileFile != nil {
-		pprof.StopCPUProfile()
-		_ = cpuProfileFile.Close()
-		cpuProfileFile = nil
-	}
-
-	sh := status.FromContext(cliCtx)
-
-	if err != nil {
-		status.Error(cliCtx, "%s", err.Error())
-		sh.Stop()
-		os.Exit(1)
-	}
-	sh.Stop()
+	return nil
 }

@@ -13,7 +13,7 @@ func init() {
 	// We use the Golang's initializing mechanism to run kluctl even though the test executable was invoked
 	// This is clearly a hack, but it avoids the requirement to have a kluctl executable pre-built
 	if isCallKluctlHack() {
-		commands.Execute()
+		commands.Main()
 		os.Exit(0)
 	}
 }
