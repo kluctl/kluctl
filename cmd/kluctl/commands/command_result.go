@@ -173,7 +173,7 @@ func formatValidateResult(vr *types.ValidateResult, format string) (string, erro
 	}
 }
 
-func outputHelper(output []string, cb func(format string) (string, error)) error {
+func outputHelper(ctx context.Context, output []string, cb func(format string) (string, error)) error {
 	if len(output) == 0 {
 		output = []string{"text"}
 	}
@@ -189,7 +189,7 @@ func outputHelper(output []string, cb func(format string) (string, error)) error
 			return err
 		}
 
-		err = outputResult(path, r)
+		err = outputResult(ctx, path, r)
 		if err != nil {
 			return err
 		}
@@ -200,7 +200,7 @@ func outputHelper(output []string, cb func(format string) (string, error)) error
 func outputCommandResult(ctx context.Context, output []string, cr *types.CommandResult) error {
 	status.Flush(ctx)
 
-	return outputHelper(output, func(format string) (string, error) {
+	return outputHelper(ctx, output, func(format string) (string, error) {
 		return formatCommandResult(cr, format)
 	})
 }
@@ -208,7 +208,7 @@ func outputCommandResult(ctx context.Context, output []string, cr *types.Command
 func outputValidateResult(ctx context.Context, output []string, vr *types.ValidateResult) error {
 	status.Flush(ctx)
 
-	return outputHelper(output, func(format string) (string, error) {
+	return outputHelper(ctx, output, func(format string) (string, error) {
 		return formatValidateResult(vr, format)
 	})
 }
@@ -238,7 +238,7 @@ func outputYamlResult(ctx context.Context, output []string, result interface{}, 
 		s = x
 	}
 	for _, path := range output {
-		err := outputResult(&path, s)
+		err := outputResult(ctx, &path, s)
 		if err != nil {
 			return err
 		}
@@ -246,8 +246,9 @@ func outputYamlResult(ctx context.Context, output []string, result interface{}, 
 	return nil
 }
 
-func outputResult(f *string, result string) error {
-	w := os.Stdout
+func outputResult(ctx context.Context, f *string, result string) error {
+	var w io.Writer
+	w = getStdout(ctx)
 	if f != nil && *f != "-" {
 		f, err := os.Create(*f)
 		if err != nil {

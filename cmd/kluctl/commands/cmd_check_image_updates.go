@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -130,6 +129,6 @@ func runCheckImageUpdates(cmdCtx *commandCtx) error {
 	}
 
 	table.SortRows(1)
-	_, _ = os.Stdout.WriteString(table.Render([]int{60}))
+	_, _ = getStdout(cmdCtx.ctx).WriteString(table.Render([]int{60}))
 	return nil
 }

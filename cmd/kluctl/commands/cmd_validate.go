@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"os"
 	"time"
 )
 
@@ -54,7 +53,7 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 			}
 
 			if !failed {
-				_, _ = os.Stderr.WriteString("Validation succeeded\n")
+				_, _ = getStderr(ctx).WriteString("Validation succeeded\n")
 				return nil
 			}
 
