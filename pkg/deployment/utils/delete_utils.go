@@ -81,6 +81,14 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 			continue
 		}
 
+		helmResourcePolicy := o.GetK8sAnnotation("helm.sh/resource-policy")
+		if helmResourcePolicy != nil && *helmResourcePolicy == "keep" {
+			// warning, this is currently not how Helm handles it. Helm will only respect annotations set in the Chart
+			// itself, while Kluctl will also respect it when manually set on the live resource
+			// See: https://github.com/helm/helm/issues/8132
+			continue
+		}
+
 		// exclude objects which are owned by some other object
 		if len(ownerRefs) != 0 {
 			continue
