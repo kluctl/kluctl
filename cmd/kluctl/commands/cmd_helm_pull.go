@@ -11,12 +11,12 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/sync/semaphore"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sync"
 )
 
 type helmPullCmd struct {
+	args.ProjectDir
 	args.HelmCredentials
 }
 
@@ -27,12 +27,12 @@ pulling is only needed when really required (e.g. when the chart version changes
 }
 
 func (cmd *helmPullCmd) Run(ctx context.Context) error {
-	cwd, err := os.Getwd()
+	projectDir, err := cmd.ProjectDir.GetProjectDir()
 	if err != nil {
 		return err
 	}
 
-	gitRootPath, err := git2.DetectGitRepositoryRoot(cwd)
+	gitRootPath, err := git2.DetectGitRepositoryRoot(projectDir)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	var mutex sync.Mutex
 	sem := semaphore.NewWeighted(8)
 
-	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname != "helm-chart.yml" && fname != "helm-chart.yaml" {
 			return nil

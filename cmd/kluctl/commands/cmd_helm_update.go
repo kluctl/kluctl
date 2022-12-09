@@ -20,6 +20,7 @@ import (
 )
 
 type helmUpdateCmd struct {
+	args.ProjectDir
 	args.HelmCredentials
 
 	Upgrade bool `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
@@ -33,12 +34,12 @@ func (cmd *helmUpdateCmd) Help() string {
 }
 
 func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
-	cwd, err := os.Getwd()
+	projectDir, err := cmd.ProjectDir.GetProjectDir()
 	if err != nil {
 		return err
 	}
 
-	gitRootPath, err := git2.DetectGitRepositoryRoot(cwd)
+	gitRootPath, err := git2.DetectGitRepositoryRoot(projectDir)
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 	var updatedCharts []*updatedChart
 
-	err = filepath.WalkDir(cwd, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
 		if fname != "helm-chart.yml" && fname != "helm-chart.yaml" {
 			return nil

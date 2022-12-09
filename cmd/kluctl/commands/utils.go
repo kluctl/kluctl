@@ -37,12 +37,12 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	}
 	defer j2.Close()
 
-	cwd, err := os.Getwd()
+	projectDir, err := projectFlags.ProjectDir.GetProjectDir()
 	if err != nil {
 		return err
 	}
 
-	repoRoot, err := git.DetectGitRepositoryRoot(cwd)
+	repoRoot, err := git.DetectGitRepositoryRoot(projectDir)
 	if err != nil {
 		status.Warning(ctx, "Failed to detect git project root. This might cause follow-up errors")
 	}
@@ -74,7 +74,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:           repoRoot,
-		ProjectDir:         cwd,
+		ProjectDir:         projectDir,
 		ProjectConfig:      projectFlags.ProjectConfig.String(),
 		RP:                 rp,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
