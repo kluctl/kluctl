@@ -1,11 +1,16 @@
 package test_utils
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
@@ -18,15 +23,29 @@ import (
 )
 
 type TestProject struct {
-	t        *testing.T
-	extraEnv []string
+	t *testing.T
+
+	extraEnv   []string
+	useProcess bool
 
 	gitServer *git2.TestGitServer
 }
 
-func NewTestProject(t *testing.T) *TestProject {
+type TestProjectOption func(p *TestProject)
+
+func WithUseProcess(useProcess bool) TestProjectOption {
+	return func(p *TestProject) {
+		p.useProcess = useProcess
+	}
+}
+
+func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	p := &TestProject{
 		t: t,
+	}
+
+	for _, o := range opts {
+		o(p)
 	}
 
 	p.gitServer = git2.NewTestGitServer(t)
@@ -350,7 +369,7 @@ func (p *TestProject) GetGitRepo() *git.Repository {
 	return p.gitServer.GetGitRepo("kluctl-project")
 }
 
-func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
+func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
 	args = append(args, "--no-update-check")
@@ -361,7 +380,6 @@ func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
 
 	env := os.Environ()
 	env = append(env, p.extraEnv...)
-	env = append(env, fmt.Sprintf("KUBECONFIG=%s", p.mergedKubeconfig))
 
 	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
 	env = append(env, "CALL_KLUCTL=true")
@@ -382,10 +400,53 @@ func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
 	return stdout, stderr, err
 }
 
+func (p *TestProject) KluctlProcessMust(argsIn ...string) (string, string) {
+	stdout, stderr, err := p.KluctlProcess(argsIn...)
+	if err != nil {
+		p.t.Logf(stderr)
+		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
+	}
+	return stdout, stderr
+}
+
+func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
+	if len(p.extraEnv) != 0 {
+		p.t.Fatal("extraEnv is only supported in KluctlProcess(...)")
+	}
+
+	var args []string
+	args = append(args, "--project-dir", p.LocalRepoDir())
+	args = append(args, argsIn...)
+
+	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
+
+	stdout := bytes.NewBuffer(nil)
+	stderr := bytes.NewBuffer(nil)
+
+	ctx := context.Background()
+	ctx = utils.WithTmpBaseDir(ctx, p.t.TempDir())
+	ctx = commands.WithStdStreams(ctx, stdout, stderr)
+	sh := status.NewSimpleStatusHandler(func(message string) {
+		p.t.Log(message)
+		stderr.WriteString(message + "\n")
+	}, false, true)
+	defer sh.Stop()
+	ctx = status.NewContext(ctx, sh)
+	err := commands.Execute(ctx, args, nil)
+	return stdout.String(), stderr.String(), err
+}
+
+func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
+	if p.useProcess {
+		return p.KluctlProcess(argsIn...)
+	} else {
+		return p.KluctlExecute(argsIn...)
+	}
+}
+
 func (p *TestProject) KluctlMust(argsIn ...string) (string, string) {
 	stdout, stderr, err := p.Kluctl(argsIn...)
 	if err != nil {
-		p.t.Logf(stderr)
 		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr

@@ -98,7 +98,7 @@ func addProxyVars(p *test_utils.TestProject) {
 }
 
 func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[string]string, varsSources []*uo.UnstructuredObject, proxy bool) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t)
+	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
 
 	if proxy {
 		addProxyVars(p)
