@@ -197,7 +197,7 @@ func (c *cli) preRun() error {
 	return nil
 }
 
-func (c *cli) Run() error {
+func (c *cli) Run(ctx context.Context) error {
 	return nil
 }
 
@@ -237,7 +237,11 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		if err != nil {
 			return err
 		}
-		return root.preRun()
+		err = root.preRun()
+		for c := cmd; c != nil; c = c.Parent() {
+			c.SetContext(cliCtx)
+		}
+		return err
 	}
 
 	initViper()

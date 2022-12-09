@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -34,7 +35,7 @@ It will also output a list of prunable objects (without actually deleting them).
 `
 }
 
-func (cmd *deployCmd) Run() error {
+func (cmd *deployCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -45,16 +46,16 @@ func (cmd *deployCmd) Run() error {
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
-		return cmd.runCmdDeploy(ctx)
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
+		return cmd.runCmdDeploy(cmdCtx)
 	})
 }
 
-func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
-	status.Trace(ctx.ctx, "enter runCmdDeploy")
-	defer status.Trace(ctx.ctx, "leave runCmdDeploy")
+func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
+	status.Trace(cmdCtx.ctx, "enter runCmdDeploy")
+	defer status.Trace(cmdCtx.ctx, "leave runCmdDeploy")
 
-	cmd2 := commands.NewDeployCommand(ctx.targetCtx.DeploymentCollection)
+	cmd2 := commands.NewDeployCommand(cmdCtx.targetCtx.DeploymentCollection)
 	cmd2.ForceApply = cmd.ForceApply
 	cmd2.ReplaceOnError = cmd.ReplaceOnError
 	cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
@@ -62,16 +63,18 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	cmd2.ReadinessTimeout = cmd.ReadinessTimeout
 	cmd2.NoWait = cmd.NoWait
 
-	cb := cmd.diffResultCb
+	cb := func(diffResult *types.CommandResult) error {
+		return cmd.diffResultCb(cmdCtx.ctx, diffResult)
+	}
 	if cmd.Yes || cmd.DryRun {
 		cb = nil
 	}
 
-	result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K, cb)
+	result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, cb)
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmd.OutputFormat, result)
+	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormat, result)
 	if err != nil {
 		return err
 	}
@@ -81,8 +84,8 @@ func (cmd *deployCmd) runCmdDeploy(ctx *commandCtx) error {
 	return nil
 }
 
-func (cmd *deployCmd) diffResultCb(diffResult *types.CommandResult) error {
-	err := outputCommandResult(nil, diffResult)
+func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *types.CommandResult) error {
+	err := outputCommandResult(ctx, nil, diffResult)
 	if err != nil {
 		return err
 	}
@@ -90,11 +93,11 @@ func (cmd *deployCmd) diffResultCb(diffResult *types.CommandResult) error {
 		return nil
 	}
 	if len(diffResult.Errors) != 0 {
-		if !status.AskForConfirmation(cliCtx, "The diff resulted in errors, do you still want to proceed?") {
+		if !status.AskForConfirmation(ctx, "The diff resulted in errors, do you still want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	} else {
-		if !status.AskForConfirmation(cliCtx, "The diff succeeded, do you want to proceed?") {
+		if !status.AskForConfirmation(ctx, "The diff succeeded, do you want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	}

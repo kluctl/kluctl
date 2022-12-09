@@ -53,30 +53,30 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	ptArgs.targetFlags.Target = targetName
 
 	// pass forSeal=True so that .sealme files are rendered as well
-	return withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
-		err := ctx.targetCtx.DeploymentCollection.RenderDeployments()
+	return withProjectTargetCommandContext(ctx, ptArgs, p, func(cmdCtx *commandCtx) error {
+		err := cmdCtx.targetCtx.DeploymentCollection.RenderDeployments()
 		if err != nil {
 			return doFail(err)
 		}
 
-		cert, err := cmd.loadCert(ctx)
+		cert, err := cmd.loadCert(cmdCtx)
 		if err != nil {
 			return doFail(err)
 		}
 
-		sealer, err := seal.NewSealer(ctx.ctx, cert, cmd.ForceReseal)
+		sealer, err := seal.NewSealer(cmdCtx.ctx, cert, cmd.ForceReseal)
 		if err != nil {
 			return doFail(err)
 		}
 
 		outputPattern := targetName
-		if ctx.targetCtx.DeploymentProject.Config.SealedSecrets != nil && ctx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern != nil {
+		if cmdCtx.targetCtx.DeploymentProject.Config.SealedSecrets != nil && cmdCtx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern != nil {
 			// the outputPattern is rendered already at this point, meaning that for example
 			// '{{ cluster.name }}/{{ target.name }}' will already be rendered to 'my-cluster/my-target'
-			outputPattern = *ctx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern
+			outputPattern = *cmdCtx.targetCtx.DeploymentProject.Config.SealedSecrets.OutputPattern
 		}
 
-		cmd2 := commands.NewSealCommand(ctx.targetCtx.DeploymentCollection, outputPattern, ctx.targetCtx.SharedContext.RenderDir, ctx.targetCtx.SharedContext.SealedSecretsDir)
+		cmd2 := commands.NewSealCommand(cmdCtx.targetCtx.DeploymentCollection, outputPattern, cmdCtx.targetCtx.SharedContext.RenderDir, cmdCtx.targetCtx.SharedContext.SealedSecretsDir)
 		err = cmd2.Run(sealer)
 
 		if err != nil {
@@ -87,13 +87,13 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	})
 }
 
-func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
-	sealingConfig := ctx.targetCtx.Target.SealingConfig
+func (cmd *sealCmd) loadCert(cmdCtx *commandCtx) (*x509.Certificate, error) {
+	sealingConfig := cmdCtx.targetCtx.Target.SealingConfig
 
 	var certFile string
 
 	if sealingConfig != nil && sealingConfig.CertFile != nil {
-		path, err := securejoin.SecureJoin(ctx.targetCtx.KluctlProject.ProjectDir, *sealingConfig.CertFile)
+		path, err := securejoin.SecureJoin(cmdCtx.targetCtx.KluctlProject.ProjectDir, *sealingConfig.CertFile)
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +102,7 @@ func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
 
 	if cmd.CertFile != "" {
 		if certFile != "" {
-			status.Info(ctx.ctx, "Overriding certFile from target with certFile argument")
+			status.Info(cmdCtx.ctx, "Overriding certFile from target with certFile argument")
 		}
 		certFile = cmd.CertFile
 	}
@@ -118,11 +118,11 @@ func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
 		}
 		return cert, nil
 	} else {
-		if ctx.targetCtx.SharedContext.K == nil {
+		if cmdCtx.targetCtx.SharedContext.K == nil {
 			return nil, fmt.Errorf("must specify certFile when sealing in offline mode")
 		}
 
-		secretsConfig := ctx.targetCtx.KluctlProject.Config.SecretsConfig
+		secretsConfig := cmdCtx.targetCtx.KluctlProject.Config.SecretsConfig
 		var sealedSecretsConfig *types.GlobalSealedSecretsConfig
 		if secretsConfig != nil {
 			sealedSecretsConfig = secretsConfig.SealedSecrets
@@ -140,13 +140,13 @@ func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
 		}
 
 		if sealedSecretsConfig == nil || sealedSecretsConfig.Bootstrap == nil || *sealedSecretsConfig.Bootstrap {
-			err := seal.BootstrapSealedSecrets(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace)
+			err := seal.BootstrapSealedSecrets(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, sealedSecretsNamespace)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		cert, err := seal.FetchCert(ctx.ctx, ctx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName)
+		cert, err := seal.FetchCert(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, sealedSecretsNamespace, sealedSecretsControllerName)
 		if err != nil {
 			return nil, err
 		}
@@ -154,8 +154,8 @@ func (cmd *sealCmd) loadCert(ctx *commandCtx) (*x509.Certificate, error) {
 	}
 }
 
-func (cmd *sealCmd) Run() error {
-	return withKluctlProjectFromArgs(cmd.ProjectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+func (cmd *sealCmd) Run(ctx context.Context) error {
+	return withKluctlProjectFromArgs(ctx, cmd.ProjectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
 		baseTargets := make(map[string]bool)

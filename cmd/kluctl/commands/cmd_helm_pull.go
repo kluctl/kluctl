@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
@@ -25,7 +26,7 @@ func (cmd *helmPullCmd) Help() string {
 pulling is only needed when really required (e.g. when the chart version changes).`
 }
 
-func (cmd *helmPullCmd) Run() error {
+func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -52,10 +53,10 @@ func (cmd *helmPullCmd) Run() error {
 			return err
 		}
 
-		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, &wg, func() error {
-			s := status.Start(cliCtx, "%s: Pulling Chart", statusPrefix)
+		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
+			s := status.Start(ctx, "%s: Pulling Chart", statusPrefix)
 			defer s.Failed()
-			err := doPull(statusPrefix, p, cmd.HelmCredentials, s)
+			err := doPull(ctx, statusPrefix, p, cmd.HelmCredentials, s)
 			if err != nil {
 				return err
 			}
@@ -77,7 +78,7 @@ func (cmd *helmPullCmd) Run() error {
 	return nil
 }
 
-func doPull(statusPrefix string, p string, helmCredentials args.HelmCredentials, s *status.StatusContext) error {
+func doPull(ctx context.Context, statusPrefix string, p string, helmCredentials args.HelmCredentials, s *status.StatusContext) error {
 	doError := func(err error) error {
 		s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
 		return err
@@ -92,7 +93,7 @@ func doPull(statusPrefix string, p string, helmCredentials args.HelmCredentials,
 
 	s.UpdateAndInfoFallback("%s: Pulling Chart %s with version %s", statusPrefix, chart.GetChartName(), *chart.Config.ChartVersion)
 
-	err = chart.Pull(cliCtx)
+	err = chart.Pull(ctx)
 	if err != nil {
 		return doError(err)
 	}

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -26,7 +27,7 @@ deploying the target. Only images used in combination with 'images.get_image(...
 replaced`
 }
 
-func (cmd *pokeImagesCmd) Run() error {
+func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -37,20 +38,20 @@ func (cmd *pokeImagesCmd) Run() error {
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !status.AskForConfirmation(cliCtx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", ctx.targetCtx.ClusterContext)) {
+			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", cmdCtx.targetCtx.ClusterContext)) {
 				return fmt.Errorf("aborted")
 			}
 		}
 
-		cmd2 := commands.NewPokeImagesCommand(ctx.targetCtx.DeploymentCollection)
+		cmd2 := commands.NewPokeImagesCommand(cmdCtx.targetCtx.DeploymentCollection)
 
-		result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
+		result, err := cmd2.Run(ctx, cmdCtx.targetCtx.SharedContext.K)
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(cmd.OutputFormat, result)
+		err = outputCommandResult(ctx, cmd.OutputFormat, result)
 		if err != nil {
 			return err
 		}

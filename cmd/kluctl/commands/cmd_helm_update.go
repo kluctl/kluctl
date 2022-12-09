@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/hashicorp/go-multierror"
@@ -31,7 +32,7 @@ func (cmd *helmUpdateCmd) Help() string {
 	return `Optionally performs the actual upgrade and/or add a commit to version control.`
 }
 
-func (cmd *helmUpdateCmd) Run() error {
+func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -62,8 +63,8 @@ func (cmd *helmUpdateCmd) Run() error {
 			return nil
 		}
 
-		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, &wg, func() error {
-			chart, newVersion, updated, err := cmd.doCheckUpdate(gitRootPath, p)
+		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
+			chart, newVersion, updated, err := cmd.doCheckUpdate(ctx, gitRootPath, p)
 			if err != nil {
 				return err
 			}
@@ -100,16 +101,16 @@ func (cmd *helmUpdateCmd) Run() error {
 	for _, uc := range updatedCharts {
 		uc := uc
 
-		utils.GoLimitedMultiError(cliCtx, sem, &errs, &mutex, &wg, func() error {
+		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
 			if cmd.Interactive {
 				statusPrefix, _ := filepath.Rel(gitRootPath, filepath.Dir(uc.path))
-				if !status.AskForConfirmation(cliCtx, fmt.Sprintf("%s: Do you want to upgrade Chart %s from version %s to %s?",
+				if !status.AskForConfirmation(ctx, fmt.Sprintf("%s: Do you want to upgrade Chart %s from version %s to %s?",
 					statusPrefix, uc.chart.GetChartName(), uc.oldVersion, uc.newVersion)) {
 					return nil
 				}
 			}
 
-			err := cmd.pullAndCommitChart(gitRootPath, uc.chart, uc.oldVersion, uc.newVersion, &mutex)
+			err := cmd.pullAndCommitChart(ctx, gitRootPath, uc.chart, uc.oldVersion, uc.newVersion, &mutex)
 			if err != nil {
 				return err
 			}
@@ -125,13 +126,13 @@ func (cmd *helmUpdateCmd) Run() error {
 	return errs.ErrorOrNil()
 }
 
-func (cmd *helmUpdateCmd) doCheckUpdate(gitRootPath string, p string) (*deployment.HelmChart, string, bool, error) {
+func (cmd *helmUpdateCmd) doCheckUpdate(ctx context.Context, gitRootPath string, p string) (*deployment.HelmChart, string, bool, error) {
 	statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	s := status.Start(cliCtx, "%s: Checking for updates", statusPrefix)
+	s := status.Start(ctx, "%s: Checking for updates", statusPrefix)
 	doError := func(err error) (*deployment.HelmChart, string, bool, error) {
 		s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
 		return nil, "", false, err
@@ -144,7 +145,7 @@ func (cmd *helmUpdateCmd) doCheckUpdate(gitRootPath string, p string) (*deployme
 
 	chart.SetCredentials(&cmd.HelmCredentials)
 
-	newVersion, updated, err := chart.CheckUpdate(cliCtx)
+	newVersion, updated, err := chart.CheckUpdate(ctx)
 	if err != nil {
 		return doError(err)
 	}
@@ -162,13 +163,13 @@ func (cmd *helmUpdateCmd) doCheckUpdate(gitRootPath string, p string) (*deployme
 	return chart, newVersion, updated, nil
 }
 
-func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployment.HelmChart, oldVersion string, newVersion string, mutex *sync.Mutex) error {
+func (cmd *helmUpdateCmd) pullAndCommitChart(ctx context.Context, gitRootPath string, chart *deployment.HelmChart, oldVersion string, newVersion string, mutex *sync.Mutex) error {
 	statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(chart.ConfigFile))
 	if err != nil {
 		return err
 	}
 
-	s := status.Start(cliCtx, "%s: Pulling Chart", statusPrefix)
+	s := status.Start(ctx, "%s: Pulling Chart", statusPrefix)
 	defer s.Failed()
 
 	chart.Config.ChartVersion = &newVersion
@@ -195,7 +196,7 @@ func (cmd *helmUpdateCmd) pullAndCommitChart(gitRootPath string, chart *deployme
 		return err
 	}
 
-	err = doPull(statusPrefix, chart.ConfigFile, cmd.HelmCredentials, s)
+	err = doPull(ctx, statusPrefix, chart.ConfigFile, cmd.HelmCredentials, s)
 	if err != nil {
 		return err
 	}

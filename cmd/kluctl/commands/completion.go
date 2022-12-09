@@ -20,13 +20,15 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	inclusionFlags := v.FieldByName("InclusionFlags")
 	imageFlags := v.FieldByName("ImageFlags")
 
+	ctx := context.Background()
+
 	if projectFlags.IsValid() && targetFlags.IsValid() {
-		_ = ccmd.RegisterFlagCompletionFunc("target", buildTargetCompletionFunc(projectFlags.Addr().Interface().(*args.ProjectFlags)))
+		_ = ccmd.RegisterFlagCompletionFunc("target", buildTargetCompletionFunc(ctx, projectFlags.Addr().Interface().(*args.ProjectFlags)))
 	}
 
 	if projectFlags.IsValid() && inclusionFlags.IsValid() {
-		tagsFunc := buildInclusionCompletionFunc(cmdStruct, false)
-		dirsFunc := buildInclusionCompletionFunc(cmdStruct, true)
+		tagsFunc := buildInclusionCompletionFunc(ctx, cmdStruct, false)
+		dirsFunc := buildInclusionCompletionFunc(ctx, cmdStruct, true)
 		_ = ccmd.RegisterFlagCompletionFunc("include-tag", tagsFunc)
 		_ = ccmd.RegisterFlagCompletionFunc("exclude-tag", tagsFunc)
 		_ = ccmd.RegisterFlagCompletionFunc("include-deployment-dir", dirsFunc)
@@ -34,31 +36,31 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	}
 
 	if imageFlags.IsValid() {
-		_ = ccmd.RegisterFlagCompletionFunc("fixed-image", buildImagesCompletionFunc(cmdStruct))
+		_ = ccmd.RegisterFlagCompletionFunc("fixed-image", buildImagesCompletionFunc(ctx, cmdStruct))
 	}
 
 	return nil
 }
 
-func withProjectForCompletion(projectArgs *args.ProjectFlags, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withProjectForCompletion(ctx context.Context, projectArgs *args.ProjectFlags, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	// let's not update git caches too often
 	projectArgs.GitCacheUpdateInterval = time.Second * 60
-	return withKluctlProjectFromArgs(*projectArgs, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, *projectArgs, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return cb(ctx, p)
 	})
 }
 
-func buildTargetCompletionFunc(projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildTargetCompletionFunc(ctx context.Context, projectArgs *args.ProjectFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var ret []string
-		err := withProjectForCompletion(projectArgs, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(ctx, projectArgs, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			for _, t := range p.DynamicTargets {
 				ret = append(ret, t.Target.Name)
 			}
 			return nil
 		})
 		if err != nil {
-			status.Error(cliCtx, err.Error())
+			status.Error(ctx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		return ret, cobra.ShellCompDirectiveDefault
@@ -89,7 +91,7 @@ func buildAutocompleteProjectTargetCommandArgs(cmdStruct interface{}) projectTar
 	return ptArgs
 }
 
-func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, forDirs bool) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
@@ -97,7 +99,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 		var deploymentItemDirs utils.OrderedMap
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(&ptArgs.projectFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.DynamicTargets {
@@ -113,10 +115,10 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 				ptArgs.targetFlags.Target = t
 				wg.Add(1)
 				go func() {
-					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
+					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(cmdCtx *commandCtx) error {
 						mutex.Lock()
 						defer mutex.Unlock()
-						for _, di := range ctx.targetCtx.DeploymentCollection.Deployments {
+						for _, di := range cmdCtx.targetCtx.DeploymentCollection.Deployments {
 							tags.Merge(di.Tags)
 							deploymentItemDirs.Set(di.RelToSourceItemDir, true)
 						}
@@ -129,7 +131,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 			return nil
 		})
 		if err != nil {
-			status.Error(cliCtx, err.Error())
+			status.Error(ctx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		if forDirs {
@@ -140,7 +142,7 @@ func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd 
 	}
 }
 
-func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
@@ -151,7 +153,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 		var images utils.OrderedMap
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(&ptArgs.projectFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.DynamicTargets {
@@ -167,15 +169,15 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 				ptArgs.targetFlags.Target = t
 				wg.Add(1)
 				go func() {
-					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(ctx *commandCtx) error {
-						err := ctx.targetCtx.DeploymentCollection.Prepare()
+					_ = withProjectTargetCommandContext(ctx, ptArgs, p, func(cmdCtx *commandCtx) error {
+						err := cmdCtx.targetCtx.DeploymentCollection.Prepare()
 						if err != nil {
-							status.Error(cliCtx, err.Error())
+							status.Error(ctx, err.Error())
 						}
 
 						mutex.Lock()
 						defer mutex.Unlock()
-						for _, si := range ctx.images.SeenImages(false) {
+						for _, si := range cmdCtx.images.SeenImages(false) {
 							str := si.Image
 							if si.Namespace != nil {
 								str += ":" + *si.Namespace
@@ -197,7 +199,7 @@ func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, a
 			return nil
 		})
 		if err != nil {
-			status.Error(cliCtx, err.Error())
+			status.Error(ctx, err.Error())
 			return nil, cobra.ShellCompDirectiveError
 		}
 		return images.ListKeys(), cobra.ShellCompDirectiveNoSpace

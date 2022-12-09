@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
@@ -28,7 +29,7 @@ func (cmd *validateCmd) Help() string {
 TODO: This needs to be better documented!`
 }
 
-func (cmd *validateCmd) Run() error {
+func (cmd *validateCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
 		targetFlags:          cmd.TargetFlags,
@@ -37,17 +38,17 @@ func (cmd *validateCmd) Run() error {
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	return withProjectCommandContext(ptArgs, func(ctx *commandCtx) error {
+	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		startTime := time.Now()
-		cmd2 := commands.NewValidateCommand(ctx.ctx, ctx.targetCtx.DeploymentCollection)
+		cmd2 := commands.NewValidateCommand(cmdCtx.ctx, cmdCtx.targetCtx.DeploymentCollection)
 		for true {
-			result, err := cmd2.Run(ctx.ctx, ctx.targetCtx.SharedContext.K)
+			result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
 			if err != nil {
 				return err
 			}
 			failed := len(result.Errors) != 0 || (cmd.WarningsAsErrors && len(result.Warnings) != 0)
 
-			err = outputValidateResult(cmd.Output, result)
+			err = outputValidateResult(ctx, cmd.Output, result)
 			if err != nil {
 				return err
 			}

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"os"
 )
@@ -8,7 +9,7 @@ import (
 type versionCmd struct {
 }
 
-func (cmd *versionCmd) Run() error {
+func (cmd *versionCmd) Run(ctx context.Context) error {
 	_, err := os.Stdout.WriteString(version.GetVersion() + "\n")
 	return err
 }
