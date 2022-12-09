@@ -475,11 +475,6 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	// +1 to ensure that we don't prematurely complete the bar (which would happen as we don't count for waiting)
 	total := len(applyObjects) + len(preHooks) + len(postHooks) + 1
 	a.sctx.SetTotal(total)
-	if !d.CheckInclusionForDeploy() {
-		a.sctx.UpdateAndInfoFallback("Skipped")
-		a.sctx.Warning()
-		return
-	}
 
 	if len(toDelete) != 0 {
 		a.sctx.InfoFallback("Deleting %d objects", len(toDelete))

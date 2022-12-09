@@ -35,9 +35,6 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 
 	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, d := range cmd.c.Deployments {
-		if !d.CheckInclusionForDeploy() {
-			continue
-		}
 		for _, o := range d.Objects {
 			allObjects[o.GetK8sRef()] = o
 		}

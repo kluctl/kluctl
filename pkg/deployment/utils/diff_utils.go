@@ -42,10 +42,6 @@ func (u *diffUtil) Diff() {
 	u.calcRemoteObjectsForDiff()
 
 	for _, d := range u.deployments {
-		if !d.CheckInclusionForDeploy() {
-			continue
-		}
-
 		ignoreForDiffs := d.Project.GetIgnoreForDiffs(u.IgnoreTags, u.IgnoreLabels, u.IgnoreAnnotations)
 		for _, o := range d.Objects {
 			o := o
