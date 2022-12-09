@@ -15,6 +15,7 @@ type renderCmd struct {
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
+	args.InclusionFlags
 	args.HelmCredentials
 	args.RenderOutputDirFlags
 	args.OfflineKubernetesFlags
@@ -43,6 +44,7 @@ func (cmd *renderCmd) Run(ctx context.Context) error {
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
+		inclusionFlags:       cmd.InclusionFlags,
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		offlineKubernetes:    cmd.OfflineKubernetes,

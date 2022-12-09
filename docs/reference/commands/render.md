@@ -23,6 +23,7 @@ a temporary directory or a specified directory.
 The following sets of arguments are available:
 1. [project arguments](./common-arguments.md#project-arguments)
 1. [image arguments](./common-arguments.md#image-arguments)
+1. [inclusion/exclusion arguments](./common-arguments.md#inclusionexclusion-arguments)
 
 In addition, the following arguments are available:
 <!-- BEGIN SECTION "render" "Misc arguments" true -->
