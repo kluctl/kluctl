@@ -54,6 +54,8 @@ type VarsSourceVault struct {
 }
 
 type VarsSource struct {
+	IgnoreMissing *bool `yaml:"ignoreMissing,omitempty"`
+
 	Values            *uo.UnstructuredObject              `yaml:"values,omitempty"`
 	File              *string                             `yaml:"file,omitempty"`
 	Git               *VarsSourceGit                      `yaml:"git,omitempty"`
@@ -71,6 +73,9 @@ func ValidateVarsSource(sl validator.StructLevel) {
 	count := 0
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Name == "IgnoreMissing" {
+			continue
+		}
 		if !v.Field(i).IsNil() {
 			count += 1
 		}

@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, password string) (*http.Response, string, error) {
+func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, ignoreMissing bool, username string, password string) (*http.Response, string, error) {
 	client := &http.Client{
 		Transport: ntlmssp.Negotiator{
 			RoundTripper: &http.Transport{
@@ -64,8 +64,8 @@ func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, username string, p
 	return resp, string(respBody), nil
 }
 
-func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, rootKey string) error {
-	resp, respBody, err := v.doHttp(source.Http, "", "")
+func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
+	resp, respBody, err := v.doHttp(source.Http, ignoreMissing, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)
 		if len(chgs) == 0 {
@@ -95,11 +95,14 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, rootKe
 			v.credentialsCache[credsKey] = creds
 		}
 
-		resp, respBody, err = v.doHttp(source.Http, creds.username, creds.password)
+		resp, respBody, err = v.doHttp(source.Http, ignoreMissing, creds.username, creds.password)
 		if err != nil {
 			return err
 		}
 	} else if err != nil {
+		if ignoreMissing && resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil
+		}
 		return err
 	}
 

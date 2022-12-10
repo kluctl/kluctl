@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -87,6 +88,15 @@ func TestVarsLoader_File(t *testing.T) {
 
 		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
 		assert.Equal(t, int64(42), v)
+	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			File:          utils.StrPtr("test-missing.yaml"),
+		}, []string{d}, "")
+		assert.NoError(t, err)
 	})
 }
 
@@ -177,6 +187,19 @@ func TestVarsLoader_Git(t *testing.T) {
 		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
 		assert.Equal(t, int64(42), v)
 	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		url, _ := git_url.Parse(gs.GitUrl("repo"))
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			Git: &types.VarsSourceGit{
+				Url:  *url,
+				Path: "test-missing.yaml",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+	})
 }
 
 func TestVarsLoader_GitBranch(t *testing.T) {
@@ -259,6 +282,19 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 		}, nil, "")
 		assert.EqualError(t, err, "key vars1 not found in ns/ConfigMap/cm on cluster")
 	}, &cm)
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "cm-missing",
+				Namespace: "ns",
+				Key:       "vars",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+	}, &cm)
 }
 
 func TestVarsLoader_ClusterSecret(t *testing.T) {
@@ -302,6 +338,19 @@ func TestVarsLoader_ClusterSecret(t *testing.T) {
 		}, nil, "")
 		assert.EqualError(t, err, "key vars1 not found in ns/Secret/s on cluster")
 	}, &secret)
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "s-missing",
+				Namespace: "ns",
+				Key:       "vars",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+	}, &secret)
 }
 
 func TestVarsLoader_K8sObjectLabels(t *testing.T) {
@@ -344,6 +393,19 @@ func TestVarsLoader_K8sObjectLabels(t *testing.T) {
 
 		v, _, _ := vc.Vars.GetNestedInt("test3", "test4")
 		assert.Equal(t, int64(43), v)
+	}, &cm1, &cm2)
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Labels:    map[string]string{"label2": "value-missing"},
+				Namespace: "ns",
+				Key:       "vars",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
 	}, &cm1, &cm2)
 }
 
@@ -398,17 +460,38 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 		}, nil, "")
 		assert.EqualError(t, err, "environment variable TEST5 not found for test5")
 	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			SystemEnvVars: uo.FromMap(map[string]interface{}{
+				"test1": "TEST-MISSING",
+			}),
+		}, nil, "")
+		assert.NoError(t, err)
+
+		_, ok, _ := vc.Vars.GetNestedField("test1")
+		assert.False(t, ok)
+	})
 }
 
 func TestVarsLoader_Http_GET(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"test1": {"test2": 42}}`))
+		if strings.HasSuffix(r.URL.Path, "/ok") {
+			_, _ = w.Write([]byte(`{"test1": {"test2": 42}}`))
+		} else if strings.HasSuffix(r.URL.Path, "/error") {
+			http.Error(w, "error", http.StatusInternalServerError)
+		} else {
+			http.NotFound(w, r)
+		}
 	}))
 	defer ts.Close()
 
-	u, _ := url.Parse(ts.URL)
-
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		u, _ := url.Parse(ts.URL)
+		u.Path += "/ok"
+
 		err := vl.LoadVars(vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url: types.YamlUrl{URL: *u},
@@ -418,6 +501,33 @@ func TestVarsLoader_Http_GET(t *testing.T) {
 
 		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
 		assert.Equal(t, int64(42), v)
+	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		u, _ := url.Parse(ts.URL)
+		u.Path += "/missing"
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			Http: &types.VarsSourceHttp{
+				Url: types.YamlUrl{URL: *u},
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		u, _ := url.Parse(ts.URL)
+		u.Path += "/error"
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			Http: &types.VarsSourceHttp{
+				Url: types.YamlUrl{URL: *u},
+			},
+		}, nil, "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed with status code 500")
 	})
 }
 
@@ -542,5 +652,21 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 
 		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
 		assert.Equal(t, int64(42), v)
+	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		aws.Secrets = map[string]string{
+			"secret": `{"test1": {"test2": 42}}`,
+		}
+
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
+				SecretName: "missing",
+				Region:     utils.StrPtr("eu-central1"),
+			},
+		}, nil, "")
+		assert.NoError(t, err)
 	})
 }
