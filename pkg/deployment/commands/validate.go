@@ -38,9 +38,6 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.c.Deployments, cmd.ru, k, &utils2.ApplyUtilOptions{})
 	for _, d := range cmd.c.Deployments {
-		if !d.CheckInclusionForDeploy() {
-			continue
-		}
 		au := ad.NewApplyUtil(ctx, nil)
 		h := utils2.NewHooksUtil(au)
 		for _, o := range d.Objects {

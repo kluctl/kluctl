@@ -367,16 +367,11 @@ func (di *DeploymentItem) CheckInclusionForDeploy() bool {
 	if di.Config.AlwaysDeploy {
 		return true
 	}
-	values := di.buildInclusionEntries()
-	return di.Inclusion.CheckIncluded(values, false)
-}
-
-func (di *DeploymentItem) checkInclusionForDelete() bool {
-	if di.Inclusion == nil {
+	if di.Config.Barrier {
 		return true
 	}
 	values := di.buildInclusionEntries()
-	return di.Inclusion.CheckIncluded(values, di.Config.SkipDeleteIfTags)
+	return di.Inclusion.CheckIncluded(values, false)
 }
 
 func (di *DeploymentItem) readKustomizationYaml(subDir string) (*uo.UnstructuredObject, error) {

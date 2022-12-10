@@ -34,11 +34,16 @@ func NewDeploymentCollection(ctx SharedContext, project *DeploymentProject, imag
 	}
 
 	indexes := make(map[string]int)
-	deployments, err := dc.collectDeployments(project, indexes)
+	deployments, err := dc.collectAllDeployments(project, indexes)
 	if err != nil {
 		return nil, err
 	}
-	dc.Deployments = deployments
+	dc.Deployments = make([]*DeploymentItem, 0, len(deployments))
+	for _, d := range deployments {
+		if d.CheckInclusionForDeploy() {
+			dc.Deployments = append(dc.Deployments, d)
+		}
+	}
 	return dc, nil
 }
 
@@ -75,7 +80,7 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 	return index, dir2
 }
 
-func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, indexes map[string]int) ([]*DeploymentItem, error) {
+func (c *DeploymentCollection) collectAllDeployments(project *DeploymentProject, indexes map[string]int) ([]*DeploymentItem, error) {
 	var ret []*DeploymentItem
 
 	for i, diConfig := range project.Config.Deployments {
@@ -84,7 +89,7 @@ func (c *DeploymentCollection) collectDeployments(project *DeploymentProject, in
 			if !ok {
 				panic(fmt.Sprintf("Did not find find index %d in project.includes", i))
 			}
-			ret2, err := c.collectDeployments(includedProject, indexes)
+			ret2, err := c.collectAllDeployments(includedProject, indexes)
 			if err != nil {
 				return nil, err
 			}

@@ -183,6 +183,8 @@ deployments:
 - path: kustomizeDeployment2
 ```
 
+Please note that `alwaysDeploy` will also cause [kluctl render](../commands/render.md) to always render the resources.
+
 ### skipDeleteIfTags
 Forces exclusion of a deployment whenever inclusion/exclusion tags are specified via command line.
 See [Deleting with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
