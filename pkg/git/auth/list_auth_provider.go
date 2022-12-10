@@ -6,6 +6,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	ssh2 "golang.org/x/crypto/ssh"
 	"strings"
 )
 
@@ -79,13 +80,20 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 			if err != nil {
 				a.MessageCallbacks.Trace("ListAuthProvider: failed to parse private key: %v", err)
 			} else {
-				pk.HostKeyCallback = buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts)
+				hostKeyCallback := buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts)
 				return AuthMethodAndCA{
 					AuthMethod: pk,
 					Hash: func() ([]byte, error) {
 						return buildHash(pk.Signer)
 					},
-					ClientConfig: pk.ClientConfig,
+					ClientConfig: func() (*ssh2.ClientConfig, error) {
+						ccfg, err := pk.ClientConfig()
+						if err != nil {
+							return nil, err
+						}
+						ccfg.HostKeyCallback = hostKeyCallback
+						return ccfg, nil
+					},
 				}
 			}
 		} else {
