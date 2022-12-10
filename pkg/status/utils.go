@@ -5,8 +5,23 @@ import (
 	"io"
 )
 
+type lineRedirector struct {
+	io.WriteCloser
+	done chan bool
+}
+
+func (lr *lineRedirector) Close() error {
+	err := lr.WriteCloser.Close()
+	if err != nil {
+		return err
+	}
+	<-lr.done
+	return nil
+}
+
 func NewLineRedirector(cb func(line string)) io.WriteCloser {
 	r, w := io.Pipe()
+	done := make(chan bool, 1)
 
 	go func() {
 		br := bufio.NewReader(r)
@@ -18,9 +33,10 @@ func NewLineRedirector(cb func(line string)) io.WriteCloser {
 			}
 			cb(msg)
 		}
+		done <- true
 	}()
 
-	return w
+	return &lineRedirector{w, done}
 }
 
 type replaceRReader struct {

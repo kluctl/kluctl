@@ -180,10 +180,20 @@ func (a *ApplyUtil) DeleteObject(ref k8s2.ObjectRef, hook bool) bool {
 	return true
 }
 
-func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, applyError error) {
+func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
 
 	if !a.o.ForceReplaceOnError {
+		a.HandleError(ref, applyError)
+		return
+	}
+
+	skipDelete := isSkipDelete(x)
+	if remoteObject != nil {
+		skipDelete = skipDelete || isSkipDelete(remoteObject)
+	}
+	if skipDelete {
+		status.Warning(a.ctx, "skipped forced replace of %s", ref.String())
 		a.HandleError(ref, applyError)
 		return
 	}
@@ -235,7 +245,7 @@ func (a *ApplyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, r
 	r, apiWarnings, err := a.k.UpdateObject(x, o)
 	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
-		a.retryApplyForceReplace(x, hook, err)
+		a.retryApplyForceReplace(x, hook, remoteObject, err)
 		return
 	}
 	a.handleResult(r, hook)
@@ -334,8 +344,6 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		a.HandleError(ref, err)
 	} else if errors.IsConflict(err) {
 		a.retryApplyWithConflicts(x, hook, remoteObject, err)
-	} else if errors.IsInternalError(err) {
-		a.HandleError(ref, err)
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
 	}
