@@ -440,9 +440,16 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 		p.t.Log(message)
 		stderrBuf.WriteString(message + "\n")
 	}, false, true)
-	defer sh.Stop()
+	defer func() {
+		if sh != nil {
+			sh.Stop()
+		}
+	}()
 	ctx = status.NewContext(ctx, sh)
 	err := commands.Execute(ctx, args, nil)
+	sh.Stop()
+	sh = nil
+	_ = stdout.Close()
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
