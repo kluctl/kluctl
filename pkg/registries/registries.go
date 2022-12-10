@@ -337,6 +337,10 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 	}
 
 	res, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(b)), nil)
+	if err != nil {
+		status.Warning(rh.ctx, "readCachedResponse failed: %v", err)
+		return nil
+	}
 
 	if strings.HasPrefix(res.Header.Get("Content-Type"), "application/json") {
 		jb, err := io.ReadAll(res.Body)
