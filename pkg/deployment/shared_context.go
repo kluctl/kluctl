@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
@@ -15,9 +16,10 @@ type SharedContext struct {
 	RP              *repocache.GitRepoCache
 	SopsDecrypter   sops.SopsDecrypter
 	VarsLoader      *vars.VarsLoader
-	HelmCredentials HelmCredentialsProvider
+	HelmCredentials helm.HelmCredentialsProvider
 
 	RenderDir                         string
 	SealedSecretsDir                  string
 	DefaultSealedSecretsOutputPattern string
+	HelmChartsDir                     string
 }

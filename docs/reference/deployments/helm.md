@@ -17,7 +17,7 @@ The integration is split into 2 parts/steps/layers. The first is the management 
 the second part handles configuration/customization and deployment of the chart.
 
 It is recommended to pre-pull Helm Charts with [`kluctl helm-pull`](../commands/helm-pull.md), which will store the
-pulled charts near the `helm-chart.yaml` file (inside the `charts` sub-directory). It is however also possible (but not
+pulled charts inside `.helm-charts` of the project directory. It is however also possible (but not
 recommended) to skip the pre-pulling phase and let kluctl pull Charts on-demand.
 
 When pre-pulling Helm Charts, you can also add the resulting Chart contents into version control. This is actually

@@ -1,11 +1,14 @@
 package e2e
 
 import (
+	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
+	"net/url"
+	"os"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -71,18 +74,18 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 			return
 		} else {
 			assert.NoError(t, err)
-			assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
+			assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
 		}
 	}
 
 	args := []string{"deploy", "--yes", "-t", "test"}
 	args = append(args, tc.extraArgs...)
 	_, stderr, err := p.Kluctl(args...)
-	prePullWarning := "Warning, need to pull Helm Chart test-chart1 with version 0.1.0."
+	pullMessage := "Pulling Helm Chart test-chart1 with version 0.1.0"
 	if prePull {
-		assert.NotContains(t, stderr, prePullWarning)
+		assert.NotContains(t, stderr, pullMessage)
 	} else {
-		assert.Contains(t, stderr, prePullWarning)
+		assert.Contains(t, stderr, pullMessage)
 	}
 	if tc.expectedError != "" {
 		assert.Error(t, err)
@@ -137,7 +140,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	p.KluctlMust("helm-pull")
-	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
+	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ := cm.GetNestedString("data", "version")
@@ -149,6 +152,8 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	}, "")
 
 	p.KluctlMust("helm-pull")
+	assert.NoFileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
+	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.2.0"))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ = cm.GetNestedString("data", "version")
@@ -190,9 +195,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}, "")
 
 	p.KluctlMust("helm-pull")
-	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
-	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm2/charts/test-chart2/Chart.yaml"))
-	assert.FileExists(t, filepath.Join(p.LocalRepoDir(), "helm3/charts/test-chart1/Chart.yaml"))
+	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
+	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart2", "0.1.0"))
 
 	args := []string{"helm-update"}
 	if upgrade {
@@ -203,28 +207,28 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}
 
 	_, stderr := p.KluctlMust(args...)
-	assert.Contains(t, stderr, "helm1: Chart has new version 0.2.0 available.")
-	assert.Contains(t, stderr, "helm2: Chart has new version 0.3.0 available.")
-	assert.Contains(t, stderr, "helm3: Chart has new version 0.2.0 available. Old version is 0.1.0. skipUpdate is set to true.")
+	assert.Contains(t, stderr, "helm1: Chart test-chart1 has new version 0.2.0 available")
+	assert.Contains(t, stderr, "helm2: Chart test-chart2 has new version 0.3.0 available")
+	assert.Contains(t, stderr, "helm3: Skipped update to version 0.2.0")
 
-	c1, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), "helm1/charts/test-chart1/Chart.yaml"))
-	assert.NoError(t, err)
-	c2, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), "helm2/charts/test-chart2/Chart.yaml"))
-	assert.NoError(t, err)
-	c3, err := uo.FromFile(filepath.Join(p.LocalRepoDir(), "helm3/charts/test-chart1/Chart.yaml"))
-	assert.NoError(t, err)
-
-	v1, _, _ := c1.GetNestedString("version")
-	v2, _, _ := c2.GetNestedString("version")
-	v3, _, _ := c3.GetNestedString("version")
 	if upgrade {
-		assert.Equal(t, "0.2.0", v1)
-		assert.Equal(t, "0.3.0", v2)
-		assert.Equal(t, "0.1.0", v3)
+		assert.Contains(t, stderr, "helm1: Upgrading Chart test-chart1 to version 0.2.0")
+		assert.Contains(t, stderr, "helm2: Upgrading Chart test-chart2 to version 0.3.0")
+	}
+	if commit {
+		assert.Contains(t, stderr, "helm1: Committed helm chart test-chart1 with version 0.2.0")
+		assert.Contains(t, stderr, "helm2: Committed helm chart test-chart2 with version 0.3.0")
+	}
+
+	pulledVersions1 := listChartVersions(t, p, repoUrl, "test-chart1")
+	pulledVersions2 := listChartVersions(t, p, repoUrl, "test-chart2")
+
+	if upgrade {
+		assert.Equal(t, []string{"0.1.0", "0.2.0"}, pulledVersions1)
+		assert.Equal(t, []string{"0.3.0"}, pulledVersions2)
 	} else {
-		assert.Equal(t, "0.1.0", v1)
-		assert.Equal(t, "0.1.0", v2)
-		assert.Equal(t, "0.1.0", v3)
+		assert.Equal(t, []string{"0.1.0"}, pulledVersions1)
+		assert.Equal(t, []string{"0.1.0"}, pulledVersions2)
 	}
 
 	if commit {
@@ -244,8 +248,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 			return commitList[i].Message < commitList[j].Message
 		})
 
-		assert.Equal(t, "Updated helm chart helm1 from 0.1.0 to 0.2.0", commitList[0].Message)
-		assert.Equal(t, "Updated helm chart helm2 from 0.1.0 to 0.3.0", commitList[1].Message)
+		assert.Equal(t, "Updated helm chart test-chart1 in helm1 to version 0.2.0", commitList[0].Message)
+		assert.Equal(t, "Updated helm chart test-chart2 in helm2 to version 0.3.0", commitList[1].Message)
 	}
 }
 
@@ -312,9 +316,9 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 	args := []string{"helm-update", "--upgrade"}
 
 	_, stderr := p.KluctlMust(args...)
-	assert.Contains(t, stderr, "helm1: Chart has new version 0.1.1 available.")
-	assert.Contains(t, stderr, "helm2: Chart has new version 0.2.0 available.")
-	assert.Contains(t, stderr, "helm3: Chart has new version 1.2.1 available.")
+	assert.Contains(t, stderr, "helm1: Chart test-chart1 has new version 0.1.1 available")
+	assert.Contains(t, stderr, "helm2: Chart test-chart1 has new version 0.2.0 available")
+	assert.Contains(t, stderr, "helm3: Chart test-chart1 has new version 1.2.1 available")
 
 	c1 := p.GetYaml("helm1/helm-chart.yaml")
 	c2 := p.GetYaml("helm2/helm-chart.yaml")
@@ -467,4 +471,37 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 		"version":     "0.1.0",
 		"kubeVersion": "v1.22.1",
 	}, cm1.Object["data"])
+}
+
+func getChartDir(t *testing.T, p *test_utils.TestProject, url2 string, chartName string, chartVersion string) string {
+	u, err := url.Parse(url2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dir string
+	if u.Scheme == "oci" {
+		dir = filepath.Join(p.LocalRepoDir(), ".helm-charts", fmt.Sprintf("%s_%s", u.Scheme, u.Hostname()), chartName)
+	} else {
+		dir = filepath.Join(p.LocalRepoDir(), ".helm-charts", fmt.Sprintf("%s_%s_%s", u.Scheme, u.Port(), u.Hostname()), chartName)
+	}
+	if chartVersion != "" {
+		dir = filepath.Join(dir, chartVersion)
+	}
+	return dir
+}
+
+func getChartFile(t *testing.T, p *test_utils.TestProject, url2 string, chartName string, chartVersion string) string {
+	return filepath.Join(getChartDir(t, p, url2, chartName, chartVersion), "Chart.yaml")
+}
+
+func listChartVersions(t *testing.T, p *test_utils.TestProject, url2 string, chartName string) []string {
+	des, err := os.ReadDir(getChartDir(t, p, url2, chartName, ""))
+	assert.NoError(t, err)
+
+	var versions []string
+	for _, de := range des {
+		versions = append(versions, de.Name())
+	}
+	sort.Strings(versions)
+	return versions
 }
