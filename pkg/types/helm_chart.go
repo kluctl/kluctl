@@ -1,10 +1,10 @@
 package types
 
 type HelmChartConfig2 struct {
-	Repo              *string `yaml:"repo" validate:"required"`
+	Repo              string  `yaml:"repo" validate:"required"`
 	CredentialsId     *string `yaml:"credentialsId,omitempty"`
-	ChartName         *string `yaml:"chartName,omitempty"`
-	ChartVersion      *string `yaml:"chartVersion" validate:"required"`
+	ChartName         string  `yaml:"chartName,omitempty"`
+	ChartVersion      string  `yaml:"chartVersion" validate:"required"`
 	UpdateConstraints *string `yaml:"updateConstraints,omitempty"`
 	ReleaseName       string  `yaml:"releaseName" validate:"required"`
 	Namespace         *string `yaml:"namespace,omitempty"`

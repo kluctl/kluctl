@@ -113,13 +113,13 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			}
 
 			for _, chart := range uc.charts {
-				updated := newVersion != *chart.Config.ChartVersion
+				updated := newVersion != chart.Config.ChartVersion
 				if updated && chart.Config.SkipUpdate {
 					status.Info(ctx, "%s: Skipping update to version %s", chart.GetChartName(), newVersion)
 					updated = false
 				}
 				if !updated {
-					toKeep[buildKey(chart, chart.Config.ChartVersion, nil)] = true
+					toKeep[buildKey(chart, &chart.Config.ChartVersion, nil)] = true
 					continue
 				}
 				if len(uc2.charts) == 0 {
@@ -258,9 +258,9 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, gitRootPath s
 
 	for _, chart := range uc.charts {
 		oldChartDirs = append(oldChartDirs, chart.GetChartDir(true))
-		oldVersions = append(oldVersions, *chart.Config.ChartVersion)
+		oldVersions = append(oldVersions, chart.Config.ChartVersion)
 
-		chart.Config.ChartVersion = &uc.newVersion
+		chart.Config.ChartVersion = uc.newVersion
 		err := chart.Save()
 		if err != nil {
 			return doError(err)

@@ -56,7 +56,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		chart.SetCredentials(&cmd.HelmCredentials)
 
 		cleanupDir := chart.GetChartDir(false)
-		cleanupDirs[cleanupDir] = append(cleanupDirs[cleanupDir], *chart.Config.ChartVersion)
+		cleanupDirs[cleanupDir] = append(cleanupDirs[cleanupDir], chart.Config.ChartVersion)
 
 		if _, ok := chartsToPull[chart.GetChartDir(true)]; ok {
 			return nil
@@ -76,7 +76,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		statusPrefix := chart.GetChartName()
 
 		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
-			s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, *chart.Config.ChartVersion)
+			s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, chart.Config.ChartVersion)
 			defer s.Failed()
 
 			err := chart.Pull(ctx)
