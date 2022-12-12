@@ -170,7 +170,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			continue
 		}
 
-		status.Info(ctx, "%s: Chart has new version %s available", relDir, latestVersion)
+		status.Info(ctx, "%s: Chart %s has new version %s available", relDir, hr.Chart.GetChartName(), latestVersion)
 
 		if !cmd.Upgrade {
 			continue
@@ -242,7 +242,7 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 		return err
 	}
 
-	s := status.Start(ctx, "%s: Upgrading Chart to version %s", relDir, newVersion)
+	s := status.Start(ctx, "%s: Upgrading Chart %s to version %s", relDir, hr.Chart.GetChartName(), newVersion)
 	defer s.Failed()
 
 	doError := func(err error) error {
@@ -339,13 +339,13 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 	}
 
 	if cmd.Commit {
-		commitMsg := fmt.Sprintf("Updated helm chart %s to version %s", relDir, newVersion)
+		commitMsg := fmt.Sprintf("Updated helm chart %s in %s to version %s", hr.Chart.GetChartName(), relDir, newVersion)
 		_, err = wt.Commit(commitMsg, &git.CommitOptions{})
 		if err != nil {
 			return doError(fmt.Errorf("failed to commit: %w", err))
 		}
 
-		s.UpdateAndInfoFallback("%s: Committed helm chart with version %s", relDir, newVersion)
+		s.UpdateAndInfoFallback("%s: Committed helm chart %s with version %s", relDir, hr.Chart.GetChartName(), newVersion)
 	}
 	s.Success()
 

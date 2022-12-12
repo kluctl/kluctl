@@ -207,17 +207,17 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}
 
 	_, stderr := p.KluctlMust(args...)
-	assert.Contains(t, stderr, "helm1: Chart has new version 0.2.0 available")
-	assert.Contains(t, stderr, "helm2: Chart has new version 0.3.0 available")
+	assert.Contains(t, stderr, "helm1: Chart test-chart1 has new version 0.2.0 available")
+	assert.Contains(t, stderr, "helm2: Chart test-chart2 has new version 0.3.0 available")
 	assert.Contains(t, stderr, "helm3: Skipped update to version 0.2.0")
 
 	if upgrade {
-		assert.Contains(t, stderr, "helm1: Upgrading Chart to version 0.2.0")
-		assert.Contains(t, stderr, "helm2: Upgrading Chart to version 0.3.0")
+		assert.Contains(t, stderr, "helm1: Upgrading Chart test-chart1 to version 0.2.0")
+		assert.Contains(t, stderr, "helm2: Upgrading Chart test-chart2 to version 0.3.0")
 	}
 	if commit {
-		assert.Contains(t, stderr, "helm1: Committed helm chart with version 0.2.0")
-		assert.Contains(t, stderr, "helm2: Committed helm chart with version 0.3.0")
+		assert.Contains(t, stderr, "helm1: Committed helm chart test-chart1 with version 0.2.0")
+		assert.Contains(t, stderr, "helm2: Committed helm chart test-chart2 with version 0.3.0")
 	}
 
 	pulledVersions1 := listChartVersions(t, p, repoUrl, "test-chart1")
@@ -248,8 +248,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 			return commitList[i].Message < commitList[j].Message
 		})
 
-		assert.Equal(t, "Updated helm chart helm1 to version 0.2.0", commitList[0].Message)
-		assert.Equal(t, "Updated helm chart helm2 to version 0.3.0", commitList[1].Message)
+		assert.Equal(t, "Updated helm chart test-chart1 in helm1 to version 0.2.0", commitList[0].Message)
+		assert.Equal(t, "Updated helm chart test-chart2 in helm2 to version 0.3.0", commitList[1].Message)
 	}
 }
 
@@ -316,9 +316,9 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 	args := []string{"helm-update", "--upgrade"}
 
 	_, stderr := p.KluctlMust(args...)
-	assert.Contains(t, stderr, "helm1: Chart has new version 0.1.1 available")
-	assert.Contains(t, stderr, "helm2: Chart has new version 0.2.0 available")
-	assert.Contains(t, stderr, "helm3: Chart has new version 1.2.1 available")
+	assert.Contains(t, stderr, "helm1: Chart test-chart1 has new version 0.1.1 available")
+	assert.Contains(t, stderr, "helm2: Chart test-chart1 has new version 0.2.0 available")
+	assert.Contains(t, stderr, "helm3: Chart test-chart1 has new version 1.2.1 available")
 
 	c1 := p.GetYaml("helm1/helm-chart.yaml")
 	c2 := p.GetYaml("helm2/helm-chart.yaml")
