@@ -193,29 +193,27 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			return err
 		}
 
-		chart, err := helm.NewHelmChart(di.ctx.HelmChartsDir, p)
+		hr, err := helm.NewRelease(p, di.ctx.HelmChartsDir, di.ctx.HelmCredentials)
 		if err != nil {
 			return err
 		}
-
-		chart.SetCredentials(di.ctx.HelmCredentials)
 
 		ky, err := di.readKustomizationYaml(subDir)
 		if err == nil && ky != nil {
 			resources, _, _ := ky.GetNestedStringList("resources")
 			found := false
 			for _, r := range resources {
-				if r == chart.GetOutputPath() {
+				if r == hr.GetOutputPath() {
 					found = true
 					break
 				}
 			}
 			if !found {
-				return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.RelRenderedDir, chart.GetOutputPath())
+				return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.RelRenderedDir, hr.GetOutputPath())
 			}
 		}
 
-		return chart.Render(di.ctx.Ctx, di.ctx.K, di.ctx.K8sVersion, di.ctx.SopsDecrypter)
+		return hr.Render(di.ctx.Ctx, di.ctx.K, di.ctx.K8sVersion, di.ctx.SopsDecrypter)
 	})
 	if err != nil {
 		return err
@@ -418,7 +416,7 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 		if di.isHelmValuesYaml(de.Name()) {
 			continue
 		} else if di.isHelmChartYaml(de.Name()) {
-			c, err := helm.NewHelmChart(di.ctx.HelmChartsDir, filepath.Join(di.RenderedDir, subDir, de.Name()))
+			c, err := helm.NewRelease(filepath.Join(di.RenderedDir, subDir, de.Name()), di.ctx.HelmChartsDir, nil)
 			if err != nil {
 				return nil, err
 			}

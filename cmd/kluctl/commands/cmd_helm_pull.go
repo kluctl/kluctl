@@ -39,54 +39,78 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 
 	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
 
-	chartsToPull := map[string]*helm.HelmChart{}
-	cleanupDirs := map[string][]string{}
+	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, &cmd.HelmCredentials)
+	if err != nil {
+		return err
+	}
 
-	err = filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
-		fname := filepath.Base(p)
-		if fname != "helm-chart.yml" && fname != "helm-chart.yaml" {
-			return nil
+	for _, hr := range releases {
+		if utils.Exists(hr.GetDeprecatedChartDir()) {
+			rel, err := filepath.Rel(projectDir, hr.GetDeprecatedChartDir())
+			if err != nil {
+				return err
+			}
+			status.Info(ctx, "Removing deprecated charts dir %s", rel)
+			err = os.RemoveAll(hr.GetDeprecatedChartDir())
+			if err != nil {
+				return err
+			}
 		}
-
-		chart, err := helm.NewHelmChart(baseChartsDir, p)
-		if err != nil {
-			return err
-		}
-
-		chart.SetCredentials(&cmd.HelmCredentials)
-
-		cleanupDir := chart.GetChartDir(false)
-		cleanupDirs[cleanupDir] = append(cleanupDirs[cleanupDir], chart.Config.ChartVersion)
-
-		if _, ok := chartsToPull[chart.GetChartDir(true)]; ok {
-			return nil
-		}
-
-		chartsToPull[chart.GetChartDir(true)] = chart
-		return nil
-	})
+	}
 
 	var errs *multierror.Error
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	sem := semaphore.NewWeighted(8)
 
-	for _, chart := range chartsToPull {
+	for _, chart := range charts {
 		chart := chart
 		statusPrefix := chart.GetChartName()
 
-		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
-			s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, chart.Config.ChartVersion)
-			defer s.Failed()
-
-			err := chart.Pull(ctx)
-			if err != nil {
-				s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
-				return err
+		versionsToPull := map[string]bool{}
+		for _, hr := range releases {
+			if hr.Chart == chart {
+				versionsToPull[hr.Config.ChartVersion] = true
 			}
-			s.Success()
-			return nil
-		})
+		}
+
+		cleanupDir, err := chart.BuildPulledChartDir(baseChartsDir, "")
+		if err != nil {
+			return err
+		}
+		des, err := os.ReadDir(cleanupDir)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		for _, de := range des {
+			if !de.IsDir() {
+				continue
+			}
+			if _, ok := versionsToPull[de.Name()]; !ok {
+				status.Info(ctx, "Removing unused Chart with version %s", de.Name())
+				err = os.RemoveAll(filepath.Join(cleanupDir, de.Name()))
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		for version, _ := range versionsToPull {
+			version := version
+			utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
+				s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
+				defer s.Failed()
+
+				_, err := chart.PullInProject(ctx, baseChartsDir, version)
+				if err != nil {
+					s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
+					return err
+				}
+
+				s.Success()
+				return nil
+			})
+		}
 	}
 	wg.Wait()
 	if err != nil {
@@ -97,34 +121,39 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("command failed")
 	}
 
-	for dir, versions := range cleanupDirs {
-		des, err := os.ReadDir(dir)
+	return nil
+}
+
+func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvider helm.HelmCredentialsProvider) ([]*helm.Release, []*helm.Chart, error) {
+	var releases []*helm.Release
+	chartsMap := make(map[string]*helm.Chart)
+	err := filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
+		fname := filepath.Base(p)
+		if fname != "helm-chart.yml" && fname != "helm-chart.yaml" {
+			return nil
+		}
+
+		hr, err := helm.NewRelease(p, baseChartsDir, credentialsProvider)
 		if err != nil {
 			return err
 		}
-		for _, de := range des {
-			if !de.IsDir() {
-				continue
-			}
-			found := false
-			for _, v := range versions {
-				if v == de.Name() {
-					found = true
-					break
-				}
-			}
-			if !found {
-				chartName := filepath.Base(dir)
-				s := status.Start(ctx, "%s: Removing unused version %s", chartName, de.Name())
-				err = os.RemoveAll(filepath.Join(dir, de.Name()))
-				if err != nil {
-					s.Failed()
-					return err
-				}
-				s.Success()
-			}
-		}
-	}
 
-	return nil
+		releases = append(releases, hr)
+		chart := hr.Chart
+		key := fmt.Sprintf("%s / %s", chart.GetRepo(), chart.GetChartName())
+		if x, ok := chartsMap[key]; !ok {
+			chartsMap[key] = chart
+		} else {
+			hr.Chart = x
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	charts := make([]*helm.Chart, 0, len(chartsMap))
+	for _, chart := range chartsMap {
+		charts = append(charts, chart)
+	}
+	return releases, charts, nil
 }
