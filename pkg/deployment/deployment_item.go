@@ -193,7 +193,7 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			return err
 		}
 
-		chart, err := helm.NewHelmChart(p)
+		chart, err := helm.NewHelmChart(di.ctx.HelmChartsDir, p)
 		if err != nil {
 			return err
 		}
@@ -418,7 +418,7 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 		if di.isHelmValuesYaml(de.Name()) {
 			continue
 		} else if di.isHelmChartYaml(de.Name()) {
-			c, err := helm.NewHelmChart(filepath.Join(di.RenderedDir, subDir, de.Name()))
+			c, err := helm.NewHelmChart(di.ctx.HelmChartsDir, filepath.Join(di.RenderedDir, subDir, de.Name()))
 			if err != nil {
 				return nil, err
 			}

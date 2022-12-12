@@ -20,6 +20,7 @@ type LoadedKluctlProject struct {
 	ProjectDir     string
 
 	sealedSecretsDir string
+	helmChartsDir    string
 
 	Config         types2.KluctlProject
 	DynamicTargets []*types2.DynamicTarget

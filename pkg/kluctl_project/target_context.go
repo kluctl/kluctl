@@ -113,6 +113,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		RenderDir:                         params.RenderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,
 		DefaultSealedSecretsOutputPattern: target.Name,
+		HelmChartsDir:                     p.helmChartsDir,
 	}
 
 	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(deploymentDir), ".", nil)

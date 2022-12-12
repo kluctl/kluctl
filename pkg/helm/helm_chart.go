@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -46,11 +47,14 @@ type HelmChart struct {
 
 	credentials HelmCredentialsProvider
 
-	chartName string
-	chartDir  string
+	chartName          string
+	chartDir           string
+	deprecatedChartDir string
+
+	versions []string
 }
 
-func NewHelmChart(configFile string) (*HelmChart, error) {
+func NewHelmChart(baseChartsDir string, configFile string) (*HelmChart, error) {
 	var config types.HelmChartConfig
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
@@ -86,17 +90,71 @@ func NewHelmChart(configFile string) (*HelmChart, error) {
 	if err != nil {
 		return nil, err
 	}
-	hc.chartDir = chartDir
+	hc.deprecatedChartDir = chartDir
+
+	hc.chartDir, err = hc.buildChartDir(baseChartsDir)
+	if err != nil {
+		return nil, err
+	}
 
 	return hc, nil
+}
+
+func (c *HelmChart) buildChartDir(baseChartsDir string) (string, error) {
+	u, err := url.Parse(*c.Config.Repo)
+	if err != nil {
+		return "", err
+	}
+
+	scheme := ""
+	port := ""
+	switch {
+	case registry.IsOCI(*c.Config.Repo):
+		scheme = "oci"
+	case u.Scheme == "http":
+		scheme = "http"
+		if u.Port() != "80" {
+			port = u.Port()
+		}
+	case u.Scheme == "https":
+		scheme = "https"
+		if u.Port() != "443" {
+			port = u.Port()
+		}
+	default:
+		return "", fmt.Errorf("unsupported scheme in %s", u.String())
+	}
+	if port != "" {
+		scheme += "_" + port
+	}
+
+	dir := filepath.Join(
+		baseChartsDir,
+		fmt.Sprintf("%s_%s", scheme, strings.ToLower(u.Hostname())),
+		filepath.FromSlash(strings.ToLower(u.Path)),
+		c.chartName,
+	)
+	err = utils.CheckInDir(baseChartsDir, dir)
+	if err != nil {
+		return "", err
+	}
+
+	return dir, nil
 }
 
 func (c *HelmChart) GetChartName() string {
 	return c.chartName
 }
 
-func (c *HelmChart) GetChartDir() string {
+func (c *HelmChart) GetChartDir(withVersion bool) string {
+	if withVersion {
+		return filepath.Join(c.chartDir, *c.Config.ChartVersion)
+	}
 	return c.chartDir
+}
+
+func (c *HelmChart) GetDeprecatedChartDir() string {
+	return c.deprecatedChartDir
 }
 
 func (c *HelmChart) GetOutputPath() string {
@@ -155,7 +213,14 @@ func (c *HelmChart) checkNeedsPull(chartDir string, isTmp bool) (bool, bool, str
 }
 
 func (c *HelmChart) Pull(ctx context.Context) error {
-	return c.doPull(ctx, c.chartDir)
+	if utils.Exists(c.GetDeprecatedChartDir()) {
+		err := os.RemoveAll(c.GetDeprecatedChartDir())
+		if err != nil {
+			return err
+		}
+	}
+
+	return c.doPull(ctx, c.GetChartDir(true))
 }
 
 func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
@@ -165,7 +230,7 @@ func (c *HelmChart) pullTmpChart(ctx context.Context) (string, error) {
 	_, _ = fmt.Fprintf(hash, "%s\n", *c.Config.ChartVersion)
 	h := hex.EncodeToString(hash.Sum(nil))
 	tmpDir := filepath.Join(utils.GetTmpBaseDir(ctx), "helm-charts")
-	_ = os.MkdirAll(tmpDir, 0o700)
+	_ = os.MkdirAll(tmpDir, 0o755)
 	tmpDir = filepath.Join(tmpDir, fmt.Sprintf("%s-%s", c.chartName, h))
 
 	lockFile := tmpDir + ".lock"
@@ -193,7 +258,7 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	baseDir := filepath.Dir(chartDir)
 
 	_ = os.RemoveAll(chartDir)
-	_ = os.MkdirAll(baseDir, 0o700)
+	_ = os.MkdirAll(baseDir, 0o755)
 
 	// need to use the same filesystem/volume that we later os.Rename the final pull chart to, as otherwise
 	// the rename operation will lead to errors
@@ -263,42 +328,41 @@ func (c *HelmChart) doPull(ctx context.Context, chartDir string) error {
 	return nil
 }
 
-func (c *HelmChart) CheckUpdate(ctx context.Context) (string, bool, error) {
+func (c *HelmChart) QueryLatestVersion(ctx context.Context) (string, error) {
 	if c.Config.Repo != nil && registry.IsOCI(*c.Config.Repo) {
-		return c.checkUpdateOciRepo(ctx)
+		return c.queryLatestVersionOci(ctx)
 	}
-	return c.checkUpdateHelmRepo(ctx)
+	return c.queryLatestVersionHelmRepo(ctx)
 }
 
-func (c *HelmChart) checkUpdateOciRepo(ctx context.Context) (string, bool, error) {
+func (c *HelmChart) queryLatestVersionOci(ctx context.Context) (string, error) {
 	rh := registries.NewRegistryHelper(ctx)
 
 	imageName := strings.TrimPrefix(*c.Config.Repo, "oci://")
 	tags, err := rh.ListImageTags(imageName)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	latestVersion, err := c.findLatestVersion(tags)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
-	updated := latestVersion != *c.Config.ChartVersion
-	return latestVersion, updated, nil
+	return latestVersion, nil
 }
 
-func (c *HelmChart) checkUpdateHelmRepo(ctx context.Context) (string, bool, error) {
+func (c *HelmChart) queryLatestVersionHelmRepo(ctx context.Context) (string, error) {
 	settings := cli.New()
 
 	var e *repo.Entry
 	if c.Config.CredentialsId != nil {
 		if c.credentials == nil {
-			return "", false, fmt.Errorf("no credentials provider")
+			return "", fmt.Errorf("no credentials provider")
 		}
 		e = c.credentials.FindCredentials(*c.Config.Repo, c.Config.CredentialsId)
 		if e == nil {
-			return "", false, fmt.Errorf("no credentials provided for Chart %s", c.chartName)
+			return "", fmt.Errorf("no credentials provided for Chart %s", c.chartName)
 		}
 	} else {
 		e = &repo.Entry{
@@ -308,28 +372,28 @@ func (c *HelmChart) checkUpdateHelmRepo(ctx context.Context) (string, bool, erro
 
 	r, err := repo.NewChartRepository(e, getter.All(settings))
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	r.CachePath, err = os.MkdirTemp(utils.GetTmpBaseDir(ctx), "helm-check-update-")
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	defer os.RemoveAll(r.CachePath)
 
 	indexFile, err := r.DownloadIndexFile()
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	index, err := repo.LoadIndexFile(indexFile)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	indexEntry, ok := index.Entries[c.chartName]
 	if !ok || len(indexEntry) == 0 {
-		return "", false, fmt.Errorf("helm chart %s not found in repo index", c.chartName)
+		return "", fmt.Errorf("helm chart %s not found in repo index", c.chartName)
 	}
 
 	versions := make([]string, 0, indexEntry.Len())
@@ -339,11 +403,10 @@ func (c *HelmChart) checkUpdateHelmRepo(ctx context.Context) (string, bool, erro
 
 	latestVersion, err := c.findLatestVersion(versions)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
-	updated := latestVersion != *c.Config.ChartVersion
-	return latestVersion, updated, nil
+	return latestVersion, nil
 }
 
 func (c *HelmChart) findLatestVersion(inputVersions []string) (string, error) {
@@ -387,6 +450,12 @@ func (c *HelmChart) findLatestVersion(inputVersions []string) (string, error) {
 }
 
 func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter sops.SopsDecrypter) error {
+	deprecatedChartDir := c.GetDeprecatedChartDir()
+	if utils.IsDirectory(deprecatedChartDir) {
+		status.Deprecation(ctx, "helm-charts-dir", "Your project has pre-pulled charts located beside the helm-chart.yaml, which is deprecated. "+
+			"Please run 'kluctl helm-pull' on your project and ensure that the deprecated charts are removed! Future versions of kluctl will ignore these locations.")
+	}
+
 	err := c.doRender(ctx, k, k8sVersion, sopsDecrypter)
 	if err != nil {
 		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", c.chartName, c.Config.ReleaseName, err)
@@ -395,7 +464,7 @@ func (c *HelmChart) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion st
 }
 
 func (c *HelmChart) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter sops.SopsDecrypter) error {
-	chartDir := c.chartDir
+	chartDir := c.deprecatedChartDir
 
 	needsPull, versionChanged, prePulledVersion, err := c.checkNeedsPull(chartDir, false)
 	if err != nil {

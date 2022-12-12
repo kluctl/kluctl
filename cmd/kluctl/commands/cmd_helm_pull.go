@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"golang.org/x/sync/semaphore"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sync"
 )
@@ -32,15 +33,14 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	gitRootPath, err := git2.DetectGitRepositoryRoot(projectDir)
-	if err != nil {
-		return err
+	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
+		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
 	}
 
-	var errs *multierror.Error
-	var wg sync.WaitGroup
-	var mutex sync.Mutex
-	sem := semaphore.NewWeighted(8)
+	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
+
+	chartsToPull := map[string]*helm.HelmChart{}
+	cleanupDirs := map[string][]string{}
 
 	err = filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
 		fname := filepath.Base(p)
@@ -48,24 +48,46 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 			return nil
 		}
 
-		statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
+		chart, err := helm.NewHelmChart(baseChartsDir, p)
 		if err != nil {
 			return err
 		}
 
+		chart.SetCredentials(&cmd.HelmCredentials)
+
+		cleanupDir := chart.GetChartDir(false)
+		cleanupDirs[cleanupDir] = append(cleanupDirs[cleanupDir], *chart.Config.ChartVersion)
+
+		if _, ok := chartsToPull[chart.GetChartDir(true)]; ok {
+			return nil
+		}
+
+		chartsToPull[chart.GetChartDir(true)] = chart
+		return nil
+	})
+
+	var errs *multierror.Error
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	sem := semaphore.NewWeighted(8)
+
+	for _, chart := range chartsToPull {
+		chart := chart
+		statusPrefix := chart.GetChartName()
+
 		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
-			s := status.Start(ctx, "%s: Pulling Chart", statusPrefix)
+			s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, *chart.Config.ChartVersion)
 			defer s.Failed()
-			err := doPull(ctx, statusPrefix, p, cmd.HelmCredentials, s)
+
+			err := chart.Pull(ctx)
 			if err != nil {
+				s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
 				return err
 			}
 			s.Success()
 			return nil
 		})
-
-		return nil
-	})
+	}
 	wg.Wait()
 	if err != nil {
 		errs = multierror.Append(errs, err)
@@ -75,27 +97,34 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("command failed")
 	}
 
-	return nil
-}
-
-func doPull(ctx context.Context, statusPrefix string, p string, helmCredentials args.HelmCredentials, s *status.StatusContext) error {
-	doError := func(err error) error {
-		s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
-		return err
+	for dir, versions := range cleanupDirs {
+		des, err := os.ReadDir(dir)
+		if err != nil {
+			return err
+		}
+		for _, de := range des {
+			if !de.IsDir() {
+				continue
+			}
+			found := false
+			for _, v := range versions {
+				if v == de.Name() {
+					found = true
+					break
+				}
+			}
+			if !found {
+				chartName := filepath.Base(dir)
+				s := status.Start(ctx, "%s: Removing unused version %s", chartName, de.Name())
+				err = os.RemoveAll(filepath.Join(dir, de.Name()))
+				if err != nil {
+					s.Failed()
+					return err
+				}
+				s.Success()
+			}
+		}
 	}
 
-	chart, err := helm.NewHelmChart(p)
-	if err != nil {
-		return doError(err)
-	}
-
-	chart.SetCredentials(&helmCredentials)
-
-	s.UpdateAndInfoFallback("%s: Pulling Chart %s with version %s", statusPrefix, chart.GetChartName(), *chart.Config.ChartVersion)
-
-	err = chart.Pull(ctx)
-	if err != nil {
-		return doError(err)
-	}
 	return nil
 }
