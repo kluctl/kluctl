@@ -5,7 +5,7 @@ type HelmChartConfig2 struct {
 	CredentialsId     *string `yaml:"credentialsId,omitempty"`
 	ChartName         *string `yaml:"chartName,omitempty"`
 	ChartVersion      *string `yaml:"chartVersion" validate:"required"`
-	UpdateConstraints *string `yaml:"updateConstraints"`
+	UpdateConstraints *string `yaml:"updateConstraints,omitempty"`
 	ReleaseName       string  `yaml:"releaseName" validate:"required"`
 	Namespace         *string `yaml:"namespace,omitempty"`
 	Output            *string `yaml:"output,omitempty"`
