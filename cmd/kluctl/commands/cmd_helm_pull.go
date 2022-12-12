@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/sync/semaphore"
@@ -84,7 +84,7 @@ func doPull(ctx context.Context, statusPrefix string, p string, helmCredentials 
 		return err
 	}
 
-	chart, err := deployment.NewHelmChart(p)
+	chart, err := helm.NewHelmChart(p)
 	if err != nil {
 		return doError(err)
 	}

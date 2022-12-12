@@ -1,4 +1,4 @@
-package deployment
+package helm
 
 import (
 	"context"

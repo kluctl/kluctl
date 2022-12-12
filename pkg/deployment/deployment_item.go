@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/fluxcd/pkg/kustomize"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -192,7 +193,7 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			return err
 		}
 
-		chart, err := NewHelmChart(p)
+		chart, err := helm.NewHelmChart(p)
 		if err != nil {
 			return err
 		}
@@ -417,7 +418,7 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 		if di.isHelmValuesYaml(de.Name()) {
 			continue
 		} else if di.isHelmChartYaml(de.Name()) {
-			c, err := NewHelmChart(filepath.Join(di.RenderedDir, subDir, de.Name()))
+			c, err := helm.NewHelmChart(filepath.Join(di.RenderedDir, subDir, de.Name()))
 			if err != nil {
 				return nil, err
 			}

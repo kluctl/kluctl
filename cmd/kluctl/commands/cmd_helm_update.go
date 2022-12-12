@@ -6,8 +6,8 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/sync/semaphore"
@@ -51,7 +51,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 	type updatedChart struct {
 		path        string
-		chart       *deployment.HelmChart
+		chart       *helm.HelmChart
 		newVersion  string
 		oldVersion  string
 		pullSuccess bool
@@ -127,19 +127,19 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	return errs.ErrorOrNil()
 }
 
-func (cmd *helmUpdateCmd) doCheckUpdate(ctx context.Context, gitRootPath string, p string) (*deployment.HelmChart, string, bool, error) {
+func (cmd *helmUpdateCmd) doCheckUpdate(ctx context.Context, gitRootPath string, p string) (*helm.HelmChart, string, bool, error) {
 	statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(p))
 	if err != nil {
 		return nil, "", false, err
 	}
 
 	s := status.Start(ctx, "%s: Checking for updates", statusPrefix)
-	doError := func(err error) (*deployment.HelmChart, string, bool, error) {
+	doError := func(err error) (*helm.HelmChart, string, bool, error) {
 		s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
 		return nil, "", false, err
 	}
 
-	chart, err := deployment.NewHelmChart(p)
+	chart, err := helm.NewHelmChart(p)
 	if err != nil {
 		return doError(err)
 	}
@@ -164,7 +164,7 @@ func (cmd *helmUpdateCmd) doCheckUpdate(ctx context.Context, gitRootPath string,
 	return chart, newVersion, updated, nil
 }
 
-func (cmd *helmUpdateCmd) pullAndCommitChart(ctx context.Context, gitRootPath string, chart *deployment.HelmChart, oldVersion string, newVersion string, mutex *sync.Mutex) error {
+func (cmd *helmUpdateCmd) pullAndCommitChart(ctx context.Context, gitRootPath string, chart *helm.HelmChart, oldVersion string, newVersion string, mutex *sync.Mutex) error {
 	statusPrefix, err := filepath.Rel(gitRootPath, filepath.Dir(chart.ConfigFile))
 	if err != nil {
 		return err
