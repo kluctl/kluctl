@@ -192,10 +192,6 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 		status.Info(ctx, "%s: Updated Chart version to %s", relDir, latestVersion)
 
-		if !cmd.Commit {
-			continue
-		}
-
 		key := fmt.Sprintf("%s / %s", hr.Chart.GetRepo(), hr.Chart.GetChartName())
 		uv := versionUseCounts[key]
 		uv[oldVersion]--
@@ -246,7 +242,7 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 		return err
 	}
 
-	s := status.Start(ctx, "%s: Committing Chart with version %s", relDir, newVersion)
+	s := status.Start(ctx, "%s: Upgrading Chart to version %s", relDir, newVersion)
 	defer s.Failed()
 
 	doError := func(err error) error {
@@ -263,14 +259,16 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 		return doError(err)
 	}
 
-	// add helm-chart.yaml
-	relToGit, err := filepath.Rel(gitRootPath, hr.ConfigFile)
-	if err != nil {
-		return doError(err)
-	}
-	_, err = wt.Add(relToGit)
-	if err != nil {
-		return doError(err)
+	if cmd.Commit {
+		// add helm-chart.yaml
+		relToGit, err := filepath.Rel(gitRootPath, hr.ConfigFile)
+		if err != nil {
+			return doError(err)
+		}
+		_, err = wt.Add(relToGit)
+		if err != nil {
+			return doError(err)
+		}
 	}
 
 	if deleteChart {
@@ -282,9 +280,11 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 		if err != nil {
 			return doError(err)
 		}
-		_, err = wt.Remove(relChartDir)
-		if err != nil && err != index.ErrEntryNotFound {
-			return doError(err)
+		if cmd.Commit {
+			_, err = wt.Remove(relChartDir)
+			if err != nil && err != index.ErrEntryNotFound {
+				return doError(err)
+			}
 		}
 		err = os.RemoveAll(chartDir)
 		if err != nil {
@@ -315,34 +315,38 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 			return doError(err)
 		}
 
-		_, err = wt.Add(relChartDir)
-		if err != nil {
-			return doError(err)
-		}
-
-		// figure out what got deleted
-		for p := range files {
-			_, err := os.Lstat(filepath.Join(gitRootPath, p))
+		if cmd.Commit {
+			_, err = wt.Add(relChartDir)
 			if err != nil {
-				if os.IsNotExist(err) {
-					_, err = wt.Remove(p)
-					if err != nil {
+				return doError(err)
+			}
+
+			// figure out what got deleted
+			for p := range files {
+				_, err := os.Lstat(filepath.Join(gitRootPath, p))
+				if err != nil {
+					if os.IsNotExist(err) {
+						_, err = wt.Remove(p)
+						if err != nil {
+							return doError(err)
+						}
+					} else {
 						return doError(err)
 					}
-				} else {
-					return doError(err)
 				}
 			}
 		}
 	}
 
-	commitMsg := fmt.Sprintf("Updated helm chart %s to version %s", relToGit, newVersion)
-	_, err = wt.Commit(commitMsg, &git.CommitOptions{})
-	if err != nil {
-		return doError(fmt.Errorf("failed to commit: %w", err))
-	}
+	if cmd.Commit {
+		commitMsg := fmt.Sprintf("Updated helm chart %s to version %s", relDir, newVersion)
+		_, err = wt.Commit(commitMsg, &git.CommitOptions{})
+		if err != nil {
+			return doError(fmt.Errorf("failed to commit: %w", err))
+		}
 
-	s.Update("%s: Committed helm chart with version %s", relToGit, newVersion)
+		s.UpdateAndInfoFallback("%s: Committed helm chart with version %s", relDir, newVersion)
+	}
 	s.Success()
 
 	return nil

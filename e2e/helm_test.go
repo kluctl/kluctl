@@ -212,18 +212,18 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	assert.Contains(t, stderr, "helm3: Skipped update to version 0.2.0")
 
 	if upgrade {
-		assert.Contains(t, stderr, "helm1: Updated Chart version to 0.2.0")
-		assert.Contains(t, stderr, "helm2: Updated Chart version to 0.3.0")
+		assert.Contains(t, stderr, "helm1: Upgrading Chart to version 0.2.0")
+		assert.Contains(t, stderr, "helm2: Upgrading Chart to version 0.3.0")
 	}
 	if commit {
-		assert.Contains(t, stderr, "helm1: Committing Chart with version 0.2.0")
-		assert.Contains(t, stderr, "helm2: Committing Chart with version 0.3.0")
+		assert.Contains(t, stderr, "helm1: Committed helm chart with version 0.2.0")
+		assert.Contains(t, stderr, "helm2: Committed helm chart with version 0.3.0")
 	}
 
 	pulledVersions1 := listChartVersions(t, p, repoUrl, "test-chart1")
 	pulledVersions2 := listChartVersions(t, p, repoUrl, "test-chart2")
 
-	if commit {
+	if upgrade {
 		assert.Equal(t, []string{"0.1.0", "0.2.0"}, pulledVersions1)
 		assert.Equal(t, []string{"0.3.0"}, pulledVersions2)
 	} else {
@@ -248,8 +248,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 			return commitList[i].Message < commitList[j].Message
 		})
 
-		assert.Equal(t, "Updated helm chart helm1/helm-chart.yaml to version 0.2.0", commitList[0].Message)
-		assert.Equal(t, "Updated helm chart helm2/helm-chart.yaml to version 0.3.0", commitList[1].Message)
+		assert.Equal(t, "Updated helm chart helm1 to version 0.2.0", commitList[0].Message)
+		assert.Equal(t, "Updated helm chart helm2 to version 0.3.0", commitList[1].Message)
 	}
 }
 
