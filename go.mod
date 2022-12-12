@@ -11,7 +11,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
 	github.com/fluxcd/pkg/kustomize v0.11.0
-	github.com/go-git/go-git/v5 v5.5.0
+	github.com/go-git/go-git/v5 v5.5.1
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.3
@@ -37,7 +37,7 @@ require (
 	github.com/spf13/viper v1.14.0
 	github.com/stretchr/testify v1.8.1
 	github.com/whilp/git-urls v1.0.0
-	github.com/xanzy/ssh-agent v0.3.3-0.20220920102508-0fa644ba07f4
+	github.com/xanzy/ssh-agent v0.3.3
 	golang.org/x/crypto v0.4.0
 	golang.org/x/net v0.4.0
 	golang.org/x/sync v0.1.0
