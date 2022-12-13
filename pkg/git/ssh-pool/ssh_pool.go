@@ -139,7 +139,7 @@ func (p *SshPool) newClient(ctx context.Context, addr string, auth auth.AuthMeth
 		return nil, err
 	}
 
-	config, err := auth.ClientConfig()
+	config, err := auth.SshClientConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (p *SshPool) buildHash(addr string, auth auth.AuthMethodAndCA) (string, err
 		return "", fmt.Errorf("auth has no Hash")
 	}
 
-	config, err := auth.ClientConfig()
+	config, err := auth.SshClientConfig()
 	if err != nil {
 		return "", err
 	}

@@ -3,7 +3,7 @@ package auth
 import (
 	"bufio"
 	"context"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/fluxcd/go-git/v5/plumbing/transport/http"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	giturls "github.com/whilp/git-urls"

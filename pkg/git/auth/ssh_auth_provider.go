@@ -130,7 +130,6 @@ func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 			}
 			return buildHashForList(signers)
 		},
-		ClientConfig: auth.ClientConfig,
 	}
 }
 

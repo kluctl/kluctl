@@ -1,8 +1,8 @@
 package git
 
 import (
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
+	"github.com/fluxcd/go-git/v5"
+	"github.com/fluxcd/go-git/v5/config"
 	cp "github.com/otiai10/copy"
 	"os"
 	"path/filepath"
