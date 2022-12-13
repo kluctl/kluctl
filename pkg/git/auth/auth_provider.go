@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"github.com/fluxcd/go-git/v5/plumbing/transport"
+	ssh2 "github.com/fluxcd/go-git/v5/plumbing/transport/ssh"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"golang.org/x/crypto/ssh"
@@ -12,8 +14,15 @@ type AuthMethodAndCA struct {
 	AuthMethod transport.AuthMethod
 	CABundle   []byte
 
-	Hash         func() ([]byte, error)
-	ClientConfig func() (*ssh.ClientConfig, error)
+	Hash func() ([]byte, error)
+}
+
+func (a *AuthMethodAndCA) SshClientConfig() (*ssh.ClientConfig, error) {
+	gitSshAuth, ok := a.AuthMethod.(ssh2.AuthMethod)
+	if !ok {
+		return nil, fmt.Errorf("auth is not a git ssh.AuthMethod")
+	}
+	return gitSshAuth.ClientConfig()
 }
 
 type GitAuthProvider interface {

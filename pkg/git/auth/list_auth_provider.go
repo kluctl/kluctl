@@ -28,6 +28,28 @@ type AuthEntry struct {
 	CABundle []byte
 }
 
+type KnownHostsWrapper struct {
+	authMethod      ssh.AuthMethod
+	hostKeyCallback ssh2.HostKeyCallback
+}
+
+func (w *KnownHostsWrapper) String() string {
+	return w.authMethod.String()
+}
+
+func (w *KnownHostsWrapper) Name() string {
+	return w.authMethod.Name()
+}
+
+func (w *KnownHostsWrapper) ClientConfig() (*ssh2.ClientConfig, error) {
+	ccfg, err := w.authMethod.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	ccfg.HostKeyCallback = w.hostKeyCallback
+	return ccfg, nil
+}
+
 func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 	a.entries = append(a.entries, e)
 }
@@ -80,19 +102,13 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl)
 			if err != nil {
 				a.MessageCallbacks.Trace("ListAuthProvider: failed to parse private key: %v", err)
 			} else {
-				hostKeyCallback := buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts)
 				return AuthMethodAndCA{
-					AuthMethod: pk,
+					AuthMethod: &KnownHostsWrapper{
+						authMethod:      pk,
+						hostKeyCallback: buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts),
+					},
 					Hash: func() ([]byte, error) {
 						return buildHash(pk.Signer)
-					},
-					ClientConfig: func() (*ssh2.ClientConfig, error) {
-						ccfg, err := pk.ClientConfig()
-						if err != nil {
-							return nil, err
-						}
-						ccfg.HostKeyCallback = hostKeyCallback
-						return ccfg, nil
 					},
 				}
 			}
