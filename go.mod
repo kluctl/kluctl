@@ -10,8 +10,9 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.19.2
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
+	// See https://github.com/fluxcd/pkg/issues/397, especially in regard to skeema/knownhosts breaking compatibility
+	github.com/fluxcd/go-git/v5 v5.0.0-20221206140629-ec778c2c37df
 	github.com/fluxcd/pkg/kustomize v0.11.0
-	github.com/go-git/go-git/v5 v5.5.1
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.3
@@ -120,6 +121,7 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.3.1 // indirect
+	github.com/go-git/go-git/v5 v5.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect

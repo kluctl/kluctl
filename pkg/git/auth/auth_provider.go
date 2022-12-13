@@ -2,7 +2,7 @@ package auth
 
 import (
 	"context"
-	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/fluxcd/go-git/v5/plumbing/transport"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"golang.org/x/crypto/ssh"

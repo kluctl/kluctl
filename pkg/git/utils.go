@@ -2,7 +2,7 @@ package git
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5"
+	"github.com/fluxcd/go-git/v5"
 	"os"
 	"path/filepath"
 )
