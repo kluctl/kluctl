@@ -54,6 +54,10 @@ func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([
 		if err != nil {
 			return nil, err
 		}
+		err = updateUnifiedDiff(c2)
+		if err != nil {
+			return nil, err
+		}
 		changes = append(changes, *c2)
 	}
 
@@ -65,57 +69,68 @@ func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([
 func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) (*types.Change, error) {
 	switch c.Type {
 	case "create":
-		ud, err := buildUnifiedDiff(notPresent, c.To, false)
-		if err != nil {
-			return nil, err
-		}
 		p, err := convertPath(c.Path, newObject.Object)
 		if err != nil {
 			return nil, err
 		}
 		return &types.Change{
-			Type:        "insert",
-			JsonPath:    p,
-			NewValue:    c.To,
-			UnifiedDiff: ud,
+			Type:     "insert",
+			JsonPath: p,
+			NewValue: c.To,
 		}, nil
 	case "delete":
-		ud, err := buildUnifiedDiff(c.From, notPresent, false)
-		if err != nil {
-			return nil, err
-		}
 		p, err := convertPath(c.Path, oldObject.Object)
 		if err != nil {
 			return nil, err
 		}
 		return &types.Change{
-			Type:        "delete",
-			JsonPath:    p,
-			OldValue:    c.From,
-			UnifiedDiff: ud,
+			Type:     "delete",
+			JsonPath: p,
+			OldValue: c.From,
 		}, nil
 	case "update":
-		showType := false
-		if reflect.TypeOf(c.From) != reflect.TypeOf(c.To) {
-			showType = true
-		}
-		ud, err := buildUnifiedDiff(c.From, c.To, showType)
-		if err != nil {
-			return nil, err
-		}
 		p, err := convertPath(c.Path, newObject.Object)
 		if err != nil {
 			return nil, err
 		}
 		return &types.Change{
-			Type:        "update",
-			JsonPath:    p,
-			NewValue:    c.To,
-			OldValue:    c.From,
-			UnifiedDiff: ud,
+			Type:     "update",
+			JsonPath: p,
+			NewValue: c.To,
+			OldValue: c.From,
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown change type %s", c.Type)
+}
+
+func updateUnifiedDiff(change *types.Change) error {
+	switch change.Type {
+	case "insert":
+		ud, err := buildUnifiedDiff(notPresent, change.NewValue, false)
+		if err != nil {
+			return err
+		}
+		change.UnifiedDiff = ud
+	case "delete":
+		ud, err := buildUnifiedDiff(change.OldValue, notPresent, false)
+		if err != nil {
+			return err
+		}
+		change.UnifiedDiff = ud
+	case "update":
+		showType := false
+		if reflect.TypeOf(change.OldValue) != reflect.TypeOf(change.NewValue) {
+			showType = true
+		}
+		ud, err := buildUnifiedDiff(change.OldValue, change.NewValue, showType)
+		if err != nil {
+			return err
+		}
+		change.UnifiedDiff = ud
+	default:
+		return fmt.Errorf("unknown change type %s", change.Type)
+	}
+	return nil
 }
 
 func stableSortChanges(changes []types.Change) {

@@ -109,7 +109,7 @@ func prepareSealTest(t *testing.T, k *test_utils.EnvTestCluster, secrets map[str
 	addSecretsSet(p, "test", varsSources)
 	addSecretsSetToTarget(p, "test-target", "test")
 
-	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: p.TestSlug()})
+	addSecretDeployment(p, "secret-deployment", secrets, resourceOpts{name: "secret", namespace: p.TestSlug()}, true)
 
 	return p
 }
@@ -391,7 +391,7 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 				},
 			}),
 		}, true)
-	addSecretDeployment(p, "secret-deployment2", secret2, resourceOpts{name: "secret2", namespace: p.TestSlug()})
+	addSecretDeployment(p, "secret-deployment2", secret2, resourceOpts{name: "secret2", namespace: p.TestSlug()}, true)
 
 	p.KluctlMust("seal", "-t", "test-target")
 

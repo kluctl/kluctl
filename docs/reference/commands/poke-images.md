@@ -48,6 +48,7 @@ Misc arguments:
                                                     Must be in the form
                                                     --helm-username=<credentialsId>:<username>, where
                                                     <credentialsId> must match the id specified in the helm-chart.yaml.
+      --no-obfuscate                                Disable obfuscation of sensitive/secret data
   -o, --output-format stringArray                   Specify output format and target file, in the format
                                                     'format=path'. Format can either be 'text' or 'yaml'. Can be
                                                     specified multiple times. The actual format for yaml is
