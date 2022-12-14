@@ -2,7 +2,7 @@
 
 ---
 title: "Kluctl Documentation"
-linkTitle: "Docs"
+linkTitle: "Kluctl"
 description: "The missing glue to put together large Kubernetes deployments."
 taxonomyCloud: []
 weight: 20
