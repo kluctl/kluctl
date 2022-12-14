@@ -6,9 +6,6 @@ linkTitle: "Kluctl"
 description: "The missing glue to put together large Kubernetes deployments."
 taxonomyCloud: []
 weight: 20
-menu:
-  main:
-    weight: 20
 ---
 -->
 
