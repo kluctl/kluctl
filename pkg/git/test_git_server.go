@@ -3,10 +3,6 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/fluxcd/go-git/v5"
-	"github.com/jinzhu/copier"
-	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
-	"gopkg.in/yaml.v3"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +10,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/fluxcd/go-git/v5"
+	"github.com/jinzhu/copier"
+	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
+	"gopkg.in/yaml.v3"
 )
 
 type TestGitServer struct {
@@ -28,14 +29,9 @@ type TestGitServer struct {
 
 func NewTestGitServer(t *testing.T) *TestGitServer {
 	p := &TestGitServer{
-		t: t,
+		t:       t,
+		baseDir: t.TempDir(),
 	}
-
-	baseDir, err := os.MkdirTemp(os.TempDir(), "kluctl-tests-")
-	if err != nil {
-		p.t.Fatal(err)
-	}
-	p.baseDir = baseDir
 
 	p.initGitServer()
 
@@ -73,10 +69,6 @@ func (p *TestGitServer) Cleanup() {
 		p.gitServer = nil
 	}
 
-	if p.baseDir == "" {
-		return
-	}
-	_ = os.RemoveAll(p.baseDir)
 	p.baseDir = ""
 }
 

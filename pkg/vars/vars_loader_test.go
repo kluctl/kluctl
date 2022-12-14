@@ -2,6 +2,15 @@ package vars
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	git2 "github.com/fluxcd/go-git/v5"
 	"github.com/fluxcd/go-git/v5/plumbing"
 	"github.com/kluctl/kluctl/v2/pkg/git"
@@ -18,29 +27,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
 	"go.mozilla.org/sops/v3/age"
-	"io"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
 )
-
-func newTestDir(t *testing.T) string {
-	tmp, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(tmp)
-	})
-	return tmp
-}
 
 func newRP(t *testing.T) *repocache.GitRepoCache {
 	grc := repocache.NewGitRepoCache(context.TODO(), &ssh_pool.SshPool{}, auth.NewDefaultAuthProviders("KLUCTL_GIT", nil), nil, 0)
@@ -77,7 +67,7 @@ func TestVarsLoader_Values(t *testing.T) {
 }
 
 func TestVarsLoader_File(t *testing.T) {
-	d := newTestDir(t)
+	d := t.TempDir()
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
@@ -101,7 +91,7 @@ func TestVarsLoader_File(t *testing.T) {
 }
 
 func TestVarsLoader_SopsFile(t *testing.T) {
-	d := newTestDir(t)
+	d := t.TempDir()
 	f, _ := sops_test_resources.TestResources.ReadFile("test.yaml")
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), f, 0o600)
@@ -120,7 +110,7 @@ func TestVarsLoader_SopsFile(t *testing.T) {
 }
 
 func TestVarsLoader_FileWithLoad(t *testing.T) {
-	d := newTestDir(t)
+	d := t.TempDir()
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
 	_ = os.WriteFile(filepath.Join(d, "test2.txt"), []byte(`42`), 0o600)
 
@@ -136,7 +126,7 @@ func TestVarsLoader_FileWithLoad(t *testing.T) {
 }
 
 func TestVarsLoader_FileWithLoadSubDir(t *testing.T) {
-	d := newTestDir(t)
+	d := t.TempDir()
 	_ = os.Mkdir(filepath.Join(d, "subdir"), 0o700)
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{ load_template("test2.txt") }}}}`), 0o600)
 	_ = os.WriteFile(filepath.Join(d, "subdir/test2.txt"), []byte(`42`), 0o600)
@@ -153,7 +143,7 @@ func TestVarsLoader_FileWithLoadSubDir(t *testing.T) {
 }
 
 func TestVarsLoader_FileWithLoadNotExists(t *testing.T) {
-	d := newTestDir(t)
+	d := t.TempDir()
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{load_template("test3.txt")}}}}`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
