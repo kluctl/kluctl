@@ -94,8 +94,7 @@ type DeploymentProjectConfig struct {
 	OverrideNamespace *string           `yaml:"overrideNamespace,omitempty"`
 	Tags              []string          `yaml:"tags,omitempty"`
 
-	IgnoreForDiff    []*IgnoreForDiffItemConfig `yaml:"ignoreForDiff,omitempty"`
-	TemplateExcludes []string                   `yaml:"templateExcludes,omitempty"`
+	IgnoreForDiff []*IgnoreForDiffItemConfig `yaml:"ignoreForDiff,omitempty"`
 }
 
 func init() {
