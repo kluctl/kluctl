@@ -18,6 +18,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	flag "github.com/spf13/pflag"
 	"io"
 	"log"
 	"net/http"
@@ -194,7 +195,7 @@ func checkNewVersion(ctx context.Context) {
 }
 
 func (c *cli) Run(ctx context.Context) error {
-	return nil
+	return flag.ErrHelp
 }
 
 func initViper(ctx context.Context) {
