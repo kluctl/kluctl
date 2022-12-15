@@ -88,7 +88,7 @@ func (c *rootCommand) buildCobraCmd(parent *commandAndGroups, cmdStruct interfac
 	}
 
 	cg.cmd.SetHelpFunc(func(command *cobra.Command, i []string) {
-		c.helpFunc(cg)
+		c.helpFunc(cg, command)
 	})
 
 	return cg, nil
@@ -283,9 +283,7 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 	return utils.NewErrorListOrNil(retErr)
 }
 
-func (c *rootCommand) helpFunc(cg *commandAndGroups) {
-	cmd := cg.cmd
-
+func (c *rootCommand) helpFunc(cg *commandAndGroups, cmd *cobra.Command) {
 	termWidth := term.GetWidth()
 
 	h := "Usage: "
