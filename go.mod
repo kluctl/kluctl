@@ -49,9 +49,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.10.3
 	k8s.io/api v0.26.0
-	k8s.io/apiextensions-apiserver v0.25.4
+	k8s.io/apiextensions-apiserver v0.26.0
 	k8s.io/apimachinery v0.26.0
-	k8s.io/client-go v0.25.4
+	k8s.io/client-go v0.26.0
 	k8s.io/klog/v2 v2.80.1
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9
@@ -239,9 +239,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	k8s.io/apiserver v0.25.4 // indirect
+	k8s.io/apiserver v0.26.0 // indirect
 	k8s.io/cli-runtime v0.25.3 // indirect
-	k8s.io/component-base v0.25.4 // indirect
+	k8s.io/component-base v0.26.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20221110221610-a28e98eb7c70 // indirect
 	k8s.io/kubectl v0.25.3 // indirect
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
