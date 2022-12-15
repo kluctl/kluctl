@@ -24,25 +24,23 @@ import (
 	"testing"
 )
 
-func createHelmPackage(t *testing.T, name string, version string) string {
-	tmpDir := t.TempDir()
-
+func CreateHelmDir(t *testing.T, name string, version string, dest string) {
 	err := fs.WalkDir(test_resources.HelmChartFS, ".", func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
-			return os.MkdirAll(filepath.Join(tmpDir, path), 0o700)
+			return os.MkdirAll(filepath.Join(dest, path), 0o700)
 		} else {
 			b, err := test_resources.HelmChartFS.ReadFile(path)
 			if err != nil {
 				return err
 			}
-			return os.WriteFile(filepath.Join(tmpDir, path), b, 0o600)
+			return os.WriteFile(filepath.Join(dest, path), b, 0o600)
 		}
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c, err := uo.FromFile(filepath.Join(tmpDir, "Chart.yaml"))
+	c, err := uo.FromFile(filepath.Join(dest, "Chart.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,10 +48,16 @@ func createHelmPackage(t *testing.T, name string, version string) string {
 	_ = c.SetNestedField(name, "name")
 	_ = c.SetNestedField(version, "version")
 
-	err = yaml.WriteYamlFile(filepath.Join(tmpDir, "Chart.yaml"), c)
+	err = yaml.WriteYamlFile(filepath.Join(dest, "Chart.yaml"), c)
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func createHelmPackage(t *testing.T, name string, version string) string {
+	tmpDir := t.TempDir()
+
+	CreateHelmDir(t, name, version, tmpDir)
 
 	settings := cli.New()
 	client := action.NewPackage()

@@ -133,9 +133,18 @@ func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvid
 			return nil
 		}
 
-		hr, err := helm.NewRelease(p, baseChartsDir, credentialsProvider)
+		relDir, err := filepath.Rel(projectDir, filepath.Dir(p))
 		if err != nil {
 			return err
+		}
+
+		hr, err := helm.NewRelease(projectDir, relDir, p, baseChartsDir, credentialsProvider)
+		if err != nil {
+			return err
+		}
+
+		if hr.Chart.IsLocalChart() {
+			return nil
 		}
 
 		releases = append(releases, hr)

@@ -99,6 +99,12 @@ helmChart:
   namespace: pepper
 ```
 
+### path
+As alternative to `repo`, you can also specify `path`. The path must point to a local Helm Chart that is relative to the
+`helm-chart.yaml`. The local Chart must reside in your Kluctl project.
+
+When `path` is specified, `repo`, `chartName`, `chartVersion` and `updateContrainsts` are not allowed.
+
 ### chartName
 The name of the chart that can be found in the repository.
 
