@@ -64,7 +64,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	cmd2.NoWait = cmd.NoWait
 
 	cb := func(diffResult *types.CommandResult) error {
-		return cmd.diffResultCb(cmdCtx.ctx, diffResult)
+		return cmd.diffResultCb(cmdCtx.ctx, cmd.NoObfuscate, diffResult)
 	}
 	if cmd.Yes || cmd.DryRun {
 		cb = nil
@@ -74,7 +74,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormat, result)
+	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormat, cmd.NoObfuscate, result)
 	if err != nil {
 		return err
 	}
@@ -84,8 +84,8 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	return nil
 }
 
-func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *types.CommandResult) error {
-	err := outputCommandResult(ctx, nil, diffResult)
+func (cmd *deployCmd) diffResultCb(ctx context.Context, noObfuscate bool, diffResult *types.CommandResult) error {
+	err := outputCommandResult(ctx, nil, noObfuscate, diffResult)
 	if err != nil {
 		return err
 	}

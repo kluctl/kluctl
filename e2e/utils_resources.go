@@ -45,7 +45,7 @@ func createConfigMapObject(data map[string]string, opts resourceOpts) *uo.Unstru
 }
 
 func createSecretObject(data map[string]string, opts resourceOpts) *uo.UnstructuredObject {
-	o := createCoreV1Object("ConfigMap", opts)
+	o := createCoreV1Object("Secret", opts)
 	if data != nil {
 		o.SetNestedField(data, "stringData")
 	}
@@ -59,10 +59,14 @@ func addConfigMapDeployment(p *test_utils.TestProject, dir string, data map[stri
 	}, opts.tags)
 }
 
-func addSecretDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts) {
+func addSecretDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts, sealme bool) {
+	sealmeExt := ""
+	if sealme {
+		sealmeExt = ".sealme"
+	}
 	o := createSecretObject(data, opts)
 	fname := fmt.Sprintf("secret-%s.yml", opts.name)
 	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
-		{fname, fname + ".sealme", o},
+		{fname, fname + sealmeExt, o},
 	}, opts.tags)
 }

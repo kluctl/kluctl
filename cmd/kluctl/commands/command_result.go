@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -197,8 +198,15 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 	return nil
 }
 
-func outputCommandResult(ctx context.Context, output []string, cr *types.CommandResult) error {
+func outputCommandResult(ctx context.Context, output []string, noObfuscate bool, cr *types.CommandResult) error {
 	status.Flush(ctx)
+
+	if !noObfuscate {
+		var obfuscator diff.Obfuscator
+		for _, c := range cr.ChangedObjects {
+			obfuscator.Obfuscate(c.Ref, c.Changes)
+		}
+	}
 
 	return outputHelper(ctx, output, func(format string) (string, error) {
 		return formatCommandResult(cr, format)

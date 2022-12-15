@@ -43,6 +43,14 @@ func assertConfigMapNotExists(t *testing.T, k *test_utils.EnvTestCluster, namesp
 	}
 }
 
+func assertSecretExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) *uo.UnstructuredObject {
+	x, err := k.Get(v1.SchemeGroupVersion.WithResource("secrets"), namespace, name)
+	if err != nil {
+		t.Fatalf("unexpected error '%v' while getting Secret %s/%s", err, namespace, name)
+	}
+	return x
+}
+
 func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected interface{}, keys ...interface{}) {
 	v, ok, err := o.GetNestedField(keys...)
 	if err != nil {

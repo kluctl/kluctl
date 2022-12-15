@@ -55,6 +55,7 @@ Misc arguments:
       --ignore-annotations                          Ignores changes in annotations when diffing
       --ignore-labels                               Ignores changes in labels when diffing
       --ignore-tags                                 Ignores changes in tags when diffing
+      --no-obfuscate                                Disable obfuscation of sensitive/secret data
   -o, --output-format stringArray                   Specify output format and target file, in the format
                                                     'format=path'. Format can either be 'text' or 'yaml'. Can be
                                                     specified multiple times. The actual format for yaml is
