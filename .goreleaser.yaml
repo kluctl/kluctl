@@ -115,8 +115,6 @@ brews:
     description: "kluctl"
     install: |
       bin.install "kluctl"
-    test: |
-      system "#{bin}/kluctl version"
 
       bash_output = Utils.safe_popen_read(bin/"kluctl", "completion", "bash")
       (bash_completion/"kluctl").write bash_output
@@ -126,3 +124,5 @@ brews:
 
       fish_output = Utils.safe_popen_read(bin/"kluctl", "completion", "fish")
       (fish_completion/"kluctl.fish").write fish_output
+    test: |
+      system "#{bin}/kluctl version"
