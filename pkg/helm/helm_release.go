@@ -35,23 +35,41 @@ type Release struct {
 	baseChartsDir string
 }
 
-func NewRelease(configFile string, baseChartsDir string, credentialsProvider HelmCredentialsProvider) (*Release, error) {
+func NewRelease(projectRoot string, relDirInProject string, configFile string, baseChartsDir string, credentialsProvider HelmCredentialsProvider) (*Release, error) {
 	var config types.HelmChartConfig
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = semver.NewVersion(config.ChartVersion)
-	if err != nil {
-		return nil, fmt.Errorf("invalid chart version '%s': %w", config.ChartVersion, err)
+	if config.ChartVersion != "" {
+		_, err = semver.NewVersion(config.ChartVersion)
+		if err != nil {
+			return nil, fmt.Errorf("invalid chart version '%s': %w", config.ChartVersion, err)
+		}
+	}
+
+	localPath := ""
+	if config.Path != "" {
+		if filepath.IsAbs(config.Path) {
+			return nil, fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
+		}
+		localPath = filepath.Join(projectRoot, relDirInProject, config.Path)
+		localPath, err = filepath.Abs(localPath)
+		if err != nil {
+			return nil, err
+		}
+		err = utils.CheckInDir(projectRoot, localPath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	credentialsId := ""
 	if config.CredentialsId != nil {
 		credentialsId = *config.CredentialsId
 	}
-	chart, err := NewChart(config.Repo, config.ChartName, credentialsProvider, credentialsId)
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, credentialsProvider, credentialsId)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +111,14 @@ func (hr *Release) GetDeprecatedChartDir() string {
 }
 
 func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
+	if hr.Chart.IsLocalChart() {
+		version, err := hr.Chart.GetLocalChartVersion()
+		if err != nil {
+			return nil, err
+		}
+		return NewPulledChart(hr.Chart, version, hr.Chart.GetLocalPath(), false), nil
+	}
+
 	deprecatedPC := NewPulledChart(hr.Chart, hr.Config.ChartVersion, hr.GetDeprecatedChartDir(), false)
 	if deprecatedPC.CheckExists() {
 		status.Deprecation(ctx, "helm-charts-dir", "Your project has pre-pulled charts located next to the helm-chart.yaml, which is deprecated. "+

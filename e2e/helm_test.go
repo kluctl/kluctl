@@ -473,6 +473,31 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 	}, cm1.Object["data"])
 }
 
+func TestHelmLocalChart(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+	p.AddHelmDeployment("helm1", "../test-chart1", "", "", "test-helm-1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", "test-chart2", "", "", "test-helm-2", p.TestSlug(), nil)
+
+	test_utils.CreateHelmDir(t, "test-chart1", "0.1.0", filepath.Join(p.LocalRepoDir(), "test-chart1"))
+	test_utils.CreateHelmDir(t, "test-chart2", "0.1.0", filepath.Join(p.LocalRepoDir(), "helm2/test-chart2"))
+
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+	assertConfigMapExists(t, k, p.TestSlug(), "test-helm-1-test-chart1")
+	assertConfigMapExists(t, k, p.TestSlug(), "test-helm-2-test-chart2")
+
+	_, stderr := p.KluctlMust("helm-pull")
+	assert.NotContains(t, stderr, "test-chart1")
+	assert.NotContains(t, stderr, "test-chart2")
+}
+
 func getChartDir(t *testing.T, p *test_utils.TestProject, url2 string, chartName string, chartVersion string) string {
 	u, err := url.Parse(url2)
 	if err != nil {

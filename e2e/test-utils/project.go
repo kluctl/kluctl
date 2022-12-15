@@ -14,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -259,7 +260,11 @@ func (p *TestProject) AddKustomizeDeployment(dir string, resources []KustomizeRe
 }
 
 func (p *TestProject) AddHelmDeployment(dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
-	if registry2.IsOCI(repoUrl) {
+	localPath := ""
+	if u, err := url.Parse(repoUrl); err != nil || u.Host == "" {
+		localPath = repoUrl
+		repoUrl = ""
+	} else if registry2.IsOCI(repoUrl) {
 		repoUrl += "/" + chartName
 		chartName = ""
 	}
@@ -272,6 +277,7 @@ func (p *TestProject) AddHelmDeployment(dir string, repoUrl string, chartName, v
 		*o = *uo.FromMap(map[string]interface{}{
 			"helmChart": map[string]any{
 				"repo":         repoUrl,
+				"path":         localPath,
 				"chartVersion": version,
 				"releaseName":  releaseName,
 				"namespace":    namespace,

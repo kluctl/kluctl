@@ -7,6 +7,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	cp "github.com/otiai10/copy"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"helm.sh/helm/v3/pkg/action"
@@ -28,6 +30,7 @@ type HelmCredentialsProvider interface {
 
 type Chart struct {
 	repo      string
+	localPath string
 	chartName string
 
 	credentials   HelmCredentialsProvider
@@ -36,18 +39,32 @@ type Chart struct {
 	versions []string
 }
 
-func NewChart(repo string, chartName string, credentialsProvider HelmCredentialsProvider, credentialsId string) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, credentialsProvider HelmCredentialsProvider, credentialsId string) (*Chart, error) {
 	hc := &Chart{
 		repo:          repo,
+		localPath:     localPath,
 		credentials:   credentialsProvider,
 		credentialsId: credentialsId,
 	}
 
-	if repo == "" {
-		return nil, fmt.Errorf("repo is missing")
+	if localPath == "" && repo == "" {
+		return nil, fmt.Errorf("repo and localPath are missing")
 	}
 
-	if registry.IsOCI(repo) {
+	if hc.IsLocalChart() {
+		chartYaml, err := uo.FromFile(yaml.FixPathExt(filepath.Join(hc.localPath, "Chart.yaml")))
+		if err != nil {
+			return nil, err
+		}
+		x, _, err := chartYaml.GetNestedString("name")
+		if err != nil {
+			return nil, err
+		}
+		if x == "" {
+			return nil, fmt.Errorf("invalid/empty chart name")
+		}
+		hc.chartName = x
+	} else if registry.IsOCI(repo) {
 		if chartName != "" {
 			return nil, fmt.Errorf("chartName can't be specified when using OCI repos")
 		}
@@ -68,6 +85,29 @@ func NewChart(repo string, chartName string, credentialsProvider HelmCredentials
 
 func (c *Chart) GetRepo() string {
 	return c.repo
+}
+
+func (c *Chart) GetLocalPath() string {
+	return c.localPath
+}
+
+func (c *Chart) IsLocalChart() bool {
+	return c.localPath != ""
+}
+
+func (c *Chart) GetLocalChartVersion() (string, error) {
+	chartYaml, err := uo.FromFile(yaml.FixPathExt(filepath.Join(c.localPath, "Chart.yaml")))
+	if err != nil {
+		return "", err
+	}
+	x, _, err := chartYaml.GetNestedString("version")
+	if err != nil {
+		return "", err
+	}
+	if x == "" {
+		return "", fmt.Errorf("invalid/empty chart version")
+	}
+	return x, nil
 }
 
 func (c *Chart) BuildPulledChartDir(baseDir string, version string) (string, error) {
@@ -122,6 +162,10 @@ func (c *Chart) GetChartName() string {
 }
 
 func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, error) {
+	if c.IsLocalChart() {
+		return nil, fmt.Errorf("can not pull local charts")
+	}
+
 	tmpPullDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), c.chartName+"-pull-")
 	if err != nil {
 		return nil, err
@@ -199,6 +243,10 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 }
 
 func (c *Chart) Pull(ctx context.Context, pc *PulledChart) error {
+	if c.IsLocalChart() {
+		return fmt.Errorf("can not pull local charts")
+	}
+
 	newPulled, err := c.PullToTmp(ctx, pc.version)
 	if err != nil {
 		return err
@@ -250,6 +298,10 @@ func (c *Chart) doPullCached(ctx context.Context, version string) (*PulledChart,
 }
 
 func (c *Chart) PullCached(ctx context.Context, version string) (*PulledChart, error) {
+	if c.IsLocalChart() {
+		return nil, fmt.Errorf("can not pull local charts")
+	}
+
 	pc, lock, err := c.doPullCached(ctx, version)
 	if err != nil {
 		return nil, err
@@ -259,6 +311,10 @@ func (c *Chart) PullCached(ctx context.Context, version string) (*PulledChart, e
 }
 
 func (c *Chart) PullInProject(ctx context.Context, baseDir string, version string) (*PulledChart, error) {
+	if c.IsLocalChart() {
+		return nil, fmt.Errorf("can not pull local charts")
+	}
+
 	cachePc, lock, err := c.doPullCached(ctx, version)
 	if err != nil {
 		return nil, err
@@ -284,6 +340,10 @@ func (c *Chart) PullInProject(ctx context.Context, baseDir string, version strin
 }
 
 func (c *Chart) GetPulledChart(baseDir string, version string) (*PulledChart, error) {
+	if c.IsLocalChart() {
+		return nil, fmt.Errorf("can not pull local charts")
+	}
+
 	chartDir, err := c.BuildPulledChartDir(baseDir, version)
 	if err != nil {
 		return nil, err
@@ -292,6 +352,10 @@ func (c *Chart) GetPulledChart(baseDir string, version string) (*PulledChart, er
 }
 
 func (c *Chart) QueryVersions(ctx context.Context) error {
+	if c.IsLocalChart() {
+		return fmt.Errorf("can not query versions for local charts")
+	}
+
 	if registry.IsOCI(c.repo) {
 		return c.queryVersionsOci(ctx)
 	}
