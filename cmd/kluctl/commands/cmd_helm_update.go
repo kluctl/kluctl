@@ -40,7 +40,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
-		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
+		return fmt.Errorf("helm-update can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
 	}
 
 	gitRootPath, err := git2.DetectGitRepositoryRoot(projectDir)

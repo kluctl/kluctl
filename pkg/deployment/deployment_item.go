@@ -173,6 +173,17 @@ func (di *DeploymentItem) isHelmValuesYaml(p string) bool {
 	return file == "helm-values.yml" || file == "helm-values.yaml"
 }
 
+func (di *DeploymentItem) newHelmRelease(subDir string) (*helm.Release, error) {
+	configPath := yaml.FixPathExt(filepath.Join(di.RenderedDir, subDir, "helm-chart.yaml"))
+	helmChartsDir := filepath.Join(di.Project.source.dir, ".helm-charts")
+
+	hr, err := helm.NewRelease(di.Project.source.dir, filepath.Join(di.RelToSourceItemDir, subDir), configPath, helmChartsDir, di.ctx.HelmCredentials)
+	if err != nil {
+		return nil, err
+	}
+	return hr, nil
+}
+
 func (di *DeploymentItem) renderHelmCharts() error {
 	if di.dir == nil {
 		return nil
@@ -188,7 +199,7 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			return err
 		}
 
-		hr, err := helm.NewRelease(di.Project.source.dir, filepath.Join(di.RelToSourceItemDir, subDir), p, di.ctx.HelmChartsDir, di.ctx.HelmCredentials)
+		hr, err := di.newHelmRelease(subDir)
 		if err != nil {
 			return err
 		}
@@ -411,12 +422,12 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 		if di.isHelmValuesYaml(de.Name()) {
 			continue
 		} else if di.isHelmChartYaml(de.Name()) {
-			c, err := helm.NewRelease(di.Project.source.dir, filepath.Join(di.RelToSourceItemDir, subDir), filepath.Join(di.RenderedDir, subDir, de.Name()), di.ctx.HelmChartsDir, nil)
+			hr, err := di.newHelmRelease(subDir)
 			if err != nil {
 				return nil, err
 			}
-			if !utils.IsFile(filepath.Join(di.RenderedDir, subDir, c.GetOutputPath())) {
-				resourcePath = c.GetOutputPath()
+			if !utils.IsFile(filepath.Join(di.RenderedDir, subDir, hr.GetOutputPath())) {
+				resourcePath = hr.GetOutputPath()
 			}
 		} else if strings.HasSuffix(lname, ".yml") || strings.HasSuffix(lname, ".yaml") {
 			resourcePath = de.Name()
