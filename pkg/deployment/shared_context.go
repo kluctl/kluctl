@@ -21,5 +21,4 @@ type SharedContext struct {
 	RenderDir                         string
 	SealedSecretsDir                  string
 	DefaultSealedSecretsOutputPattern string
-	HelmChartsDir                     string
 }

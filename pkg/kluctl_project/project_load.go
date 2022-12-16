@@ -61,7 +61,6 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	}
 
 	c.sealedSecretsDir = filepath.Join(c.ProjectDir, ".sealed-secrets")
-	c.helmChartsDir = filepath.Join(c.ProjectDir, ".helm-charts")
 
 	sealedSecretsUsed := false
 	if c.Config.SecretsConfig != nil {
