@@ -223,7 +223,7 @@ func Main() {
 
 	initViper(ctx)
 
-	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags GlobalFlags) (context.Context, error) {
+	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags *GlobalFlags) (context.Context, error) {
 		err := copyViperValuesToCobraCmd(cmd)
 		if err != nil {
 			return ctx, err
@@ -257,7 +257,7 @@ func Main() {
 	}
 }
 
-func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags GlobalFlags) (context.Context, error)) error {
+func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags *GlobalFlags) (context.Context, error)) error {
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
 		"Deploy and manage complex deployments on Kubernetes",
@@ -277,7 +277,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if preRun != nil {
-			ctx, err = preRun(ctx, cmd, root.GlobalFlags)
+			ctx, err = preRun(ctx, cmd, &root.GlobalFlags)
 			if ctx != nil {
 				for c := cmd; c != nil; c = c.Parent() {
 					c.SetContext(ctx)
