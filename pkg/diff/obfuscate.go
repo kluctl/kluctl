@@ -19,6 +19,18 @@ func (o *Obfuscator) Obfuscate(ref k8s.ObjectRef, changes []types.Change) {
 }
 
 func (o *Obfuscator) obfuscateSecret(ref k8s.ObjectRef, changes []types.Change) {
+	setMapValues := func(m any, v string) {
+		if m == nil {
+			return
+		}
+		m2, ok := m.(map[string]any)
+		if ok {
+			for k, _ := range m2 {
+				m2[k] = v
+			}
+		}
+	}
+
 	for i, _ := range changes {
 		c := &changes[i]
 		if strings.HasPrefix(c.JsonPath, "data.") || strings.HasPrefix(c.JsonPath, "stringData.") {
@@ -37,6 +49,14 @@ func (o *Obfuscator) obfuscateSecret(ref k8s.ObjectRef, changes []types.Change) 
 				c.OldValue = "*****"
 				c.UnifiedDiff = strings.ReplaceAll(c.UnifiedDiff, "*****b", "***** (obfuscated)")
 			}
+		} else if c.JsonPath == "data" || c.JsonPath == "stringData" {
+			setMapValues(c.NewValue, "*****a")
+			setMapValues(c.OldValue, "*****b")
+			_ = updateUnifiedDiff(c)
+			c.UnifiedDiff = strings.ReplaceAll(c.UnifiedDiff, "*****a", "***** (obfuscated)")
+			c.UnifiedDiff = strings.ReplaceAll(c.UnifiedDiff, "*****b", "***** (obfuscated)")
+			setMapValues(c.NewValue, "*****")
+			setMapValues(c.OldValue, "*****")
 		}
 	}
 }
