@@ -46,7 +46,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-goreleaser-
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v3
+        uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
           version: latest
