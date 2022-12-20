@@ -79,4 +79,17 @@ func TestObfuscateSecrets(t *testing.T) {
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_4")))
 	assert.Contains(t, stdout, "+secret3: '***** (obfuscated)'")
 	assert.Contains(t, stdout, "+secret4: '***** (obfuscated)'")
+
+	p.UpdateYaml("secret3/secret-secret3.yml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(map[string]any{
+			"secret.dot1": "secret_value_5",
+			"secret.dot2": "secret_value_6",
+		}, "stringData")
+		return nil
+	}, "")
+	stdout, _ = p.KluctlMust("deploy", "--yes", "-t", "test")
+	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_5")))
+	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_6")))
+	assert.Contains(t, stdout, "data[\"secret.dot1\"] | +***** (obfuscated)")
+	assert.Contains(t, stdout, "data[\"secret.dot2\"] | +***** (obfuscated)")
 }

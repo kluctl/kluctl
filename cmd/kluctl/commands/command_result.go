@@ -204,7 +204,10 @@ func outputCommandResult(ctx context.Context, output []string, noObfuscate bool,
 	if !noObfuscate {
 		var obfuscator diff.Obfuscator
 		for _, c := range cr.ChangedObjects {
-			obfuscator.Obfuscate(c.Ref, c.Changes)
+			err := obfuscator.Obfuscate(c.Ref, c.Changes)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
