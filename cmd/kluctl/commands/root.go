@@ -292,7 +292,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	err = rootCmd.Execute()
 	if err != nil {
-		status.Error(ctx, err.Error())
+		status.Error(ctx, "%s", err.Error())
 		return err
 	}
 	return nil
