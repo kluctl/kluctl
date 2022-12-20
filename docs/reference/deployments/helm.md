@@ -116,7 +116,7 @@ Specifies version constraints to be used when running [helm-update](../commands/
 [Checking Version Constraints](https://github.com/Masterminds/semver#checking-version-constraints) for details on the
 supported syntax.
 
-If omitted, Kluctl will filter out pre-releases by default. Use a `updateConstraings` like `~1.2.3-0` to enable
+If omitted, Kluctl will filter out pre-releases by default. Use a `updateConstraints` like `~1.2.3-0` to enable
 pre-releases.
 
 ### skipUpdate
