@@ -55,6 +55,7 @@ type VarsSourceVault struct {
 
 type VarsSource struct {
 	IgnoreMissing *bool `yaml:"ignoreMissing,omitempty"`
+	NoOverride    *bool `yaml:"noOverride,omitempty"`
 
 	Values            *uo.UnstructuredObject              `yaml:"values,omitempty"`
 	File              *string                             `yaml:"file,omitempty"`
@@ -73,7 +74,7 @@ func ValidateVarsSource(sl validator.StructLevel) {
 	count := 0
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
-		if v.Type().Field(i).Name == "IgnoreMissing" {
+		if v.Type().Field(i).Name == "IgnoreMissing" || v.Type().Field(i).Name == "NoOverride" {
 			continue
 		}
 		if !v.Field(i).IsNil() {

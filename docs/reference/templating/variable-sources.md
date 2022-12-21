@@ -29,6 +29,8 @@ vars:
 - file: vars2.yaml
 - file: optional-vars.yaml
   ignoreMissing: true
+- file: default-vars.yaml
+  noOverride: true
 ```
 
 `vars2.yaml` can now use variables that are defined in `vars1.yaml`. At all times, variables defined by
@@ -36,6 +38,9 @@ parents of the current sub-deployment project can be used in the current vars fi
 
 Each variable source can have the optional field `ignoreMissing` set to `true`, causing Kluctl to ignore if the source
 can not be found.
+
+When specifying `noOverride: true`, Kluctl will not override variables from the previously loaded variables. This is
+useful if you want to load default values for variables.
 
 Different types of vars entries are possible:
 
