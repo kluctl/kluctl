@@ -115,12 +115,12 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 }
 
 func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string, rootKey string) error {
-	if ignoreMissing && !utils.Exists(path) {
-		return nil
-	}
-
 	rendered, err := varsCtx.RenderFile(path, searchDirs)
 	if err != nil {
+		// TODO the Jinja2 renderer should be able to better report this error
+		if ignoreMissing && err.Error() == fmt.Sprintf("template %s not found", path) {
+			return nil
+		}
 		return fmt.Errorf("failed to render vars file %s: %w", path, err)
 	}
 

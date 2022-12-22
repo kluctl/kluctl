@@ -84,6 +84,18 @@ func TestVarsLoader_File(t *testing.T) {
 		b := true
 		err := vl.LoadVars(vc, &types.VarsSource{
 			IgnoreMissing: &b,
+			File:          utils.StrPtr("test.yaml"),
+		}, []string{d}, "")
+		assert.NoError(t, err)
+
+		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
+		assert.Equal(t, int64(42), v)
+	})
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		b := true
+		err := vl.LoadVars(vc, &types.VarsSource{
+			IgnoreMissing: &b,
 			File:          utils.StrPtr("test-missing.yaml"),
 		}, []string{d}, "")
 		assert.NoError(t, err)
