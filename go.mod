@@ -6,7 +6,6 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
-	github.com/aws/aws-sdk-go v1.44.163
 	github.com/bitnami-labs/sealed-secrets v0.19.3
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
@@ -53,12 +52,13 @@ require (
 	k8s.io/apimachinery v0.26.0
 	k8s.io/client-go v0.26.0
 	k8s.io/klog/v2 v2.80.1
-	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 )
 
 require (
+	github.com/aws/aws-sdk-go-v2/config v1.18.7
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.11
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.4.0
@@ -94,6 +94,18 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
+	github.com/aws/aws-sdk-go v1.43.43 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.17.3 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.7 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.27 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.21 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.28 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.11.28 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.17.7 // indirect
+	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
@@ -247,5 +259,6 @@ require (
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
 	oras.land/oras-go v1.2.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )

@@ -5,8 +5,7 @@ import (
 	"encoding/base64"
 	errors2 "errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	types2 "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
@@ -207,11 +206,11 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 		return fmt.Errorf("no AWS client factory provided")
 	}
 
-	secret, err := aws.GetAwsSecretsManagerSecret(v.aws, source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
+	secret, err := aws.GetAwsSecretsManagerSecret(v.ctx, v.aws, source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
 	if err != nil {
-		var aerr awserr.Error
+		var aerr *types2.ResourceNotFoundException
 		if errors2.As(err, &aerr) {
-			if ignoreMissing && aerr.Code() == secretsmanager.ErrCodeResourceNotFoundException {
+			if ignoreMissing {
 				return nil
 			}
 		}

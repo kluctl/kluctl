@@ -1,42 +1,38 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
-	"os"
+	"context"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
+type GetSecretValueInterface interface {
+	GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+}
+
 type AwsClientFactory interface {
-	SecretsManagerClient(profile *string, region *string) (secretsmanageriface.SecretsManagerAPI, error)
+	SecretsManagerClient(profile *string, region *string) (GetSecretValueInterface, error)
 }
 
 type awsClientFactory struct {
 }
 
-func (a *awsClientFactory) getSession(profile *string) (*session.Session, error) {
-	var opts session.Options
-	opts.SharedConfigState = session.SharedConfigEnable
-	// Environment variable always takes precedence
-	if _, ok := os.LookupEnv("AWS_PROFILE"); !ok && profile != nil {
-		opts.Profile = *profile
+func (a *awsClientFactory) SecretsManagerClient(profile *string, region *string) (GetSecretValueInterface, error) {
+	var configOpts []func(*config.LoadOptions) error
+	if profile != nil {
+		configOpts = append(configOpts, config.WithSharedConfigProfile(*profile))
 	}
-	s, err := session.NewSessionWithOptions(opts)
+
+	if region != nil {
+		configOpts = append(configOpts, config.WithRegion(*region))
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.Background(), configOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return s, nil
-}
-
-func (a *awsClientFactory) SecretsManagerClient(profile *string, region *string) (secretsmanageriface.SecretsManagerAPI, error) {
-	s, err := a.getSession(profile)
-	if err != nil {
-		return nil, err
-	}
-
-	return secretsmanager.New(s, &aws.Config{Region: region}), nil
+	return secretsmanager.NewFromConfig(cfg), nil
 }
 
 func NewClientFactory() AwsClientFactory {
