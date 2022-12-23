@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -32,14 +33,14 @@ type usernamePassword struct {
 type VarsLoader struct {
 	ctx  context.Context
 	k    *k8s.K8sCluster
-	sops sops.SopsDecrypter
+	sops *decryptor.Decryptor
 	rp   *repocache.GitRepoCache
 	aws  aws.AwsClientFactory
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops sops.SopsDecrypter, rp *repocache.GitRepoCache, aws aws.AwsClientFactory) *VarsLoader {
+func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops *decryptor.Decryptor, rp *repocache.GitRepoCache, aws aws.AwsClientFactory) *VarsLoader {
 	return &VarsLoader{
 		ctx:              ctx,
 		k:                k,

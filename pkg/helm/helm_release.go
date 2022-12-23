@@ -7,6 +7,7 @@ import (
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -97,7 +98,7 @@ func (hr *Release) GetFullOutputPath() (string, error) {
 	return securejoin.SecureJoin(dir, hr.GetOutputPath())
 }
 
-func (hr *Release) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter sops.SopsDecrypter) error {
+func (hr *Release) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter *decryptor.Decryptor) error {
 	err := hr.doRender(ctx, k, k8sVersion, sopsDecrypter)
 	if err != nil {
 		return fmt.Errorf("rendering helm chart %s for release %s has failed: %w", hr.Chart.GetChartName(), hr.Config.ReleaseName, err)
@@ -153,7 +154,7 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 	return pc, nil
 }
 
-func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter sops.SopsDecrypter) error {
+func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter *decryptor.Decryptor) error {
 	pc, err := hr.getPulledChart(ctx)
 	if err != nil {
 		return err

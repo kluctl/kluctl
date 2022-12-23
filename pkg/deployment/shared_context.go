@@ -5,7 +5,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
-	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 )
 
@@ -14,7 +14,7 @@ type SharedContext struct {
 	K               *k8s.K8sCluster
 	K8sVersion      string
 	RP              *repocache.GitRepoCache
-	SopsDecrypter   sops.SopsDecrypter
+	SopsDecrypter   *decryptor.Decryptor
 	VarsLoader      *vars.VarsLoader
 	HelmCredentials helm.HelmCredentialsProvider
 

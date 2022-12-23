@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"go.mozilla.org/sops/v3"
 	"go.mozilla.org/sops/v3/cmd/sops/formats"
@@ -15,7 +16,7 @@ func IsMaybeSopsFile(s []byte) bool {
 	return bytes.Index(s, []byte("sops")) != -1
 }
 
-func MaybeDecrypt(decrypter SopsDecrypter, encrypted []byte, inputFormat, outputFormat formats.Format) ([]byte, bool, error) {
+func MaybeDecrypt(decrypter *decryptor.Decryptor, encrypted []byte, inputFormat, outputFormat formats.Format) ([]byte, bool, error) {
 	if decrypter == nil {
 		return encrypted, false, nil
 	}
@@ -34,11 +35,11 @@ func MaybeDecrypt(decrypter SopsDecrypter, encrypted []byte, inputFormat, output
 	return d, true, nil
 }
 
-func MaybeDecryptFile(decrypter SopsDecrypter, path string) error {
+func MaybeDecryptFile(decrypter *decryptor.Decryptor, path string) error {
 	return MaybeDecryptFileTo(decrypter, path, path)
 }
 
-func MaybeDecryptFileTo(decrypter SopsDecrypter, path string, to string) error {
+func MaybeDecryptFileTo(decrypter *decryptor.Decryptor, path string, to string) error {
 	format := formats.FormatForPath(path)
 
 	file, err := os.ReadFile(path)
@@ -61,7 +62,7 @@ func MaybeDecryptFileTo(decrypter SopsDecrypter, path string, to string) error {
 	return nil
 }
 
-func MaybeDecryptFileToTmp(ctx context.Context, decrypter SopsDecrypter, path string) (string, error) {
+func MaybeDecryptFileToTmp(ctx context.Context, decrypter *decryptor.Decryptor, path string) (string, error) {
 	tmp, err := os.CreateTemp(utils.GetTmpBaseDir(ctx), "sops-decrypt-")
 	if err != nil {
 		return "", err

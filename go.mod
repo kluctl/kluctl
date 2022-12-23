@@ -57,27 +57,30 @@ require (
 )
 
 require (
+	filippo.io/age v1.0.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.7
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.11
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.4.0
+	github.com/onsi/gomega v1.24.1
 	github.com/otiai10/copy v1.9.0
 	go.mozilla.org/sops/v3 v3.7.3
 	sigs.k8s.io/controller-runtime v0.14.0
+	sigs.k8s.io/kustomize/api v0.12.1
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
 	cloud.google.com/go/compute v1.14.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.2 // indirect
-	filippo.io/age v1.0.0 // indirect
-	github.com/Azure/azure-sdk-for-go v67.1.0+incompatible // indirect
+	github.com/Azure/azure-sdk-for-go v63.3.0+incompatible // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
+	github.com/Azure/go-autorest/autorest v0.11.27 // indirect
+	github.com/Azure/go-autorest/autorest/adal v0.9.20 // indirect
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11 // indirect
-	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6 // indirect
+	github.com/Azure/go-autorest/autorest/azure/cli v0.4.5 // indirect
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
@@ -251,6 +254,7 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gotest.tools/v3 v3.2.0 // indirect
 	k8s.io/apiserver v0.26.0 // indirect
 	k8s.io/cli-runtime v0.26.0 // indirect
 	k8s.io/component-base v0.26.0 // indirect
@@ -259,6 +263,4 @@ require (
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
 	oras.land/oras-go v1.2.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/kustomize/api v0.12.1 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )

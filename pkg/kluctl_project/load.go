@@ -3,7 +3,7 @@ package kluctl_project
 import (
 	"context"
 	"github.com/kluctl/go-jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 )
 
@@ -21,7 +21,8 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 	}
 
 	if p.SopsDecrypter == nil {
-		p.SopsDecrypter = &sops.LocalSopsDecrypter{}
+		p.SopsDecrypter = decryptor.NewDecryptor(args.ProjectDir, decryptor.MaxEncryptedFileSize)
+		p.SopsDecrypter.AddLocalKeyService()
 	}
 
 	err := p.loadKluctlProject()
