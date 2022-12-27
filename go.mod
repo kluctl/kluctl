@@ -57,7 +57,7 @@ require (
 )
 
 require (
-	filippo.io/age v1.0.0
+	filippo.io/age v1.1.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.7
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.16.11
 	github.com/go-logr/logr v1.2.3
