@@ -1,11 +1,12 @@
 package aws
 
 import (
+	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
-func GetAwsSecretsManagerSecret(aws AwsClientFactory, profile *string, region *string, secretName string) (string, error) {
+func GetAwsSecretsManagerSecret(ctx context.Context, aws AwsClientFactory, profile *string, region *string, secretName string) (string, error) {
 	if region == nil {
 		arn, err := ParseArn(secretName)
 		if err != nil {
@@ -19,7 +20,7 @@ func GetAwsSecretsManagerSecret(aws AwsClientFactory, profile *string, region *s
 		return "", fmt.Errorf("getting secret %s from AWS secrets manager failed: %w", secretName, err)
 	}
 
-	r, err := smClient.GetSecretValue(&secretsmanager.GetSecretValueInput{
+	r, err := smClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
 		SecretId: &secretName,
 	})
 	if err != nil {

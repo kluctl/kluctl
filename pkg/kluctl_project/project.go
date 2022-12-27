@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
-	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 )
 
@@ -26,7 +26,7 @@ type LoadedKluctlProject struct {
 
 	J2            *jinja2.Jinja2
 	RP            *repocache.GitRepoCache
-	SopsDecrypter sops.SopsDecrypter
+	SopsDecrypter *decryptor.Decryptor
 }
 
 func (c *LoadedKluctlProject) FindBaseTarget(name string) (*types2.Target, error) {
