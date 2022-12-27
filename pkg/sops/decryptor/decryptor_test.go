@@ -1,3 +1,5 @@
+//go:build !windows
+
 /*
 Copyright 2021 The Flux authors
 
