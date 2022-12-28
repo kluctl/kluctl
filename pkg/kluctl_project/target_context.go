@@ -171,7 +171,6 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, externalArgs *uo.U
 
 	allArgs := uo.New()
 
-	allArgs.Merge(externalArgs)
 	if target != nil {
 		if target.Args != nil {
 			allArgs.Merge(target.Args)
@@ -182,6 +181,7 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, externalArgs *uo.U
 			}
 		}
 	}
+	allArgs.Merge(externalArgs)
 
 	deprecatedArgs, err := deployment.LoadDeprecatedDeploymentArgs(p.ctx, p.ProjectDir, varsCtx, allArgs)
 	if err != nil {
