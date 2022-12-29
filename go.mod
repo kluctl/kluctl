@@ -24,7 +24,7 @@ require (
 	github.com/kluctl/go-embed-python v0.0.0-3.10.8-20221106-1
 	github.com/kluctl/go-jinja2 v0.0.0-20221215083015-c3f906953ba1
 	github.com/mattn/go-colorable v0.1.13
-	github.com/mattn/go-isatty v0.0.16
+	github.com/mattn/go-isatty v0.0.17
 	github.com/mattn/go-runewidth v0.0.14
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.15.0
