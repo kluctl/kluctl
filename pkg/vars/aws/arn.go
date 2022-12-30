@@ -22,7 +22,7 @@ func ParseArn(arn string) (Arn, error) {
 	}
 	elements := strings.SplitN(arn, ":", 6)
 	if len(elements) < 6 {
-		return Arn{}, fmt.Errorf("%s is not a valid arn", arn)
+		return Arn{}, fmt.Errorf("%s is not a valid ARN. Too few components", arn)
 	}
 	var result Arn
 	result.Arn = elements[0]
