@@ -2,10 +2,8 @@ package yaml
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,13 +25,9 @@ func TestReadYamlFile(t *testing.T) {
 	nonExistingEmptyYamlFileName := "test_read_yaml_file_non_existing_empty.yaml"
 	var nonExistingEmptyYamlConf EmptyYamlConfig
 
-	// Create directory for test files
-	createTestDir()
-	defer cleanupTestDir()
-
 	// Setup temporary file
-	file, err := CreateTempFile(existingEmptyYamlFileNamePattern)
-	defer os.Remove(file.Name())
+	file, err := CreateTempFile(t, existingEmptyYamlFileNamePattern)
+	defer file.Close()
 	if err != nil {
 		t.Errorf("Can't create file: %s", file.Name())
 	}
@@ -55,13 +49,9 @@ func TestReadYamlAllFileFs(t *testing.T) {
 	existingEmptyYamlFileNamePattern := "test_read_yaml_all_file_existing_empty_*.yaml"
 	nonExistingEmptyYamlFileName := "nonExistingEmpty.yaml"
 
-	// Create directory for test files
-	createTestDir()
-	defer cleanupTestDir()
-
 	// Setup temporary file
-	file, err := CreateTempFile(existingEmptyYamlFileNamePattern)
-	defer os.Remove(file.Name())
+	file, err := CreateTempFile(t, existingEmptyYamlFileNamePattern)
+	defer file.Close()
 	if err != nil {
 		t.Errorf("Can't create file: %s", file.Name())
 	}
@@ -209,13 +199,9 @@ func TestWriteYamlAllFile(t *testing.T) {
 value: anyValue2
 `
 
-	// Create directory for test files
-	createTestDir()
-	defer cleanupTestDir()
-
 	// Setup temporary file
-	file, err := CreateTempFile(yamlFileNamePattern)
-	defer os.Remove(file.Name())
+	file, err := CreateTempFile(t, yamlFileNamePattern)
+	defer file.Close()
 	if err != nil {
 		t.Errorf("Can't create file: %s", file.Name())
 	}
@@ -243,13 +229,9 @@ func TestWriteYamlFile(t *testing.T) {
 	expectedString := `value: anyValue1
 `
 
-	// Create directory for test files
-	createTestDir()
-	defer cleanupTestDir()
-
 	// Setup temporary file
-	file, err := CreateTempFile(yamlFileNamePattern)
-	defer os.Remove(file.Name())
+	file, err := CreateTempFile(t, yamlFileNamePattern)
+	defer file.Close()
 	if err != nil {
 		t.Errorf("Can't create file: %s", file.Name())
 	}
@@ -436,13 +418,9 @@ value2: anyValue
 }
 
 func TestFixPathExt(t *testing.T) {
-	// Create directory for test files
-	createTestDir()
-	defer cleanupTestDir()
-
 	// Check if *.yaml gets converted
-	file, err := CreateTempFile("test_fix_path_ext_*.yml")
-	defer os.Remove(file.Name())
+	file, err := CreateTempFile(t, "test_fix_path_ext_*.yml")
+	defer file.Close()
 	if err != nil {
 		t.Errorf("Can't create file: %s", file.Name())
 	}
@@ -454,8 +432,8 @@ func TestFixPathExt(t *testing.T) {
 	}
 
 	// Check if *.yml gets converted
-	file, err = CreateTempFile("test_fix_path_ext_*.yaml")
-	defer os.Remove(file.Name())
+	file, err = CreateTempFile(t, "test_fix_path_ext_*.yaml")
+	defer file.Close()
 	if err != nil {
 		t.Errorf("Can't create file: %s", file.Name())
 	}
@@ -467,30 +445,10 @@ func TestFixPathExt(t *testing.T) {
 	}
 }
 
-func CreateTempFile(pattern string) (*os.File, error) {
-	file, err := os.CreateTemp(getTestDir(), pattern)
+func CreateTempFile(t *testing.T, pattern string) (*os.File, error) {
+	file, err := os.CreateTemp(t.TempDir(), pattern)
 	if err != nil {
 		return nil, err
 	}
 	return file, nil
-}
-
-func getTestDir() string {
-	tempDir := fmt.Sprintf("%s%s%s%s%s",
-		utils.GetTmpBaseDir(context.TODO()), string(os.PathSeparator), "tests", string(os.PathSeparator), "yaml")
-	return tempDir
-}
-
-func createTestDir() (string, error) {
-	testDir := getTestDir()
-	err := os.MkdirAll(testDir, 0o700)
-	if err != nil {
-		return "", err
-	}
-	return testDir, nil
-}
-
-func cleanupTestDir() error {
-	return os.RemoveAll(getTestDir())
-
 }
