@@ -17,6 +17,9 @@ type Arn struct {
 
 func ParseArn(arn string) (Arn, error) {
 	// http://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html
+	if strings.Contains(arn, "*") {
+		return Arn{}, fmt.Errorf("%s is not a valid ARN. Use of wildcard is not allowed", arn)
+	}
 	elements := strings.SplitN(arn, ":", 6)
 	if len(elements) < 6 {
 		return Arn{}, fmt.Errorf("%s is not a valid arn", arn)
