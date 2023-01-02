@@ -645,7 +645,7 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		aws.Secrets = map[string]string{
-			"secret": `{"test1": {"test2": 42}}`,
+			"secret:secret": `{"test1": {"test2": 42}}`,
 		}
 
 		err := vl.LoadVars(vc, &types.VarsSource{
