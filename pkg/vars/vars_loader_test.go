@@ -634,7 +634,7 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 		err = vl.LoadVars(vc, &types.VarsSource{
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "secret",
-				Region:     utils.StrPtr("eu-central1"),
+				Region:     utils.StrPtr("eu-central-1"),
 			},
 		}, nil, "")
 		assert.NoError(t, err)
@@ -669,7 +669,7 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 			IgnoreMissing: &b,
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "missing",
-				Region:     utils.StrPtr("eu-central1"),
+				Region:     utils.StrPtr("eu-central-1"),
 			},
 		}, nil, "")
 		assert.NoError(t, err)
