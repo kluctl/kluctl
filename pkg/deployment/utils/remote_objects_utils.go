@@ -40,6 +40,8 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 	s := status.Start(u.ctx, baseStatus)
 	defer s.Failed()
 
+	errCount := 0
+
 	gvks := k.Resources.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
 		return utils.FindStrInSlice(ar.Verbs, "list") != -1
 	})
@@ -47,26 +49,32 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 	g := utils.NewGoHelper(u.ctx, 0)
 	for _, gvk := range gvks {
 		gvk := gvk
-		g.RunE(func() error {
+		g.Run(func() {
 			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
 			u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, apiWarnings)
 			if err != nil {
 				if errors2.IsNotFound(err) {
-					return nil
+					return
 				}
-				return err
+				u.dew.AddError(k8s2.ObjectRef{GVK: gvk}, err)
+				errCount += 1
+				return
 			}
 			mutex.Lock()
 			defer mutex.Unlock()
 			for _, o := range l {
 				u.remoteObjects[o.GetK8sRef()] = o
 			}
-			return nil
 		})
 	}
 	g.Wait()
 	if g.ErrorOrNil() == nil {
-		s.Success()
+		if errCount != 0 {
+			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
+			s.Warning()
+		} else {
+			s.Success()
+		}
 	}
 	return g.ErrorOrNil()
 }
@@ -86,6 +94,8 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 		return nil
 	}
 
+	errCount := 0
+
 	baseStatus := fmt.Sprintf("Getting %d additional remote objects", len(notFoundRefsMap))
 	s := status.Start(u.ctx, baseStatus)
 	defer s.Failed()
@@ -93,24 +103,31 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 	g := utils.NewGoHelper(u.ctx, 0)
 	for ref, _ := range notFoundRefsMap {
 		ref := ref
-		g.RunE(func() error {
+		g.Run(func() {
 			r, apiWarnings, err := k.GetSingleObject(ref)
 			u.dew.AddApiWarnings(ref, apiWarnings)
 			if err != nil {
 				if errors2.IsNotFound(err) {
-					return nil
+					return
 				}
-				return err
+				u.dew.AddError(ref, err)
+				errCount += 1
+				return
 			}
 			mutex.Lock()
 			defer mutex.Unlock()
 			u.remoteObjects[r.GetK8sRef()] = r
-			return nil
+			return
 		})
 	}
 	g.Wait()
 	if g.ErrorOrNil() == nil {
-		s.Success()
+		if errCount != 0 {
+			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
+			s.Warning()
+		} else {
+			s.Success()
+		}
 	}
 	return g.ErrorOrNil()
 }
