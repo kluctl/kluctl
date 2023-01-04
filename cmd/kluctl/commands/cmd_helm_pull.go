@@ -3,17 +3,14 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"golang.org/x/sync/semaphore"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type helmPullCmd struct {
@@ -58,10 +55,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	var errs *multierror.Error
-	var wg sync.WaitGroup
-	var mutex sync.Mutex
-	sem := semaphore.NewWeighted(8)
+	g := utils.NewGoHelper(ctx, 8)
 
 	for _, chart := range charts {
 		chart := chart
@@ -97,7 +91,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 
 		for version, _ := range versionsToPull {
 			version := version
-			utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
+			g.RunE(func() error {
 				s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
 				defer s.Failed()
 
@@ -112,12 +106,9 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 			})
 		}
 	}
-	wg.Wait()
-	if err != nil {
-		errs = multierror.Append(errs, err)
-	}
+	g.Wait()
 
-	if errs.ErrorOrNil() != nil {
+	if g.ErrorOrNil() != nil {
 		return fmt.Errorf("command failed")
 	}
 

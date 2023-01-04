@@ -89,5 +89,5 @@ func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.
 		}
 	}
 
-	return utils.DeleteObjects(k, refs, true)
+	return utils.DeleteObjects(ctx, k, refs, true)
 }

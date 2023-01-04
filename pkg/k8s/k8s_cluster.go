@@ -136,10 +136,8 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 
 func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, map[schema.GroupVersionKind][]ApiWarning, error) {
 	var ret []*uo.UnstructuredObject
-	var errs []error
 	retApiWarnings := make(map[schema.GroupVersionKind][]ApiWarning)
 	var mutex sync.Mutex
-	var wg sync.WaitGroup
 
 	filter := func(ar *v1.APIResource) bool {
 		foundVerb := false
@@ -152,29 +150,27 @@ func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map
 		return foundVerb
 	}
 
+	g := utils.NewGoHelper(k.ctx, 0)
 	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filter) {
 		gvk := gvk
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		g.RunE(func() error {
 			l, apiWarnings, err := k.ListObjects(gvk, namespace, labels)
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil && !errors.IsNotFound(err) {
-				errs = append(errs, err)
-				return
+				return err
 			}
 			ret = append(ret, l...)
 			if len(apiWarnings) != 0 {
 				retApiWarnings[gvk] = apiWarnings
 			}
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
-	if len(errs) != 0 {
-		return nil, retApiWarnings, utils.NewErrorListOrNil(errs)
+	if g.ErrorOrNil() != nil {
+		return nil, retApiWarnings, g.ErrorOrNil()
 	}
 
 	return ret, retApiWarnings, nil
@@ -196,16 +192,13 @@ func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject,
 
 func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredObject, map[k8s.ObjectRef][]ApiWarning, error) {
 	var ret []*uo.UnstructuredObject
-	var errs []error
 	retApiWarnings := make(map[k8s.ObjectRef][]ApiWarning)
 	var mutex sync.Mutex
-	var wg sync.WaitGroup
 
+	g := utils.NewGoHelper(k.ctx, 0)
 	for _, ref_ := range refs {
 		ref := ref_
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		g.RunE(func() error {
 			o, apiWarnings, err := k.GetSingleObject(ref)
 			mutex.Lock()
 			defer mutex.Unlock()
@@ -214,16 +207,17 @@ func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredO
 			}
 			if err != nil {
 				if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-					errs = append(errs, err)
+					return err
 				}
-				return
+				return nil
 			}
 			ret = append(ret, o)
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
-	if len(errs) != 0 {
-		return nil, retApiWarnings, utils.NewErrorListOrNil(errs)
+	g.Wait()
+	if g.ErrorOrNil() != nil {
+		return nil, retApiWarnings, g.ErrorOrNil()
 	}
 
 	return ret, retApiWarnings, nil
