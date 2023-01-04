@@ -82,7 +82,11 @@ func prettyObjectRefs(buf io.StringWriter, refs []k8s.ObjectRef) {
 
 func prettyErrors(buf io.StringWriter, errors []types.DeploymentError) {
 	for _, e := range errors {
-		_, _ = buf.WriteString(fmt.Sprintf("  %s: %s\n", e.Ref.String(), e.Error))
+		prefix := ""
+		if s := e.Ref.String(); s != "" {
+			prefix = fmt.Sprintf("%s: ", s)
+		}
+		_, _ = buf.WriteString(fmt.Sprintf("  %s%s\n", prefix, e.Error))
 	}
 }
 
