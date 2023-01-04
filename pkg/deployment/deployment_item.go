@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/fluxcd/pkg/kustomize"
+	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
@@ -567,7 +568,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 
 	var objects []interface{}
 
-	var errList []error
+	var errs *multierror.Error
 	for _, o := range di.Objects {
 		commonLabels := di.getCommonLabels()
 		commonAnnotations := di.getCommonAnnotations()
@@ -588,7 +589,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 			// Resolve image placeholders
 			err := images.ResolvePlaceholders(di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys())
 			if err != nil {
-				errList = append(errList, err)
+				errs = multierror.Append(errs, err)
 			}
 			return nil
 		})
@@ -596,8 +597,8 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 		objects = append(objects, o.Object)
 	}
 
-	if len(errList) != 0 {
-		return utils.NewErrorListOrNil(errList)
+	if errs.ErrorOrNil() != nil {
+		return errs.ErrorOrNil()
 	}
 
 	// Need to write it back to disk in case it is needed externally

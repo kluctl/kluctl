@@ -3,10 +3,10 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"sync"
 )
 
@@ -106,5 +106,5 @@ func (dew *DeploymentErrorsAndWarnings) getPlainErrorsList() []error {
 
 func (dew *DeploymentErrorsAndWarnings) GetMultiError() error {
 	l := dew.getPlainErrorsList()
-	return utils.NewErrorListOrNil(l)
+	return multierror.Append(nil, l...).ErrorOrNil()
 }
