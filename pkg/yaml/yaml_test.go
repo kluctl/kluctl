@@ -40,7 +40,7 @@ func TestReadYamlFile(t *testing.T) {
 	assert.Error(t, nonExistingEmptyYamlErr, "Should throw an error because %s doesn't exist", nonExistingEmptyYamlFileName)
 }
 
-func TestReadYamlAllFileFs(t *testing.T) {
+func TestReadYamlAllFile(t *testing.T) {
 	// Setup variables
 	existingEmptyYamlFileNamePattern := "test_read_yaml_all_file_existing_empty_*.yaml"
 	nonExistingEmptyYamlFileName := "nonExistingEmpty.yaml"
