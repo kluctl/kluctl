@@ -2,12 +2,16 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sync"
 )
 
 type RemoteObjectUtils struct {
@@ -26,53 +30,109 @@ func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings)
 	}
 }
 
+func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]string) error {
+	var mutex sync.Mutex
+	if len(labels) == 0 {
+		return nil
+	}
+
+	baseStatus := "Getting remote objects by commonLabels"
+	s := status.Start(u.ctx, baseStatus)
+	defer s.Failed()
+
+	gvks := k.Resources.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
+		return utils.FindStrInSlice(ar.Verbs, "list") != -1
+	})
+
+	g := utils.NewGoHelper(u.ctx, 0)
+	for _, gvk := range gvks {
+		gvk := gvk
+		g.RunE(func() error {
+			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
+			u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, apiWarnings)
+			if err != nil {
+				if errors2.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+			mutex.Lock()
+			defer mutex.Unlock()
+			for _, o := range l {
+				u.remoteObjects[o.GetK8sRef()] = o
+			}
+			return nil
+		})
+	}
+	g.Wait()
+	if g.ErrorOrNil() == nil {
+		s.Success()
+	}
+	return g.ErrorOrNil()
+}
+
+func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef) error {
+	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
+	for _, ref := range refs {
+		if _, ok := u.remoteObjects[ref]; !ok {
+			if _, ok = notFoundRefsMap[ref]; !ok {
+				notFoundRefsMap[ref] = true
+			}
+		}
+	}
+
+	var mutex sync.Mutex
+	if len(notFoundRefsMap) == 0 {
+		return nil
+	}
+
+	baseStatus := fmt.Sprintf("Getting %d additional remote objects", len(notFoundRefsMap))
+	s := status.Start(u.ctx, baseStatus)
+	defer s.Failed()
+
+	g := utils.NewGoHelper(u.ctx, 0)
+	for ref, _ := range notFoundRefsMap {
+		ref := ref
+		g.RunE(func() error {
+			r, apiWarnings, err := k.GetSingleObject(ref)
+			u.dew.AddApiWarnings(ref, apiWarnings)
+			if err != nil {
+				if errors2.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+			mutex.Lock()
+			defer mutex.Unlock()
+			u.remoteObjects[r.GetK8sRef()] = r
+			return nil
+		})
+	}
+	g.Wait()
+	if g.ErrorOrNil() == nil {
+		s.Success()
+	}
+	return g.ErrorOrNil()
+}
+
 func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[string]string, refs []k8s2.ObjectRef) error {
 	if k == nil {
 		return nil
 	}
 
-	s := status.Start(u.ctx, "Getting remote objects by commonLabels")
+	err := u.getAllByLabels(k, labels)
+	if err != nil {
+		return err
+	}
+
+	err = u.getMissingObjects(k, refs)
+	if err != nil {
+		return err
+	}
+
+	s := status.Start(u.ctx, "Getting namespaces")
 	defer s.Failed()
 
-	if len(labels) != 0 {
-		allObjects, apiWarnings, err := k.ListAllObjects([]string{"get"}, "", labels)
-		for gvk, aw := range apiWarnings {
-			u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, aw)
-		}
-		if err != nil {
-			return err
-		}
-		for _, o := range allObjects {
-			u.remoteObjects[o.GetK8sRef()] = o
-		}
-	}
-
-	notFoundRefsMap := make(map[k8s2.ObjectRef]bool)
-	var notFoundRefsList []k8s2.ObjectRef
-	for _, ref := range refs {
-		if _, ok := u.remoteObjects[ref]; !ok {
-			if _, ok = notFoundRefsMap[ref]; !ok {
-				notFoundRefsMap[ref] = true
-				notFoundRefsList = append(notFoundRefsList, ref)
-			}
-		}
-	}
-
-	if len(notFoundRefsList) != 0 {
-		s.UpdateAndInfoFallback("Getting %d additional remote objects", len(notFoundRefsList))
-		r, apiWarnings, err := k.GetObjectsByRefs(notFoundRefsList)
-		for ref, aw := range apiWarnings {
-			u.dew.AddApiWarnings(ref, aw)
-		}
-		if err != nil {
-			return err
-		}
-		for _, o := range r {
-			u.remoteObjects[o.GetK8sRef()] = o
-		}
-	}
-
-	s.UpdateAndInfoFallback("Getting namespaces")
 	r, _, err := k.ListObjects(schema.GroupVersionKind{
 		Group:   "",
 		Version: "v1",
