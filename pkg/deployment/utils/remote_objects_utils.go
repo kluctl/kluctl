@@ -41,6 +41,7 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 	defer s.Failed()
 
 	errCount := 0
+	permissionErrCount := 0
 
 	gvks := k.Resources.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
 		return utils.FindStrInSlice(ar.Verbs, "list") != -1
@@ -52,16 +53,20 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 		g.Run(func() {
 			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
 			u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, apiWarnings)
+			mutex.Lock()
+			defer mutex.Unlock()
 			if err != nil {
 				if errors2.IsNotFound(err) {
 					return
 				}
-				u.dew.AddError(k8s2.ObjectRef{GVK: gvk}, err)
 				errCount += 1
+				if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {
+					permissionErrCount += 1
+					return
+				}
+				u.dew.AddWarning(k8s2.ObjectRef{GVK: gvk}, err)
 				return
 			}
-			mutex.Lock()
-			defer mutex.Unlock()
 			for _, o := range l {
 				u.remoteObjects[o.GetK8sRef()] = o
 			}
@@ -72,6 +77,9 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 		if errCount != 0 {
 			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
+			if permissionErrCount != 0 {
+				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering objects by labels. This might result in orphan object detection to not work properly"))
+			}
 		} else {
 			s.Success()
 		}
@@ -95,6 +103,7 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 	}
 
 	errCount := 0
+	permissionErrCount := 0
 
 	baseStatus := fmt.Sprintf("Getting %d additional remote objects", len(notFoundRefsMap))
 	s := status.Start(u.ctx, baseStatus)
@@ -108,6 +117,10 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 			u.dew.AddApiWarnings(ref, apiWarnings)
 			if err != nil {
 				if errors2.IsNotFound(err) {
+					return
+				}
+				if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {
+					permissionErrCount += 1
 					return
 				}
 				u.dew.AddError(ref, err)
@@ -125,6 +138,9 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 		if errCount != 0 {
 			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
+			if permissionErrCount != 0 {
+				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering known objects. This might result in orphan object detection and diffs to not work properly"))
+			}
 		} else {
 			s.Success()
 		}
