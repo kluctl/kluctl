@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,20 +29,15 @@ func TestReadYamlFile(t *testing.T) {
 	// Setup temporary file
 	file, err := CreateTempFile(t, existingEmptyYamlFileNamePattern)
 	defer file.Close()
-	if err != nil {
-		t.Errorf("Can't create file: %s", file.Name())
-	}
+	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	//Read existing empty yaml file
 	existingEmptyYamlErr := ReadYamlFile(file.Name(), &existingEmptyYamlConf)
-	if existingEmptyYamlErr != nil {
-		t.Errorf("Can't read empty yaml file: %s", file.Name())
-	}
+	assert.NoError(t, existingEmptyYamlErr, "Can't read empty yaml file: %s", file.Name())
+
 	//Read non-existing empty yaml file
 	nonExistingEmptyYamlErr := ReadYamlFile(nonExistingEmptyYamlFileName, &nonExistingEmptyYamlConf)
-	if nonExistingEmptyYamlErr == nil {
-		t.Errorf("Should throw an error because %s doesn't exist", nonExistingEmptyYamlFileName)
-	}
+	assert.Error(t, nonExistingEmptyYamlErr, "Should throw an error because %s doesn't exist", nonExistingEmptyYamlFileName)
 }
 
 func TestReadYamlAllFileFs(t *testing.T) {
@@ -52,29 +48,17 @@ func TestReadYamlAllFileFs(t *testing.T) {
 	// Setup temporary file
 	file, err := CreateTempFile(t, existingEmptyYamlFileNamePattern)
 	defer file.Close()
-	if err != nil {
-		t.Errorf("Can't create file: %s", file.Name())
-	}
+	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	//Read existing empty yaml file
 	existingEmptyYamlAllFileResult, existingEmptyYamlAllFileErr := ReadYamlAllFile(file.Name())
-	if existingEmptyYamlAllFileErr != nil {
-		t.Errorf("Can't read empty yaml file: %s", file.Name())
-	}
-
-	if existingEmptyYamlAllFileResult != nil {
-		t.Errorf("Empty YAML stream read incorrectly. Value should be nil")
-	}
+	assert.NoError(t, existingEmptyYamlAllFileErr, "Can't read empty yaml file: %s", file.Name())
+	assert.Nil(t, existingEmptyYamlAllFileResult, "Empty YAML stream read incorrectly. Value should be nil")
 
 	//Read non-existing empty yaml file
 	nonExistingEmptyYamlAllFileResult, nonExistingEmptyYamlAllFileErr := ReadYamlAllFile(nonExistingEmptyYamlFileName)
-	if nonExistingEmptyYamlAllFileErr == nil {
-		t.Errorf("Should throw an error because %s doesn't exist", nonExistingEmptyYamlFileName)
-	}
-
-	if nonExistingEmptyYamlAllFileResult != nil {
-		t.Errorf("Empty YAML stream read incorrectly. Value should be nil because file doesn't exist.")
-	}
+	assert.Error(t, nonExistingEmptyYamlAllFileErr, "Should throw an error because %s doesn't exist", nonExistingEmptyYamlFileName)
+	assert.Nil(t, nonExistingEmptyYamlAllFileResult, "Empty YAML stream read incorrectly. Value should be nil because file doesn't exist.")
 }
 
 func TestReadYamlStream(t *testing.T) {
@@ -86,15 +70,11 @@ func TestReadYamlStream(t *testing.T) {
 	var existingSimpleYamlConf SimpleYamlConfig
 
 	existingReadYamlStreamErr := ReadYamlStream(simpleYamlDataReader, &existingSimpleYamlConf)
-	if existingReadYamlStreamErr != nil {
-		t.Errorf("Can't read simple yaml stream: %s", existingReadYamlStreamErr)
-	}
+	assert.NoError(t, existingReadYamlStreamErr, "Can't read simple yaml stream: %s", existingReadYamlStreamErr)
 
 	//Check if it can handle errors
 	errorReadYamlStreamErr := ReadYamlStream(iotest.ErrReader(errors.New("timeout")), &EmptyYamlConfig{})
-	if errorReadYamlStreamErr == nil {
-		t.Errorf("It should throw an error because of a timeout")
-	}
+	assert.Error(t, errorReadYamlStreamErr, "It should throw an error because of a timeout")
 }
 
 func TestReadYamlString(t *testing.T) {
@@ -105,9 +85,7 @@ func TestReadYamlString(t *testing.T) {
 	var existingSimpleYamlConf SimpleYamlConfig
 
 	existingReadYamlStringErr := ReadYamlString(simpleYamlDataString, &existingSimpleYamlConf)
-	if existingReadYamlStringErr != nil {
-		t.Errorf("Can't read simple yaml stream: %s", existingReadYamlStringErr)
-	}
+	assert.NoError(t, existingReadYamlStringErr, "Can't read simple yaml stream: %s", existingReadYamlStringErr)
 }
 
 func TestReadYamlAllString(t *testing.T) {
@@ -116,13 +94,10 @@ func TestReadYamlAllString(t *testing.T) {
     value: anyValue
     `
 	simpleYamlAllStringResult, simpleYamlAllStringErr := ReadYamlAllString(simpleYamlDataString)
-	if simpleYamlAllStringErr != nil {
-		t.Errorf("Can't read simple yaml stream: %s", simpleYamlAllStringErr)
-	}
+	assert.NoError(t, simpleYamlAllStringErr, "Can't read simple yaml stream: %s", simpleYamlAllStringErr)
+
 	simpleYamlAllStringResultMap := simpleYamlAllStringResult[0].(map[string]interface{})
-	if simpleYamlAllStringResultMap["value"] != "anyValue" {
-		t.Errorf("Simple YAML stream read incorrectly. Value should be 'anyValue' but is %s", simpleYamlAllStringResultMap["value"])
-	}
+	assert.Equal(t, "anyValue", simpleYamlAllStringResultMap["value"], "Simple YAML stream read incorrectly. Value should be 'anyValue' but is %s", simpleYamlAllStringResultMap["value"])
 }
 
 func TestReadYamlBytes(t *testing.T) {
@@ -133,9 +108,7 @@ func TestReadYamlBytes(t *testing.T) {
 	var existingSimpleYamlConf SimpleYamlConfig
 	simpleYamlDataBytes := []byte(simpleYamlDataString)
 	existingReadYamlBytesErr := ReadYamlBytes(simpleYamlDataBytes, &existingSimpleYamlConf)
-	if existingReadYamlBytesErr != nil {
-		t.Errorf("Can't read simple yaml stream: %s", existingReadYamlBytesErr)
-	}
+	assert.NoError(t, existingReadYamlBytesErr, "Can't read simple yaml stream: %s", existingReadYamlBytesErr)
 }
 
 func TestReadYamlAllBytes(t *testing.T) {
@@ -145,13 +118,10 @@ func TestReadYamlAllBytes(t *testing.T) {
     `
 	simpleYamlDataBytes := []byte(simpleYamlDataString)
 	simpleYamlAllBytesResult, simpleYamlAllBytesErr := ReadYamlAllBytes(simpleYamlDataBytes)
-	if simpleYamlAllBytesErr != nil {
-		t.Errorf("Can't read simple yaml stream: %s", simpleYamlAllBytesErr)
-	}
+	assert.NoError(t, simpleYamlAllBytesErr, "Can't read simple yaml stream: %s", simpleYamlAllBytesErr)
+
 	simpleYamlAllBytesResultMap := simpleYamlAllBytesResult[0].(map[string]interface{})
-	if simpleYamlAllBytesResultMap["value"] != "anyValue" {
-		t.Errorf("Simple YAML stream read incorrectly. Value should be 'anyValue' but is %s", simpleYamlAllBytesResultMap["value"])
-	}
+	assert.Equal(t, "anyValue", simpleYamlAllBytesResultMap["value"], "Simple YAML stream read incorrectly. Value should be 'anyValue' but is %s", simpleYamlAllBytesResultMap["value"])
 }
 
 func TestReadYamlAllStream(t *testing.T) {
@@ -161,28 +131,19 @@ func TestReadYamlAllStream(t *testing.T) {
 
 	//Read empty yaml from stream
 	emptyYamlAllStreamResult, emptyYamlAllStreamResultErr := ReadYamlAllStream(emptyYamlDataReader)
-	if emptyYamlAllStreamResultErr != nil {
-		t.Errorf("Can't read empty yaml stream: %s", emptyYamlAllStreamResultErr)
-	}
-	if emptyYamlAllStreamResult != nil {
-		t.Errorf("Empty YAML stream read incorrectly. Value should be nil")
-	}
+	assert.NoError(t, emptyYamlAllStreamResultErr, "Can't read empty yaml stream: %s", emptyYamlAllStreamResultErr)
+	assert.Nil(t, emptyYamlAllStreamResult, "Empty YAML stream read incorrectly. Value should be nil")
 
 	//Read simple yaml from stream
 	simpleYamlAllStreamResult, simpleYamlAllStreamResultErr := ReadYamlAllStream(simpleYamlDataReader)
-	if simpleYamlAllStreamResultErr != nil {
-		t.Errorf("Can't read simple yaml stream: %s", simpleYamlAllStreamResultErr)
-	}
+	assert.NoError(t, simpleYamlAllStreamResultErr, "Can't read simple yaml stream: %s", simpleYamlAllStreamResultErr)
+
 	simpleYamlAllStreamResultMap := simpleYamlAllStreamResult[0].(map[string]interface{})
-	if simpleYamlAllStreamResultMap["value"] != "anyValue" {
-		t.Errorf("Simple YAML stream read incorrectly. Value should be 'anyValue' but is %s", simpleYamlAllStreamResultMap["value"])
-	}
+	assert.Equal(t, "anyValue", simpleYamlAllStreamResultMap["value"], "Simple YAML stream read incorrectly. Value should be 'anyValue' but is %s", simpleYamlAllStreamResultMap["value"])
 
 	//Check if it can handle errors
 	_, errorReadYamlAllStreamErr := ReadYamlAllStream(iotest.ErrReader(errors.New("timeout")))
-	if errorReadYamlAllStreamErr == nil {
-		t.Errorf("It should throw an error because of a timeout")
-	}
+	assert.Error(t, errorReadYamlAllStreamErr, "It should throw an error because of a timeout")
 }
 
 func TestWriteYamlAllFile(t *testing.T) {
@@ -202,22 +163,15 @@ value: anyValue2
 	// Setup temporary file
 	file, err := CreateTempFile(t, yamlFileNamePattern)
 	defer file.Close()
-	if err != nil {
-		t.Errorf("Can't create file: %s", file.Name())
-	}
+	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	//Check if writing multiple YAML works
 	writeYamlAllFileErr := WriteYamlAllFile(file.Name(), yaml)
-	if writeYamlAllFileErr != nil {
-		t.Errorf("Error while trying to write YAML to file")
-	}
+	assert.NoError(t, writeYamlAllFileErr, "Error while trying to write YAML to file")
+
 	b, err := os.ReadFile(file.Name())
-	if err != nil {
-		t.Errorf("Error while reading file for evaluation")
-	}
-	if string(b) != expectedString {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, string(b))
-	}
+	assert.NoError(t, err, "Error while reading file for evaluation")
+	assert.Equal(t, expectedString, string(b), "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, string(b))
 }
 
 func TestWriteYamlFile(t *testing.T) {
@@ -232,22 +186,15 @@ func TestWriteYamlFile(t *testing.T) {
 	// Setup temporary file
 	file, err := CreateTempFile(t, yamlFileNamePattern)
 	defer file.Close()
-	if err != nil {
-		t.Errorf("Can't create file: %s", file.Name())
-	}
+	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	//Check if writing a single YAML works
 	writeYamlFileErr := WriteYamlFile(file.Name(), yaml)
-	if writeYamlFileErr != nil {
-		t.Errorf("Error while trying to write YAML to file")
-	}
+	assert.NoError(t, writeYamlFileErr, "Error while trying to write YAML to file")
+
 	b, err := os.ReadFile(file.Name())
-	if err != nil {
-		t.Errorf("Error while reading file for evaluation")
-	}
-	if string(b) != expectedString {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, string(b))
-	}
+	assert.NoError(t, err, "Error while reading file for evaluation")
+	assert.Equal(t, expectedString, string(b), "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, string(b))
 }
 
 func TestWriteYamlString(t *testing.T) {
@@ -258,13 +205,9 @@ func TestWriteYamlString(t *testing.T) {
 	expectedString := `value: anyValue1
 `
 	// Write YAML to String
-	writeYamlAllStringResult, writeYamlAllStringErr := WriteYamlString(yaml)
-	if writeYamlAllStringErr != nil {
-		t.Errorf("Can't write simple yaml string: %s", writeYamlAllStringErr)
-	}
-	if writeYamlAllStringResult != expectedString {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, writeYamlAllStringResult)
-	}
+	writeYamlStringResult, writeYamlStringErr := WriteYamlString(yaml)
+	assert.NoError(t, writeYamlStringErr, "Can't write simple yaml string: %s", writeYamlStringErr)
+	assert.Equal(t, expectedString, writeYamlStringResult, "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, writeYamlStringResult)
 }
 
 func TestWriteYamlAllString(t *testing.T) {
@@ -281,12 +224,8 @@ value: anyValue2
 `
 	// Write multiple YAML to String
 	writeYamlAllStringResult, writeYamlAllStringErr := WriteYamlAllString(yaml)
-	if writeYamlAllStringErr != nil {
-		t.Errorf("Can't write simple yaml string: %s", writeYamlAllStringErr)
-	}
-	if writeYamlAllStringResult != expectedString {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, writeYamlAllStringResult)
-	}
+	assert.NoError(t, writeYamlAllStringErr, "Can't write simple yaml string: %s", writeYamlAllStringErr)
+	assert.Equal(t, expectedString, writeYamlAllStringResult, "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, writeYamlAllStringResult)
 }
 
 func TestWriteYamlBytes(t *testing.T) {
@@ -298,13 +237,9 @@ func TestWriteYamlBytes(t *testing.T) {
 `
 	expectedBytes := []byte(expectedString)
 	// Write YAML to bytes
-	writeYamlAllBytesResult, writeYamlAllBytesErr := WriteYamlBytes(yaml)
-	if writeYamlAllBytesErr != nil {
-		t.Errorf("Can't write simple yaml string: %s", writeYamlAllBytesErr)
-	}
-	if bytes.Compare(writeYamlAllBytesResult, expectedBytes) != 0 {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedBytes, writeYamlAllBytesResult)
-	}
+	writeYamlBytesResult, writeYamlBytesErr := WriteYamlBytes(yaml)
+	assert.NoError(t, writeYamlBytesErr, "Can't write simple yaml string: %s", writeYamlBytesErr)
+	assert.Equal(t, expectedBytes, writeYamlBytesResult, "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, writeYamlBytesResult)
 }
 
 func TestWriteYamlAllBytes(t *testing.T) {
@@ -322,12 +257,8 @@ value: anyValue2
 	expectedBytes := []byte(expectedString)
 	// Write multiple YAML to bytes
 	writeYamlAllBytesResult, writeYamlAllBytesErr := WriteYamlAllBytes(yaml)
-	if writeYamlAllBytesErr != nil {
-		t.Errorf("Can't write simple yaml string: %s", writeYamlAllBytesErr)
-	}
-	if bytes.Compare(writeYamlAllBytesResult, expectedBytes) != 0 {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedBytes, writeYamlAllBytesResult)
-	}
+	assert.NoError(t, writeYamlAllBytesErr, "Can't write simple yaml string: %s", writeYamlAllBytesErr)
+	assert.Equal(t, expectedBytes, writeYamlAllBytesResult, "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, writeYamlAllBytesResult)
 }
 
 func TestWriteYamlAllStream(t *testing.T) {
@@ -345,12 +276,8 @@ value: anyValue2
 	var buffer bytes.Buffer
 	// Write multiple YAML to stream
 	writeYamlAllStreamErr := WriteYamlAllStream(&buffer, yaml)
-	if writeYamlAllStreamErr != nil {
-		t.Errorf("Can't write simple yaml string: %s", writeYamlAllStreamErr)
-	}
-	if buffer.String() != expectedString {
-		t.Errorf("Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, buffer.String())
-	}
+	assert.NoError(t, writeYamlAllStreamErr, "Can't write simple yaml string: %s", writeYamlAllStreamErr)
+	assert.Equal(t, expectedString, buffer.String(), "Yaml not written correctly. Should be \n%s\nbut is:\n%s\n", expectedString, buffer.String())
 }
 
 func TestConvertYamlToJson(t *testing.T) {
@@ -359,12 +286,8 @@ func TestConvertYamlToJson(t *testing.T) {
 	yamlBytes := []byte(yaml)
 	expectedJsonBytes := []byte(expectedJson)
 	jsonBytes, convertYamlToJsonErr := ConvertYamlToJson(yamlBytes)
-	if convertYamlToJsonErr != nil {
-		t.Errorf("Can't convert yaml to json: %s", convertYamlToJsonErr)
-	}
-	if bytes.Compare(jsonBytes, expectedJsonBytes) != 0 {
-		t.Errorf("Yaml not converted correctly. Should be \n%s\nbut is:\n%s\n", expectedJsonBytes, jsonBytes)
-	}
+	assert.NoError(t, convertYamlToJsonErr, "Can't convert yaml to json: %s", convertYamlToJsonErr)
+	assert.Equal(t, expectedJsonBytes, jsonBytes, "Yaml not converted correctly. Should be \n%s\nbut is:\n%s\n", expectedJsonBytes, jsonBytes)
 }
 
 func TestWriteJsonString(t *testing.T) {
@@ -373,12 +296,8 @@ func TestWriteJsonString(t *testing.T) {
 	}
 	expectedJson := `{"value":"anyValue1"}`
 	writeJsonStringResult, writeJsonStringErr := WriteJsonString(yaml)
-	if writeJsonStringErr != nil {
-		t.Errorf("Can't write yaml to json string: %s", writeJsonStringErr)
-	}
-	if writeJsonStringResult != expectedJson {
-		t.Errorf("Yaml not converted correctly. Should be \n%s\nbut is:\n%s\n", expectedJson, writeJsonStringResult)
-	}
+	assert.NoError(t, writeJsonStringErr, "Can't write yaml to json string: %s", writeJsonStringErr)
+	assert.Equal(t, expectedJson, writeJsonStringResult, "Yaml not converted correctly. Should be \n%s\nbut is:\n%s\n", expectedJson, writeJsonStringResult)
 }
 
 func TestRemoveDuplicateFields(t *testing.T) {
@@ -391,12 +310,8 @@ value: anyValue2
 	expectedDuplicateYamlBytes := []byte(expectedDuplicateYaml)
 	duplicateFieldYamlDataReader := bytes.NewReader([]byte(duplicateYaml))
 	removeDuplicateFieldsResult, removeDuplicateFieldsErr := RemoveDuplicateFields(duplicateFieldYamlDataReader)
-	if removeDuplicateFieldsErr != nil {
-		t.Errorf("Can't remove duplicate fields: %s", removeDuplicateFieldsErr)
-	}
-	if bytes.Compare(removeDuplicateFieldsResult, expectedDuplicateYamlBytes) != 0 {
-		t.Errorf("Duplicate fields not removed correctly. Should be \n%s\nbut is:\n%s\n", expectedDuplicateYamlBytes, removeDuplicateFieldsResult)
-	}
+	assert.NoError(t, removeDuplicateFieldsErr, "Can't remove duplicate fields: %s", removeDuplicateFieldsErr)
+	assert.Equal(t, expectedDuplicateYamlBytes, removeDuplicateFieldsResult, "Duplicate fields not removed correctly. Should be \n%s\nbut is:\n%s\n", expectedDuplicateYamlBytes, removeDuplicateFieldsResult)
 
 	// Check if non-duplicate fields are untouched
 	nonDuplicateYaml := `value1: anyValue
@@ -409,40 +324,28 @@ value2: anyValue
 
 	nonDuplicateFieldYamlDataReader := bytes.NewReader([]byte(nonDuplicateYaml))
 	removeNonDuplicateFieldsResult, removeNonDuplicateFieldsErr := RemoveDuplicateFields(nonDuplicateFieldYamlDataReader)
-	if removeNonDuplicateFieldsErr != nil {
-		t.Errorf("Can't remove duplicate fields: %s", removeNonDuplicateFieldsErr)
-	}
-	if bytes.Compare(removeNonDuplicateFieldsResult, expectedNonDuplicateYamlBytes) != 0 {
-		t.Errorf("Duplicate fields not removed correctly. Should be \n%s\nbut is:\n%s\n", expectedNonDuplicateYamlBytes, removeNonDuplicateFieldsResult)
-	}
+	assert.NoError(t, removeNonDuplicateFieldsErr, "Can't remove duplicate fields: %s", removeNonDuplicateFieldsErr)
+	assert.Equal(t, expectedNonDuplicateYamlBytes, removeNonDuplicateFieldsResult, "Duplicate fields not removed correctly. Should be \n%s\nbut is:\n%s\n", expectedNonDuplicateYamlBytes, removeNonDuplicateFieldsResult)
 }
 
 func TestFixPathExt(t *testing.T) {
 	// Check if *.yaml gets converted
 	file, err := CreateTempFile(t, "test_fix_path_ext_*.yml")
 	defer file.Close()
-	if err != nil {
-		t.Errorf("Can't create file: %s", file.Name())
-	}
+	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	yamlFileName := fmt.Sprintf("%s.yaml", strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
 	fixedYamlFileName := FixPathExt(yamlFileName)
-	if fixedYamlFileName != file.Name() {
-		t.Errorf("Fix of path extension failed! Should be %s but is %s", file.Name(), fixedYamlFileName)
-	}
+	assert.Equal(t, file.Name(), fixedYamlFileName, "Fix of path extension failed! Should be %s but is %s", file.Name(), fixedYamlFileName)
 
 	// Check if *.yml gets converted
 	file, err = CreateTempFile(t, "test_fix_path_ext_*.yaml")
 	defer file.Close()
-	if err != nil {
-		t.Errorf("Can't create file: %s", file.Name())
-	}
+	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	ymlFileName := fmt.Sprintf("%s.yml", strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
 	fixedYmlFileName := FixPathExt(ymlFileName)
-	if fixedYmlFileName != file.Name() {
-		t.Errorf("Fix of path extension failed! Should be %s but is %s", file.Name(), fixedYmlFileName)
-	}
+	assert.Equal(t, file.Name(), fixedYmlFileName, "Fix of path extension failed! Should be %s but is %s", file.Name(), fixedYmlFileName)
 }
 
 func CreateTempFile(t *testing.T, pattern string) (*os.File, error) {
