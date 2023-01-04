@@ -2,6 +2,7 @@ package e2e
 
 import "C"
 import (
+	"fmt"
 	"github.com/imdario/mergo"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
@@ -59,6 +60,8 @@ func init() {
 
 	mergedKubeconfig = tmpKubeconfig.Name()
 	_ = os.Setenv("KUBECONFIG", mergedKubeconfig)
+
+	_, _ = fmt.Fprintf(os.Stderr, "KUBECONFIG=%s\n", mergedKubeconfig)
 }
 
 func mergeKubeconfig(path string, kubeconfig []byte) {
