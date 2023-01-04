@@ -27,7 +27,7 @@ func TestReadYamlFile(t *testing.T) {
 	var nonExistingEmptyYamlConf EmptyYamlConfig
 
 	// Setup temporary file
-	file, err := CreateTempFile(t, existingEmptyYamlFileNamePattern)
+	file, err := os.CreateTemp(t.TempDir(), existingEmptyYamlFileNamePattern)
 	defer file.Close()
 	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
@@ -46,7 +46,7 @@ func TestReadYamlAllFile(t *testing.T) {
 	nonExistingEmptyYamlFileName := "nonExistingEmpty.yaml"
 
 	// Setup temporary file
-	file, err := CreateTempFile(t, existingEmptyYamlFileNamePattern)
+	file, err := os.CreateTemp(t.TempDir(), existingEmptyYamlFileNamePattern)
 	defer file.Close()
 	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
@@ -161,7 +161,7 @@ value: anyValue2
 `
 
 	// Setup temporary file
-	file, err := CreateTempFile(t, yamlFileNamePattern)
+	file, err := os.CreateTemp(t.TempDir(), yamlFileNamePattern)
 	defer file.Close()
 	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
@@ -184,7 +184,7 @@ func TestWriteYamlFile(t *testing.T) {
 `
 
 	// Setup temporary file
-	file, err := CreateTempFile(t, yamlFileNamePattern)
+	file, err := os.CreateTemp(t.TempDir(), yamlFileNamePattern)
 	defer file.Close()
 	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
@@ -330,7 +330,7 @@ value2: anyValue
 
 func TestFixPathExt(t *testing.T) {
 	// Check if *.yaml gets converted
-	file, err := CreateTempFile(t, "test_fix_path_ext_*.yml")
+	file, err := os.CreateTemp(t.TempDir(), "test_fix_path_ext_*.yml")
 	defer file.Close()
 	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
@@ -339,19 +339,11 @@ func TestFixPathExt(t *testing.T) {
 	assert.Equal(t, file.Name(), fixedYamlFileName, "Fix of path extension failed! Should be %s but is %s", file.Name(), fixedYamlFileName)
 
 	// Check if *.yml gets converted
-	file, err = CreateTempFile(t, "test_fix_path_ext_*.yaml")
+	file, err = os.CreateTemp(t.TempDir(), "test_fix_path_ext_*.yaml")
 	defer file.Close()
 	assert.NoError(t, err, "Can't create file: %s", file.Name())
 
 	ymlFileName := fmt.Sprintf("%s.yml", strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
 	fixedYmlFileName := FixPathExt(ymlFileName)
 	assert.Equal(t, file.Name(), fixedYmlFileName, "Fix of path extension failed! Should be %s but is %s", file.Name(), fixedYmlFileName)
-}
-
-func CreateTempFile(t *testing.T, pattern string) (*os.File, error) {
-	file, err := os.CreateTemp(t.TempDir(), pattern)
-	if err != nil {
-		return nil, err
-	}
-	return file, nil
 }
