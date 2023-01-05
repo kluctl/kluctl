@@ -15,20 +15,17 @@ type FakeAwsClientFactory struct {
 }
 
 func (f *FakeAwsClientFactory) GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-	name := *params.SecretId
 	arn, err := arn.Parse(*params.SecretId)
 	if err == nil {
-		name = arn.Resource
+		arnString := arn.String()
+		s, ok := f.Secrets[arnString]
+		if ok {
+			return &secretsmanager.GetSecretValueOutput{
+				Name:         &arnString,
+				SecretString: &s,
+			}, nil
+		}
 	}
-
-	s, ok := f.Secrets[name]
-	if ok {
-		return &secretsmanager.GetSecretValueOutput{
-			Name:         &name,
-			SecretString: &s,
-		}, nil
-	}
-
 	errMsg := fmt.Sprintf("secret %s not found", *params.SecretId)
 	return nil, &types.ResourceNotFoundException{
 		Message: &errMsg,
