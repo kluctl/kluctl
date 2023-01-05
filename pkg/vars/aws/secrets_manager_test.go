@@ -10,24 +10,24 @@ func TestGetAwsSecretsManagerSecret(t *testing.T) {
 	fcf := NewFakeClientFactory()
 	tp := "test-profile"
 	tr := "eu-west-1"
-	ts := "alias/test"
 	tc := "test-content"
+	arnWithoutRegion := "arn:aws:kms::-1:000000000000:alias/test"
 	completeArn := "arn:aws:kms:eu-central-1:000000000000:alias/test"
 
 	//Setup secrets database
-	fcf.Secrets = map[string]string{ts: tc}
+	fcf.Secrets = map[string]string{completeArn: tc}
 
 	//Check if getting an AWS secret works
-	sc, err := GetAwsSecretsManagerSecret(context.TODO(), fcf, &tp, &tr, ts)
+	sc, err := GetAwsSecretsManagerSecret(context.TODO(), fcf, &tp, &tr, completeArn)
 	assert.NoError(t, err, "Getting an AWS secret failed")
 	assert.Equal(t, tc, sc, "Content of secret is unexpected.")
 
 	//Check if empty profile works
-	_, err = GetAwsSecretsManagerSecret(context.TODO(), fcf, nil, &tr, ts)
+	_, err = GetAwsSecretsManagerSecret(context.TODO(), fcf, nil, &tr, completeArn)
 	assert.NoError(t, err, "Getting an AWS secret with an empty profile throws an error.")
 
 	//Check if empty region with non-ARN secret throws an error
-	_, err = GetAwsSecretsManagerSecret(context.TODO(), fcf, &tp, nil, ts)
+	_, err = GetAwsSecretsManagerSecret(context.TODO(), fcf, &tp, nil, arnWithoutRegion)
 	assert.Error(t, err, "Getting an AWS secret with an empty region and a non-ARN secret name should an error")
 
 	//Check if empty region with ARN secret works
