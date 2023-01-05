@@ -8,6 +8,9 @@ import (
 )
 
 func GetAwsSecretsManagerSecret(ctx context.Context, aws AwsClientFactory, profile *string, region *string, secretName string) (string, error) {
+	if !arn.IsARN(secretName) {
+		return "", fmt.Errorf("%s is not a valid ARN.", secretName)
+	}
 	if region == nil {
 		arn, err := arn.Parse(secretName)
 		if err != nil {
