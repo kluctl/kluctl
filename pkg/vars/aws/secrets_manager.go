@@ -14,7 +14,8 @@ func GetAwsSecretsManagerSecret(ctx context.Context, aws AwsClientFactory, profi
 	if region == nil {
 		arn, err := arn.Parse(secretName)
 		if err != nil {
-			return "", fmt.Errorf("when omitting the AWS region, the secret name must be a valid ARN")
+			return "", fmt.Errorf("Can't parse the ARN %s", secretName)
+		}
 		}
 		region = &arn.Region
 	}
