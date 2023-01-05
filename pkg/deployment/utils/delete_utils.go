@@ -7,7 +7,6 @@ import (
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
@@ -161,9 +160,8 @@ func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.Unstructure
 	return ret, nil
 }
 
-func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*types.CommandResult, error) {
-	var wg sync.WaitGroup
-	sem := semaphore.NewWeighted(8)
+func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*types.CommandResult, error) {
+	g := utils.NewGoHelper(ctx, 8)
 
 	var ret types.CommandResult
 	namespaceNames := make(map[string]bool)
@@ -193,18 +191,13 @@ func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*type
 		ref := ref_
 		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				_ = sem.Acquire(context.Background(), 1)
-				defer sem.Release(1)
-
+			g.Run(func() {
 				apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 				handleResult(ref, apiWarnings, err)
-			}()
+			})
 		}
 	}
-	wg.Wait()
+	g.Wait()
 
 	for _, ref_ := range refs {
 		ref := ref_
@@ -215,17 +208,12 @@ func DeleteObjects(k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*type
 			// already deleted via namespace
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_ = sem.Acquire(context.Background(), 1)
-			defer sem.Release(1)
-
+		g.Run(func() {
 			apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
 			handleResult(ref, apiWarnings, err)
-		}()
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
 	return &ret, nil
 }

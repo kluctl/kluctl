@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -96,6 +97,9 @@ func (k *k8sResources) updateResources() error {
 		}
 
 		for _, ar := range arl.APIResources {
+			if ar.Version == "__internal" {
+				continue
+			}
 			if strings.Index(ar.Name, "/") != -1 {
 				// skip subresources
 				continue
@@ -124,6 +128,9 @@ func (k *k8sResources) updateResources() error {
 				k.preferredResources[gvk.GroupKind()] = ar
 			}
 		}
+	}
+	if len(k.preferredResources) == 0 {
+		runtime.Breakpoint()
 	}
 
 	return nil

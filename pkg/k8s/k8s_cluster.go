@@ -134,52 +134,6 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 	return result, apiWarnings, err
 }
 
-func (k *K8sCluster) ListAllObjects(verbs []string, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, map[schema.GroupVersionKind][]ApiWarning, error) {
-	var ret []*uo.UnstructuredObject
-	var errs []error
-	retApiWarnings := make(map[schema.GroupVersionKind][]ApiWarning)
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	filter := func(ar *v1.APIResource) bool {
-		foundVerb := false
-		for _, v := range verbs {
-			if utils.FindStrInSlice(ar.Verbs, v) != -1 {
-				foundVerb = true
-				break
-			}
-		}
-		return foundVerb
-	}
-
-	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filter) {
-		gvk := gvk
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			l, apiWarnings, err := k.ListObjects(gvk, namespace, labels)
-			mutex.Lock()
-			defer mutex.Unlock()
-			if err != nil && !errors.IsNotFound(err) {
-				errs = append(errs, err)
-				return
-			}
-			ret = append(ret, l...)
-			if len(apiWarnings) != 0 {
-				retApiWarnings[gvk] = apiWarnings
-			}
-		}()
-	}
-	wg.Wait()
-
-	if len(errs) != 0 {
-		return nil, retApiWarnings, utils.NewErrorListOrNil(errs)
-	}
-
-	return ret, retApiWarnings, nil
-}
-
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
 	var result *uo.UnstructuredObject
 	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
@@ -192,41 +146,6 @@ func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject,
 		return nil
 	})
 	return result, apiWarnings, err
-}
-
-func (k *K8sCluster) GetObjectsByRefs(refs []k8s.ObjectRef) ([]*uo.UnstructuredObject, map[k8s.ObjectRef][]ApiWarning, error) {
-	var ret []*uo.UnstructuredObject
-	var errs []error
-	retApiWarnings := make(map[k8s.ObjectRef][]ApiWarning)
-	var mutex sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, ref_ := range refs {
-		ref := ref_
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			o, apiWarnings, err := k.GetSingleObject(ref)
-			mutex.Lock()
-			defer mutex.Unlock()
-			if len(apiWarnings) != 0 {
-				retApiWarnings[ref] = apiWarnings
-			}
-			if err != nil {
-				if !errors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-					errs = append(errs, err)
-				}
-				return
-			}
-			ret = append(ret, o)
-		}()
-	}
-	wg.Wait()
-	if len(errs) != 0 {
-		return nil, retApiWarnings, utils.NewErrorListOrNil(errs)
-	}
-
-	return ret, retApiWarnings, nil
 }
 
 type DeleteOptions struct {

@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"github.com/spf13/cobra"
@@ -229,7 +230,7 @@ func copyViperValuesToCobraCmd(cmd *cobra.Command) error {
 }
 
 func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
-	var retErr []error
+	var errs *multierror.Error
 	flags.VisitAll(func(flag *pflag.Flag) {
 		sliceValue, _ := flag.Value.(pflag.SliceValue)
 		if flag.Changed && sliceValue == nil {
@@ -245,13 +246,13 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 				for _, y := range x {
 					s, ok := y.(string)
 					if !ok {
-						retErr = append(retErr, fmt.Errorf("viper flag %s has unexpected type", flag.Name))
+						errs = multierror.Append(errs, fmt.Errorf("viper flag %s has unexpected type", flag.Name))
 						return
 					}
 					a = append(a, s)
 				}
 			} else {
-				retErr = append(retErr, fmt.Errorf("viper flag %s has unexpected type", flag.Name))
+				errs = multierror.Append(errs, fmt.Errorf("viper flag %s has unexpected type", flag.Name))
 				return
 			}
 		}
@@ -269,18 +270,18 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 			a = append(a, sliceValue.GetSlice()...)
 			err := sliceValue.Replace(a)
 			if err != nil {
-				retErr = append(retErr, err)
+				errs = multierror.Append(errs, err)
 			}
 		} else {
 			for _, x := range a {
 				err := flag.Value.Set(x)
 				if err != nil {
-					retErr = append(retErr, err)
+					errs = multierror.Append(errs, err)
 				}
 			}
 		}
 	})
-	return utils.NewErrorListOrNil(retErr)
+	return errs.ErrorOrNil()
 }
 
 func (c *rootCommand) helpFunc(cg *commandAndGroups, cmd *cobra.Command) {

@@ -1,13 +1,11 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"golang.org/x/sync/semaphore"
 	"path/filepath"
 	"sync"
 )
@@ -114,59 +112,38 @@ func (c *DeploymentCollection) RenderDeployments() error {
 	s := status.Start(c.ctx.Ctx, "Rendering templates")
 	defer s.Failed()
 
-	var wg sync.WaitGroup
-	var mutex sync.Mutex
-	var errors []error
+	g := utils.NewGoHelper(c.ctx.Ctx, 0)
 
 	for _, d := range c.Deployments {
 		d := d
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := d.render(c.forSeal)
-			if err != nil {
-				mutex.Lock()
-				errors = append(errors, err)
-				mutex.Unlock()
-			}
-		}()
+		g.RunE(func() error {
+			return d.render(c.forSeal)
+		})
 	}
-	wg.Wait()
-	if len(errors) != 0 {
-		return utils.NewErrorListOrNil(errors)
+	g.Wait()
+	if g.ErrorOrNil() == nil {
+		s.Success()
 	}
-	s.Success()
-	return nil
+	return g.ErrorOrNil()
 }
 
 func (c *DeploymentCollection) renderHelmCharts() error {
 	s := status.Start(c.ctx.Ctx, "Rendering Helm Charts")
 	defer s.Failed()
 
-	var wg sync.WaitGroup
-	var mutex sync.Mutex
-	var errors []error
+	g := utils.NewGoHelper(c.ctx.Ctx, 0)
 
 	for _, d := range c.Deployments {
 		d := d
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := d.renderHelmCharts()
-			if err != nil {
-				mutex.Lock()
-				errors = append(errors, err)
-				mutex.Unlock()
-			}
-		}()
+		g.RunE(func() error {
+			return d.renderHelmCharts()
+		})
 	}
-	wg.Wait()
-	if len(errors) != 0 {
-		return utils.NewErrorListOrNil(errors)
+	g.Wait()
+	if g.ErrorOrNil() == nil {
+		s.Success()
 	}
-
-	s.Success()
-	return nil
+	return g.ErrorOrNil()
 }
 
 func (c *DeploymentCollection) resolveSealedSecrets() error {
@@ -184,80 +161,61 @@ func (c *DeploymentCollection) resolveSealedSecrets() error {
 }
 
 func (c *DeploymentCollection) buildKustomizeObjects() error {
-	var wg sync.WaitGroup
-	var errs []error
-	var mutex sync.Mutex
-	sem := semaphore.NewWeighted(16)
-
-	handleError := func(err error) {
-		mutex.Lock()
-		errs = append(errs, err)
-		mutex.Unlock()
-	}
+	g := utils.NewGoHelper(c.ctx.Ctx, 0)
 
 	s := status.Start(c.ctx.Ctx, "Building kustomize objects")
 	for _, d_ := range c.Deployments {
 		d := d_
-
-		wg.Add(1)
-		go func() {
+		g.RunE(func() error {
 			err := d.buildKustomize()
 			if err != nil {
-				handleError(fmt.Errorf("building kustomize objects for %s failed. %w", *d.dir, err))
+				return fmt.Errorf("building kustomize objects for %s failed. %w", *d.dir, err)
 			}
-			wg.Done()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
-	if len(errs) != 0 {
+	if g.ErrorOrNil() != nil {
 		s.Failed()
-		return utils.NewErrorListOrNil(errs)
+		return g.ErrorOrNil()
 	}
 	s.Success()
 
 	s = status.Start(c.ctx.Ctx, "Postprocessing objects")
 	for _, d_ := range c.Deployments {
 		d := d_
-
-		wg.Add(1)
-		go func() {
+		g.RunE(func() error {
 			err := d.postprocessCRDs()
 			if err != nil {
-				handleError(fmt.Errorf("postprocessing CRDs failed: %w", err))
+				return fmt.Errorf("postprocessing CRDs failed: %w", err)
 			}
-			wg.Done()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
+	g = utils.NewGoHelper(c.ctx.Ctx, 16)
 	for _, d_ := range c.Deployments {
 		d := d_
 
-		wg.Add(1)
-		go func() {
-			_ = sem.Acquire(context.Background(), 1)
-			defer sem.Release(1)
-
+		g.RunE(func() error {
 			err := d.postprocessObjects(c.Images)
 			if err != nil {
-				mutex.Lock()
-				errs = append(errs, fmt.Errorf("postprocessing kustomize objects for %s failed: %w", *d.dir, err))
-				mutex.Unlock()
+				return fmt.Errorf("postprocessing kustomize objects for %s failed: %w", *d.dir, err)
 			}
-
-			wg.Done()
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	g.Wait()
 
-	if len(errs) == 0 {
+	if g.ErrorOrNil() == nil {
 		s.Success()
 	} else {
 		s.Failed()
 	}
 
-	return utils.NewErrorListOrNil(errs)
+	return g.ErrorOrNil()
 }
 
 func (c *DeploymentCollection) LocalObjectsByRef() map[k8s2.ObjectRef]bool {

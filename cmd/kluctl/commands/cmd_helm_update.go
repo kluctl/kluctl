@@ -5,18 +5,15 @@ import (
 	"fmt"
 	"github.com/fluxcd/go-git/v5"
 	"github.com/fluxcd/go-git/v5/plumbing/format/index"
-	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"golang.org/x/sync/semaphore"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type helmUpdateCmd struct {
@@ -70,10 +67,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
 
-	var errs *multierror.Error
-	var wg sync.WaitGroup
-	var mutex sync.Mutex
-	sem := semaphore.NewWeighted(8)
+	g := utils.NewGoHelper(ctx, 8)
 
 	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, &cmd.HelmCredentials)
 	if err != nil {
@@ -94,7 +88,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 	for _, chart := range charts {
 		chart := chart
-		utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
+		g.RunE(func() error {
 			s := status.Start(ctx, "%s: Querying versions", chart.GetChartName())
 			defer s.Failed()
 			err := chart.QueryVersions(ctx)
@@ -106,9 +100,9 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			return nil
 		})
 	}
-	wg.Wait()
-	if errs.ErrorOrNil() != nil {
-		return errs
+	g.Wait()
+	if g.ErrorOrNil() != nil {
+		return g.ErrorOrNil()
 	}
 
 	for _, chart := range charts {
@@ -124,7 +118,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 		for version, _ := range versionsToPull {
 			version := version
-			utils.GoLimitedMultiError(ctx, sem, &errs, &mutex, &wg, func() error {
+			g.RunE(func() error {
 				s := status.Start(ctx, "%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
 				defer s.Failed()
 				_, err := chart.PullCached(ctx, version)
@@ -137,9 +131,9 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			})
 		}
 	}
-	wg.Wait()
-	if errs.ErrorOrNil() != nil {
-		return errs
+	g.Wait()
+	if g.ErrorOrNil() != nil {
+		return g.ErrorOrNil()
 	}
 
 	versionUseCounts := map[string]map[string]int{}
@@ -212,7 +206,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	return errs.ErrorOrNil()
+	return nil
 }
 
 func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]bool) error {
