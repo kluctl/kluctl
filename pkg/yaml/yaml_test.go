@@ -21,19 +21,18 @@ type SimpleYamlConfig struct {
 
 func TestReadYamlFile(t *testing.T) {
 	// Setup variables
-	existingEmptyYamlFileNamePattern := "test_read_yaml_file_existing_empty_*.yaml"
+	existingEmptyYamlFileName := "file_existing_empty.yaml"
 	var existingEmptyYamlConf EmptyYamlConfig
-	nonExistingEmptyYamlFileName := "test_read_yaml_file_non_existing_empty.yaml"
+	nonExistingEmptyYamlFileName := "non_existing_empty.yaml"
 	var nonExistingEmptyYamlConf EmptyYamlConfig
 
 	// Setup temporary file
-	file, err := os.CreateTemp(t.TempDir(), existingEmptyYamlFileNamePattern)
-	defer file.Close()
-	assert.NoError(t, err, "Can't create file: %s", file.Name())
+	path := filepath.Join(t.TempDir(), existingEmptyYamlFileName)
+	os.WriteFile(path, nil, 0600)
 
 	//Read existing empty yaml file
-	existingEmptyYamlErr := ReadYamlFile(file.Name(), &existingEmptyYamlConf)
-	assert.NoError(t, existingEmptyYamlErr, "Can't read empty yaml file: %s", file.Name())
+	existingEmptyYamlErr := ReadYamlFile(path, &existingEmptyYamlConf)
+	assert.NoError(t, existingEmptyYamlErr, "Can't read empty yaml file: %s", path)
 
 	//Read non-existing empty yaml file
 	nonExistingEmptyYamlErr := ReadYamlFile(nonExistingEmptyYamlFileName, &nonExistingEmptyYamlConf)
@@ -42,17 +41,16 @@ func TestReadYamlFile(t *testing.T) {
 
 func TestReadYamlAllFile(t *testing.T) {
 	// Setup variables
-	existingEmptyYamlFileNamePattern := "test_read_yaml_all_file_existing_empty_*.yaml"
-	nonExistingEmptyYamlFileName := "nonExistingEmpty.yaml"
+	existingEmptyYamlFileName := "file_existing_empty.yaml"
+	nonExistingEmptyYamlFileName := "non_existing_empty.yaml"
 
 	// Setup temporary file
-	file, err := os.CreateTemp(t.TempDir(), existingEmptyYamlFileNamePattern)
-	defer file.Close()
-	assert.NoError(t, err, "Can't create file: %s", file.Name())
+	path := filepath.Join(t.TempDir(), existingEmptyYamlFileName)
+	os.WriteFile(path, nil, 0600)
 
 	//Read existing empty yaml file
-	existingEmptyYamlAllFileResult, existingEmptyYamlAllFileErr := ReadYamlAllFile(file.Name())
-	assert.NoError(t, existingEmptyYamlAllFileErr, "Can't read empty yaml file: %s", file.Name())
+	existingEmptyYamlAllFileResult, existingEmptyYamlAllFileErr := ReadYamlAllFile(path)
+	assert.NoError(t, existingEmptyYamlAllFileErr, "Can't read empty yaml file: %s", path)
 	assert.Nil(t, existingEmptyYamlAllFileResult, "Empty YAML stream read incorrectly. Value should be nil")
 
 	//Read non-existing empty yaml file
@@ -148,7 +146,7 @@ func TestReadYamlAllStream(t *testing.T) {
 
 func TestWriteYamlAllFile(t *testing.T) {
 	// Setup variables
-	yamlFileNamePattern := "test_write_yaml_all_file_*.yaml"
+	yamlFileName := "file.yaml"
 	var yaml []any
 	yaml = append(yaml, SimpleYamlConfig{
 		Value: "anyValue1",
@@ -161,22 +159,21 @@ value: anyValue2
 `
 
 	// Setup temporary file
-	file, err := os.CreateTemp(t.TempDir(), yamlFileNamePattern)
-	defer file.Close()
-	assert.NoError(t, err, "Can't create file: %s", file.Name())
+	path := filepath.Join(t.TempDir(), yamlFileName)
+	os.WriteFile(path, nil, 0600)
 
 	//Check if writing multiple YAML works
-	writeYamlAllFileErr := WriteYamlAllFile(file.Name(), yaml)
+	writeYamlAllFileErr := WriteYamlAllFile(path, yaml)
 	assert.NoError(t, writeYamlAllFileErr, "Error while trying to write YAML to file")
 
-	b, err := os.ReadFile(file.Name())
+	b, err := os.ReadFile(path)
 	assert.NoError(t, err, "Error while reading file for evaluation")
 	assert.Equal(t, expectedString, string(b), "Yaml not written correctly")
 }
 
 func TestWriteYamlFile(t *testing.T) {
 	// Setup variables
-	yamlFileNamePattern := "test_write_yaml_file_*.yaml"
+	yamlFileName := "file.yaml"
 	yaml := SimpleYamlConfig{
 		Value: "anyValue1",
 	}
@@ -184,15 +181,13 @@ func TestWriteYamlFile(t *testing.T) {
 `
 
 	// Setup temporary file
-	file, err := os.CreateTemp(t.TempDir(), yamlFileNamePattern)
-	defer file.Close()
-	assert.NoError(t, err, "Can't create file: %s", file.Name())
+	path := filepath.Join(t.TempDir(), yamlFileName)
 
 	//Check if writing a single YAML works
-	writeYamlFileErr := WriteYamlFile(file.Name(), yaml)
+	writeYamlFileErr := WriteYamlFile(path, yaml)
 	assert.NoError(t, writeYamlFileErr, "Error while trying to write YAML to file.")
 
-	b, err := os.ReadFile(file.Name())
+	b, err := os.ReadFile(path)
 	assert.NoError(t, err, "Error while reading file for evaluation")
 	assert.Equal(t, expectedString, string(b), "Yaml not written correctly.")
 }
@@ -330,20 +325,18 @@ value2: anyValue
 
 func TestFixPathExt(t *testing.T) {
 	// Check if *.yaml gets converted
-	file, err := os.CreateTemp(t.TempDir(), "test_fix_path_ext_*.yml")
-	defer file.Close()
-	assert.NoError(t, err, "Can't create file: %s", file.Name())
+	path := filepath.Join(t.TempDir(), "fix_path_ext.yml")
+	os.WriteFile(path, nil, 0600)
 
-	yamlFileName := fmt.Sprintf("%s.yaml", strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
+	yamlFileName := fmt.Sprintf("%s.yaml", strings.TrimSuffix(path, filepath.Ext(path)))
 	fixedYamlFileName := FixPathExt(yamlFileName)
-	assert.Equal(t, file.Name(), fixedYamlFileName, "Fix of path extension failed!")
+	assert.Equal(t, path, fixedYamlFileName, "Fix of path extension failed!")
 
 	// Check if *.yml gets converted
-	file, err = os.CreateTemp(t.TempDir(), "test_fix_path_ext_*.yaml")
-	defer file.Close()
-	assert.NoError(t, err, "Can't create file: %s", file.Name())
+	path = filepath.Join(t.TempDir(), "fix_path_ext.yaml")
+	os.WriteFile(path, nil, 0600)
 
-	ymlFileName := fmt.Sprintf("%s.yml", strings.TrimSuffix(file.Name(), filepath.Ext(file.Name())))
+	ymlFileName := fmt.Sprintf("%s.yml", strings.TrimSuffix(path, filepath.Ext(path)))
 	fixedYmlFileName := FixPathExt(ymlFileName)
-	assert.Equal(t, file.Name(), fixedYmlFileName, "Fix of path extension failed!")
+	assert.Equal(t, path, fixedYmlFileName, "Fix of path extension failed!")
 }
