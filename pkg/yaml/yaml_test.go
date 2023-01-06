@@ -109,14 +109,18 @@ func TestReadYamlString(t *testing.T) {
 
 func TestReadYamlAllString(t *testing.T) {
 	// Setup variables
+	expectedSimpleYamlAllString := []any{
+		map[string]any{
+			"value": "anyValue",
+		},
+	}
 	simpleYamlDataString := `
     value: anyValue
     `
 	simpleYamlAllStringResult, simpleYamlAllStringErr := ReadYamlAllString(simpleYamlDataString)
 	assert.NoError(t, simpleYamlAllStringErr, "Can't read simple yaml stream: %s", simpleYamlAllStringErr)
 
-	simpleYamlAllStringResultMap := simpleYamlAllStringResult[0].(map[string]interface{})
-	assert.Equal(t, "anyValue", simpleYamlAllStringResultMap["value"], "Simple YAML stream read incorrectly")
+	assert.Equal(t, expectedSimpleYamlAllString, simpleYamlAllStringResult, "Simple YAML stream read incorrectly")
 }
 
 func TestReadYamlBytes(t *testing.T) {
@@ -132,18 +136,27 @@ func TestReadYamlBytes(t *testing.T) {
 
 func TestReadYamlAllBytes(t *testing.T) {
 	// Setup variables
+	expectedSimpleYamlAllBytes := []any{
+		map[string]any{
+			"value": "anyValue",
+		},
+	}
 	simpleYamlDataString := `
     value: anyValue
     `
 	simpleYamlDataBytes := []byte(simpleYamlDataString)
 	simpleYamlAllBytesResult, simpleYamlAllBytesErr := ReadYamlAllBytes(simpleYamlDataBytes)
-	assert.NoError(t, simpleYamlAllBytesErr, "Can't read simple yaml stream: %s", simpleYamlAllBytesErr)
 
-	simpleYamlAllBytesResultMap := simpleYamlAllBytesResult[0].(map[string]interface{})
-	assert.Equal(t, "anyValue", simpleYamlAllBytesResultMap["value"], "Simple YAML stream read incorrectly")
+	assert.NoError(t, simpleYamlAllBytesErr, "Can't read simple yaml stream: %s", simpleYamlAllBytesErr)
+	assert.Equal(t, expectedSimpleYamlAllBytes, simpleYamlAllBytesResult, "Simple YAML stream read incorrectly")
 }
 
 func TestReadYamlAllStream(t *testing.T) {
+	expectedSimpleYamlAllStream := []any{
+		map[string]any{
+			"value": "anyValue",
+		},
+	}
 	// Setup variables
 	simpleYamlDataReader := bytes.NewReader([]byte("value: 'anyValue'"))
 	emptyYamlDataReader := bytes.NewReader([]byte(""))
@@ -157,8 +170,7 @@ func TestReadYamlAllStream(t *testing.T) {
 	simpleYamlAllStreamResult, simpleYamlAllStreamResultErr := ReadYamlAllStream(simpleYamlDataReader)
 	assert.NoError(t, simpleYamlAllStreamResultErr, "Can't read simple yaml stream: %s", simpleYamlAllStreamResultErr)
 
-	simpleYamlAllStreamResultMap := simpleYamlAllStreamResult[0].(map[string]interface{})
-	assert.Equal(t, "anyValue", simpleYamlAllStreamResultMap["value"], "Simple YAML stream read incorrectly")
+	assert.Equal(t, expectedSimpleYamlAllStream, simpleYamlAllStreamResult, "Simple YAML stream read incorrectly")
 
 	//Check if it can handle errors
 	_, errorReadYamlAllStreamErr := ReadYamlAllStream(iotest.ErrReader(errors.New("timeout")))
