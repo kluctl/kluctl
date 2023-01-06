@@ -41,7 +41,20 @@ func TestReadYamlFile(t *testing.T) {
 
 func TestReadYamlAllFile(t *testing.T) {
 	// Setup variables
+	twoDocsYamlContent := `value: anyValue1
+---
+value: anyValue2
+`
+	expectedTwoDocsYaml := []any{
+		map[string]any{
+			"value": "anyValue1",
+		},
+		map[string]any{
+			"value": "anyValue2",
+		},
+	}
 	existingEmptyYamlFileName := "file_existing_empty.yaml"
+	existingTwoDocsYamlFileName := "file_existing_two_docs.yaml"
 	nonExistingEmptyYamlFileName := "non_existing_empty.yaml"
 
 	// Setup temporary file
@@ -52,6 +65,14 @@ func TestReadYamlAllFile(t *testing.T) {
 	existingEmptyYamlAllFileResult, existingEmptyYamlAllFileErr := ReadYamlAllFile(path)
 	assert.NoError(t, existingEmptyYamlAllFileErr, "Can't read empty yaml file: %s", path)
 	assert.Empty(t, existingEmptyYamlAllFileResult, "Empty YAML stream read incorrectly. Value should be empty")
+
+	//Read existing empty yaml file with two documents
+	path = filepath.Join(t.TempDir(), existingTwoDocsYamlFileName)
+	os.WriteFile(path, []byte(twoDocsYamlContent), 0600)
+
+	twoDocsYamlAllFileResult, twoDocsYamlAllFileErr := ReadYamlAllFile(path)
+	assert.NoError(t, twoDocsYamlAllFileErr, "Can't read yaml file: %s", path)
+	assert.Equal(t, expectedTwoDocsYaml, twoDocsYamlAllFileResult)
 
 	//Read non-existing empty yaml file
 	nonExistingEmptyYamlAllFileResult, nonExistingEmptyYamlAllFileErr := ReadYamlAllFile(nonExistingEmptyYamlFileName)
