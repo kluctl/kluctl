@@ -51,7 +51,7 @@ func TestReadYamlAllFile(t *testing.T) {
 	//Read existing empty yaml file
 	existingEmptyYamlAllFileResult, existingEmptyYamlAllFileErr := ReadYamlAllFile(path)
 	assert.NoError(t, existingEmptyYamlAllFileErr, "Can't read empty yaml file: %s", path)
-	assert.Nil(t, existingEmptyYamlAllFileResult, "Empty YAML stream read incorrectly. Value should be nil")
+	assert.Empty(t, existingEmptyYamlAllFileResult, "Empty YAML stream read incorrectly. Value should be empty")
 
 	//Read non-existing empty yaml file
 	nonExistingEmptyYamlAllFileResult, nonExistingEmptyYamlAllFileErr := ReadYamlAllFile(nonExistingEmptyYamlFileName)
