@@ -30,7 +30,7 @@ func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings)
 	}
 }
 
-func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]string) error {
+func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]string, onlyUsedGKs map[schema.GroupKind]bool) error {
 	var mutex sync.Mutex
 	if len(labels) == 0 {
 		return nil
@@ -44,6 +44,15 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 	permissionErrCount := 0
 
 	gvks := k.Resources.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
+		if onlyUsedGKs != nil {
+			gk := schema.GroupKind{
+				Group: ar.Group,
+				Kind:  ar.Kind,
+			}
+			if !onlyUsedGKs[gk] {
+				return false
+			}
+		}
 		return utils.FindStrInSlice(ar.Verbs, "list") != -1
 	})
 
@@ -148,12 +157,21 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 	return g.ErrorOrNil()
 }
 
-func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[string]string, refs []k8s2.ObjectRef) error {
+func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[string]string, refs []k8s2.ObjectRef, onlyUsedGKs bool) error {
 	if k == nil {
 		return nil
 	}
 
-	err := u.getAllByLabels(k, labels)
+	var usedGKs map[schema.GroupKind]bool
+
+	if onlyUsedGKs {
+		usedGKs = map[schema.GroupKind]bool{}
+		for _, ref := range refs {
+			usedGKs[ref.GVK.GroupKind()] = true
+		}
+	}
+
+	err := u.getAllByLabels(k, labels, usedGKs)
 	if err != nil {
 		return err
 	}

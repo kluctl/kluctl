@@ -31,7 +31,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 
 	cmd.dew.Init()
 
-	err := cmd.ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	err := cmd.ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs(), true)
 	if err != nil {
 		return nil, err
 	}

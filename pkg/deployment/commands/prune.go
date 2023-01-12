@@ -22,7 +22,7 @@ func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.Obj
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), nil)
+	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), nil, false)
 	if err != nil {
 		return nil, err
 	}

@@ -28,7 +28,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs())
+	err := ru.UpdateRemoteObjects(k, nil, cmd.c.LocalObjectRefs(), false)
 	if err != nil {
 		return nil, err
 	}
