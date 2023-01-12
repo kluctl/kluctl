@@ -42,7 +42,7 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.Ob
 		inclusion = cmd.c.Inclusion
 	}
 
-	err := ru.UpdateRemoteObjects(k, labels, nil)
+	err := ru.UpdateRemoteObjects(k, labels, nil, false)
 	if err != nil {
 		return nil, err
 	}
