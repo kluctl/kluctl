@@ -28,7 +28,7 @@ func (uo *UnstructuredObject) SetNestedField(value interface{}, keys ...interfac
 		if err != nil {
 			return err
 		}
-		if ok {
+		if ok && val != nil {
 			o = val
 		} else {
 			newVal := make(map[string]interface{})
