@@ -158,13 +158,14 @@ func (e *CacheEntry) GetRepoInfo() RepoInfo {
 }
 
 func (e *CacheEntry) findCommit(ref string) (string, string, error) {
-	if strings.HasPrefix(ref, "refs/heads") {
+	switch {
+	case strings.HasPrefix(ref, "refs/heads"), strings.HasPrefix(ref, "refs/tags"):
 		c, ok := e.refs[ref]
 		if !ok {
 			return "", "", fmt.Errorf("ref %s not found", ref)
 		}
 		return ref, c, nil
-	} else {
+	default:
 		ref2 := "refs/heads/" + ref
 		c, ok := e.refs[ref2]
 		if ok {
