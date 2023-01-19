@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	arn2 "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 )
@@ -14,16 +15,18 @@ type FakeAwsClientFactory struct {
 }
 
 func (f *FakeAwsClientFactory) GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
-	name := *params.SecretId
-	arn, err := ParseArn(*params.SecretId)
+	var arnResource Resource
+	arn, err := arn2.Parse(*params.SecretId)
 	if err == nil {
-		name = arn.Resource
+		arnResource, _ = SplitResource(arn.Resource)
+	} else {
+		arnResource, _ = SplitResource(*params.SecretId)
 	}
 
-	s, ok := f.Secrets[name]
+	s, ok := f.Secrets[arnResource.ResourceId]
 	if ok {
 		return &secretsmanager.GetSecretValueOutput{
-			Name:         &name,
+			Name:         &arnResource.ResourceId,
 			SecretString: &s,
 		}, nil
 	}
