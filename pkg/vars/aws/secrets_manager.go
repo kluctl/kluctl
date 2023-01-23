@@ -3,12 +3,13 @@ package aws
 import (
 	"context"
 	"fmt"
+	arn2 "github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
 func GetAwsSecretsManagerSecret(ctx context.Context, aws AwsClientFactory, profile *string, region *string, secretName string) (string, error) {
 	if region == nil {
-		arn, err := ParseArn(secretName)
+		arn, err := arn2.Parse(secretName)
 		if err != nil {
 			return "", fmt.Errorf("when omitting the AWS region, the secret name must be a valid ARN")
 		}
