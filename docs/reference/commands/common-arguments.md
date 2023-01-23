@@ -60,6 +60,9 @@ Project arguments:
                                              test out changes in external git repositories without pushing them.
                                              To only override a single branch of the repo, use
                                              'github.com:my-org/my-repo:my-branch=/local/path/to/override'
+      --local-git-group-override stringArray As above but allow to override host or path of any repository url
+                                             matching pattern on left side of `:` expression.
+                                             'gitlab.com:my-org/my-sub/my-repo:my-branch=/local/path/to/override'
   -c, --project-config existingfile          Location of the .kluctl.yaml config file. Defaults to
                                              $PROJECT/.kluctl.yaml
       --project-dir existingdir              Specify the project directory. Defaults to the current working directory.

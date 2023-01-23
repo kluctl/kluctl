@@ -60,6 +60,14 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		}
 		repoOverrides = append(repoOverrides, ro)
 	}
+    for _, x := range projectFlags.LocalGitGroupOverride {
+		ro, err := parseRepoGroupOverride(x)
+		if err != nil {
+			return err
+		}
+		ro.IsGroup = true
+		repoOverrides = append(repoOverrides, ro)
+	}
 
 	messageCallbacks := &messages.MessageCallbacks{
 		WarningFn:            func(s string) { status.Warning(ctx, s) },
@@ -246,6 +254,30 @@ func parseRepoOverride(s string) (ret repocache.RepoOverride, err error) {
 	if len(sp2) == 3 {
 		ret.Ref = sp2[2]
 	}
-	ret.Override = sp[1]
+	ret.Override = 	os.ExpandEnv(sp[1])
+	return
+}
+
+func parseRepoGroupOverride(s string) (ret repocache.RepoOverride, err error) {
+	sp := strings.SplitN(s, "=", 2)
+	if len(sp) != 2 {
+		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-group-override %s", s)
+	}
+
+	sp2 := strings.Split(sp[0], ":")
+	if len(sp2) < 2 || len(sp2) > 3 {
+		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-group-override %s", s)
+	}
+
+	u, err := git_url.Parse(fmt.Sprintf("%s:%s", sp2[0], sp2[1]))
+	if err != nil {
+		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-group-override %s: %w", s, err)
+	}
+
+	ret.RepoKey = u.NormalizedRepoKey()
+	if len(sp2) == 3 {
+		ret.Ref = sp2[2]
+	}
+	ret.Override = 	os.ExpandEnv(sp[1])
 	return
 }

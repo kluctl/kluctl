@@ -26,6 +26,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+
 )
 
 type Release struct {
@@ -237,6 +239,17 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	if err != nil {
 		return err
 	}
+
+	// FIXME, alternative path under helm repo
+	//
+	// "helm.sh/helm/v3/pkg/chart"
+	//files := []*BufferedFile{}
+	// some walk (as in helm/directory.go)
+	//data, err := ioutil.ReadFile(name)
+	//data = bytes.TrimPrefix(data, utf8bom)
+	//files = append(files, &BufferedFile{Name: n, Data: data})
+	// for _, f := range files {
+	// chartRequested.Templates = append(chartRequested.Templates, &chart.File{Name: f.Name, Data: f.Data}
 
 	if err := checkIfInstallable(chartRequested); err != nil {
 		return err
