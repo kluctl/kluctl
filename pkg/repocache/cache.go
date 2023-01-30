@@ -232,6 +232,30 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
+	tmpDir := filepath.Join(utils.GetTmpBaseDir(e.rp.ctx), "git-cloned")
+	err := os.MkdirAll(tmpDir, 0700)
+	if err != nil {
+		return "", git.CheckoutInfo{}, err
+	}
+
+	url := e.mr.Url()
+	repoName := path.Base(url.Normalize().Path) + "-"
+	if ref == "" {
+		repoName += "HEAD-"
+	} else {
+		repoName += ref + "-"
+	}
+	repoName = strings.ReplaceAll(repoName, "/", "-")
+
+	p, err := os.MkdirTemp(tmpDir, repoName)
+	if err != nil {
+		return "", git.CheckoutInfo{}, err
+	}
+
+	e.rp.cleeanupDirsMutex.Lock()
+	e.rp.cleanupDirs = append(e.rp.cleanupDirs, p)
+	e.rp.cleeanupDirsMutex.Unlock()
+
 	//  FIXME it went bit wrong here, it needs to split
 
 	if e.mr == nil { // local override exist
@@ -264,7 +288,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 		}
 	}
 
-	err := e.mr.Lock()
+	err = e.mr.Lock()
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
@@ -283,30 +307,6 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
-
-	tmpDir := filepath.Join(utils.GetTmpBaseDir(e.rp.ctx), "git-cloned")
-	err = os.MkdirAll(tmpDir, 0700)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-
-	url := e.mr.Url()
-	repoName := path.Base(url.Normalize().Path) + "-"
-	if ref == "" {
-		repoName += "HEAD-"
-	} else {
-		repoName += ref + "-"
-	}
-	repoName = strings.ReplaceAll(repoName, "/", "-")
-
-	p, err := os.MkdirTemp(tmpDir, repoName)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-
-	e.rp.cleeanupDirsMutex.Lock()
-	e.rp.cleanupDirs = append(e.rp.cleanupDirs, p)
-	e.rp.cleeanupDirsMutex.Unlock()
 
 	err = e.mr.CloneProjectByCommit(commit, p)
 	if err != nil {
