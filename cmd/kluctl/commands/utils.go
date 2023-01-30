@@ -251,8 +251,8 @@ func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err 
 	if err != nil {
 		return repocache.RepoOverride{}, fmt.Errorf("%s: %w", s, err)
 	}
-
-	ret.RepoKey = u.NormalizedRepoKey()
+	u = u.Normalize()
+	ret.RepoUrl = *u
 	if len(sp2) == 3 {
 		ret.Ref = sp2[2]
 	}

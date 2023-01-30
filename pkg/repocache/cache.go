@@ -52,7 +52,7 @@ type RepoInfo struct {
 }
 
 type RepoOverride struct {
-	RepoKey  string
+	RepoUrl  git_url.GitUrl
 	Ref      string
 	Override string
 	IsGroup  bool
@@ -252,10 +252,10 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 				break
 			}
 		}
-		//u := e.mr.Url()
-		u := foundRo.RepoKey
 
-		status.WarningOnce(e.rp.ctx, fmt.Sprintf("git-override-%s|%s", foundRo.RepoKey, foundRo.Ref), "Overriding git repo %s with local directory %s", u, foundRo.Override)
+		u := foundRo.RepoUrl
+
+		status.WarningOnce(e.rp.ctx, fmt.Sprintf("git-override-%s|%s", foundRo.RepoUrl.NormalizedRepoKey(), foundRo.Ref), "Overriding git repo %s with local directory %s", u, foundRo.Override)
 
 		//FIXME, may be someone dont want to use temp dir here?
 		err := cp.Copy(foundRo.Override, p)
