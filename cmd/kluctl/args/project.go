@@ -28,7 +28,7 @@ type ProjectFlags struct {
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`
 	GitCacheUpdateInterval time.Duration `group:"project" help:"Specify the time to wait between git cache updates. Defaults to not wait at all and always updating caches."`
 	LocalGitOverride       []string      `group:"project" help:"Specify a single repository local git override in the form of 'github.com:my-org/my-repo=/local/path/to/override'. This will cause kluctl to not use git to clone for the specified repository but instead use the local directory. This is useful in case you need to test out changes in external git repositories without pushing them. To only override a single branch of the repo, use 'github.com:my-org/my-repo:my-branch=/local/path/to/override'"`
-	LocalGitGroupOverride  []string      `group:"project" help:"Specify a pattern for git repository url override'. Usage ase --local-git-override. Affected are all repositories matching the pattern.`
+	LocalGitGroupOverride  []string      `group:"project" help:"Specify a pattern for any git repository url override'. Usage 'gitlab.com:others/sub-org=/local/path/to/my-forks'. Affected are all source repositories which url/path is matching "gitlab.com:others/sub-org" pattern.`
 }
 
 type ArgsFlags struct {

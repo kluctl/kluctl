@@ -280,11 +280,6 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 		ref = e.defaultRef
 	}
 
-	// err = e.Update()
-	// if err != nil {
-	// 	return "", git.CheckoutInfo{}, err
-	// }
-
 	ref2, commit, err := e.findCommit(ref)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err

@@ -3,6 +3,10 @@ package helm
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/Masterminds/semver/v3"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -23,11 +27,6 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"os"
-	"path/filepath"
-	"strings"
-
-
 )
 
 type Release struct {
@@ -239,17 +238,6 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	if err != nil {
 		return err
 	}
-
-	// FIXME, alternative path under helm repo
-	//
-	// "helm.sh/helm/v3/pkg/chart"
-	//files := []*BufferedFile{}
-	// some walk (as in helm/directory.go)
-	//data, err := ioutil.ReadFile(name)
-	//data = bytes.TrimPrefix(data, utf8bom)
-	//files = append(files, &BufferedFile{Name: n, Data: data})
-	// for _, f := range files {
-	// chartRequested.Templates = append(chartRequested.Templates, &chart.File{Name: f.Name, Data: f.Data}
 
 	if err := checkIfInstallable(chartRequested); err != nil {
 		return err
