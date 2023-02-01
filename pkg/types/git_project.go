@@ -1,8 +1,7 @@
 package types
 
 import (
-	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/go-playground/validator/v10"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -26,7 +25,7 @@ func (gp *GitProject) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 func ValidateGitProject(sl validator.StructLevel) {
 	gp := sl.Current().Interface().(GitProject)
-	for _, e := range strings.Split(gp.SubDir, string(os.PathSeparator)) {
+	for _, e := range filepath.SplitList(gp.SubDir) {
 		if e == ".." {
 			sl.ReportError(gp.SubDir, "subDir", "SubDir", ".. is not allowed in subDir", "")
 		}

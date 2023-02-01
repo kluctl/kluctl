@@ -39,40 +39,42 @@ They control where and how to load the kluctl project and deployment project.
 Project arguments:
   Define where and how to load the kluctl project and its components from.
 
-  -a, --arg stringArray                      Passes a template argument in the form of name=value. Nested args can
-                                             be set with the '-a my.nested.arg=value' syntax. Values are
-                                             interpreted as yaml values, meaning that 'true' and 'false' will lead
-                                             to boolean values and numbers will be treated as numbers. Use quotes
-                                             if you want these to be treated as strings. If the value starts with
-                                             @, it is treated as a file, meaning that the contents of the file
-                                             will be loaded and treated as yaml.
-      --args-from-file stringArray           Loads a yaml file and makes it available as arguments, meaning that
-                                             they will be available thought the global 'args' variable.
-      --context string                       Overrides the context name specified in the target. If the selected
-                                             target does not specify a context or the no-name target is used,
-                                             --context will override the currently active context.
-      --git-cache-update-interval duration   Specify the time to wait between git cache updates. Defaults to not
-                                             wait at all and always updating caches.
-      --local-git-override stringArray       Specify a local git override in the form of
-                                             'github.com:my-org/my-repo=/local/path/to/override'. This will cause
-                                             kluctl to not use git to clone for the specified repository but
-                                             instead use the local directory. This is useful in case you need to
-                                             test out changes in external git repositories without pushing them.
-                                             To only override a single branch of the repo, use
-                                             'github.com:my-org/my-repo:my-branch=/local/path/to/override'
-      --local-git-group-override stringArray As '--local-git-override' but rewrite any source git repository where
-                                             'url:path' prefix is matching pattern on left side of '=' expression.
-                                             'github.com:other-org=/local/path/to/my-forks'
-  -c, --project-config existingfile          Location of the .kluctl.yaml config file. Defaults to
-                                             $PROJECT/.kluctl.yaml
-      --project-dir existingdir              Specify the project directory. Defaults to the current working directory.
-  -t, --target string                        Target name to run command for. Target must exist in .kluctl.yaml.
-  -T, --target-name-override string          Overrides the target name. If -t is used at the same time, then the
-                                             target will be looked up based on -t <name> and then renamed to the
-                                             value of -T. If no target is specified via -t, then the no-name
-                                             target is renamed to the value of -T.
-      --timeout duration                     Specify timeout for all operations, including loading of the project,
-                                             all external api calls and waiting for readiness. (default 10m0s)
+  -a, --arg stringArray                        Passes a template argument in the form of name=value. Nested args
+                                               can be set with the '-a my.nested.arg=value' syntax. Values are
+                                               interpreted as yaml values, meaning that 'true' and 'false' will
+                                               lead to boolean values and numbers will be treated as numbers. Use
+                                               quotes if you want these to be treated as strings. If the value
+                                               starts with @, it is treated as a file, meaning that the contents
+                                               of the file will be loaded and treated as yaml.
+      --args-from-file stringArray             Loads a yaml file and makes it available as arguments, meaning that
+                                               they will be available thought the global 'args' variable.
+      --context string                         Overrides the context name specified in the target. If the selected
+                                               target does not specify a context or the no-name target is used,
+                                               --context will override the currently active context.
+      --git-cache-update-interval duration     Specify the time to wait between git cache updates. Defaults to not
+                                               wait at all and always updating caches.
+      --local-git-group-override stringArray   Specify a pattern for any git repository url override'. Usage
+                                               'gitlab.com:others/sub-org=/local/path/to/my-forks'. Affected are
+                                               all source repositories which url/path is matching 
+      --local-git-override stringArray         Specify a single repository local git override in the form of
+                                               'github.com:my-org/my-repo=/local/path/to/override'. This will
+                                               cause kluctl to not use git to clone for the specified repository
+                                               but instead use the local directory. This is useful in case you
+                                               need to test out changes in external git repositories without
+                                               pushing them. To only override a single branch of the repo, use
+                                               'github.com:my-org/my-repo:my-branch=/local/path/to/override'
+  -c, --project-config existingfile            Location of the .kluctl.yaml config file. Defaults to
+                                               $PROJECT/.kluctl.yaml
+      --project-dir existingdir                Specify the project directory. Defaults to the current working
+                                               directory.
+  -t, --target string                          Target name to run command for. Target must exist in .kluctl.yaml.
+  -T, --target-name-override string            Overrides the target name. If -t is used at the same time, then the
+                                               target will be looked up based on -t <name> and then renamed to the
+                                               value of -T. If no target is specified via -t, then the no-name
+                                               target is renamed to the value of -T.
+      --timeout duration                       Specify timeout for all operations, including loading of the
+                                               project, all external api calls and waiting for readiness. (default
+                                               10m0s)
 
 ```
 <!-- END SECTION -->
