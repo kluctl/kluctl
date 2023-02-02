@@ -53,9 +53,15 @@ Project arguments:
                                                --context will override the currently active context.
       --git-cache-update-interval duration     Specify the time to wait between git cache updates. Defaults to not
                                                wait at all and always updating caches.
-      --local-git-group-override stringArray   Specify a pattern for any git repository url override'. Usage
-                                               'gitlab.com:others/sub-org=/local/path/to/my-forks'. Affected are
-                                               all source repositories which url/path is matching 
+      --local-git-group-override stringArray   Same as --local-git-override, but for a whole group prefix instead
+                                               of a single repository. All repositories that have the given prefix
+                                               will be overridden with the given local path and the repository
+                                               suffix appended. For example,
+                                               'gitlab.com:some-org/sub-org=/local/path/to/my-forks' will override
+                                               all repositories below 'gitlab.com:some-org/sub-org/' with the
+                                               repositories found in '/local/path/to/my-forks'. It will however
+                                               only perform an override if the given repository actually exists
+                                               locally and otherwise revert to the actual (non-overridden) repository.
       --local-git-override stringArray         Specify a single repository local git override in the form of
                                                'github.com:my-org/my-repo=/local/path/to/override'. This will
                                                cause kluctl to not use git to clone for the specified repository
