@@ -196,6 +196,17 @@ deployments:
 - path: kustomizeDeployment2
 ```
 
+### onlyRender
+Causes a path to be rendered only but not treated as a deployment item. This can be useful if you for example want to
+use Kustomize components which you'd refer from other deployment items.
+
+```yaml
+deployments:
+- path: component
+  onlyRender: true
+- path: kustomizeDeployment2
+```
+
 ## vars (deployment project)
 A list of variable sets to be loaded into the templating context, which is then available in all [deployment items](#deployments)
 and [sub-deployments](#includes).

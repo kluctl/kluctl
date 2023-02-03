@@ -1,8 +1,10 @@
 package e2e
 
 import (
+	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -79,4 +81,57 @@ func TestGeneratedKustomize(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
+}
+
+func TestOnlyRender(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+
+	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
+		"path":       "only-render",
+		"onlyRender": true,
+	}))
+	p.UpdateFile("only-render/value.txt", func(f string) (string, error) {
+		return "{{ args.a }}\n", nil
+	}, "")
+	p.UpdateFile("only-render/kustomization.yaml", func(f string) (string, error) {
+		return fmt.Sprintf(`
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- name: %s-cm
+  files:
+  - value.txt
+`, p.TestSlug()), nil
+	}, "")
+
+	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
+		"path": "d",
+	}))
+	p.UpdateFile("d/kustomization.yaml", func(f string) (string, error) {
+		return fmt.Sprintf(`
+components:
+- ../only-render
+namespace: %s
+`, p.TestSlug()), nil
+	}, "")
+
+	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "a=v1")
+	// it should not appear in the default namespace as that would indicate that the component was treated as a deployment item
+	assertConfigMapNotExists(t, k, "default", p.TestSlug()+"-cm")
+	s := assertConfigMapExists(t, k, p.TestSlug(), p.TestSlug()+"-cm")
+	assert.Equal(t, s.Object["data"], map[string]any{
+		"value.txt": "v1",
+	})
 }

@@ -183,6 +183,10 @@ func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string
 	if f == newF {
 		return
 	}
+	err = os.MkdirAll(filepath.Dir(fullPath), 0o700)
+	if err != nil {
+		p.t.Fatal(err)
+	}
 	err = os.WriteFile(fullPath, []byte(newF), 0o600)
 	if err != nil {
 		p.t.Fatal(err)

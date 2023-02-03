@@ -494,6 +494,9 @@ func (di *DeploymentItem) buildKustomize() error {
 	if di.dir == nil {
 		return nil
 	}
+	if di.Config.OnlyRender {
+		return nil
+	}
 
 	ky, err := di.prepareKustomizationYaml()
 	if err != nil {
