@@ -106,7 +106,7 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 			relPath := strings.TrimPrefix(urlN.Path, ro.RepoUrl.Path+"/")
 			overridePath = path.Join(ro.Override, relPath)
 		} else {
-			if ro.Override != urlN.Path {
+			if ro.RepoUrl.Path != urlN.Path {
 				continue
 			}
 			overridePath = ro.Override
