@@ -242,20 +242,12 @@ func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err 
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
-	sp2 := strings.Split(sp[0], ":")
-	if len(sp2) < 2 || len(sp2) > 3 {
-		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
-	}
-
-	u, err := git_url.Parse(fmt.Sprintf("%s:%s", sp2[0], sp2[1]))
+	u, err := git_url.Parse(sp[0])
 	if err != nil {
 		return repocache.RepoOverride{}, fmt.Errorf("%s: %w", s, err)
 	}
 	u = u.Normalize()
 	ret.RepoUrl = *u
-	if len(sp2) == 3 {
-		ret.Ref = sp2[2]
-	}
 	ret.Override = sp[1]
 	return
 }
