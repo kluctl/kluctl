@@ -101,5 +101,5 @@ func (u *GitUrl) NormalizedRepoKey() string {
 	if u.User != nil && u.User.Username() != "" {
 		username = u.User.Username() + "@"
 	}
-	return fmt.Sprintf("%s%s:%s", username, u2.Host, u2.Path)
+	return fmt.Sprintf("%s%s:%s%s", username, u2.Hostname(), u2.Port(), u2.Path)
 }
