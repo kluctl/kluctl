@@ -10,10 +10,13 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"io"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"sync"
 )
 
@@ -85,12 +88,43 @@ func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) 
 	}
 }
 
+func (a *sshDefaultIdentityAndAgent) createAgent(gitUrl git_url.GitUrl) (agent.Agent, error) {
+	if runtime.GOOS == "windows" {
+		a, _, err := sshagent.New()
+		return a, err
+	}
+
+	// see `man ssh_config`
+
+	sshAuthSock := ssh_config.Get(gitUrl.Hostname(), "IdentityAgent")
+	if sshAuthSock == "none" {
+		return nil, nil
+	}
+	if sshAuthSock == "" || sshAuthSock == "SSH_AUTH_SOCK" {
+		a, _, err := sshagent.New()
+		return a, err
+	}
+
+	sshAuthSock = os.ExpandEnv(sshAuthSock)
+	sshAuthSock = expandHomeDir(sshAuthSock)
+
+	conn, err := net.Dial("unix", sshAuthSock)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to unix socket: %v", err)
+	}
+
+	return agent.NewClient(conn), nil
+}
+
 func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
 	a.authProvider.MessageCallbacks.Trace("trying to add agent keys")
-	agent, _, err := sshagent.New()
+	agent, err := a.createAgent(gitUrl)
 	if err != nil {
 		a.authProvider.MessageCallbacks.Warning("Failed to connect to ssh agent for url %s: %v", gitUrl.String(), err)
 	} else {
+		if agent == nil {
+			return
+		}
 		signers, err := agent.Signers()
 		if err != nil {
 			a.authProvider.MessageCallbacks.Warning("Failed to get signers from ssh agent for url %s: %v", gitUrl.String(), err)
