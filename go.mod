@@ -27,7 +27,7 @@ require (
 	github.com/mattn/go-isatty v0.0.17
 	github.com/mattn/go-runewidth v0.0.14
 	github.com/mitchellh/reflectwalk v1.0.2
-	github.com/ohler55/ojg v1.16.0
+	github.com/ohler55/ojg v1.17.3
 	github.com/pkg/errors v0.9.1
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/rogpeppe/go-internal v1.9.0
