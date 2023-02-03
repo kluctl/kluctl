@@ -85,10 +85,12 @@ func TestLocalGitOverride(t *testing.T) {
 
 	u1, _ := git_url.Parse(ip1.GitUrl())
 	u2, _ := git_url.Parse(ip2.GitUrl())
+	k1 := u1.NormalizedRepoKey()
+	k2 := u2.NormalizedRepoKey()
 
 	p.KluctlMust("deploy", "--yes", "-t", "test",
-		"--local-git-override", fmt.Sprintf("%s=%s", u1.NormalizedRepoKey(), override1),
-		"--local-git-override", fmt.Sprintf("%s=%s", u2.NormalizedRepoKey(), override2),
+		"--local-git-override", fmt.Sprintf("%s=%s", k1, override1),
+		"--local-git-override", fmt.Sprintf("%s=%s", k2, override2),
 	)
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertNestedFieldEquals(t, cm, "o1", "data", "a")
