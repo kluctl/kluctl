@@ -3,6 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/git"
@@ -20,8 +23,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"os"
-	"strings"
 )
 
 func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
@@ -54,9 +55,16 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	var repoOverrides []repocache.RepoOverride
 	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(x)
+		ro, err := parseRepoOverride(x, false)
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid --local-git-override: %w", err)
+		}
+		repoOverrides = append(repoOverrides, ro)
+	}
+	for _, x := range projectFlags.LocalGitGroupOverride {
+		ro, err := parseRepoOverride(x, true)
+		if err != nil {
+			return fmt.Errorf("invalid --local-git-group-override: %w", err)
 		}
 		repoOverrides = append(repoOverrides, ro)
 	}
@@ -226,23 +234,25 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 	}
 }
 
-func parseRepoOverride(s string) (ret repocache.RepoOverride, err error) {
+func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err error) {
+	ret.IsGroup = isGroup
+
 	sp := strings.SplitN(s, "=", 2)
 	if len(sp) != 2 {
-		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-override %s", s)
+		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
 	sp2 := strings.Split(sp[0], ":")
 	if len(sp2) < 2 || len(sp2) > 3 {
-		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-override %s", s)
+		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
 	u, err := git_url.Parse(fmt.Sprintf("%s:%s", sp2[0], sp2[1]))
 	if err != nil {
-		return repocache.RepoOverride{}, fmt.Errorf("invalid --local-git-override %s: %w", s, err)
+		return repocache.RepoOverride{}, fmt.Errorf("%s: %w", s, err)
 	}
-
-	ret.RepoKey = u.NormalizedRepoKey()
+	u = u.Normalize()
+	ret.RepoUrl = *u
 	if len(sp2) == 3 {
 		ret.Ref = sp2[2]
 	}

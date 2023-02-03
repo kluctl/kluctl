@@ -3,6 +3,13 @@ package repocache
 import (
 	"context"
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
@@ -10,12 +17,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	cp "github.com/otiai10/copy"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 )
 
 type GitRepoCache struct {
@@ -35,12 +36,14 @@ type GitRepoCache struct {
 
 type CacheEntry struct {
 	rp         *GitRepoCache
+	url        git_url.GitUrl
 	mr         *git.MirroredGitRepo
 	defaultRef string
 	refs       map[string]string
 
-	clonedDirs  map[string]clonedDir
-	updateMutex sync.Mutex
+	clonedDirs   map[string]clonedDir
+	updateMutex  sync.Mutex
+	overridePath string
 }
 
 type RepoInfo struct {
@@ -50,9 +53,10 @@ type RepoInfo struct {
 }
 
 type RepoOverride struct {
-	RepoKey  string
+	RepoUrl  git_url.GitUrl
 	Ref      string
 	Override string
+	IsGroup  bool
 }
 
 type clonedDir struct {
@@ -85,7 +89,52 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 	rp.reposMutex.Lock()
 	defer rp.reposMutex.Unlock()
 
-	e, ok := rp.repos[url.NormalizedRepoKey()]
+	urlN := url.Normalize()
+	repoKey := url.NormalizedRepoKey()
+
+	// evaluate overrides
+	for _, ro := range rp.repoOverrides {
+		if ro.RepoUrl.Host != urlN.Host {
+			continue
+		}
+
+		var overridePath string
+		if ro.IsGroup {
+			if !strings.HasPrefix(urlN.Path, ro.RepoUrl.Path+"/") {
+				continue
+			}
+			relPath := strings.TrimPrefix(urlN.Path, ro.RepoUrl.Path+"/")
+			overridePath = path.Join(ro.Override, relPath)
+		} else {
+			if ro.Override != urlN.Path {
+				continue
+			}
+			overridePath = ro.Override
+		}
+
+		if st, err := os.Stat(overridePath); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("can not override repo %s with %s: %w", url.String(), overridePath, err)
+		} else if !st.IsDir() {
+			return nil, fmt.Errorf("can not override repo %s. %s is not a directory", url.String(), overridePath)
+		}
+
+		status.WarningOnce(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
+
+		e := &CacheEntry{
+			rp:           rp,
+			url:          url,
+			mr:           nil, // mark as overridden
+			clonedDirs:   map[string]clonedDir{},
+			overridePath: overridePath,
+		}
+		rp.repos[repoKey] = e
+		return e, nil
+	}
+
+	e, ok := rp.repos[repoKey]
 	if !ok {
 		mr, err := git.NewMirroredGitRepo(rp.ctx, url, filepath.Join(utils.GetTmpBaseDir(rp.ctx), "git-cache"), rp.sshPool, rp.authProviders)
 		if err != nil {
@@ -93,10 +142,11 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 		}
 		e = &CacheEntry{
 			rp:         rp,
+			url:        url,
 			mr:         mr,
 			clonedDirs: map[string]clonedDir{},
 		}
-		rp.repos[url.NormalizedRepoKey()] = e
+		rp.repos[repoKey] = e
 	}
 	err := e.Update()
 	if err != nil {
@@ -108,6 +158,10 @@ func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
 func (e *CacheEntry) Update() error {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
+
+	if e.mr == nil {
+		return nil
+	}
 
 	err := e.mr.Lock()
 	if err != nil {
@@ -149,7 +203,7 @@ func (e *CacheEntry) GetRepoInfo() RepoInfo {
 	defer e.updateMutex.Unlock()
 
 	info := RepoInfo{
-		Url:        e.mr.Url(),
+		Url:        e.url,
 		RemoteRefs: e.refs,
 		DefaultRef: e.defaultRef,
 	}
@@ -184,28 +238,13 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
-	err := e.mr.Lock()
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-	defer e.mr.Unlock()
-
-	if ref == "" {
-		ref = e.defaultRef
-	}
-
-	ref2, commit, err := e.findCommit(ref)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-
 	tmpDir := filepath.Join(utils.GetTmpBaseDir(e.rp.ctx), "git-cloned")
-	err = os.MkdirAll(tmpDir, 0700)
+	err := os.MkdirAll(tmpDir, 0700)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
 
-	url := e.mr.Url()
+	url := e.url
 	repoName := path.Base(url.Normalize().Path) + "-"
 	if ref == "" {
 		repoName += "HEAD-"
@@ -223,29 +262,32 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	e.rp.cleanupDirs = append(e.rp.cleanupDirs, p)
 	e.rp.cleeanupDirsMutex.Unlock()
 
-	var foundRo *RepoOverride
-	for _, ro := range e.rp.repoOverrides {
-		u := e.mr.Url()
-		if ro.RepoKey == u.NormalizedRepoKey() {
-			if ro.Ref == "" || strings.HasSuffix(ref2, "/"+ro.Ref) {
-				foundRo = &ro
-				break
-			}
+	if e.mr == nil { // local override exist
+		err = cp.Copy(e.overridePath, p)
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
 		}
+		return p, git.CheckoutInfo{}, err
 	}
 
-	if foundRo != nil {
-		u := e.mr.Url()
-		status.WarningOnce(e.rp.ctx, fmt.Sprintf("git-override-%s|%s", foundRo.RepoKey, foundRo.Ref), "Overriding git repo %s with local directory %s", u.String(), foundRo.Override)
-		err = cp.Copy(foundRo.Override, p)
-		if err != nil {
-			return "", git.CheckoutInfo{}, err
-		}
-	} else {
-		err = e.mr.CloneProjectByCommit(commit, p)
-		if err != nil {
-			return "", git.CheckoutInfo{}, err
-		}
+	err = e.mr.Lock()
+	if err != nil {
+		return "", git.CheckoutInfo{}, err
+	}
+	defer e.mr.Unlock()
+
+	if ref == "" {
+		ref = e.defaultRef
+	}
+
+	ref2, commit, err := e.findCommit(ref)
+	if err != nil {
+		return "", git.CheckoutInfo{}, err
+	}
+
+	err = e.mr.CloneProjectByCommit(commit, p)
+	if err != nil {
+		return "", git.CheckoutInfo{}, err
 	}
 
 	repoInfo, err := git.GetCheckoutInfo(p)
