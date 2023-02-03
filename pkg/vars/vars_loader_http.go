@@ -64,12 +64,12 @@ func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, ignoreMissing bool
 	return resp, string(respBody), nil
 }
 
-func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
+func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
 	resp, respBody, err := v.doHttp(source.Http, ignoreMissing, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)
 		if len(chgs) == 0 {
-			return err
+			return nil, err
 		}
 
 		var realms []string
@@ -86,7 +86,7 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 		if !ok {
 			username, password, err := status.AskForCredentials(v.ctx, fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
 			if err != nil {
-				return err
+				return nil, err
 			}
 			creds = usernamePassword{
 				username: username,
@@ -97,13 +97,13 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 
 		resp, respBody, err = v.doHttp(source.Http, ignoreMissing, creds.username, creds.password)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else if err != nil {
 		if ignoreMissing && resp != nil && resp.StatusCode == http.StatusNotFound {
-			return nil
+			return uo.New(), nil
 		}
-		return err
+		return nil, err
 	}
 
 	var respObj interface{}
@@ -111,45 +111,34 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 
 	err = yaml.ReadYamlString(respBody, &respObj)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if source.Http.JsonPath != nil {
 		p, err := uo.NewMyJsonPath(*source.Http.JsonPath)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		x, ok := p.GetFirstFromAny(respObj)
 		if !ok {
-			return fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
+			return nil, fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
 		}
 		s, ok := x.(string)
 		if !ok {
-			return fmt.Errorf("%s in result of http request %s is not a string", *source.Http.JsonPath, source.Http.Url.String())
+			return nil, fmt.Errorf("%s in result of http request %s is not a string", *source.Http.JsonPath, source.Http.Url.String())
 		}
 		newVars, err = uo.FromString(s)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		x, ok := respObj.(map[string]interface{})
 		if !ok {
-			return fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
+			return nil, fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
 		}
 		newVars = uo.FromMap(x)
 	}
-
-	if rootKey != "" {
-		newVars, _, err = newVars.GetNestedObject(rootKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	if newVars != nil {
-		v.mergeVars(varsCtx, newVars, rootKey)
-	}
-	return nil
+	return newVars, nil
 }

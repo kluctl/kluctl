@@ -83,27 +83,45 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		ignoreMissing = *source.IgnoreMissing
 	}
 
+	var newVars *uo.UnstructuredObject
 	if source.Values != nil {
-		v.mergeVars(varsCtx, source.Values, rootKey)
-		return nil
+		newVars = source.Values
+		if rootKey != "" {
+			newVars = uo.FromMap(map[string]interface{}{
+				rootKey: newVars.Object,
+			})
+		}
 	} else if source.File != nil {
-		return v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs, rootKey)
+		newVars, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
 	} else if source.Git != nil {
-		return v.loadGit(varsCtx, source.Git, ignoreMissing, rootKey)
+		newVars, err = v.loadGit(varsCtx, source.Git, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
-		return v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", source.ClusterConfigMap.Key, rootKey, ignoreMissing, false)
+		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", source.ClusterConfigMap.Key, ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
-		return v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", source.ClusterSecret.Key, rootKey, ignoreMissing, true)
+		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", source.ClusterSecret.Key, ignoreMissing, true)
 	} else if source.SystemEnvVars != nil {
-		return v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
+		newVars, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
 	} else if source.Http != nil {
-		return v.loadHttp(varsCtx, &source, ignoreMissing, rootKey)
+		newVars, err = v.loadHttp(varsCtx, &source, ignoreMissing)
 	} else if source.AwsSecretsManager != nil {
-		return v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing, rootKey)
+		newVars, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
 	} else if source.Vault != nil {
-		return v.loadVault(varsCtx, &source, ignoreMissing, rootKey)
+		newVars, err = v.loadVault(varsCtx, &source, ignoreMissing)
+	} else {
+		return fmt.Errorf("invalid vars source")
 	}
-	return fmt.Errorf("invalid vars source")
+	if err != nil {
+		return err
+	}
+
+	if source.NoOverride == nil || !*source.NoOverride {
+		varsCtx.Vars.Merge(newVars)
+	} else {
+		newVars.Merge(varsCtx.Vars)
+		varsCtx.Vars = newVars
+	}
+
+	return nil
 }
 
 func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject, rootKey string) {
@@ -114,45 +132,35 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 	}
 }
 
-func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string, rootKey string) error {
+func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string) (*uo.UnstructuredObject, error) {
 	rendered, err := varsCtx.RenderFile(path, searchDirs)
 	if err != nil {
 		// TODO the Jinja2 renderer should be able to better report this error
 		if ignoreMissing && err.Error() == fmt.Sprintf("template %s not found", path) {
-			return nil
+			return uo.New(), nil
 		}
-		return fmt.Errorf("failed to render vars file %s: %w", path, err)
+		return nil, fmt.Errorf("failed to render vars file %s: %w", path, err)
 	}
 
 	format := formats.FormatForPath(path)
 	decrypted, _, err := sops.MaybeDecrypt(v.sops, []byte(rendered), format, format)
 	if err != nil {
-		return fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
+		return nil, fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
 	}
 	rendered = string(decrypted)
 
 	newVars := uo.New()
 	err = yaml.ReadYamlString(rendered, newVars)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err != nil {
-		return fmt.Errorf("failed to load vars from %s: %w", path, err)
+		return nil, fmt.Errorf("failed to load vars from %s: %w", path, err)
 	}
-	if rootKey != "" {
-		newVars, _, err = newVars.GetNestedObject(rootKey)
-		if err != nil {
-			return err
-		}
-		if newVars == nil {
-			return fmt.Errorf("vars from %s have no '%s' root", path, rootKey)
-		}
-	}
-	v.mergeVars(varsCtx, newVars, rootKey)
-	return nil
+	return newVars, nil
 }
 
-func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
+func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) (*uo.UnstructuredObject, error) {
 	newVars := uo.New()
 	err := source.SystemEnvVars.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
 		envName, ok := it.Value().(string)
@@ -196,15 +204,19 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	v.mergeVars(varsCtx, newVars, rootKey)
-	return nil
+	if rootKey != "" {
+		newVars = uo.FromMap(map[string]interface{}{
+			rootKey: newVars.Object,
+		})
+	}
+	return newVars, nil
 }
 
-func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
+func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
 	if v.aws == nil {
-		return fmt.Errorf("no AWS client factory provided")
+		return uo.New(), fmt.Errorf("no AWS client factory provided")
 	}
 
 	secret, err := aws.GetAwsSecretsManagerSecret(v.ctx, v.aws, source.AwsSecretsManager.Profile, source.AwsSecretsManager.Region, source.AwsSecretsManager.SecretName)
@@ -212,45 +224,45 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 		var aerr *types2.ResourceNotFoundException
 		if errors2.As(err, &aerr) {
 			if ignoreMissing {
-				return nil
+				return uo.New(), nil
 			}
 		}
-		return err
+		return nil, err
 	}
-	return v.loadFromString(varsCtx, secret, "awsSecretsManager", rootKey)
+	return v.loadFromString(varsCtx, secret)
 }
 
-func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) error {
+func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
 	secret, err := vault.GetSecret(source.Vault.Address, source.Vault.Path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if secret == nil {
 		if ignoreMissing {
-			return nil
+			return uo.New(), nil
 		}
-		return fmt.Errorf("the specified vault secret was not found")
+		return nil, fmt.Errorf("the specified vault secret was not found")
 	}
-	return v.loadFromString(varsCtx, *secret, "vault", rootKey)
+	return v.loadFromString(varsCtx, *secret)
 }
 
-func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool, rootKey string) error {
+func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, error) {
 	ge, err := v.rp.GetEntry(gitFile.Url)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	clonedDir, _, err := ge.GetClonedDir(gitFile.Ref)
 	if err != nil {
-		return fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
+		return nil, fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
-	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir}, rootKey)
+	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir})
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, rootKey string, ignoreMissing bool, base64Decode bool) error {
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, ignoreMissing bool, base64Decode bool) (*uo.UnstructuredObject, error) {
 	if v.k == nil {
-		return fmt.Errorf("loading vars from cluster is disabled")
+		return nil, fmt.Errorf("loading vars from cluster is disabled")
 	}
 
 	var err error
@@ -260,9 +272,9 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		o, _, err = v.k.GetSingleObject(k8s2.NewObjectRef("", "v1", kind, varsSource.Name, varsSource.Namespace))
 		if err != nil {
 			if ignoreMissing && errors.IsNotFound(err) {
-				return nil
+				return uo.New(), nil
 			}
-			return err
+			return nil, err
 		}
 	} else {
 		objs, _, err := v.k.ListObjects(schema.GroupVersionKind{
@@ -271,16 +283,16 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 			Kind:    kind,
 		}, varsSource.Namespace, varsSource.Labels)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(objs) == 0 {
 			if ignoreMissing {
-				return nil
+				return uo.New(), nil
 			}
-			return fmt.Errorf("no object found with labels %v", varsSource.Labels)
+			return nil, fmt.Errorf("no object found with labels %v", varsSource.Labels)
 		}
 		if len(objs) > 1 {
-			return fmt.Errorf("found more than one objects with labels %v", varsSource.Labels)
+			return nil, fmt.Errorf("found more than one objects with labels %v", varsSource.Labels)
 		}
 		o = objs[0]
 	}
@@ -289,10 +301,10 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 
 	f, found, err := o.GetNestedField("data", key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !found {
-		return fmt.Errorf("key %s not found in %s on cluster", key, ref.String())
+		return nil, fmt.Errorf("key %s not found in %s on cluster", key, ref.String())
 	}
 
 	var value string
@@ -302,7 +314,7 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		if base64Decode {
 			b, err := base64.StdEncoding.DecodeString(s)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			value = string(b)
 		} else {
@@ -310,32 +322,20 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		}
 	}
 
-	err = v.loadFromString(varsCtx, value, "k8s", rootKey)
+	newVars, err := v.loadFromString(varsCtx, value)
 	if err != nil {
-		return fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), key, err)
+		return nil, fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), key, err)
 	}
-	return nil
+	return newVars, nil
 }
 
-func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, secretType string, rootKey string) error {
+func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string) (*uo.UnstructuredObject, error) {
 	newVars := uo.New()
 	err := v.renderYamlString(varsCtx, s, newVars)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	if rootKey != "" {
-		newVars, _, err = newVars.GetNestedObject(rootKey)
-		if err != nil {
-			return err
-		}
-		if newVars == nil {
-			return fmt.Errorf("%s secret has no '%s' root", secretType, rootKey)
-		}
-	}
-
-	v.mergeVars(varsCtx, newVars, rootKey)
-	return nil
+	return newVars, nil
 }
 
 func (v *VarsLoader) renderYamlString(varsCtx *VarsCtx, s string, out interface{}) error {
