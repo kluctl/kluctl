@@ -67,8 +67,7 @@ Project arguments:
                                                cause kluctl to not use git to clone for the specified repository
                                                but instead use the local directory. This is useful in case you
                                                need to test out changes in external git repositories without
-                                               pushing them. To only override a single branch of the repo, use
-                                               'github.com:my-org/my-repo:my-branch=/local/path/to/override'
+                                               pushing them.
   -c, --project-config existingfile            Location of the .kluctl.yaml config file. Defaults to
                                                $PROJECT/.kluctl.yaml
       --project-dir existingdir                Specify the project directory. Defaults to the current working
