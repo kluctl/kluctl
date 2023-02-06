@@ -198,6 +198,12 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
 	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart2", "0.1.0"))
 
+	if commit {
+		wt, _ := p.GetGitRepo().Worktree()
+		_, _ = wt.Add(".helm-charts")
+		_, _ = wt.Commit(".helm-charts", &git.CommitOptions{})
+	}
+
 	args := []string{"helm-update"}
 	if upgrade {
 		args = append(args, "--upgrade")
@@ -212,12 +218,12 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	assert.Contains(t, stderr, "helm3: Skipped update to version 0.2.0")
 
 	if upgrade {
-		assert.Contains(t, stderr, "helm1: Upgrading Chart test-chart1 to version 0.2.0")
-		assert.Contains(t, stderr, "helm2: Upgrading Chart test-chart2 to version 0.3.0")
+		assert.Contains(t, stderr, "Upgrading Chart test-chart1 from version 0.1.0 to 0.2.0")
+		assert.Contains(t, stderr, "Upgrading Chart test-chart2 from version 0.1.0 to 0.3.0")
 	}
 	if commit {
-		assert.Contains(t, stderr, "helm1: Committed helm chart test-chart1 with version 0.2.0")
-		assert.Contains(t, stderr, "helm2: Committed helm chart test-chart2 with version 0.3.0")
+		assert.Contains(t, stderr, "Committed helm chart test-chart1 with version 0.2.0")
+		assert.Contains(t, stderr, "Committed helm chart test-chart2 with version 0.3.0")
 	}
 
 	pulledVersions1 := listChartVersions(t, p, repoUrl, "test-chart1")
@@ -248,8 +254,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 			return commitList[i].Message < commitList[j].Message
 		})
 
-		assert.Equal(t, "Updated helm chart test-chart1 in helm1 to version 0.2.0", commitList[0].Message)
-		assert.Equal(t, "Updated helm chart test-chart2 in helm2 to version 0.3.0", commitList[1].Message)
+		assert.Equal(t, "Updated helm chart test-chart1 from version 0.1.0 to version 0.2.0", commitList[0].Message)
+		assert.Equal(t, "Updated helm chart test-chart2 from version 0.1.0 to version 0.3.0", commitList[1].Message)
 	}
 }
 
@@ -496,6 +502,90 @@ func TestHelmLocalChart(t *testing.T) {
 	_, stderr := p.KluctlMust("helm-pull")
 	assert.NotContains(t, stderr, "test-chart1")
 	assert.NotContains(t, stderr, "test-chart2")
+}
+
+func TestHelmSkipPrePull(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
+		{ChartName: "test-chart1", Version: "0.1.0"},
+		{ChartName: "test-chart1", Version: "0.1.1"},
+		{ChartName: "test-chart1", Version: "0.2.0"},
+	}, false, "", "")
+	u, _ := url.Parse(repoUrl)
+
+	p.UpdateTarget("test", nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repoUrl, "test-chart1", "0.1.1", "test-helm2", p.TestSlug(), nil)
+
+	p.UpdateYaml("helm2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
+
+	args := []string{"helm-pull"}
+
+	_, stderr := p.KluctlMust(args...)
+	assert.Contains(t, stderr, "Pulling Chart with version 0.1.0")
+	assert.NotContains(t, stderr, "version 0.1.1")
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
+	_, stderr = p.KluctlMust(args...)
+	assert.Contains(t, stderr, "Removing unused Chart with version 0.1.0")
+	assert.NotContains(t, stderr, "version 0.1.1")
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+
+	p.UpdateYaml("helm2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(false, "helmChart", "skipPrePull")
+		return nil
+	}, "")
+	_, stderr = p.KluctlMust(args...)
+	assert.Contains(t, stderr, "test-chart1: Pulling Chart with version 0.1.1")
+	assert.NotContains(t, stderr, "version 0.1.0")
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(false, "helmChart", "skipPrePull")
+		return nil
+	}, "")
+	_, stderr = p.KluctlMust(args...)
+	assert.Contains(t, stderr, "Pulling Chart with version 0.1.0")
+	assert.Contains(t, stderr, "Pulling Chart with version 0.1.1")
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+
+	// not try to update+pull
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
+	_, stderr = p.KluctlMust(args...)
+	p.GitServer().CommitFiles("kluctl-project", []string{".helm-charts"}, false, ".helm-charts")
+	args = []string{
+		"helm-update",
+		"--upgrade",
+		"--commit",
+	}
+	_, stderr = p.KluctlMust(args...)
+	assert.NotContains(t, stderr, "Pulling Chart with version 0.1.0")
+	assert.NotContains(t, stderr, "Pulling Chart with version 0.1.1")
+	assert.Contains(t, stderr, "Pulling Chart with version 0.2.0")
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.2.0", u.Port())))
 }
 
 func getChartDir(t *testing.T, p *test_utils.TestProject, url2 string, chartName string, chartVersion string) string {

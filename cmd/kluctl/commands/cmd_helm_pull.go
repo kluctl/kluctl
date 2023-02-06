@@ -72,6 +72,9 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 
 		versionsToPull := map[string]bool{}
 		for _, hr := range releases {
+			if hr.Config.SkipPrePull {
+				continue
+			}
 			if hr.Chart == chart {
 				versionsToPull[hr.Config.ChartVersion] = true
 			}

@@ -18,6 +18,7 @@ type HelmChartConfig2 struct {
 	Output            *string `yaml:"output,omitempty"`
 	SkipCRDs          bool    `yaml:"skipCRDs,omitempty"`
 	SkipUpdate        bool    `yaml:"skipUpdate,omitempty"`
+	SkipPrePull       bool    `yaml:"skipPrePull,omitempty"`
 }
 
 func ValidateHelmChartConfig2(sl validator.StructLevel) {
