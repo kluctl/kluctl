@@ -76,6 +76,11 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 			assert.NoError(t, err)
 			assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
 		}
+	} else {
+		p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+			return nil
+		}, "")
 	}
 
 	args := []string{"deploy", "--yes", "-t", "test"}
@@ -457,6 +462,10 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
 
 	stdout, _ := p.KluctlMust("render", "--print-all", "--offline-kubernetes", "-t", "test")
 	cm1 := uo.FromStringMust(stdout)

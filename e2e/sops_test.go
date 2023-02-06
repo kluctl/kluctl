@@ -109,6 +109,10 @@ func TestSopsHelmValues(t *testing.T) {
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1.Object)
+	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
+		return nil
+	}, "")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 
