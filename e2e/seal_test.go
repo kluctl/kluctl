@@ -178,7 +178,7 @@ func TestSeal_WithOperator(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
@@ -213,7 +213,7 @@ func TestSeal_WithBootstrap(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	test_resources.ApplyYaml("sealed-secrets.yaml", k)
@@ -261,7 +261,7 @@ func TestSeal_MultipleVarSources(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
@@ -301,7 +301,7 @@ func TestSeal_MultipleSecretSets(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
@@ -352,7 +352,7 @@ func TestSeal_MultipleTargets(t *testing.T) {
 	p.KluctlMust("seal", "-t", "test-target")
 	p.KluctlMust("seal", "-t", "test-target2")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target2/secret-secret.yml"))
 
@@ -395,7 +395,7 @@ func TestSeal_MultipleSecrets(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment2/test-target/secret-secret2.yml"))
 
@@ -442,7 +442,7 @@ func TestSeal_MultipleSecretsInOneFile(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
@@ -483,7 +483,7 @@ func TestSeal_File(t *testing.T) {
 
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
@@ -538,7 +538,7 @@ func TestSeal_Vault(t *testing.T) {
 	p.AddExtraEnv("VAULT_TOKEN=root")
 	p.KluctlMust("seal", "-t", "test-target")
 
-	sealedSecretsDir := p.LocalRepoDir()
+	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")

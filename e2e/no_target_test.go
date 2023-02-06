@@ -26,7 +26,7 @@ func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_utils.Test
 		p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
 	} else {
 		p.AddKustomizeResources("", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}})
-		err := os.Remove(filepath.Join(p.LocalRepoDir(), "deployment.yml"))
+		err := os.Remove(filepath.Join(p.LocalProjectDir(), "deployment.yml"))
 		assert.NoError(t, err)
 	}
 

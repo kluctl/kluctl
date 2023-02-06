@@ -227,8 +227,12 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 	p.CommitYaml(repo, pth, message, o)
 }
 
-func (p *TestGitServer) GitUrl(repo string) string {
-	return fmt.Sprintf("http://localhost:%d/%s/.git", p.gitServerPort, repo)
+func (p *TestGitServer) GitUrl() string {
+	return fmt.Sprintf("http://localhost:%d", p.gitServerPort)
+}
+
+func (p *TestGitServer) GitRepoUrl(repo string) string {
+	return fmt.Sprintf("%s/%s/.git", p.GitUrl(), repo)
 }
 
 func (p *TestGitServer) LocalRepoDir(repo string) string {
