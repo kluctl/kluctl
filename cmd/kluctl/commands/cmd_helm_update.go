@@ -3,8 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/fluxcd/go-git/v5"
 	"github.com/fluxcd/go-git/v5/plumbing/format/index"
+	"github.com/go-git/go-git/v5"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type helmUpdateCmd struct {
@@ -58,7 +59,10 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, s := range gitStatus {
+		for pth, s := range gitStatus {
+			if strings.HasPrefix(pth, ".helm-charts/") {
+				return fmt.Errorf("--commit can only be used when .helm-chart directory is clean")
+			}
 			if (s.Staging != git.Untracked && s.Staging != git.Unmodified) || (s.Worktree != git.Untracked && s.Worktree != git.Unmodified) {
 				return fmt.Errorf("--commit can only be used when the git worktree is unmodified")
 			}
@@ -83,6 +87,16 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			status.Error(ctx, "%s: Project is using a pre-pulled Helm Chart that is next to the helm-chart.yaml, which is deprecated. "+
 				"Updating is only possible after removing these. Use 'kluctl helm-pull' to remove all deprecated chart folders.", relDir)
 			return fmt.Errorf("detected deprecated chart folder")
+		}
+	}
+
+	if cmd.Commit {
+		actions, err := doHelmPull(ctx, projectDir, &cmd.HelmCredentials, true, false)
+		if err != nil {
+			return err
+		}
+		if actions != 0 {
+			return fmt.Errorf(".helm-charts is not up-to-date. Please run helm-pull before")
 		}
 	}
 
@@ -136,16 +150,14 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		return g.ErrorOrNil()
 	}
 
-	versionUseCounts := map[string]map[string]int{}
-	for _, hr := range releases {
-		key := fmt.Sprintf("%s / %s", hr.Chart.GetRepo(), hr.Chart.GetChartName())
-		if _, ok := versionUseCounts[key]; !ok {
-			versionUseCounts[key] = map[string]int{}
-		}
-		versionUseCounts[key][hr.Config.ChartVersion]++
-	}
+	upgrades := map[helmUpgradeKey][]*helm.Release{}
 
 	for _, hr := range releases {
+		cd, err := hr.Chart.BuildPulledChartDir(baseChartsDir, "")
+		if err != nil {
+			return err
+		}
+
 		relDir, err := filepath.Rel(projectDir, filepath.Dir(hr.ConfigFile))
 		if err != nil {
 			return err
@@ -183,24 +195,18 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
 		status.Info(ctx, "%s: Updated Chart version to %s", relDir, latestVersion)
 
-		key := fmt.Sprintf("%s / %s", hr.Chart.GetRepo(), hr.Chart.GetChartName())
-		uv := versionUseCounts[key]
-		uv[oldVersion]--
-		uv[latestVersion]++
-
-		pullChart := false
-		deleteChart := false
-		if uv[latestVersion] == 1 {
-			pullChart = true
+		k := helmUpgradeKey{
+			chartDir:   cd,
+			oldVersion: oldVersion,
+			newVersion: latestVersion,
 		}
-		if uv[oldVersion] == 0 {
-			deleteChart = true
-		}
+		upgrades[k] = append(upgrades[k], hr)
+	}
 
-		err = cmd.pullAndCommitCharts(ctx, projectDir, baseChartsDir, gitRootPath, hr, oldVersion, latestVersion, pullChart, deleteChart)
+	for k, hrs := range upgrades {
+		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion)
 		if err != nil {
 			return err
 		}
@@ -209,7 +215,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]bool) error {
+func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]os.FileInfo) error {
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if d == nil || d.IsDir() {
 			return nil
@@ -221,7 +227,7 @@ func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]boo
 		if _, ok := m[relToGit]; ok {
 			return nil
 		}
-		m[relToGit] = true
+		m[relToGit], _ = d.Info()
 		return nil
 	})
 	if os.IsNotExist(err) {
@@ -230,17 +236,15 @@ func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]boo
 	return err
 }
 
-func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hr *helm.Release, oldVersion string, newVersion string, pullChart bool, deleteChart bool) error {
-	relDir, err := filepath.Rel(projectDir, filepath.Dir(hr.ConfigFile))
-	if err != nil {
-		return err
-	}
+func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string) error {
+	chart := hrs[0].Chart
+	newVersion := hrs[0].Config.ChartVersion
 
-	s := status.Start(ctx, "%s: Upgrading Chart %s to version %s", relDir, hr.Chart.GetChartName(), newVersion)
+	s := status.Start(ctx, "Upgrading Chart %s from version %s to %s", chart.GetChartName(), oldVersion, newVersion)
 	defer s.Failed()
 
 	doError := func(err error) error {
-		s.FailedWithMessage("%s: %s", relDir, err.Error())
+		s.FailedWithMessage("%s", err.Error())
 		return err
 	}
 
@@ -254,94 +258,86 @@ func (cmd *helmUpdateCmd) pullAndCommitCharts(ctx context.Context, projectDir st
 	}
 
 	if cmd.Commit {
-		// add helm-chart.yaml
-		relToGit, err := filepath.Rel(gitRootPath, hr.ConfigFile)
-		if err != nil {
-			return doError(err)
-		}
-		_, err = wt.Add(relToGit)
-		if err != nil {
-			return doError(err)
-		}
-	}
-
-	if deleteChart {
-		chartDir, err := hr.Chart.BuildPulledChartDir(baseChartsDir, oldVersion)
-		if err != nil {
-			return doError(err)
-		}
-		relChartDir, err := filepath.Rel(gitRootPath, chartDir)
-		if err != nil {
-			return doError(err)
-		}
-		if cmd.Commit {
-			_, err = wt.Remove(relChartDir)
-			if err != nil && err != index.ErrEntryNotFound {
-				return doError(err)
-			}
-		}
-		err = os.RemoveAll(chartDir)
-		if err != nil {
-			return doError(err)
-		}
-	}
-
-	if pullChart {
-		chartDir, err := hr.Chart.BuildPulledChartDir(baseChartsDir, newVersion)
-		if err != nil {
-			return doError(err)
-		}
-		relChartDir, err := filepath.Rel(gitRootPath, chartDir)
-		if err != nil {
-			return doError(err)
-		}
-
-		// we need to list all files contained inside the charts dir BEFORE doing the pull, so that we later
-		// know what got deleted
-		files := map[string]bool{}
-		err = cmd.collectFiles(gitRootPath, chartDir, files)
-		if err != nil {
-			return doError(err)
-		}
-
-		_, err = hr.Chart.PullInProject(ctx, baseChartsDir, newVersion)
-		if err != nil {
-			return doError(err)
-		}
-
-		if cmd.Commit {
-			_, err = wt.Add(relChartDir)
+		for _, hr := range hrs {
+			// add helm-chart.yaml
+			relToGit, err := filepath.Rel(gitRootPath, hr.ConfigFile)
 			if err != nil {
 				return doError(err)
 			}
+			_, err = wt.Add(relToGit)
+			if err != nil {
+				return doError(err)
+			}
+		}
+	}
 
-			// figure out what got deleted
-			for p := range files {
-				_, err := os.Lstat(filepath.Join(gitRootPath, p))
-				if err != nil {
-					if os.IsNotExist(err) {
-						_, err = wt.Remove(p)
-						if err != nil {
-							return doError(err)
-						}
-					} else {
+	// we need to list all files contained inside the charts dir BEFORE doing the pull, so that we later
+	// know what got deleted
+	files := map[string]os.FileInfo{}
+	if cmd.Commit {
+		err = cmd.collectFiles(gitRootPath, baseChartsDir, files)
+		if err != nil {
+			return doError(err)
+		}
+	}
+
+	_, err = doHelmPull(ctx, projectDir, &cmd.HelmCredentials, false, false)
+	if err != nil {
+		return doError(err)
+	}
+
+	if cmd.Commit {
+		files2 := map[string]os.FileInfo{}
+		err = cmd.collectFiles(gitRootPath, baseChartsDir, files2)
+		if err != nil {
+			return doError(err)
+		}
+
+		for pth, st1 := range files {
+			st2, ok := files2[pth]
+			if !ok || st1.Mode() != st2.Mode() || st1.ModTime() != st2.ModTime() || st1.Size() != st2.Size() {
+				// removed or modified
+				if ok {
+					if !st2.IsDir() {
+						_, err = wt.Add(pth)
+					}
+				} else {
+					if !st1.IsDir() {
+						_, err = wt.Remove(pth)
+					}
+				}
+				if err != nil && err != index.ErrEntryNotFound {
+					return doError(err)
+				}
+			}
+		}
+		for pth, st1 := range files2 {
+			if _, ok := files[pth]; !ok {
+				if !st1.IsDir() {
+					// added
+					_, err = wt.Add(pth)
+					if err != nil && err != index.ErrEntryNotFound {
 						return doError(err)
 					}
 				}
 			}
 		}
-	}
 
-	if cmd.Commit {
-		commitMsg := fmt.Sprintf("Updated helm chart %s in %s to version %s", hr.Chart.GetChartName(), relDir, newVersion)
+		commitMsg := fmt.Sprintf("Updated helm chart %s from version %s to version %s", chart.GetChartName(), oldVersion, newVersion)
 		_, err = wt.Commit(commitMsg, &git.CommitOptions{})
 		if err != nil {
 			return doError(fmt.Errorf("failed to commit: %w", err))
 		}
 
-		s.UpdateAndInfoFallback("%s: Committed helm chart %s with version %s", relDir, hr.Chart.GetChartName(), newVersion)
+		s.UpdateAndInfoFallback("Committed helm chart %s with version %s", chart.GetChartName(), newVersion)
 	}
 	s.Success()
 
 	return nil
+}
+
+type helmUpgradeKey struct {
+	chartDir   string
+	oldVersion string
+	newVersion string
 }
