@@ -126,6 +126,10 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 		return nil, fmt.Errorf("'refPattern' and 'ref' can't be specified together")
 	}
 
+	if baseTarget.TargetConfig.RefPattern != nil {
+		status.Deprecation(c.ctx, "dynamic-targets-ref-pattern", "'refPattern' and corresponding dynamic targets are deprecated and will be removed in an upcoming release.")
+	}
+
 	targetConfigRef := baseTarget.TargetConfig.Ref
 	refPattern := baseTarget.TargetConfig.RefPattern
 
