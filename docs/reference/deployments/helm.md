@@ -70,6 +70,7 @@ helmChart:
   chartVersion: 12.1.1
   updateConstraints: ~12.1.0
   skipUpdate: false
+  skipPrePull: false
   releaseName: redis-cache
   namespace: "{{ my.jinja2.var }}"
   output: helm-rendered.yaml # this is optional
@@ -120,8 +121,12 @@ If omitted, Kluctl will filter out pre-releases by default. Use a `updateConstra
 pre-releases.
 
 ### skipUpdate
-Skip this Helm Chart when the [helm-update](../commands/helm-update.md) command is called.
+If set to `true`, skip this Helm Chart when the [helm-update](../commands/helm-update.md) command is called.
 If omitted, defaults to `false`.
+
+### skipPrePull
+If set to `true`, skip pre-pulling of this Helm Chart when running [helm-pull](../commands/helm-pull.md). This will
+also enable pulling on-demand when the deployment project is rendered/deployed.
 
 ### releaseName
 The name of the Helm Release.

@@ -13,10 +13,10 @@ description: >
 <!-- BEGIN SECTION "helm-pull" "Usage" false -->
 Usage: kluctl helm-pull [flags]
 
-Recursively searches for 'helm-chart.yaml' files and pulls the specified Helm charts
-The Helm charts are stored under the sub-directory 'charts/<chart-name>' next to the
-'helm-chart.yaml'. These Helm charts are meant to be added to version control so that
-pulling is only needed when really required (e.g. when the chart version changes).
+Recursively searches for 'helm-chart.yaml' files and pre-pulls the specified Helm charts
+Kluctl requires Helm Charts to be pre-pulled by default, which is handled by this command. It will collect
+all required Charts and versions and pre-pull them into .helm-charts. To disable pre-pulling for individual charts,
+set 'skipPrePull: true' in helm-chart.yaml.
 
 <!-- END SECTION -->
 
