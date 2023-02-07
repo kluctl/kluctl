@@ -98,7 +98,10 @@ Image arguments:
                                          '--fixed-image=image<:namespace:deployment:container>=result'
       --fixed-images-file existingfile   Use .yaml file to pin image versions. See output of list-images
                                          sub-command or read the documentation for details about the output format
-      --offline-images                   Omit contacting image registries and do not query for latest image tags.
+      --offline-images                   DEPRECATED: Omit contacting image registries and do not query for latest
+                                         image tags. This flag is by default set to true. At the same time, the
+                                         whole requesting of image tags from registries functionality is
+                                         deprecated and will be removed from kluctl in a future release. (default true)
   -u, --update-images                    This causes kluctl to prefer the latest image found in registries, based
                                          on the 'latest_image' filters provided to 'images.get_image(...)' calls.
                                          Use this flag if you want to update to the latest versions/tags of all

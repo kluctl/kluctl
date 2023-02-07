@@ -2,10 +2,12 @@ package deployment
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/registries"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -158,8 +160,9 @@ const beginPlaceholder = "XXXXXbegin_get_image_"
 const endPlaceholder = "_end_get_imageXXXXX"
 
 type placeHolder struct {
-	Image         string `yaml:"image"`
-	LatestVersion string `yaml:"latestVersion"`
+	Image            string `yaml:"image"`
+	LatestVersion    string `yaml:"latestVersion"`
+	HasLatestVersion bool   `yaml:"hasLatestVersion"`
 
 	Container string
 
@@ -240,7 +243,7 @@ func (images *Images) FindPlaceholders(o *uo.UnstructuredObject) ([]placeHolder,
 	return ret, nil
 }
 
-func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string, vars *uo.UnstructuredObject) error {
+func (images *Images) ResolvePlaceholders(ctx context.Context, k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string, vars *uo.UnstructuredObject) error {
 	placeholders, err := images.FindPlaceholders(o)
 	if err != nil {
 		return err
@@ -276,7 +279,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredO
 			}
 		}
 
-		resultImage, err := images.resolveImage(ph, ref, deployment, deployed, deploymentDir, tags, vars)
+		resultImage, err := images.resolveImage(ctx, ph, ref, deployment, deployed, deploymentDir, tags, vars)
 		if err != nil {
 			return err
 		}
@@ -293,10 +296,14 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredO
 	return nil
 }
 
-func (images *Images) resolveImage(ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string, vars *uo.UnstructuredObject) (*string, error) {
+func (images *Images) resolveImage(ctx context.Context, ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string, vars *uo.UnstructuredObject) (*string, error) {
 	fixed, err := images.getFixedImage(ph.Image, ref.Namespace, deployment, ph.Container, vars)
 	if err != nil {
 		return nil, err
+	}
+
+	if ph.HasLatestVersion {
+		status.Deprecation(ctx, "latest-version-filter", "latest_version is deprecated when using images.get_image()")
 	}
 
 	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)
