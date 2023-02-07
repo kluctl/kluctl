@@ -592,7 +592,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 			}
 
 			// Resolve image placeholders
-			err := images.ResolvePlaceholders(di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys())
+			err := images.ResolvePlaceholders(di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys(), di.VarsCtx.Vars)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}

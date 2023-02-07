@@ -66,24 +66,60 @@ func (images *Images) SeenImages(simple bool) []types.FixedImage {
 	return ret
 }
 
-func (images *Images) GetFixedImage(image string, namespace string, deployment string, container string) *string {
-	for i := len(images.fixedImages) - 1; i >= 0; i-- {
-		fi := &images.fixedImages[i]
-		if fi.Image != image {
-			continue
-		}
-		if fi.Namespace != nil && namespace != *fi.Namespace {
-			continue
-		}
-		if fi.Deployment != nil && deployment != *fi.Deployment {
-			continue
-		}
-		if fi.Container != nil && container != *fi.Container {
-			continue
-		}
-		return &fi.ResultImage
+func (images *Images) parseFixedImagesFromVars(vars *uo.UnstructuredObject) ([]types.FixedImage, error) {
+	fisU, _, err := vars.GetNestedObjectList("images")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse fixed images from vars: %w", err)
 	}
-	return nil
+	fis := make([]types.FixedImage, 0, len(fisU))
+	for i, u := range fisU {
+		var fi types.FixedImage
+		err = u.ToStruct(&fi)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse fixed image from vars at index %d: %w", i, err)
+		}
+		fis = append(fis, fi)
+	}
+	return fis, nil
+}
+
+func (images *Images) getFixedImage(image string, namespace string, deployment string, container string, vars *uo.UnstructuredObject) (*string, error) {
+	cmpList := func(fis []types.FixedImage) *string {
+		for i := len(fis) - 1; i >= 0; i-- {
+			fi := fis[i]
+			if fi.Image != image {
+				continue
+			}
+			if fi.Namespace != nil && namespace != *fi.Namespace {
+				continue
+			}
+			if fi.Deployment != nil && deployment != *fi.Deployment {
+				continue
+			}
+			if fi.Container != nil && container != *fi.Container {
+				continue
+			}
+
+			return &fi.ResultImage
+		}
+		return nil
+	}
+
+	fisFromVars, err := images.parseFixedImagesFromVars(vars)
+	if err != nil {
+		return nil, err
+	}
+
+	fi := cmpList(images.fixedImages)
+	if fi != nil {
+		return fi, nil
+	}
+	fi = cmpList(fisFromVars)
+	if fi != nil {
+		return fi, nil
+	}
+
+	return nil, nil
 }
 
 func (images *Images) GetLatestImageFromRegistry(image string, latestVersion string) (*string, error) {
@@ -204,7 +240,7 @@ func (images *Images) FindPlaceholders(o *uo.UnstructuredObject) ([]placeHolder,
 	return ret, nil
 }
 
-func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string) error {
+func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredObject, deploymentDir string, tags []string, vars *uo.UnstructuredObject) error {
 	placeholders, err := images.FindPlaceholders(o)
 	if err != nil {
 		return err
@@ -240,7 +276,7 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredO
 			}
 		}
 
-		resultImage, err := images.resolveImage(ph, ref, deployment, deployed, deploymentDir, tags)
+		resultImage, err := images.resolveImage(ph, ref, deployment, deployed, deploymentDir, tags, vars)
 		if err != nil {
 			return err
 		}
@@ -257,8 +293,11 @@ func (images *Images) ResolvePlaceholders(k *k8s.K8sCluster, o *uo.UnstructuredO
 	return nil
 }
 
-func (images *Images) resolveImage(ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string) (*string, error) {
-	fixed := images.GetFixedImage(ph.Image, ref.Namespace, deployment, ph.Container)
+func (images *Images) resolveImage(ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string, vars *uo.UnstructuredObject) (*string, error) {
+	fixed, err := images.getFixedImage(ph.Image, ref.Namespace, deployment, ph.Container, vars)
+	if err != nil {
+		return nil, err
+	}
 
 	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)
 	if err != nil {
