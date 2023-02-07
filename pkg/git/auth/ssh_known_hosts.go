@@ -74,9 +74,6 @@ func verifyHost(messageCallbacks messages.MessageCallbacks, host string, remote 
 
 	for _, f := range files {
 		hostFound, err := goph.CheckKnownHost(host, remote, key, f)
-		if hostFound && err != nil {
-			return err
-		}
 		if hostFound && err == nil {
 			return nil
 		}
