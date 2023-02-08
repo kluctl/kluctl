@@ -34,6 +34,8 @@ The following sub-chapters describe the available fields in the `deployment.yaml
 Individual deployments are performed in parallel, unless a [barrier](#barriers) is encountered which causes kluctl to
 wait for all previous deployments to finish.
 
+Deployments can also be conditional by using the [when](#when) field.
+
 ### Simple deployments
 
 Simple deployments are specified via `path` and are expected to be directories with Kubernetes manifests inside.
@@ -148,6 +150,20 @@ deployments:
 - include: subDeployment1
   vars:
     - file: vars2.yaml
+```
+
+### when
+
+Each deployment item can be conditional with the help of the `when` field. It must be set to a
+[Jinja2 based expression](https://jinja.palletsprojects.com/en/latest/templates/#expressions)
+that evaluates to a boolean.
+
+Example:
+```yaml
+deployments:
+- path: item1
+- path: item2
+  when: my.var == "my-value"
 ```
 
 ### tags (deployment item)

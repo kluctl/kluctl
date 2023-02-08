@@ -31,6 +31,8 @@ vars:
   ignoreMissing: true
 - file: default-vars.yaml
   noOverride: true
+- file: vars3.yaml
+  when: some.var == "value"
 ```
 
 `vars2.yaml` can now use variables that are defined in `vars1.yaml`. At all times, variables defined by
@@ -41,6 +43,9 @@ can not be found.
 
 When specifying `noOverride: true`, Kluctl will not override variables from the previously loaded variables. This is
 useful if you want to load default values for variables.
+
+Variables can also be loaded conditionally by specifying a condition via `when: <condition>`. The condition must be in
+the same format as described in [conditional deployment items](../deployments/deployment-yml.md#when)
 
 Different types of vars entries are possible:
 
