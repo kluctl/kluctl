@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -58,6 +59,10 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 	err = dp.loadIncludes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load includes for %s: %w", dir, err)
+	}
+
+	if dp.Config.SealedSecrets != nil {
+		status.Deprecation(ctx.Ctx, "sealed-secrets-config", "'sealedSecrets' is deprecated in deployment projects. Support for it will be removed in a future kluctl release.")
 	}
 
 	return dp, nil
