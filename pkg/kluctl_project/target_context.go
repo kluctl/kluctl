@@ -34,7 +34,6 @@ type TargetContextParams struct {
 	OfflineK8s         bool
 	K8sVersion         string
 	DryRun             bool
-	ExternalArgs       *uo.UnstructuredObject
 	ForSeal            bool
 	Images             *deployment.Images
 	Inclusion          *utils.Inclusion
@@ -73,7 +72,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	}
 	target.Context = &clusterContext
 
-	varsCtx, err := p.buildVars(target, params.ExternalArgs, params.ForSeal)
+	varsCtx, err := p.buildVars(target, params.ForSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +159,7 @@ func (p *LoadedKluctlProject) loadK8sConfig(target *types.Target, offlineK8s boo
 	return clientConfig, "", nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, externalArgs *uo.UnstructuredObject, forSeal bool) (*vars.VarsCtx, error) {
+func (p *LoadedKluctlProject) buildVars(target *types.Target, forSeal bool) (*vars.VarsCtx, error) {
 	varsCtx := vars.NewVarsCtx(p.J2)
 
 	targetVars, err := uo.FromStruct(target)
@@ -181,7 +180,9 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, externalArgs *uo.U
 			}
 		}
 	}
-	allArgs.Merge(externalArgs)
+	if p.loadArgs.ExternalArgs != nil {
+		allArgs.Merge(p.loadArgs.ExternalArgs)
+	}
 
 	err = deployment.LoadDefaultArgs(p.Config.Args, allArgs)
 	if err != nil {

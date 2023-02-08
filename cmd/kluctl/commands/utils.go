@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
@@ -80,10 +80,30 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	rp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer rp.Clear()
 
+	var externalArgs *uo.UnstructuredObject
+	if argsFlags != nil {
+		optionArgs, err := deployment.ParseArgs(argsFlags.Arg)
+		if err != nil {
+			return err
+		}
+		externalArgs, err = deployment.ConvertArgsToVars(optionArgs, true)
+		if err != nil {
+			return err
+		}
+		for _, a := range argsFlags.ArgsFromFile {
+			optionArgs2, err := uo.FromFile(a)
+			if err != nil {
+				return err
+			}
+			externalArgs.Merge(optionArgs2)
+		}
+	}
+
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
 		RepoRoot:           repoRoot,
 		ProjectDir:         projectDir,
 		ProjectConfig:      projectFlags.ProjectConfig.String(),
+		ExternalArgs:       externalArgs,
 		RP:                 rp,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
@@ -119,7 +139,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, args.projectFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
@@ -151,22 +171,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		return err
 	}
 
-	optionArgs, err := deployment.ParseArgs(args.argsFlags.Arg)
-	if err != nil {
-		return err
-	}
-	optionArgs2, err := deployment.ConvertArgsToVars(optionArgs, true)
-	if err != nil {
-		return err
-	}
-	for _, a := range args.argsFlags.ArgsFromFile {
-		optionArgs3, err := uo.FromFile(a)
-		if err != nil {
-			return err
-		}
-		optionArgs2.Merge(optionArgs3)
-	}
-
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
 		tmpDir, err := os.MkdirTemp(p.TmpDir, "rendered")
@@ -184,7 +188,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		OfflineK8s:         args.offlineKubernetes,
 		K8sVersion:         args.kubernetesVersion,
 		DryRun:             args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
-		ExternalArgs:       optionArgs2,
 		ForSeal:            args.forSeal,
 		Images:             images,
 		Inclusion:          inclusion,

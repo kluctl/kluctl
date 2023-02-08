@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
 	"regexp"
@@ -52,7 +51,8 @@ func (c *LoadedKluctlProject) loadTargets() error {
 
 		err = c.renderTarget(target)
 		if err != nil {
-			return err
+			status.Warning(c.ctx, "Failed to load target %s: %v", target.Name, err)
+			continue
 		}
 
 		if _, ok := targetNames[target.Name]; ok {
@@ -77,8 +77,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 
 	var errors []error
 	for i := 0; i < 10; i++ {
-		varsCtx := vars.NewVarsCtx(c.J2)
-		err := varsCtx.UpdateChildFromStruct("target", target)
+		varsCtx, err := c.buildVars(target, false)
 		if err != nil {
 			return err
 		}

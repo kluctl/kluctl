@@ -5,6 +5,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -15,6 +16,7 @@ type LoadKluctlProjectArgs struct {
 	RepoRoot      string
 	ProjectDir    string
 	ProjectConfig string
+	ExternalArgs  *uo.UnstructuredObject
 
 	SopsDecrypter *decryptor.Decryptor
 	RP            *repocache.GitRepoCache
