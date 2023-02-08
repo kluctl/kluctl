@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +28,7 @@ type DeploymentItem struct {
 	Project   *DeploymentProject
 	Inclusion *utils.Inclusion
 	Config    *types.DeploymentItemConfig
+	VarsCtx   *vars.VarsCtx
 	dir       *string
 	index     int
 
@@ -51,6 +53,7 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 		Project:   project,
 		Inclusion: collection.Inclusion,
 		Config:    config,
+		VarsCtx:   project.VarsCtx.Copy(),
 		dir:       dir,
 		index:     index,
 	}
@@ -81,6 +84,12 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 		di.RenderedDir = filepath.Join(di.RenderedSourceRootDir, di.RelRenderedDir)
 		di.renderedYamlPath = filepath.Join(di.RenderedDir, ".rendered.yml")
 	}
+
+	err = di.Project.loadVarsList(di.VarsCtx, di.Config.Vars)
+	if err != nil {
+		return nil, err
+	}
+
 	return di, nil
 }
 
@@ -111,13 +120,6 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	}
 
 	err := os.MkdirAll(di.RenderedDir, 0o700)
-	if err != nil {
-		return err
-	}
-
-	varsCtx := di.Project.VarsCtx.Copy()
-
-	err = di.Project.loadVarsList(varsCtx, di.Config.Vars)
 	if err != nil {
 		return err
 	}
@@ -154,7 +156,7 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	// also add deployment item dir to search dirs
 	searchDirs = append([]string{*di.dir}, searchDirs...)
 
-	return varsCtx.RenderDirectory(
+	return di.VarsCtx.RenderDirectory(
 		filepath.Join(di.Project.source.dir, di.RelToSourceItemDir),
 		di.RenderedDir,
 		excludePatterns,
@@ -590,7 +592,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 			}
 
 			// Resolve image placeholders
-			err := images.ResolvePlaceholders(di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys())
+			err := images.ResolvePlaceholders(di.ctx.Ctx, di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys(), di.VarsCtx.Vars)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}

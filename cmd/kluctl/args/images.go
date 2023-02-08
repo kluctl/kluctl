@@ -11,7 +11,7 @@ type ImageFlags struct {
 	FixedImage      []string         `group:"images" short:"F" help:"Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'"`
 	FixedImagesFile existingFileType `group:"images" help:"Use .yaml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format" exts:"yml,yaml"`
 	UpdateImages    bool             `group:"images" short:"u" help:"This causes kluctl to prefer the latest image found in registries, based on the 'latest_image' filters provided to 'images.get_image(...)' calls. Use this flag if you want to update to the latest versions/tags of all images. '-u' takes precedence over '--fixed-image/--fixed-images-file', meaning that the latest images are used even if an older image is given via fixed images."`
-	OfflineImages   bool             `group:"images" help:"Omit contacting image registries and do not query for latest image tags."`
+	OfflineImages   bool             `group:"images" help:"DEPRECATED: Omit contacting image registries and do not query for latest image tags. This flag is by default set to true. At the same time, the whole requesting of image tags from registries functionality is deprecated and will be removed from kluctl in a future release." default:"true"`
 }
 
 func (args *ImageFlags) LoadFixedImagesFromArgs() ([]types.FixedImage, error) {

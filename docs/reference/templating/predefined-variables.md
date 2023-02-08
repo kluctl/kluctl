@@ -23,6 +23,3 @@ This is the target definition of the currently processed target. It contains all
 
 ### images
 This global object provides the dynamic images features described in [images](../deployments/images.md).
-
-### version
-This global object defines latest version filters for `images.get_image(...)`. See [images](../deployments/images.md) for details.

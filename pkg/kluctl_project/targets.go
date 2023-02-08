@@ -252,6 +252,9 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 	if targetConfig.Args != nil {
 		target.Args.Merge(targetConfig.Args)
 	}
+	if len(targetConfig.Images) != 0 {
+		status.Deprecation(c.ctx, "target-config-images", "specifying fixed images via external 'targetConfig' is deprecated and support for this will be removed in a future kluctl release.")
+	}
 	// We prepend the dynamic images to ensure they get higher priority later
 	target.Images = append(targetConfig.Images, target.Images...)
 
