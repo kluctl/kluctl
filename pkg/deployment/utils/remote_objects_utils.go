@@ -237,7 +237,7 @@ func (u *RemoteObjectUtils) getInclusionEntries(o *uo.UnstructuredObject) []util
 		})
 	}
 
-	if itemDir := o.GetK8sAnnotation("kluctl.io/kustomize_dir"); itemDir != nil {
+	if itemDir := o.GetK8sAnnotation("kluctl.io/deployment-item-dir"); itemDir != nil {
 		iv = append(iv, utils.InclusionEntry{
 			Type:  "deploymentItemDir",
 			Value: *itemDir,

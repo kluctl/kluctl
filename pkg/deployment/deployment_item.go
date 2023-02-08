@@ -104,9 +104,8 @@ func (di *DeploymentItem) getCommonLabels() map[string]string {
 }
 
 func (di *DeploymentItem) getCommonAnnotations() map[string]string {
-	// TODO change it to kluctl.io/deployment_dir
 	a := map[string]string{
-		"kluctl.io/kustomize_dir": filepath.ToSlash(di.RelToSourceItemDir),
+		"kluctl.io/deployment-item-dir": filepath.ToSlash(di.RelToSourceItemDir),
 	}
 	if di.Config.SkipDeleteIfTags {
 		a["kluctl.io/skip-delete-if-tags"] = "true"
