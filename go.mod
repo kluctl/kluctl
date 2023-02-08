@@ -67,7 +67,7 @@ require (
 	github.com/onsi/gomega v1.26.0
 	github.com/otiai10/copy v1.9.0
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
-	sigs.k8s.io/controller-runtime v0.14.1
+	sigs.k8s.io/controller-runtime v0.14.4
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/yaml v1.3.0
 )
