@@ -18,6 +18,7 @@ type SharedContext struct {
 	VarsLoader      *vars.VarsLoader
 	HelmCredentials helm.HelmCredentialsProvider
 
+	Discriminator                     string
 	RenderDir                         string
 	SealedSecretsDir                  string
 	DefaultSealedSecretsOutputPattern string

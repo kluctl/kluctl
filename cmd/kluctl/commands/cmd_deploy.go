@@ -55,7 +55,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	status.Trace(cmdCtx.ctx, "enter runCmdDeploy")
 	defer status.Trace(cmdCtx.ctx, "leave runCmdDeploy")
 
-	cmd2 := commands.NewDeployCommand(cmdCtx.targetCtx.DeploymentCollection)
+	cmd2 := commands.NewDeployCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
 	cmd2.ForceApply = cmd.ForceApply
 	cmd2.ReplaceOnError = cmd.ReplaceOnError
 	cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError

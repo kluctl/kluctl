@@ -45,7 +45,7 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 }
 
 func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
-	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.DeploymentCollection)
+	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
 	objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
 	if err != nil {
 		return err

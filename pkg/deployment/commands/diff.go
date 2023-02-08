@@ -2,14 +2,18 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 )
 
 type DiffCommand struct {
-	c *deployment.DeploymentCollection
+	c             *deployment.DeploymentCollection
+	discriminator string
 
 	ForceApply          bool
 	ReplaceOnError      bool
@@ -19,17 +23,23 @@ type DiffCommand struct {
 	IgnoreAnnotations   bool
 }
 
-func NewDiffCommand(c *deployment.DeploymentCollection) *DiffCommand {
+func NewDiffCommand(discriminator string, c *deployment.DeploymentCollection) *DiffCommand {
 	return &DiffCommand{
-		c: c,
+		discriminator: discriminator,
+		c:             c,
 	}
 }
 
 func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
+	if cmd.discriminator == "" {
+		status.Warning(ctx, "No discriminator configured. Orphan object detection will not work")
+		dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("no discriminator configured. Orphan object detection will not work"))
+	}
+
 	ru := utils.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs(), false)
+	err := ru.UpdateRemoteObjects(k, &cmd.discriminator, cmd.c.LocalObjectRefs(), false)
 	if err != nil {
 		return nil, err
 	}

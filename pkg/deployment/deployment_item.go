@@ -95,6 +95,9 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 
 func (di *DeploymentItem) getCommonLabels() map[string]string {
 	l := di.Project.GetCommonLabels()
+	if di.ctx.Discriminator != "" {
+		l["kluctl.io/discriminator"] = di.ctx.Discriminator
+	}
 	i := 0
 	for _, t := range di.Tags.ListKeys() {
 		l[fmt.Sprintf("kluctl.io/tag-%d", i)] = t

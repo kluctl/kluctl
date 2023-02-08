@@ -109,6 +109,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		SopsDecrypter:                     p.SopsDecrypter,
 		VarsLoader:                        varsLoader,
 		HelmCredentials:                   params.HelmCredentials,
+		Discriminator:                     target.Discriminator,
 		RenderDir:                         params.RenderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,
 		DefaultSealedSecretsOutputPattern: target.Name,

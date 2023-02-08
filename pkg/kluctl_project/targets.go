@@ -228,6 +228,9 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 	if err != nil {
 		return nil, err
 	}
+	if target.Discriminator == "" {
+		target.Discriminator = c.Config.Discriminator
+	}
 	if targetInfo.baseTarget.TargetConfig == nil {
 		return &target, nil
 	}

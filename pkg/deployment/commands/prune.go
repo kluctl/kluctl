@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -9,20 +10,26 @@ import (
 )
 
 type PruneCommand struct {
-	c *deployment.DeploymentCollection
+	discriminator string
+	c             *deployment.DeploymentCollection
 }
 
-func NewPruneCommand(c *deployment.DeploymentCollection) *PruneCommand {
+func NewPruneCommand(discriminator string, c *deployment.DeploymentCollection) *PruneCommand {
 	return &PruneCommand{
-		c: c,
+		discriminator: discriminator,
+		c:             c,
 	}
 }
 
 func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
+	if cmd.discriminator == "" {
+		return nil, fmt.Errorf("pruning without a discriminator is not supported")
+	}
+
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), nil, false)
+	err := ru.UpdateRemoteObjects(k, &cmd.discriminator, nil, false)
 	if err != nil {
 		return nil, err
 	}
