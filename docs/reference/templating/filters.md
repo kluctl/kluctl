@@ -84,5 +84,11 @@ Renders the input string with the current Jinja2 context. Example:
 {{ a | render }}
 ```
 
+### sha256
+Calculates the sha256 digest of the input string. Example:
+```
+{{ "some-string" | sha256 }}
+```
+
 ### slugify
 Slugify a string based on [python-slugify](https://github.com/un33k/python-slugify).
