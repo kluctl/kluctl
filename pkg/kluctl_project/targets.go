@@ -75,7 +75,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 	// Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
 	// to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
 
-	var errors []error
+	var retErr error
 	for i := 0; i < 10; i++ {
 		varsCtx, err := c.buildVars(target, false)
 		if err != nil {
@@ -86,11 +86,9 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 		if err == nil && !changed {
 			return nil
 		}
+		retErr = err
 	}
-	if len(errors) != 0 {
-		return errors[0]
-	}
-	return nil
+	return retErr
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargets(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
