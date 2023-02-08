@@ -19,10 +19,11 @@ type checkImageUpdatesCmd struct {
 }
 
 func (cmd *checkImageUpdatesCmd) Help() string {
-	return `This is based on a best effort approach and might give many false-positives.`
+	return `DEPRECATED: This is based on a best effort approach and might give many false-positives.`
 }
 
 func (cmd *checkImageUpdatesCmd) Run(ctx context.Context) error {
+	status.Deprecation(ctx, "check-image-updates", "check-image-updates is deprecated and will be removed in a future kluctl release.")
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,
