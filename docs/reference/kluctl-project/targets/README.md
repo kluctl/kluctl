@@ -54,7 +54,7 @@ have higher priority.
 
 ## images
 This field specifies a list of fixed images to be used by [`images.get_image(...)`](../../deployments/images.md#imagesget_image).
-The format is identical to the [fixed images file](../../deployments/images.md#fixed-images-via-a-yaml-file).
+The format is identical to the [fixed images file](../../deployments/images.md#command-line-argument---fixed-images-file).
 
 The fixed images specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#images)
 have higher priority.
