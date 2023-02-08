@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -54,6 +55,10 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 	err = dp.loadConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load deployment config for %s: %w", dir, err)
+	}
+
+	if !kluctl_jinja2.IsConditionalTrue(dp.Config.When) {
+		return dp, nil
 	}
 
 	err = dp.loadIncludes()
@@ -126,6 +131,11 @@ func (p *DeploymentProject) processConfig() error {
 		return err
 	}
 
+	err = p.renderConditionals()
+	if err != nil {
+		return err
+	}
+
 	if len(p.Config.Args) != 0 && p.parentProject != nil {
 		return fmt.Errorf("only the root deployment.yml can define args")
 	}
@@ -157,10 +167,48 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 	return nil
 }
 
+func (p *DeploymentProject) renderConditionals() error {
+	if p.parentProject == nil && p.Config.When != "" {
+		return fmt.Errorf("the root deployment project can not contain 'when'")
+	}
+
+	vars, err := p.VarsCtx.Vars.ToMap()
+	if err != nil {
+		return err
+	}
+	r, err := kluctl_jinja2.RenderConditional(p.VarsCtx.J2, vars, p.Config.When)
+	if err != nil {
+		return err
+	}
+	p.Config.When = r
+
+	if !kluctl_jinja2.IsConditionalTrue(p.Config.When) {
+		// No need to render individual deployment item conditionals
+		return nil
+	}
+
+	conditionals := make([]string, 0, len(p.Config.Deployments))
+	for _, di := range p.Config.Deployments {
+		conditionals = append(conditionals, di.When)
+	}
+	rendered, err := kluctl_jinja2.RenderConditionals(p.VarsCtx.J2, vars, conditionals)
+	if err != nil {
+		return err
+	}
+	for i, r := range rendered {
+		p.Config.Deployments[i].When = r
+	}
+	return nil
+}
+
 func (p *DeploymentProject) loadIncludes() error {
 	for i, inc := range p.Config.Deployments {
 		var err error
 		var newProject *DeploymentProject
+
+		if !kluctl_jinja2.IsConditionalTrue(inc.When) {
+			continue
+		}
 
 		if inc.Include != nil {
 			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc.Vars)
