@@ -32,6 +32,7 @@ targets:
     images:
       - image: my-image
         resultImage: my-image:1.2.3
+    discriminator: "my-project-{{ target.name }}"
 ...
 ```
 
@@ -58,3 +59,27 @@ The format is identical to the [fixed images file](../../deployments/images.md#c
 
 The fixed images specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#images)
 have higher priority.
+
+## discriminator
+
+Specifies a discriminator which is used to uniquely identify all deployed objects on the cluster. It is added to all
+objects as the value of the `kluctl.io/discriminator` label. This label is then later used to identify all objects
+belonging to the deployment project and target, so that Kluctl can determine which objects got orphaned and need to
+be pruned. The discriminator is also used to identify all objects that need to be deleted when
+[kluctl delete](../../commands/delete.md) is called.
+
+If no discriminator is set for a target, [kluctl prune](../../commands/prune.md) and
+[kluctl delete](../../commands/delete.md) are not supported.
+
+The discriminator can be a [template](../../templating/README.md) which is rendered at project loading time. While
+rendering, only the `target` and `args` are available as global variables in the templating context.
+
+The rendered discriminator should be unique on the target cluster to avoid mis-identification of objects from other
+deployments or targets. It's good practice to prefix the discriminator with a project name and at least use the target
+name to make it unique. Example discriminator to achieve this: `my-project-name-{{ target.name }}`.
+
+If a target is meant to be deployed multiple times, e.g. by using external [arguments](../README.md#args), the external
+arguments should be taken into account as well. Example: `my-project-name-{{ target.name }}-{{ args.environment_name }}`.
+
+A [default discriminator](../../kluctl-project/README.md#discriminator) can also be specified which is used whenever
+a target has no discriminator configured.

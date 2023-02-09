@@ -19,6 +19,8 @@ available to invoke [commands](../commands) on.
 An example .kluctl.yaml looks like this:
 
 ```yaml
+discriminator: "my-project-{{ target.name }}"
+
 targets:
   # test cluster, dev env
   - name: dev
@@ -41,6 +43,13 @@ args:
 ```
 
 ## Allowed fields
+
+### discriminator
+
+Specifies a default discriminator template to be used for targets that don't have
+their own discriminator specified.
+
+See [target discriminator](./targets/README.md#discriminator) for details.
 
 ### targets
 
