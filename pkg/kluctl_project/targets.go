@@ -237,6 +237,8 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 		return &target, nil
 	}
 
+	status.Deprecation(c.ctx, "target-config", "'targetConfig' in targets is deprecated and will be removed in the next kluctl release.")
+
 	configFile, err := c.loadTargetConfigFile(targetInfo)
 	if err != nil {
 		return nil, err
