@@ -131,7 +131,7 @@ func (c *DeploymentCollection) renderHelmCharts() error {
 	s := status.Start(c.ctx.Ctx, "Rendering Helm Charts")
 	defer s.Failed()
 
-	g := utils.NewGoHelper(c.ctx.Ctx, 0)
+	g := utils.NewGoHelper(c.ctx.Ctx, 8)
 
 	for _, d := range c.Deployments {
 		d := d

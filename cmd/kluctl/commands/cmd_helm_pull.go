@@ -19,9 +19,9 @@ type helmPullCmd struct {
 }
 
 func (cmd *helmPullCmd) Help() string {
-	return `The Helm charts are stored under the sub-directory 'charts/<chart-name>' next to the
-'helm-chart.yaml'. These Helm charts are meant to be added to version control so that
-pulling is only needed when really required (e.g. when the chart version changes).`
+	return `Kluctl requires Helm Charts to be pre-pulled by default, which is handled by this command. It will collect
+all required Charts and versions and pre-pull them into .helm-charts. To disable pre-pulling for individual charts,
+set 'skipPrePull: true' in helm-chart.yaml.`
 }
 
 func (cmd *helmPullCmd) Run(ctx context.Context) error {
@@ -33,24 +33,33 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
 		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
 	}
+	_, err = doHelmPull(ctx, projectDir, &cmd.HelmCredentials, false, true)
+	return err
+}
+
+func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.HelmCredentials, dryRun bool, force bool) (int, error) {
+	actions := 0
 
 	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
 
-	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, &cmd.HelmCredentials)
+	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, helmCredentials)
 	if err != nil {
-		return err
+		return actions, err
 	}
 
 	for _, hr := range releases {
 		if utils.Exists(hr.GetDeprecatedChartDir()) {
+			actions++
 			rel, err := filepath.Rel(projectDir, hr.GetDeprecatedChartDir())
 			if err != nil {
-				return err
+				return actions, err
 			}
-			status.Info(ctx, "Removing deprecated charts dir %s", rel)
-			err = os.RemoveAll(hr.GetDeprecatedChartDir())
-			if err != nil {
-				return err
+			if !dryRun {
+				status.Info(ctx, "Removing deprecated charts dir %s", rel)
+				err = os.RemoveAll(hr.GetDeprecatedChartDir())
+				if err != nil {
+					return actions, err
+				}
 			}
 		}
 	}
@@ -63,34 +72,50 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 
 		versionsToPull := map[string]bool{}
 		for _, hr := range releases {
+			if hr.Config.SkipPrePull {
+				continue
+			}
 			if hr.Chart == chart {
 				versionsToPull[hr.Config.ChartVersion] = true
 			}
 		}
 
-		cleanupDir, err := chart.BuildPulledChartDir(baseChartsDir, "")
+		chartsDir, err := chart.BuildPulledChartDir(baseChartsDir, "")
 		if err != nil {
-			return err
+			return actions, err
 		}
-		des, err := os.ReadDir(cleanupDir)
+		des, err := os.ReadDir(chartsDir)
 		if err != nil && !os.IsNotExist(err) {
-			return err
+			return actions, err
 		}
 		for _, de := range des {
 			if !de.IsDir() {
 				continue
 			}
 			if _, ok := versionsToPull[de.Name()]; !ok {
-				status.Info(ctx, "Removing unused Chart with version %s", de.Name())
-				err = os.RemoveAll(filepath.Join(cleanupDir, de.Name()))
-				if err != nil {
-					return err
+				actions++
+				if !dryRun {
+					status.Info(ctx, "Removing unused Chart with version %s", de.Name())
+					err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
+					if err != nil {
+						return actions, err
+					}
 				}
 			}
 		}
 
 		for version, _ := range versionsToPull {
 			version := version
+
+			if yaml.Exists(filepath.Join(chartsDir, version, "Chart.yaml")) && !force {
+				continue
+			}
+
+			actions++
+
+			if dryRun {
+				continue
+			}
 			g.RunE(func() error {
 				s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
 				defer s.Failed()
@@ -109,10 +134,10 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	g.Wait()
 
 	if g.ErrorOrNil() != nil {
-		return fmt.Errorf("command failed")
+		return actions, fmt.Errorf("command failed")
 	}
 
-	return nil
+	return actions, nil
 }
 
 func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvider helm.HelmCredentialsProvider) ([]*helm.Release, []*helm.Chart, error) {

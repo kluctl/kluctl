@@ -137,6 +137,11 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 		return nil, err
 	}
 	if needsPull {
+		if !hr.Config.SkipPrePull {
+			//goland:noinspection ALL
+			return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
+				"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
+		}
 		if versionChanged {
 			return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
 				"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
