@@ -37,12 +37,13 @@ func TestRemoteObjectUtils_PermissionErrors(t *testing.T) {
 
 	dew := NewDeploymentErrorsAndWarnings()
 	u := NewRemoteObjectsUtil(context.Background(), dew)
-	err = u.UpdateRemoteObjects(k, map[string]string{"l1": "v1"}, []k8s2.ObjectRef{
+	discriminator := "d"
+	err = u.UpdateRemoteObjects(k, &discriminator, []k8s2.ObjectRef{
 		k8s2.NewObjectRef("", "v1", "Secret", "secret", "default"),
 	}, false)
 	assert.NoError(t, err)
 	assert.Equal(t, []types.DeploymentError{{
-		Error: "at least one permission error was encountered while gathering objects by labels. This might result in orphan object detection to not work properly"},
+		Error: "at least one permission error was encountered while gathering objects by discriminator labels. This might result in orphan object detection to not work properly"},
 	}, dew.GetWarningsList())
 	assert.Empty(t, dew.GetErrorsList())
 }

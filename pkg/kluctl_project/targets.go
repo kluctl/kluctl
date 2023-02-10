@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
 	"regexp"
@@ -52,7 +51,8 @@ func (c *LoadedKluctlProject) loadTargets() error {
 
 		err = c.renderTarget(target)
 		if err != nil {
-			return err
+			status.Warning(c.ctx, "Failed to load target %s: %v", target.Name, err)
+			continue
 		}
 
 		if _, ok := targetNames[target.Name]; ok {
@@ -75,10 +75,9 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 	// Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
 	// to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
 
-	var errors []error
+	var retErr error
 	for i := 0; i < 10; i++ {
-		varsCtx := vars.NewVarsCtx(c.J2)
-		err := varsCtx.UpdateChildFromStruct("target", target)
+		varsCtx, err := c.buildVars(target, false)
 		if err != nil {
 			return err
 		}
@@ -87,11 +86,9 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 		if err == nil && !changed {
 			return nil
 		}
+		retErr = err
 	}
-	if len(errors) != 0 {
-		return errors[0]
-	}
-	return nil
+	return retErr
 }
 
 func (c *LoadedKluctlProject) prepareDynamicTargets(baseTarget *types.Target) ([]*dynamicTargetInfo, error) {
@@ -228,6 +225,9 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 	err := utils.DeepCopy(&target, targetInfo.baseTarget)
 	if err != nil {
 		return nil, err
+	}
+	if target.Discriminator == "" {
+		target.Discriminator = c.Config.Discriminator
 	}
 	if targetInfo.baseTarget.TargetConfig == nil {
 		return &target, nil

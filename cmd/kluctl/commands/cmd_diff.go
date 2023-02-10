@@ -39,7 +39,7 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx.DeploymentCollection)
+		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
 		cmd2.ForceApply = cmd.ForceApply
 		cmd2.ReplaceOnError = cmd.ReplaceOnError
 		cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError

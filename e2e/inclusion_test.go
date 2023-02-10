@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	corev1 "k8s.io/api/core/v1"
 	"path/filepath"
 	"reflect"
@@ -14,7 +15,7 @@ func prepareInclusionTestProject(t *testing.T, withIncludes bool) (*test_utils.T
 
 	createNamespace(t, k, p.TestSlug())
 
-	p.UpdateTarget("test", nil)
+	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
 
 	addConfigMapDeployment(p, "cm1", nil, resourceOpts{name: "cm1", namespace: p.TestSlug()})
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{name: "cm2", namespace: p.TestSlug()})

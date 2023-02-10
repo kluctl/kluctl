@@ -34,7 +34,7 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-  -l, --delete-by-label stringArray                 Override the labels used to find objects for deletion.
+      --discriminator string                        Override the discriminator used to find objects for deletion.
       --dry-run                                     Performs all kubernetes API calls in dry-run mode.
       --helm-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
                                                     --helm-insecure-skip-tls-verify=<credentialsId>, where

@@ -34,6 +34,7 @@ type Target struct {
 	TargetConfig  *ExternalTargetConfig  `yaml:"targetConfig,omitempty"`
 	SealingConfig *SealingConfig         `yaml:"sealingConfig,omitempty"`
 	Images        []FixedImage           `yaml:"images,omitempty"`
+	Discriminator string                 `yaml:"discriminator,omitempty"`
 }
 
 type DynamicTarget struct {
@@ -66,4 +67,5 @@ type KluctlProject struct {
 	Targets       []*Target        `yaml:"targets,omitempty"`
 	Args          []*DeploymentArg `yaml:"args,omitempty"`
 	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
+	Discriminator string           `yaml:"discriminator,omitempty"`
 }

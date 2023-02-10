@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -25,7 +24,7 @@ type deleteCmd struct {
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
 
-	DeleteByLabel []string `group:"misc" short:"l" help:"Override the labels used to find objects for deletion."`
+	Discriminator string `group:"misc" help:"Override the discriminator used to find objects for deletion."`
 }
 
 func (cmd *deleteCmd) Help() string {
@@ -48,14 +47,11 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewDeleteCommand(cmdCtx.targetCtx.DeploymentCollection)
-
-		deleteByLabels, err := deployment.ParseArgs(cmd.DeleteByLabel)
-		if err != nil {
-			return err
+		discriminator := cmdCtx.targetCtx.Target.Discriminator
+		if cmd.Discriminator != "" {
+			discriminator = cmd.Discriminator
 		}
-
-		cmd2.OverrideDeleteByLabels = deleteByLabels
+		cmd2 := commands.NewDeleteCommand(discriminator, cmdCtx.targetCtx.DeploymentCollection.Inclusion)
 
 		objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
 		if err != nil {

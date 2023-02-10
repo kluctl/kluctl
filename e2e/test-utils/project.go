@@ -14,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"net/url"
 	"os"
 	"os/exec"
@@ -78,6 +79,7 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	p.gitServer.GitInit(p.gitRepoName)
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name }}", rand.String(16)), "discriminator")
 		return nil
 	})
 	p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {

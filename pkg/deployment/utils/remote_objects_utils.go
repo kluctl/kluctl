@@ -30,13 +30,21 @@ func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings)
 	}
 }
 
-func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]string, onlyUsedGKs map[schema.GroupKind]bool) error {
+func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminator *string, onlyUsedGKs map[schema.GroupKind]bool) error {
 	var mutex sync.Mutex
-	if len(labels) == 0 {
+	if discriminator == nil {
+		return nil
+	}
+	if *discriminator == "" {
+		status.Warning(u.ctx, "No discriminator configured for target, retrieval of remote objects will be slow.")
 		return nil
 	}
 
-	baseStatus := "Getting remote objects by commonLabels"
+	labels := map[string]string{
+		"kluctl.io/discriminator": *discriminator,
+	}
+
+	baseStatus := "Getting remote objects by discriminator"
 	s := status.Start(u.ctx, baseStatus)
 	defer s.Failed()
 
@@ -87,7 +95,7 @@ func (u *RemoteObjectUtils) getAllByLabels(k *k8s.K8sCluster, labels map[string]
 			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
 			if permissionErrCount != 0 {
-				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering objects by labels. This might result in orphan object detection to not work properly"))
+				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering objects by discriminator labels. This might result in orphan object detection to not work properly"))
 			}
 		} else {
 			s.Success()
@@ -157,7 +165,7 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 	return g.ErrorOrNil()
 }
 
-func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[string]string, refs []k8s2.ObjectRef, onlyUsedGKs bool) error {
+func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator *string, refs []k8s2.ObjectRef, onlyUsedGKs bool) error {
 	if k == nil {
 		return nil
 	}
@@ -171,7 +179,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, labels map[st
 		}
 	}
 
-	err := u.getAllByLabels(k, labels, usedGKs)
+	err := u.getAllByDiscriminator(k, discriminator, usedGKs)
 	if err != nil {
 		return err
 	}
@@ -237,7 +245,7 @@ func (u *RemoteObjectUtils) getInclusionEntries(o *uo.UnstructuredObject) []util
 		})
 	}
 
-	if itemDir := o.GetK8sAnnotation("kluctl.io/kustomize_dir"); itemDir != nil {
+	if itemDir := o.GetK8sAnnotation("kluctl.io/deployment-item-dir"); itemDir != nil {
 		iv = append(iv, utils.InclusionEntry{
 			Type:  "deploymentItemDir",
 			Value: *itemDir,

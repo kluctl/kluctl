@@ -11,15 +11,18 @@ import (
 )
 
 type ValidateCommand struct {
-	c   *deployment.DeploymentCollection
+	c             *deployment.DeploymentCollection
+	discriminator string
+
 	dew *utils2.DeploymentErrorsAndWarnings
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(ctx context.Context, c *deployment.DeploymentCollection) *ValidateCommand {
+func NewValidateCommand(ctx context.Context, discriminator string, c *deployment.DeploymentCollection) *ValidateCommand {
 	cmd := &ValidateCommand{
-		c:   c,
-		dew: utils2.NewDeploymentErrorsAndWarnings(),
+		c:             c,
+		discriminator: discriminator,
+		dew:           utils2.NewDeploymentErrorsAndWarnings(),
 	}
 	cmd.ru = utils2.NewRemoteObjectsUtil(ctx, cmd.dew)
 	return cmd
@@ -31,7 +34,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 
 	cmd.dew.Init()
 
-	err := cmd.ru.UpdateRemoteObjects(k, cmd.c.Project.GetCommonLabels(), cmd.c.LocalObjectRefs(), true)
+	err := cmd.ru.UpdateRemoteObjects(k, &cmd.discriminator, cmd.c.LocalObjectRefs(), true)
 	if err != nil {
 		return nil, err
 	}
