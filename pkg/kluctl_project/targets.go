@@ -127,7 +127,7 @@ func (c *LoadedKluctlProject) prepareDynamicTargetsExternal(baseTarget *types.Ta
 	}
 
 	if baseTarget.TargetConfig.RefPattern != nil {
-		status.Deprecation(c.ctx, "dynamic-targets-ref-pattern", "'refPattern' and corresponding dynamic targets are deprecated and will be removed in an upcoming release.")
+		status.Deprecation(c.ctx, "dynamic-targets-ref-pattern", "'refPattern' and corresponding dynamic targets are deprecated and will be removed in the next kluctl release.")
 	}
 
 	targetConfigRef := baseTarget.TargetConfig.Ref
@@ -249,7 +249,7 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 	}
 
 	if len(target.DynamicArgs) != 0 {
-		status.Deprecation(c.ctx, "dynamic-args", "dynamicArgs are deprecated and ignored. The field will be removed in a future kluctl release.")
+		status.Deprecation(c.ctx, "dynamic-args", "dynamicArgs are deprecated and ignored. The field will be removed in the next kluctl release.")
 	}
 
 	// check and merge args
@@ -257,7 +257,7 @@ func (c *LoadedKluctlProject) buildDynamicTarget(targetInfo *dynamicTargetInfo) 
 		target.Args.Merge(targetConfig.Args)
 	}
 	if len(targetConfig.Images) != 0 {
-		status.Deprecation(c.ctx, "target-config-images", "specifying fixed images via external 'targetConfig' is deprecated and support for this will be removed in a future kluctl release.")
+		status.Deprecation(c.ctx, "target-config-images", "specifying fixed images via external 'targetConfig' is deprecated and support for this will be removed in the next kluctl release.")
 	}
 	// We prepend the dynamic images to ensure they get higher priority later
 	target.Images = append(targetConfig.Images, target.Images...)

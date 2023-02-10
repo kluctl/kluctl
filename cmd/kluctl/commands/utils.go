@@ -151,10 +151,10 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		return fmt.Errorf("failed to parse registry auth from environment: %w", err)
 	}
 	if args.imageFlags.UpdateImages {
-		status.Deprecation(ctx, "update-images", "--update-images is deprecated and will be removed in a future kluctl release.")
+		status.Deprecation(ctx, "update-images", "--update-images is deprecated and will be removed in the next kluctl release.")
 	}
 	if !args.imageFlags.OfflineImages {
-		status.Deprecation(ctx, "online-images", "--offline-images=false is deprecated and will be removed in a future kluctl release.")
+		status.Deprecation(ctx, "online-images", "--offline-images=false is deprecated and will be removed in the next kluctl release.")
 	}
 	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages, args.imageFlags.OfflineImages || args.forCompletion)
 	if err != nil {
