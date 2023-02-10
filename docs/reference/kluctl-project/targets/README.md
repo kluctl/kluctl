@@ -15,9 +15,9 @@ Specifies a list of targets for which commands can be invoked. A target puts tog
 configuration and the target cluster. Multiple targets can exist which target the same cluster but with differing
 configuration (via `args`).
 
-Each value found in the target definition is rendered with a simple Jinja2 context that only contains the target itself.
+Each value found in the target definition is rendered with a simple Jinja2 context that only contains the target and args.
 The rendering process is retried 10 times until it finally succeeds, allowing you to reference
-the target itself in complex ways. This is especially useful when using [dynamic targets](./dynamic-targets.md).
+the target itself in complex ways.
 
 Target entries have the following form:
 ```yaml
@@ -50,15 +50,9 @@ If this field is omitted, Kluctl will always use the currently active context.
 This fields specifies a map of arguments to be passed to the deployment project when it is rendered. Allowed argument names
 are configured via [deployment args](../../deployments/deployment-yml.md#args).
 
-The arguments specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#args)
-have higher priority.
-
 ## images
 This field specifies a list of fixed images to be used by [`images.get_image(...)`](../../deployments/images.md#imagesget_image).
 The format is identical to the [fixed images file](../../deployments/images.md#command-line-argument---fixed-images-file).
-
-The fixed images specified in the [dynamic target config](../../kluctl-project/targets/dynamic-targets.md#images)
-have higher priority.
 
 ## discriminator
 

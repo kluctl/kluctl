@@ -61,7 +61,7 @@ type cli struct {
 	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pre-pulls the specified Helm charts"`
 	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
 	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
-	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all target, including dynamic targets"`
+	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all targets"`
 	PokeImages        pokeImagesCmd        `cmd:"" help:"Replace all images in target"`
 	Prune             pruneCmd             `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
 	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
