@@ -8,6 +8,7 @@ import (
 	types2 "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
@@ -76,6 +77,16 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	_, err = varsCtx.J2.RenderStruct(&source, jinja2.WithGlobals(globals))
 	if err != nil {
 		return err
+	}
+
+	if source.When != "" {
+		r, err := kluctl_jinja2.RenderConditional(varsCtx.J2, globals, source.When)
+		if err != nil {
+			return err
+		}
+		if !kluctl_jinja2.IsConditionalTrue(r) {
+			return nil
+		}
 	}
 
 	ignoreMissing := false

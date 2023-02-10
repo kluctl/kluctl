@@ -88,6 +88,30 @@ func TestVarsLoader_ValuesNoOverrides(t *testing.T) {
 	})
 }
 
+func TestVarsLoader_When(t *testing.T) {
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		err := vl.LoadVars(vc, &types.VarsSource{
+			Values: uo.FromStringMust(`{"test1": "a"}`),
+		}, nil, "")
+		assert.NoError(t, err)
+		err = vl.LoadVars(vc, &types.VarsSource{
+			Values: uo.FromStringMust(`{"test1": "b"}`),
+			When:   `test1 == "b"`,
+		}, nil, "")
+		assert.NoError(t, err)
+		v, _, _ := vc.Vars.GetNestedString("test1")
+		assert.Equal(t, "a", v)
+
+		err = vl.LoadVars(vc, &types.VarsSource{
+			Values: uo.FromStringMust(`{"test1": "b"}`),
+			When:   `test1 == "a"`,
+		}, nil, "")
+		assert.NoError(t, err)
+		v, _, _ = vc.Vars.GetNestedString("test1")
+		assert.Equal(t, "b", v)
+	})
+}
+
 func TestVarsLoader_File(t *testing.T) {
 	d := t.TempDir()
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)

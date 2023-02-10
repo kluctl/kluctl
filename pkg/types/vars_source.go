@@ -66,6 +66,8 @@ type VarsSource struct {
 	Http              *VarsSourceHttp                     `yaml:"http,omitempty"`
 	AwsSecretsManager *VarsSourceAwsSecretsManager        `yaml:"awsSecretsManager,omitempty"`
 	Vault             *VarsSourceVault                    `yaml:"vault,omitempty"`
+
+	When string `yaml:"when,omitempty"`
 }
 
 func ValidateVarsSource(sl validator.StructLevel) {
@@ -74,7 +76,8 @@ func ValidateVarsSource(sl validator.StructLevel) {
 	count := 0
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
-		if v.Type().Field(i).Name == "IgnoreMissing" || v.Type().Field(i).Name == "NoOverride" {
+		switch v.Type().Field(i).Name {
+		case "IgnoreMissing", "NoOverride", "When":
 			continue
 		}
 		if !v.Field(i).IsNil() {

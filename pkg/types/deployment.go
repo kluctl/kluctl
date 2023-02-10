@@ -17,6 +17,7 @@ type DeploymentItemConfig struct {
 	OnlyRender       bool                     `yaml:"onlyRender,omitempty"`
 	AlwaysDeploy     bool                     `yaml:"alwaysDeploy,omitempty"`
 	DeleteObjects    []DeleteObjectItemConfig `yaml:"deleteObjects,omitempty"`
+	When             string                   `yaml:"when,omitempty"`
 }
 
 func ValidateDeploymentItemConfig(sl validator.StructLevel) {
@@ -87,6 +88,8 @@ type DeploymentProjectConfig struct {
 	Args          []*DeploymentArg     `yaml:"args,omitempty"`
 	Vars          []*VarsSource        `yaml:"vars,omitempty"`
 	SealedSecrets *SealedSecretsConfig `yaml:"sealedSecrets,omitempty"`
+
+	When string `yaml:"when,omitempty"`
 
 	Deployments []*DeploymentItemConfig `yaml:"deployments,omitempty"`
 

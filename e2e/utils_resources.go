@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"path/filepath"
 )
 
 type resourceOpts struct {
@@ -12,6 +13,7 @@ type resourceOpts struct {
 	tags        []string
 	labels      map[string]string
 	annotations map[string]string
+	when        string
 }
 
 func mergeMetadata(o *uo.UnstructuredObject, opts resourceOpts) {
@@ -57,6 +59,12 @@ func addConfigMapDeployment(p *test_utils.TestProject, dir string, data map[stri
 	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
 		{fmt.Sprintf("configmap-%s.yml", opts.name), "", o},
 	}, opts.tags)
+	if opts.when != "" {
+		p.UpdateDeploymentItems(filepath.Dir(dir), func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
+			_ = items[len(items)-1].SetNestedField(opts.when, "when")
+			return items
+		})
+	}
 }
 
 func addSecretDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts, sealme bool) {
@@ -69,4 +77,10 @@ func addSecretDeployment(p *test_utils.TestProject, dir string, data map[string]
 	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
 		{fname, fname + sealmeExt, o},
 	}, opts.tags)
+	if opts.when != "" {
+		p.UpdateDeploymentItems(filepath.Dir(dir), func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
+			_ = items[len(items)-1].SetNestedField(opts.when, "when")
+			return items
+		})
+	}
 }
