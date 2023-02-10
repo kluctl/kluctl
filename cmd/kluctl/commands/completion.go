@@ -59,8 +59,8 @@ func buildTargetCompletionFunc(ctx context.Context, projectArgs *args.ProjectFla
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		var ret []string
 		err := withProjectForCompletion(ctx, projectArgs, argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
-			for _, t := range p.DynamicTargets {
-				ret = append(ret, t.Target.Name)
+			for _, t := range p.Targets {
+				ret = append(ret, t.Name)
 			}
 			return nil
 		})
@@ -107,8 +107,8 @@ func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, fo
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
-				for _, t := range p.DynamicTargets {
-					targets = append(targets, t.Target.Name)
+				for _, t := range p.Targets {
+					targets = append(targets, t.Name)
 				}
 			} else {
 				targets = append(targets, ptArgs.targetFlags.Target)
@@ -161,8 +161,8 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
-				for _, t := range p.DynamicTargets {
-					targets = append(targets, t.Target.Name)
+				for _, t := range p.Targets {
+					targets = append(targets, t.Name)
 				}
 			} else {
 				targets = append(targets, ptArgs.targetFlags.Target)

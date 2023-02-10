@@ -158,35 +158,18 @@ func (cmd *sealCmd) Run(ctx context.Context) error {
 	return withKluctlProjectFromArgs(ctx, cmd.ProjectFlags, nil, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
-		baseTargets := make(map[string]bool)
 		noTargetMatch := true
-		for _, target := range p.DynamicTargets {
-			if cmd.Target != "" && cmd.Target != target.Target.Name {
+		for _, target := range p.Targets {
+			if cmd.Target != "" && cmd.Target != target.Name {
 				continue
 			}
-			if target.Target.SealingConfig == nil {
-				status.Info(ctx, "Target %s has no sealingConfig", target.Target.Name)
+			if target.SealingConfig == nil {
+				status.Info(ctx, "Target %s has no sealingConfig", target.Name)
 				continue
 			}
 			noTargetMatch = false
 
-			sealTarget := target.Target
-			dynamicSealing := target.Target.SealingConfig.DynamicSealing == nil || *target.Target.SealingConfig.DynamicSealing
-			isDynamicTarget := target.BaseTargetName != target.Target.Name
-			if !dynamicSealing && isDynamicTarget {
-				baseTarget, err := p.FindBaseTarget(target.BaseTargetName)
-				if err != nil {
-					return err
-				}
-				if baseTargets[target.BaseTargetName] {
-					// Skip this target as it was already sealed
-					continue
-				}
-				baseTargets[target.BaseTargetName] = true
-				sealTarget = baseTarget
-			}
-
-			err := cmd.runCmdSealForTarget(ctx, p, sealTarget.Name)
+			err := cmd.runCmdSealForTarget(ctx, p, target.Name)
 			if err != nil {
 				hadError = true
 				status.Error(ctx, err.Error())

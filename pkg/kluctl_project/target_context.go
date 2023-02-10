@@ -50,11 +50,11 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	var target *types.Target
 	needRender := false
 	if params.TargetName != "" {
-		t, err := p.FindDynamicTarget(params.TargetName)
+		t, err := p.FindTarget(params.TargetName)
 		if err != nil {
 			return nil, err
 		}
-		target = &*t.Target
+		target = &*t
 	} else {
 		target = &types.Target{
 			Discriminator: p.Config.Discriminator,
