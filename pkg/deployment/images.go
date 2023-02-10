@@ -303,7 +303,7 @@ func (images *Images) resolveImage(ctx context.Context, ph placeHolder, ref k8s2
 	}
 
 	if ph.HasLatestVersion {
-		status.Deprecation(ctx, "latest-version-filter", "latest_version is deprecated when using images.get_image()")
+		status.Deprecation(ctx, "latest-version-filter", "latest_version is deprecated when using images.get_image() and will be removed in the next kluctl release.")
 	}
 
 	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)

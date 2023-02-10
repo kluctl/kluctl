@@ -23,7 +23,7 @@ func (cmd *checkImageUpdatesCmd) Help() string {
 }
 
 func (cmd *checkImageUpdatesCmd) Run(ctx context.Context) error {
-	status.Deprecation(ctx, "check-image-updates", "check-image-updates is deprecated and will be removed in a future kluctl release.")
+	status.Deprecation(ctx, "check-image-updates", "check-image-updates is deprecated and will be removed in the next kluctl release.")
 	ptArgs := projectTargetCommandArgs{
 		projectFlags: cmd.ProjectFlags,
 		targetFlags:  cmd.TargetFlags,

@@ -13,8 +13,8 @@ description: >
 <!-- BEGIN SECTION "list-targets" "Usage" false -->
 Usage: kluctl list-targets [flags]
 
-Outputs a yaml list with all target, including dynamic targets
-Outputs a yaml list with all target, including dynamic targets
+Outputs a yaml list with all targets
+Outputs a yaml list with all targets
 
 <!-- END SECTION -->
 

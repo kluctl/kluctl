@@ -13,7 +13,7 @@ type listTargetsCmd struct {
 }
 
 func (cmd *listTargetsCmd) Help() string {
-	return `Outputs a yaml list with all target, including dynamic targets`
+	return `Outputs a yaml list with all targets`
 }
 
 func (cmd *listTargetsCmd) Run(ctx context.Context) error {
