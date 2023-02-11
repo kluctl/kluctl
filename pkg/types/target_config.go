@@ -9,12 +9,10 @@ type FixedImage struct {
 	Image         string         `yaml:"image" validate:"required"`
 	ResultImage   string         `yaml:"resultImage" validate:"required"`
 	DeployedImage *string        `yaml:"deployedImage,omitempty"`
-	RegistryImage *string        `yaml:"registryImage,omitempty"`
 	Namespace     *string        `yaml:"namespace,omitempty"`
 	Object        *k8s.ObjectRef `yaml:"object,omitempty"`
 	Deployment    *string        `yaml:"deployment,omitempty"`
 	Container     *string        `yaml:"container,omitempty"`
-	VersionFilter *string        `yaml:"versionFilter,omitempty"`
 	DeployTags    []string       `yaml:"deployTags,omitempty"`
 	DeploymentDir *string        `yaml:"deploymentDir,omitempty"`
 }

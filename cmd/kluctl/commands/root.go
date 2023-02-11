@@ -18,7 +18,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/Masterminds/semver/v3"
 	flag "github.com/spf13/pflag"
 	"io"
 	"log"
@@ -55,20 +54,19 @@ type GlobalFlags struct {
 type cli struct {
 	GlobalFlags
 
-	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
-	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
-	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
-	Diff              diffCmd              `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
-	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pre-pulls the specified Helm charts"`
-	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
-	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
-	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all targets"`
-	PokeImages        pokeImagesCmd        `cmd:"" help:"Replace all images in target"`
-	Prune             pruneCmd             `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
-	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
-	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
-	Validate          validateCmd          `cmd:"" help:"Validates the already deployed deployment"`
-	Flux              fluxCmd              `cmd:"" help:"Flux sub-commands"`
+	Delete      deleteCmd      `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
+	Deploy      deployCmd      `cmd:"" help:"Deploys a target to the corresponding cluster"`
+	Diff        diffCmd        `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
+	HelmPull    helmPullCmd    `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pre-pulls the specified Helm charts"`
+	HelmUpdate  helmUpdateCmd  `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
+	ListImages  listImagesCmd  `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
+	ListTargets listTargetsCmd `cmd:"" help:"Outputs a yaml list with all targets"`
+	PokeImages  pokeImagesCmd  `cmd:"" help:"Replace all images in target"`
+	Prune       pruneCmd       `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
+	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
+	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
+	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
+	Flux        fluxCmd        `cmd:"" help:"Flux sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }

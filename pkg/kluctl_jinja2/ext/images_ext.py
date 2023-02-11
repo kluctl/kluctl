@@ -13,13 +13,10 @@ class ImagesExtension(Extension):
 
     def get_image_wrapper(self, image, latest_version=None):
         has_latest_version = False
-        if latest_version is None:
-            latest_version = "semver()"
-        else:
+        if latest_version is not None:
             has_latest_version = True
         placeholder = {
             "image": image,
-            "latestVersion": str(latest_version),
             "hasLatestVersion": has_latest_version,
         }
         j = json.dumps(placeholder)

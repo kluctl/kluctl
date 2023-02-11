@@ -15,7 +15,6 @@ import (
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -145,18 +144,7 @@ func withProjectCommandContext(ctx context.Context, args projectTargetCommandArg
 }
 
 func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(cmdCtx *commandCtx) error) error {
-	rh := registries.NewRegistryHelper(ctx)
-	err := rh.ParseAuthEntriesFromEnv()
-	if err != nil {
-		return fmt.Errorf("failed to parse registry auth from environment: %w", err)
-	}
-	if args.imageFlags.UpdateImages {
-		status.Deprecation(ctx, "update-images", "--update-images is deprecated and will be removed in the next kluctl release.")
-	}
-	if !args.imageFlags.OfflineImages {
-		status.Deprecation(ctx, "online-images", "--offline-images=false is deprecated and will be removed in the next kluctl release.")
-	}
-	images, err := deployment.NewImages(rh, args.imageFlags.UpdateImages, args.imageFlags.OfflineImages || args.forCompletion)
+	images, err := deployment.NewImages()
 	if err != nil {
 		return err
 	}

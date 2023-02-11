@@ -6,13 +6,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/registries"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sort"
@@ -21,22 +18,13 @@ import (
 )
 
 type Images struct {
-	rh           *registries.RegistryHelper
-	updateImages bool
-	offline      bool
-	fixedImages  []types.FixedImage
-	seenImages   []types.FixedImage
-	mutex        sync.Mutex
-
-	registryCache utils.ThreadSafeMultiCache
+	fixedImages []types.FixedImage
+	seenImages  []types.FixedImage
+	mutex       sync.Mutex
 }
 
-func NewImages(rh *registries.RegistryHelper, updateImages bool, offline bool) (*Images, error) {
-	return &Images{
-		rh:           rh,
-		updateImages: updateImages,
-		offline:      offline,
-	}, nil
+func NewImages() (*Images, error) {
+	return &Images{}, nil
 }
 
 func (images *Images) AddFixedImage(fi types.FixedImage) {
@@ -124,44 +112,11 @@ func (images *Images) getFixedImage(image string, namespace string, deployment s
 	return nil, nil
 }
 
-func (images *Images) GetLatestImageFromRegistry(image string, latestVersion string) (*string, error) {
-	if images.offline {
-		return nil, nil
-	}
-
-	ret, err := images.registryCache.Get(image, "tag", func() (interface{}, error) {
-		return images.rh.ListImageTags(image)
-	})
-	if err != nil {
-		return nil, err
-	}
-	tags, _ := ret.([]string)
-
-	if len(tags) == 0 {
-		return nil, nil
-	}
-
-	lv, err := versions.ParseLatestVersion(latestVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	tags = versions.Filter(lv, tags)
-	if len(tags) == 0 {
-		return nil, fmt.Errorf("no tag matched latest_version: %s", latestVersion)
-	}
-
-	latest := lv.Latest(tags)
-	result := fmt.Sprintf("%s:%s", image, latest)
-	return &result, nil
-}
-
 const beginPlaceholder = "XXXXXbegin_get_image_"
 const endPlaceholder = "_end_get_imageXXXXX"
 
 type placeHolder struct {
 	Image            string `yaml:"image"`
-	LatestVersion    string `yaml:"latestVersion"`
 	HasLatestVersion bool   `yaml:"hasLatestVersion"`
 
 	Container string
@@ -284,7 +239,7 @@ func (images *Images) ResolvePlaceholders(ctx context.Context, k *k8s.K8sCluster
 			return err
 		}
 		if resultImage == nil {
-			return fmt.Errorf("failed to find image for %s and latest version %s", ph.Image, ph.LatestVersion)
+			return fmt.Errorf("failed to find fixed image for %s", ph.Image)
 		}
 
 		ph.FieldValue = ph.FieldValue[:ph.StartOffset] + *resultImage + ph.FieldValue[ph.EndOffset:]
@@ -297,37 +252,22 @@ func (images *Images) ResolvePlaceholders(ctx context.Context, k *k8s.K8sCluster
 }
 
 func (images *Images) resolveImage(ctx context.Context, ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string, vars *uo.UnstructuredObject) (*string, error) {
-	fixed, err := images.getFixedImage(ph.Image, ref.Namespace, deployment, ph.Container, vars)
-	if err != nil {
-		return nil, err
-	}
-
 	if ph.HasLatestVersion {
-		status.Deprecation(ctx, "latest-version-filter", "latest_version is deprecated when using images.get_image() and will be removed in the next kluctl release.")
+		status.Deprecation(ctx, "latest-version-filter", "latest_version is deprecated when using images.get_image() and is completely ignored. Please remove usages of latest_version as it will fail to render in a future kluctl release.")
 	}
 
-	registry, err := images.GetLatestImageFromRegistry(ph.Image, ph.LatestVersion)
+	result, err := images.getFixedImage(ph.Image, ref.Namespace, deployment, ph.Container, vars)
 	if err != nil {
 		return nil, err
-	}
-
-	result := deployed
-	if result == nil || images.updateImages {
-		result = registry
-	}
-	if !images.updateImages && fixed != nil {
-		result = fixed
 	}
 
 	si := types.FixedImage{
 		Image:         ph.Image,
 		DeployedImage: deployed,
-		RegistryImage: registry,
 		Namespace:     &ref.Namespace,
 		Object:        &ref,
 		Deployment:    &deployment,
 		Container:     &ph.Container,
-		VersionFilter: &ph.LatestVersion,
 		DeployTags:    tags,
 		DeploymentDir: &deploymentDir,
 	}
