@@ -48,6 +48,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	}
 
 	var target *types.Target
+	needRender := false
 	if params.TargetName != "" {
 		t, err := p.FindDynamicTarget(params.TargetName)
 		if err != nil {
@@ -55,13 +56,24 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		}
 		target = &*t.Target
 	} else {
-		target = &types.Target{}
+		target = &types.Target{
+			Discriminator: p.Config.Discriminator,
+		}
+		needRender = true
 	}
 	if params.TargetNameOverride != "" {
 		target.Name = params.TargetNameOverride
 	}
 	if params.ContextOverride != "" {
 		target.Context = &params.ContextOverride
+	}
+
+	if needRender {
+		// we must render the target after handling overrides
+		err = p.renderTarget(target)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	params.Images.PrependFixedImages(target.Images)
