@@ -79,7 +79,7 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	p.gitServer.GitInit(p.gitRepoName)
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name }}", rand.String(16)), "discriminator")
+		_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name or 'no-name' }}", rand.String(16)), "discriminator")
 		return nil
 	})
 	p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
