@@ -78,18 +78,6 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	for _, hr := range releases {
-		if utils.Exists(hr.GetDeprecatedChartDir()) {
-			relDir, err := filepath.Rel(projectDir, filepath.Dir(hr.ConfigFile))
-			if err != nil {
-				return err
-			}
-			status.Error(ctx, "%s: Project is using a pre-pulled Helm Chart that is next to the helm-chart.yaml, which is deprecated. "+
-				"Updating is only possible after removing these. Use 'kluctl helm-pull' to remove all deprecated chart folders.", relDir)
-			return fmt.Errorf("detected deprecated chart folder")
-		}
-	}
-
 	if cmd.Commit {
 		actions, err := doHelmPull(ctx, projectDir, &cmd.HelmCredentials, true, false)
 		if err != nil {

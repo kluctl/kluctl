@@ -47,23 +47,6 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 		return actions, err
 	}
 
-	for _, hr := range releases {
-		if utils.Exists(hr.GetDeprecatedChartDir()) {
-			actions++
-			rel, err := filepath.Rel(projectDir, hr.GetDeprecatedChartDir())
-			if err != nil {
-				return actions, err
-			}
-			if !dryRun {
-				status.Info(ctx, "Removing deprecated charts dir %s", rel)
-				err = os.RemoveAll(hr.GetDeprecatedChartDir())
-				if err != nil {
-					return actions, err
-				}
-			}
-		}
-	}
-
 	g := utils.NewGoHelper(ctx, 8)
 
 	for _, chart := range charts {
