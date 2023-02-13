@@ -202,15 +202,6 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, forSeal bool) (*va
 		return nil, err
 	}
 
-	deprecatedArgs, err := deployment.LoadDeprecatedDeploymentArgs(p.ctx, p.ProjectDir, varsCtx, allArgs)
-	if err != nil {
-		return nil, err
-	}
-
-	if deprecatedArgs && len(p.Config.Args) != 0 {
-		return nil, fmt.Errorf("mixing deprecated 'args' from deployment.yaml and .kluctl.yaml is not allowed")
-	}
-
 	varsCtx.UpdateChild("args", allArgs)
 
 	return varsCtx, nil
