@@ -18,6 +18,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	flag "github.com/spf13/pflag"
 	"io"
 	"log"
@@ -28,10 +29,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/mattn/go-colorable"
@@ -184,10 +185,18 @@ func checkNewVersion(ctx context.Context) {
 	if strings.HasPrefix(latestVersionStr, "v") {
 		latestVersionStr = latestVersionStr[1:]
 	}
-	latestVersion := versions.LooseVersion(latestVersionStr)
-	localVersion := versions.LooseVersion(version.GetVersion())
-	if localVersion.Less(latestVersion, true) {
-		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion, latestVersion))
+	latestVersion, err := semver.NewVersion(latestVersionStr)
+	if err != nil {
+		s.FailedWithMessage("Failed to parse latest version: %v", err)
+		return
+	}
+	localVersion, err := semver.NewVersion(version.GetVersion())
+	if err != nil {
+		s.FailedWithMessage("Failed to parse local version: %v", err)
+		return
+	}
+	if localVersion.LessThan(latestVersion) {
+		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion.String(), latestVersion.String()))
 	} else {
 		s.Update("Your kluctl version is up-to-date")
 	}
