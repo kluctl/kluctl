@@ -7,15 +7,6 @@ import (
 	"sort"
 )
 
-type dynamicTargetInfo struct {
-	baseTarget    *types.Target
-	dir           string
-	gitProject    *types.GitProject
-	ref           *string
-	refPattern    *string
-	defaultBranch string
-}
-
 func (c *LoadedKluctlProject) loadTargets() error {
 	status.Trace(c.ctx, "Loading targets")
 	defer status.Trace(c.ctx, "Done loading targets")
