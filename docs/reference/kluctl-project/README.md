@@ -24,7 +24,7 @@ discriminator: "my-project-{{ target.name }}"
 targets:
   # test cluster, dev env
   - name: dev
-    context: test.example.com
+    context: dev.example.com
     args:
       environment_name: dev
   # test cluster, test env
