@@ -17,7 +17,7 @@ func (c *LoadedKluctlProject) loadTargets() error {
 	for _, configTarget := range c.Config.Targets {
 		target, err := c.buildTarget(configTarget)
 		if err != nil {
-			status.Warning(c.ctx, "Failed to load dynamic target config for project: %v", err)
+			status.Warning(c.ctx, "Failed to load target config for project: %v", err)
 			continue
 		}
 
