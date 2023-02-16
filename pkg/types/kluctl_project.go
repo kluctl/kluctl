@@ -4,10 +4,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
-type DynamicArg struct {
-	Name string `yaml:"name" validate:"required"`
-}
-
 type SealingConfig struct {
 	Args       *uo.UnstructuredObject `yaml:"args,omitempty"`
 	SecretSets []string               `yaml:"secretSets,omitempty"`
@@ -18,7 +14,6 @@ type Target struct {
 	Name          string                 `yaml:"name" validate:"required"`
 	Context       *string                `yaml:"context,omitempty"`
 	Args          *uo.UnstructuredObject `yaml:"args,omitempty"`
-	DynamicArgs   []DynamicArg           `yaml:"dynamicArgs,omitempty"`
 	SealingConfig *SealingConfig         `yaml:"sealingConfig,omitempty"`
 	Images        []FixedImage           `yaml:"images,omitempty"`
 	Discriminator string                 `yaml:"discriminator,omitempty"`
