@@ -28,10 +28,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/utils/versions"
 	"github.com/kluctl/kluctl/v2/pkg/version"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/mattn/go-colorable"
@@ -54,20 +54,19 @@ type GlobalFlags struct {
 type cli struct {
 	GlobalFlags
 
-	CheckImageUpdates checkImageUpdatesCmd `cmd:"" help:"Render deployment and check if any images have new tags available"`
-	Delete            deleteCmd            `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
-	Deploy            deployCmd            `cmd:"" help:"Deploys a target to the corresponding cluster"`
-	Diff              diffCmd              `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
-	HelmPull          helmPullCmd          `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pre-pulls the specified Helm charts"`
-	HelmUpdate        helmUpdateCmd        `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
-	ListImages        listImagesCmd        `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
-	ListTargets       listTargetsCmd       `cmd:"" help:"Outputs a yaml list with all targets"`
-	PokeImages        pokeImagesCmd        `cmd:"" help:"Replace all images in target"`
-	Prune             pruneCmd             `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
-	Render            renderCmd            `cmd:"" help:"Renders all resources and configuration files"`
-	Seal              sealCmd              `cmd:"" help:"Seal secrets based on target's sealingConfig"`
-	Validate          validateCmd          `cmd:"" help:"Validates the already deployed deployment"`
-	Flux              fluxCmd              `cmd:"" help:"Flux sub-commands"`
+	Delete      deleteCmd      `cmd:"" help:"Delete a target (or parts of it) from the corresponding cluster"`
+	Deploy      deployCmd      `cmd:"" help:"Deploys a target to the corresponding cluster"`
+	Diff        diffCmd        `cmd:"" help:"Perform a diff between the locally rendered target and the already deployed target"`
+	HelmPull    helmPullCmd    `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and pre-pulls the specified Helm charts"`
+	HelmUpdate  helmUpdateCmd  `cmd:"" help:"Recursively searches for 'helm-chart.yaml' files and checks for new available versions"`
+	ListImages  listImagesCmd  `cmd:"" help:"Renders the target and outputs all images used via 'images.get_image(...)"`
+	ListTargets listTargetsCmd `cmd:"" help:"Outputs a yaml list with all targets"`
+	PokeImages  pokeImagesCmd  `cmd:"" help:"Replace all images in target"`
+	Prune       pruneCmd       `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
+	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
+	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
+	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
+	Flux        fluxCmd        `cmd:"" help:"Flux sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -184,10 +183,18 @@ func checkNewVersion(ctx context.Context) {
 	if strings.HasPrefix(latestVersionStr, "v") {
 		latestVersionStr = latestVersionStr[1:]
 	}
-	latestVersion := versions.LooseVersion(latestVersionStr)
-	localVersion := versions.LooseVersion(version.GetVersion())
-	if localVersion.Less(latestVersion, true) {
-		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion, latestVersion))
+	latestVersion, err := semver.NewVersion(latestVersionStr)
+	if err != nil {
+		s.FailedWithMessage("Failed to parse latest version: %v", err)
+		return
+	}
+	localVersion, err := semver.NewVersion(version.GetVersion())
+	if err != nil {
+		s.FailedWithMessage("Failed to parse local version: %v", err)
+		return
+	}
+	if localVersion.LessThan(latestVersion) {
+		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion.String(), latestVersion.String()))
 	} else {
 		s.Update("Your kluctl version is up-to-date")
 	}

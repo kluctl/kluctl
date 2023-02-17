@@ -136,9 +136,6 @@ func (p *DeploymentProject) processConfig() error {
 		return err
 	}
 
-	if len(p.Config.Args) != 0 && p.parentProject != nil {
-		return fmt.Errorf("only the root deployment.yml can define args")
-	}
 	return nil
 }
 

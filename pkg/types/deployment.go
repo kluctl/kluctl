@@ -85,7 +85,6 @@ type IgnoreForDiffItemConfig struct {
 }
 
 type DeploymentProjectConfig struct {
-	Args          []*DeploymentArg     `yaml:"args,omitempty"`
 	Vars          []*VarsSource        `yaml:"vars,omitempty"`
 	SealedSecrets *SealedSecretsConfig `yaml:"sealedSecrets,omitempty"`
 

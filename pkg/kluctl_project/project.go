@@ -21,26 +21,17 @@ type LoadedKluctlProject struct {
 
 	sealedSecretsDir string
 
-	Config         types2.KluctlProject
-	DynamicTargets []*types2.DynamicTarget
+	Config  types2.KluctlProject
+	Targets []*types2.Target
 
 	J2            *jinja2.Jinja2
 	RP            *repocache.GitRepoCache
 	SopsDecrypter *decryptor.Decryptor
 }
 
-func (c *LoadedKluctlProject) FindBaseTarget(name string) (*types2.Target, error) {
-	for _, target := range c.Config.Targets {
+func (c *LoadedKluctlProject) FindTarget(name string) (*types2.Target, error) {
+	for _, target := range c.Targets {
 		if target.Name == name {
-			return target, nil
-		}
-	}
-	return nil, fmt.Errorf("target %s not existent in kluctl project config", name)
-}
-
-func (c *LoadedKluctlProject) FindDynamicTarget(name string) (*types2.DynamicTarget, error) {
-	for _, target := range c.DynamicTargets {
-		if target.Target.Name == name {
 			return target, nil
 		}
 	}

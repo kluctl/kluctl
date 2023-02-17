@@ -50,11 +50,11 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	var target *types.Target
 	needRender := false
 	if params.TargetName != "" {
-		t, err := p.FindDynamicTarget(params.TargetName)
+		t, err := p.FindTarget(params.TargetName)
 		if err != nil {
 			return nil, err
 		}
-		target = &*t.Target
+		target = &*t
 	} else {
 		target = &types.Target{
 			Discriminator: p.Config.Discriminator,
@@ -200,15 +200,6 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, forSeal bool) (*va
 	err = deployment.LoadDefaultArgs(p.Config.Args, allArgs)
 	if err != nil {
 		return nil, err
-	}
-
-	deprecatedArgs, err := deployment.LoadDeprecatedDeploymentArgs(p.ctx, p.ProjectDir, varsCtx, allArgs)
-	if err != nil {
-		return nil, err
-	}
-
-	if deprecatedArgs && len(p.Config.Args) != 0 {
-		return nil, fmt.Errorf("mixing deprecated 'args' from deployment.yaml and .kluctl.yaml is not allowed")
 	}
 
 	varsCtx.UpdateChild("args", allArgs)

@@ -1,15 +1,11 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -56,39 +52,6 @@ func ConvertArgsToVars(args map[string]string, allowLoadFromFiles bool) (*uo.Uns
 		_ = vars.SetNestedField(j, p...)
 	}
 	return vars, nil
-}
-
-func LoadDeprecatedDeploymentArgs(ctx context.Context, dir string, varsCtx *vars.VarsCtx, deployArgs *uo.UnstructuredObject) (bool, error) {
-	// First try to load the config without templating to avoid getting errors while rendering because required
-	// args were not set. Otherwise we won't be able to iterator through the 'args' array in the deployment.yml
-	// when the rendering error is actually args related.
-
-	if !yaml.Exists(filepath.Join(dir, "deployment.yml")) {
-		return false, nil
-	}
-
-	var conf types.DeploymentProjectConfig
-
-	err := yaml.ReadYamlFile(yaml.FixPathExt(filepath.Join(dir, "deployment.yml")), &conf)
-	if err != nil {
-		// If that failed, it might be that conditional jinja blocks are present in the config, so lets try loading
-		// the config in rendered form. If it fails due to missing args now, we can't help much with better error
-		// messages anymore.
-		varsCtx2 := varsCtx.Copy()
-		varsCtx2.UpdateChild("args", deployArgs)
-		err = varsCtx2.RenderYamlFile(yaml.FixNameExt(dir, "deployment.yml"), []string{dir}, &conf)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	if len(conf.Args) == 0 {
-		return false, nil
-	}
-
-	status.Deprecation(ctx, "deployment-args", "'args' in deployment.yaml is deprecated, please use 'args' from .kluctl.yaml instead.")
-
-	return true, LoadDefaultArgs(conf.Args, deployArgs)
 }
 
 func LoadDefaultArgs(args []*types.DeploymentArg, deployArgs *uo.UnstructuredObject) error {

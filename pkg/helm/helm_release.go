@@ -107,11 +107,6 @@ func (hr *Release) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion str
 	return nil
 }
 
-func (hr *Release) GetDeprecatedChartDir() string {
-	dir := filepath.Dir(hr.ConfigFile)
-	return filepath.Join(dir, "charts", hr.Chart.GetChartName())
-}
-
 func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 	if hr.Chart.IsLocalChart() {
 		version, err := hr.Chart.GetLocalChartVersion()
@@ -121,12 +116,6 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 		return NewPulledChart(hr.Chart, version, hr.Chart.GetLocalPath(), false), nil
 	}
 
-	deprecatedPC := NewPulledChart(hr.Chart, hr.Config.ChartVersion, hr.GetDeprecatedChartDir(), false)
-	if deprecatedPC.CheckExists() {
-		status.Deprecation(ctx, "helm-charts-dir", "Your project has pre-pulled charts located next to the helm-chart.yaml, which is deprecated. "+
-			"Please run 'kluctl helm-pull' on your project and ensure that the deprecated charts are removed! Future versions of kluctl will ignore these locations.")
-		return deprecatedPC, nil
-	}
 	pc, err := hr.Chart.GetPulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
 	if err != nil {
 		return nil, err

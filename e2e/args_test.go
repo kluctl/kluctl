@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func testArgs(t *testing.T, deprecated bool) {
+func testArgs(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -36,17 +36,10 @@ func testArgs(t *testing.T, deprecated bool) {
 		},
 	}
 
-	if deprecated {
-		p.UpdateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
-			_ = o.SetNestedField(args, "args")
-			return nil
-		})
-	} else {
-		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
-			_ = o.SetNestedField(args, "args")
-			return nil
-		})
-	}
+	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(args, "args")
+		return nil
+	})
 
 	addConfigMapDeployment(p, "cm", map[string]string{
 		"a": `{{ args.a | default("na") }}`,
@@ -119,12 +112,8 @@ d:
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d4"}}`, "data", "d")
 }
 
-func TestDeprecatedArgs(t *testing.T) {
-	testArgs(t, true)
-}
-
 func TestArgs(t *testing.T) {
-	testArgs(t, false)
+	testArgs(t)
 }
 
 func TestArgsFromEnv(t *testing.T) {

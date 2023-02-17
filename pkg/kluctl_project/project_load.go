@@ -57,11 +57,6 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	s := status.Start(c.ctx, "Loading kluctl project")
 	defer s.Failed()
 
-	err = c.updateGitCaches()
-	if err != nil {
-		return err
-	}
-
 	c.sealedSecretsDir = filepath.Join(c.ProjectDir, ".sealed-secrets")
 
 	sealedSecretsUsed := false
