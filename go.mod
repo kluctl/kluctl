@@ -14,7 +14,7 @@ require (
 	github.com/fluxcd/pkg/kustomize v0.13.1
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.3
+	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-containerregistry v0.13.0
 	github.com/hashicorp/vault/api v1.9.0
 	github.com/hexops/gotextdiff v1.0.3
