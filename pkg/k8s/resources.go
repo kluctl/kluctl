@@ -310,7 +310,7 @@ func (k *k8sResources) GetFilteredGVKs(filter func(ar *v1.APIResource) bool) []s
 
 	var ret []schema.GroupVersionKind
 	for _, ar := range k.allResources {
-		if !filter(&ar) {
+		if filter != nil && !filter(&ar) {
 			continue
 		}
 		gvk := schema.GroupVersionKind{
