@@ -26,7 +26,6 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type Release struct {
@@ -161,13 +160,6 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	}
 	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(hr.ConfigFile), "helm-values.yml"))
 
-	var gvs []schema.GroupVersion
-	if k != nil {
-		gvs, err = k.Resources.GetAllGroupVersions()
-		if err != nil {
-			return err
-		}
-	}
 	cfg, err := buildHelmConfig(k)
 	if err != nil {
 		return err
@@ -211,14 +203,12 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	client.Replace = true
 	client.ClientOnly = true
 	client.KubeVersion = kubeVersion
+	client.APIVersions = hr.getApiVersions(k)
 
 	if hr.Config.SkipCRDs {
 		client.SkipCRDs = true
 	} else {
 		client.IncludeCRDs = true
-	}
-	for _, gv := range gvs {
-		client.APIVersions = append(client.APIVersions, gv.String())
 	}
 
 	p := getter.All(settings)
@@ -289,6 +279,29 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 		return err
 	}
 	return nil
+}
+
+func (hr *Release) getApiVersions(k *k8s.K8sCluster) chartutil.VersionSet {
+	if k == nil {
+		return nil
+	}
+
+	m := map[string]bool{}
+
+	gvks := k.Resources.GetFilteredGVKs(nil)
+	for _, gvk := range gvks {
+		gvStr := gvk.GroupVersion().String()
+		m[gvStr] = true
+		gvkStr := fmt.Sprintf("%s/%s", gvStr, gvk.Kind)
+		m[gvkStr] = true
+	}
+
+	ret := make([]string, 0, len(m))
+	for id, _ := range m {
+		ret = append(ret, id)
+	}
+
+	return ret
 }
 
 func (hr *Release) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, error) {
