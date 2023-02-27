@@ -26,17 +26,17 @@ targets:
   - name: dev
     context: dev.example.com
     args:
-      environment_name: dev
+      environment: dev
   # test cluster, test env
   - name: test
     context: test.example.com
     args:
-      environment_name: test
+      environment: test
   # prod cluster, prod env
   - name: prod
     context: prod.example.com
     args:
-      environment_name: prod
+      environment: prod
 
 args:
   - name: environment
