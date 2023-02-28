@@ -95,7 +95,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 	du.Diff()
 
 	return &types.CommandResult{
-		NewObjects:     du.NewObjects,
+		NewObjects:     nil,
 		ChangedObjects: du.ChangedObjects,
 		Errors:         dew.GetErrorsList(),
 		Warnings:       dew.GetWarningsList(),

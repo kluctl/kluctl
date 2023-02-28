@@ -40,6 +40,7 @@ type ApplyUtil struct {
 	dew                *DeploymentErrorsAndWarnings
 	errorCount         int
 	warningCount       int
+	newObjects         map[k8s2.ObjectRef]*uo.UnstructuredObject
 	appliedObjects     map[k8s2.ObjectRef]*uo.UnstructuredObject
 	appliedHookObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	deletedObjects     map[k8s2.ObjectRef]bool
@@ -95,6 +96,7 @@ func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *sta
 	ret := &ApplyUtil{
 		ctx:                ctx,
 		dew:                ad.dew,
+		newObjects:         map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		appliedObjects:     map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		appliedHookObjects: map[k8s2.ObjectRef]*uo.UnstructuredObject{},
 		deletedObjects:     map[k8s2.ObjectRef]bool{},
@@ -119,6 +121,10 @@ func (a *ApplyUtil) handleResult(appliedObject *uo.UnstructuredObject, hook bool
 		a.appliedHookObjects[ref] = appliedObject
 	}
 	a.appliedObjects[ref] = appliedObject
+
+	if !hook && a.ru.GetRemoteObject(ref) == nil {
+		a.newObjects[ref] = appliedObject
+	}
 }
 
 func (a *ApplyUtil) handleApiWarnings(ref k8s2.ObjectRef, warnings []k8s.ApiWarning) {
@@ -684,13 +690,13 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 	a.HandleError(ref, fmt.Errorf("unexpected end of loop"))
 }
 
-func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
+func (ad *ApplyDeploymentsUtil) collectObjects(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []*types.RefAndObject {
 	ad.resultsMutex.Lock()
 	defer ad.resultsMutex.Unlock()
 
 	var ret []*types.RefAndObject
 	for _, a := range ad.results {
-		for _, o := range a.appliedObjects {
+		for _, o := range f(a) {
 			ret = append(ret, &types.RefAndObject{
 				Ref:    o.GetK8sRef(),
 				Object: o,
@@ -698,6 +704,18 @@ func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
 		}
 	}
 	return ret
+}
+
+func (ad *ApplyDeploymentsUtil) GetNewObjects() []*types.RefAndObject {
+	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
+		return au.newObjects
+	})
+}
+
+func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
+	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
+		return au.appliedObjects
+	})
 }
 
 func (ad *ApplyDeploymentsUtil) GetAppliedObjectsMap() map[k8s2.ObjectRef]*uo.UnstructuredObject {
@@ -709,19 +727,9 @@ func (ad *ApplyDeploymentsUtil) GetAppliedObjectsMap() map[k8s2.ObjectRef]*uo.Un
 }
 
 func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*types.RefAndObject {
-	ad.resultsMutex.Lock()
-	defer ad.resultsMutex.Unlock()
-
-	var ret []*types.RefAndObject
-	for _, a := range ad.results {
-		for _, o := range a.appliedHookObjects {
-			ret = append(ret, &types.RefAndObject{
-				Ref:    o.GetK8sRef(),
-				Object: o,
-			})
-		}
-	}
-	return ret
+	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
+		return au.appliedHookObjects
+	})
 }
 
 func (ad *ApplyDeploymentsUtil) GetDeletedObjects() []k8s2.ObjectRef {
