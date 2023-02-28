@@ -258,6 +258,12 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 		return i, nil
 	}
 
+	observedGeneration := getStatusFieldInt("observedGeneration", reactIgnore, false, -1)
+	if observedGeneration != -1 && observedGeneration != o.GetK8sGeneration() {
+		addNotReady("Waiting for reconciliation")
+		return
+	}
+
 	switch o.GetK8sGVK().GroupKind() {
 	case schema.GroupKind{Group: "", Kind: "Pod"}:
 		containerStatuses, _, err := status.GetNestedObjectList("containerStatuses")
