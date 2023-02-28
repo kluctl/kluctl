@@ -169,12 +169,44 @@ func (a *ApplyUtil) DeleteObject(ref k8s2.ObjectRef, hook bool) bool {
 	}
 	apiWarnings, err := a.k.DeleteSingleObject(ref, o)
 	a.handleApiWarnings(ref, apiWarnings)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			a.HandleError(ref, err)
+
+	if err == nil {
+		a.mutex.Lock()
+		defer a.mutex.Unlock()
+		if hook {
+			a.deletedHookObjects[ref] = true
+		} else {
+			a.deletedObjects[ref] = true
 		}
+		return true
+	}
+	if !errors.IsNotFound(err) {
+		a.HandleError(ref, err)
 		return false
 	}
+	if !a.o.DryRun {
+		// just ignore 404 errors
+		return false
+	}
+
+	// now simulate deletion of objects that got applied in the same run
+
+	wasApplied := false
+	if hook {
+		if _, ok := a.appliedObjects[ref]; ok {
+			wasApplied = true
+		}
+	} else {
+		if _, ok := a.appliedHookObjects[ref]; ok {
+			wasApplied = true
+		}
+	}
+	if !wasApplied {
+		// did not get applied, so just ignore the 404
+		return false
+	}
+
+	// it got applied, so we need to pretend it actually got deleted
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
