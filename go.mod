@@ -60,7 +60,7 @@ require (
 	filippo.io/age v1.1.1
 	github.com/aws/aws-sdk-go-v2 v1.17.5
 	github.com/aws/aws-sdk-go-v2/config v1.18.15
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.6
 	github.com/go-git/go-git/v5 v5.5.2
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
