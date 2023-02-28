@@ -65,7 +65,7 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 
 		orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 		diffResult := &types.CommandResult{
-			NewObjects:     du.NewObjects,
+			NewObjects:     au.GetNewObjects(),
 			ChangedObjects: du.ChangedObjects,
 			DeletedObjects: au.GetDeletedObjects(),
 			HookObjects:    au.GetAppliedHookObjects(),
@@ -99,7 +99,7 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 		return nil, err
 	}
 	return &types.CommandResult{
-		NewObjects:     du.NewObjects,
+		NewObjects:     au.GetNewObjects(),
 		ChangedObjects: du.ChangedObjects,
 		DeletedObjects: au.GetDeletedObjects(),
 		HookObjects:    au.GetAppliedHookObjects(),

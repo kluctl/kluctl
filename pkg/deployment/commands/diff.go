@@ -66,7 +66,7 @@ func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.Comm
 		return nil, err
 	}
 	return &types.CommandResult{
-		NewObjects:     du.NewObjects,
+		NewObjects:     au.GetNewObjects(),
 		ChangedObjects: du.ChangedObjects,
 		DeletedObjects: au.GetDeletedObjects(),
 		HookObjects:    au.GetAppliedHookObjects(),
