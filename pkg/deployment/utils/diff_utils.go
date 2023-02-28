@@ -22,7 +22,6 @@ type diffUtil struct {
 	IgnoreAnnotations bool
 
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	NewObjects        []*types.RefAndObject
 	ChangedObjects    []*types.ChangedObject
 	mutex             sync.Mutex
 }
@@ -62,9 +61,6 @@ func (u *diffUtil) Diff() {
 	}
 	wg.Wait()
 
-	sort.Slice(u.NewObjects, func(i, j int) bool {
-		return u.NewObjects[i].Ref.String() < u.NewObjects[j].Ref.String()
-	})
 	sort.Slice(u.ChangedObjects, func(i, j int) bool {
 		return u.ChangedObjects[i].Ref.String() < u.ChangedObjects[j].Ref.String()
 	})
@@ -72,12 +68,8 @@ func (u *diffUtil) Diff() {
 
 func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
 	if ao != nil && ro == nil {
-		u.mutex.Lock()
-		defer u.mutex.Unlock()
-		u.NewObjects = append(u.NewObjects, &types.RefAndObject{
-			Ref:    ao.GetK8sRef(),
-			Object: ao,
-		})
+		// new?
+		return
 	} else if ao == nil && ro != nil {
 		// deleted?
 		return
