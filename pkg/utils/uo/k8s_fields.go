@@ -186,6 +186,14 @@ func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[stri
 	return ret
 }
 
+func (uo *UnstructuredObject) GetK8sGeneration() int64 {
+	ret, ok, _ := uo.GetNestedInt("metadata", "generation")
+	if !ok {
+		return -1
+	}
+	return ret
+}
+
 func (uo *UnstructuredObject) GetK8sResourceVersion() string {
 	ret, _, _ := uo.GetNestedString("metadata", "resourceVersion")
 	return ret
