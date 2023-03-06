@@ -62,7 +62,7 @@ func (uo *UnstructuredObject) RemoveNestedField(keys ...interface{}) error {
 				return nil
 			}
 			l = append(l[:i], l[i+1:]...)
-			return SetChild(o, i, l)
+			return uo.SetNestedField(l, keys[0:len(keys)-1]...)
 		} else {
 			return fmt.Errorf("key is not an index")
 		}
