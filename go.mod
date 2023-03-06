@@ -36,7 +36,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.1
-	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/ssh-agent v0.3.3
 	golang.org/x/crypto v0.6.0
 	golang.org/x/net v0.6.0
@@ -61,6 +60,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.17.4
 	github.com/aws/aws-sdk-go-v2/config v1.18.12
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.18.3
+	github.com/go-git/go-git/v5 v5.5.2
 	github.com/go-logr/logr v1.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.4.0
@@ -133,7 +133,6 @@ require (
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.4.1 // indirect
-	github.com/go-git/go-git/v5 v5.5.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.20.0 // indirect

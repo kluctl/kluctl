@@ -2,7 +2,7 @@ package git_url
 
 import (
 	"fmt"
-	giturls "github.com/whilp/git-urls"
+	"github.com/kluctl/kluctl/v2/pkg/git/git-url/giturls"
 	"net/url"
 	"strings"
 )
