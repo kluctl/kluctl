@@ -68,6 +68,11 @@ func init() {
 			"ssh://host.xz/path/to/repo-with_specials.git/", "",
 		),
 		NewTest(
+			"host.xz:1234/path/to/repo-with_specials.git/",
+			"ssh", "", "host.xz:1234", "/path/to/repo-with_specials.git/",
+			"ssh://host.xz:1234/path/to/repo-with_specials.git/", "",
+		),
+		NewTest(
 			"git://host.xz/path/to/repo.git/",
 			"git", "", "host.xz", "/path/to/repo.git/",
 			"", "",

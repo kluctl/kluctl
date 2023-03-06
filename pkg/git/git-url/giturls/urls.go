@@ -32,7 +32,7 @@ import (
 
 var (
 	// scpSyntax was modified from https://golang.org/src/cmd/go/vcs.go.
-	scpSyntax = regexp.MustCompile(`^([a-zA-Z0-9_]+@)?([a-zA-Z0-9._-]+):([a-zA-Z0-9./._-]+)(?:\?||$)(.*)$`)
+	scpSyntax = regexp.MustCompile(`^([a-zA-Z0-9_]+@)?([a-zA-Z0-9._-]+):([0-9]+/)?([a-zA-Z0-9./._-]+)(?:\?||$)(.*)$`)
 
 	// Transports is a set of known Git URL schemes.
 	Transports = NewTransportSet(
@@ -101,14 +101,22 @@ func ParseScp(rawurl string) (*url.URL, error) {
 		userinfo = url.User(user)
 	}
 	rawquery := ""
-	if len(m) > 3 {
-		rawquery = m[4]
+	if len(m) > 4 {
+		rawquery = m[5]
+	}
+	host := m[2]
+	path := m[4]
+	if m[3] != "" {
+		port := strings.TrimRight(m[3], "/")
+		host = fmt.Sprintf("%s:%s", host, port)
+		// host.xyz:1234/path/ only supports absolute paths
+		path = "/" + path
 	}
 	return &url.URL{
 		Scheme:   "ssh",
 		User:     userinfo,
-		Host:     m[2],
-		Path:     m[3],
+		Host:     host,
+		Path:     path,
 		RawQuery: rawquery,
 	}, nil
 }
