@@ -5,8 +5,8 @@ import (
 	"context"
 	"github.com/fluxcd/go-git/v5/plumbing/transport/http"
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/git/git-url/giturls"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
-	giturls "github.com/whilp/git-urls"
 	"os"
 	"path/filepath"
 )
