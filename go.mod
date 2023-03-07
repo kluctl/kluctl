@@ -11,7 +11,7 @@ require (
 	github.com/docker/distribution v2.8.1+incompatible
 	// See https://github.com/fluxcd/pkg/issues/397, especially in regard to skeema/knownhosts breaking compatibility
 	github.com/fluxcd/go-git/v5 v5.0.0-20221206140629-ec778c2c37df
-	github.com/fluxcd/pkg/kustomize v0.13.1
+	github.com/fluxcd/pkg/kustomize v0.13.2
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0
@@ -47,7 +47,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.11.1
 	k8s.io/api v0.26.2
-	k8s.io/apiextensions-apiserver v0.26.1
+	k8s.io/apiextensions-apiserver v0.26.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.26.2
 	k8s.io/klog/v2 v2.90.0
@@ -67,7 +67,7 @@ require (
 	github.com/onsi/gomega v1.27.2
 	github.com/otiai10/copy v1.9.0
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
-	sigs.k8s.io/controller-runtime v0.14.4
+	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/kustomize/api v0.12.1
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -236,9 +236,9 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gotest.tools/v3 v3.2.0 // indirect
-	k8s.io/apiserver v0.26.1 // indirect
+	k8s.io/apiserver v0.26.2 // indirect
 	k8s.io/cli-runtime v0.26.0 // indirect
-	k8s.io/component-base v0.26.1 // indirect
+	k8s.io/component-base v0.26.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20230109183929-3758b55a6596 // indirect
 	k8s.io/kubectl v0.26.0 // indirect
 	k8s.io/utils v0.0.0-20221128185143-99ec85e7a448 // indirect
