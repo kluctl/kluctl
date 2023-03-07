@@ -49,7 +49,7 @@ args:
 Specifies a default discriminator template to be used for targets that don't have
 their own discriminator specified.
 
-See [target discriminator](./targets/README.md#discriminator) for details.
+See [target discriminator](./targets/#discriminator) for details.
 
 ### targets
 
