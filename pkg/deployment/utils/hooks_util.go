@@ -149,6 +149,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 			return ret
 		}
 		for _, x := range strings.Split(*a, ",") {
+			x = strings.TrimSpace(x)
 			if x != "" {
 				ret[x] = true
 			}
