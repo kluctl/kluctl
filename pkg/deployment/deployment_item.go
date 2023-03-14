@@ -2,6 +2,12 @@ package deployment
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -13,11 +19,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"io/fs"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
 )
 
 const SealmeExt = ".sealme"
@@ -47,6 +48,23 @@ type DeploymentItem struct {
 	renderedYamlPath      string
 }
 
+type DeploymentItemProjectVars struct { // info about the deployment.yml project that included this item
+	Parent  *DeploymentItemProjectVars `json:"parent,omitempty"`            // parrent project
+	DirName string                     `json:"dirName" validate:"required"` // dirname of project
+	RelPath string                     `json:"relPath" validate:"required"` // relative directory to current deployment item
+	//RelRoot string                   `json:"relRoot" validate:"required"` // relative path to the project root directory, ie: ../../..
+	AllTags *utils.OrderedMap `json:"allTags,omitempty"` // all tags, including the ones merged from the parents
+}
+type DeploymentItemVars struct {
+	DirName string                      `json:"dirName" validate:"required"` // dirname of deployment item
+	DirPath string                      `json:"dirPath" validate:"required"` // full path to deploymentItem dir
+	RelRoot string                      `json:"relRoot" validate:"required"` // relative path to the project root directory, ie: ../../../
+	RelPath string                      `json:"relPath" validate:"required"` // relative path from project root
+	Config  *types.DeploymentItemConfig `json:"config,omitempty"`            // a copy of the deployment item config found in deployment.yml
+	Project *DeploymentItemProjectVars  `json:"project,omitempty"`           // project
+	AllTags *utils.OrderedMap           `json:"allTags,omitempty"`           // all tags, including the ones merged from the parents
+}
+
 func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection *DeploymentCollection, config *types.DeploymentItemConfig, dir *string, index int) (*DeploymentItem, error) {
 	di := &DeploymentItem{
 		ctx:       ctx,
@@ -62,6 +80,8 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 
 	// collect tags
 	di.Tags = di.Project.getTags()
+
+	// append configured tags
 	di.Tags.SetMultiple(di.Config.Tags, true)
 
 	if di.dir != nil {
@@ -89,8 +109,41 @@ func NewDeploymentItem(ctx SharedContext, project *DeploymentProject, collection
 	if err != nil {
 		return nil, err
 	}
-
 	return di, nil
+}
+
+func (di *DeploymentItem) getDeploymentItemProjectVars(project *DeploymentProject) *DeploymentItemProjectVars {
+	if project == nil {
+		return nil
+	}
+	dip := &DeploymentItemProjectVars{
+		Parent:  di.getDeploymentItemProjectVars(project.parentProject),
+		RelPath: project.relDir,
+		DirName: filepath.Base(project.source.dir),
+		AllTags: &utils.OrderedMap{},
+	}
+	dip.AllTags.Merge(project.getTags())
+	return dip
+}
+func (di *DeploymentItem) getDeploymentItemVars() *DeploymentItemVars {
+	div := &DeploymentItemVars{
+		Project: di.getDeploymentItemProjectVars(di.Project),
+		Config:  di.Config,
+		RelPath: "",
+		AllTags: &utils.OrderedMap{},
+		DirName: "NOT_SET",
+	}
+
+	div.AllTags.Merge(di.Tags)
+
+	if di.dir == nil {
+		return div
+	}
+	div.DirPath = *di.dir
+	div.DirName = filepath.Base(*di.dir)
+	div.RelPath = di.RelToSourceItemDir
+	div.RelRoot = strings.Repeat("../", len(strings.Split(di.RelToSourceItemDir, "/")))
+	return div
 }
 
 func (di *DeploymentItem) getCommonLabels() map[string]string {
@@ -157,7 +210,16 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	// also add deployment item dir to search dirs
 	searchDirs = append([]string{*di.dir}, searchDirs...)
 
-	return di.VarsCtx.RenderDirectory(
+	// merge deployment item dynamic context
+	tmpVars := di.VarsCtx.Copy()
+	div := di.getDeploymentItemVars()
+	uov, err := uo.FromStruct(div)
+	if err != nil {
+		return err
+	}
+	tmpVars.Vars.MergeChild("d", uov)
+
+	return tmpVars.RenderDirectory(
 		filepath.Join(di.Project.source.dir, di.RelToSourceItemDir),
 		di.RenderedDir,
 		excludePatterns,
