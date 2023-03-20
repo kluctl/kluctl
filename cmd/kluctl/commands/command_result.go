@@ -212,7 +212,19 @@ func outputCommandResult(ctx context.Context, flags args.OutputFormatFlags, cr *
 	if !flags.NoObfuscate {
 		var obfuscator diff.Obfuscator
 		for _, c := range cr.ChangedObjects {
-			err := obfuscator.Obfuscate(c.Ref, c.Changes)
+			err := obfuscator.ObfuscateChanges(c.Ref, c.Changes)
+			if err != nil {
+				return err
+			}
+		}
+		for _, n := range cr.NewObjects {
+			err := obfuscator.ObfuscateObject(n.Object)
+			if err != nil {
+				return err
+			}
+		}
+		for _, h := range cr.HookObjects {
+			err := obfuscator.ObfuscateObject(h.Object)
 			if err != nil {
 				return err
 			}
