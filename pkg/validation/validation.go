@@ -3,7 +3,7 @@ package validation
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +45,7 @@ const (
 	reactNotReady
 )
 
-func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret types.ValidateResult) {
+func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret result.ValidateResult) {
 	ref := o.GetK8sRef()
 
 	// We assume all is good in case no validation is performed
@@ -61,17 +61,17 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 				// all good
 			} else if e, ok := r.(error); ok {
 				err := fmt.Errorf("panic in ValidateObject: %w", e)
-				ret.Errors = append(ret.Errors, types.DeploymentError{Ref: ref, Error: err.Error()})
+				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Error: err.Error()})
 			} else {
 				err := fmt.Errorf("panic in ValidateObject: %v", e)
-				ret.Errors = append(ret.Errors, types.DeploymentError{Ref: ref, Error: err.Error()})
+				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Error: err.Error()})
 			}
 			ret.Ready = false
 		}
 	}()
 
 	for k, v := range o.GetK8sAnnotationsWithRegex(resultAnnotation) {
-		ret.Results = append(ret.Results, types.ValidateResultEntry{
+		ret.Results = append(ret.Results, result.ValidateResultEntry{
 			Ref:        ref,
 			Annotation: k,
 			Message:    v,
@@ -79,14 +79,14 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 	}
 
 	addError := func(message string) {
-		ret.Errors = append(ret.Errors, types.DeploymentError{
+		ret.Errors = append(ret.Errors, result.DeploymentError{
 			Ref:   ref,
 			Error: message,
 		})
 		ret.Ready = false
 	}
 	addWarning := func(message string) {
-		ret.Warnings = append(ret.Warnings, types.DeploymentError{
+		ret.Warnings = append(ret.Warnings, result.DeploymentError{
 			Ref:   ref,
 			Error: message,
 		})

@@ -5,8 +5,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
 )
 
@@ -28,9 +28,9 @@ func NewValidateCommand(ctx context.Context, discriminator string, c *deployment
 	return cmd
 }
 
-func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.ValidateResult, error) {
-	var result types.ValidateResult
-	result.Ready = true
+func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.ValidateResult, error) {
+	var r result.ValidateResult
+	r.Ready = true
 
 	cmd.dew.Init()
 
@@ -53,23 +53,23 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.
 
 			remoteObject := cmd.ru.GetRemoteObject(ref)
 			if remoteObject == nil {
-				result.Errors = append(result.Errors, types.DeploymentError{Ref: ref, Error: "object not found"})
+				r.Errors = append(r.Errors, result.DeploymentError{Ref: ref, Error: "object not found"})
 				continue
 			}
 			r := validation.ValidateObject(k, remoteObject, true, false)
 			if !r.Ready {
-				result.Ready = false
+				r.Ready = false
 			}
-			result.Errors = append(result.Errors, r.Errors...)
-			result.Warnings = append(result.Warnings, r.Warnings...)
-			result.Results = append(result.Results, r.Results...)
+			r.Errors = append(r.Errors, r.Errors...)
+			r.Warnings = append(r.Warnings, r.Warnings...)
+			r.Results = append(r.Results, r.Results...)
 		}
 	}
 
-	result.Warnings = append(result.Warnings, cmd.dew.GetWarningsList()...)
-	result.Errors = append(result.Errors, cmd.dew.GetErrorsList()...)
+	r.Warnings = append(r.Warnings, cmd.dew.GetWarningsList()...)
+	r.Errors = append(r.Errors, cmd.dew.GetErrorsList()...)
 
-	return &result, nil
+	return &r, nil
 }
 
 func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {

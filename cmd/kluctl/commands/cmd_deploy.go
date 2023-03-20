@@ -6,7 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type deployCmd struct {
@@ -63,7 +63,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	cmd2.ReadinessTimeout = cmd.ReadinessTimeout
 	cmd2.NoWait = cmd.NoWait
 
-	cb := func(diffResult *types.CommandResult) error {
+	cb := func(diffResult *result.CommandResult) error {
 		return cmd.diffResultCb(cmdCtx.ctx, diffResult)
 	}
 	if cmd.Yes || cmd.DryRun {
@@ -84,7 +84,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	return nil
 }
 
-func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *types.CommandResult) error {
+func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *result.CommandResult) error {
 	flags := cmd.OutputFormatFlags
 	flags.OutputFormat = nil // use default output format
 

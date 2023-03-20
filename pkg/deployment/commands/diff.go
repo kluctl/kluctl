@@ -7,8 +7,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type DiffCommand struct {
@@ -30,7 +30,7 @@ func NewDiffCommand(discriminator string, c *deployment.DeploymentCollection) *D
 	}
 }
 
-func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.CommandResult, error) {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
 	if cmd.discriminator == "" {
@@ -65,7 +65,7 @@ func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.Comm
 	if err != nil {
 		return nil, err
 	}
-	return &types.CommandResult{
+	return &result.CommandResult{
 		NewObjects:     au.GetNewObjects(),
 		ChangedObjects: du.ChangedObjects,
 		DeletedObjects: au.GetDeletedObjects(),

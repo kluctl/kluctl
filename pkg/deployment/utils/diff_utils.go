@@ -5,6 +5,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sort"
 	"sync"
@@ -22,7 +23,7 @@ type diffUtil struct {
 	IgnoreAnnotations bool
 
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	ChangedObjects    []*types.ChangedObject
+	ChangedObjects    []*result.ChangedObject
 	mutex             sync.Mutex
 }
 
@@ -98,7 +99,7 @@ func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
-		u.ChangedObjects = append(u.ChangedObjects, &types.ChangedObject{
+		u.ChangedObjects = append(u.ChangedObjects, &result.ChangedObject{
 			Ref:       diffRef,
 			NewObject: ao,
 			OldObject: ro,

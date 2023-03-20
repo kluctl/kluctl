@@ -7,8 +7,8 @@ import (
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"time"
 )
 
@@ -31,7 +31,7 @@ func NewDeployCommand(discriminator string, c *deployment.DeploymentCollection) 
 	}
 }
 
-func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *types.CommandResult) error) (*types.CommandResult, error) {
+func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *result.CommandResult) error) (*result.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	if cmd.discriminator == "" {
@@ -64,7 +64,7 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 		du.Diff()
 
 		orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
-		diffResult := &types.CommandResult{
+		diffResult := &result.CommandResult{
 			NewObjects:     au.GetNewObjects(),
 			ChangedObjects: du.ChangedObjects,
 			DeletedObjects: au.GetDeletedObjects(),
@@ -98,7 +98,7 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	if err != nil {
 		return nil, err
 	}
-	return &types.CommandResult{
+	return &result.CommandResult{
 		NewObjects:     au.GetNewObjects(),
 		ChangedObjects: du.ChangedObjects,
 		DeletedObjects: au.GetDeletedObjects(),

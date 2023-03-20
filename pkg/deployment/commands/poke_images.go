@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sync"
 )
@@ -22,7 +23,7 @@ func NewPokeImagesCommand(c *deployment.DeploymentCollection) *PokeImagesCommand
 	}
 }
 
-func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.CommandResult, error) {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
@@ -94,7 +95,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, ad.GetAppliedObjectsMap())
 	du.Diff()
 
-	return &types.CommandResult{
+	return &result.CommandResult{
 		NewObjects:     nil,
 		ChangedObjects: du.ChangedObjects,
 		Errors:         dew.GetErrorsList(),

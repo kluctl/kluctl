@@ -5,7 +5,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	diff2 "github.com/r3labs/diff/v2"
@@ -38,7 +38,7 @@ func convertPath(path []string, o interface{}) (string, error) {
 	return ret.ToJsonPath(), nil
 }
 
-func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([]types.Change, error) {
+func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([]result.Change, error) {
 	differ, err := diff2.NewDiffer(diff2.AllowTypeMismatch(true))
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([
 		return nil, err
 	}
 
-	var changes []types.Change
+	var changes []result.Change
 	for _, c := range cl {
 		c2, err := convertChange(c, oldObject, newObject)
 		if err != nil {
@@ -66,14 +66,14 @@ func Diff(oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) ([
 	return changes, nil
 }
 
-func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) (*types.Change, error) {
+func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *uo.UnstructuredObject) (*result.Change, error) {
 	switch c.Type {
 	case "create":
 		p, err := convertPath(c.Path, newObject.Object)
 		if err != nil {
 			return nil, err
 		}
-		return &types.Change{
+		return &result.Change{
 			Type:     "insert",
 			JsonPath: p,
 			NewValue: c.To,
@@ -83,7 +83,7 @@ func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *
 		if err != nil {
 			return nil, err
 		}
-		return &types.Change{
+		return &result.Change{
 			Type:     "delete",
 			JsonPath: p,
 			OldValue: c.From,
@@ -93,7 +93,7 @@ func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *
 		if err != nil {
 			return nil, err
 		}
-		return &types.Change{
+		return &result.Change{
 			Type:     "update",
 			JsonPath: p,
 			NewValue: c.To,
@@ -103,7 +103,7 @@ func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *
 	return nil, fmt.Errorf("unknown change type %s", c.Type)
 }
 
-func updateUnifiedDiff(change *types.Change) error {
+func updateUnifiedDiff(change *result.Change) error {
 	switch change.Type {
 	case "insert":
 		ud, err := buildUnifiedDiff(notPresent, change.NewValue, false)
@@ -133,7 +133,7 @@ func updateUnifiedDiff(change *types.Change) error {
 	return nil
 }
 
-func stableSortChanges(changes []types.Change) {
+func stableSortChanges(changes []result.Change) {
 	changesStrs := make([]string, len(changes))
 	changesIndexes := make([]int, len(changes))
 	for i, _ := range changes {
@@ -149,7 +149,7 @@ func stableSortChanges(changes []types.Change) {
 		return changesStrs[changesIndexes[i]] < changesStrs[changesIndexes[j]]
 	})
 
-	changesSorted := make([]types.Change, len(changes))
+	changesSorted := make([]result.Change, len(changes))
 	for i, _ := range changes {
 		changesSorted[i] = changes[changesIndexes[i]]
 	}

@@ -2,8 +2,8 @@ package diff
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/ohler55/ojg/jp"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
@@ -14,7 +14,7 @@ var secretGvk = schema.GroupKind{Group: "", Kind: "Secret"}
 type Obfuscator struct {
 }
 
-func (o *Obfuscator) Obfuscate(ref k8s.ObjectRef, changes []types.Change) error {
+func (o *Obfuscator) Obfuscate(ref k8s.ObjectRef, changes []result.Change) error {
 	if ref.GVK.GroupKind() == secretGvk {
 		err := o.obfuscateSecret(ref, changes)
 		if err != nil {
@@ -24,7 +24,7 @@ func (o *Obfuscator) Obfuscate(ref k8s.ObjectRef, changes []types.Change) error 
 	return nil
 }
 
-func (o *Obfuscator) obfuscateSecret(ref k8s.ObjectRef, changes []types.Change) error {
+func (o *Obfuscator) obfuscateSecret(ref k8s.ObjectRef, changes []result.Change) error {
 	replaceValues := func(x any, v string) any {
 		if x == nil {
 			return nil

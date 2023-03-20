@@ -8,8 +8,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type deleteCmd struct {
@@ -72,7 +72,7 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 	})
 }
 
-func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
+func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*result.CommandResult, error) {
 	if len(refs) != 0 {
 		_, _ = getStderr(ctx).WriteString("The following objects will be deleted:\n")
 		for _, ref := range refs {
