@@ -16,6 +16,28 @@ var secretGk = schema.GroupKind{Group: "", Kind: "Secret"}
 type Obfuscator struct {
 }
 
+func (o *Obfuscator) ObfuscateResult(r *result.CommandResult) error {
+	for _, c := range r.ChangedObjects {
+		err := o.ObfuscateChanges(c.Ref, c.Changes)
+		if err != nil {
+			return err
+		}
+	}
+	for _, n := range r.NewObjects {
+		err := o.ObfuscateObject(n.Object)
+		if err != nil {
+			return err
+		}
+	}
+	for _, h := range r.HookObjects {
+		err := o.ObfuscateObject(h.Object)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (o *Obfuscator) ObfuscateChanges(ref k8s.ObjectRef, changes []result.Change) error {
 	if ref.GVK.GroupKind() == secretGk {
 		err := o.obfuscateSecretChanges(ref, changes)
