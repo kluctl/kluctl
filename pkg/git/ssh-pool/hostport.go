@@ -2,7 +2,7 @@ package ssh_pool
 
 import (
 	"fmt"
-	"github.com/fluxcd/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"strconv"
 )
 

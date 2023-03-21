@@ -2,8 +2,8 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/fluxcd/go-git/v5"
-	"github.com/fluxcd/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"

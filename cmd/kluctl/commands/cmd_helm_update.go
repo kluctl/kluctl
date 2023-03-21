@@ -3,8 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/fluxcd/go-git/v5/plumbing/format/index"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"

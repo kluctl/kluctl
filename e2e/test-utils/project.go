@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/fluxcd/go-git/v5"
+	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
