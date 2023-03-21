@@ -9,8 +9,6 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.19.5
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
-	// See https://github.com/fluxcd/pkg/issues/397, especially in regard to skeema/knownhosts breaking compatibility
-	github.com/fluxcd/go-git/v5 v5.0.0-20221206140629-ec778c2c37df
 	github.com/fluxcd/pkg/kustomize v0.13.2
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/gobwas/glob v0.2.3 // indirect

@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/fluxcd/go-git/v5"
+	"github.com/go-git/go-git/v5"
 	"github.com/jinzhu/copier"
 	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
 	"gopkg.in/yaml.v3"

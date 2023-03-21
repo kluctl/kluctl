@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth/goph"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"net"
 	"os"
 	"path/filepath"
@@ -70,6 +72,24 @@ func verifyHost(messageCallbacks messages.MessageCallbacks, host string, remote 
 			return err
 		}
 		files = append(files, tmpFile.Name())
+	}
+
+	if key.Type() == "fake-public-key" {
+		// this makes us compatible to knownhosts.HostKeyAlgorithms which calls us with a fake public key and expects us
+		// to return all known keys
+		var keyErr knownhosts.KeyError
+		for _, f := range files {
+			hostFound, err := goph.CheckKnownHost(host, remote, key, f)
+			if hostFound && err == nil {
+				return fmt.Errorf("fake-public-key was unexpectadly found")
+			}
+			var tmpKeyErr *knownhosts.KeyError
+			if !errors.As(err, &tmpKeyErr) {
+				return fmt.Errorf("CheckKnownHost did not return expected KeyError: %v", err)
+			}
+			keyErr.Want = append(keyErr.Want, tmpKeyErr.Want...)
+		}
+		return &keyErr
 	}
 
 	for _, f := range files {
