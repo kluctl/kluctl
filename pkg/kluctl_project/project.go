@@ -12,7 +12,7 @@ import (
 type LoadedKluctlProject struct {
 	ctx context.Context
 
-	loadArgs LoadKluctlProjectArgs
+	LoadArgs LoadKluctlProjectArgs
 
 	TmpDir string
 

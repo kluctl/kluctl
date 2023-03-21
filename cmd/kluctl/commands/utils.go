@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
 	"strings"
 
@@ -202,6 +203,50 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	return cb(cmdCtx)
+}
+
+func addCommandInfo(r *result.CommandResult, command string, ctx *commandCtx, targetFlags *args.TargetFlags,
+	imageFlags *args.ImageFlags, inclusionFlags *args.InclusionFlags,
+	dryRunFlags *args.DryRunFlags, forceApplyFlags *args.ForceApplyFlags, replaceOnErrorFlags *args.ReplaceOnErrorFlags, abortOnErrorFlags *args.AbortOnErrorFlags, noWait bool) error {
+	r.Command = &result.CommandInfo{
+		Initiator: result.CommandInititiator_CommandLine,
+		Command:   command,
+		Target:    ctx.targetCtx.Target,
+		Args:      ctx.targetCtx.KluctlProject.LoadArgs.ExternalArgs,
+		NoWait:    noWait,
+	}
+	if targetFlags != nil {
+		r.Command.TargetNameOverride = targetFlags.TargetNameOverride
+		r.Command.ContextOverride = targetFlags.Context
+	}
+	if imageFlags != nil {
+		var err error
+		r.Command.Images, err = imageFlags.LoadFixedImagesFromArgs()
+		if err != nil {
+			return err
+		}
+	}
+	if inclusionFlags != nil {
+		r.Command.IncludeTags = inclusionFlags.IncludeTag
+		r.Command.ExcludeTags = inclusionFlags.ExcludeTag
+		r.Command.IncludeDeploymentDirs = inclusionFlags.IncludeDeploymentDir
+		r.Command.ExcludeDeploymentDirs = inclusionFlags.ExcludeDeploymentDir
+	}
+	if dryRunFlags != nil {
+		r.Command.DryRun = dryRunFlags.DryRun
+	}
+	if forceApplyFlags != nil {
+		r.Command.ForceApply = forceApplyFlags.ForceApply
+	}
+	if replaceOnErrorFlags != nil {
+		r.Command.ReplaceOnError = replaceOnErrorFlags.ReplaceOnError
+		r.Command.ForceReplaceOnError = replaceOnErrorFlags.ForceReplaceOnError
+	}
+	if abortOnErrorFlags != nil {
+		r.Command.AbortOnError = abortOnErrorFlags.AbortOnError
+	}
+	r.Deployment = &ctx.targetCtx.DeploymentProject.Config
+	return nil
 }
 
 func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {

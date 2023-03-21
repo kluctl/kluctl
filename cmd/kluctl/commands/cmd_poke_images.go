@@ -51,6 +51,10 @@ func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		err = addCommandInfo(result, "poke-images", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
+		if err != nil {
+			return err
+		}
 		err = outputCommandResult(ctx, cmd.OutputFormatFlags, result)
 		if err != nil {
 			return err

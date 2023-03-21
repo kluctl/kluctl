@@ -74,6 +74,10 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	if err != nil {
 		return err
 	}
+	err = addCommandInfo(result, "deploy", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, &cmd.ForceApplyFlags, &cmd.ReplaceOnErrorFlags, &cmd.AbortOnErrorFlags, cmd.NoWait)
+	if err != nil {
+		return err
+	}
 	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
 	if err != nil {
 		return err

@@ -54,6 +54,10 @@ func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
 	if err != nil {
 		return err
 	}
+	err = addCommandInfo(result, "prune", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
+	if err != nil {
+		return err
+	}
 	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
 	if err != nil {
 		return err

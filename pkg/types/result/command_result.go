@@ -31,7 +31,45 @@ type DeploymentError struct {
 	Error string        `json:"error"`
 }
 
+type KluctlDeploymentInfo struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	GitUrl    string `json:"gitUrl"`
+	GitRef    string `json:"gitRef"`
+}
+
+type CommandInitiator string
+
+const (
+	CommandInititiator_CommandLine      CommandInitiator = "CommandLine"
+	CommandInititiator_KluctlDeployment                  = "KluctlDeployment"
+)
+
+type CommandInfo struct {
+	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
+	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
+	Command               string                 `json:"command,omitempty"`
+	Target                *types.Target          `json:"target,omitempty"`
+	TargetNameOverride    string                 `json:"targetNameOverride,omitempty"`
+	ContextOverride       string                 `json:"contextOverride,omitempty"`
+	Args                  *uo.UnstructuredObject `json:"args,omitempty"`
+	Images                []types.FixedImage     `json:"images,omitempty"`
+	DryRun                bool                   `json:"dryRun,omitempty"`
+	NoWait                bool                   `json:"noWait,omitempty"`
+	ForceApply            bool                   `json:"forceApply,omitempty"`
+	ReplaceOnError        bool                   `json:"replaceOnError,omitempty"`
+	ForceReplaceOnError   bool                   `json:"forceReplaceOnError,omitempty"`
+	AbortOnError          bool                   `json:"abortOnError,omitempty"`
+	IncludeTags           []string               `json:"includeTags,omitempty"`
+	ExcludeTags           []string               `json:"excludeTags,omitempty"`
+	IncludeDeploymentDirs []string               `json:"includeDeploymentDirs,omitempty"`
+	ExcludeDeploymentDirs []string               `json:"excludeDeploymentDirs,omitempty"`
+}
+
 type CommandResult struct {
+	Command    *CommandInfo                   `json:"command,omitempty"`
+	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
+
 	NewObjects     []*RefAndObject    `json:"newObjects,omitempty"`
 	ChangedObjects []*ChangedObject   `json:"changedObjects,omitempty"`
 	HookObjects    []*RefAndObject    `json:"hookObjects,omitempty"`
