@@ -24,13 +24,13 @@ func (o *Obfuscator) ObfuscateResult(r *result.CommandResult) error {
 		}
 	}
 	for _, n := range r.NewObjects {
-		err := o.ObfuscateObject(n.Object)
+		err := o.ObfuscateObject(n)
 		if err != nil {
 			return err
 		}
 	}
 	for _, h := range r.HookObjects {
-		err := o.ObfuscateObject(h.Object)
+		err := o.ObfuscateObject(h)
 		if err != nil {
 			return err
 		}

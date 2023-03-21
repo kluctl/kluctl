@@ -19,11 +19,6 @@ type ChangedObject struct {
 	Changes []Change      `json:"changes,omitempty"`
 }
 
-type RefAndObject struct {
-	Ref    k8s.ObjectRef          `json:"ref"`
-	Object *uo.UnstructuredObject `json:"object,omitempty"`
-}
-
 type DeploymentError struct {
 	Ref   k8s.ObjectRef `json:"ref"`
 	Error string        `json:"error"`
@@ -68,14 +63,14 @@ type CommandResult struct {
 	Command    *CommandInfo                   `json:"command,omitempty"`
 	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
-	NewObjects     []*RefAndObject    `json:"newObjects,omitempty"`
-	ChangedObjects []*ChangedObject   `json:"changedObjects,omitempty"`
-	HookObjects    []*RefAndObject    `json:"hookObjects,omitempty"`
-	OrphanObjects  []k8s.ObjectRef    `json:"orphanObjects,omitempty"`
-	DeletedObjects []k8s.ObjectRef    `json:"deletedObjects,omitempty"`
-	Errors         []DeploymentError  `json:"errors,omitempty"`
-	Warnings       []DeploymentError  `json:"warnings,omitempty"`
-	SeenImages     []types.FixedImage `json:"seenImages,omitempty"`
+	NewObjects     []*uo.UnstructuredObject `json:"newObjects,omitempty"`
+	ChangedObjects []*ChangedObject         `json:"changedObjects,omitempty"`
+	HookObjects    []*uo.UnstructuredObject `json:"hookObjects,omitempty"`
+	OrphanObjects  []k8s.ObjectRef          `json:"orphanObjects,omitempty"`
+	DeletedObjects []k8s.ObjectRef          `json:"deletedObjects,omitempty"`
+	Errors         []DeploymentError        `json:"errors,omitempty"`
+	Warnings       []DeploymentError        `json:"warnings,omitempty"`
+	SeenImages     []types.FixedImage       `json:"seenImages,omitempty"`
 }
 
 type ValidateResultEntry struct {

@@ -9,7 +9,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
@@ -754,29 +753,26 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 	a.HandleError(ref, fmt.Errorf("unexpected end of loop"))
 }
 
-func (ad *ApplyDeploymentsUtil) collectObjects(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []*result.RefAndObject {
+func (ad *ApplyDeploymentsUtil) collectObjects(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []*uo.UnstructuredObject {
 	ad.resultsMutex.Lock()
 	defer ad.resultsMutex.Unlock()
 
-	var ret []*result.RefAndObject
+	var ret []*uo.UnstructuredObject
 	for _, a := range ad.results {
 		for _, o := range f(a) {
-			ret = append(ret, &result.RefAndObject{
-				Ref:    o.GetK8sRef(),
-				Object: o,
-			})
+			ret = append(ret, o)
 		}
 	}
 	return ret
 }
 
-func (ad *ApplyDeploymentsUtil) GetNewObjects() []*result.RefAndObject {
+func (ad *ApplyDeploymentsUtil) GetNewObjects() []*uo.UnstructuredObject {
 	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.newObjects
 	})
 }
 
-func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*result.RefAndObject {
+func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*uo.UnstructuredObject {
 	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.appliedObjects
 	})
@@ -784,13 +780,13 @@ func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*result.RefAndObject {
 
 func (ad *ApplyDeploymentsUtil) GetAppliedObjectsMap() map[k8s2.ObjectRef]*uo.UnstructuredObject {
 	ret := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	for _, ro := range ad.GetAppliedObjects() {
-		ret[ro.Ref] = ro.Object
+	for _, o := range ad.GetAppliedObjects() {
+		ret[o.GetK8sRef()] = o
 	}
 	return ret
 }
 
-func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*result.RefAndObject {
+func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*uo.UnstructuredObject {
 	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.appliedHookObjects
 	})
