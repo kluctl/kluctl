@@ -100,10 +100,8 @@ func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
 		u.ChangedObjects = append(u.ChangedObjects, &result.ChangedObject{
-			Ref:       diffRef,
-			NewObject: ao,
-			OldObject: ro,
-			Changes:   changes,
+			Ref:     diffRef,
+			Changes: changes,
 		})
 	}
 }

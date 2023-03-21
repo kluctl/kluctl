@@ -15,10 +15,8 @@ type Change struct {
 }
 
 type ChangedObject struct {
-	Ref       k8s.ObjectRef          `json:"ref"`
-	NewObject *uo.UnstructuredObject `json:"newObject,omitempty"`
-	OldObject *uo.UnstructuredObject `json:"oldObject,omitempty"`
-	Changes   []Change               `json:"changes,omitempty"`
+	Ref     k8s.ObjectRef `json:"ref"`
+	Changes []Change      `json:"changes,omitempty"`
 }
 
 type RefAndObject struct {
