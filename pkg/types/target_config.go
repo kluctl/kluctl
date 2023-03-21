@@ -2,7 +2,6 @@ package types
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
 type FixedImage struct {
@@ -19,9 +18,4 @@ type FixedImage struct {
 
 type FixedImagesConfig struct {
 	Images []FixedImage `yaml:"images,omitempty"`
-}
-
-type TargetConfig struct {
-	FixedImagesConfig `yaml:"fixed_images_config,inline"`
-	Args              *uo.UnstructuredObject `yaml:"args,omitempty"`
 }
