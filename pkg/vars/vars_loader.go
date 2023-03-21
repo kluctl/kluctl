@@ -63,6 +63,10 @@ func (v *VarsLoader) LoadVarsList(varsCtx *VarsCtx, varsList []*types.VarsSource
 }
 
 func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, searchDirs []string, rootKey string) error {
+	if sourceIn.RenderedVars != nil && len(sourceIn.RenderedVars.Object) != 0 {
+		return fmt.Errorf("renderedVars is not allowed here")
+	}
+
 	var source types.VarsSource
 	err := utils.DeepCopy(&source, sourceIn)
 	if err != nil {
@@ -124,6 +128,8 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	if err != nil {
 		return err
 	}
+
+	sourceIn.RenderedVars = newVars.Clone()
 
 	if source.NoOverride == nil || !*source.NoOverride {
 		varsCtx.Vars.Merge(newVars)

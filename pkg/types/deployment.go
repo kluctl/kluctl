@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"github.com/go-playground/validator/v10"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
@@ -19,6 +20,11 @@ type DeploymentItemConfig struct {
 	AlwaysDeploy     bool                     `json:"alwaysDeploy,omitempty"`
 	DeleteObjects    []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
 	When             string                   `json:"when,omitempty"`
+
+	// these are only allowed when writing the command result
+	RenderedHelmChartConfig *HelmChartConfig         `json:"renderedHelmChartConfig,omitempty"`
+	RenderedObjects         []*uo.UnstructuredObject `json:"renderedObjects,omitempty"`
+	RenderedInclude         *DeploymentProjectConfig `json:"renderedInclude,omitempty"`
 }
 
 func ValidateDeploymentItemConfig(sl validator.StructLevel) {

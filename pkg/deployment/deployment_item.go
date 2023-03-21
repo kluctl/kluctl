@@ -225,6 +225,8 @@ func (di *DeploymentItem) renderHelmCharts() error {
 			}
 		}
 
+		di.Config.RenderedHelmChartConfig = hr.Config
+
 		return hr.Render(di.ctx.Ctx, di.ctx.K, di.ctx.K8sVersion, di.ctx.SopsDecrypter)
 	})
 	if err != nil {
@@ -533,6 +535,7 @@ func (di *DeploymentItem) buildKustomize() error {
 		}
 		o := uo.FromMap(y)
 		di.Objects = append(di.Objects, o)
+		di.Config.RenderedObjects = append(di.Config.RenderedObjects, o)
 	}
 
 	return nil

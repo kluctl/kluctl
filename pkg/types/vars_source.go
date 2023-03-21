@@ -69,6 +69,9 @@ type VarsSource struct {
 	Vault             *VarsSourceVault                    `json:"vault,omitempty"`
 
 	When string `json:"when,omitempty"`
+
+	// these are only allowed when writing the command result
+	RenderedVars *uo.UnstructuredObject `json:"renderedVars,omitempty"`
 }
 
 func ValidateVarsSource(sl validator.StructLevel) {

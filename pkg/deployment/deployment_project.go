@@ -108,6 +108,18 @@ func (p *DeploymentProject) generateSingleKustomizeProject() error {
 }
 
 func (p *DeploymentProject) processConfig() error {
+	for _, item := range p.Config.Deployments {
+		if len(item.RenderedObjects) != 0 {
+			return fmt.Errorf("renderedObjects is not allowed here")
+		}
+		if item.RenderedHelmChartConfig != nil {
+			return fmt.Errorf("renderedHelmChartConfig is not allowed here")
+		}
+		if item.RenderedInclude != nil {
+			return fmt.Errorf("renderedInclude is not allowed here")
+		}
+	}
+
 	err := p.loadVarsList(p.VarsCtx, p.Config.Vars)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
@@ -228,6 +240,7 @@ func (p *DeploymentProject) loadIncludes() error {
 		} else {
 			continue
 		}
+		inc.RenderedInclude = &newProject.Config
 		newProject.parentProjectInclude = inc
 		p.includes[i] = newProject
 	}
