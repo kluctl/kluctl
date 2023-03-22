@@ -141,7 +141,7 @@ func setupProfiling(cpuProfile string) error {
 }
 
 type VersionCheckState struct {
-	LastVersionCheck time.Time `yaml:"lastVersionCheck"`
+	LastVersionCheck time.Time `json:"lastVersionCheck"`
 }
 
 func checkNewVersion(ctx context.Context) {

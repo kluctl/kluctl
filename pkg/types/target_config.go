@@ -5,17 +5,17 @@ import (
 )
 
 type FixedImage struct {
-	Image         string         `yaml:"image" validate:"required"`
-	ResultImage   string         `yaml:"resultImage" validate:"required"`
-	DeployedImage *string        `yaml:"deployedImage,omitempty"`
-	Namespace     *string        `yaml:"namespace,omitempty"`
-	Object        *k8s.ObjectRef `yaml:"object,omitempty"`
-	Deployment    *string        `yaml:"deployment,omitempty"`
-	Container     *string        `yaml:"container,omitempty"`
-	DeployTags    []string       `yaml:"deployTags,omitempty"`
-	DeploymentDir *string        `yaml:"deploymentDir,omitempty"`
+	Image         string         `json:"image" validate:"required"`
+	ResultImage   string         `json:"resultImage" validate:"required"`
+	DeployedImage *string        `json:"deployedImage,omitempty"`
+	Namespace     *string        `json:"namespace,omitempty"`
+	Object        *k8s.ObjectRef `json:"object,omitempty"`
+	Deployment    *string        `json:"deployment,omitempty"`
+	Container     *string        `json:"container,omitempty"`
+	DeployTags    []string       `json:"deployTags,omitempty"`
+	DeploymentDir *string        `json:"deploymentDir,omitempty"`
 }
 
 type FixedImagesConfig struct {
-	Images []FixedImage `yaml:"images,omitempty"`
+	Images []FixedImage `json:"images,omitempty"`
 }

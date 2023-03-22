@@ -1,6 +1,7 @@
 package git_url
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/git-url/giturls"
 	"net/url"
@@ -19,9 +20,9 @@ func Parse(u string) (*GitUrl, error) {
 	return &GitUrl{*u2}, nil
 }
 
-func (u *GitUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (u *GitUrl) UnmarshalJSON(b []byte) error {
 	var s string
-	err := unmarshal(&s)
+	err := json.Unmarshal(b, &s)
 	if err != nil {
 		return err
 	}
@@ -33,8 +34,8 @@ func (u *GitUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-func (u GitUrl) MarshalYAML() (interface{}, error) {
-	return u.String(), nil
+func (u GitUrl) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u.String())
 }
 
 func (u *GitUrl) IsSsh() bool {

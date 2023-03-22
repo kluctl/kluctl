@@ -52,10 +52,12 @@ func TestVarsCtxStruct(t *testing.T) {
 
 	s := struct {
 		Test1 struct {
-			Test2 int
-		}
+			Test2 int `json:"test2"`
+		} `json:"test1"`
 	}{
-		Test1: struct{ Test2 int }{Test2: 42},
+		Test1: struct {
+			Test2 int `json:"test2"`
+		}{Test2: 42},
 	}
 
 	err := varsCtx.UpdateChildFromStruct("child", s)

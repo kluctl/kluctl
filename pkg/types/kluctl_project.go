@@ -5,44 +5,44 @@ import (
 )
 
 type SealingConfig struct {
-	Args       *uo.UnstructuredObject `yaml:"args,omitempty"`
-	SecretSets []string               `yaml:"secretSets,omitempty"`
-	CertFile   *string                `yaml:"certFile,omitempty"`
+	Args       *uo.UnstructuredObject `json:"args,omitempty"`
+	SecretSets []string               `json:"secretSets,omitempty"`
+	CertFile   *string                `json:"certFile,omitempty"`
 }
 
 type Target struct {
-	Name          string                 `yaml:"name" validate:"required"`
-	Context       *string                `yaml:"context,omitempty"`
-	Args          *uo.UnstructuredObject `yaml:"args,omitempty"`
-	SealingConfig *SealingConfig         `yaml:"sealingConfig,omitempty"`
-	Images        []FixedImage           `yaml:"images,omitempty"`
-	Discriminator string                 `yaml:"discriminator,omitempty"`
+	Name          string                 `json:"name" validate:"required"`
+	Context       *string                `json:"context,omitempty"`
+	Args          *uo.UnstructuredObject `json:"args,omitempty"`
+	SealingConfig *SealingConfig         `json:"sealingConfig,omitempty"`
+	Images        []FixedImage           `json:"images,omitempty"`
+	Discriminator string                 `json:"discriminator,omitempty"`
 }
 
 type DeploymentArg struct {
-	Name    string      `yaml:"name" validate:"required"`
-	Default interface{} `yaml:"default,omitempty"`
+	Name    string      `json:"name" validate:"required"`
+	Default interface{} `json:"default,omitempty"`
 }
 
 type SecretSet struct {
-	Name string        `yaml:"name" validate:"required"`
-	Vars []*VarsSource `yaml:"vars,omitempty"`
+	Name string        `json:"name" validate:"required"`
+	Vars []*VarsSource `json:"vars,omitempty"`
 }
 
 type GlobalSealedSecretsConfig struct {
-	Bootstrap      *bool   `yaml:"bootstrap,omitempty"`
-	Namespace      *string `yaml:"namespace,omitempty"`
-	ControllerName *string `yaml:"controllerName,omitempty"`
+	Bootstrap      *bool   `json:"bootstrap,omitempty"`
+	Namespace      *string `json:"namespace,omitempty"`
+	ControllerName *string `json:"controllerName,omitempty"`
 }
 
 type SecretsConfig struct {
-	SealedSecrets *GlobalSealedSecretsConfig `yaml:"sealedSecrets,omitempty"`
-	SecretSets    []SecretSet                `yaml:"secretSets,omitempty"`
+	SealedSecrets *GlobalSealedSecretsConfig `json:"sealedSecrets,omitempty"`
+	SecretSets    []SecretSet                `json:"secretSets,omitempty"`
 }
 
 type KluctlProject struct {
-	Targets       []*Target        `yaml:"targets,omitempty"`
-	Args          []*DeploymentArg `yaml:"args,omitempty"`
-	SecretsConfig *SecretsConfig   `yaml:"secretsConfig,omitempty"`
-	Discriminator string           `yaml:"discriminator,omitempty"`
+	Targets       []*Target        `json:"targets,omitempty"`
+	Args          []*DeploymentArg `json:"args,omitempty"`
+	SecretsConfig *SecretsConfig   `json:"secretsConfig,omitempty"`
+	Discriminator string           `json:"discriminator,omitempty"`
 }

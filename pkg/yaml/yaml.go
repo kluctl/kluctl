@@ -9,40 +9,13 @@ import (
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 	yaml2 "gopkg.in/yaml.v2"
-	yaml3 "gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sigs.k8s.io/yaml"
 	"strings"
 )
-
-type Decoder interface {
-	Decode(v interface{}) error
-}
-
-type decoderWrapper struct {
-	d *yaml3.Decoder
-}
-
-func (w *decoderWrapper) Decode(v interface{}) error {
-	err := w.d.Decode(v)
-	if err != nil {
-		return err
-	}
-
-	err = ValidateStructs(v)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func newDecoder(r io.Reader, out any) Decoder {
-	d := yaml3.NewDecoder(r)
-	d.KnownFields(true)
-	return &decoderWrapper{d: d}
-}
 
 func newUnicodeReader(r io.Reader) io.Reader {
 	utf16bom := unicode.BOMOverride(unicode.UTF8.NewDecoder())
@@ -74,13 +47,17 @@ func ReadYamlBytes(b []byte, o interface{}) error {
 func ReadYamlStream(r io.Reader, o interface{}) error {
 	r = newUnicodeReader(r)
 
-	d := newDecoder(r, o)
-
-	err := d.Decode(o)
-	if err != nil && errors.Is(err, io.EOF) {
-		return nil
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return err
 	}
-	return err
+
+	err = yaml.UnmarshalStrict(b, o)
+	if err != nil {
+		return err
+	}
+
+	return ValidateStructs(o)
 }
 
 func ReadYamlAllFile(p string) ([]interface{}, error) {
@@ -101,27 +78,45 @@ func ReadYamlAllBytes(b []byte) ([]interface{}, error) {
 	return ReadYamlAllStream(bytes.NewReader(b))
 }
 
+var docsSep = regexp.MustCompile("(?:^|\\s*\n)---\\s*")
+
 func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
 	r = newUnicodeReader(r)
 
-	d := newDecoder(r, nil)
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	s := string(b)
+	s = strings.TrimSpace(s)
 
-	var l []interface{}
-	for true {
-		var o interface{}
-		err := d.Decode(&o)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		if o != nil {
-			l = append(l, o)
-		}
+	if s == "" {
+		return nil, nil
 	}
 
-	return l, nil
+	docs := docsSep.Split(s, -1)
+
+	ret := make([]any, 0, len(docs))
+	for _, doc := range docs {
+		if doc == "" {
+			continue
+		}
+
+		var x any
+		err = yaml.UnmarshalStrict([]byte(doc), &x)
+		if err != nil {
+			return nil, err
+		}
+		if x == nil {
+			continue
+		}
+		err = ValidateStructs(x)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, x)
+	}
+	return ret, nil
 }
 
 func WriteYamlString(o interface{}) (string, error) {
@@ -165,13 +160,18 @@ func WriteYamlAllString(l []interface{}) (string, error) {
 }
 
 func WriteYamlAllStream(w io.Writer, l []interface{}) error {
-	enc := yaml3.NewEncoder(w)
-	defer enc.Close()
-
-	enc.SetIndent(2)
-
-	for _, o := range l {
-		err := enc.Encode(o)
+	for i, o := range l {
+		if i != 0 {
+			_, err := w.Write([]byte("---\n"))
+			if err != nil {
+				return err
+			}
+		}
+		b, err := yaml.Marshal(o)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(b)
 		if err != nil {
 			return err
 		}
@@ -180,29 +180,11 @@ func WriteYamlAllStream(w io.Writer, l []interface{}) error {
 }
 
 func WriteJsonString(o interface{}) (string, error) {
-	x, err := WriteYamlBytes(o)
+	b, err := json.Marshal(o)
 	if err != nil {
 		return "", err
 	}
-
-	x, err = ConvertYamlToJson(x)
-	if err != nil {
-		return "", err
-	}
-	return string(x), nil
-}
-
-func ConvertYamlToJson(b []byte) ([]byte, error) {
-	var x interface{}
-	err := ReadYamlBytes(b, &x)
-	if err != nil {
-		return nil, err
-	}
-	b, err = json.Marshal(x)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return string(b), nil
 }
 
 // RemoveDuplicateFields is a helper/hack to remove duplicate fields from yaml maps/structs. The yaml spec explicitly

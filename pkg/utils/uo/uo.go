@@ -1,6 +1,7 @@
 package uo
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/jinzhu/copier"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -9,15 +10,15 @@ import (
 )
 
 type UnstructuredObject struct {
-	Object map[string]interface{} `yaml:"object,omitempty,inline"`
+	Object map[string]interface{} `json:"object,omitempty,inline"`
 }
 
-func (uo *UnstructuredObject) MarshalYAML() (interface{}, error) {
-	return &uo.Object, nil
+func (uo *UnstructuredObject) MarshalJSON() ([]byte, error) {
+	return json.Marshal(uo.Object)
 }
 
-func (uo *UnstructuredObject) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	return unmarshal(&uo.Object)
+func (uo *UnstructuredObject) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, &uo.Object)
 }
 
 func (uo *UnstructuredObject) IsZero() bool {

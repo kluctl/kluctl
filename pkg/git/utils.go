@@ -8,8 +8,8 @@ import (
 )
 
 type CheckoutInfo struct {
-	CheckedOutRef    string `yaml:"checkedOutRef"`
-	CheckedOutCommit string `yaml:"checkedOutCommit"`
+	CheckedOutRef    string `json:"checkedOutRef"`
+	CheckedOutCommit string `json:"checkedOutCommit"`
 }
 
 func GetCheckoutInfo(path string) (ri CheckoutInfo, err error) {

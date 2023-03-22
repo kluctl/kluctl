@@ -134,6 +134,8 @@ func (uo *UnstructuredObject) GetNestedInt(keys ...interface{}) (int64, bool, er
 		return vv.Int(), true, nil
 	} else if vv.CanUint() {
 		return int64(vv.Uint()), true, nil
+	} else if vv.CanFloat() {
+		return int64(vv.Float()), true, nil
 	} else {
 		return 0, false, fmt.Errorf("value at %s is not an int", KeyPath(keys).ToJsonPath())
 	}
