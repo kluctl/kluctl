@@ -7,6 +7,7 @@ import (
 	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/git-url/giturls"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -19,6 +20,7 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl g
 	if gitUrl.Scheme != "http" && gitUrl.Scheme != "https" {
 		return AuthMethodAndCA{}
 	}
+	a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: BuildAuth for %s", gitUrl.String())
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -50,6 +52,8 @@ func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, git
 		return nil
 	}
 
+	a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: trying file %s", gitCredentialsPath)
+
 	f, err := os.Open(gitCredentialsPath)
 	if err != nil {
 		a.MessageCallbacks.Warning("Failed to open %s: %v", gitCredentialsPath, err)
@@ -59,25 +63,43 @@ func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, git
 
 	s := bufio.NewScanner(f)
 	for s.Scan() {
+		if s.Text() == "" || s.Text()[0] == '#' {
+			continue
+		}
 		u, err := giturls.Parse(s.Text())
 		if err != nil {
 			continue
 		}
+		// create temporary url without password, which can be printed
+		tmpU := *u
+		tmpU.User = url.User(u.User.Username())
+
+		if u.User == nil || u.User.Username() == "" {
+			a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: ignoring %s", tmpU.String())
+			continue
+		}
+		a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: trying %s", tmpU.String())
+
 		if u.Host != gitUrl.Host {
+			a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: host does not match")
 			continue
 		}
-		if u.User == nil {
+		if gitUrl.User != nil && gitUrl.User.Username() != u.User.Username() {
+			a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: user does not match")
 			continue
 		}
-		if password, ok := u.User.Password(); ok {
-			if u.User.Username() != "" {
-				return &AuthMethodAndCA{
-					AuthMethod: &http.BasicAuth{
-						Username: u.User.Username(),
-						Password: password,
-					},
-				}
-			}
+		password, ok := u.User.Password()
+		if !ok {
+			a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: no password provided")
+			continue
+		}
+
+		a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: matched")
+		return &AuthMethodAndCA{
+			AuthMethod: &http.BasicAuth{
+				Username: u.User.Username(),
+				Password: password,
+			},
 		}
 	}
 	return nil
