@@ -39,7 +39,7 @@ func (o *Obfuscator) ObfuscateResult(r *result.CommandResult) error {
 }
 
 func (o *Obfuscator) ObfuscateChanges(ref k8s.ObjectRef, changes []result.Change) error {
-	if ref.GVK.GroupKind() == secretGk {
+	if ref.GroupKind() == secretGk {
 		err := o.obfuscateSecretChanges(ref, changes)
 		if err != nil {
 			return err
@@ -50,7 +50,7 @@ func (o *Obfuscator) ObfuscateChanges(ref k8s.ObjectRef, changes []result.Change
 
 func (o *Obfuscator) ObfuscateObject(x *uo.UnstructuredObject) error {
 	ref := x.GetK8sRef()
-	if ref.GVK.GroupKind() == secretGk {
+	if ref.GroupKind() == secretGk {
 		err := o.obfuscateSecret(x)
 		if err != nil {
 			return err

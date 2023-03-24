@@ -205,7 +205,7 @@ func (images *Images) ResolvePlaceholders(ctx context.Context, k *k8s.K8sCluster
 	}
 
 	ref := o.GetK8sRef()
-	deployment := fmt.Sprintf("%s/%s", ref.GVK.Kind, ref.Name)
+	deployment := fmt.Sprintf("%s/%s", ref.Kind, ref.Name)
 
 	var remoteObject *uo.UnstructuredObject
 	triedRemoteObject := false

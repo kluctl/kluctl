@@ -69,7 +69,11 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 		gvk := gvk
 		g.Run(func() {
 			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
-			u.dew.AddApiWarnings(k8s2.ObjectRef{GVK: gvk}, apiWarnings)
+			u.dew.AddApiWarnings(k8s2.ObjectRef{
+				Group:   gvk.Group,
+				Version: gvk.Version,
+				Kind:    gvk.Kind,
+			}, apiWarnings)
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {
@@ -81,7 +85,11 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 					permissionErrCount += 1
 					return
 				}
-				u.dew.AddWarning(k8s2.ObjectRef{GVK: gvk}, err)
+				u.dew.AddWarning(k8s2.ObjectRef{
+					Group:   gvk.Group,
+					Version: gvk.Version,
+					Kind:    gvk.Kind,
+				}, err)
 				return
 			}
 			for _, o := range l {
@@ -175,7 +183,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 	if onlyUsedGKs {
 		usedGKs = map[schema.GroupKind]bool{}
 		for _, ref := range refs {
-			usedGKs[ref.GVK.GroupKind()] = true
+			usedGKs[ref.GroupKind()] = true
 		}
 	}
 

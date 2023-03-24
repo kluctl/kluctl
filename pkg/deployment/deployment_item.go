@@ -535,7 +535,7 @@ func (di *DeploymentItem) buildKustomize() error {
 		}
 		o := uo.FromMap(y)
 		di.Objects = append(di.Objects, o)
-		di.Config.RenderedObjects = append(di.Config.RenderedObjects, o)
+		di.Config.RenderedObjects = append(di.Config.RenderedObjects, o.GetK8sRef())
 	}
 
 	return nil

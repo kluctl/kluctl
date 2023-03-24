@@ -26,7 +26,7 @@ func (cmd *fluxSuspendCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	ref := k8s2.ObjectRef{GVK: args.KluctlDeploymentGVK, Name: kd, Namespace: ns}
+	ref := k8s2.NewObjectRef(args.KluctlDeploymentGVK.Group, args.KluctlDeploymentGVK.Version, args.KluctlDeploymentGVK.Kind, kd, ns)
 	patch := []k8s.JsonPatch{{
 		Op:    "replace",
 		Path:  "/spec/suspend",

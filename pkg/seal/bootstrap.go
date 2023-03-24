@@ -24,8 +24,10 @@ const configMapName = "sealed-secrets-key-kluctl-bootstrap"
 
 func BootstrapSealedSecrets(ctx context.Context, k *k8s.K8sCluster, namespace string) error {
 	existing, _, err := k.GetSingleObject(k8s2.ObjectRef{
-		GVK:  schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"},
-		Name: "sealedsecrets.bitnami.com",
+		Group:   "apiextensions.k8s.io",
+		Version: "v1",
+		Kind:    "CustomResourceDefinition",
+		Name:    "sealedsecrets.bitnami.com",
 	})
 	if existing != nil {
 		// no bootstrap needed as the sealed-secrets operator seams to be installed already
@@ -33,7 +35,9 @@ func BootstrapSealedSecrets(ctx context.Context, k *k8s.K8sCluster, namespace st
 	}
 
 	existing, _, err = k.GetSingleObject(k8s2.ObjectRef{
-		GVK:       schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+		Group:     "",
+		Version:   "v1",
+		Kind:      "ConfigMap",
 		Name:      configMapName,
 		Namespace: namespace,
 	})

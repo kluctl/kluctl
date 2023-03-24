@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"path/filepath"
 	"sync"
 )
@@ -227,11 +228,19 @@ func (c *DeploymentCollection) buildKustomizeObjects() error {
 	return g.ErrorOrNil()
 }
 
-func (c *DeploymentCollection) LocalObjectsByRef() map[k8s2.ObjectRef]bool {
-	ret := make(map[k8s2.ObjectRef]bool)
+func (c *DeploymentCollection) LocalObjects() []*uo.UnstructuredObject {
+	var ret []*uo.UnstructuredObject
+	for _, d := range c.Deployments {
+		ret = append(ret, d.Objects...)
+	}
+	return ret
+}
+
+func (c *DeploymentCollection) LocalObjectsByRef() map[k8s2.ObjectRef]*uo.UnstructuredObject {
+	ret := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, d := range c.Deployments {
 		for _, o := range d.Objects {
-			ret[o.GetK8sRef()] = true
+			ret[o.GetK8sRef()] = o
 		}
 	}
 	return ret

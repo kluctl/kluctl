@@ -83,8 +83,11 @@ func (uo *UnstructuredObject) SetK8sNamespace(namespace string) {
 }
 
 func (uo *UnstructuredObject) GetK8sRef() k8s.ObjectRef {
+	gvk := uo.GetK8sGVK()
 	return k8s.ObjectRef{
-		GVK:       uo.GetK8sGVK(),
+		Group:     gvk.Group,
+		Version:   gvk.Version,
+		Kind:      gvk.Kind,
 		Name:      uo.GetK8sName(),
 		Namespace: uo.GetK8sNamespace(),
 	}

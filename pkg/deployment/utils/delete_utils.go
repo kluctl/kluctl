@@ -42,7 +42,7 @@ var deleteOrder = [][]string{
 
 func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef {
 	ref = k.Resources.FixNamespaceInRef(ref)
-	ref.GVK.Version = ""
+	ref.Version = ""
 	return ref
 }
 
@@ -84,7 +84,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 
 	for _, o := range objects {
 		ref := o.GetK8sRef()
-		if _, ok := filteredResources[ref.GVK.GroupKind()]; !ok {
+		if _, ok := filteredResources[ref.GroupKind()]; !ok {
 			continue
 		}
 
@@ -189,7 +189,7 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 
 	for _, ref_ := range refs {
 		ref := ref_
-		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
+		if ref.GroupVersion().String() == "v1" && ref.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
 			g.Run(func() {
 				apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
@@ -201,7 +201,7 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 
 	for _, ref_ := range refs {
 		ref := ref_
-		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
+		if ref.GroupVersion().String() == "v1" && ref.Kind == "Namespace" {
 			continue
 		}
 		if _, ok := namespaceNames[ref.Namespace]; ok {

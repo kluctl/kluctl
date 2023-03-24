@@ -252,7 +252,7 @@ func (k *k8sResources) IsNamespaced(gv schema.GroupKind) *bool {
 
 func (k *k8sResources) FixNamespace(o *uo.UnstructuredObject, def string) {
 	ref := o.GetK8sRef()
-	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
+	namespaced := k.IsNamespaced(ref.GroupKind())
 	if namespaced == nil {
 		return
 	}
@@ -264,7 +264,7 @@ func (k *k8sResources) FixNamespace(o *uo.UnstructuredObject, def string) {
 }
 
 func (k *k8sResources) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
-	namespaced := k.IsNamespaced(ref.GVK.GroupKind())
+	namespaced := k.IsNamespaced(ref.GroupKind())
 	if namespaced == nil {
 		return ref
 	}

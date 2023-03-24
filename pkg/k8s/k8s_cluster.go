@@ -136,7 +136,7 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.GetOptions{}
 		x, err := r.Get(k.ctx, ref.Name, o)
 		if err != nil {
@@ -165,7 +165,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 		o.DryRun = []string{"All"}
 	}
 
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		err := r.Delete(k.ctx, ref.Name, o)
 		if err != nil {
 			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
@@ -318,7 +318,7 @@ func (k *K8sCluster) doPatch(ref k8s.ObjectRef, data []byte, patchType types.Pat
 	status.Trace(k.ctx, "patching %s", ref.String())
 
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(k.ctx, ref.Name, patchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
@@ -370,7 +370,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	status.Trace(k.ctx, "updating %s", ref.String())
 
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Update(k.ctx, o.ToUnstructured(), updateOpts)
 		if err != nil {
 			return err
