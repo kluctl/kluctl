@@ -46,7 +46,7 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl g
 
 func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
 	st, err := os.Stat(gitCredentialsPath)
-	if err != nil || !st.Mode().IsDir() {
+	if err != nil || st.Mode().IsDir() {
 		return nil
 	}
 
