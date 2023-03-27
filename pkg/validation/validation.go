@@ -61,10 +61,10 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 				// all good
 			} else if e, ok := r.(error); ok {
 				err := fmt.Errorf("panic in ValidateObject: %w", e)
-				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Error: err.Error()})
+				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: err.Error()})
 			} else {
 				err := fmt.Errorf("panic in ValidateObject: %v", e)
-				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Error: err.Error()})
+				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: err.Error()})
 			}
 			ret.Ready = false
 		}
@@ -80,15 +80,15 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 
 	addError := func(message string) {
 		ret.Errors = append(ret.Errors, result.DeploymentError{
-			Ref:   ref,
-			Error: message,
+			Ref:     ref,
+			Message: message,
 		})
 		ret.Ready = false
 	}
 	addWarning := func(message string) {
 		ret.Warnings = append(ret.Warnings, result.DeploymentError{
-			Ref:   ref,
-			Error: message,
+			Ref:     ref,
+			Message: message,
 		})
 	}
 	addNotReady := func(message string) {

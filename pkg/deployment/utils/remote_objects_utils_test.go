@@ -43,7 +43,7 @@ func TestRemoteObjectUtils_PermissionErrors(t *testing.T) {
 	}, false)
 	assert.NoError(t, err)
 	assert.Equal(t, []result.DeploymentError{{
-		Error: "at least one permission error was encountered while gathering objects by discriminator labels. This might result in orphan object detection to not work properly"},
+		Message: "at least one permission error was encountered while gathering objects by discriminator labels. This might result in orphan object detection to not work properly"},
 	}, dew.GetWarningsList())
 	assert.Empty(t, dew.GetErrorsList())
 }

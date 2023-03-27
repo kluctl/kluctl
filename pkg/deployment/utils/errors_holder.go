@@ -31,8 +31,8 @@ func (dew *DeploymentErrorsAndWarnings) Init() {
 
 func (dew *DeploymentErrorsAndWarnings) AddWarning(ref k8s.ObjectRef, warning error) {
 	de := result.DeploymentError{
-		Ref:   ref,
-		Error: warning.Error(),
+		Ref:     ref,
+		Message: warning.Error(),
 	}
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
@@ -46,8 +46,8 @@ func (dew *DeploymentErrorsAndWarnings) AddWarning(ref k8s.ObjectRef, warning er
 
 func (dew *DeploymentErrorsAndWarnings) AddError(ref k8s.ObjectRef, err error) {
 	de := result.DeploymentError{
-		Ref:   ref,
-		Error: err.Error(),
+		Ref:     ref,
+		Message: err.Error(),
 	}
 	dew.mutex.Lock()
 	defer dew.mutex.Unlock()
@@ -99,7 +99,7 @@ func (dew *DeploymentErrorsAndWarnings) GetWarningsList() []result.DeploymentErr
 func (dew *DeploymentErrorsAndWarnings) getPlainErrorsList() []error {
 	var ret []error
 	for _, e := range dew.GetErrorsList() {
-		ret = append(ret, errors.New(e.Error))
+		ret = append(ret, errors.New(e.Message))
 	}
 	return ret
 }

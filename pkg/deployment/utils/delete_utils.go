@@ -175,14 +175,14 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 			ret.DeletedObjects = append(ret.DeletedObjects, ref)
 		} else {
 			ret.Errors = append(ret.Errors, result.DeploymentError{
-				Ref:   ref,
-				Error: err.Error(),
+				Ref:     ref,
+				Message: err.Error(),
 			})
 		}
 		for _, w := range apiWarnings {
 			ret.Warnings = append(ret.Warnings, result.DeploymentError{
-				Ref:   ref,
-				Error: w.Text,
+				Ref:     ref,
+				Message: w.Text,
 			})
 		}
 	}

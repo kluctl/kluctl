@@ -20,8 +20,8 @@ type ChangedObject struct {
 }
 
 type DeploymentError struct {
-	Ref   k8s.ObjectRef `json:"ref"`
-	Error string        `json:"error"`
+	Ref     k8s.ObjectRef `json:"ref"`
+	Message string        `json:"message"`
 }
 
 type KluctlDeploymentInfo struct {

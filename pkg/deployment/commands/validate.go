@@ -53,7 +53,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 
 			remoteObject := cmd.ru.GetRemoteObject(ref)
 			if remoteObject == nil {
-				r.Errors = append(r.Errors, result.DeploymentError{Ref: ref, Error: "object not found"})
+				r.Errors = append(r.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
 				continue
 			}
 			r := validation.ValidateObject(k, remoteObject, true, false)

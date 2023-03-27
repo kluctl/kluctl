@@ -90,7 +90,7 @@ func prettyErrors(buf io.StringWriter, errors []result.DeploymentError) {
 		if s := e.Ref.String(); s != "" {
 			prefix = fmt.Sprintf("%s: ", s)
 		}
-		_, _ = buf.WriteString(fmt.Sprintf("  %s%s\n", prefix, e.Error))
+		_, _ = buf.WriteString(fmt.Sprintf("  %s%s\n", prefix, e.Message))
 	}
 }
 

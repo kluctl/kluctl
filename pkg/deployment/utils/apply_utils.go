@@ -461,7 +461,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 				status.Warning(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
 			}
 			for _, e := range v.Errors {
-				a.HandleError(ref, fmt.Errorf(e.Error))
+				a.HandleError(ref, fmt.Errorf(e.Message))
 			}
 			return false
 		}
