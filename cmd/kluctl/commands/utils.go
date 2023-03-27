@@ -246,6 +246,7 @@ func addCommandInfo(r *result.CommandResult, command string, ctx *commandCtx, ta
 		r.Command.AbortOnError = abortOnErrorFlags.AbortOnError
 	}
 	r.Deployment = &ctx.targetCtx.DeploymentProject.Config
+	r.RenderedObjects = ctx.targetCtx.DeploymentCollection.LocalObjects()
 	return nil
 }
 

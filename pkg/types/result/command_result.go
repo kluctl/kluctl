@@ -60,8 +60,9 @@ type CommandInfo struct {
 }
 
 type CommandResult struct {
-	Command    *CommandInfo                   `json:"command,omitempty"`
-	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
+	Command         *CommandInfo                   `json:"command,omitempty"`
+	Deployment      *types.DeploymentProjectConfig `json:"deployment,omitempty"`
+	RenderedObjects []*uo.UnstructuredObject       `json:"renderedObjects,omitempty"`
 
 	NewObjects     []*uo.UnstructuredObject `json:"newObjects,omitempty"`
 	ChangedObjects []*ChangedObject         `json:"changedObjects,omitempty"`
