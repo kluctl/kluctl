@@ -229,9 +229,24 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 			panic(fmt.Sprintf("field '%s' not found in remote object...which can't be!", cause.Field))
 		}
 
-		overwrite := true
-		ignoreConflict := ignoreConflictsAll
-		if !forceApplyAll {
+		ignoreConflict := false
+		if ignoreConflictsAll {
+			ignoreConflict = true
+		} else if _, ok := ignoreConflictFields[localKeyPath.ToJsonPath()]; ok {
+			ignoreConflict = true
+		} else if _, ok := ignoreConflictFields[remoteKeyPath.ToJsonPath()]; ok {
+			ignoreConflict = true
+		}
+
+		overwrite := false
+		if !ignoreConflict {
+			if forceApplyAll {
+				overwrite = true
+			} else if _, ok := forceApplyFields[localKeyPath.ToJsonPath()]; ok {
+				overwrite = true
+			} else if _, ok := forceApplyFields[remoteKeyPath.ToJsonPath()]; ok {
+				overwrite = true
+			}
 			for _, mfn := range mf.managers {
 				found := false
 				for _, oa := range overwriteAllowedManagers {
@@ -240,23 +255,11 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 						break
 					}
 				}
-				if !found {
-					overwrite = false
+				if found {
+					overwrite = true
 					break
 				}
 			}
-			if _, ok := forceApplyFields[localKeyPath.ToJsonPath()]; ok {
-				overwrite = true
-			}
-			if _, ok := forceApplyFields[remoteKeyPath.ToJsonPath()]; ok {
-				overwrite = true
-			}
-		}
-		if _, ok := ignoreConflictFields[localKeyPath.ToJsonPath()]; ok {
-			ignoreConflict = true
-		}
-		if _, ok := ignoreConflictFields[remoteKeyPath.ToJsonPath()]; ok {
-			ignoreConflict = true
 		}
 
 		if !overwrite {
