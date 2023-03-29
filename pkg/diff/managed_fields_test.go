@@ -164,6 +164,42 @@ func TestResolveFieldManagerConflicts(t *testing.T) {
 			lost:   buildLost("d1"),
 			anns:   buildAnnotations("kluctl.io/ignore-conflicts-field-123", "data.d3"),
 		},
+		{
+			name:   "force-apply-object-ignore-conflicts",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c1"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}),
+			lost:   buildLost(),
+			anns:   buildAnnotations("kluctl.io/force-apply", "true", "kluctl.io/ignore-conflicts", "true"),
+		},
+		{
+			name:   "force-apply-object-ignore-conflicts-field",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c1"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			lost:   buildLost(),
+			anns:   buildAnnotations("kluctl.io/force-apply", "true", "kluctl.io/ignore-conflicts-field", "data.d1"),
+		},
+		{
+			name:   "force-apply-field-ignore-conflicts",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c1"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}),
+			lost:   buildLost(),
+			anns:   buildAnnotations("kluctl.io/force-apply-field", "data.d1", "kluctl.io/ignore-conflicts", "true"),
+		},
+		{
+			name:   "force-apply-field-ignore-conflicts-field",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c1"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}),
+			lost:   buildLost(),
+			anns:   buildAnnotations("kluctl.io/force-apply-field", "data.d1", "kluctl.io/ignore-conflicts-field", "data.d3"),
+		},
 	}
 
 	for _, tc := range tests {
@@ -185,8 +221,8 @@ func TestResolveFieldManagerConflicts(t *testing.T) {
 
 			r, l, err := ResolveFieldManagerConflicts(tc.local, tc.remote, tc.status)
 			assert.NoError(t, err)
-			assert.Equal(t, r, tc.result)
-			assert.Equal(t, l, tc.lost)
+			assert.Equal(t, tc.result, r)
+			assert.Equal(t, tc.lost, l)
 		})
 	}
 }
