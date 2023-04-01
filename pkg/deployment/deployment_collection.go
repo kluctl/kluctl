@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -83,12 +82,16 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 func (c *DeploymentCollection) collectAllDeployments(project *DeploymentProject, indexes map[string]int) ([]*DeploymentItem, error) {
 	var ret []*DeploymentItem
 
-	if !kluctl_jinja2.IsConditionalTrue(project.Config.When) {
-		return nil, nil
+	if x, err := project.CheckWhenTrue(); !x || err != nil {
+		return nil, err
 	}
 
 	for i, diConfig := range project.Config.Deployments {
-		if !kluctl_jinja2.IsConditionalTrue(diConfig.When) {
+		whenTrue, err := project.VarsCtx.CheckConditional(diConfig.When)
+		if err != nil {
+			return nil, err
+		}
+		if !whenTrue {
 			continue
 		}
 
