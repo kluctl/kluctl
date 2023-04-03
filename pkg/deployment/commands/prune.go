@@ -7,6 +7,7 @@ import (
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type PruneCommand struct {
@@ -21,7 +22,7 @@ func NewPruneCommand(discriminator string, c *deployment.DeploymentCollection) *
 	}
 }
 
-func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.ObjectRef, error) {
+func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
 	if cmd.discriminator == "" {
 		return nil, fmt.Errorf("pruning without a discriminator is not supported")
 	}
@@ -34,7 +35,28 @@ func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster) ([]k8s2.Obj
 		return nil, err
 	}
 
-	return FindOrphanObjects(k, ru, cmd.c)
+	deleteRefs, err := FindOrphanObjects(k, ru, cmd.c)
+	if err != nil {
+		return nil, err
+	}
+
+	if confirmCb != nil {
+		err = confirmCb(deleteRefs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	deleted, err := utils2.DeleteObjects(ctx, k, deleteRefs, dew, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result.CommandResult{
+		DeletedObjects: deleted,
+		Errors:         dew.GetErrorsList(),
+		Warnings:       dew.GetWarningsList(),
+	}, nil
 }
 
 func FindOrphanObjects(k *k8s.K8sCluster, ru *utils2.RemoteObjectUtils, c *deployment.DeploymentCollection) ([]k8s2.ObjectRef, error) {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,10 +159,10 @@ func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.Unstructure
 	return ret, nil
 }
 
-func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*result.CommandResult, error) {
+func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dew *DeploymentErrorsAndWarnings, doWait bool) ([]k8s2.ObjectRef, error) {
 	g := utils.NewGoHelper(ctx, 8)
 
-	var ret result.CommandResult
+	var ret []k8s2.ObjectRef
 	namespaceNames := make(map[string]bool)
 	var mutex sync.Mutex
 
@@ -172,19 +171,11 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 		defer mutex.Unlock()
 
 		if err == nil {
-			ret.DeletedObjects = append(ret.DeletedObjects, ref)
+			ret = append(ret, ref)
 		} else {
-			ret.Errors = append(ret.Errors, result.DeploymentError{
-				Ref:     ref,
-				Message: err.Error(),
-			})
+			dew.AddError(ref, err)
 		}
-		for _, w := range apiWarnings {
-			ret.Warnings = append(ret.Warnings, result.DeploymentError{
-				Ref:     ref,
-				Message: w.Text,
-			})
-		}
+		dew.AddApiWarnings(ref, apiWarnings)
 	}
 
 	for _, ref_ := range refs {
@@ -215,5 +206,5 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 	}
 	g.Wait()
 
-	return &ret, nil
+	return ret, nil
 }

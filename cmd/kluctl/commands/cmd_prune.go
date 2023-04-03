@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 )
 
 type pruneCmd struct {
@@ -46,11 +47,9 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 
 func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
-	objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
-	if err != nil {
-		return err
-	}
-	result, err := confirmedDeleteObjects(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+	result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
+		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
+	})
 	if err != nil {
 		return err
 	}
