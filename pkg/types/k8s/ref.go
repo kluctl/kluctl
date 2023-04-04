@@ -6,11 +6,11 @@ import (
 )
 
 type ObjectRef struct {
-	Group     string `json:"group"`
-	Version   string `json:"version"`
+	Group     string `json:"group,omitempty"`
+	Version   string `json:"version,omitempty"`
 	Kind      string `json:"kind"`
 	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 func (r ObjectRef) String() string {
