@@ -3,9 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
@@ -205,11 +207,13 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	return cb(cmdCtx)
 }
 
-func addCommandInfo(r *result.CommandResult, command string, ctx *commandCtx, targetFlags *args.TargetFlags,
+func addCommandInfo(r *result.CommandResult, startTime time.Time, command string, ctx *commandCtx, targetFlags *args.TargetFlags,
 	imageFlags *args.ImageFlags, inclusionFlags *args.InclusionFlags,
 	dryRunFlags *args.DryRunFlags, forceApplyFlags *args.ForceApplyFlags, replaceOnErrorFlags *args.ReplaceOnErrorFlags, abortOnErrorFlags *args.AbortOnErrorFlags, noWait bool) error {
 	r.Command = &result.CommandInfo{
 		Initiator: result.CommandInititiator_CommandLine,
+		StartTime: types.FromTime(startTime),
+		EndTime:   types.FromTime(time.Now()),
 		Command:   command,
 		Target:    ctx.targetCtx.Target,
 		Args:      ctx.targetCtx.KluctlProject.LoadArgs.ExternalArgs,

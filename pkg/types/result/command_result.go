@@ -40,6 +40,8 @@ const (
 
 type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
+	StartTime             types.JsonTime         `json:"startTime"`
+	EndTime               types.JsonTime         `json:"endTime"`
 	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	Command               string                 `json:"command,omitempty"`
 	Target                *types.Target          `json:"target,omitempty"`
