@@ -119,7 +119,7 @@ func (o *Obfuscator) obfuscateSecretChanges(ref k8s.ObjectRef, changes []result.
 
 func (o *Obfuscator) obfuscateSecret(x *uo.UnstructuredObject) error {
 	data, ok, _ := x.GetNestedField("data")
-	if ok {
+	if ok && data != nil {
 		if m, ok := data.(map[string]any); ok {
 			for k, _ := range m {
 				m[k] = base64.StdEncoding.EncodeToString([]byte("*****"))
@@ -129,7 +129,7 @@ func (o *Obfuscator) obfuscateSecret(x *uo.UnstructuredObject) error {
 		}
 	}
 	data, ok, _ = x.GetNestedField("stringData")
-	if ok {
+	if ok && data != nil {
 		if m, ok := data.(map[string]any); ok {
 			for k, _ := range m {
 				m[k] = "*****"
