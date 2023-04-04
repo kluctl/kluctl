@@ -60,18 +60,21 @@ type CommandInfo struct {
 }
 
 type CommandResult struct {
-	Command         *CommandInfo                   `json:"command,omitempty"`
-	Deployment      *types.DeploymentProjectConfig `json:"deployment,omitempty"`
-	RenderedObjects []*uo.UnstructuredObject       `json:"renderedObjects,omitempty"`
+	Command    *CommandInfo                   `json:"command,omitempty"`
+	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
-	NewObjects     []*uo.UnstructuredObject `json:"newObjects,omitempty"`
-	ChangedObjects []*ChangedObject         `json:"changedObjects,omitempty"`
-	HookObjects    []*uo.UnstructuredObject `json:"hookObjects,omitempty"`
-	OrphanObjects  []k8s.ObjectRef          `json:"orphanObjects,omitempty"`
-	DeletedObjects []k8s.ObjectRef          `json:"deletedObjects,omitempty"`
-	Errors         []DeploymentError        `json:"errors,omitempty"`
-	Warnings       []DeploymentError        `json:"warnings,omitempty"`
-	SeenImages     []types.FixedImage       `json:"seenImages,omitempty"`
+	RenderedObjects    []*uo.UnstructuredObject `json:"renderedObjects,omitempty"`
+	RemoteObjects      []*uo.UnstructuredObject `json:"remoteObjects,omitempty"`
+	AppliedObjects     []*uo.UnstructuredObject `json:"appliedObjects,omitempty"`
+	AppliedHookObjects []*uo.UnstructuredObject `json:"appliedHookObjects,omitempty"`
+
+	NewObjects     []k8s.ObjectRef    `json:"newObjects,omitempty"`
+	ChangedObjects []*ChangedObject   `json:"changedObjects,omitempty"`
+	OrphanObjects  []k8s.ObjectRef    `json:"orphanObjects,omitempty"`
+	DeletedObjects []k8s.ObjectRef    `json:"deletedObjects,omitempty"`
+	Errors         []DeploymentError  `json:"errors,omitempty"`
+	Warnings       []DeploymentError  `json:"warnings,omitempty"`
+	SeenImages     []types.FixedImage `json:"seenImages,omitempty"`
 }
 
 type ValidateResultEntry struct {

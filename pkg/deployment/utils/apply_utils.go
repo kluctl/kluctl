@@ -768,8 +768,21 @@ func (ad *ApplyDeploymentsUtil) collectObjects(f func(au *ApplyUtil) map[k8s2.Ob
 	return ret
 }
 
-func (ad *ApplyDeploymentsUtil) GetNewObjects() []*uo.UnstructuredObject {
-	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
+func (ad *ApplyDeploymentsUtil) collectObjectRefs(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []k8s2.ObjectRef {
+	ad.resultsMutex.Lock()
+	defer ad.resultsMutex.Unlock()
+
+	var ret []k8s2.ObjectRef
+	for _, a := range ad.results {
+		for _, o := range f(a) {
+			ret = append(ret, o.GetK8sRef())
+		}
+	}
+	return ret
+}
+
+func (ad *ApplyDeploymentsUtil) GetNewObjectRefs() []k8s2.ObjectRef {
+	return ad.collectObjectRefs(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.newObjects
 	})
 }

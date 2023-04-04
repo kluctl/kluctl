@@ -71,7 +71,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 		return o, nil
 	}
 
-	ad := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref
@@ -79,7 +79,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			au := ad.NewApplyUtil(ctx, nil)
+			au := au.NewApplyUtil(ctx, nil)
 			remote := ru.GetRemoteObject(ref)
 			if remote == nil {
 				dew.AddWarning(ref, fmt.Errorf("remote object not found, skipped image replacement"))
@@ -92,14 +92,25 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 	}
 	wg.Wait()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, ad.GetAppliedObjectsMap())
+	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
 	du.Diff()
 
+	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
+	if err != nil {
+		return nil, err
+	}
+
 	return &result.CommandResult{
-		NewObjects:     nil,
-		ChangedObjects: du.ChangedObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     cmd.c.Images.SeenImages(false),
+		RenderedObjects:    cmd.c.LocalObjects(),
+		RemoteObjects:      ru.GetFilteredRemoteObjects(nil),
+		AppliedObjects:     au.GetAppliedObjects(),
+		AppliedHookObjects: au.GetAppliedHookObjects(),
+		NewObjects:         au.GetNewObjectRefs(),
+		ChangedObjects:     du.ChangedObjects,
+		DeletedObjects:     au.GetDeletedObjects(),
+		OrphanObjects:      orphanObjects,
+		Errors:             dew.GetErrorsList(),
+		Warnings:           dew.GetWarningsList(),
+		SeenImages:         cmd.c.Images.SeenImages(false),
 	}, nil
 }

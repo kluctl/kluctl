@@ -26,11 +26,7 @@ func formatCommandResultText(cr *result.CommandResult, short bool) string {
 
 	if len(cr.NewObjects) != 0 {
 		buf.WriteString("\nNew objects:\n")
-		var refs []k8s.ObjectRef
-		for _, o := range cr.NewObjects {
-			refs = append(refs, o.GetK8sRef())
-		}
-		prettyObjectRefs(buf, refs)
+		prettyObjectRefs(buf, cr.NewObjects)
 	}
 	if len(cr.ChangedObjects) != 0 {
 		buf.WriteString("\nChanged objects:\n")
@@ -57,10 +53,10 @@ func formatCommandResultText(cr *result.CommandResult, short bool) string {
 		prettyObjectRefs(buf, cr.DeletedObjects)
 	}
 
-	if len(cr.HookObjects) != 0 {
+	if len(cr.AppliedHookObjects) != 0 {
 		buf.WriteString("\nApplied hooks:\n")
 		var refs []k8s.ObjectRef
-		for _, o := range cr.HookObjects {
+		for _, o := range cr.AppliedHookObjects {
 			refs = append(refs, o.GetK8sRef())
 		}
 		prettyObjectRefs(buf, refs)

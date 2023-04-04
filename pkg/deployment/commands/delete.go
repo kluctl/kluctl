@@ -55,8 +55,10 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 	}
 
 	return &result.CommandResult{
-		DeletedObjects: deleted,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
+		RenderedObjects: cmd.c.LocalObjects(),
+		RemoteObjects:   ru.GetFilteredRemoteObjects(nil),
+		DeletedObjects:  deleted,
+		Errors:          dew.GetErrorsList(),
+		Warnings:        dew.GetWarningsList(),
 	}, nil
 }

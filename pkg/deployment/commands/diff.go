@@ -66,13 +66,16 @@ func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.Com
 		return nil, err
 	}
 	return &result.CommandResult{
-		NewObjects:     au.GetNewObjects(),
-		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjects(),
-		HookObjects:    au.GetAppliedHookObjects(),
-		OrphanObjects:  orphanObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     cmd.c.Images.SeenImages(false),
+		RenderedObjects:    cmd.c.LocalObjects(),
+		RemoteObjects:      ru.GetFilteredRemoteObjects(nil),
+		AppliedObjects:     au.GetAppliedObjects(),
+		AppliedHookObjects: au.GetAppliedHookObjects(),
+		NewObjects:         au.GetNewObjectRefs(),
+		ChangedObjects:     du.ChangedObjects,
+		DeletedObjects:     au.GetDeletedObjects(),
+		OrphanObjects:      orphanObjects,
+		Errors:             dew.GetErrorsList(),
+		Warnings:           dew.GetWarningsList(),
+		SeenImages:         cmd.c.Images.SeenImages(false),
 	}, nil
 }
