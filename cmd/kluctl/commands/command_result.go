@@ -24,46 +24,64 @@ func formatCommandResultText(cr *result.CommandResult, short bool) string {
 		prettyErrors(buf, cr.Warnings)
 	}
 
-	if len(cr.NewObjects) != 0 {
-		buf.WriteString("\nNew objects:\n")
-		prettyObjectRefs(buf, cr.NewObjects)
-	}
-	if len(cr.ChangedObjects) != 0 {
-		buf.WriteString("\nChanged objects:\n")
-		var refs []k8s.ObjectRef
-		for _, co := range cr.ChangedObjects {
-			refs = append(refs, co.Ref)
+	var newObjects []k8s.ObjectRef
+	var changedObjects []k8s.ObjectRef
+	var deletedObjects []k8s.ObjectRef
+	var orphanObjects []k8s.ObjectRef
+	var appliedHookObjects []k8s.ObjectRef
+
+	for _, o := range cr.Objects {
+		if o.New {
+			newObjects = append(newObjects, o.Ref)
 		}
-		prettyObjectRefs(buf, refs)
+		if len(o.Changes) != 0 {
+			changedObjects = append(changedObjects, o.Ref)
+		}
+		if o.Deleted {
+			deletedObjects = append(deletedObjects, o.Ref)
+		}
+		if o.Orphan {
+			orphanObjects = append(orphanObjects, o.Ref)
+		}
+		if o.Hook {
+			appliedHookObjects = append(appliedHookObjects, o.Ref)
+		}
+	}
+
+	if len(newObjects) != 0 {
+		buf.WriteString("\nNew objects:\n")
+		prettyObjectRefs(buf, newObjects)
+	}
+	if len(changedObjects) != 0 {
+		buf.WriteString("\nChanged objects:\n")
+		prettyObjectRefs(buf, changedObjects)
 
 		if !short {
 			buf.WriteString("\n")
-
-			for i, co := range cr.ChangedObjects {
+			for i, o := range cr.Objects {
+				if len(o.Changes) == 0 {
+					continue
+				}
 				if i != 0 {
 					buf.WriteString("\n")
 				}
-				prettyChanges(buf, co.Ref, co.Changes)
+				prettyChanges(buf, o.Ref, o.Changes)
 			}
 		}
 	}
 
-	if len(cr.DeletedObjects) != 0 {
+	if len(deletedObjects) != 0 {
 		buf.WriteString("\nDeleted objects:\n")
-		prettyObjectRefs(buf, cr.DeletedObjects)
+		prettyObjectRefs(buf, deletedObjects)
 	}
 
-	if len(cr.AppliedHookObjects) != 0 {
+	if len(appliedHookObjects) != 0 {
 		buf.WriteString("\nApplied hooks:\n")
-		var refs []k8s.ObjectRef
-		for _, o := range cr.AppliedHookObjects {
-			refs = append(refs, o.GetK8sRef())
-		}
-		prettyObjectRefs(buf, refs)
+		prettyObjectRefs(buf, appliedHookObjects)
 	}
-	if len(cr.OrphanObjects) != 0 {
+	if len(orphanObjects) != 0 {
 		buf.WriteString("\nOrphan objects:\n")
-		prettyObjectRefs(buf, cr.OrphanObjects)
+		prettyObjectRefs(buf, orphanObjects)
 	}
 
 	if len(cr.Errors) != 0 {
@@ -104,7 +122,11 @@ func prettyChanges(buf io.StringWriter, ref k8s.ObjectRef, changes []result.Chan
 }
 
 func formatCommandResultYaml(cr *result.CommandResult) (string, error) {
-	b, err := yaml.WriteYamlString(cr)
+	compactedCr := *cr
+	compactedCr.CompactedObjects = compactedCr.Objects
+	compactedCr.Objects = nil
+
+	b, err := yaml.WriteYamlString(compactedCr)
 	if err != nil {
 		return "", err
 	}

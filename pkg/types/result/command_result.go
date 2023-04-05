@@ -61,22 +61,34 @@ type CommandInfo struct {
 	ExcludeDeploymentDirs []string               `json:"excludeDeploymentDirs,omitempty"`
 }
 
+type BaseObject struct {
+	Ref     k8s.ObjectRef `json:"ref"`
+	Changes []Change      `json:"changes,omitempty"`
+
+	New     bool `json:"new,omitempty"`
+	Orphan  bool `json:"orphan,omitempty"`
+	Deleted bool `json:"deleted,omitempty"`
+	Hook    bool `json:"hook,omitempty"`
+}
+
+type ResultObject struct {
+	BaseObject
+
+	Rendered *uo.UnstructuredObject `json:"rendered,omitempty"`
+	Remote   *uo.UnstructuredObject `json:"remote,omitempty"`
+	Applied  *uo.UnstructuredObject `json:"applied,omitempty"`
+}
+
 type CommandResult struct {
 	Command    *CommandInfo                   `json:"command,omitempty"`
 	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
-	RenderedObjects    []*uo.UnstructuredObject `json:"renderedObjects,omitempty"`
-	RemoteObjects      []*uo.UnstructuredObject `json:"remoteObjects,omitempty"`
-	AppliedObjects     []*uo.UnstructuredObject `json:"appliedObjects,omitempty"`
-	AppliedHookObjects []*uo.UnstructuredObject `json:"appliedHookObjects,omitempty"`
+	Objects          []ResultObject   `json:"objects,omitempty"`
+	CompactedObjects CompactedObjects `json:"compactedObjects,omitempty"`
 
-	NewObjects     []k8s.ObjectRef    `json:"newObjects,omitempty"`
-	ChangedObjects []*ChangedObject   `json:"changedObjects,omitempty"`
-	OrphanObjects  []k8s.ObjectRef    `json:"orphanObjects,omitempty"`
-	DeletedObjects []k8s.ObjectRef    `json:"deletedObjects,omitempty"`
-	Errors         []DeploymentError  `json:"errors,omitempty"`
-	Warnings       []DeploymentError  `json:"warnings,omitempty"`
-	SeenImages     []types.FixedImage `json:"seenImages,omitempty"`
+	Errors     []DeploymentError  `json:"errors,omitempty"`
+	Warnings   []DeploymentError  `json:"warnings,omitempty"`
+	SeenImages []types.FixedImage `json:"seenImages,omitempty"`
 }
 
 type ValidateResultEntry struct {

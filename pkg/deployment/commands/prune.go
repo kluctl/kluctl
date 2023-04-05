@@ -53,11 +53,8 @@ func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb f
 	}
 
 	return &result.CommandResult{
-		RenderedObjects: cmd.c.LocalObjects(),
-		RemoteObjects:   ru.GetFilteredRemoteObjects(nil),
-		DeletedObjects:  deleted,
-		Errors:          dew.GetErrorsList(),
-		Warnings:        dew.GetWarningsList(),
+		Objects:  collectObjects(cmd.c, ru, nil, nil, nil, deleted),
+		Warnings: dew.GetWarningsList(),
 	}, nil
 }
 

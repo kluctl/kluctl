@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type diffUtil struct {
+type DiffUtil struct {
 	dew            *DeploymentErrorsAndWarnings
 	deployments    []*deployment.DeploymentItem
 	appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
@@ -27,8 +27,8 @@ type diffUtil struct {
 	mutex             sync.Mutex
 }
 
-func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *diffUtil {
-	return &diffUtil{
+func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *DiffUtil {
+	return &DiffUtil{
 		dew:            dew,
 		deployments:    deployments,
 		ru:             ru,
@@ -36,7 +36,7 @@ func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.Dep
 	}
 }
 
-func (u *diffUtil) Diff() {
+func (u *DiffUtil) Diff() {
 	var wg sync.WaitGroup
 
 	u.calcRemoteObjectsForDiff()
@@ -67,7 +67,7 @@ func (u *diffUtil) Diff() {
 	})
 }
 
-func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
+func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
 	if ao != nil && ro == nil {
 		// new?
 		return
@@ -106,7 +106,7 @@ func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 	}
 }
 
-func (u *diffUtil) calcRemoteObjectsForDiff() {
+func (u *DiffUtil) calcRemoteObjectsForDiff() {
 	u.remoteDiffObjects = make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, o := range u.ru.remoteObjects {
 		diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
@@ -126,7 +126,7 @@ func (u *diffUtil) calcRemoteObjectsForDiff() {
 	}
 }
 
-func (u *diffUtil) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) (k8s2.ObjectRef, *uo.UnstructuredObject) {
+func (u *DiffUtil) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) (k8s2.ObjectRef, *uo.UnstructuredObject) {
 	ref := localObject.GetK8sRef()
 	diffName := localObject.GetK8sAnnotation("kluctl.io/diff-name")
 	if diffName != nil {

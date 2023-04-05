@@ -17,32 +17,20 @@ type Obfuscator struct {
 }
 
 func (o *Obfuscator) ObfuscateResult(r *result.CommandResult) error {
-	for _, c := range r.ChangedObjects {
-		err := o.ObfuscateChanges(c.Ref, c.Changes)
+	for _, x := range r.Objects {
+		err := o.ObfuscateObject(x.Rendered)
 		if err != nil {
 			return err
 		}
-	}
-	for _, n := range r.RenderedObjects {
-		err := o.ObfuscateObject(n)
+		err = o.ObfuscateObject(x.Remote)
 		if err != nil {
 			return err
 		}
-	}
-	for _, n := range r.RemoteObjects {
-		err := o.ObfuscateObject(n)
+		err = o.ObfuscateObject(x.Applied)
 		if err != nil {
 			return err
 		}
-	}
-	for _, n := range r.AppliedObjects {
-		err := o.ObfuscateObject(n)
-		if err != nil {
-			return err
-		}
-	}
-	for _, n := range r.AppliedHookObjects {
-		err := o.ObfuscateObject(n)
+		err = o.ObfuscateChanges(x.Ref, x.Changes)
 		if err != nil {
 			return err
 		}
@@ -61,6 +49,9 @@ func (o *Obfuscator) ObfuscateChanges(ref k8s.ObjectRef, changes []result.Change
 }
 
 func (o *Obfuscator) ObfuscateObject(x *uo.UnstructuredObject) error {
+	if x == nil {
+		return nil
+	}
 	ref := x.GetK8sRef()
 	if ref.GroupKind() == secretGk {
 		err := o.obfuscateSecret(x)

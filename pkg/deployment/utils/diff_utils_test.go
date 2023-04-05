@@ -19,7 +19,7 @@ type diffTestConfig struct {
 
 	dew *DeploymentErrorsAndWarnings
 	ru  *RemoteObjectUtils
-	du  *diffUtil
+	du  *DiffUtil
 }
 
 func (dtc *diffTestConfig) newRemoteObjects(dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
