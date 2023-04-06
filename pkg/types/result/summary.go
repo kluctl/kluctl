@@ -1,8 +1,9 @@
 package result
 
 type CommandResultSummary struct {
-	Id      string       `json:"id"`
-	Command *CommandInfo `json:"commandInfo"`
+	Project ProjectKey  `json:"project"`
+	Command CommandInfo `json:"commandInfo"`
+	GitInfo *GitInfo    `json:"gitInfo,omitempty"`
 
 	RenderedObjects    int `json:"renderedObjects"`
 	RemoteObjects      int `json:"remoteObjects"`
@@ -17,4 +18,14 @@ type CommandResultSummary struct {
 	Warnings       int `json:"warnings"`
 
 	TotalChanges int `json:"totalChanges"`
+}
+
+type ProjectSummary struct {
+	Project ProjectKey `json:"project"`
+
+	LastValidateResult *ValidateResult `json:"lastValidateResult,omitempty"`
+
+	LastDeployCommand *CommandResultSummary `json:"lastDeployCommand,omitempty"`
+	LastDeleteCommand *CommandResultSummary `json:"LastDeleteCommand,omitempty"`
+	LastPruneCommand  *CommandResultSummary `json:"lastPruneCommand,omitempty"`
 }

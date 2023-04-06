@@ -3,9 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	git2 "github.com/go-git/go-git/v5"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -210,7 +213,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 func addCommandInfo(r *result.CommandResult, startTime time.Time, command string, ctx *commandCtx, targetFlags *args.TargetFlags,
 	imageFlags *args.ImageFlags, inclusionFlags *args.InclusionFlags,
 	dryRunFlags *args.DryRunFlags, forceApplyFlags *args.ForceApplyFlags, replaceOnErrorFlags *args.ReplaceOnErrorFlags, abortOnErrorFlags *args.AbortOnErrorFlags, noWait bool) error {
-	r.Command = &result.CommandInfo{
+	r.Command = result.CommandInfo{
+		Id:        uuid.New().String(),
 		Initiator: result.CommandInititiator_CommandLine,
 		StartTime: types.FromTime(startTime),
 		EndTime:   types.FromTime(time.Now()),
@@ -250,6 +254,82 @@ func addCommandInfo(r *result.CommandResult, startTime time.Time, command string
 		r.Command.AbortOnError = abortOnErrorFlags.AbortOnError
 	}
 	r.Deployment = &ctx.targetCtx.DeploymentProject.Config
+
+	err := addGitInfo(r, ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func addGitInfo(r *result.CommandResult, ctx *commandCtx) error {
+	if ctx.targetCtx.KluctlProject.LoadArgs.RepoRoot == "" {
+		return nil
+	}
+
+	projectDirAbs, err := filepath.Abs(ctx.targetCtx.KluctlProject.LoadArgs.ProjectDir)
+	if err != nil {
+		return err
+	}
+
+	subDir, err := filepath.Rel(ctx.targetCtx.KluctlProject.LoadArgs.RepoRoot, projectDirAbs)
+	if err != nil {
+		return err
+	}
+	if subDir == "." {
+		subDir = ""
+	}
+
+	g, err := git2.PlainOpen(ctx.targetCtx.KluctlProject.LoadArgs.RepoRoot)
+	if err != nil {
+		return err
+	}
+
+	w, err := g.Worktree()
+	if err != nil {
+		return err
+	}
+
+	s, err := w.Status()
+	if err != nil {
+		return err
+	}
+
+	head, err := g.Head()
+	if err != nil {
+		return err
+	}
+
+	remotes, err := g.Remotes()
+	if err != nil {
+		return err
+	}
+
+	var originUrl *git_url.GitUrl
+	for _, r := range remotes {
+		if r.Config().Name == "origin" {
+			originUrl, err = git_url.Parse(r.Config().URLs[0])
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	var normaliedUrl string
+	if originUrl != nil {
+		normaliedUrl = originUrl.NormalizedRepoKey()
+	}
+
+	r.GitInfo = &result.GitInfo{
+		Url:    originUrl,
+		Ref:    head.Name().String(),
+		SubDir: subDir,
+		Commit: head.Hash().String(),
+		Dirty:  !s.IsClean(),
+	}
+	r.Project.NormalizedGitUrl = normaliedUrl
+	r.Project.SubDir = subDir
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package result
 
 import (
+	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -38,8 +39,14 @@ const (
 	CommandInititiator_KluctlDeployment                  = "KluctlDeployment"
 )
 
+type ProjectKey struct {
+	NormalizedGitUrl string `json:"normalizedGitUrl,omitempty"`
+	SubDir           string `json:"subDir,omitempty"`
+}
+
 type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
+	Id                    string                 `json:"id"`
 	StartTime             types.JsonTime         `json:"startTime"`
 	EndTime               types.JsonTime         `json:"endTime"`
 	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
@@ -61,6 +68,14 @@ type CommandInfo struct {
 	ExcludeDeploymentDirs []string               `json:"excludeDeploymentDirs,omitempty"`
 }
 
+type GitInfo struct {
+	Url    *git_url.GitUrl `json:"url"`
+	Ref    string          `json:"ref"`
+	SubDir string          `json:"subDir"`
+	Commit string          `json:"commit"`
+	Dirty  bool            `json:"dirty"`
+}
+
 type BaseObject struct {
 	Ref     k8s.ObjectRef `json:"ref"`
 	Changes []Change      `json:"changes,omitempty"`
@@ -80,7 +95,9 @@ type ResultObject struct {
 }
 
 type CommandResult struct {
-	Command    *CommandInfo                   `json:"command,omitempty"`
+	Project    ProjectKey                     `json:"project"`
+	Command    CommandInfo                    `json:"command,omitempty"`
+	GitInfo    *GitInfo                       `json:"gitInfo,omitempty"`
 	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
 	Objects          []ResultObject   `json:"objects,omitempty"`
