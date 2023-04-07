@@ -100,12 +100,32 @@ type CommandResult struct {
 	GitInfo    *GitInfo                       `json:"gitInfo,omitempty"`
 	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
-	Objects          []ResultObject   `json:"objects,omitempty"`
-	CompactedObjects CompactedObjects `json:"compactedObjects,omitempty"`
+	Objects []ResultObject `json:"objects,omitempty"`
 
 	Errors     []DeploymentError  `json:"errors,omitempty"`
 	Warnings   []DeploymentError  `json:"warnings,omitempty"`
 	SeenImages []types.FixedImage `json:"seenImages,omitempty"`
+}
+
+func (cr *CommandResult) ToCompacted() *CompactedCommandResult {
+	ret := &CompactedCommandResult{
+		CommandResult: *cr,
+	}
+	ret.CompactedObjects = ret.Objects
+	ret.Objects = nil
+	return ret
+}
+
+type CompactedCommandResult struct {
+	CommandResult
+
+	CompactedObjects CompactedObjects `json:"compactedObjects,omitempty"`
+}
+
+func (ccr *CompactedCommandResult) ToNonCompacted() *CommandResult {
+	ret := ccr.CommandResult
+	ret.Objects = ccr.CompactedObjects
+	return &ret
 }
 
 type ValidateResultEntry struct {

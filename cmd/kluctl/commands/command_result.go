@@ -122,11 +122,7 @@ func prettyChanges(buf io.StringWriter, ref k8s.ObjectRef, changes []result.Chan
 }
 
 func formatCommandResultYaml(cr *result.CommandResult) (string, error) {
-	compactedCr := *cr
-	compactedCr.CompactedObjects = compactedCr.Objects
-	compactedCr.Objects = nil
-
-	b, err := yaml.WriteYamlString(compactedCr)
+	b, err := yaml.WriteYamlString(cr.ToCompacted())
 	if err != nil {
 		return "", err
 	}
