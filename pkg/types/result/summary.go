@@ -30,3 +30,36 @@ type ProjectSummary struct {
 	LastDeleteCommand *CommandResultSummary `json:"LastDeleteCommand,omitempty"`
 	LastPruneCommand  *CommandResultSummary `json:"lastPruneCommand,omitempty"`
 }
+
+func (cr *CommandResult) BuildSummary() *CommandResultSummary {
+	count := func(f func(o ResultObject) bool) int {
+		cnt := 0
+		for _, o := range cr.Objects {
+			if f(o) {
+				cnt++
+			}
+		}
+		return cnt
+	}
+
+	ret := &CommandResultSummary{
+		Id:                 cr.Id,
+		Project:            cr.Project,
+		Command:            cr.Command,
+		GitInfo:            cr.GitInfo,
+		RenderedObjects:    count(func(o ResultObject) bool { return o.Rendered != nil }),
+		RemoteObjects:      count(func(o ResultObject) bool { return o.Remote != nil }),
+		AppliedObjects:     count(func(o ResultObject) bool { return o.Applied != nil }),
+		AppliedHookObjects: count(func(o ResultObject) bool { return o.Hook }),
+		NewObjects:         count(func(o ResultObject) bool { return o.New }),
+		ChangedObjects:     count(func(o ResultObject) bool { return len(o.Changes) != 0 }),
+		OrphanObjects:      count(func(o ResultObject) bool { return o.Orphan }),
+		DeletedObjects:     count(func(o ResultObject) bool { return o.Deleted }),
+		Errors:             len(cr.Errors),
+		Warnings:           len(cr.Warnings),
+	}
+	for _, o := range cr.Objects {
+		ret.TotalChanges += len(o.Changes)
+	}
+	return ret
+}
