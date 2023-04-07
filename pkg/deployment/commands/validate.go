@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -29,8 +30,10 @@ func NewValidateCommand(ctx context.Context, discriminator string, c *deployment
 }
 
 func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.ValidateResult, error) {
-	var r result.ValidateResult
-	r.Ready = true
+	r := result.ValidateResult{
+		Id:    uuid.New().String(),
+		Ready: true,
+	}
 
 	cmd.dew.Init()
 

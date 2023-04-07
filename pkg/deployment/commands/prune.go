@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -53,6 +54,7 @@ func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb f
 	}
 
 	return &result.CommandResult{
+		Id:       uuid.New().String(),
 		Objects:  collectObjects(cmd.c, ru, nil, nil, nil, deleted),
 		Warnings: dew.GetWarningsList(),
 	}, nil

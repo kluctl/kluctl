@@ -46,7 +46,6 @@ type ProjectKey struct {
 
 type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
-	Id                    string                 `json:"id"`
 	StartTime             types.JsonTime         `json:"startTime"`
 	EndTime               types.JsonTime         `json:"endTime"`
 	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
@@ -95,6 +94,7 @@ type ResultObject struct {
 }
 
 type CommandResult struct {
+	Id         string                         `json:"id"`
 	Project    ProjectKey                     `json:"project"`
 	Command    CommandInfo                    `json:"command,omitempty"`
 	GitInfo    *GitInfo                       `json:"gitInfo,omitempty"`
@@ -135,6 +135,7 @@ type ValidateResultEntry struct {
 }
 
 type ValidateResult struct {
+	Id       string                `json:"id"`
 	Ready    bool                  `json:"ready"`
 	Warnings []DeploymentError     `json:"warnings,omitempty"`
 	Errors   []DeploymentError     `json:"errors,omitempty"`

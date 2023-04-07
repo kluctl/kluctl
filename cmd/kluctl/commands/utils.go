@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	git2 "github.com/go-git/go-git/v5"
-	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
@@ -214,7 +213,6 @@ func addCommandInfo(r *result.CommandResult, startTime time.Time, command string
 	imageFlags *args.ImageFlags, inclusionFlags *args.InclusionFlags,
 	dryRunFlags *args.DryRunFlags, forceApplyFlags *args.ForceApplyFlags, replaceOnErrorFlags *args.ReplaceOnErrorFlags, abortOnErrorFlags *args.AbortOnErrorFlags, noWait bool) error {
 	r.Command = result.CommandInfo{
-		Id:        uuid.New().String(),
 		Initiator: result.CommandInititiator_CommandLine,
 		StartTime: types.FromTime(startTime),
 		EndTime:   types.FromTime(time.Now()),

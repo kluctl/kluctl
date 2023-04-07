@@ -1,6 +1,7 @@
 package result
 
 type CommandResultSummary struct {
+	Id      string      `json:"id"`
 	Project ProjectKey  `json:"project"`
 	Command CommandInfo `json:"commandInfo"`
 	GitInfo *GitInfo    `json:"gitInfo,omitempty"`
