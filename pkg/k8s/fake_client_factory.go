@@ -12,6 +12,8 @@ import (
 	fake_dynamic "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/metadata"
+	fake_metadata "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/testing"
 	"sigs.k8s.io/kustomize/kyaml/openapi"
@@ -20,8 +22,9 @@ import (
 )
 
 type fakeClientFactory struct {
-	clientSet     *fake.Clientset
-	dynamicClient *fake_dynamic.FakeDynamicClient
+	clientSet      *fake.Clientset
+	dynamicClient  *fake_dynamic.FakeDynamicClient
+	metadataClient *fake_metadata.FakeMetadataClient
 }
 
 func (f *fakeClientFactory) RESTConfig() *rest.Config {
@@ -47,6 +50,10 @@ func (f *fakeClientFactory) DynamicClient(wh rest.WarningHandler) (dynamic.Inter
 	return f.dynamicClient, nil
 }
 
+func (f *fakeClientFactory) MetadataClient(wh rest.WarningHandler) (metadata.Interface, error) {
+	return f.metadataClient, nil
+}
+
 func NewFakeClientFactory(objects ...runtime.Object) *fakeClientFactory {
 	scheme := runtime.NewScheme()
 	_ = v1.AddToScheme(scheme)
@@ -56,10 +63,12 @@ func NewFakeClientFactory(objects ...runtime.Object) *fakeClientFactory {
 	clientSet.Fake.Resources = ConvertSchemeToAPIResources(scheme)
 
 	dynamicClient := fake_dynamic.NewSimpleDynamicClient(scheme, objects...)
+	metadataClient := fake_metadata.NewSimpleMetadataClient(scheme, objects...)
 
 	return &fakeClientFactory{
-		clientSet:     clientSet,
-		dynamicClient: dynamicClient,
+		clientSet:      clientSet,
+		dynamicClient:  dynamicClient,
+		metadataClient: metadataClient,
 	}
 }
 

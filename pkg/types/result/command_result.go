@@ -116,6 +116,18 @@ func (cr *CommandResult) ToCompacted() *CompactedCommandResult {
 	return ret
 }
 
+func (cr *CommandResult) ToReducedObjects() *CommandResult {
+	ret := *cr
+	ret.Objects = make([]ResultObject, len(ret.Objects))
+	for i, o := range cr.Objects {
+		ret.Objects[i] = o
+		ret.Objects[i].Rendered = buildReducedObject(o.Rendered)
+		ret.Objects[i].Remote = buildReducedObject(o.Remote)
+		ret.Objects[i].Applied = buildReducedObject(o.Applied)
+	}
+	return &ret
+}
+
 type CompactedCommandResult struct {
 	CommandResult
 

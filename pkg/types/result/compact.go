@@ -153,3 +153,28 @@ func (l *CompactedObjects) UnmarshalJSON(b []byte) error {
 	*l = ret
 	return nil
 }
+
+func buildReducedObject(o *uo.UnstructuredObject) *uo.UnstructuredObject {
+	if o == nil {
+		return nil
+	}
+	ref := o.GetK8sRef()
+	m := map[string]any{
+		"apiVersion": ref.GroupVersion().String(),
+		"kind":       ref.Kind,
+		"metadata": map[string]any{
+			"name": ref.Name,
+		},
+	}
+	ret := uo.FromMap(m)
+	if ref.Namespace != "" {
+		ret.SetK8sNamespace(ref.Namespace)
+	}
+	if len(o.GetK8sLabels()) != 0 {
+		ret.SetK8sLabels(o.GetK8sLabels())
+	}
+	if len(o.GetK8sAnnotations()) != 0 {
+		ret.SetK8sAnnotations(o.GetK8sAnnotations())
+	}
+	return ret
+}
