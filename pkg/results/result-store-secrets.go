@@ -338,6 +338,9 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 		return nil, err
 	}
 
+	stopCh := make(chan struct{})
+	toolscache.WaitForCacheSync(stopCh, r.HasSynced)
+
 	cancel := func() {
 		_ = s.informer.RemoveEventHandler(r)
 	}

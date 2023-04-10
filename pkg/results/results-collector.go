@@ -17,7 +17,8 @@ type ResultsCollector struct {
 	resultSummaries map[string]summaryEntry
 	handlers        []*handlerEntry
 
-	mutex sync.Mutex
+	initialWG sync.WaitGroup
+	mutex     sync.Mutex
 }
 
 type summaryEntry struct {
@@ -38,11 +39,17 @@ func NewResultsCollector(ctx context.Context, stores []ResultStore) *ResultsColl
 		resultSummaries: map[string]summaryEntry{},
 	}
 
+	ret.initialWG.Add(len(stores))
+
 	return ret
 }
 
 func (rc *ResultsCollector) Start() {
 	rc.startWatchResults()
+}
+
+func (rc *ResultsCollector) WaitForInitialSync() {
+	rc.initialWG.Wait()
 }
 
 func (rc *ResultsCollector) startWatchResults() {
@@ -52,12 +59,17 @@ func (rc *ResultsCollector) startWatchResults() {
 }
 
 func (rc *ResultsCollector) runWatchResults(store ResultStore) {
+	initial := true
 	for {
 		_, err := store.WatchCommandResultSummaries(ListCommandResultSummariesOptions{}, func(summary *result.CommandResultSummary) {
 			rc.handleUpdate(store, summary)
 		}, func(id string) {
 			rc.handleDelete(store, id)
 		})
+		if initial {
+			rc.initialWG.Done()
+			initial = false
+		}
 		if err == nil {
 			break
 		}

@@ -1,0 +1,32 @@
+package main
+
+import (
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/webui"
+	"github.com/tkrajina/typescriptify-golang-structs/typescriptify"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+func main() {
+	converter := typescriptify.New().
+		WithBackupDir("").
+		Add(result.CommandResult{}).
+		Add(result.ProjectSummary{}).
+		Add(result.CommandResultSummary{}).
+		Add(webui.ShortName{}).
+		Add(uo.UnstructuredObject{}).
+		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(types.GitRepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(types.YamlUrl{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(uo.UnstructuredObject{}, typescriptify.TypeOptions{TSType: "any"}).
+		ManageType(metav1.Time{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(apiextensionsv1.JSON{}, typescriptify.TypeOptions{TSType: "any"})
+
+	err := converter.ConvertToFile("ui/src/models.ts")
+	if err != nil {
+		panic(err.Error())
+	}
+}
