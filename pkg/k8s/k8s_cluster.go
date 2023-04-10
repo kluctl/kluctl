@@ -110,7 +110,11 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 		if len(ret) != 0 {
 			ret += ","
 		}
-		ret += fmt.Sprintf("%s=%s", k, v)
+		if v == "" {
+			ret += k
+		} else {
+			ret += fmt.Sprintf("%s=%s", k, v)
+		}
 	}
 	return ret
 }
