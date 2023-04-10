@@ -46,6 +46,7 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		needsResultStore:     true,
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
@@ -66,7 +67,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) erro
 	cmd2.NoWait = cmd.NoWait
 
 	cb := func(diffResult *result.CommandResult) error {
-		return cmd.diffResultCb(cmdCtx.ctx, diffResult)
+		return cmd.diffResultCb(cmdCtx, diffResult)
 	}
 	if cmd.Yes || cmd.DryRun {
 		cb = nil
@@ -80,7 +81,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) erro
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
+	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, true)
 	if err != nil {
 		return err
 	}
@@ -90,11 +91,11 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) erro
 	return nil
 }
 
-func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *result.CommandResult) error {
+func (cmd *deployCmd) diffResultCb(ctx *commandCtx, diffResult *result.CommandResult) error {
 	flags := cmd.OutputFormatFlags
 	flags.OutputFormat = nil // use default output format
 
-	err := outputCommandResult(ctx, flags, diffResult)
+	err := outputCommandResult(ctx, flags, diffResult, false)
 	if err != nil {
 		return err
 	}
@@ -102,11 +103,11 @@ func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *result.Comma
 		return nil
 	}
 	if len(diffResult.Errors) != 0 {
-		if !status.AskForConfirmation(ctx, "The diff resulted in errors, do you still want to proceed?") {
+		if !status.AskForConfirmation(ctx.ctx, "The diff resulted in errors, do you still want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	} else {
-		if !status.AskForConfirmation(ctx, "The diff succeeded, do you want to proceed?") {
+		if !status.AskForConfirmation(ctx.ctx, "The diff succeeded, do you want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	}

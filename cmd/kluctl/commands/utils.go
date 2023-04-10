@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	git2 "github.com/go-git/go-git/v5"
+	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
@@ -134,12 +135,14 @@ type projectTargetCommandArgs struct {
 	forCompletion     bool
 	offlineKubernetes bool
 	kubernetesVersion string
+	needsResultStore  bool
 }
 
 type commandCtx struct {
-	ctx       context.Context
-	targetCtx *kluctl_project.TargetContext
-	images    *deployment.Images
+	ctx         context.Context
+	targetCtx   *kluctl_project.TargetContext
+	images      *deployment.Images
+	resultStore results.ResultStore
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
@@ -200,10 +203,19 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 	}
 
+	var resultStore results.ResultStore
+	if args.needsResultStore {
+		resultStore, err = results.NewResultStoreSecrets(targetCtx.SharedContext.K, "kluctl-results")
+		if err != nil {
+			return err
+		}
+	}
+
 	cmdCtx := &commandCtx{
-		ctx:       ctx,
-		targetCtx: targetCtx,
-		images:    images,
+		ctx:         ctx,
+		targetCtx:   targetCtx,
+		images:      images,
+		resultStore: resultStore,
 	}
 
 	return cb(cmdCtx)

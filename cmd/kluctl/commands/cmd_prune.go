@@ -40,6 +40,7 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		needsResultStore:     true,
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
@@ -59,7 +60,7 @@ func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx, startTime time.Time) error 
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
+	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, true)
 	if err != nil {
 		return err
 	}

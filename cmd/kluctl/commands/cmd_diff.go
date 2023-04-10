@@ -56,7 +56,7 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(ctx, cmd.OutputFormatFlags, result)
+		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, false)
 		if err != nil {
 			return err
 		}

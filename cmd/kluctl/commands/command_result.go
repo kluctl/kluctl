@@ -220,8 +220,8 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 	return nil
 }
 
-func outputCommandResult(ctx context.Context, flags args.OutputFormatFlags, cr *result.CommandResult) error {
-	status.Flush(ctx)
+func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
+	status.Flush(ctx.ctx)
 
 	if !flags.NoObfuscate {
 		var obfuscator diff.Obfuscator
@@ -231,7 +231,17 @@ func outputCommandResult(ctx context.Context, flags args.OutputFormatFlags, cr *
 		}
 	}
 
-	return outputHelper(ctx, flags.OutputFormat, func(format string) (string, error) {
+	if writeToResultStore && ctx.resultStore != nil {
+		s := status.Start(ctx.ctx, "Writing command result")
+		defer s.Failed()
+		err := ctx.resultStore.WriteCommandResult(ctx.ctx, cr)
+		if err != nil {
+			return err
+		}
+		s.Success()
+	}
+
+	return outputHelper(ctx.ctx, flags.OutputFormat, func(format string) (string, error) {
 		return formatCommandResult(cr, format, flags.ShortOutput)
 	})
 }
