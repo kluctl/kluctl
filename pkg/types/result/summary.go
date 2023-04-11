@@ -1,10 +1,11 @@
 package result
 
 type CommandResultSummary struct {
-	Id      string      `json:"id"`
-	Project ProjectKey  `json:"project"`
-	Command CommandInfo `json:"commandInfo"`
-	GitInfo *GitInfo    `json:"gitInfo,omitempty"`
+	Id          string       `json:"id"`
+	Project     ProjectKey   `json:"project"`
+	Command     CommandInfo  `json:"commandInfo"`
+	GitInfo     *GitInfo     `json:"gitInfo,omitempty"`
+	ClusterInfo *ClusterInfo `json:"clusterInfo,omitempty"`
 
 	RenderedObjects    int `json:"renderedObjects"`
 	RemoteObjects      int `json:"remoteObjects"`
@@ -47,6 +48,7 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 		Project:            cr.Project,
 		Command:            cr.Command,
 		GitInfo:            cr.GitInfo,
+		ClusterInfo:        cr.ClusterInfo,
 		RenderedObjects:    count(func(o ResultObject) bool { return o.Rendered != nil }),
 		RemoteObjects:      count(func(o ResultObject) bool { return o.Remote != nil }),
 		AppliedObjects:     count(func(o ResultObject) bool { return o.Applied != nil }),

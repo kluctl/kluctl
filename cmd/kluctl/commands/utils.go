@@ -6,6 +6,7 @@ import (
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
 	"path/filepath"
@@ -270,6 +271,11 @@ func addCommandInfo(r *result.CommandResult, startTime time.Time, command string
 		return err
 	}
 
+	err = addClusterInfo(r, ctx)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -340,6 +346,23 @@ func addGitInfo(r *result.CommandResult, ctx *commandCtx) error {
 	}
 	r.Project.NormalizedGitUrl = normaliedUrl
 	r.Project.SubDir = subDir
+	return nil
+}
+
+func addClusterInfo(r *result.CommandResult, ctx *commandCtx) error {
+	kubeSystemNs, _, err := ctx.targetCtx.SharedContext.K.GetSingleObject(
+		k8s.NewObjectRef("", "v1", "Namespace", "kube-system", ""))
+	if err != nil {
+		return err
+	}
+	// we reuse the kube-system namespace uid as global cluster id
+	clusterId := kubeSystemNs.GetK8sUid()
+	if clusterId == "" {
+		return fmt.Errorf("kube-system namespace has no uid")
+	}
+	r.ClusterInfo = &result.ClusterInfo{
+		ClusterId: clusterId,
+	}
 	return nil
 }
 

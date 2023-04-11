@@ -75,6 +75,10 @@ type GitInfo struct {
 	Dirty  bool            `json:"dirty"`
 }
 
+type ClusterInfo struct {
+	ClusterId string `json:"clusterId"`
+}
+
 type BaseObject struct {
 	Ref     k8s.ObjectRef `json:"ref"`
 	Changes []Change      `json:"changes,omitempty"`
@@ -94,11 +98,12 @@ type ResultObject struct {
 }
 
 type CommandResult struct {
-	Id         string                         `json:"id"`
-	Project    ProjectKey                     `json:"project"`
-	Command    CommandInfo                    `json:"command,omitempty"`
-	GitInfo    *GitInfo                       `json:"gitInfo,omitempty"`
-	Deployment *types.DeploymentProjectConfig `json:"deployment,omitempty"`
+	Id          string                         `json:"id"`
+	Project     ProjectKey                     `json:"project"`
+	Command     CommandInfo                    `json:"command,omitempty"`
+	GitInfo     *GitInfo                       `json:"gitInfo,omitempty"`
+	ClusterInfo *ClusterInfo                   `json:"clusterInfo,omitempty"`
+	Deployment  *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
 	Objects []ResultObject `json:"objects,omitempty"`
 

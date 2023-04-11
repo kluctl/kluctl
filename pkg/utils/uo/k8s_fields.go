@@ -79,7 +79,6 @@ func (uo *UnstructuredObject) SetK8sNamespace(namespace string) {
 			panic(err)
 		}
 	}
-
 }
 
 func (uo *UnstructuredObject) GetK8sRef() k8s.ObjectRef {
@@ -91,6 +90,14 @@ func (uo *UnstructuredObject) GetK8sRef() k8s.ObjectRef {
 		Name:      uo.GetK8sName(),
 		Namespace: uo.GetK8sNamespace(),
 	}
+}
+
+func (uo *UnstructuredObject) GetK8sUid() string {
+	s, _, err := uo.GetNestedString("metadata", "uid")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
 func (uo *UnstructuredObject) GetK8sLabels() map[string]string {
