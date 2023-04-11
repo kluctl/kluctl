@@ -130,12 +130,12 @@ type projectTargetCommandArgs struct {
 	helmCredentials      args.HelmCredentials
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
+	commandResultFlags   *args.CommandResultFlags
 
 	forSeal           bool
 	forCompletion     bool
 	offlineKubernetes bool
 	kubernetesVersion string
-	needsResultStore  bool
 }
 
 type commandCtx struct {
@@ -204,8 +204,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	var resultStore results.ResultStore
-	if args.needsResultStore {
-		resultStore, err = results.NewResultStoreSecrets(targetCtx.SharedContext.K, "kluctl-results")
+	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
+		resultStore, err = results.NewResultStoreSecrets(targetCtx.SharedContext.K, args.commandResultFlags.CommandResultNamespace)
 		if err != nil {
 			return err
 		}

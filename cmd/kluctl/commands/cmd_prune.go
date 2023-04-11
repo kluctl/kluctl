@@ -20,6 +20,7 @@ type pruneCmd struct {
 	args.DryRunFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 }
 
 func (cmd *pruneCmd) Help() string {
@@ -40,7 +41,7 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
-		needsResultStore:     true,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {

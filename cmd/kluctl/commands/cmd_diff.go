@@ -20,6 +20,7 @@ type diffCmd struct {
 	args.IgnoreFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 }
 
 func (cmd *diffCmd) Help() string {
@@ -38,6 +39,7 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		inclusionFlags:       cmd.InclusionFlags,
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
@@ -56,7 +58,7 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, false)
+		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, true)
 		if err != nil {
 			return err
 		}

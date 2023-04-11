@@ -25,6 +25,7 @@ type deployCmd struct {
 	args.HookFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 
 	NoWait bool `group:"misc" help:"Don't wait for objects readiness'"`
 }
@@ -46,7 +47,7 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
-		needsResultStore:     true,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {

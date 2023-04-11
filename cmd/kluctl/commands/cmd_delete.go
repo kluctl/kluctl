@@ -21,6 +21,7 @@ type deleteCmd struct {
 	args.DryRunFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 
 	Discriminator string `group:"misc" help:"Override the discriminator used to find objects for deletion."`
 }
@@ -43,7 +44,7 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
-		needsResultStore:     true,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {

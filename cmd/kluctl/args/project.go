@@ -41,3 +41,8 @@ type TargetFlags struct {
 	TargetNameOverride string `group:"project" short:"T" help:"Overrides the target name. If -t is used at the same time, then the target will be looked up based on -t <name> and then renamed to the value of -T. If no target is specified via -t, then the no-name target is renamed to the value of -T."`
 	Context            string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
 }
+
+type CommandResultFlags struct {
+	WriteCommandResult     bool   `group:"results" help:"Enable experimental writing of command results into the cluster. Command results will be written into ConfigMaps in the kluctl-results namespace."`
+	CommandResultNamespace string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
+}
