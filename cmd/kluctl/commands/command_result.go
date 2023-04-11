@@ -231,19 +231,25 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 		}
 	}
 
+	var resultStoreErr error
 	if writeToResultStore && ctx.resultStore != nil {
 		s := status.Start(ctx.ctx, "Writing command result")
 		defer s.Failed()
-		err := ctx.resultStore.WriteCommandResult(ctx.ctx, cr)
-		if err != nil {
-			return err
+		resultStoreErr = ctx.resultStore.WriteCommandResult(ctx.ctx, cr)
+		if resultStoreErr != nil {
+			s.FailedWithMessage("Failed to write result to result store: %s", resultStoreErr.Error())
+		} else {
+			s.Success()
 		}
-		s.Success()
 	}
 
-	return outputHelper(ctx.ctx, flags.OutputFormat, func(format string) (string, error) {
+	err := outputHelper(ctx.ctx, flags.OutputFormat, func(format string) (string, error) {
 		return formatCommandResult(cr, format, flags.ShortOutput)
 	})
+	if err == nil && resultStoreErr != nil {
+		return resultStoreErr
+	}
+	return err
 }
 
 func outputValidateResult(ctx context.Context, output []string, vr *result.ValidateResult) error {
