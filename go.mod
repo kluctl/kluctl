@@ -16,7 +16,7 @@ require (
 	github.com/google/go-containerregistry v0.13.0
 	github.com/hashicorp/vault/api v1.9.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/imdario/mergo v0.3.14
+	github.com/imdario/mergo v0.3.15
 	github.com/jinzhu/copier v0.3.5
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/kluctl/go-embed-python v0.0.0-3.10.9-20230206-2
