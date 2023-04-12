@@ -206,7 +206,11 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	var resultStore results.ResultStore
 	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
-		resultStore, err = results.NewResultStoreSecrets(targetCtx.SharedContext.K, args.commandResultFlags.CommandResultNamespace)
+		rc, err := targetCtx.SharedContext.K.ToRESTConfig()
+		if err != nil {
+			return err
+		}
+		resultStore, err = results.NewResultStoreSecrets(ctx, rc, args.commandResultFlags.CommandResultNamespace)
 		if err != nil {
 			return err
 		}
@@ -274,6 +278,14 @@ func addCommandInfo(r *result.CommandResult, startTime time.Time, command string
 	err = addClusterInfo(r, ctx)
 	if err != nil {
 		return err
+	}
+
+	if ctx.targetCtx.Target != nil {
+		r.Target.TargetName = ctx.targetCtx.Target.Name
+		r.Target.Discriminator = ctx.targetCtx.Target.Discriminator
+	}
+	if r.ClusterInfo != nil {
+		r.Target.ClusterId = r.ClusterInfo.ClusterId
 	}
 
 	return nil

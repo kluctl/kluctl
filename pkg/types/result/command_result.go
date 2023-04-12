@@ -44,6 +44,35 @@ type ProjectKey struct {
 	SubDir           string `json:"subDir,omitempty"`
 }
 
+func (k ProjectKey) Less(o ProjectKey) bool {
+	if k.NormalizedGitUrl != o.NormalizedGitUrl {
+		return k.NormalizedGitUrl < o.NormalizedGitUrl
+	}
+	if k.SubDir != o.SubDir {
+		return k.SubDir < o.SubDir
+	}
+	return false
+}
+
+type TargetKey struct {
+	TargetName    string `json:"targetName,omitempty"`
+	ClusterId     string `json:"clusterId"`
+	Discriminator string `json:"discriminator,omitempty"`
+}
+
+func (k TargetKey) Less(o TargetKey) bool {
+	if k.TargetName != o.TargetName {
+		return k.TargetName < o.TargetName
+	}
+	if k.ClusterId != o.ClusterId {
+		return k.ClusterId < o.ClusterId
+	}
+	if k.Discriminator != o.Discriminator {
+		return k.Discriminator < o.Discriminator
+	}
+	return false
+}
+
 type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
 	StartTime             types.JsonTime         `json:"startTime"`
@@ -100,6 +129,7 @@ type ResultObject struct {
 type CommandResult struct {
 	Id          string                         `json:"id"`
 	Project     ProjectKey                     `json:"project"`
+	Target      TargetKey                      `json:"target"`
 	Command     CommandInfo                    `json:"command,omitempty"`
 	GitInfo     *GitInfo                       `json:"gitInfo,omitempty"`
 	ClusterInfo *ClusterInfo                   `json:"clusterInfo,omitempty"`
