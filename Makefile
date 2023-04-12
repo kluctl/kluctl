@@ -115,8 +115,9 @@ endif
 replace-commands-help: ## Replace commands help in docs
 	$(GOCMD) run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
 
+MARKDOWN_LINK_CHECK_VERSION=3.10.3 # warning, 3.11.x is broken
 markdown-link-check: ## Check markdown files for dead links
-	find . -name '*.md' | xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:stable
+	find . -name '*.md' | xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
 
 ## Release:
 version: ## Write next version into version file
