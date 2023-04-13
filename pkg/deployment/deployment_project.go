@@ -344,7 +344,7 @@ func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAn
 		ret = append(ret, e.p.Config.IgnoreForDiff...)
 	}
 	if ignoreTags {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels."kluctl.io/tag-*"`}})
+		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
 	}
 	if ignoreLabels {
 		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels.*`}})
