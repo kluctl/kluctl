@@ -3,6 +3,7 @@ package uo
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 )
 
 func (uo *UnstructuredObject) GetNestedField(keys ...interface{}) (interface{}, bool, error) {
@@ -71,6 +72,34 @@ func (uo *UnstructuredObject) RemoveNestedField(keys ...interface{}) error {
 			delete(m, s)
 		} else {
 			return fmt.Errorf("key is not a string")
+		}
+	}
+
+	return nil
+}
+
+func (uo *UnstructuredObject) RemoveFieldsByPathRegex(path string) error {
+	r, err := regexp.Compile(path)
+	if err != nil {
+		return err
+	}
+
+	var toDelete []KeyPath
+	err = uo.NewIterator().IterateLeafs(func(it *ObjectIterator) error {
+		jp := it.KeyPath().ToJsonPath()
+		if r.MatchString(jp) {
+			toDelete = append(toDelete, it.KeyPathCopy())
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, p := range toDelete {
+		err = uo.RemoveNestedField(p...)
+		if err != nil {
+			return err
 		}
 	}
 

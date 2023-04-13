@@ -77,8 +77,16 @@ func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 		// did not apply? (e.g. in downscale command)
 		return
 	} else {
-		nao := diff.NormalizeObject(ao, ignoreForDiffs, lo)
-		nro := diff.NormalizeObject(ro, ignoreForDiffs, lo)
+		nao, err := diff.NormalizeObject(ao, ignoreForDiffs, lo)
+		if err != nil {
+			u.dew.AddError(lo.GetK8sRef(), err)
+			return
+		}
+		nro, err := diff.NormalizeObject(ro, ignoreForDiffs, lo)
+		if err != nil {
+			u.dew.AddError(lo.GetK8sRef(), err)
+			return
+		}
 		changes, err := diff.Diff(nro, nao)
 		if err != nil {
 			u.dew.AddError(lo.GetK8sRef(), err)
