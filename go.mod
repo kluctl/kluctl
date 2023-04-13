@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
-	github.com/Masterminds/semver/v3 v3.2.0
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/bitnami-labs/sealed-secrets v0.19.5
 	github.com/cyphar/filepath-securejoin v0.2.3
