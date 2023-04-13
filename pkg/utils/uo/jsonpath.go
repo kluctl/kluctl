@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var isSimpleIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]+$`)
+var isSimpleIdentifier = regexp.MustCompile(`^[A-Za-z_-][A-Za-z0-9_-]+$`)
 
 type KeyPath []interface{}
 
