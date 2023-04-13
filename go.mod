@@ -49,7 +49,7 @@ require (
 	k8s.io/apimachinery v0.27.0
 	k8s.io/client-go v0.26.3
 	k8s.io/klog/v2 v2.90.1
-	sigs.k8s.io/kustomize/kyaml v0.13.9
+	sigs.k8s.io/kustomize/kyaml v0.14.1
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 )
 
@@ -66,7 +66,7 @@ require (
 	github.com/otiai10/copy v1.10.0
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
 	sigs.k8s.io/controller-runtime v0.14.5
-	sigs.k8s.io/kustomize/api v0.12.1
+	sigs.k8s.io/kustomize/api v0.13.2
 	sigs.k8s.io/yaml v1.3.0
 )
 
