@@ -77,11 +77,19 @@ func (s *SingleStringOrList) UnmarshalYAML(unmarshal func(interface{}) error) er
 }
 
 type IgnoreForDiffItemConfig struct {
-	FieldPath SingleStringOrList `yaml:"fieldPath" validate:"required"`
-	Group     *string            `yaml:"group,omitempty"`
-	Kind      *string            `yaml:"kind,omitempty"`
-	Name      *string            `yaml:"name,omitempty"`
-	Namespace *string            `yaml:"namespace,omitempty"`
+	FieldPath      SingleStringOrList `yaml:"fieldPath" validate:"required"`
+	FieldPathRegex SingleStringOrList `yaml:"fieldPathRegex,omitempty"`
+	Group          *string            `yaml:"group,omitempty"`
+	Kind           *string            `yaml:"kind,omitempty"`
+	Name           *string            `yaml:"name,omitempty"`
+	Namespace      *string            `yaml:"namespace,omitempty"`
+}
+
+func ValidateIgnoreForDiffItemConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(IgnoreForDiffItemConfig)
+	if len(s.FieldPath)+len(s.FieldPathRegex) == 0 {
+		sl.ReportError(s, "self", "self", "at least one of fieldPath or fieldPathRegex must be set", "")
+	}
 }
 
 type DeploymentProjectConfig struct {
@@ -102,4 +110,5 @@ type DeploymentProjectConfig struct {
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
 	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
+	yaml.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
 }

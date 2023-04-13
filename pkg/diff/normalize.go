@@ -118,9 +118,10 @@ func normalizeMisc(o *uo.UnstructuredObject) {
 }
 
 var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field(-\d*)?$`)
+var ignoreDiffFieldRegexAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field-regex(-\d*)?$`)
 
 // NormalizeObject Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) *uo.UnstructuredObject {
+func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 	gvk := o_.GetK8sGVK()
 	name := o_.GetK8sName()
 	ns := o_.GetK8sNamespace()
@@ -138,11 +139,28 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		normalizeServiceAccount(o)
 	}
 
+	if utils.ParseBoolOrFalse(localObject.GetK8sAnnotation("kluctl.io/ignore-diff")) {
+		// Return empty object so that diffs will always be empty
+		return &uo.UnstructuredObject{Object: map[string]interface{}{}}, nil
+	}
+
 	checkMatch := func(v string, m *string) bool {
 		if v == "" || m == nil {
 			return true
 		}
 		return v == *m
+	}
+
+	ignoreForDiffs = append([]*types.IgnoreForDiffItemConfig{}, ignoreForDiffs...)
+	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldAnnotationRegex) {
+		ignoreForDiffs = append(ignoreForDiffs, &types.IgnoreForDiffItemConfig{
+			FieldPath: []string{v},
+		})
+	}
+	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldRegexAnnotationRegex) {
+		ignoreForDiffs = append(ignoreForDiffs, &types.IgnoreForDiffItemConfig{
+			FieldPathRegex: []string{v},
+		})
 	}
 
 	for _, ifd := range ignoreForDiffs {
@@ -162,24 +180,17 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		for _, fp := range ifd.FieldPath {
 			jp, err := uo.NewMyJsonPath(fp)
 			if err != nil {
-				continue
+				return nil, err
 			}
 			_ = jp.Del(o)
 		}
-	}
-
-	if utils.ParseBoolOrFalse(localObject.GetK8sAnnotation("kluctl.io/ignore-diff")) {
-		// Return empty object so that diffs will always be empty
-		return &uo.UnstructuredObject{Object: map[string]interface{}{}}
-	}
-
-	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldAnnotationRegex) {
-		j, err := uo.NewMyJsonPath(v)
-		if err != nil {
-			continue
+		for _, fp := range ifd.FieldPathRegex {
+			err := o.RemoveFieldsByPathRegex(fp)
+			if err != nil {
+				return nil, err
+			}
 		}
-		_ = j.Del(o)
 	}
 
-	return o
+	return o, nil
 }

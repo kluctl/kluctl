@@ -294,8 +294,19 @@ This will remove the `spec.replicas` field from every resource that matches the 
 `group`, `kind`, `namespace` and `name` can be omitted, which results in all objects matching. `fieldPath` must be a
 valid [JSON Path](https://goessner.net/articles/JsonPath/). `fieldPath` may also be a list of JSON paths.
 
-The JSON Path implementation used in kluctl has extended support for wildcards in field
-names, allowing you to also specify paths like `metadata.labels.my-prefix-*`.
+Using regex expressions instead of JSON Pathes is also supported:
+
+```yaml
+deployments:
+  - ...
+
+ignoreForDiff:
+  - group: apps
+    kind: Deployment
+    namespace: my-namespace
+    name: my-deployment
+    fieldPathRegex: metadata.labels.my-label-.*
+```
 
 As an alternative, [annotations](./annotations/all-resources.md#control-diff-behavior) can be used to control
 diff behavior of individual resources.

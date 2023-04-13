@@ -104,3 +104,9 @@ Specifies a [JSON Path](https://goessner.net/articles/JsonPath/) for fields that
 diffs.
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
+
+### kluctl.io/ignore-diff-field-regex
+Same as [kluctl.io/ignore-diff-field](#kluctlioignore-diff-field) but specifying a regular expressions instead of a
+JSON Path.
+
+If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
