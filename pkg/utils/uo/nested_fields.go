@@ -182,6 +182,10 @@ func (uo *UnstructuredObject) GetNestedObject(keys ...interface{}) (*Unstructure
 		return nil, false, nil
 	}
 
+	if a == nil {
+		return nil, true, nil
+	}
+
 	m, ok := a.(map[string]interface{})
 	if !ok {
 		return nil, false, fmt.Errorf("nested value is not a map")
