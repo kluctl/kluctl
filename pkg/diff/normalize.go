@@ -64,8 +64,8 @@ func normalizeContainers(containers []*uo.UnstructuredObject) {
 
 func normalizeSecretAndConfigMaps(o *uo.UnstructuredObject) {
 	data, found, _ := o.GetNestedObject("data")
-	if found && len(data.Object) == 0 {
-		_ = data.RemoveNestedField("data")
+	if found && (data == nil || len(data.Object) == 0) {
+		_ = o.RemoveNestedField("data")
 	}
 }
 
@@ -95,7 +95,7 @@ func normalizeServiceAccount(o *uo.UnstructuredObject) {
 func normalizeMetadata(o *uo.UnstructuredObject) {
 	// We don't care about managedFields when diffing (they just produce noise)
 	_ = o.RemoveNestedField("metadata", "managedFields")
-	_ = o.RemoveNestedField("metadata", "annotations", "managedFields", "kubectl.kubernetes.io/last-applied-configuration")
+	_ = o.RemoveNestedField("metadata", "annotations", "kubectl.kubernetes.io/last-applied-configuration")
 
 	// We don't want to see this in diffs
 	_ = o.RemoveNestedField("metadata", "creationTimestamp")
@@ -105,8 +105,8 @@ func normalizeMetadata(o *uo.UnstructuredObject) {
 	_ = o.RemoveNestedField("metadata", "uid")
 
 	// Ensure empty labels/metadata exist
-	_ = o.SetNestedFieldDefault(map[string]string{}, "metadata", "labels")
-	_ = o.SetNestedFieldDefault(map[string]string{}, "metadata", "annotations")
+	_ = o.SetNestedFieldDefault(map[string]any{}, "metadata", "labels")
+	_ = o.SetNestedFieldDefault(map[string]any{}, "metadata", "annotations")
 }
 
 func normalizeMisc(o *uo.UnstructuredObject) {
