@@ -47,9 +47,9 @@ type CacheEntry struct {
 }
 
 type RepoInfo struct {
-	Url        git_url.GitUrl    `yaml:"url"`
-	RemoteRefs map[string]string `yaml:"remoteRefs"`
-	DefaultRef string            `yaml:"defaultRef"`
+	Url        git_url.GitUrl    `json:"url"`
+	RemoteRefs map[string]string `json:"remoteRefs"`
+	DefaultRef string            `json:"defaultRef"`
 }
 
 type RepoOverride struct {

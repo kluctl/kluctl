@@ -479,19 +479,19 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 		assert.NoError(t, err)
 
 		v, _, _ := vc.Vars.GetNestedField("test1")
-		assert.Equal(t, 42, v)
+		assert.Equal(t, 42., v)
 
 		v, _, _ = vc.Vars.GetNestedField("test2")
 		assert.Equal(t, "43", v)
 
 		v, _, _ = vc.Vars.GetNestedField("test3", "test4")
-		assert.Equal(t, 44, v)
+		assert.Equal(t, 44., v)
 
 		v, _, _ = vc.Vars.GetNestedField("test5")
 		assert.Equal(t, "def", v)
 
 		v, _, _ = vc.Vars.GetNestedField("test6")
-		assert.Equal(t, 42, v)
+		assert.Equal(t, 42., v)
 
 		v, _, _ = vc.Vars.GetNestedField("test7")
 		assert.Equal(t, "", v)

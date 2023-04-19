@@ -6,50 +6,50 @@ import (
 )
 
 type Change struct {
-	Type        string      `yaml:"type" validate:"required"`
-	JsonPath    string      `yaml:"jsonPath" validate:"required"`
-	OldValue    interface{} `yaml:"oldValue,omitempty"`
-	NewValue    interface{} `yaml:"newValue,omitempty"`
-	UnifiedDiff string      `yaml:"unifiedDiff,omitempty"`
+	Type        string      `json:"type" validate:"required"`
+	JsonPath    string      `json:"jsonPath" validate:"required"`
+	OldValue    interface{} `json:"oldValue,omitempty"`
+	NewValue    interface{} `json:"newValue,omitempty"`
+	UnifiedDiff string      `json:"unifiedDiff,omitempty"`
 }
 
 type ChangedObject struct {
-	Ref       k8s.ObjectRef          `yaml:"ref"`
-	NewObject *uo.UnstructuredObject `yaml:"newObject,omitempty"`
-	OldObject *uo.UnstructuredObject `yaml:"oldObject,omitempty"`
-	Changes   []Change               `yaml:"changes,omitempty"`
+	Ref       k8s.ObjectRef          `json:"ref"`
+	NewObject *uo.UnstructuredObject `json:"newObject,omitempty"`
+	OldObject *uo.UnstructuredObject `json:"oldObject,omitempty"`
+	Changes   []Change               `json:"changes,omitempty"`
 }
 
 type RefAndObject struct {
-	Ref    k8s.ObjectRef          `yaml:"ref"`
-	Object *uo.UnstructuredObject `yaml:"object,omitempty"`
+	Ref    k8s.ObjectRef          `json:"ref"`
+	Object *uo.UnstructuredObject `json:"object,omitempty"`
 }
 
 type DeploymentError struct {
-	Ref   k8s.ObjectRef `yaml:"ref"`
-	Error string        `yaml:"error"`
+	Ref   k8s.ObjectRef `json:"ref"`
+	Error string        `json:"error"`
 }
 
 type CommandResult struct {
-	NewObjects     []*RefAndObject   `yaml:"newObjects,omitempty"`
-	ChangedObjects []*ChangedObject  `yaml:"changedObjects,omitempty"`
-	HookObjects    []*RefAndObject   `yaml:"hookObjects,omitempty"`
-	OrphanObjects  []k8s.ObjectRef   `yaml:"orphanObjects,omitempty"`
-	DeletedObjects []k8s.ObjectRef   `yaml:"deletedObjects,omitempty"`
-	Errors         []DeploymentError `yaml:"errors,omitempty"`
-	Warnings       []DeploymentError `yaml:"warnings,omitempty"`
-	SeenImages     []FixedImage      `yaml:"seenImages,omitempty"`
+	NewObjects     []*RefAndObject   `json:"newObjects,omitempty"`
+	ChangedObjects []*ChangedObject  `json:"changedObjects,omitempty"`
+	HookObjects    []*RefAndObject   `json:"hookObjects,omitempty"`
+	OrphanObjects  []k8s.ObjectRef   `json:"orphanObjects,omitempty"`
+	DeletedObjects []k8s.ObjectRef   `json:"deletedObjects,omitempty"`
+	Errors         []DeploymentError `json:"errors,omitempty"`
+	Warnings       []DeploymentError `json:"warnings,omitempty"`
+	SeenImages     []FixedImage      `json:"seenImages,omitempty"`
 }
 
 type ValidateResultEntry struct {
-	Ref        k8s.ObjectRef `yaml:"ref"`
-	Annotation string        `yaml:"annotation"`
-	Message    string        `yaml:"message"`
+	Ref        k8s.ObjectRef `json:"ref"`
+	Annotation string        `json:"annotation"`
+	Message    string        `json:"message"`
 }
 
 type ValidateResult struct {
-	Ready    bool                  `yaml:"ready"`
-	Warnings []DeploymentError     `yaml:"warnings,omitempty"`
-	Errors   []DeploymentError     `yaml:"errors,omitempty"`
-	Results  []ValidateResultEntry `yaml:"results,omitempty"`
+	Ready    bool                  `json:"ready"`
+	Warnings []DeploymentError     `json:"warnings,omitempty"`
+	Errors   []DeploymentError     `json:"errors,omitempty"`
+	Results  []ValidateResultEntry `json:"results,omitempty"`
 }

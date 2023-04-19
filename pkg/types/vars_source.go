@@ -9,16 +9,16 @@ import (
 )
 
 type VarsSourceGit struct {
-	Url  git_url.GitUrl `yaml:"url" validate:"required"`
-	Ref  string         `yaml:"ref,omitempty"`
-	Path string         `yaml:"path" validate:"required"`
+	Url  git_url.GitUrl `json:"url" validate:"required"`
+	Ref  string         `json:"ref,omitempty"`
+	Path string         `json:"path" validate:"required"`
 }
 
 type VarsSourceClusterConfigMapOrSecret struct {
-	Name      string            `yaml:"name,omitempty"`
-	Labels    map[string]string `yaml:"labels,omitempty"`
-	Namespace string            `yaml:"namespace" validate:"required"`
-	Key       string            `yaml:"key" validate:"required"`
+	Name      string            `json:"name,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Namespace string            `json:"namespace" validate:"required"`
+	Key       string            `json:"key" validate:"required"`
 }
 
 func ValidateVarsSourceClusterConfigMapOrSecret(sl validator.StructLevel) {
@@ -32,42 +32,42 @@ func ValidateVarsSourceClusterConfigMapOrSecret(sl validator.StructLevel) {
 }
 
 type VarsSourceHttp struct {
-	Url      YamlUrl           `yaml:"url,omitempty" validate:"required"`
-	Method   *string           `yaml:"method,omitempty"`
-	Body     *string           `yaml:"body,omitempty"`
-	Headers  map[string]string `yaml:"headers,omitempty"`
-	JsonPath *string           `yaml:"jsonPath,omitempty"`
+	Url      YamlUrl           `json:"url,omitempty" validate:"required"`
+	Method   *string           `json:"method,omitempty"`
+	Body     *string           `json:"body,omitempty"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	JsonPath *string           `json:"jsonPath,omitempty"`
 }
 
 type VarsSourceAwsSecretsManager struct {
 	// Name or ARN of the secret. In case a name is given, the region must be specified as well
-	SecretName string `yaml:"secretName" validate:"required"`
+	SecretName string `json:"secretName" validate:"required"`
 	// The aws region
-	Region *string `yaml:"region,omitempty"`
+	Region *string `json:"region,omitempty"`
 	// AWS credentials profile to use. The AWS_PROFILE environemnt variables will take precedence in case it is also set
-	Profile *string `yaml:"profile,omitempty"`
+	Profile *string `json:"profile,omitempty"`
 }
 
 type VarsSourceVault struct {
-	Address string `yaml:"address" validate:"required"`
-	Path    string `yaml:"path" validate:"required"`
+	Address string `json:"address" validate:"required"`
+	Path    string `json:"path" validate:"required"`
 }
 
 type VarsSource struct {
-	IgnoreMissing *bool `yaml:"ignoreMissing,omitempty"`
-	NoOverride    *bool `yaml:"noOverride,omitempty"`
+	IgnoreMissing *bool `json:"ignoreMissing,omitempty"`
+	NoOverride    *bool `json:"noOverride,omitempty"`
 
-	Values            *uo.UnstructuredObject              `yaml:"values,omitempty"`
-	File              *string                             `yaml:"file,omitempty"`
-	Git               *VarsSourceGit                      `yaml:"git,omitempty"`
-	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `yaml:"clusterConfigMap,omitempty"`
-	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `yaml:"clusterSecret,omitempty"`
-	SystemEnvVars     *uo.UnstructuredObject              `yaml:"systemEnvVars,omitempty"`
-	Http              *VarsSourceHttp                     `yaml:"http,omitempty"`
-	AwsSecretsManager *VarsSourceAwsSecretsManager        `yaml:"awsSecretsManager,omitempty"`
-	Vault             *VarsSourceVault                    `yaml:"vault,omitempty"`
+	Values            *uo.UnstructuredObject              `json:"values,omitempty"`
+	File              *string                             `json:"file,omitempty"`
+	Git               *VarsSourceGit                      `json:"git,omitempty"`
+	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `json:"clusterConfigMap,omitempty"`
+	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `json:"clusterSecret,omitempty"`
+	SystemEnvVars     *uo.UnstructuredObject              `json:"systemEnvVars,omitempty"`
+	Http              *VarsSourceHttp                     `json:"http,omitempty"`
+	AwsSecretsManager *VarsSourceAwsSecretsManager        `json:"awsSecretsManager,omitempty"`
+	Vault             *VarsSourceVault                    `json:"vault,omitempty"`
 
-	When string `yaml:"when,omitempty"`
+	When string `json:"when,omitempty"`
 }
 
 func ValidateVarsSource(sl validator.StructLevel) {

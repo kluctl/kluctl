@@ -116,8 +116,8 @@ const beginPlaceholder = "XXXXXbegin_get_image_"
 const endPlaceholder = "_end_get_imageXXXXX"
 
 type placeHolder struct {
-	Image            string `yaml:"image"`
-	HasLatestVersion bool   `yaml:"hasLatestVersion"`
+	Image            string `json:"image"`
+	HasLatestVersion bool   `json:"hasLatestVersion"`
 
 	Container string
 

@@ -7,18 +7,18 @@ import (
 )
 
 type HelmChartConfig2 struct {
-	Repo              string  `yaml:"repo,omitempty"`
-	Path              string  `yaml:"path,omitempty"`
-	CredentialsId     *string `yaml:"credentialsId,omitempty"`
-	ChartName         string  `yaml:"chartName,omitempty"`
-	ChartVersion      string  `yaml:"chartVersion,omitempty"`
-	UpdateConstraints *string `yaml:"updateConstraints,omitempty"`
-	ReleaseName       string  `yaml:"releaseName" validate:"required"`
-	Namespace         *string `yaml:"namespace,omitempty"`
-	Output            *string `yaml:"output,omitempty"`
-	SkipCRDs          bool    `yaml:"skipCRDs,omitempty"`
-	SkipUpdate        bool    `yaml:"skipUpdate,omitempty"`
-	SkipPrePull       bool    `yaml:"skipPrePull,omitempty"`
+	Repo              string  `json:"repo,omitempty"`
+	Path              string  `json:"path,omitempty"`
+	CredentialsId     *string `json:"credentialsId,omitempty"`
+	ChartName         string  `json:"chartName,omitempty"`
+	ChartVersion      string  `json:"chartVersion,omitempty"`
+	UpdateConstraints *string `json:"updateConstraints,omitempty"`
+	ReleaseName       string  `json:"releaseName" validate:"required"`
+	Namespace         *string `json:"namespace,omitempty"`
+	Output            *string `json:"output,omitempty"`
+	SkipCRDs          bool    `json:"skipCRDs,omitempty"`
+	SkipUpdate        bool    `json:"skipUpdate,omitempty"`
+	SkipPrePull       bool    `json:"skipPrePull,omitempty"`
 }
 
 func ValidateHelmChartConfig2(sl validator.StructLevel) {
@@ -54,7 +54,7 @@ func ValidateHelmChartConfig2(sl validator.StructLevel) {
 }
 
 type HelmChartConfig struct {
-	HelmChartConfig2 `yaml:"helmChart" validate:"required"`
+	HelmChartConfig2 `json:"helmChart" validate:"required"`
 }
 
 func init() {

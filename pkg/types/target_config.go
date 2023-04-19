@@ -2,26 +2,20 @@ package types
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
 type FixedImage struct {
-	Image         string         `yaml:"image" validate:"required"`
-	ResultImage   string         `yaml:"resultImage" validate:"required"`
-	DeployedImage *string        `yaml:"deployedImage,omitempty"`
-	Namespace     *string        `yaml:"namespace,omitempty"`
-	Object        *k8s.ObjectRef `yaml:"object,omitempty"`
-	Deployment    *string        `yaml:"deployment,omitempty"`
-	Container     *string        `yaml:"container,omitempty"`
-	DeployTags    []string       `yaml:"deployTags,omitempty"`
-	DeploymentDir *string        `yaml:"deploymentDir,omitempty"`
+	Image         string         `json:"image" validate:"required"`
+	ResultImage   string         `json:"resultImage" validate:"required"`
+	DeployedImage *string        `json:"deployedImage,omitempty"`
+	Namespace     *string        `json:"namespace,omitempty"`
+	Object        *k8s.ObjectRef `json:"object,omitempty"`
+	Deployment    *string        `json:"deployment,omitempty"`
+	Container     *string        `json:"container,omitempty"`
+	DeployTags    []string       `json:"deployTags,omitempty"`
+	DeploymentDir *string        `json:"deploymentDir,omitempty"`
 }
 
 type FixedImagesConfig struct {
-	Images []FixedImage `yaml:"images,omitempty"`
-}
-
-type TargetConfig struct {
-	FixedImagesConfig `yaml:"fixed_images_config,inline"`
-	Args              *uo.UnstructuredObject `yaml:"args,omitempty"`
+	Images []FixedImage `json:"images,omitempty"`
 }

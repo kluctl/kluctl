@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"net/url"
 )
 
@@ -8,9 +9,9 @@ type YamlUrl struct {
 	url.URL
 }
 
-func (u *YamlUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (u *YamlUrl) UnmarshalJSON(b []byte) error {
 	var s string
-	err := unmarshal(&s)
+	err := json.Unmarshal(b, &s)
 	if err != nil {
 		return err
 	}
@@ -22,6 +23,6 @@ func (u *YamlUrl) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return err
 }
 
-func (u YamlUrl) MarshalYAML() (interface{}, error) {
-	return u.String(), nil
+func (u YamlUrl) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u.String())
 }

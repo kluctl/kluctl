@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -14,18 +15,18 @@ import (
 var gitDirPatternNeg = regexp.MustCompile(`[\\\/:\*?"<>|[:cntrl:]\0^]`)
 
 type GitProject struct {
-	Url    git_url.GitUrl `yaml:"url" validate:"required"`
-	Ref    string         `yaml:"ref,omitempty"`
-	SubDir string         `yaml:"subDir,omitempty"`
+	Url    git_url.GitUrl `json:"url" validate:"required"`
+	Ref    string         `json:"ref,omitempty"`
+	SubDir string         `json:"subDir,omitempty"`
 }
 
-func (gp *GitProject) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	if err := unmarshal(&gp.Url); err == nil {
+func (gp *GitProject) UnmarshalJSON(b []byte) error {
+	if err := json.Unmarshal(b, &gp.Url); err == nil {
 		// it's a simple string
 		return nil
 	}
 	type raw GitProject
-	return unmarshal((*raw)(gp))
+	return json.Unmarshal(b, (*raw)(gp))
 }
 
 // invalidDirName evaluate directory name against forbidden characters
@@ -51,8 +52,8 @@ func ValidateGitProject(sl validator.StructLevel) {
 }
 
 type ExternalProject struct {
-	Project *GitProject `yaml:"project,omitempty"`
-	Path    *string     `yaml:"path,omitempty"`
+	Project *GitProject `json:"project,omitempty"`
+	Path    *string     `json:"path,omitempty"`
 }
 
 func ValidateExternalProject(sl validator.StructLevel) {

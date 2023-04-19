@@ -16,7 +16,7 @@ type EmptyYamlConfig struct {
 }
 
 type SimpleYamlConfig struct {
-	Value string `yaml:"value"`
+	Value string `json:"value"`
 }
 
 func TestReadYamlFile(t *testing.T) {
@@ -306,16 +306,6 @@ value: anyValue2
 	writeYamlAllStreamErr := WriteYamlAllStream(&buffer, yaml)
 	assert.NoError(t, writeYamlAllStreamErr, "Can't write simple yaml string: %s", writeYamlAllStreamErr)
 	assert.Equal(t, expectedString, buffer.String(), "Yaml not written correctly.")
-}
-
-func TestConvertYamlToJson(t *testing.T) {
-	yaml := `value: anyValue1`
-	expectedJson := `{"value":"anyValue1"}`
-	yamlBytes := []byte(yaml)
-	expectedJsonBytes := []byte(expectedJson)
-	jsonBytes, convertYamlToJsonErr := ConvertYamlToJson(yamlBytes)
-	assert.NoError(t, convertYamlToJsonErr, "Can't convert yaml to json: %s", convertYamlToJsonErr)
-	assert.Equal(t, expectedJsonBytes, jsonBytes, "Yaml not converted correctly.")
 }
 
 func TestWriteJsonString(t *testing.T) {
