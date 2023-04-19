@@ -492,7 +492,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			a.HandleError(ref, err)
 			return false
 		case <-a.ctx.Done():
-			err := fmt.Errorf("failed waiting for readiness of %s: %w", ref.String(), err)
+			err := fmt.Errorf("context cancelled while waiting for readiness of %s", ref.String())
 			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
 			a.HandleError(ref, err)
 			return false
