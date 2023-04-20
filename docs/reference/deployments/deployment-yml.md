@@ -231,10 +231,7 @@ See [templating](../templating/variable-sources.md) for more details.
 
 ## commonLabels
 A dictionary of [labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) and values to be
-added to all resources deployed by any of the kustomize deployments in this deployment project.
-
-This feature is mainly meant to make it possible to identify all objects in a kubernetes cluster that were once deployed
-through a specific deployment project.
+added to all resources deployed by any of the deployment items in this deployment project.
 
 Consider the following example `deployment.yaml`:
 ```yaml
@@ -249,15 +246,12 @@ commonLabels:
   my.prefix/label-2: value-2
 ```
 
-Every resource deployed by the kustomize deployment `nginx` will now get the two provided labels attached. All included
-sub-deployment projects (e.g. `sub-deployment1`) will also recursively inherit these labels and pass them to further
+Every resource deployed by the kustomize deployment `nginx` will now get the four provided labels attached. All included
+sub-deployment projects (e.g. `sub-deployment1`) will also recursively inherit these labels and pass them further
 down.
 
-In case an included sub-deployment project also contains `commonLabels`, both dictionaries of common labels are merged
+In case an included sub-deployment project also contains `commonLabels`, both dictionaries of commonLabels are merged
 inside the included sub-deployment project. In case of conflicts, the included common labels override the inherited.
-
-The root deployment's `commonLabels` is also used to identify objects to be deleted when performing `kluctl delete`
-or `kluctl prune` operations
 
 Please note that these `commonLabels` are not related to `commonLabels` supported in `kustomization.yaml` files. It was
 decided to not rely on this feature but instead attach labels manually to resources right before sending them to
