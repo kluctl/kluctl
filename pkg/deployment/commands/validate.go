@@ -30,7 +30,7 @@ func NewValidateCommand(ctx context.Context, discriminator string, c *deployment
 }
 
 func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.ValidateResult, error) {
-	r := result.ValidateResult{
+	ret := result.ValidateResult{
 		Id:    uuid.New().String(),
 		Ready: true,
 	}
@@ -56,23 +56,23 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 
 			remoteObject := cmd.ru.GetRemoteObject(ref)
 			if remoteObject == nil {
-				r.Errors = append(r.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
+				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
 				continue
 			}
 			r := validation.ValidateObject(k, remoteObject, true, false)
 			if !r.Ready {
-				r.Ready = false
+				ret.Ready = false
 			}
-			r.Errors = append(r.Errors, r.Errors...)
-			r.Warnings = append(r.Warnings, r.Warnings...)
-			r.Results = append(r.Results, r.Results...)
+			ret.Errors = append(ret.Errors, r.Errors...)
+			ret.Warnings = append(ret.Warnings, r.Warnings...)
+			ret.Results = append(ret.Results, r.Results...)
 		}
 	}
 
-	r.Warnings = append(r.Warnings, cmd.dew.GetWarningsList()...)
-	r.Errors = append(r.Errors, cmd.dew.GetErrorsList()...)
+	ret.Warnings = append(ret.Warnings, cmd.dew.GetWarningsList()...)
+	ret.Errors = append(ret.Errors, cmd.dew.GetErrorsList()...)
 
-	return &r, nil
+	return &ret, nil
 }
 
 func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {
