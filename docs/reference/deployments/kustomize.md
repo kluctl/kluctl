@@ -20,3 +20,24 @@ Generally, everything is possible via `kustomization.yaml`, is thus possible in 
 We advise to read the kustomize
 [reference](https://kubectl.docs.kubernetes.io/references/kustomize/). You can also look into the official kustomize
 [example](https://github.com/kubernetes-sigs/kustomize/tree/master/examples).
+
+One way you might use this is to Kustomize a set of manifests from an external project.
+
+For example:
+```yaml
+# deployment.yml
+deployments:
+- git: git@github.com/example/example.git
+  onlyRender: true
+- path: kustomize_example
+```
+```yaml
+# kustomize_example/kustomization.yml
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+  - ../example
+patches:
+  - # your patches here
+```
