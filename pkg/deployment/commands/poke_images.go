@@ -72,7 +72,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 		return o, nil
 	}
 
-	au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, &utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref
@@ -93,8 +93,8 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 	}
 	wg.Wait()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
-	du.Diff()
+	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+	du.DiffDeploymentItems(cmd.c.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {

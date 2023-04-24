@@ -58,11 +58,11 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	}
 
 	if diffResultCb != nil {
-		au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
-		au.ApplyDeployments()
+		au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
+		au.ApplyDeployments(cmd.c.Deployments)
 
-		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
-		du.Diff()
+		du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+		du.DiffDeploymentItems(cmd.c.Deployments)
 
 		orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 		diffResult := &result.CommandResult{
@@ -86,11 +86,11 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	o.DryRun = k.DryRun
 	o.AbortOnError = cmd.AbortOnError
 
-	au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
-	au.ApplyDeployments()
+	au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
+	au.ApplyDeployments(cmd.c.Deployments)
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
-	du.Diff()
+	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+	du.DiffDeploymentItems(cmd.c.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {

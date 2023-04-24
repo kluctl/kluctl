@@ -53,14 +53,14 @@ func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.Com
 		AbortOnError:        false,
 		ReadinessTimeout:    0,
 	}
-	au := utils.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
-	au.ApplyDeployments()
+	au := utils.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
+	au.ApplyDeployments(cmd.c.Deployments)
 
-	du := utils.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
+	du := utils.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
-	du.Diff()
+	du.DiffDeploymentItems(cmd.c.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {

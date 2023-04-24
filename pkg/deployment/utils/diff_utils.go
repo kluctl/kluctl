@@ -14,7 +14,6 @@ import (
 
 type DiffUtil struct {
 	dew            *DeploymentErrorsAndWarnings
-	deployments    []*deployment.DeploymentItem
 	appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	ru             *RemoteObjectUtils
 
@@ -27,44 +26,58 @@ type DiffUtil struct {
 	mutex             sync.Mutex
 }
 
-func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *DiffUtil {
-	return &DiffUtil{
+func NewDiffUtil(dew *DeploymentErrorsAndWarnings, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *DiffUtil {
+	u := &DiffUtil{
 		dew:            dew,
-		deployments:    deployments,
 		ru:             ru,
 		appliedObjects: appliedObjects,
 	}
+	u.calcRemoteObjectsForDiff()
+	return u
 }
 
-func (u *DiffUtil) Diff() {
+func (u *DiffUtil) DiffDeploymentItems(deployments []*deployment.DeploymentItem) {
 	var wg sync.WaitGroup
 
-	u.calcRemoteObjectsForDiff()
-
-	for _, d := range u.deployments {
+	for _, d := range deployments {
 		ignoreForDiffs := d.Project.GetIgnoreForDiffs(u.IgnoreTags, u.IgnoreLabels, u.IgnoreAnnotations)
-		for _, o := range d.Objects {
-			o := o
-			ref := o.GetK8sRef()
-			ao, ok := u.appliedObjects[ref]
-			if !ok {
-				// if we can't even find it in appliedObjects, it probably ran into an error
-				continue
-			}
-			diffRef, ro := u.getRemoteObjectForDiff(o)
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				u.diffObject(o, diffRef, ao, ro, ignoreForDiffs)
-			}()
-		}
+		u.diffObjects(d.Objects, ignoreForDiffs, &wg)
 	}
 	wg.Wait()
 
+	u.sortChanges()
+}
+
+func (u *DiffUtil) DiffObjects(objects []*uo.UnstructuredObject) {
+	var wg sync.WaitGroup
+	u.diffObjects(objects, nil, &wg)
+	wg.Wait()
+	u.sortChanges()
+}
+
+func (u *DiffUtil) sortChanges() {
 	sort.Slice(u.ChangedObjects, func(i, j int) bool {
 		return u.ChangedObjects[i].Ref.String() < u.ChangedObjects[j].Ref.String()
 	})
+}
+
+func (u *DiffUtil) diffObjects(objects []*uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, wg *sync.WaitGroup) {
+	for _, o := range objects {
+		o := o
+		ref := o.GetK8sRef()
+		ao, ok := u.appliedObjects[ref]
+		if !ok {
+			// if we can't even find it in appliedObjects, it probably ran into an error
+			continue
+		}
+		diffRef, ro := u.getRemoteObjectForDiff(o)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			u.diffObject(o, diffRef, ao, ro, ignoreForDiffs)
+		}()
+	}
 }
 
 func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {

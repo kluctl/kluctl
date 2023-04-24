@@ -61,11 +61,10 @@ type ApplyUtil struct {
 type ApplyDeploymentsUtil struct {
 	ctx context.Context
 
-	dew         *DeploymentErrorsAndWarnings
-	deployments []*deployment.DeploymentItem
-	ru          *RemoteObjectUtils
-	k           *k8s.K8sCluster
-	o           *ApplyUtilOptions
+	dew *DeploymentErrorsAndWarnings
+	ru  *RemoteObjectUtils
+	k   *k8s.K8sCluster
+	o   *ApplyUtilOptions
 
 	abortSignal atomic.Value
 
@@ -79,14 +78,13 @@ type ApplyDeploymentsUtil struct {
 	results      []*ApplyUtil
 }
 
-func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
+func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
 	ret := &ApplyDeploymentsUtil{
-		ctx:         ctx,
-		dew:         dew,
-		deployments: deployments,
-		ru:          ru,
-		k:           k,
-		o:           o,
+		ctx: ctx,
+		dew: dew,
+		ru:  ru,
+		k:   k,
+		o:   o,
 	}
 	ret.abortSignal.Store(false)
 	return ret
@@ -642,7 +640,7 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 	return nil
 }
 
-func (a *ApplyDeploymentsUtil) ApplyDeployments() {
+func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.DeploymentItem) {
 	s := status.Start(a.ctx, "Running server-side apply for all objects")
 	defer s.Failed()
 
@@ -650,7 +648,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 	sem := semaphore.NewWeighted(8)
 
 	maxNameLen := 0
-	for _, d := range a.deployments {
+	for _, d := range deployments {
 		name := a.buildProgressName(d)
 		if name != nil {
 			if len(*name) > maxNameLen {
@@ -659,7 +657,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 		}
 	}
 
-	for _, d_ := range a.deployments {
+	for _, d_ := range deployments {
 		d := d_
 		if a.abortSignal.Load().(bool) {
 			break

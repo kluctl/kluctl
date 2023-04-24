@@ -126,8 +126,8 @@ func TestDiff(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			test.dew = NewDeploymentErrorsAndWarnings()
 			test.ru = test.newRemoteObjects(test.dew)
-			test.du = NewDiffUtil(test.dew, test.newDeploymentItems(), test.ru, test.appliedObjectsMap())
-			test.du.Diff()
+			test.du = NewDiffUtil(test.dew, test.ru, test.appliedObjectsMap())
+			test.du.DiffDeploymentItems(test.newDeploymentItems())
 			test.a(t, test)
 		})
 	}
