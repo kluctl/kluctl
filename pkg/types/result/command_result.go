@@ -141,7 +141,9 @@ type CompactedCommandResult struct {
 
 func (ccr *CompactedCommandResult) ToNonCompacted() *CommandResult {
 	ret := ccr.CommandResult
-	ret.Objects = ccr.CompactedObjects
+	if ccr.CompactedObjects != nil {
+		ret.Objects = ccr.CompactedObjects
+	}
 	return &ret
 }
 
@@ -157,4 +159,6 @@ type ValidateResult struct {
 	Warnings []DeploymentError     `json:"warnings,omitempty"`
 	Errors   []DeploymentError     `json:"errors,omitempty"`
 	Results  []ValidateResultEntry `json:"results,omitempty"`
+
+	Drift []ChangedObject `json:"drift,omitempty"`
 }

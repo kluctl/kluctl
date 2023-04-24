@@ -20,9 +20,10 @@ type DiffUtil struct {
 	IgnoreTags        bool
 	IgnoreLabels      bool
 	IgnoreAnnotations bool
+	Swapped           bool
 
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	ChangedObjects    []*result.ChangedObject
+	ChangedObjects    []result.ChangedObject
 	mutex             sync.Mutex
 }
 
@@ -75,7 +76,11 @@ func (u *DiffUtil) diffObjects(objects []*uo.UnstructuredObject, ignoreForDiffs 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			u.diffObject(o, diffRef, ao, ro, ignoreForDiffs)
+			if u.Swapped {
+				u.diffObject(o, diffRef, ro, ao, ignoreForDiffs)
+			} else {
+				u.diffObject(o, diffRef, ao, ro, ignoreForDiffs)
+			}
 		}()
 	}
 }
@@ -112,7 +117,7 @@ func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
-		u.ChangedObjects = append(u.ChangedObjects, &result.ChangedObject{
+		u.ChangedObjects = append(u.ChangedObjects, result.ChangedObject{
 			Ref:     diffRef,
 			Changes: changes,
 		})

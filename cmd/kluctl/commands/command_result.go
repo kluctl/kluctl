@@ -174,6 +174,23 @@ func formatValidateResultText(vr *result.ValidateResult) string {
 		buf.WriteString("Results:\n")
 		prettyValidationResults(buf, vr.Results)
 	}
+
+	if len(vr.Drift) != 0 {
+		if buf.Len() != 0 {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("Drift:\n")
+		for i, o := range vr.Drift {
+			if len(o.Changes) == 0 {
+				continue
+			}
+			if i != 0 {
+				buf.WriteString("\n")
+			}
+			prettyChanges(buf, o.Ref, o.Changes)
+		}
+	}
+
 	return buf.String()
 }
 

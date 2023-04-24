@@ -25,12 +25,16 @@ func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace strin
 	}
 }
 
-func assertConfigMapExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) *uo.UnstructuredObject {
-	x, err := k.Get(v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name)
+func assertObjectExists(t *testing.T, k *test_utils.EnvTestCluster, gvr schema.GroupVersionResource, namespace string, name string) *uo.UnstructuredObject {
+	x, err := k.Get(gvr, namespace, name)
 	if err != nil {
 		t.Fatalf("unexpected error '%v' while getting ConfigMap %s/%s", err, namespace, name)
 	}
 	return x
+}
+
+func assertConfigMapExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) *uo.UnstructuredObject {
+	return assertObjectExists(t, k, v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name)
 }
 
 func assertConfigMapNotExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) {
