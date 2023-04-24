@@ -9,7 +9,7 @@ import (
 
 type ImageFlags struct {
 	FixedImage      []string         `group:"images" short:"F" help:"Pin an image to a given version. Expects '--fixed-image=image<:namespace:deployment:container>=result'"`
-	FixedImagesFile existingFileType `group:"images" help:"Use .yaml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format" exts:"yml,yaml"`
+	FixedImagesFile ExistingFileType `group:"images" help:"Use .yaml file to pin image versions. See output of list-images sub-command or read the documentation for details about the output format" exts:"yml,yaml"`
 }
 
 func (args *ImageFlags) LoadFixedImagesFromArgs() ([]types.FixedImage, error) {

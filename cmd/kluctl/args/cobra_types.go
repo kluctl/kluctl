@@ -5,27 +5,27 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
-type existingPathType string
+type ExistingPathType string
 
-func (s *existingPathType) Set(val string) error {
+func (s *ExistingPathType) Set(val string) error {
 	if val != "-" {
 		val = utils.ExpandPath(val)
 	}
 	if !utils.Exists(val) {
 		return fmt.Errorf("%s does not exist", val)
 	}
-	*s = existingPathType(val)
+	*s = ExistingPathType(val)
 	return nil
 }
-func (s *existingPathType) Type() string {
+func (s *ExistingPathType) Type() string {
 	return "existingpath"
 }
 
-func (s *existingPathType) String() string { return string(*s) }
+func (s *ExistingPathType) String() string { return string(*s) }
 
-type existingFileType string
+type ExistingFileType string
 
-func (s *existingFileType) Set(val string) error {
+func (s *ExistingFileType) Set(val string) error {
 	if val != "-" {
 		val = utils.ExpandPath(val)
 	}
@@ -35,18 +35,18 @@ func (s *existingFileType) Set(val string) error {
 	if utils.IsDirectory(val) {
 		return fmt.Errorf("%s exists but is a directory", val)
 	}
-	*s = existingFileType(val)
+	*s = ExistingFileType(val)
 	return nil
 }
-func (s *existingFileType) Type() string {
+func (s *ExistingFileType) Type() string {
 	return "existingfile"
 }
 
-func (s *existingFileType) String() string { return string(*s) }
+func (s *ExistingFileType) String() string { return string(*s) }
 
-type existingDirType string
+type ExistingDirType string
 
-func (s *existingDirType) Set(val string) error {
+func (s *ExistingDirType) Set(val string) error {
 	if val != "-" {
 		val = utils.ExpandPath(val)
 	}
@@ -56,11 +56,11 @@ func (s *existingDirType) Set(val string) error {
 	if !utils.IsDirectory(val) {
 		return fmt.Errorf("%s exists but is not a directory", val)
 	}
-	*s = existingDirType(val)
+	*s = ExistingDirType(val)
 	return nil
 }
-func (s *existingDirType) Type() string {
+func (s *ExistingDirType) Type() string {
 	return "existingdir"
 }
 
-func (s *existingDirType) String() string { return string(*s) }
+func (s *ExistingDirType) String() string { return string(*s) }

@@ -6,7 +6,7 @@ import (
 )
 
 type ProjectDir struct {
-	ProjectDir existingDirType `group:"project" help:"Specify the project directory. Defaults to the current working directory."`
+	ProjectDir ExistingDirType `group:"project" help:"Specify the project directory. Defaults to the current working directory."`
 }
 
 func (a ProjectDir) GetProjectDir() (string, error) {
@@ -23,7 +23,7 @@ func (a ProjectDir) GetProjectDir() (string, error) {
 type ProjectFlags struct {
 	ProjectDir
 
-	ProjectConfig existingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
+	ProjectConfig ExistingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
 
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`
 	GitCacheUpdateInterval time.Duration `group:"project" help:"Specify the time to wait between git cache updates. Defaults to not wait at all and always updating caches."`
