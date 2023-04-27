@@ -84,10 +84,15 @@ Renders the input string with the current Jinja2 context. Example:
 {{ a | render }}
 ```
 
-### sha256
+### sha256(digest_len)
 Calculates the sha256 digest of the input string. Example:
 ```
 {{ "some-string" | sha256 }}
+```
+
+`digest_len` is an optional parameter that allows to limit the length of the returned hex digest. Example:
+```
+{{ "some-string" | sha256(6) }}
 ```
 
 ### slugify
