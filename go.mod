@@ -49,7 +49,7 @@ require (
 	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v0.27.1
 	k8s.io/klog/v2 v2.90.1
-	sigs.k8s.io/kustomize/kyaml v0.13.9
+	sigs.k8s.io/kustomize/kyaml v0.14.1
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3
 )
 
@@ -66,7 +66,7 @@ require (
 	github.com/otiai10/copy v1.10.0
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
 	sigs.k8s.io/controller-runtime v0.14.5
-	sigs.k8s.io/kustomize/api v0.12.1
+	sigs.k8s.io/kustomize/api v0.13.2
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -238,7 +238,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gotest.tools/v3 v3.2.0 // indirect
 	k8s.io/apiserver v0.27.1 // indirect
-	k8s.io/cli-runtime v0.26.0 // indirect
+	k8s.io/cli-runtime v0.27.1 // indirect
 	k8s.io/component-base v0.27.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/kubectl v0.26.0 // indirect
