@@ -56,13 +56,16 @@ func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 	return a.signers, nil
 }
 
-func (a *sshDefaultIdentityAndAgent) addDefaultIdentity(gitUrl git_url.GitUrl) {
+func (a *sshDefaultIdentityAndAgent) addDefaultIdentities(gitUrl git_url.GitUrl) {
 	a.authProvider.MessageCallbacks.Trace("trying to add default identity")
 	u, err := user.Current()
 	if err != nil {
 		a.authProvider.MessageCallbacks.Trace("No current user: %v", err)
-	} else {
-		path := filepath.Join(u.HomeDir, ".ssh", "id_rsa")
+		return
+	}
+
+	doAdd := func(name string) {
+		path := filepath.Join(u.HomeDir, ".ssh", name)
 		signer, err := a.authProvider.readKey(a.ctx, path)
 		if err != nil && !os.IsNotExist(err) {
 			a.authProvider.MessageCallbacks.Warning("Failed to read default identity file for url %s: %v", gitUrl.String(), err)
@@ -71,6 +74,12 @@ func (a *sshDefaultIdentityAndAgent) addDefaultIdentity(gitUrl git_url.GitUrl) {
 			a.signers = append(a.signers, signer)
 		}
 	}
+
+	doAdd("id_rsa")
+	doAdd("id_ecdsa")
+	doAdd("id_ed25519")
+	doAdd("id_xmss")
+	doAdd("id_dsa")
 }
 
 func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) {
@@ -152,7 +161,7 @@ func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUr
 
 	// Try agent identities first. They might be unencrypted already, making passphrase prompts unnecessary
 	auth.addAgentIdentities(gitUrl)
-	auth.addDefaultIdentity(gitUrl)
+	auth.addDefaultIdentities(gitUrl)
 	auth.addConfigIdentities(gitUrl)
 
 	return AuthMethodAndCA{
