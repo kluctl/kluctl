@@ -259,6 +259,12 @@ kubernetes. This is due to an [implementation detail](https://github.com/kuberne
 kustomize which causes `commonLabels` to also be applied to label selectors, which makes otherwise editable resources
 read-only when it comes to `commonLabels`.
 
+## commonAnnotations
+A dictionary of [annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/) and values to be
+added to all resources deployed by any of the deployment items in this deployment project.
+
+`commonAnnotations` are handled the same as [commonLabels](#commonlabels) in regard to inheriting, merging and overriding.
+
 ## overrideNamespace
 A string that is used as the default namespace for all kustomize deployments which don't have a `namespace` set in their
 `kustomization.yaml`.

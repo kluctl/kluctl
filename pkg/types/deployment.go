@@ -102,6 +102,7 @@ type DeploymentProjectConfig struct {
 	Deployments []*DeploymentItemConfig `json:"deployments,omitempty"`
 
 	CommonLabels      map[string]string `json:"commonLabels,omitempty"`
+	CommonAnnotations map[string]string `json:"commonAnnotations,omitempty"`
 	OverrideNamespace *string           `json:"overrideNamespace,omitempty"`
 	Tags              []string          `json:"tags,omitempty"`
 
