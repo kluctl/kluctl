@@ -3,12 +3,10 @@ package yaml
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
-	yaml2 "gopkg.in/yaml.v2"
 	"io"
 	"os"
 	"path/filepath"
@@ -81,6 +79,10 @@ func ReadYamlAllBytes(b []byte) ([]interface{}, error) {
 var docsSep = regexp.MustCompile("(?:^|\\s*\n)---\\s*")
 
 func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
+	return readYamlAllStream(r, true)
+}
+
+func readYamlAllStream(r io.Reader, strict bool) ([]interface{}, error) {
 	r = newUnicodeReader(r)
 
 	b, err := io.ReadAll(r)
@@ -103,7 +105,11 @@ func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
 		}
 
 		var x any
-		err = yaml.UnmarshalStrict([]byte(doc), &x)
+		if strict {
+			err = yaml.UnmarshalStrict([]byte(doc), &x)
+		} else {
+			err = yaml.Unmarshal([]byte(doc), &x)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -188,32 +194,13 @@ func WriteJsonString(o interface{}) (string, error) {
 }
 
 // RemoveDuplicateFields is a helper/hack to remove duplicate fields from yaml maps/structs. The yaml spec explicitly
-// forbids duplicate keys, but yaml.v2 ignored those by default, leading to some tools (e.g. Helm) ignoring these. This
-// forces us to also ignore/remove them in some cases. We do this by loading the yaml via yaml.v2 and then writing them
-// back to a string which can then be parsed by yaml.v3
-// TODO Remove this helper method when https://github.com/go-yaml/yaml/issues/751 is implemented
+// forbids duplicate keys, but yaml.v2 ignored those by default, leading to some tools (e.g. Helm) ignoring these
 func RemoveDuplicateFields(r io.Reader) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	d := yaml2.NewDecoder(r)
-	e := yaml2.NewEncoder(buf)
-
-	for {
-		var o interface{}
-		err := d.Decode(&o)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		if o != nil {
-			err = e.Encode(o)
-			if err != nil {
-				return nil, err
-			}
-		}
+	docs, err := readYamlAllStream(r, false)
+	if err != nil {
+		return nil, err
 	}
-	return buf.Bytes(), nil
+	return WriteYamlAllBytes(docs)
 }
 
 func FixNameExt(dir string, name string) string {

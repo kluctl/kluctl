@@ -26,7 +26,9 @@ func (k *EnvTestCluster) buildServeCallback(gvr schema.GroupVersionResource, cb 
 			return admission.Allowed("")
 		}),
 	}
-	_ = wh.InjectLogger(logr.New(log.NullLogSink{}))
+	wh.LogConstructor = func(base logr.Logger, req *admission.Request) logr.Logger {
+		return logr.New(log.NullLogSink{})
+	}
 	return wh
 }
 
