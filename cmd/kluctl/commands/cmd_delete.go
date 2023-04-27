@@ -28,10 +28,10 @@ type deleteCmd struct {
 }
 
 func (cmd *deleteCmd) Help() string {
-	return `Objects are located based on 'commonLabels', configured in 'deployment.yaml'
+	return `Objects are located based on the target discriminator.
 
 WARNING: This command will also delete objects which are not part of your deployment
-project (anymore). It really only decides based on the 'deleteByLabel' labels and does NOT
+project (anymore). It really only decides based on the discriminator and does NOT
 take the local target/state into account!`
 }
 
