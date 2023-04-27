@@ -41,8 +41,6 @@ require (
 	golang.org/x/sys v0.7.0
 	golang.org/x/term v0.6.0
 	golang.org/x/text v0.9.0
-	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.11.3
 	k8s.io/api v0.27.1
 	k8s.io/apiextensions-apiserver v0.27.1
@@ -240,6 +238,8 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.2.0 // indirect
 	k8s.io/apiserver v0.27.1 // indirect
 	k8s.io/cli-runtime v0.27.1 // indirect
