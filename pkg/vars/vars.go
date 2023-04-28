@@ -91,10 +91,10 @@ func (vc *VarsCtx) RenderYamlFile(p string, searchDirs []string, out interface{}
 	return nil
 }
 
-func (vc *VarsCtx) RenderDirectory(sourceDir string, targetDir string, excludePatterns []string, searchDirs []string) error {
+func (vc *VarsCtx) RenderDirectory(sourceDir string, targetDir string, excludePatterns []string, searchDirs []string, templateIgnoreRoot string) error {
 	globals, err := vc.Vars.ToMap()
 	if err != nil {
 		return err
 	}
-	return vc.J2.RenderDirectory(sourceDir, targetDir, excludePatterns, jinja2.WithGlobals(globals), jinja2.WithSearchDirs(searchDirs))
+	return vc.J2.RenderDirectory(sourceDir, targetDir, excludePatterns, jinja2.WithGlobals(globals), jinja2.WithSearchDirs(searchDirs), jinja2.WithTemplateIgnoreRootDir(templateIgnoreRoot))
 }

@@ -163,6 +163,7 @@ func (di *DeploymentItem) render(forSeal bool) error {
 		di.RenderedDir,
 		excludePatterns,
 		searchDirs,
+		di.Project.source.dir,
 	)
 }
 
