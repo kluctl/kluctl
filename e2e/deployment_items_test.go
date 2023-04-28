@@ -135,3 +135,58 @@ namespace: %s
 		"value.txt": "v1",
 	})
 }
+
+func TestTemplateIgnore(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+
+	addConfigMapDeployment(p, "cm1", map[string]string{
+		"k1": `{{ "a" }}`,
+	}, resourceOpts{
+		name:      "cm1",
+		namespace: p.TestSlug(),
+	})
+	addConfigMapDeployment(p, "cm2", map[string]string{
+		"k1": `{{ "a" }}`,
+	}, resourceOpts{
+		name:      "cm2",
+		namespace: p.TestSlug(),
+	})
+	addConfigMapDeployment(p, "cm3", map[string]string{
+		"k1": `{{ "a" }}`,
+	}, resourceOpts{
+		name:      "cm3",
+		namespace: p.TestSlug(),
+	})
+
+	// .templateignore outside of deployment item
+	p.UpdateFile(".templateignore", func(f string) (string, error) {
+		return `cm2/configmap-cm2.yml`, nil
+	}, "")
+	// .templateignore inside of deployment item
+	p.UpdateFile("cm3/.templateignore", func(f string) (string, error) {
+		return `/configmap-cm3.yml`, nil
+	}, "")
+
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "cm1")
+	cm2 := assertConfigMapExists(t, k, p.TestSlug(), "cm2")
+	cm3 := assertConfigMapExists(t, k, p.TestSlug(), "cm3")
+
+	assert.Equal(t, map[string]any{
+		"k1": "a",
+	}, cm1.Object["data"])
+	assert.Equal(t, map[string]any{
+		"k1": `{{ "a" }}`,
+	}, cm2.Object["data"])
+	assert.Equal(t, map[string]any{
+		"k1": `{{ "a" }}`,
+	}, cm3.Object["data"])
+}
