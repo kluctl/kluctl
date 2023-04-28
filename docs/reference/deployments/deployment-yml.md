@@ -128,6 +128,26 @@ deployments:
 - path: kustomizeDeployment3
 ```
 
+### deleteObjects
+Causes kluctl to delete matching objects, specified by a list of group/kind/name/namespace dictionaries.
+The order/parallelization of deletion is identical to the order and parallelization of normal deployment items,
+meaning that it happens in parallel by default until a barrier is encountered.
+
+Example:
+```yaml
+deployments:
+  - deleteObjects:
+      - group: apps
+        kind: DaemonSet
+        namespace: kube-system
+        name: kube-proxy
+  - barrier: true
+  - path: my-cni
+```
+
+The above example shows how to delete the kube-proxy DaemonSet before installing a CNI (e.g. Cilium in
+proxy-replacement mode).
+
 ## deployments common properties
 All entries in `deployments` can have the following common properties:
 
