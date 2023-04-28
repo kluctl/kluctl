@@ -36,7 +36,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/xanzy/ssh-agent v0.3.3
 	golang.org/x/crypto v0.7.0
-	golang.org/x/net v0.8.0
+	golang.org/x/net v0.9.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.7.0
 	golang.org/x/term v0.7.0
