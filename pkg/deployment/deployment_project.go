@@ -318,6 +318,16 @@ func (p *DeploymentProject) GetCommonLabels() map[string]string {
 	return ret
 }
 
+func (p *DeploymentProject) GetCommonAnnotations() map[string]string {
+	ret := make(map[string]string)
+	parents := p.getParents()
+	for i, _ := range parents {
+		d := parents[len(parents)-i-1]
+		uo.MergeStrMap(ret, d.p.Config.CommonAnnotations)
+	}
+	return ret
+}
+
 func (p *DeploymentProject) getOverrideNamespace() *string {
 	for _, e := range p.getParents() {
 		if e.p.Config.OverrideNamespace != nil {
