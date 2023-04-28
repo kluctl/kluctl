@@ -14,7 +14,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-containerregistry v0.14.0
-	github.com/hashicorp/vault/api v1.9.0
+	github.com/hashicorp/vault/api v1.9.1
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/imdario/mergo v0.3.15
 	github.com/jinzhu/copier v0.3.5
