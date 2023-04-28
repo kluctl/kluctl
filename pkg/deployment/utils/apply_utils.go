@@ -15,8 +15,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/validation"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"golang.org/x/sync/semaphore"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"strings"
 	"sync"
@@ -49,6 +51,7 @@ type ApplyUtil struct {
 
 	abortSignal   *atomic.Value
 	allNamespaces *sync.Map
+	allCRDs       *sync.Map
 
 	ru   *RemoteObjectUtils
 	k    *k8s.K8sCluster
@@ -67,10 +70,11 @@ type ApplyDeploymentsUtil struct {
 
 	abortSignal atomic.Value
 
-	// Used to track all created namespaces
+	// Used to track all created namespaces and CRDs
 	// All ApplyUtil instances write to this in parallel and we ignore that order might be unstable
-	// This is only used to simulate dryRun apply into new namespaces
+	// This is only used to simulate dryRun apply
 	allNamespaces sync.Map
+	allCRDs       sync.Map
 
 	resultsMutex sync.Mutex
 	results      []*ApplyUtil
@@ -103,6 +107,7 @@ func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *sta
 		deletedHookObjects: map[k8s2.ObjectRef]bool{},
 		abortSignal:        &ad.abortSignal,
 		allNamespaces:      &ad.allNamespaces,
+		allCRDs:            &ad.allCRDs,
 		ru:                 ad.ru,
 		k:                  ad.k,
 		o:                  ad.o,
@@ -371,9 +376,18 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		_ = r.ReplaceKeys(tmpName, ref.Name)
 		_ = r.ReplaceValues(tmpName, ref.Name)
 		r.SetK8sNamespace(ref.Namespace)
+	} else if a.o.DryRun && errors.IsNotFound(err) {
+		if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
+			a.handleResult(x, hook)
+			a.HandleWarning(x.GetK8sRef(), fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
+			return
+		}
 	}
 	if r != nil && ref.GVK.GroupKind().String() == "Namespace" {
 		a.allNamespaces.Store(ref.Name, r)
+	}
+	if r != nil && ref.GVK.GroupKind().String() == "CustomResourceDefinition.apiextensions.k8s.io" {
+		a.handleObservedCRD(r)
 	}
 	a.handleApiWarnings(ref, apiWarnings)
 	if err == nil {
@@ -384,6 +398,24 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		a.retryApplyWithConflicts(x, hook, remoteObject, err)
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
+	}
+}
+
+func (a *ApplyUtil) handleObservedCRD(r *uo.UnstructuredObject) {
+	y, err := yaml.WriteYamlBytes(r)
+	if err == nil {
+		var crd *apiextensionsv1.CustomResourceDefinition
+		err = yaml.ReadYamlBytes(y, &crd)
+		if err == nil {
+			for _, v := range crd.Spec.Versions {
+				gvk := schema.GroupVersionKind{
+					Group:   crd.Spec.Group,
+					Version: v.Name,
+					Kind:    crd.Spec.Names.Kind,
+				}
+				a.allCRDs.Store(gvk, &crd)
+			}
+		}
 	}
 }
 
