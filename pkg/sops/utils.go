@@ -17,7 +17,7 @@ func IsMaybeSopsFile(s []byte) bool {
 }
 
 func MaybeDecrypt(decrypter *decryptor.Decryptor, encrypted []byte, inputFormat, outputFormat formats.Format) ([]byte, bool, error) {
-	if decrypter == nil {
+	if decrypter == nil || inputFormat == formats.Binary {
 		return encrypted, false, nil
 	}
 

@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/fluxcd/pkg/kustomize"
+	securefs "github.com/fluxcd/pkg/kustomize/filesys"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -513,18 +514,13 @@ func (di *DeploymentItem) buildKustomize() error {
 		return err
 	}
 
-	resources, _, _ := ky.GetNestedStringList("resources")
-	for _, r := range resources {
-		p := filepath.Join(di.RenderedDir, r)
-		if utils.IsFile(p) {
-			err = sops.MaybeDecryptFile(di.ctx.SopsDecrypter, p)
-			if err != nil {
-				return err
-			}
-		}
+	fs, err := securefs.MakeFsOnDiskSecureBuild(di.RenderedSourceRootDir)
+	if err != nil {
+		return err
 	}
 
-	rm, err := kustomize.SecureBuild(di.RenderedSourceRootDir, di.RenderedDir, true)
+	fs = sops.NewDecryptingFs(fs, di.ctx.SopsDecrypter)
+	rm, err := kustomize.Build(fs, di.RenderedDir)
 	if err != nil {
 		return err
 	}
