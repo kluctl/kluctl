@@ -50,7 +50,7 @@ type DeleteObjectItemConfig struct {
 func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeleteObjectItemConfig)
 	if s.Group == nil && s.Kind == nil {
-		sl.ReportError(s, "self", "self", "at least one of group/version/kind must be set", "")
+		sl.ReportError(s, "self", "self", "at least one of group or kind must be set", "")
 	}
 }
 
