@@ -238,7 +238,9 @@ func Main() {
 		}
 		ctx = initStatusHandler(ctxIn, flags.Debug, flags.NoColor)
 		if !flags.NoUpdateCheck {
-			checkNewVersion(ctx)
+			if len(os.Args) < 2 || (os.Args[1] != "completion" && os.Args[1] != "__complete") {
+				checkNewVersion(ctx)
+			}
 		}
 		return ctx, nil
 	})
