@@ -9,7 +9,7 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.20.5
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/fluxcd/pkg/kustomize v0.13.2
+	github.com/fluxcd/pkg/kustomize v1.1.1
 	github.com/go-playground/validator/v10 v10.12.0
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0
@@ -126,7 +126,9 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/fluxcd/pkg/apis/kustomize v0.8.0 // indirect
+	github.com/fluxcd/go-git/v5 v5.0.0-20221219190809-2e5c9d01cfc4 // indirect
+	github.com/fluxcd/pkg/apis/kustomize v1.0.0 // indirect
+	github.com/fluxcd/pkg/sourceignore v0.3.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
