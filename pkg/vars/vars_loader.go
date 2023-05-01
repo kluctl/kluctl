@@ -107,9 +107,9 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	} else if source.Git != nil {
 		newVars, err = v.loadGit(varsCtx, source.Git, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
-		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", source.ClusterConfigMap.Key, ignoreMissing, false)
+		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
-		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", source.ClusterSecret.Key, ignoreMissing, true)
+		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
 	} else if source.SystemEnvVars != nil {
 		newVars, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
 	} else if source.Http != nil {
@@ -271,7 +271,7 @@ func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ign
 	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir})
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, key string, ignoreMissing bool, base64Decode bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, ignoreMissing bool, base64Decode bool) (*uo.UnstructuredObject, error) {
 	if v.k == nil {
 		return nil, fmt.Errorf("loading vars from cluster is disabled")
 	}
@@ -310,12 +310,12 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 
 	ref := o.GetK8sRef()
 
-	f, found, err := o.GetNestedField("data", key)
+	f, found, err := o.GetNestedField("data", varsSource.Key)
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("key %s not found in %s on cluster", key, ref.String())
+		return nil, fmt.Errorf("key %s not found in %s on cluster", varsSource.Key, ref.String())
 	}
 
 	var value string
@@ -333,11 +333,34 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		}
 	}
 
-	newVars, err := v.loadFromString(varsCtx, value)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), key, err)
+	doError := func(err error) (*uo.UnstructuredObject, error) {
+		return nil, fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), varsSource.Key, err)
 	}
-	return newVars, nil
+
+	var parsed any
+	err = v.renderYamlString(varsCtx, value, &parsed)
+	if err != nil {
+		return doError(err)
+	}
+
+	if varsSource.TargetPath == "" {
+		m, ok := parsed.(map[string]any)
+		if !ok {
+			return doError(fmt.Errorf("value is not a YAML dictionary"))
+		}
+		return uo.FromMap(m), nil
+	} else {
+		p, err := uo.NewMyJsonPath(varsSource.TargetPath)
+		if err != nil {
+			return doError(err)
+		}
+		newVars := uo.New()
+		err = p.Set(newVars, parsed)
+		if err != nil {
+			return doError(err)
+		}
+		return newVars, nil
+	}
 }
 
 func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string) (*uo.UnstructuredObject, error) {

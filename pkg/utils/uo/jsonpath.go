@@ -146,3 +146,7 @@ func (j *MyJsonPath) GetFirstListOfObjects(o *UnstructuredObject) ([]*Unstructur
 func (j *MyJsonPath) Del(o *UnstructuredObject) error {
 	return j.exp.Del(o.Object)
 }
+
+func (j *MyJsonPath) Set(o *UnstructuredObject, v any) error {
+	return j.exp.Set(o.Object, v)
+}
