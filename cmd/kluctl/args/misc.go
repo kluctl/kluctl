@@ -43,6 +43,7 @@ type AbortOnErrorFlags struct {
 type OutputFormatFlags struct {
 	OutputFormat []string `group:"misc" short:"o" help:"Specify output format and target file, in the format 'format=path'. Format can either be 'text' or 'yaml'. Can be specified multiple times. The actual format for yaml is currently not documented and subject to change."`
 	NoObfuscate  bool     `group:"misc" help:"Disable obfuscation of sensitive/secret data"`
+	ShortOutput  bool     `group:"misc" help:"When using the 'text' output format (which is the default), only names of changes objects are shown instead of showing all changes."`
 }
 
 type OutputFlags struct {

@@ -54,7 +54,7 @@ func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormat, cmd.NoObfuscate, result)
+	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
 	if err != nil {
 		return err
 	}

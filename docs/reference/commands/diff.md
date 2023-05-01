@@ -64,6 +64,9 @@ Misc arguments:
                                                     omitted, a temporary directory is used.
       --replace-on-error                            When patching an object fails, try to replace it. See
                                                     documentation for more details.
+      --short-output                                When using the 'text' output format (which is the default),
+                                                    only names of changes objects are shown instead of showing all
+                                                    changes.
 
 ```
 <!-- END SECTION -->

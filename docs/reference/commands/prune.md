@@ -51,6 +51,9 @@ Misc arguments:
                                                     currently not documented and subject to change.
       --render-output-dir string                    Specifies the target directory to render the project into. If
                                                     omitted, a temporary directory is used.
+      --short-output                                When using the 'text' output format (which is the default),
+                                                    only names of changes objects are shown instead of showing all
+                                                    changes.
   -y, --yes                                         Suppresses 'Are you sure?' questions and proceeds as if you
                                                     would answer 'yes'.
 

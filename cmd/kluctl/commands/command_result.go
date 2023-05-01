@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -15,7 +16,7 @@ import (
 	"strings"
 )
 
-func formatCommandResultText(cr *types.CommandResult) string {
+func formatCommandResultText(cr *types.CommandResult, short bool) string {
 	buf := bytes.NewBuffer(nil)
 
 	if len(cr.Warnings) != 0 {
@@ -39,12 +40,15 @@ func formatCommandResultText(cr *types.CommandResult) string {
 		}
 		prettyObjectRefs(buf, refs)
 
-		buf.WriteString("\n")
-		for i, co := range cr.ChangedObjects {
-			if i != 0 {
-				buf.WriteString("\n")
+		if !short {
+			buf.WriteString("\n")
+
+			for i, co := range cr.ChangedObjects {
+				if i != 0 {
+					buf.WriteString("\n")
+				}
+				prettyChanges(buf, co.Ref, co.Changes)
 			}
-			prettyChanges(buf, co.Ref, co.Changes)
 		}
 	}
 
@@ -111,10 +115,10 @@ func formatCommandResultYaml(cr *types.CommandResult) (string, error) {
 	return b, nil
 }
 
-func formatCommandResult(cr *types.CommandResult, format string) (string, error) {
+func formatCommandResult(cr *types.CommandResult, format string, short bool) (string, error) {
 	switch format {
 	case "text":
-		return formatCommandResultText(cr), nil
+		return formatCommandResultText(cr, short), nil
 	case "yaml":
 		return formatCommandResultYaml(cr)
 	default:
@@ -202,10 +206,10 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 	return nil
 }
 
-func outputCommandResult(ctx context.Context, output []string, noObfuscate bool, cr *types.CommandResult) error {
+func outputCommandResult(ctx context.Context, flags args.OutputFormatFlags, cr *types.CommandResult) error {
 	status.Flush(ctx)
 
-	if !noObfuscate {
+	if !flags.NoObfuscate {
 		var obfuscator diff.Obfuscator
 		for _, c := range cr.ChangedObjects {
 			err := obfuscator.Obfuscate(c.Ref, c.Changes)
@@ -215,8 +219,8 @@ func outputCommandResult(ctx context.Context, output []string, noObfuscate bool,
 		}
 	}
 
-	return outputHelper(ctx, output, func(format string) (string, error) {
-		return formatCommandResult(cr, format)
+	return outputHelper(ctx, flags.OutputFormat, func(format string) (string, error) {
+		return formatCommandResult(cr, format, flags.ShortOutput)
 	})
 }
 
