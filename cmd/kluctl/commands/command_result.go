@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func formatCommandResultText(cr *types.CommandResult) string {
+func formatCommandResultText(cr *types.CommandResult, short bool) string {
 	buf := bytes.NewBuffer(nil)
 
 	if len(cr.Warnings) != 0 {
@@ -40,12 +40,15 @@ func formatCommandResultText(cr *types.CommandResult) string {
 		}
 		prettyObjectRefs(buf, refs)
 
-		buf.WriteString("\n")
-		for i, co := range cr.ChangedObjects {
-			if i != 0 {
-				buf.WriteString("\n")
+		if !short {
+			buf.WriteString("\n")
+
+			for i, co := range cr.ChangedObjects {
+				if i != 0 {
+					buf.WriteString("\n")
+				}
+				prettyChanges(buf, co.Ref, co.Changes)
 			}
-			prettyChanges(buf, co.Ref, co.Changes)
 		}
 	}
 
@@ -112,10 +115,10 @@ func formatCommandResultYaml(cr *types.CommandResult) (string, error) {
 	return b, nil
 }
 
-func formatCommandResult(cr *types.CommandResult, format string) (string, error) {
+func formatCommandResult(cr *types.CommandResult, format string, short bool) (string, error) {
 	switch format {
 	case "text":
-		return formatCommandResultText(cr), nil
+		return formatCommandResultText(cr, short), nil
 	case "yaml":
 		return formatCommandResultYaml(cr)
 	default:
@@ -217,7 +220,7 @@ func outputCommandResult(ctx context.Context, flags args.OutputFormatFlags, cr *
 	}
 
 	return outputHelper(ctx, flags.OutputFormat, func(format string) (string, error) {
-		return formatCommandResult(cr, format)
+		return formatCommandResult(cr, format, flags.ShortOutput)
 	})
 }
 
