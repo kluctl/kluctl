@@ -333,11 +333,34 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		}
 	}
 
-	newVars, err := v.loadFromString(varsCtx, value)
-	if err != nil {
+	doError := func(err error) (*uo.UnstructuredObject, error) {
 		return nil, fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), varsSource.Key, err)
 	}
-	return newVars, nil
+
+	var parsed any
+	err = v.renderYamlString(varsCtx, value, &parsed)
+	if err != nil {
+		return doError(err)
+	}
+
+	if varsSource.TargetPath == "" {
+		m, ok := parsed.(map[string]any)
+		if !ok {
+			return doError(fmt.Errorf("value is not a YAML dictionary"))
+		}
+		return uo.FromMap(m), nil
+	} else {
+		p, err := uo.NewMyJsonPath(varsSource.TargetPath)
+		if err != nil {
+			return doError(err)
+		}
+		newVars := uo.New()
+		err = p.Set(newVars, parsed)
+		if err != nil {
+			return doError(err)
+		}
+		return newVars, nil
+	}
 }
 
 func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string) (*uo.UnstructuredObject, error) {

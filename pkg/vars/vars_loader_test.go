@@ -293,7 +293,8 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 	cm := corev1.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{Name: "cm", Namespace: "ns"},
 		Data: map[string]string{
-			"vars": `{"test1": {"test2": 42}}`,
+			"vars":  `{"test1": {"test2": 42}}`,
+			"value": "42",
 		},
 	}
 
@@ -342,6 +343,32 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 			},
 		}, nil, "")
 		assert.NoError(t, err)
+	}, &cm)
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		err := vl.LoadVars(vc, &types.VarsSource{
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "cm",
+				Namespace: "ns",
+				Key:       "value",
+			},
+		}, nil, "")
+		assert.Errorf(t, err, "failed to load vars from kubernetes object ns/ConfigMap/cm and key value: value is not a YAML dictionary")
+	}, &cm)
+
+	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
+		err := vl.LoadVars(vc, &types.VarsSource{
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:       "cm",
+				Namespace:  "ns",
+				Key:        "value",
+				TargetPath: "deep.nested.path",
+			},
+		}, nil, "")
+		assert.NoError(t, err)
+
+		v, _, _ := vc.Vars.GetNestedInt("deep", "nested", "path")
+		assert.Equal(t, int64(42), v)
 	}, &cm)
 }
 

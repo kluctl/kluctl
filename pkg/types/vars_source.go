@@ -15,10 +15,11 @@ type VarsSourceGit struct {
 }
 
 type VarsSourceClusterConfigMapOrSecret struct {
-	Name      string            `json:"name,omitempty"`
-	Labels    map[string]string `json:"labels,omitempty"`
-	Namespace string            `json:"namespace" validate:"required"`
-	Key       string            `json:"key" validate:"required"`
+	Name       string            `json:"name,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
+	Namespace  string            `json:"namespace" validate:"required"`
+	Key        string            `json:"key" validate:"required"`
+	TargetPath string            `json:"targetPath,omitempty"`
 }
 
 func ValidateVarsSourceClusterConfigMapOrSecret(sl validator.StructLevel) {

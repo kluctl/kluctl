@@ -99,10 +99,14 @@ Kluctl also supports variable files encrypted with [SOPS](https://github.com/moz
 [sops integration](../deployments/sops.md) integration for more details.
 
 ### clusterConfigMap
-Loads a configmap from the target's cluster and loads the specified key's value as a yaml file into the jinja2 variables
-context.
+Loads a configmap from the target's cluster and loads the specified key's value into the templating context. The value
+is treated and loaded as YAML and thus can either be a simple value or a complex nested structure. In case of a simple
+value (e.g. a number), you must also specify `targetPath`.
 
-Assume the following configmap to be deployed to the target cluster:
+The referred ConfigMap must already exist while the Kluctl project is loaded, meaning that it is not possible to use
+a ConfigMap that is deployed as part of the Kluctl project itself.
+
+Assume the following ConfigMap to be already deployed to the target cluster:
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -118,7 +122,7 @@ data:
       - l2
 ```
 
-This configmap can be loaded via:
+This ConfigMap can be loaded via:
 
 ```yaml
 vars:
@@ -128,8 +132,28 @@ vars:
       key: vars
 ```
 
-It assumes that the configmap is already deployed before the kluctl deployment happens. This might for example be
-useful to store meta information about the cluster itself and then make it available to kluctl deployments.
+The following example uses a simple value:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-vars
+  namespace: my-namespace
+data:
+  value: 123
+```
+
+This ConfigMap can be loaded via:
+
+```yaml
+vars:
+  - clusterConfigMap:
+      name: my-vars
+      namespace: my-namespace
+      key: value
+      targetPath: deep.nested.path
+```
 
 ### clusterSecret
 Same as clusterConfigMap, but for secrets.
