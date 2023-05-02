@@ -43,6 +43,6 @@ type TargetFlags struct {
 }
 
 type CommandResultFlags struct {
-	WriteCommandResult     bool   `group:"results" help:"Enable experimental writing of command results into the cluster. Command results will be written into ConfigMaps in the kluctl-results namespace."`
+	NoWriteCommandResult   bool   `group:"results" help:"Disable writing of command results into the cluster."`
 	CommandResultNamespace string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
 }

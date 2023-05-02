@@ -205,7 +205,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	var resultStore results.ResultStore
-	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
+	if args.commandResultFlags != nil && !args.commandResultFlags.NoWriteCommandResult {
 		rc, err := targetCtx.SharedContext.K.ToRESTConfig()
 		if err != nil {
 			return err
