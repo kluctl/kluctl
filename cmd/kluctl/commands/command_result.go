@@ -252,7 +252,7 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 	if writeToResultStore && ctx.resultStore != nil {
 		s := status.Start(ctx.ctx, "Writing command result")
 		defer s.Failed()
-		resultStoreErr = ctx.resultStore.WriteCommandResult(ctx.ctx, cr)
+		resultStoreErr = ctx.resultStore.WriteCommandResult(cr)
 		if resultStoreErr != nil {
 			s.FailedWithMessage("Failed to write result to result store: %s", resultStoreErr.Error())
 		} else {

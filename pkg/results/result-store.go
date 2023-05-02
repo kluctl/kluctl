@@ -1,11 +1,14 @@
 package results
 
 import (
-	"context"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type ListProjectsOptions struct {
+	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
+}
+
+type ListTargetsOptions struct {
 	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
 }
 
@@ -19,50 +22,24 @@ type GetCommandResultOptions struct {
 }
 
 type ResultStore interface {
-	WriteCommandResult(ctx context.Context, cr *result.CommandResult) error
+	WriteCommandResult(cr *result.CommandResult) error
 
-	ListCommandResultSummaries(ctx context.Context, options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error)
-	GetCommandResult(ctx context.Context, options GetCommandResultOptions) (*result.CommandResult, error)
+	ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error)
+	WatchCommandResultSummaries(options ListCommandResultSummariesOptions, update func(summary *result.CommandResultSummary), delete func(id string)) (func(), error)
+	HasCommandResult(id string) (bool, error)
+	GetCommandResultSummary(id string) (*result.CommandResultSummary, error)
+	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
 }
 
-func ListProjects(ctx context.Context, rs ResultStore, options ListProjectsOptions) ([]result.ProjectSummary, error) {
-	summaries, err := rs.ListCommandResultSummaries(ctx, ListCommandResultSummariesOptions{
-		ProjectFilter: options.ProjectFilter,
-	})
-	if err != nil {
-		return nil, err
+func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bool {
+	if filter == nil {
+		return true
 	}
-
-	m := map[result.ProjectKey]result.ProjectSummary{}
-	for _, s := range summaries {
-		if _, ok := m[s.Project]; !ok {
-			m[s.Project] = result.ProjectSummary{Project: s.Project}
-		}
+	if x.Project.NormalizedGitUrl != filter.NormalizedGitUrl {
+		return false
 	}
-
-	ret := make([]result.ProjectSummary, 0, len(m))
-	for _, p := range m {
-		for _, rs := range summaries {
-			switch rs.Command.Command {
-			case "deploy":
-				if p.LastDeployCommand == nil {
-					rs := rs
-					p.LastDeployCommand = &rs
-				}
-			case "delete":
-				if p.LastDeleteCommand == nil {
-					rs := rs
-					p.LastDeleteCommand = &rs
-				}
-			case "prune":
-				if p.LastPruneCommand == nil {
-					rs := rs
-					p.LastPruneCommand = &rs
-				}
-			}
-		}
-		ret = append(ret, p)
+	if x.Project.SubDir != filter.SubDir {
+		return false
 	}
-
-	return ret, nil
+	return true
 }
