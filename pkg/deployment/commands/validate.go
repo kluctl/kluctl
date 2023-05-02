@@ -59,6 +59,9 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 	} else if cmd.r != nil {
 		for _, o := range cmd.r.Objects {
 			refs = append(refs, o.Ref)
+			if o.Hook {
+				continue
+			}
 			if o.Rendered != nil {
 				renderedObjects = append(renderedObjects, o.Rendered)
 			}
