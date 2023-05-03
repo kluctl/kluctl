@@ -284,9 +284,7 @@ func addCommandInfo(r *result.CommandResult, startTime time.Time, command string
 		r.Target.TargetName = ctx.targetCtx.Target.Name
 		r.Target.Discriminator = ctx.targetCtx.Target.Discriminator
 	}
-	if r.ClusterInfo != nil {
-		r.Target.ClusterId = r.ClusterInfo.ClusterId
-	}
+	r.Target.ClusterId = r.ClusterInfo.ClusterId
 
 	return nil
 }
@@ -372,7 +370,7 @@ func addClusterInfo(r *result.CommandResult, ctx *commandCtx) error {
 	if clusterId == "" {
 		return fmt.Errorf("kube-system namespace has no uid")
 	}
-	r.ClusterInfo = &result.ClusterInfo{
+	r.ClusterInfo = result.ClusterInfo{
 		ClusterId: clusterId,
 	}
 	return nil

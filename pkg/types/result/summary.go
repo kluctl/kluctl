@@ -5,12 +5,12 @@ import (
 )
 
 type CommandResultSummary struct {
-	Id          string       `json:"id"`
-	Project     ProjectKey   `json:"project"`
-	Target      TargetKey    `json:"target"`
-	Command     CommandInfo  `json:"commandInfo"`
-	GitInfo     *GitInfo     `json:"gitInfo,omitempty"`
-	ClusterInfo *ClusterInfo `json:"clusterInfo,omitempty"`
+	Id          string      `json:"id"`
+	Project     ProjectKey  `json:"project"`
+	Target      TargetKey   `json:"target"`
+	Command     CommandInfo `json:"commandInfo"`
+	GitInfo     *GitInfo    `json:"gitInfo,omitempty"`
+	ClusterInfo ClusterInfo `json:"clusterInfo,omitempty"`
 
 	RenderedObjects    int `json:"renderedObjects"`
 	RemoteObjects      int `json:"remoteObjects"`

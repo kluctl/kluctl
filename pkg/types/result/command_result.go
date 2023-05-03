@@ -132,7 +132,7 @@ type CommandResult struct {
 	Target      TargetKey                      `json:"target"`
 	Command     CommandInfo                    `json:"command,omitempty"`
 	GitInfo     *GitInfo                       `json:"gitInfo,omitempty"`
-	ClusterInfo *ClusterInfo                   `json:"clusterInfo,omitempty"`
+	ClusterInfo ClusterInfo                    `json:"clusterInfo"`
 	Deployment  *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
 	Objects []ResultObject `json:"objects,omitempty"`
