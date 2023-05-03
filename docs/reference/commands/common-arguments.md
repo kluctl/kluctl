@@ -136,8 +136,8 @@ Command Results:
 
       --command-result-namespace string   Override the namespace to be used when writing command results. (default
                                           "kluctl-results")
-      --write-command-result              Enable experimental writing of command results into the cluster. Command
-                                          results will be written into ConfigMaps in the kluctl-results namespace.
+      --force-write-command-result        Force writing of command results, even if the command is run in dry-run mode.
+      --no-write-command-result           Disable writing of command results into the cluster.
 
 ```
 <!-- END SECTION -->
