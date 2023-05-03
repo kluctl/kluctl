@@ -100,6 +100,9 @@ func (c *rootCommand) buildCobraSubCommands(cg *commandAndGroups, cmdStruct inte
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
 		v2 := v.Field(i).Addr().Interface()
 		name := buildCobraName(f.Name)
 
@@ -126,6 +129,9 @@ func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
 		if _, ok := f.Tag.Lookup("cmd"); ok {
 			continue
 		}
