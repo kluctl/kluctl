@@ -11,7 +11,7 @@ type SealingConfig struct {
 }
 
 type Target struct {
-	Name          string                 `json:"name,omitempty"`
+	Name          string                 `json:"name"`
 	Context       *string                `json:"context,omitempty"`
 	Args          *uo.UnstructuredObject `json:"args,omitempty"`
 	SealingConfig *SealingConfig         `json:"sealingConfig,omitempty"`
