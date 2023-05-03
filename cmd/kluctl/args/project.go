@@ -43,6 +43,7 @@ type TargetFlags struct {
 }
 
 type CommandResultFlags struct {
-	NoWriteCommandResult   bool   `group:"results" help:"Disable writing of command results into the cluster."`
-	CommandResultNamespace string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
+	NoWriteCommandResult    bool   `group:"results" help:"Disable writing of command results into the cluster."`
+	ForceWriteCommandResult bool   `group:"results" help:"Force writing of command results, even if the command is run in dry-run mode."`
+	CommandResultNamespace  string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
 }

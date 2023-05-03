@@ -61,7 +61,7 @@ func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx, startTime time.Time) error 
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, true)
+	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}
