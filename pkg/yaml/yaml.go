@@ -1,6 +1,7 @@
 package yaml
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 	"io"
+	apimachinery_yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -85,30 +87,23 @@ func ReadYamlAllStream(r io.Reader) ([]interface{}, error) {
 func readYamlAllStream(r io.Reader, strict bool) ([]interface{}, error) {
 	r = newUnicodeReader(r)
 
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	s := string(b)
-	s = strings.TrimSpace(s)
+	yr := apimachinery_yaml.NewYAMLReader(bufio.NewReader(r))
 
-	if s == "" {
-		return nil, nil
-	}
-
-	docs := docsSep.Split(s, -1)
-
-	ret := make([]any, 0, len(docs))
-	for _, doc := range docs {
-		if doc == "" {
-			continue
+	var ret []any
+	for {
+		doc, err := yr.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
 		}
 
 		var x any
 		if strict {
-			err = yaml.UnmarshalStrict([]byte(doc), &x)
+			err = yaml.UnmarshalStrict(doc, &x)
 		} else {
-			err = yaml.Unmarshal([]byte(doc), &x)
+			err = yaml.Unmarshal(doc, &x)
 		}
 		if err != nil {
 			return nil, err
