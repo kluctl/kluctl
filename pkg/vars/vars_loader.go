@@ -8,7 +8,6 @@ import (
 	types2 "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
@@ -63,6 +62,10 @@ func (v *VarsLoader) LoadVarsList(varsCtx *VarsCtx, varsList []*types.VarsSource
 }
 
 func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, searchDirs []string, rootKey string) error {
+	if sourceIn.RenderedVars != nil && len(sourceIn.RenderedVars.Object) != 0 {
+		return fmt.Errorf("renderedVars is not allowed here")
+	}
+
 	var source types.VarsSource
 	err := utils.DeepCopy(&source, sourceIn)
 	if err != nil {
@@ -79,14 +82,12 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 		return err
 	}
 
-	if source.When != "" {
-		r, err := kluctl_jinja2.RenderConditional(varsCtx.J2, globals, source.When)
-		if err != nil {
-			return err
-		}
-		if !kluctl_jinja2.IsConditionalTrue(r) {
-			return nil
-		}
+	whenTrue, err := varsCtx.CheckConditional(source.When)
+	if err != nil {
+		return err
+	}
+	if !whenTrue {
+		return nil
 	}
 
 	ignoreMissing := false
@@ -124,6 +125,8 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	if err != nil {
 		return err
 	}
+
+	sourceIn.RenderedVars = newVars.Clone()
 
 	if source.NoOverride == nil || !*source.NoOverride {
 		varsCtx.Vars.Merge(newVars)

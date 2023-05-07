@@ -8,7 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -62,11 +61,10 @@ type ApplyUtil struct {
 type ApplyDeploymentsUtil struct {
 	ctx context.Context
 
-	dew         *DeploymentErrorsAndWarnings
-	deployments []*deployment.DeploymentItem
-	ru          *RemoteObjectUtils
-	k           *k8s.K8sCluster
-	o           *ApplyUtilOptions
+	dew *DeploymentErrorsAndWarnings
+	ru  *RemoteObjectUtils
+	k   *k8s.K8sCluster
+	o   *ApplyUtilOptions
 
 	abortSignal atomic.Value
 
@@ -80,14 +78,13 @@ type ApplyDeploymentsUtil struct {
 	results      []*ApplyUtil
 }
 
-func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
+func NewApplyDeploymentsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings, ru *RemoteObjectUtils, k *k8s.K8sCluster, o *ApplyUtilOptions) *ApplyDeploymentsUtil {
 	ret := &ApplyDeploymentsUtil{
-		ctx:         ctx,
-		dew:         dew,
-		deployments: deployments,
-		ru:          ru,
-		k:           k,
-		o:           o,
+		ctx: ctx,
+		dew: dew,
+		ru:  ru,
+		k:   k,
+		o:   o,
 	}
 	ret.abortSignal.Store(false)
 	return ret
@@ -383,10 +380,10 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 			return
 		}
 	}
-	if r != nil && ref.GVK.GroupKind().String() == "Namespace" {
+	if r != nil && ref.GroupKind().String() == "Namespace" {
 		a.allNamespaces.Store(ref.Name, r)
 	}
-	if r != nil && ref.GVK.GroupKind().String() == "CustomResourceDefinition.apiextensions.k8s.io" {
+	if r != nil && ref.GroupKind().String() == "CustomResourceDefinition.apiextensions.k8s.io" {
 		a.handleObservedCRD(r)
 	}
 	a.handleApiWarnings(ref, apiWarnings)
@@ -462,7 +459,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 				status.Warning(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
 			}
 			for _, e := range v.Errors {
-				a.HandleError(ref, fmt.Errorf(e.Error))
+				a.HandleError(ref, fmt.Errorf(e.Message))
 			}
 			return false
 		}
@@ -493,7 +490,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			a.HandleError(ref, err)
 			return false
 		case <-a.ctx.Done():
-			err := fmt.Errorf("failed waiting for readiness of %s: %w", ref.String(), err)
+			err := fmt.Errorf("context cancelled while waiting for readiness of %s", ref.String())
 			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
 			a.HandleError(ref, err)
 			return false
@@ -507,7 +504,9 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	for _, x := range d.Config.DeleteObjects {
 		for _, gvk := range a.k.Resources.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind)) {
 			ref := k8s2.ObjectRef{
-				GVK:       gvk,
+				Group:     gvk.Group,
+				Version:   gvk.Version,
+				Kind:      gvk.Kind,
 				Name:      x.Name,
 				Namespace: x.Namespace,
 			}
@@ -641,7 +640,7 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 	return nil
 }
 
-func (a *ApplyDeploymentsUtil) ApplyDeployments() {
+func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.DeploymentItem) {
 	s := status.Start(a.ctx, "Running server-side apply for all objects")
 	defer s.Failed()
 
@@ -649,7 +648,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 	sem := semaphore.NewWeighted(8)
 
 	maxNameLen := 0
-	for _, d := range a.deployments {
+	for _, d := range deployments {
 		name := a.buildProgressName(d)
 		if name != nil {
 			if len(*name) > maxNameLen {
@@ -658,7 +657,7 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments() {
 		}
 	}
 
-	for _, d_ := range a.deployments {
+	for _, d_ := range deployments {
 		d := d_
 		if a.abortSignal.Load().(bool) {
 			break
@@ -754,29 +753,39 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 	a.HandleError(ref, fmt.Errorf("unexpected end of loop"))
 }
 
-func (ad *ApplyDeploymentsUtil) collectObjects(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []*types.RefAndObject {
+func (ad *ApplyDeploymentsUtil) collectObjects(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []*uo.UnstructuredObject {
 	ad.resultsMutex.Lock()
 	defer ad.resultsMutex.Unlock()
 
-	var ret []*types.RefAndObject
+	var ret []*uo.UnstructuredObject
 	for _, a := range ad.results {
 		for _, o := range f(a) {
-			ret = append(ret, &types.RefAndObject{
-				Ref:    o.GetK8sRef(),
-				Object: o,
-			})
+			ret = append(ret, o)
 		}
 	}
 	return ret
 }
 
-func (ad *ApplyDeploymentsUtil) GetNewObjects() []*types.RefAndObject {
-	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
+func (ad *ApplyDeploymentsUtil) collectObjectRefs(f func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject) []k8s2.ObjectRef {
+	ad.resultsMutex.Lock()
+	defer ad.resultsMutex.Unlock()
+
+	var ret []k8s2.ObjectRef
+	for _, a := range ad.results {
+		for _, o := range f(a) {
+			ret = append(ret, o.GetK8sRef())
+		}
+	}
+	return ret
+}
+
+func (ad *ApplyDeploymentsUtil) GetNewObjectRefs() []k8s2.ObjectRef {
+	return ad.collectObjectRefs(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.newObjects
 	})
 }
 
-func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
+func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*uo.UnstructuredObject {
 	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.appliedObjects
 	})
@@ -784,13 +793,13 @@ func (ad *ApplyDeploymentsUtil) GetAppliedObjects() []*types.RefAndObject {
 
 func (ad *ApplyDeploymentsUtil) GetAppliedObjectsMap() map[k8s2.ObjectRef]*uo.UnstructuredObject {
 	ret := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	for _, ro := range ad.GetAppliedObjects() {
-		ret[ro.Ref] = ro.Object
+	for _, o := range ad.GetAppliedObjects() {
+		ret[o.GetK8sRef()] = o
 	}
 	return ret
 }
 
-func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*types.RefAndObject {
+func (ad *ApplyDeploymentsUtil) GetAppliedHookObjects() []*uo.UnstructuredObject {
 	return ad.collectObjects(func(au *ApplyUtil) map[k8s2.ObjectRef]*uo.UnstructuredObject {
 		return au.appliedHookObjects
 	})

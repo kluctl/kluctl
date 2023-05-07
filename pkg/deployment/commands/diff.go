@@ -3,12 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type DiffCommand struct {
@@ -30,7 +31,7 @@ func NewDiffCommand(discriminator string, c *deployment.DeploymentCollection) *D
 	}
 }
 
-func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.CommandResult, error) {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
 	if cmd.discriminator == "" {
@@ -52,27 +53,24 @@ func (cmd *DiffCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.Comm
 		AbortOnError:        false,
 		ReadinessTimeout:    0,
 	}
-	au := utils.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
-	au.ApplyDeployments()
+	au := utils.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
+	au.ApplyDeployments(cmd.c.Deployments)
 
-	du := utils.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
+	du := utils.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
-	du.Diff()
+	du.DiffDeploymentItems(cmd.c.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {
 		return nil, err
 	}
-	return &types.CommandResult{
-		NewObjects:     au.GetNewObjects(),
-		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjects(),
-		HookObjects:    au.GetAppliedHookObjects(),
-		OrphanObjects:  orphanObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     cmd.c.Images.SeenImages(false),
+	return &result.CommandResult{
+		Id:         uuid.New().String(),
+		Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+		Errors:     dew.GetErrorsList(),
+		Warnings:   dew.GetWarningsList(),
+		SeenImages: cmd.c.Images.SeenImages(false),
 	}, nil
 }

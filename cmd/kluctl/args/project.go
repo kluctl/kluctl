@@ -6,7 +6,7 @@ import (
 )
 
 type ProjectDir struct {
-	ProjectDir existingDirType `group:"project" help:"Specify the project directory. Defaults to the current working directory."`
+	ProjectDir ExistingDirType `group:"project" help:"Specify the project directory. Defaults to the current working directory."`
 }
 
 func (a ProjectDir) GetProjectDir() (string, error) {
@@ -23,7 +23,7 @@ func (a ProjectDir) GetProjectDir() (string, error) {
 type ProjectFlags struct {
 	ProjectDir
 
-	ProjectConfig existingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
+	ProjectConfig ExistingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
 
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`
 	GitCacheUpdateInterval time.Duration `group:"project" help:"Specify the time to wait between git cache updates. Defaults to not wait at all and always updating caches."`
@@ -40,4 +40,11 @@ type TargetFlags struct {
 	Target             string `group:"project" short:"t" help:"Target name to run command for. Target must exist in .kluctl.yaml."`
 	TargetNameOverride string `group:"project" short:"T" help:"Overrides the target name. If -t is used at the same time, then the target will be looked up based on -t <name> and then renamed to the value of -T. If no target is specified via -t, then the no-name target is renamed to the value of -T."`
 	Context            string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
+}
+
+type CommandResultFlags struct {
+	NoWriteCommandResult    bool   `group:"results" help:"Disable writing of command results into the cluster."`
+	ForceWriteCommandResult bool   `group:"results" help:"Force writing of command results, even if the command is run in dry-run mode."`
+	CommandResultNamespace  string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
+	KeepCommandResultsCount int    `group:"results" help:"Configure how many old command results to keep." default:"10"`
 }

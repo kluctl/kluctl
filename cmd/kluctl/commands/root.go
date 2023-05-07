@@ -78,6 +78,7 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "flux", title: "Flux arguments:", description: "EXPERIMENTAL: Subcommands for interaction with flux-kluctl-controller"},
+	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
 }
 
 var origStderr = os.Stderr

@@ -2,6 +2,7 @@ package vars
 
 import (
 	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
@@ -97,4 +98,20 @@ func (vc *VarsCtx) RenderDirectory(sourceDir string, targetDir string, excludePa
 		return err
 	}
 	return vc.J2.RenderDirectory(sourceDir, targetDir, excludePatterns, jinja2.WithGlobals(globals), jinja2.WithSearchDirs(searchDirs), jinja2.WithTemplateIgnoreRootDir(templateIgnoreRoot))
+}
+
+func (vc *VarsCtx) CheckConditional(c string) (bool, error) {
+	if kluctl_jinja2.IsConditionalTrue(c) {
+		return true, nil
+	}
+
+	m, err := vc.Vars.ToMap()
+	if err != nil {
+		return false, err
+	}
+	c, err = kluctl_jinja2.RenderConditional(vc.J2, m, c)
+	if err != nil {
+		return false, err
+	}
+	return kluctl_jinja2.IsConditionalTrue(c), nil
 }

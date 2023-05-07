@@ -36,7 +36,7 @@ func (cmd *fluxReconcileCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	ref := k8s2.ObjectRef{GVK: args.KluctlDeploymentGVK, Name: kd, Namespace: ns}
+	ref := k8s2.NewObjectRef(args.KluctlDeploymentGVK.Group, args.KluctlDeploymentGVK.Version, args.KluctlDeploymentGVK.Kind, kd, ns)
 	patch := []k8s.JsonPatch{{
 		Op:   "replace",
 		Path: "/metadata/annotations",
@@ -59,7 +59,7 @@ func (cmd *fluxReconcileCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		ref2 := k8s2.ObjectRef{GVK: args.GitRepositoryGVK, Name: sourceName, Namespace: sourceNamespace}
+		ref2 := k8s2.NewObjectRef(args.GitRepositoryGVK.Group, args.GitRepositoryGVK.Version, args.GitRepositoryGVK.Kind, sourceName, sourceNamespace)
 
 		s := status.Start(ctx, "Annotating Source %s in %s namespace", sourceName, sourceNamespace)
 		defer s.Failed()

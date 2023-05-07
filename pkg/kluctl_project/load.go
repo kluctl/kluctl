@@ -13,7 +13,7 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 
 	p := &LoadedKluctlProject{
 		ctx:           ctx,
-		loadArgs:      args,
+		LoadArgs:      args,
 		TmpDir:        tmpDir,
 		J2:            j2,
 		RP:            args.RP,

@@ -5,68 +5,87 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sort"
 	"sync"
 	"time"
 )
 
-type diffUtil struct {
+type DiffUtil struct {
 	dew            *DeploymentErrorsAndWarnings
-	deployments    []*deployment.DeploymentItem
 	appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	ru             *RemoteObjectUtils
 
 	IgnoreTags        bool
 	IgnoreLabels      bool
 	IgnoreAnnotations bool
+	Swapped           bool
 
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
-	ChangedObjects    []*types.ChangedObject
+	ChangedObjects    []result.ChangedObject
 	mutex             sync.Mutex
 }
 
-func NewDiffUtil(dew *DeploymentErrorsAndWarnings, deployments []*deployment.DeploymentItem, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *diffUtil {
-	return &diffUtil{
+func NewDiffUtil(dew *DeploymentErrorsAndWarnings, ru *RemoteObjectUtils, appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject) *DiffUtil {
+	u := &DiffUtil{
 		dew:            dew,
-		deployments:    deployments,
 		ru:             ru,
 		appliedObjects: appliedObjects,
 	}
+	u.calcRemoteObjectsForDiff()
+	return u
 }
 
-func (u *diffUtil) Diff() {
+func (u *DiffUtil) DiffDeploymentItems(deployments []*deployment.DeploymentItem) {
 	var wg sync.WaitGroup
 
-	u.calcRemoteObjectsForDiff()
-
-	for _, d := range u.deployments {
+	for _, d := range deployments {
 		ignoreForDiffs := d.Project.GetIgnoreForDiffs(u.IgnoreTags, u.IgnoreLabels, u.IgnoreAnnotations)
-		for _, o := range d.Objects {
-			o := o
-			ref := o.GetK8sRef()
-			ao, ok := u.appliedObjects[ref]
-			if !ok {
-				// if we can't even find it in appliedObjects, it probably ran into an error
-				continue
-			}
-			diffRef, ro := u.getRemoteObjectForDiff(o)
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				u.diffObject(o, diffRef, ao, ro, ignoreForDiffs)
-			}()
-		}
+		u.diffObjects(d.Objects, ignoreForDiffs, &wg)
 	}
 	wg.Wait()
 
+	u.sortChanges()
+}
+
+func (u *DiffUtil) DiffObjects(objects []*uo.UnstructuredObject) {
+	var wg sync.WaitGroup
+	u.diffObjects(objects, nil, &wg)
+	wg.Wait()
+	u.sortChanges()
+}
+
+func (u *DiffUtil) sortChanges() {
 	sort.Slice(u.ChangedObjects, func(i, j int) bool {
 		return u.ChangedObjects[i].Ref.String() < u.ChangedObjects[j].Ref.String()
 	})
 }
 
-func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
+func (u *DiffUtil) diffObjects(objects []*uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, wg *sync.WaitGroup) {
+	for _, o := range objects {
+		o := o
+		ref := o.GetK8sRef()
+		ao, ok := u.appliedObjects[ref]
+		if !ok {
+			// if we can't even find it in appliedObjects, it probably ran into an error
+			continue
+		}
+		diffRef, ro := u.getRemoteObjectForDiff(o)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if u.Swapped {
+				u.diffObject(o, diffRef, ro, ao, ignoreForDiffs)
+			} else {
+				u.diffObject(o, diffRef, ao, ro, ignoreForDiffs)
+			}
+		}()
+	}
+}
+
+func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
 	if ao != nil && ro == nil {
 		// new?
 		return
@@ -98,16 +117,14 @@ func (u *diffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 
 		u.mutex.Lock()
 		defer u.mutex.Unlock()
-		u.ChangedObjects = append(u.ChangedObjects, &types.ChangedObject{
-			Ref:       diffRef,
-			NewObject: ao,
-			OldObject: ro,
-			Changes:   changes,
+		u.ChangedObjects = append(u.ChangedObjects, result.ChangedObject{
+			Ref:     diffRef,
+			Changes: changes,
 		})
 	}
 }
 
-func (u *diffUtil) calcRemoteObjectsForDiff() {
+func (u *DiffUtil) calcRemoteObjectsForDiff() {
 	u.remoteDiffObjects = make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, o := range u.ru.remoteObjects {
 		diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
@@ -127,7 +144,7 @@ func (u *diffUtil) calcRemoteObjectsForDiff() {
 	}
 }
 
-func (u *diffUtil) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) (k8s2.ObjectRef, *uo.UnstructuredObject) {
+func (u *DiffUtil) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) (k8s2.ObjectRef, *uo.UnstructuredObject) {
 	ref := localObject.GetK8sRef()
 	diffName := localObject.GetK8sAnnotation("kluctl.io/diff-name")
 	if diffName != nil {

@@ -124,3 +124,21 @@ Inclusion/Exclusion arguments:
 
 ```
 <!-- END SECTION -->
+
+## Command Results arguments
+
+These arguments control how command results are stored.
+
+<!-- BEGIN SECTION "deploy" "Command Results" true -->
+```
+Command Results:
+  Configure how command results are stored.
+
+      --command-result-namespace string   Override the namespace to be used when writing command results. (default
+                                          "kluctl-results")
+      --force-write-command-result        Force writing of command results, even if the command is run in dry-run mode.
+      --keep-command-results-count int    Configure how many old command results to keep. (default 10)
+      --no-write-command-result           Disable writing of command results into the cluster.
+
+```
+<!-- END SECTION -->

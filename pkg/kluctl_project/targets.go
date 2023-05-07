@@ -14,7 +14,12 @@ func (c *LoadedKluctlProject) loadTargets() error {
 	targetNames := make(map[string]bool)
 	c.Targets = nil
 
-	for _, configTarget := range c.Config.Targets {
+	for i, configTarget := range c.Config.Targets {
+		if configTarget.Name == "" {
+			status.Error(c.ctx, "Target at index %d has no name", i)
+			continue
+		}
+
 		target, err := c.buildTarget(configTarget)
 		if err != nil {
 			status.Warning(c.ctx, "Failed to load target config for project: %v", err)

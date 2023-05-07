@@ -7,8 +7,8 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func formatCommandResultText(cr *types.CommandResult, short bool) string {
+func formatCommandResultText(cr *result.CommandResult, short bool) string {
 	buf := bytes.NewBuffer(nil)
 
 	if len(cr.Warnings) != 0 {
@@ -24,50 +24,64 @@ func formatCommandResultText(cr *types.CommandResult, short bool) string {
 		prettyErrors(buf, cr.Warnings)
 	}
 
-	if len(cr.NewObjects) != 0 {
-		buf.WriteString("\nNew objects:\n")
-		var refs []k8s.ObjectRef
-		for _, o := range cr.NewObjects {
-			refs = append(refs, o.Ref)
+	var newObjects []k8s.ObjectRef
+	var changedObjects []k8s.ObjectRef
+	var deletedObjects []k8s.ObjectRef
+	var orphanObjects []k8s.ObjectRef
+	var appliedHookObjects []k8s.ObjectRef
+
+	for _, o := range cr.Objects {
+		if o.New {
+			newObjects = append(newObjects, o.Ref)
 		}
-		prettyObjectRefs(buf, refs)
+		if len(o.Changes) != 0 {
+			changedObjects = append(changedObjects, o.Ref)
+		}
+		if o.Deleted {
+			deletedObjects = append(deletedObjects, o.Ref)
+		}
+		if o.Orphan {
+			orphanObjects = append(orphanObjects, o.Ref)
+		}
+		if o.Hook {
+			appliedHookObjects = append(appliedHookObjects, o.Ref)
+		}
 	}
-	if len(cr.ChangedObjects) != 0 {
+
+	if len(newObjects) != 0 {
+		buf.WriteString("\nNew objects:\n")
+		prettyObjectRefs(buf, newObjects)
+	}
+	if len(changedObjects) != 0 {
 		buf.WriteString("\nChanged objects:\n")
-		var refs []k8s.ObjectRef
-		for _, co := range cr.ChangedObjects {
-			refs = append(refs, co.Ref)
-		}
-		prettyObjectRefs(buf, refs)
+		prettyObjectRefs(buf, changedObjects)
 
 		if !short {
 			buf.WriteString("\n")
-
-			for i, co := range cr.ChangedObjects {
+			for i, o := range cr.Objects {
+				if len(o.Changes) == 0 {
+					continue
+				}
 				if i != 0 {
 					buf.WriteString("\n")
 				}
-				prettyChanges(buf, co.Ref, co.Changes)
+				prettyChanges(buf, o.Ref, o.Changes)
 			}
 		}
 	}
 
-	if len(cr.DeletedObjects) != 0 {
+	if len(deletedObjects) != 0 {
 		buf.WriteString("\nDeleted objects:\n")
-		prettyObjectRefs(buf, cr.DeletedObjects)
+		prettyObjectRefs(buf, deletedObjects)
 	}
 
-	if len(cr.HookObjects) != 0 {
+	if len(appliedHookObjects) != 0 {
 		buf.WriteString("\nApplied hooks:\n")
-		var refs []k8s.ObjectRef
-		for _, o := range cr.HookObjects {
-			refs = append(refs, o.Ref)
-		}
-		prettyObjectRefs(buf, refs)
+		prettyObjectRefs(buf, appliedHookObjects)
 	}
-	if len(cr.OrphanObjects) != 0 {
+	if len(orphanObjects) != 0 {
 		buf.WriteString("\nOrphan objects:\n")
-		prettyObjectRefs(buf, cr.OrphanObjects)
+		prettyObjectRefs(buf, orphanObjects)
 	}
 
 	if len(cr.Errors) != 0 {
@@ -84,17 +98,17 @@ func prettyObjectRefs(buf io.StringWriter, refs []k8s.ObjectRef) {
 	}
 }
 
-func prettyErrors(buf io.StringWriter, errors []types.DeploymentError) {
+func prettyErrors(buf io.StringWriter, errors []result.DeploymentError) {
 	for _, e := range errors {
 		prefix := ""
 		if s := e.Ref.String(); s != "" {
 			prefix = fmt.Sprintf("%s: ", s)
 		}
-		_, _ = buf.WriteString(fmt.Sprintf("  %s%s\n", prefix, e.Error))
+		_, _ = buf.WriteString(fmt.Sprintf("  %s%s\n", prefix, e.Message))
 	}
 }
 
-func prettyChanges(buf io.StringWriter, ref k8s.ObjectRef, changes []types.Change) {
+func prettyChanges(buf io.StringWriter, ref k8s.ObjectRef, changes []result.Change) {
 	_, _ = buf.WriteString(fmt.Sprintf("Diff for object %s\n", ref.String()))
 
 	var t utils.PrettyTable
@@ -107,15 +121,15 @@ func prettyChanges(buf io.StringWriter, ref k8s.ObjectRef, changes []types.Chang
 	_, _ = buf.WriteString(s)
 }
 
-func formatCommandResultYaml(cr *types.CommandResult) (string, error) {
-	b, err := yaml.WriteYamlString(cr)
+func formatCommandResultYaml(cr *result.CommandResult) (string, error) {
+	b, err := yaml.WriteYamlString(cr.ToCompacted())
 	if err != nil {
 		return "", err
 	}
 	return b, nil
 }
 
-func formatCommandResult(cr *types.CommandResult, format string, short bool) (string, error) {
+func formatCommandResult(cr *result.CommandResult, format string, short bool) (string, error) {
 	switch format {
 	case "text":
 		return formatCommandResultText(cr, short), nil
@@ -126,7 +140,7 @@ func formatCommandResult(cr *types.CommandResult, format string, short bool) (st
 	}
 }
 
-func prettyValidationResults(buf io.StringWriter, results []types.ValidateResultEntry) {
+func prettyValidationResults(buf io.StringWriter, results []result.ValidateResultEntry) {
 	var t utils.PrettyTable
 	t.AddRow("Object", "Message")
 
@@ -137,7 +151,7 @@ func prettyValidationResults(buf io.StringWriter, results []types.ValidateResult
 	_, _ = buf.WriteString(s)
 }
 
-func formatValidateResultText(vr *types.ValidateResult) string {
+func formatValidateResultText(vr *result.ValidateResult) string {
 	buf := bytes.NewBuffer(nil)
 
 	if len(vr.Warnings) != 0 {
@@ -160,10 +174,27 @@ func formatValidateResultText(vr *types.ValidateResult) string {
 		buf.WriteString("Results:\n")
 		prettyValidationResults(buf, vr.Results)
 	}
+
+	if len(vr.Drift) != 0 {
+		if buf.Len() != 0 {
+			buf.WriteString("\n")
+		}
+		buf.WriteString("Drift:\n")
+		for i, o := range vr.Drift {
+			if len(o.Changes) == 0 {
+				continue
+			}
+			if i != 0 {
+				buf.WriteString("\n")
+			}
+			prettyChanges(buf, o.Ref, o.Changes)
+		}
+	}
+
 	return buf.String()
 }
 
-func formatValidateResultYaml(vr *types.ValidateResult) (string, error) {
+func formatValidateResultYaml(vr *result.ValidateResult) (string, error) {
 	b, err := yaml.WriteYamlString(vr)
 	if err != nil {
 		return "", err
@@ -171,7 +202,7 @@ func formatValidateResultYaml(vr *types.ValidateResult) (string, error) {
 	return string(b), nil
 }
 
-func formatValidateResult(vr *types.ValidateResult, format string) (string, error) {
+func formatValidateResult(vr *result.ValidateResult, format string) (string, error) {
 	switch format {
 	case "text":
 		return formatValidateResultText(vr), nil
@@ -206,25 +237,39 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 	return nil
 }
 
-func outputCommandResult(ctx context.Context, flags args.OutputFormatFlags, cr *types.CommandResult) error {
-	status.Flush(ctx)
+func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
+	status.Flush(ctx.ctx)
 
 	if !flags.NoObfuscate {
 		var obfuscator diff.Obfuscator
-		for _, c := range cr.ChangedObjects {
-			err := obfuscator.Obfuscate(c.Ref, c.Changes)
-			if err != nil {
-				return err
-			}
+		err := obfuscator.ObfuscateResult(cr)
+		if err != nil {
+			return err
 		}
 	}
 
-	return outputHelper(ctx, flags.OutputFormat, func(format string) (string, error) {
+	var resultStoreErr error
+	if writeToResultStore && ctx.resultStore != nil {
+		s := status.Start(ctx.ctx, "Writing command result")
+		defer s.Failed()
+		resultStoreErr = ctx.resultStore.WriteCommandResult(cr)
+		if resultStoreErr != nil {
+			s.FailedWithMessage("Failed to write result to result store: %s", resultStoreErr.Error())
+		} else {
+			s.Success()
+		}
+	}
+
+	err := outputHelper(ctx.ctx, flags.OutputFormat, func(format string) (string, error) {
 		return formatCommandResult(cr, format, flags.ShortOutput)
 	})
+	if err == nil && resultStoreErr != nil {
+		return resultStoreErr
+	}
+	return err
 }
 
-func outputValidateResult(ctx context.Context, output []string, vr *types.ValidateResult) error {
+func outputValidateResult(ctx context.Context, output []string, vr *result.ValidateResult) error {
 	status.Flush(ctx)
 
 	return outputHelper(ctx, output, func(format string) (string, error) {

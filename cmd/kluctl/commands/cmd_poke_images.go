@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"time"
 )
 
 type pokeImagesCmd struct {
@@ -19,6 +20,7 @@ type pokeImagesCmd struct {
 	args.DryRunFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 }
 
 func (cmd *pokeImagesCmd) Help() string {
@@ -37,7 +39,9 @@ func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
+	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
 			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", cmdCtx.targetCtx.ClusterContext)) {
@@ -51,7 +55,11 @@ func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(ctx, cmd.OutputFormatFlags, result)
+		err = addCommandInfo(result, startTime, "poke-images", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
+		if err != nil {
+			return err
+		}
+		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 		if err != nil {
 			return err
 		}

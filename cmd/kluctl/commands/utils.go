@@ -3,8 +3,15 @@ package commands
 import (
 	"context"
 	"fmt"
+	git2 "github.com/go-git/go-git/v5"
+	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
@@ -124,6 +131,7 @@ type projectTargetCommandArgs struct {
 	helmCredentials      args.HelmCredentials
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
+	commandResultFlags   *args.CommandResultFlags
 
 	forSeal           bool
 	forCompletion     bool
@@ -132,9 +140,10 @@ type projectTargetCommandArgs struct {
 }
 
 type commandCtx struct {
-	ctx       context.Context
-	targetCtx *kluctl_project.TargetContext
-	images    *deployment.Images
+	ctx         context.Context
+	targetCtx   *kluctl_project.TargetContext
+	images      *deployment.Images
+	resultStore results.ResultStore
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
@@ -195,13 +204,176 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 	}
 
+	var resultStore results.ResultStore
+	if args.commandResultFlags != nil && !args.commandResultFlags.NoWriteCommandResult {
+		rc, err := targetCtx.SharedContext.K.ToRESTConfig()
+		if err != nil {
+			return err
+		}
+		resultStore, err = results.NewResultStoreSecrets(ctx, rc, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount)
+		if err != nil {
+			return err
+		}
+	}
+
 	cmdCtx := &commandCtx{
-		ctx:       ctx,
-		targetCtx: targetCtx,
-		images:    images,
+		ctx:         ctx,
+		targetCtx:   targetCtx,
+		images:      images,
+		resultStore: resultStore,
 	}
 
 	return cb(cmdCtx)
+}
+
+func addCommandInfo(r *result.CommandResult, startTime time.Time, command string, ctx *commandCtx, targetFlags *args.TargetFlags,
+	imageFlags *args.ImageFlags, inclusionFlags *args.InclusionFlags,
+	dryRunFlags *args.DryRunFlags, forceApplyFlags *args.ForceApplyFlags, replaceOnErrorFlags *args.ReplaceOnErrorFlags, abortOnErrorFlags *args.AbortOnErrorFlags, noWait bool) error {
+	r.Command = result.CommandInfo{
+		Initiator: result.CommandInititiator_CommandLine,
+		StartTime: types.FromTime(startTime),
+		EndTime:   types.FromTime(time.Now()),
+		Command:   command,
+		Target:    ctx.targetCtx.Target,
+		Args:      ctx.targetCtx.KluctlProject.LoadArgs.ExternalArgs,
+		NoWait:    noWait,
+	}
+	if targetFlags != nil {
+		r.Command.TargetNameOverride = targetFlags.TargetNameOverride
+		r.Command.ContextOverride = targetFlags.Context
+	}
+	if imageFlags != nil {
+		var err error
+		r.Command.Images, err = imageFlags.LoadFixedImagesFromArgs()
+		if err != nil {
+			return err
+		}
+	}
+	if inclusionFlags != nil {
+		r.Command.IncludeTags = inclusionFlags.IncludeTag
+		r.Command.ExcludeTags = inclusionFlags.ExcludeTag
+		r.Command.IncludeDeploymentDirs = inclusionFlags.IncludeDeploymentDir
+		r.Command.ExcludeDeploymentDirs = inclusionFlags.ExcludeDeploymentDir
+	}
+	if dryRunFlags != nil {
+		r.Command.DryRun = dryRunFlags.DryRun
+	}
+	if forceApplyFlags != nil {
+		r.Command.ForceApply = forceApplyFlags.ForceApply
+	}
+	if replaceOnErrorFlags != nil {
+		r.Command.ReplaceOnError = replaceOnErrorFlags.ReplaceOnError
+		r.Command.ForceReplaceOnError = replaceOnErrorFlags.ForceReplaceOnError
+	}
+	if abortOnErrorFlags != nil {
+		r.Command.AbortOnError = abortOnErrorFlags.AbortOnError
+	}
+	r.Deployment = &ctx.targetCtx.DeploymentProject.Config
+
+	err := addGitInfo(r, ctx)
+	if err != nil {
+		return err
+	}
+
+	err = addClusterInfo(r, ctx)
+	if err != nil {
+		return err
+	}
+
+	if ctx.targetCtx.Target != nil {
+		r.Target.TargetName = ctx.targetCtx.Target.Name
+		r.Target.Discriminator = ctx.targetCtx.Target.Discriminator
+	}
+	r.Target.ClusterId = r.ClusterInfo.ClusterId
+
+	return nil
+}
+
+func addGitInfo(r *result.CommandResult, ctx *commandCtx) error {
+	if ctx.targetCtx.KluctlProject.LoadArgs.RepoRoot == "" {
+		return nil
+	}
+
+	projectDirAbs, err := filepath.Abs(ctx.targetCtx.KluctlProject.LoadArgs.ProjectDir)
+	if err != nil {
+		return err
+	}
+
+	subDir, err := filepath.Rel(ctx.targetCtx.KluctlProject.LoadArgs.RepoRoot, projectDirAbs)
+	if err != nil {
+		return err
+	}
+	if subDir == "." {
+		subDir = ""
+	}
+
+	g, err := git2.PlainOpen(ctx.targetCtx.KluctlProject.LoadArgs.RepoRoot)
+	if err != nil {
+		return err
+	}
+
+	w, err := g.Worktree()
+	if err != nil {
+		return err
+	}
+
+	s, err := w.Status()
+	if err != nil {
+		return err
+	}
+
+	head, err := g.Head()
+	if err != nil {
+		return err
+	}
+
+	remotes, err := g.Remotes()
+	if err != nil {
+		return err
+	}
+
+	var originUrl *git_url.GitUrl
+	for _, r := range remotes {
+		if r.Config().Name == "origin" {
+			originUrl, err = git_url.Parse(r.Config().URLs[0])
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	var normaliedUrl string
+	if originUrl != nil {
+		normaliedUrl = originUrl.NormalizedRepoKey()
+	}
+
+	r.GitInfo = &result.GitInfo{
+		Url:    originUrl,
+		Ref:    head.Name().String(),
+		SubDir: subDir,
+		Commit: head.Hash().String(),
+		Dirty:  !s.IsClean(),
+	}
+	r.Project.NormalizedGitUrl = normaliedUrl
+	r.Project.SubDir = subDir
+	return nil
+}
+
+func addClusterInfo(r *result.CommandResult, ctx *commandCtx) error {
+	kubeSystemNs, _, err := ctx.targetCtx.SharedContext.K.GetSingleObject(
+		k8s.NewObjectRef("", "v1", "Namespace", "kube-system", ""))
+	if err != nil {
+		return err
+	}
+	// we reuse the kube-system namespace uid as global cluster id
+	clusterId := kubeSystemNs.GetK8sUid()
+	if clusterId == "" {
+		return fmt.Errorf("kube-system namespace has no uid")
+	}
+	r.ClusterInfo = result.ClusterInfo{
+		ClusterId: clusterId,
+	}
+	return nil
 }
 
 func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {

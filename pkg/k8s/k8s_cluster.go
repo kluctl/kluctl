@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"k8s.io/client-go/metadata"
 	"net/http"
 	"strings"
 	"sync"
@@ -110,7 +111,11 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 		if len(ret) != 0 {
 			ret += ","
 		}
-		ret += fmt.Sprintf("%s=%s", k, v)
+		if v == "" {
+			ret += k
+		} else {
+			ret += fmt.Sprintf("%s=%s", k, v)
+		}
 	}
 	return ret
 }
@@ -134,9 +139,44 @@ func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, 
 	return result, apiWarnings, err
 }
 
+func (k *K8sCluster) ListMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
+	var result []*uo.UnstructuredObject
+
+	gvr, err := k.Resources.GetGVRForGVK(gvk)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	apiWarnings, err := k.clients.withClientFromPool(func(p *parallelClientEntry) error {
+		var r metadata.ResourceInterface
+		if namespace == "" {
+			r = p.metadataClient.Resource(*gvr)
+		} else {
+			r = p.metadataClient.Resource(*gvr).Namespace(namespace)
+		}
+		o := v1.ListOptions{
+			LabelSelector: k.buildLabelSelector(labels),
+		}
+		x, err := r.List(k.ctx, o)
+		if err != nil {
+			return err
+		}
+		for _, o := range x.Items {
+			u, err := uo.FromStruct(o)
+			if err != nil {
+				return err
+			}
+			u.SetK8sGVK(gvk)
+			result = append(result, u)
+		}
+		return nil
+	})
+	return result, apiWarnings, err
+}
+
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		o := v1.GetOptions{}
 		x, err := r.Get(k.ctx, ref.Name, o)
 		if err != nil {
@@ -165,7 +205,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 		o.DryRun = []string{"All"}
 	}
 
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		err := r.Delete(k.ctx, ref.Name, o)
 		if err != nil {
 			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
@@ -318,7 +358,7 @@ func (k *K8sCluster) doPatch(ref k8s.ObjectRef, data []byte, patchType types.Pat
 	status.Trace(k.ctx, "patching %s", ref.String())
 
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Patch(k.ctx, ref.Name, patchType, data, po)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
@@ -370,7 +410,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	status.Trace(k.ctx, "updating %s", ref.String())
 
 	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GVK, ref.Namespace, func(r dynamic.ResourceInterface) error {
+	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
 		x, err := r.Update(k.ctx, o.ToUnstructured(), updateOpts)
 		if err != nil {
 			return err

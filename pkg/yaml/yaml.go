@@ -188,6 +188,14 @@ func WriteJsonString(o interface{}) (string, error) {
 	return string(b), nil
 }
 
+func WriteJsonStringMust(o interface{}) string {
+	b, err := json.Marshal(o)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
 // RemoveDuplicateFields is a helper/hack to remove duplicate fields from yaml maps/structs. The yaml spec explicitly
 // forbids duplicate keys, but yaml.v2 ignored those by default, leading to some tools (e.g. Helm) ignoring these
 func RemoveDuplicateFields(r io.Reader) ([]byte, error) {

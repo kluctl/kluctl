@@ -66,3 +66,12 @@ func (g *goHelper) Wait() {
 func (g *goHelper) ErrorOrNil() error {
 	return g.errs.ErrorOrNil()
 }
+
+func RunParallelE(ctx context.Context, fs ...func() error) error {
+	g := NewGoHelper(ctx, 0)
+	for _, f := range fs {
+		g.RunE(f)
+	}
+	g.Wait()
+	return g.ErrorOrNil()
+}

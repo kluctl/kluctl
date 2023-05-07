@@ -159,7 +159,7 @@ func (p *LoadedKluctlProject) loadK8sConfig(target *types.Target, offlineK8s boo
 	var err error
 	var clientConfig *rest.Config
 	var restConfig *api.Config
-	clientConfig, restConfig, err = p.loadArgs.ClientConfigGetter(contextName)
+	clientConfig, restConfig, err = p.LoadArgs.ClientConfigGetter(contextName)
 	if err != nil {
 		return nil, "", err
 	}
@@ -193,8 +193,8 @@ func (p *LoadedKluctlProject) buildVars(target *types.Target, forSeal bool) (*va
 			}
 		}
 	}
-	if p.loadArgs.ExternalArgs != nil {
-		allArgs.Merge(p.loadArgs.ExternalArgs)
+	if p.LoadArgs.ExternalArgs != nil {
+		allArgs.Merge(p.LoadArgs.ExternalArgs)
 	}
 
 	err = deployment.LoadDefaultArgs(p.Config.Args, allArgs)

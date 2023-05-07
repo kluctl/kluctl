@@ -79,15 +79,25 @@ func (uo *UnstructuredObject) SetK8sNamespace(namespace string) {
 			panic(err)
 		}
 	}
-
 }
 
 func (uo *UnstructuredObject) GetK8sRef() k8s.ObjectRef {
+	gvk := uo.GetK8sGVK()
 	return k8s.ObjectRef{
-		GVK:       uo.GetK8sGVK(),
+		Group:     gvk.Group,
+		Version:   gvk.Version,
+		Kind:      gvk.Kind,
 		Name:      uo.GetK8sName(),
 		Namespace: uo.GetK8sNamespace(),
 	}
+}
+
+func (uo *UnstructuredObject) GetK8sUid() string {
+	s, _, err := uo.GetNestedString("metadata", "uid")
+	if err != nil {
+		panic(err)
+	}
+	return s
 }
 
 func (uo *UnstructuredObject) GetK8sLabels() map[string]string {

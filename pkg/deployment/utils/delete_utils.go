@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -42,7 +41,7 @@ var deleteOrder = [][]string{
 
 func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef {
 	ref = k.Resources.FixNamespaceInRef(ref)
-	ref.GVK.Version = ""
+	ref.Version = ""
 	return ref
 }
 
@@ -84,7 +83,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 
 	for _, o := range objects {
 		ref := o.GetK8sRef()
-		if _, ok := filteredResources[ref.GVK.GroupKind()]; !ok {
+		if _, ok := filteredResources[ref.GroupKind()]; !ok {
 			continue
 		}
 
@@ -160,10 +159,10 @@ func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.Unstructure
 	return ret, nil
 }
 
-func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, doWait bool) (*types.CommandResult, error) {
+func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dew *DeploymentErrorsAndWarnings, doWait bool) ([]k8s2.ObjectRef, error) {
 	g := utils.NewGoHelper(ctx, 8)
 
-	var ret types.CommandResult
+	var ret []k8s2.ObjectRef
 	namespaceNames := make(map[string]bool)
 	var mutex sync.Mutex
 
@@ -172,24 +171,16 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 		defer mutex.Unlock()
 
 		if err == nil {
-			ret.DeletedObjects = append(ret.DeletedObjects, ref)
+			ret = append(ret, ref)
 		} else {
-			ret.Errors = append(ret.Errors, types.DeploymentError{
-				Ref:   ref,
-				Error: err.Error(),
-			})
+			dew.AddError(ref, err)
 		}
-		for _, w := range apiWarnings {
-			ret.Warnings = append(ret.Warnings, types.DeploymentError{
-				Ref:   ref,
-				Error: w.Text,
-			})
-		}
+		dew.AddApiWarnings(ref, apiWarnings)
 	}
 
 	for _, ref_ := range refs {
 		ref := ref_
-		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
+		if ref.GroupVersion().String() == "v1" && ref.Kind == "Namespace" {
 			namespaceNames[ref.Name] = true
 			g.Run(func() {
 				apiWarnings, err := k.DeleteSingleObject(ref, k8s.DeleteOptions{NoWait: !doWait, IgnoreNotFoundError: true})
@@ -201,7 +192,7 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 
 	for _, ref_ := range refs {
 		ref := ref_
-		if ref.GVK.GroupVersion().String() == "v1" && ref.GVK.Kind == "Namespace" {
+		if ref.GroupVersion().String() == "v1" && ref.Kind == "Namespace" {
 			continue
 		}
 		if _, ok := namespaceNames[ref.Namespace]; ok {
@@ -215,5 +206,5 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 	}
 	g.Wait()
 
-	return &ret, nil
+	return ret, nil
 }

@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"time"
 )
 
 type deleteCmd struct {
@@ -23,6 +21,7 @@ type deleteCmd struct {
 	args.DryRunFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 
 	Discriminator string `group:"misc" help:"Override the discriminator used to find objects for deletion."`
 }
@@ -45,23 +44,27 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
+	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		discriminator := cmdCtx.targetCtx.Target.Discriminator
 		if cmd.Discriminator != "" {
 			discriminator = cmd.Discriminator
 		}
-		cmd2 := commands.NewDeleteCommand(discriminator, cmdCtx.targetCtx.DeploymentCollection.Inclusion)
+		cmd2 := commands.NewDeleteCommand(discriminator, cmdCtx.targetCtx.DeploymentCollection, cmdCtx.targetCtx.DeploymentCollection.Inclusion)
 
-		objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
+		result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
+			return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
+		})
 		if err != nil {
 			return err
 		}
-		result, err := confirmedDeleteObjects(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+		err = addCommandInfo(result, startTime, "delete", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
 		if err != nil {
 			return err
 		}
-		err = outputCommandResult(ctx, cmd.OutputFormatFlags, result)
+		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 		if err != nil {
 			return err
 		}
@@ -72,7 +75,7 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 	})
 }
 
-func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) (*types.CommandResult, error) {
+func confirmDeletion(ctx context.Context, refs []k8s2.ObjectRef, dryRun bool, forceYes bool) error {
 	if len(refs) != 0 {
 		_, _ = getStderr(ctx).WriteString("The following objects will be deleted:\n")
 		for _, ref := range refs {
@@ -80,10 +83,9 @@ func confirmedDeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.
 		}
 		if !forceYes && !dryRun {
 			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
-				return nil, fmt.Errorf("aborted")
+				return fmt.Errorf("aborted")
 			}
 		}
 	}
-
-	return utils.DeleteObjects(ctx, k, refs, true)
+	return nil
 }

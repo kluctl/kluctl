@@ -25,7 +25,7 @@ type LoadKluctlProjectArgs struct {
 }
 
 func (c *LoadedKluctlProject) getConfigPath() string {
-	configPath := c.loadArgs.ProjectConfig
+	configPath := c.LoadArgs.ProjectConfig
 	if configPath == "" {
 		p := yaml.FixPathExt(filepath.Join(c.ProjectDir, ".kluctl.yml"))
 		if utils.IsFile(p) {
@@ -38,8 +38,8 @@ func (c *LoadedKluctlProject) getConfigPath() string {
 func (c *LoadedKluctlProject) loadKluctlProject() error {
 	var err error
 
-	c.projectRootDir = c.loadArgs.RepoRoot
-	c.ProjectDir = c.loadArgs.ProjectDir
+	c.projectRootDir = c.LoadArgs.RepoRoot
+	c.ProjectDir = c.LoadArgs.ProjectDir
 	err = utils.CheckInDir(c.projectRootDir, c.ProjectDir)
 	if err != nil {
 		return err

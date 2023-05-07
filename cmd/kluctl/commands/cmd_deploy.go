@@ -6,7 +6,8 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"time"
 )
 
 type deployCmd struct {
@@ -24,6 +25,7 @@ type deployCmd struct {
 	args.HookFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 
 	NoWait bool `group:"misc" help:"Don't wait for objects readiness'"`
 }
@@ -45,13 +47,15 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
+	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdDeploy(cmdCtx)
+		return cmd.runCmdDeploy(cmdCtx, startTime)
 	})
 }
 
-func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
+func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) error {
 	status.Trace(cmdCtx.ctx, "enter runCmdDeploy")
 	defer status.Trace(cmdCtx.ctx, "leave runCmdDeploy")
 
@@ -63,8 +67,8 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	cmd2.ReadinessTimeout = cmd.ReadinessTimeout
 	cmd2.NoWait = cmd.NoWait
 
-	cb := func(diffResult *types.CommandResult) error {
-		return cmd.diffResultCb(cmdCtx.ctx, diffResult)
+	cb := func(diffResult *result.CommandResult) error {
+		return cmd.diffResultCb(cmdCtx, diffResult)
 	}
 	if cmd.Yes || cmd.DryRun {
 		cb = nil
@@ -74,7 +78,11 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
+	err = addCommandInfo(result, startTime, "deploy", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, &cmd.ForceApplyFlags, &cmd.ReplaceOnErrorFlags, &cmd.AbortOnErrorFlags, cmd.NoWait)
+	if err != nil {
+		return err
+	}
+	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}
@@ -84,11 +92,11 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	return nil
 }
 
-func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *types.CommandResult) error {
+func (cmd *deployCmd) diffResultCb(ctx *commandCtx, diffResult *result.CommandResult) error {
 	flags := cmd.OutputFormatFlags
 	flags.OutputFormat = nil // use default output format
 
-	err := outputCommandResult(ctx, flags, diffResult)
+	err := outputCommandResult(ctx, flags, diffResult, false)
 	if err != nil {
 		return err
 	}
@@ -96,11 +104,11 @@ func (cmd *deployCmd) diffResultCb(ctx context.Context, diffResult *types.Comman
 		return nil
 	}
 	if len(diffResult.Errors) != 0 {
-		if !status.AskForConfirmation(ctx, "The diff resulted in errors, do you still want to proceed?") {
+		if !status.AskForConfirmation(ctx.ctx, "The diff resulted in errors, do you still want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	} else {
-		if !status.AskForConfirmation(ctx, "The diff succeeded, do you want to proceed?") {
+		if !status.AskForConfirmation(ctx.ctx, "The diff succeeded, do you want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	}

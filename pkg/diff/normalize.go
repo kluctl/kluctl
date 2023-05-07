@@ -117,6 +117,18 @@ func normalizeMisc(o *uo.UnstructuredObject) {
 	_ = o.RemoveNestedField("status")
 }
 
+func normalizeFloats(o *uo.UnstructuredObject) {
+	_ = o.NewIterator().IterateLeafs(func(it *uo.ObjectIterator) error {
+		if f, ok := it.Value().(float64); ok {
+			i := int64(f)
+			if f == float64(i) {
+				_ = it.SetValue(i)
+			}
+		}
+		return nil
+	})
+}
+
 var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field(-\d*)?$`)
 var ignoreDiffFieldRegexAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field-regex(-\d*)?$`)
 
@@ -127,6 +139,7 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 	ns := o_.GetK8sNamespace()
 
 	o := o_.Clone()
+	normalizeFloats(o)
 	normalizeMetadata(o)
 	normalizeMisc(o)
 

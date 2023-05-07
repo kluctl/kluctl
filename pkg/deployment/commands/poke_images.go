@@ -3,11 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sync"
 )
@@ -22,7 +24,7 @@ func NewPokeImagesCommand(c *deployment.DeploymentCollection) *PokeImagesCommand
 	}
 }
 
-func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*types.CommandResult, error) {
+func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.CommandResult, error) {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
@@ -70,7 +72,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 		return o, nil
 	}
 
-	ad := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, &utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, &utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref
@@ -78,7 +80,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			au := ad.NewApplyUtil(ctx, nil)
+			au := au.NewApplyUtil(ctx, nil)
 			remote := ru.GetRemoteObject(ref)
 			if remote == nil {
 				dew.AddWarning(ref, fmt.Errorf("remote object not found, skipped image replacement"))
@@ -91,14 +93,19 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*type
 	}
 	wg.Wait()
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, ad.GetAppliedObjectsMap())
-	du.Diff()
+	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+	du.DiffDeploymentItems(cmd.c.Deployments)
 
-	return &types.CommandResult{
-		NewObjects:     nil,
-		ChangedObjects: du.ChangedObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     cmd.c.Images.SeenImages(false),
+	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result.CommandResult{
+		Id:         uuid.New().String(),
+		Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+		Errors:     dew.GetErrorsList(),
+		Warnings:   dew.GetWarningsList(),
+		SeenImages: cmd.c.Images.SeenImages(false),
 	}, nil
 }

@@ -3,12 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"time"
 )
 
@@ -31,7 +32,7 @@ func NewDeployCommand(discriminator string, c *deployment.DeploymentCollection) 
 	}
 }
 
-func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *types.CommandResult) error) (*types.CommandResult, error) {
+func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *result.CommandResult) error) (*result.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	if cmd.discriminator == "" {
@@ -57,22 +58,19 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	}
 
 	if diffResultCb != nil {
-		au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
-		au.ApplyDeployments()
+		au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
+		au.ApplyDeployments(cmd.c.Deployments)
 
-		du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
-		du.Diff()
+		du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+		du.DiffDeploymentItems(cmd.c.Deployments)
 
 		orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
-		diffResult := &types.CommandResult{
-			NewObjects:     au.GetNewObjects(),
-			ChangedObjects: du.ChangedObjects,
-			DeletedObjects: au.GetDeletedObjects(),
-			HookObjects:    au.GetAppliedHookObjects(),
-			OrphanObjects:  orphanObjects,
-			Errors:         dew.GetErrorsList(),
-			Warnings:       dew.GetWarningsList(),
-			SeenImages:     cmd.c.Images.SeenImages(false),
+		diffResult := &result.CommandResult{
+			Id:         uuid.New().String(),
+			Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+			Errors:     dew.GetErrorsList(),
+			Warnings:   dew.GetWarningsList(),
+			SeenImages: cmd.c.Images.SeenImages(false),
 		}
 
 		err = diffResultCb(diffResult)
@@ -88,24 +86,21 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	o.DryRun = k.DryRun
 	o.AbortOnError = cmd.AbortOnError
 
-	au := utils2.NewApplyDeploymentsUtil(ctx, dew, cmd.c.Deployments, ru, k, o)
-	au.ApplyDeployments()
+	au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
+	au.ApplyDeployments(cmd.c.Deployments)
 
-	du := utils2.NewDiffUtil(dew, cmd.c.Deployments, ru, au.GetAppliedObjectsMap())
-	du.Diff()
+	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+	du.DiffDeploymentItems(cmd.c.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
 	if err != nil {
 		return nil, err
 	}
-	return &types.CommandResult{
-		NewObjects:     au.GetNewObjects(),
-		ChangedObjects: du.ChangedObjects,
-		DeletedObjects: au.GetDeletedObjects(),
-		HookObjects:    au.GetAppliedHookObjects(),
-		OrphanObjects:  orphanObjects,
-		Errors:         dew.GetErrorsList(),
-		Warnings:       dew.GetWarningsList(),
-		SeenImages:     cmd.c.Images.SeenImages(false),
+	return &result.CommandResult{
+		Id:         uuid.New().String(),
+		Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+		Errors:     dew.GetErrorsList(),
+		Warnings:   dew.GetWarningsList(),
+		SeenImages: cmd.c.Images.SeenImages(false),
 	}, nil
 }

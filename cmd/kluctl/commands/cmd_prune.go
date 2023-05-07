@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"time"
 )
 
 type pruneCmd struct {
@@ -18,6 +20,7 @@ type pruneCmd struct {
 	args.DryRunFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+	args.CommandResultFlags
 }
 
 func (cmd *pruneCmd) Help() string {
@@ -38,23 +41,27 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		commandResultFlags:   &cmd.CommandResultFlags,
 	}
+	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdPrune(cmdCtx)
+		return cmd.runCmdPrune(cmdCtx, startTime)
 	})
 }
 
-func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
+func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx, startTime time.Time) error {
 	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
-	objects, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
+	result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
+		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
+	})
 	if err != nil {
 		return err
 	}
-	result, err := confirmedDeleteObjects(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, objects, cmd.DryRun, cmd.Yes)
+	err = addCommandInfo(result, startTime, "prune", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
 	if err != nil {
 		return err
 	}
-	err = outputCommandResult(cmdCtx.ctx, cmd.OutputFormatFlags, result)
+	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}

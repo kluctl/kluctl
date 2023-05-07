@@ -3,7 +3,6 @@ package deployment
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -57,8 +56,8 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 		return nil, fmt.Errorf("failed to load deployment config for %s: %w", dir, err)
 	}
 
-	if !kluctl_jinja2.IsConditionalTrue(dp.Config.When) {
-		return dp, nil
+	if x, err := dp.CheckWhenTrue(); !x || err != nil {
+		return dp, err
 	}
 
 	err = dp.loadIncludes()
@@ -108,6 +107,18 @@ func (p *DeploymentProject) generateSingleKustomizeProject() error {
 }
 
 func (p *DeploymentProject) processConfig() error {
+	for _, item := range p.Config.Deployments {
+		if len(item.RenderedObjects) != 0 {
+			return fmt.Errorf("renderedObjects is not allowed here")
+		}
+		if item.RenderedHelmChartConfig != nil {
+			return fmt.Errorf("renderedHelmChartConfig is not allowed here")
+		}
+		if item.RenderedInclude != nil {
+			return fmt.Errorf("renderedInclude is not allowed here")
+		}
+	}
+
 	err := p.loadVarsList(p.VarsCtx, p.Config.Vars)
 	if err != nil {
 		return fmt.Errorf("failed to load deployment.yml vars: %w", err)
@@ -127,11 +138,6 @@ func (p *DeploymentProject) processConfig() error {
 	}
 
 	err = p.checkDeploymentDirs()
-	if err != nil {
-		return err
-	}
-
-	err = p.renderConditionals()
 	if err != nil {
 		return err
 	}
@@ -164,38 +170,12 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 	return nil
 }
 
-func (p *DeploymentProject) renderConditionals() error {
+func (p *DeploymentProject) CheckWhenTrue() (bool, error) {
 	if p.parentProject == nil && p.Config.When != "" {
-		return fmt.Errorf("the root deployment project can not contain 'when'")
+		return false, fmt.Errorf("the root deployment project can not contain 'when'")
 	}
 
-	vars, err := p.VarsCtx.Vars.ToMap()
-	if err != nil {
-		return err
-	}
-	r, err := kluctl_jinja2.RenderConditional(p.VarsCtx.J2, vars, p.Config.When)
-	if err != nil {
-		return err
-	}
-	p.Config.When = r
-
-	if !kluctl_jinja2.IsConditionalTrue(p.Config.When) {
-		// No need to render individual deployment item conditionals
-		return nil
-	}
-
-	conditionals := make([]string, 0, len(p.Config.Deployments))
-	for _, di := range p.Config.Deployments {
-		conditionals = append(conditionals, di.When)
-	}
-	rendered, err := kluctl_jinja2.RenderConditionals(p.VarsCtx.J2, vars, conditionals)
-	if err != nil {
-		return err
-	}
-	for i, r := range rendered {
-		p.Config.Deployments[i].When = r
-	}
-	return nil
+	return p.VarsCtx.CheckConditional(p.Config.When)
 }
 
 func (p *DeploymentProject) loadIncludes() error {
@@ -203,7 +183,11 @@ func (p *DeploymentProject) loadIncludes() error {
 		var err error
 		var newProject *DeploymentProject
 
-		if !kluctl_jinja2.IsConditionalTrue(inc.When) {
+		whenTrue, err := p.VarsCtx.CheckConditional(inc.When)
+		if err != nil {
+			return err
+		}
+		if !whenTrue {
 			continue
 		}
 
@@ -228,6 +212,7 @@ func (p *DeploymentProject) loadIncludes() error {
 		} else {
 			continue
 		}
+		inc.RenderedInclude = &newProject.Config
 		newProject.parentProjectInclude = inc
 		p.includes[i] = newProject
 	}
