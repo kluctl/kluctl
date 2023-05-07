@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -26,8 +27,9 @@ import (
 type ResultStoreSecrets struct {
 	ctx context.Context
 
-	config         *rest.Config
-	writeNamespace string
+	config           *rest.Config
+	writeNamespace   string
+	keepResultsCount int
 
 	mutex       sync.Mutex
 	client      client.Client
@@ -36,11 +38,12 @@ type ResultStoreSecrets struct {
 	cancelCache context.CancelFunc
 }
 
-func NewResultStoreSecrets(ctx context.Context, config *rest.Config, writeNamespace string) (*ResultStoreSecrets, error) {
+func NewResultStoreSecrets(ctx context.Context, config *rest.Config, writeNamespace string, keepResultsCount int) (*ResultStoreSecrets, error) {
 	s := &ResultStoreSecrets{
-		ctx:            ctx,
-		config:         config,
-		writeNamespace: writeNamespace,
+		ctx:              ctx,
+		config:           config,
+		writeNamespace:   writeNamespace,
+		keepResultsCount: keepResultsCount,
 	}
 	return s, nil
 }
@@ -204,6 +207,43 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
 	if err != nil {
 		return err
+	}
+
+	err = s.cleanupResults(cr.Project, cr.Target)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target result.TargetKey) error {
+	results, err := s.ListCommandResultSummaries(ListCommandResultSummariesOptions{
+		ProjectFilter: &project,
+	})
+	if err != nil {
+		return err
+	}
+
+	cnt := 0
+	for _, rs := range results {
+		rs := rs
+
+		if rs.Target != target {
+			continue
+		}
+		cnt++
+
+		if cnt > s.keepResultsCount {
+			err := s.client.DeleteAllOf(s.ctx, &corev1.Secret{}, client.InNamespace(s.writeNamespace), client.MatchingLabels{
+				"kluctl.io/result-id": rs.Id,
+			})
+			if err != nil {
+				status.Warning(s.ctx, "Failed to delete old command result %s: %s", rs.Id, err)
+			} else {
+				status.Info(s.ctx, "Deleted old command result %s", rs.Id)
+			}
+		}
 	}
 	return nil
 }
