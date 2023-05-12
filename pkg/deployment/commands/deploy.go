@@ -1,12 +1,10 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -14,8 +12,7 @@ import (
 )
 
 type DeployCommand struct {
-	c             *deployment.DeploymentCollection
-	discriminator string
+	targetCtx *kluctl_project.TargetContext
 
 	ForceApply          bool
 	ReplaceOnError      bool
@@ -25,23 +22,22 @@ type DeployCommand struct {
 	NoWait              bool
 }
 
-func NewDeployCommand(discriminator string, c *deployment.DeploymentCollection) *DeployCommand {
+func NewDeployCommand(targetCtx *kluctl_project.TargetContext) *DeployCommand {
 	return &DeployCommand{
-		discriminator: discriminator,
-		c:             c,
+		targetCtx: targetCtx,
 	}
 }
 
-func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResultCb func(diffResult *result.CommandResult) error) (*result.CommandResult, error) {
+func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult) error) (*result.CommandResult, error) {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	if cmd.discriminator == "" {
-		status.Warning(ctx, "No discriminator configured. Orphan object detection will not work")
+	if cmd.targetCtx.Target.Discriminator == "" {
+		status.Warning(cmd.targetCtx.SharedContext.Ctx, "No discriminator configured. Orphan object detection will not work")
 		dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("no discriminator configured. Orphan object detection will not work"))
 	}
 
-	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, &cmd.discriminator, cmd.c.LocalObjectRefs(), false)
+	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
+	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &cmd.targetCtx.Target.Discriminator, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -58,19 +54,19 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	}
 
 	if diffResultCb != nil {
-		au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
-		au.ApplyDeployments(cmd.c.Deployments)
+		au := utils2.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, dew, ru, cmd.targetCtx.SharedContext.K, o)
+		au.ApplyDeployments(cmd.targetCtx.DeploymentCollection.Deployments)
 
 		du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
-		du.DiffDeploymentItems(cmd.c.Deployments)
+		du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
-		orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
+		orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 		diffResult := &result.CommandResult{
 			Id:         uuid.New().String(),
-			Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+			Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 			Errors:     dew.GetErrorsList(),
 			Warnings:   dew.GetWarningsList(),
-			SeenImages: cmd.c.Images.SeenImages(false),
+			SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
 		}
 
 		err = diffResultCb(diffResult)
@@ -83,24 +79,24 @@ func (cmd *DeployCommand) Run(ctx context.Context, k *k8s.K8sCluster, diffResult
 	dew.Init()
 
 	// modify options to become a deploy
-	o.DryRun = k.DryRun
+	o.DryRun = cmd.targetCtx.SharedContext.K.DryRun
 	o.AbortOnError = cmd.AbortOnError
 
-	au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, o)
-	au.ApplyDeployments(cmd.c.Deployments)
+	au := utils2.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, dew, ru, cmd.targetCtx.SharedContext.K, o)
+	au.ApplyDeployments(cmd.targetCtx.DeploymentCollection.Deployments)
 
 	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
-	du.DiffDeploymentItems(cmd.c.Deployments)
+	du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
-	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
+	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
 		return nil, err
 	}
 	return &result.CommandResult{
 		Id:         uuid.New().String(),
-		Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.c.Images.SeenImages(false),
+		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
 	}, nil
 }

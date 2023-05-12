@@ -50,8 +50,8 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 }
 
 func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx, startTime time.Time) error {
-	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
-	result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
+	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx)
+	result, err := cmd2.Run(func(refs []k8s2.ObjectRef) error {
 		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
 	})
 	if err != nil {

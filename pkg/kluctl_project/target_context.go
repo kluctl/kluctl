@@ -21,7 +21,7 @@ type TargetContext struct {
 	SharedContext deployment.SharedContext
 
 	KluctlProject        *LoadedKluctlProject
-	Target               *types.Target
+	Target               types.Target
 	ClusterContext       string
 	DeploymentProject    *deployment.DeploymentProject
 	DeploymentCollection *deployment.DeploymentCollection

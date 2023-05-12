@@ -59,7 +59,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) erro
 	status.Trace(cmdCtx.ctx, "enter runCmdDeploy")
 	defer status.Trace(cmdCtx.ctx, "leave runCmdDeploy")
 
-	cmd2 := commands.NewDeployCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
+	cmd2 := commands.NewDeployCommand(cmdCtx.targetCtx)
 	cmd2.ForceApply = cmd.ForceApply
 	cmd2.ReplaceOnError = cmd.ReplaceOnError
 	cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
@@ -74,7 +74,7 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) erro
 		cb = nil
 	}
 
-	result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K, cb)
+	result, err := cmd2.Run(cb)
 	if err != nil {
 		return err
 	}

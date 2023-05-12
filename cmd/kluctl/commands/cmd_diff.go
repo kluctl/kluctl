@@ -41,14 +41,14 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 	}
 	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx.DeploymentCollection)
+		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx)
 		cmd2.ForceApply = cmd.ForceApply
 		cmd2.ReplaceOnError = cmd.ReplaceOnError
 		cmd2.ForceReplaceOnError = cmd.ForceReplaceOnError
 		cmd2.IgnoreTags = cmd.IgnoreTags
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
-		result, err := cmd2.Run(cmdCtx.ctx, cmdCtx.targetCtx.SharedContext.K)
+		result, err := cmd2.Run()
 		if err != nil {
 			return err
 		}

@@ -1,44 +1,44 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
 type DeleteCommand struct {
-	c             *deployment.DeploymentCollection
 	discriminator string
-	inclusion     *utils.Inclusion
+	targetCtx     *kluctl_project.TargetContext
 }
 
-func NewDeleteCommand(discriminator string, c *deployment.DeploymentCollection, inclusion *utils.Inclusion) *DeleteCommand {
+func NewDeleteCommand(discriminator string, targetCtx *kluctl_project.TargetContext) *DeleteCommand {
 	return &DeleteCommand{
 		discriminator: discriminator,
-		c:             c,
-		inclusion:     inclusion,
+		targetCtx:     targetCtx,
 	}
 }
 
-func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
-	if cmd.discriminator == "" {
+func (cmd *DeleteCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
+	discriminator := cmd.targetCtx.Target.Discriminator
+	if cmd.discriminator != "" {
+		discriminator = cmd.discriminator
+	}
+
+	if discriminator == "" {
 		return nil, fmt.Errorf("deletion without a discriminator is not supported")
 	}
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
-	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, &cmd.discriminator, nil, false)
+	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
+	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, nil, false)
 	if err != nil {
 		return nil, err
 	}
 
-	deleteRefs, err := utils2.FindObjectsForDelete(k, ru.GetFilteredRemoteObjects(cmd.inclusion), cmd.inclusion.HasType("tags"), nil)
+	deleteRefs, err := utils2.FindObjectsForDelete(cmd.targetCtx.SharedContext.K, ru.GetFilteredRemoteObjects(cmd.targetCtx.DeploymentCollection.Inclusion), cmd.targetCtx.DeploymentCollection.Inclusion.HasType("tags"), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -50,14 +50,14 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 		}
 	}
 
-	deleted, err := utils2.DeleteObjects(ctx, k, deleteRefs, dew, true)
+	deleted, err := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, true)
 	if err != nil {
 		return nil, err
 	}
 
 	return &result.CommandResult{
 		Id:       uuid.New().String(),
-		Objects:  collectObjects(cmd.c, ru, nil, nil, nil, deleted),
+		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, nil, deleted),
 		Errors:   dew.GetErrorsList(),
 		Warnings: dew.GetWarningsList(),
 	}, nil
