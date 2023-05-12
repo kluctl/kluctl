@@ -1,23 +1,31 @@
-package git_url
+package types
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git/git-url/giturls"
+	"github.com/kluctl/kluctl/v2/pkg/git/giturls"
 	"net/url"
 	"strings"
 )
 
 type GitUrl struct {
-	url.URL
+	url.URL `json:"-"`
 }
 
-func Parse(u string) (*GitUrl, error) {
+func ParseGitUrl(u string) (*GitUrl, error) {
 	u2, err := giturls.Parse(u)
 	if err != nil {
 		return nil, err
 	}
 	return &GitUrl{*u2}, nil
+}
+
+func ParseGitUrlMust(u string) *GitUrl {
+	u2, err := ParseGitUrl(u)
+	if err != nil {
+		panic(err)
+	}
+	return u2
 }
 
 func (u *GitUrl) UnmarshalJSON(b []byte) error {
@@ -26,7 +34,7 @@ func (u *GitUrl) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	u2, err := Parse(s)
+	u2, err := ParseGitUrl(s)
 	if err != nil {
 		return err
 	}

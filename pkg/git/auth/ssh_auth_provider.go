@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/kevinburke/ssh_config"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	sshagent "github.com/xanzy/ssh-agent"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -56,7 +56,7 @@ func (a *sshDefaultIdentityAndAgent) Signers() ([]ssh.Signer, error) {
 	return a.signers, nil
 }
 
-func (a *sshDefaultIdentityAndAgent) addDefaultIdentities(gitUrl git_url.GitUrl) {
+func (a *sshDefaultIdentityAndAgent) addDefaultIdentities(gitUrl types.GitUrl) {
 	a.authProvider.MessageCallbacks.Trace("trying to add default identity")
 	u, err := user.Current()
 	if err != nil {
@@ -82,7 +82,7 @@ func (a *sshDefaultIdentityAndAgent) addDefaultIdentities(gitUrl git_url.GitUrl)
 	doAdd("id_dsa")
 }
 
-func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) {
+func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl types.GitUrl) {
 	a.authProvider.MessageCallbacks.Trace("trying to add identities from ssh config")
 	for _, id := range ssh_config.GetAll(gitUrl.Hostname(), "IdentityFile") {
 		expanded := expandHomeDir(id)
@@ -97,7 +97,7 @@ func (a *sshDefaultIdentityAndAgent) addConfigIdentities(gitUrl git_url.GitUrl) 
 	}
 }
 
-func (a *sshDefaultIdentityAndAgent) createAgent(gitUrl git_url.GitUrl) (agent.Agent, error) {
+func (a *sshDefaultIdentityAndAgent) createAgent(gitUrl types.GitUrl) (agent.Agent, error) {
 	if runtime.GOOS == "windows" {
 		a, _, err := sshagent.New()
 		return a, err
@@ -125,7 +125,7 @@ func (a *sshDefaultIdentityAndAgent) createAgent(gitUrl git_url.GitUrl) (agent.A
 	return agent.NewClient(conn), nil
 }
 
-func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
+func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl types.GitUrl) {
 	a.authProvider.MessageCallbacks.Trace("trying to add agent keys")
 	agent, err := a.createAgent(gitUrl)
 	if err != nil {
@@ -144,7 +144,7 @@ func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl git_url.GitUrl) {
 	}
 }
 
-func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
 	if !gitUrl.IsSsh() {
 		return AuthMethodAndCA{}
 	}

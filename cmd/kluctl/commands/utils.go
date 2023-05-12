@@ -17,7 +17,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
@@ -332,10 +331,10 @@ func addGitInfo(r *result.CommandResult, ctx *commandCtx) error {
 		return err
 	}
 
-	var originUrl *git_url.GitUrl
+	var originUrl *types.GitUrl
 	for _, r := range remotes {
 		if r.Config().Name == "origin" {
-			originUrl, err = git_url.Parse(r.Config().URLs[0])
+			originUrl, err = types.ParseGitUrl(r.Config().URLs[0])
 			if err != nil {
 				return err
 			}
@@ -411,11 +410,11 @@ func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err 
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
-	u, err := git_url.Parse(sp[0])
+	u, err := types.ParseGitUrl(sp[0])
 	if err != nil {
 		// we need to prepend a dummy scheme to the repo key so that it is properly parsed
 		dummyUrl := fmt.Sprintf("git://%s", sp[0])
-		u, err = git_url.Parse(dummyUrl)
+		u, err = types.ParseGitUrl(dummyUrl)
 		if err != nil {
 			return repocache.RepoOverride{}, fmt.Errorf("%s: %w", s, err)
 		}

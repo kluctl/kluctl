@@ -3,8 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 )
@@ -15,7 +15,7 @@ type GitEnvAuthProvider struct {
 	Prefix string
 }
 
-func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
 	var la ListAuthProvider
 
 	for _, m := range utils.ParseEnvConfigSets(a.Prefix) {

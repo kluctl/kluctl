@@ -1,7 +1,6 @@
 package result
 
 import (
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -97,11 +96,11 @@ type CommandInfo struct {
 }
 
 type GitInfo struct {
-	Url    *git_url.GitUrl `json:"url"`
-	Ref    string          `json:"ref"`
-	SubDir string          `json:"subDir"`
-	Commit string          `json:"commit"`
-	Dirty  bool            `json:"dirty"`
+	Url    *types.GitUrl `json:"url"`
+	Ref    string        `json:"ref"`
+	SubDir string        `json:"subDir"`
+	Commit string        `json:"commit"`
+	Dirty  bool          `json:"dirty"`
 }
 
 type ClusterInfo struct {

@@ -2,16 +2,15 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"reflect"
 )
 
 type VarsSourceGit struct {
-	Url  git_url.GitUrl `json:"url" validate:"required"`
-	Ref  string         `json:"ref,omitempty"`
-	Path string         `json:"path" validate:"required"`
+	Url  GitUrl `json:"url" validate:"required"`
+	Ref  string `json:"ref,omitempty"`
+	Path string `json:"path" validate:"required"`
 }
 
 type VarsSourceClusterConfigMapOrSecret struct {

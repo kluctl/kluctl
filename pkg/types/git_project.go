@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
@@ -15,9 +14,9 @@ import (
 var gitDirPatternNeg = regexp.MustCompile(`[\\\/:\*?"<>|[:cntrl:]\0^]`)
 
 type GitProject struct {
-	Url    git_url.GitUrl `json:"url" validate:"required"`
-	Ref    string         `json:"ref,omitempty"`
-	SubDir string         `json:"subDir,omitempty"`
+	Url    GitUrl `json:"url" validate:"required"`
+	Ref    string `json:"ref,omitempty"`
+	SubDir string `json:"subDir,omitempty"`
 }
 
 func (gp *GitProject) UnmarshalJSON(b []byte) error {

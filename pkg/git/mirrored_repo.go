@@ -10,9 +10,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	_ "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"os"
 	"path/filepath"
@@ -33,7 +33,7 @@ type MirroredGitRepo struct {
 	sshPool       *ssh_pool.SshPool
 	authProviders *auth2.GitAuthProviders
 
-	url       git_url.GitUrl
+	url       types.GitUrl
 	mirrorDir string
 
 	hasUpdated bool
@@ -44,7 +44,7 @@ type MirroredGitRepo struct {
 	mutex sync.Mutex
 }
 
-func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl, baseDir string, sshPool *ssh_pool.SshPool, authProviders *auth2.GitAuthProviders) (*MirroredGitRepo, error) {
+func NewMirroredGitRepo(ctx context.Context, u types.GitUrl, baseDir string, sshPool *ssh_pool.SshPool, authProviders *auth2.GitAuthProviders) (*MirroredGitRepo, error) {
 	mirrorRepoName := buildMirrorRepoName(u)
 	o := &MirroredGitRepo{
 		ctx:           ctx,
@@ -69,7 +69,7 @@ func NewMirroredGitRepo(ctx context.Context, u git_url.GitUrl, baseDir string, s
 	return o, nil
 }
 
-func (g *MirroredGitRepo) Url() git_url.GitUrl {
+func (g *MirroredGitRepo) Url() types.GitUrl {
 	return g.url
 }
 
@@ -389,7 +389,7 @@ func (g *MirroredGitRepo) GetGitTreeByCommit(commitHash string) (*object.Tree, e
 	return tree, nil
 }
 
-func buildMirrorRepoName(u git_url.GitUrl) string {
+func buildMirrorRepoName(u types.GitUrl) string {
 	h := sha256.New()
 	h.Write([]byte(u.String()))
 	h2 := hex.EncodeToString(h.Sum(nil))

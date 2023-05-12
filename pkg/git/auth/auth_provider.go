@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	ssh2 "github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -26,7 +26,7 @@ func (a *AuthMethodAndCA) SshClientConfig() (*ssh.ClientConfig, error) {
 }
 
 type GitAuthProvider interface {
-	BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA
+	BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA
 }
 
 type GitAuthProviders struct {
@@ -41,7 +41,7 @@ func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider, last bool) {
 	}
 }
 
-func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
 	for _, p := range a.authProviders {
 		auth := p.BuildAuth(ctx, gitUrl)
 		if auth.AuthMethod != nil {
