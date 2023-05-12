@@ -8,7 +8,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/bitnami-labs/sealed-secrets v0.20.5
 	github.com/cyphar/filepath-securejoin v0.2.3
-	github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/distribution v2.8.2+incompatible
 	github.com/fluxcd/pkg/kustomize v1.1.1
 	github.com/go-playground/validator/v10 v10.13.0
 	github.com/gobwas/glob v0.2.3 // indirect
