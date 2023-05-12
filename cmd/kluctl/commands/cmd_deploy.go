@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"time"
 )
 
 type deployCmd struct {
@@ -49,13 +48,12 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
-	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdDeploy(cmdCtx, startTime)
+		return cmd.runCmdDeploy(cmdCtx)
 	})
 }
 
-func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) error {
+func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	status.Trace(cmdCtx.ctx, "enter runCmdDeploy")
 	defer status.Trace(cmdCtx.ctx, "leave runCmdDeploy")
 
@@ -75,10 +73,6 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx, startTime time.Time) erro
 	}
 
 	result, err := cmd2.Run(cb)
-	if err != nil {
-		return err
-	}
-	err = addCommandInfo(result, startTime, "deploy", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, &cmd.ForceApplyFlags, &cmd.ReplaceOnErrorFlags, &cmd.AbortOnErrorFlags, cmd.NoWait)
 	if err != nil {
 		return err
 	}

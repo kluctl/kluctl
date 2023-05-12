@@ -53,8 +53,8 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 
 	ret := &CommandResultSummary{
 		Id:                 cr.Id,
-		Project:            cr.Project,
-		Target:             cr.Target,
+		Project:            cr.ProjectKey,
+		Target:             cr.TargetKey,
 		Command:            cr.Command,
 		GitInfo:            cr.GitInfo,
 		ClusterInfo:        cr.ClusterInfo,

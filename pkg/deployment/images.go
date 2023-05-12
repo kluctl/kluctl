@@ -38,7 +38,17 @@ func (images *Images) PrependFixedImages(fis []types.FixedImage) {
 	images.fixedImages = newFixedImages
 }
 
+func (images *Images) FixedImages() []types.FixedImage {
+	if images == nil {
+		return nil
+	}
+	return images.fixedImages
+}
+
 func (images *Images) SeenImages(simple bool) []types.FixedImage {
+	if images == nil {
+		return nil
+	}
 	var ret []types.FixedImage
 	for _, fi := range images.seenImages {
 		if simple {

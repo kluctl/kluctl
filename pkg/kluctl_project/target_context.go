@@ -18,6 +18,8 @@ import (
 )
 
 type TargetContext struct {
+	Params TargetContextParams
+
 	SharedContext deployment.SharedContext
 
 	KluctlProject        *LoadedKluctlProject
@@ -138,9 +140,10 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	}
 
 	targetCtx := &TargetContext{
+		Params:               params,
 		SharedContext:        dctx,
 		KluctlProject:        p,
-		Target:               target,
+		Target:               *target,
 		ClusterContext:       clusterContext,
 		DeploymentProject:    d,
 		DeploymentCollection: c,

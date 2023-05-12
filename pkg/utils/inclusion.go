@@ -42,6 +42,32 @@ func (inc *Inclusion) HasType(typ string) bool {
 	return false
 }
 
+func (inc *Inclusion) GetIncludes(typ string) []string {
+	if inc == nil {
+		return nil
+	}
+	var ret []string
+	for e, _ := range inc.includes {
+		if e.Type == typ {
+			ret = append(ret, e.Value)
+		}
+	}
+	return ret
+}
+
+func (inc *Inclusion) GetExcludes(typ string) []string {
+	if inc == nil {
+		return nil
+	}
+	var ret []string
+	for e, _ := range inc.excludes {
+		if e.Type == typ {
+			ret = append(ret, e.Value)
+		}
+	}
+	return ret
+}
+
 func (inc *Inclusion) checkList(l []InclusionEntry, m map[InclusionEntry]bool) bool {
 	for _, e := range l {
 		if _, ok := m[e]; ok {

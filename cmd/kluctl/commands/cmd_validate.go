@@ -54,8 +54,8 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 		var k8sContext *string
 		if cmd.Context != "" {
 			k8sContext = &cmd.Context
-		} else if commandResult.Command.Target != nil {
-			k8sContext = commandResult.Command.Target.Context
+		} else if commandResult.Target.Context != nil {
+			k8sContext = commandResult.Target.Context
 		}
 		clientFactory, err := k8s2.NewClientFactoryFromDefaultConfig(ctx, k8sContext)
 		if err != nil {

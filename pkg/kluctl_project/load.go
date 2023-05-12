@@ -5,6 +5,7 @@ import (
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"time"
 )
 
 func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir string, j2 *jinja2.Jinja2) (*LoadedKluctlProject, error) {
@@ -14,6 +15,7 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 	p := &LoadedKluctlProject{
 		ctx:           ctx,
 		LoadArgs:      args,
+		LoadTime:      time.Now(),
 		TmpDir:        tmpDir,
 		J2:            j2,
 		RP:            args.RP,

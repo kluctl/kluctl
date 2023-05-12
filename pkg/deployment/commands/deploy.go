@@ -92,11 +92,21 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	if err != nil {
 		return nil, err
 	}
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:         uuid.New().String(),
 		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),
 		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}, nil
+	}
+	r.Command.ForceApply = cmd.ForceApply
+	r.Command.ReplaceOnError = cmd.ReplaceOnError
+	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
+	r.Command.AbortOnError = cmd.AbortOnError
+	r.Command.NoWait = cmd.NoWait
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "deploy")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }

@@ -99,11 +99,16 @@ func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
 		return nil, err
 	}
 
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:         uuid.New().String(),
 		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),
 		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}, nil
+	}
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "deploy")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }

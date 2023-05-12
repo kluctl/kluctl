@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"time"
 )
 
 type diffCmd struct {
@@ -39,7 +38,6 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 	}
-	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx)
 		cmd2.ForceApply = cmd.ForceApply
@@ -49,10 +47,6 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
 		result, err := cmd2.Run()
-		if err != nil {
-			return err
-		}
-		err = addCommandInfo(result, startTime, "diff", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, nil, &cmd.ForceApplyFlags, &cmd.ReplaceOnErrorFlags, nil, false)
 		if err != nil {
 			return err
 		}

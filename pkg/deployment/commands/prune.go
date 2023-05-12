@@ -24,14 +24,18 @@ func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetConte
 }
 
 func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
-	if cmd.discriminator == "" {
+	discriminator := cmd.discriminator
+	if discriminator == "" && cmd.targetCtx != nil {
+		discriminator = cmd.targetCtx.Target.Discriminator
+	}
+	if discriminator == "" {
 		return nil, fmt.Errorf("pruning without a discriminator is not supported")
 	}
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
-	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &cmd.discriminator, nil, false)
+	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +57,16 @@ func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*resu
 		return nil, err
 	}
 
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:       uuid.New().String(),
 		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, nil, deleted),
 		Warnings: dew.GetWarningsList(),
-	}, nil
+	}
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "prune")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }
 
 func FindOrphanObjects(k *k8s.K8sCluster, ru *utils2.RemoteObjectUtils, c *deployment.DeploymentCollection) ([]k8s2.ObjectRef, error) {

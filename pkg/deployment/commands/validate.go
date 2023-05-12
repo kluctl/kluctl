@@ -69,7 +69,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 				appliedObjects[o.Ref] = o.Applied
 			}
 		}
-		discriminator = cmd.r.Target.Discriminator
+		discriminator = cmd.r.TargetKey.Discriminator
 	} else {
 		return nil, fmt.Errorf("either deployment collection or command result must be passed")
 	}

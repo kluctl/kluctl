@@ -62,11 +62,19 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:         uuid.New().String(),
 		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),
 		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}, nil
+	}
+	r.Command.ForceApply = cmd.ForceApply
+	r.Command.ReplaceOnError = cmd.ReplaceOnError
+	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "diff")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }

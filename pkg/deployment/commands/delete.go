@@ -55,10 +55,15 @@ func (cmd *DeleteCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*res
 		return nil, err
 	}
 
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:       uuid.New().String(),
 		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, nil, deleted),
 		Errors:   dew.GetErrorsList(),
 		Warnings: dew.GetWarningsList(),
-	}, nil
+	}
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "delete")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }

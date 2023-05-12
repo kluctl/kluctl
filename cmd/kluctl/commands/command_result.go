@@ -240,6 +240,8 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
 	status.Flush(ctx.ctx)
 
+	cr.Command.Initiator = result.CommandInititiator_CommandLine
+
 	if !flags.NoObfuscate {
 		var obfuscator diff.Obfuscator
 		err := obfuscator.ObfuscateResult(cr)

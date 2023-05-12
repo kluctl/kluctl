@@ -99,8 +99,8 @@ var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 func (s *ResultStoreSecrets) buildName(cr *result.CommandResult) string {
 	var name string
 
-	if cr.Project.NormalizedGitUrl != "" {
-		s := path.Base(cr.Project.NormalizedGitUrl)
+	if cr.ProjectKey.NormalizedGitUrl != "" {
+		s := path.Base(cr.ProjectKey.NormalizedGitUrl)
 		if s != "" {
 			name = s + "-"
 		}
@@ -197,11 +197,11 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 			"compactedObjects": compressedObjects,
 		},
 	}
-	if cr.Project.NormalizedGitUrl != "" {
-		secret.Annotations["kluctl.io/result-project-normalized-url"] = cr.Project.NormalizedGitUrl
+	if cr.ProjectKey.NormalizedGitUrl != "" {
+		secret.Annotations["kluctl.io/result-project-normalized-url"] = cr.ProjectKey.NormalizedGitUrl
 	}
-	if cr.Project.SubDir != "" {
-		secret.Annotations["kluctl.io/result-project-subdir"] = cr.Project.SubDir
+	if cr.ProjectKey.SubDir != "" {
+		secret.Annotations["kluctl.io/result-project-subdir"] = cr.ProjectKey.SubDir
 	}
 
 	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
@@ -209,7 +209,7 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 		return err
 	}
 
-	err = s.cleanupResults(cr.Project, cr.Target)
+	err = s.cleanupResults(cr.ProjectKey, cr.TargetKey)
 	if err != nil {
 		return err
 	}

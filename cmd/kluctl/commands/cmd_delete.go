@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"time"
 )
 
 type deleteCmd struct {
@@ -46,17 +45,12 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
-	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx)
 
 		result, err := cmd2.Run(func(refs []k8s2.ObjectRef) error {
 			return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
 		})
-		if err != nil {
-			return err
-		}
-		err = addCommandInfo(result, startTime, "delete", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
 		if err != nil {
 			return err
 		}

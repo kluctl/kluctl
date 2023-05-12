@@ -78,7 +78,7 @@ type CommandInfo struct {
 	EndTime               types.JsonTime         `json:"endTime"`
 	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	Command               string                 `json:"command,omitempty"`
-	Target                *types.Target          `json:"target,omitempty"`
+	Target                string                 `json:"target,omitempty"`
 	TargetNameOverride    string                 `json:"targetNameOverride,omitempty"`
 	ContextOverride       string                 `json:"contextOverride,omitempty"`
 	Args                  *uo.UnstructuredObject `json:"args,omitempty"`
@@ -127,8 +127,9 @@ type ResultObject struct {
 
 type CommandResult struct {
 	Id          string                         `json:"id"`
-	Project     ProjectKey                     `json:"project"`
-	Target      TargetKey                      `json:"target"`
+	ProjectKey  ProjectKey                     `json:"projectKey"`
+	TargetKey   TargetKey                      `json:"targetKey"`
+	Target      types.Target                   `json:"target"`
 	Command     CommandInfo                    `json:"command,omitempty"`
 	GitInfo     *GitInfo                       `json:"gitInfo,omitempty"`
 	ClusterInfo ClusterInfo                    `json:"clusterInfo"`

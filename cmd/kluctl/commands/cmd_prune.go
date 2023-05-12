@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"time"
 )
 
 type pruneCmd struct {
@@ -43,21 +42,16 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
-	startTime := time.Now()
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdPrune(cmdCtx, startTime)
+		return cmd.runCmdPrune(cmdCtx)
 	})
 }
 
-func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx, startTime time.Time) error {
+func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx)
 	result, err := cmd2.Run(func(refs []k8s2.ObjectRef) error {
 		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
 	})
-	if err != nil {
-		return err
-	}
-	err = addCommandInfo(result, startTime, "prune", cmdCtx, &cmd.TargetFlags, &cmd.ImageFlags, &cmd.InclusionFlags, &cmd.DryRunFlags, nil, nil, nil, false)
 	if err != nil {
 		return err
 	}
