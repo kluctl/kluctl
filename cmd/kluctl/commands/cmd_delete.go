@@ -46,9 +46,9 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx)
+		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx, nil)
 
-		result, err := cmd2.Run(func(refs []k8s2.ObjectRef) error {
+		result, err := cmd2.Run(cmdCtx.targetCtx.SharedContext.Ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
 			return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
 		})
 		if err != nil {

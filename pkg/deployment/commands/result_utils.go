@@ -3,10 +3,12 @@ package commands
 import (
 	"fmt"
 	git2 "github.com/go-git/go-git/v5"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"time"
@@ -36,7 +38,7 @@ func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, r *resu
 		return err
 	}
 
-	err = addClusterInfo(targetCtx, r)
+	err = addClusterInfo(targetCtx.SharedContext.K, r)
 	if err != nil {
 		return err
 	}
@@ -44,6 +46,27 @@ func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, r *resu
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
 	r.TargetKey.ClusterId = r.ClusterInfo.ClusterId
+
+	return nil
+}
+
+func addDeleteCommandInfoToResult(r *result.CommandResult, k *k8s2.K8sCluster, startTime time.Time, inclusion *utils.Inclusion) error {
+	r.Command = result.CommandInfo{
+		StartTime: metav1.NewTime(startTime),
+		EndTime:   metav1.Now(),
+		Command:   "delete",
+	}
+
+	r.Command.IncludeTags = inclusion.GetIncludes("tags")
+	r.Command.ExcludeTags = inclusion.GetExcludes("tags")
+	r.Command.IncludeDeploymentDirs = inclusion.GetIncludes("deploymentItemDir")
+	r.Command.ExcludeDeploymentDirs = inclusion.GetExcludes("deploymentItemDir")
+
+	err := addClusterInfo(k, r)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -117,8 +140,8 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 	return nil
 }
 
-func addClusterInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult) error {
-	kubeSystemNs, _, err := targetCtx.SharedContext.K.GetSingleObject(
+func addClusterInfo(k *k8s2.K8sCluster, r *result.CommandResult) error {
+	kubeSystemNs, _, err := k.GetSingleObject(
 		k8s.NewObjectRef("", "v1", "Namespace", "kube-system", ""))
 	if err != nil {
 		return err
