@@ -2,14 +2,14 @@ package deployment
 
 import (
 	"fmt"
-	"github.com/fluxcd/pkg/kustomize"
-	securefs "github.com/fluxcd/pkg/kustomize/filesys"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/kustomize"
+	securefs "github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/kustomize/filesys"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
