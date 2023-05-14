@@ -276,7 +276,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
-		return ret[i].Command.StartTime >= ret[j].Command.StartTime
+		return ret[i].Command.StartTime.After(ret[j].Command.StartTime.Time)
 	})
 
 	return ret, nil

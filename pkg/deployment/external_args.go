@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -59,8 +60,13 @@ func LoadDefaultArgs(args []*types.DeploymentArg, deployArgs *uo.UnstructuredObj
 	defaults := uo.New()
 	for _, a := range args {
 		if a.Default != nil {
+			var v any
+			err := json.Unmarshal(a.Default.Raw, &v)
+			if err != nil {
+				return err
+			}
 			a2 := uo.FromMap(map[string]interface{}{
-				a.Name: a.Default,
+				a.Name: v,
 			})
 			defaults.Merge(a2)
 		}

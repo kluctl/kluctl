@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func testArgs(t *testing.T) {
+func TestArgs(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -34,6 +34,10 @@ func testArgs(t *testing.T) {
 				"nested": "default",
 			},
 		},
+		map[string]any{
+			"name":    "e",
+			"default": 42,
+		},
 	}
 
 	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
@@ -46,6 +50,7 @@ func testArgs(t *testing.T) {
 		"b": `{{ args.b | default("na") }}`,
 		"c": `{{ args.c | default("na") }}`,
 		"d": "{{ args.d | to_json }}",
+		"e": "{{ args.e + 1 }}",
 	}, resourceOpts{
 		name:      "cm",
 		namespace: p.TestSlug(),
@@ -57,6 +62,7 @@ func testArgs(t *testing.T) {
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "na", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
+	assertNestedFieldEquals(t, cm, `43`, "data", "e")
 
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
@@ -110,10 +116,6 @@ d:
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d4"}}`, "data", "d")
-}
-
-func TestArgs(t *testing.T) {
-	testArgs(t)
 }
 
 func TestArgsFromEnv(t *testing.T) {

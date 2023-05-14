@@ -4,15 +4,16 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Change struct {
-	Type        string      `json:"type" validate:"required"`
-	JsonPath    string      `json:"jsonPath" validate:"required"`
-	OldValue    interface{} `json:"oldValue,omitempty"`
-	NewValue    interface{} `json:"newValue,omitempty"`
-	UnifiedDiff string      `json:"unifiedDiff,omitempty"`
+	Type        string                `json:"type" validate:"required"`
+	JsonPath    string                `json:"jsonPath" validate:"required"`
+	OldValue    *apiextensionsv1.JSON `json:"oldValue,omitempty"`
+	NewValue    *apiextensionsv1.JSON `json:"newValue,omitempty"`
+	UnifiedDiff string                `json:"unifiedDiff,omitempty"`
 }
 
 type ChangedObject struct {

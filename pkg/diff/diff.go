@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	diff2 "github.com/r3labs/diff/v2"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"reflect"
 	"sort"
 	"strconv"
@@ -73,31 +74,47 @@ func convertChange(c diff2.Change, oldObject *uo.UnstructuredObject, newObject *
 		if err != nil {
 			return nil, err
 		}
+		jto, err := yaml.WriteJsonString(c.To)
+		if err != nil {
+			return nil, err
+		}
 		return &result.Change{
 			Type:     "insert",
 			JsonPath: p,
-			NewValue: c.To,
+			NewValue: &apiextensionsv1.JSON{Raw: []byte(jto)},
 		}, nil
 	case "delete":
 		p, err := convertPath(c.Path, oldObject.Object)
 		if err != nil {
 			return nil, err
 		}
+		jfrom, err := yaml.WriteJsonString(c.From)
+		if err != nil {
+			return nil, err
+		}
 		return &result.Change{
 			Type:     "delete",
 			JsonPath: p,
-			OldValue: c.From,
+			OldValue: &apiextensionsv1.JSON{Raw: []byte(jfrom)},
 		}, nil
 	case "update":
 		p, err := convertPath(c.Path, newObject.Object)
 		if err != nil {
 			return nil, err
 		}
+		jto, err := yaml.WriteJsonString(c.To)
+		if err != nil {
+			return nil, err
+		}
+		jfrom, err := yaml.WriteJsonString(c.From)
+		if err != nil {
+			return nil, err
+		}
 		return &result.Change{
 			Type:     "update",
 			JsonPath: p,
-			NewValue: c.To,
-			OldValue: c.From,
+			NewValue: &apiextensionsv1.JSON{Raw: []byte(jto)},
+			OldValue: &apiextensionsv1.JSON{Raw: []byte(jfrom)},
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown change type %s", c.Type)
@@ -204,6 +221,21 @@ func objectToDiffableStringNoType(o interface{}) (string, error) {
 	if o == notPresent {
 		return "", nil
 	}
+
+	if reflect.TypeOf(reflect.Indirect(reflect.ValueOf(o))).Kind() == reflect.Struct {
+		// writing and re-reading yaml to normalise custom serialization
+		s, err := yaml.WriteYamlString(o)
+		if err != nil {
+			return "", err
+		}
+		var o2 any
+		err = yaml.ReadYamlString(s, &o2)
+		if err != nil {
+			return "", err
+		}
+		o = o2
+	}
+
 	if v, ok := o.(string); ok {
 		return v, nil
 	}

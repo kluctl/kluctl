@@ -2,6 +2,7 @@ package types
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 type SealingConfig struct {
@@ -20,8 +21,8 @@ type Target struct {
 }
 
 type DeploymentArg struct {
-	Name    string      `json:"name" validate:"required"`
-	Default interface{} `json:"default,omitempty"`
+	Name    string                `json:"name" validate:"required"`
+	Default *apiextensionsv1.JSON `json:"default,omitempty"`
 }
 
 type SecretSet struct {
