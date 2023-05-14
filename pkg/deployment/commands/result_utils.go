@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"time"
 )
@@ -14,8 +15,8 @@ import (
 func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, r *result.CommandResult, command string) error {
 	r.Target = targetCtx.Target
 	r.Command = result.CommandInfo{
-		StartTime: types.FromTime(targetCtx.KluctlProject.LoadTime),
-		EndTime:   types.FromTime(time.Now()),
+		StartTime: metav1.NewTime(targetCtx.KluctlProject.LoadTime),
+		EndTime:   metav1.Now(),
 		Command:   command,
 		Args:      targetCtx.KluctlProject.LoadArgs.ExternalArgs,
 	}

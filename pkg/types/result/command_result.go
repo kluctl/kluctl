@@ -4,6 +4,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Change struct {
@@ -74,8 +75,8 @@ func (k TargetKey) Less(o TargetKey) bool {
 
 type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
-	StartTime             types.JsonTime         `json:"startTime"`
-	EndTime               types.JsonTime         `json:"endTime"`
+	StartTime             metav1.Time            `json:"startTime"`
+	EndTime               metav1.Time            `json:"endTime"`
 	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	Command               string                 `json:"command,omitempty"`
 	Target                string                 `json:"target,omitempty"`
