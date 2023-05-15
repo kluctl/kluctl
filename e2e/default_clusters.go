@@ -1,6 +1,5 @@
 package e2e
 
-import "C"
 import (
 	"fmt"
 	"github.com/imdario/mergo"

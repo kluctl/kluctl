@@ -57,7 +57,7 @@ func createSecretObject(data map[string]string, opts resourceOpts) *uo.Unstructu
 func addConfigMapDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts) {
 	o := createConfigMapObject(data, opts)
 	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
-		{fmt.Sprintf("configmap-%s.yml", opts.name), "", o},
+		{Name: fmt.Sprintf("configmap-%s.yml", opts.name), Content: o},
 	}, opts.tags)
 	if opts.when != "" {
 		p.UpdateDeploymentItems(filepath.Dir(dir), func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
@@ -75,7 +75,7 @@ func addSecretDeployment(p *test_utils.TestProject, dir string, data map[string]
 	o := createSecretObject(data, opts)
 	fname := fmt.Sprintf("secret-%s.yml", opts.name)
 	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
-		{fname, fname + sealmeExt, o},
+		{Name: fname, FileName: fname + sealmeExt, Content: o},
 	}, opts.tags)
 	if opts.when != "" {
 		p.UpdateDeploymentItems(filepath.Dir(dir), func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {

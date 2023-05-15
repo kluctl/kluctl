@@ -251,5 +251,4 @@ func (ui *UnstructuredObject) getRegexp(r interface{}) *regexp.Regexp {
 		}
 	}
 	panic(fmt.Sprintf("unknown type %s", reflect.TypeOf(r).String()))
-	return nil
 }

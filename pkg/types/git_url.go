@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// +kubebuilder:validation:Type=string
 type GitUrl struct {
 	url.URL `json:"-"`
 }
@@ -26,6 +27,13 @@ func ParseGitUrlMust(u string) *GitUrl {
 		panic(err)
 	}
 	return u2
+}
+
+func (in *GitUrl) DeepCopyInto(out *GitUrl) {
+	out.URL = in.URL
+	if out.URL.User != nil {
+		out.URL.User = &*in.URL.User
+	}
 }
 
 func (u *GitUrl) UnmarshalJSON(b []byte) error {

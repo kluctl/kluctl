@@ -26,3 +26,10 @@ func (u *YamlUrl) UnmarshalJSON(b []byte) error {
 func (u YamlUrl) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
+
+func (in *YamlUrl) DeepCopyInto(out *YamlUrl) {
+	out.URL = in.URL
+	if out.URL.User != nil {
+		out.URL.User = &*in.URL.User
+	}
+}
