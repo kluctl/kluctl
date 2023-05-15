@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  docs-checks:
+  generate-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,6 +35,15 @@ jobs:
           make replace-commands-help
           if [ ! -z "$(git status --porcelain)" ]; then
             echo "replace-commands-help must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
+      - name: Verify generated source is up-to-date
+        run: |
+          make generate
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "make generate must be invoked and the result committed"
             git status
             git diff
             exit 1
