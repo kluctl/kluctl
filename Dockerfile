@@ -9,4 +9,7 @@ RUN apk add git
 ENV HELM_CACHE_HOME=/tmp/helm-cache
 
 COPY kluctl /usr/bin/
+
+USER 65532:65532
+
 ENTRYPOINT ["/usr/bin/kluctl"]
