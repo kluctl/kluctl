@@ -67,10 +67,12 @@ spec:
         #   type: RuntimeDefault
       containers:
       - command:
-        - /manager
+        - kluctl
+        - controller
         args:
         - --leader-elect
         image: controller:latest
+        imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
           allowPrivilegeEscalation: false

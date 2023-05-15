@@ -8,7 +8,8 @@ RUN apk add git
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
 
-COPY kluctl /usr/bin/
+ARG BIN_PATH=kluctl
+COPY $BIN_PATH /usr/bin/
 
 USER 65532:65532
 
