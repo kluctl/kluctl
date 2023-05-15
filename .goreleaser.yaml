@@ -6,6 +6,7 @@ builds:
       binary: kluctl
       env:
         - CGO_ENABLED=0
+      main: ./cmd
     id: linux
     goos:
       - linux
