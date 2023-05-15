@@ -9,7 +9,7 @@ type CommandResultSummary struct {
 	Project     ProjectKey  `json:"project"`
 	Target      TargetKey   `json:"target"`
 	Command     CommandInfo `json:"commandInfo"`
-	GitInfo     *GitInfo    `json:"gitInfo,omitempty"`
+	GitInfo     GitInfo     `json:"gitInfo,omitempty"`
 	ClusterInfo ClusterInfo `json:"clusterInfo,omitempty"`
 
 	RenderedObjects    int `json:"renderedObjects"`
@@ -41,6 +41,10 @@ type ProjectSummary struct {
 }
 
 func (cr *CommandResult) BuildSummary() *CommandResultSummary {
+	if cr == nil {
+		return nil
+	}
+
 	count := func(f func(o ResultObject) bool) int {
 		cnt := 0
 		for _, o := range cr.Objects {

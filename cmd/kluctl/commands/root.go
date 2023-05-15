@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 	"time"
 
@@ -66,6 +67,7 @@ type cli struct {
 	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
 	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
+	Controller  controllerCmd  `cmd:"" help:"Run the Kluctl controller"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -77,6 +79,7 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
+	{group: "controller", title: "Controller:", description: "Controller arguments."},
 }
 
 var origStderr = os.Stderr
@@ -219,7 +222,7 @@ func initViper(ctx context.Context) {
 
 func Main() {
 	colorable.EnableColorsStdout(nil)
-	ctx := context.Background()
+	ctx := ctrl.SetupSignalHandler()
 
 	ctx = initStatusHandler(ctx, false, true)
 	redirectLogsAndStderr(func() context.Context {

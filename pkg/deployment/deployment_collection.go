@@ -1,12 +1,16 @@
 package deployment
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"path/filepath"
 	"sync"
 )
@@ -296,4 +300,41 @@ func (c *DeploymentCollection) FindRenderedImages() map[k8s2.ObjectRef][]string 
 		}
 	}
 	return ret
+}
+
+func (c *DeploymentCollection) CalcObjectsHash() (string, error) {
+	cnt := 0
+	for _, di := range c.Deployments {
+		cnt += len(di.Objects)
+	}
+
+	hashes := make([][32]byte, cnt)
+	gh := utils.NewGoHelper(context.Background(), 8)
+	i := 0
+	for _, di := range c.Deployments {
+		for _, o := range di.Objects {
+			i2 := i
+			o := o
+			gh.RunE(func() error {
+				j, err := yaml.WriteJsonString(o)
+				if err != nil {
+					return err
+				}
+				hashes[i2] = sha256.Sum256([]byte(j))
+				return nil
+			})
+			i++
+		}
+	}
+	gh.Wait()
+	if gh.ErrorOrNil() != nil {
+		return "", gh.ErrorOrNil()
+	}
+
+	h := sha256.New()
+	for _, x := range hashes {
+		h.Write(x[:])
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
