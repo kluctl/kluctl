@@ -22,6 +22,9 @@ func init() {
 		return
 	}
 
+	defaultCluster1.CRDDirectoryPaths = []string{"../config/crd/bases"}
+	defaultCluster2.CRDDirectoryPaths = []string{"../config/crd/bases"}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
