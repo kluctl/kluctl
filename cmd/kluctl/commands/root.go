@@ -66,7 +66,6 @@ type cli struct {
 	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
 	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
-	Flux        fluxCmd        `cmd:"" help:"Flux sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -77,7 +76,6 @@ var flagGroups = []groupInfo{
 	{group: "images", title: "Image arguments:", description: "Control fixed images and update behaviour."},
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
-	{group: "flux", title: "Flux arguments:", description: "EXPERIMENTAL: Subcommands for interaction with flux-kluctl-controller"},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
 }
 
