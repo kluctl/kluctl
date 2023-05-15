@@ -229,7 +229,7 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 	for _, rs := range results {
 		rs := rs
 
-		if rs.Target != target {
+		if rs.TargetKey != target {
 			continue
 		}
 		cnt++
@@ -302,10 +302,10 @@ func (s *ResultStoreSecrets) parseSummary(obj client.Object) (*result.CommandRes
 
 func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary, project *result.ProjectKey) bool {
 	if project != nil {
-		if project.NormalizedGitUrl != "" && summary.Project.NormalizedGitUrl != project.NormalizedGitUrl {
+		if project.NormalizedGitUrl != "" && summary.ProjectKey.NormalizedGitUrl != project.NormalizedGitUrl {
 			return false
 		}
-		if project.SubDir != "" && summary.Project.SubDir != project.SubDir {
+		if project.SubDir != "" && summary.ProjectKey.SubDir != project.SubDir {
 			return false
 		}
 	}

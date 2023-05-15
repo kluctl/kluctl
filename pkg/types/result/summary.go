@@ -1,16 +1,18 @@
 package result
 
 import (
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"sort"
 )
 
 type CommandResultSummary struct {
-	Id          string      `json:"id"`
-	Project     ProjectKey  `json:"project"`
-	Target      TargetKey   `json:"target"`
-	Command     CommandInfo `json:"commandInfo"`
-	GitInfo     GitInfo     `json:"gitInfo,omitempty"`
-	ClusterInfo ClusterInfo `json:"clusterInfo,omitempty"`
+	Id          string       `json:"id"`
+	ProjectKey  ProjectKey   `json:"projectKey"`
+	TargetKey   TargetKey    `json:"targetKey"`
+	Target      types.Target `json:"target"`
+	Command     CommandInfo  `json:"commandInfo"`
+	GitInfo     GitInfo      `json:"gitInfo,omitempty"`
+	ClusterInfo ClusterInfo  `json:"clusterInfo,omitempty"`
 
 	RenderedObjects    int `json:"renderedObjects"`
 	RemoteObjects      int `json:"remoteObjects"`
@@ -57,8 +59,9 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 
 	ret := &CommandResultSummary{
 		Id:                 cr.Id,
-		Project:            cr.ProjectKey,
-		Target:             cr.TargetKey,
+		ProjectKey:         cr.ProjectKey,
+		TargetKey:          cr.TargetKey,
+		Target:             cr.Target,
 		Command:            cr.Command,
 		GitInfo:            cr.GitInfo,
 		ClusterInfo:        cr.ClusterInfo,
@@ -82,22 +85,22 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 func BuildProjectSummaries(summaries []CommandResultSummary) []*ProjectSummary {
 	m := map[ProjectKey]*ProjectSummary{}
 	for _, rs := range summaries {
-		p, ok := m[rs.Project]
+		p, ok := m[rs.ProjectKey]
 		if !ok {
-			p = &ProjectSummary{Project: rs.Project}
-			m[rs.Project] = p
+			p = &ProjectSummary{Project: rs.ProjectKey}
+			m[rs.ProjectKey] = p
 		}
 
 		var target *TargetSummary
 		for i, t := range p.Targets {
-			if t.Target == rs.Target {
+			if t.Target == rs.TargetKey {
 				target = p.Targets[i]
 				break
 			}
 		}
 		if target == nil {
 			target = &TargetSummary{
-				Target: rs.Target,
+				Target: rs.TargetKey,
 			}
 			p.Targets = append(p.Targets, target)
 		}
