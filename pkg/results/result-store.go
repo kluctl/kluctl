@@ -35,7 +35,7 @@ func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bo
 	if filter == nil {
 		return true
 	}
-	if x.ProjectKey.NormalizedGitUrl != filter.NormalizedGitUrl {
+	if x.ProjectKey.GitRepoKey != filter.GitRepoKey {
 		return false
 	}
 	if x.ProjectKey.SubDir != filter.SubDir {

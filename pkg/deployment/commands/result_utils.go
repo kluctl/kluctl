@@ -135,7 +135,7 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 		Commit: head.Hash().String(),
 		Dirty:  !s.IsClean(),
 	}
-	r.ProjectKey.NormalizedGitUrl = normaliedUrl
+	r.ProjectKey.GitRepoKey = normaliedUrl
 	r.ProjectKey.SubDir = subDir
 	return nil
 }
