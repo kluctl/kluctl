@@ -649,6 +649,12 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
 	cmdResult.ProjectKey.NormalizedGitUrl = pt.pp.obj.Spec.Source.URL.NormalizedRepoKey()
 
+	log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
+	err := pt.pp.r.ResultStore.WriteCommandResult(cmdResult)
+	if err != nil {
+		log.Error(err, "Writing command result failed")
+	}
+
 	summary := cmdResult.BuildSummary()
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
@@ -682,7 +688,6 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 
 	warning := false
-	var err error
 	if len(cmdResult.Errors) != 0 {
 		warning = true
 		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))

@@ -112,7 +112,7 @@ func (cmd *controllerCmd) Run(ctx context.Context) error {
 		SshPool:               sshPool,
 	}
 
-	if err = r.SetupWithManager(mgr, controllers.KluctlDeploymentReconcilerOpts{
+	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{
 		HTTPRetry: 9,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctlv1.KluctlDeploymentKind)

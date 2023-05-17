@@ -8,6 +8,7 @@ import (
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/internal/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
@@ -39,6 +40,8 @@ type KluctlDeploymentReconciler struct {
 	DryRun                bool
 
 	SshPool *ssh_pool.SshPool
+
+	ResultStore results.ResultStore
 }
 
 // KluctlDeploymentReconcilerOpts contains options for the BaseReconciler.
