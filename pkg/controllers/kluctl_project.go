@@ -647,7 +647,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
 	cmdResult.GitInfo.Url = &pt.pp.obj.Spec.Source.URL
 	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
-	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.NormalizedRepoKey()
+	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.RepoKey()
 
 	log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
 	err := pt.pp.r.ResultStore.WriteCommandResult(cmdResult)

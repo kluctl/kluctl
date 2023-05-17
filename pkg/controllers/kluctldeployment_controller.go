@@ -183,7 +183,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	err = pt.withKluctlProjectTarget(ctx, func(targetContext *kluctl_project.TargetContext) error {
 		obj.Status.ProjectKey = &result.ProjectKey{
-			GitRepoKey: obj.Spec.Source.URL.NormalizedRepoKey(),
+			GitRepoKey: obj.Spec.Source.URL.RepoKey(),
 			SubDir:     path.Clean(obj.Spec.Source.Path),
 		}
 		obj.Status.TargetKey = &result.TargetKey{

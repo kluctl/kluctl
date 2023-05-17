@@ -25,7 +25,7 @@ type GitRepoCache struct {
 	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
 
-	repos      map[string]*CacheEntry
+	repos      map[types.GitRepoKey]*CacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides []RepoOverride
@@ -53,7 +53,7 @@ type RepoInfo struct {
 }
 
 type RepoOverride struct {
-	RepoUrl  types.GitUrl
+	RepoKey  types.GitRepoKey
 	Ref      string
 	Override string
 	IsGroup  bool
@@ -70,7 +70,7 @@ func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProvide
 		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
-		repos:          map[string]*CacheEntry{},
+		repos:          map[types.GitRepoKey]*CacheEntry{},
 		repoOverrides:  repoOverrides,
 	}
 }
@@ -90,23 +90,24 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 	defer rp.reposMutex.Unlock()
 
 	urlN := url.Normalize()
-	repoKey := url.NormalizedRepoKey()
+	repoKey := url.RepoKey()
 
 	// evaluate overrides
 	for _, ro := range rp.repoOverrides {
-		if ro.RepoUrl.Host != urlN.Host {
+		if ro.RepoKey.Host != urlN.Host {
 			continue
 		}
 
 		var overridePath string
 		if ro.IsGroup {
-			if !strings.HasPrefix(urlN.Path, ro.RepoUrl.Path+"/") {
+			prefix := "/" + ro.RepoKey.Path + "/"
+			if !strings.HasPrefix(urlN.Path, prefix) {
 				continue
 			}
-			relPath := strings.TrimPrefix(urlN.Path, ro.RepoUrl.Path+"/")
+			relPath := strings.TrimPrefix(urlN.Path, prefix)
 			overridePath = path.Join(ro.Override, relPath)
 		} else {
-			if ro.RepoUrl.Path != urlN.Path {
+			if "/"+ro.RepoKey.Path != urlN.Path {
 				continue
 			}
 			overridePath = ro.Override

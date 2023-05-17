@@ -99,8 +99,8 @@ var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 func (s *ResultStoreSecrets) buildName(cr *result.CommandResult) string {
 	var name string
 
-	if cr.ProjectKey.GitRepoKey != "" {
-		s := path.Base(cr.ProjectKey.GitRepoKey)
+	if cr.ProjectKey.GitRepoKey.Path != "" {
+		s := path.Base(cr.ProjectKey.GitRepoKey.Path)
 		if s != "" {
 			name = s + "-"
 		}
@@ -197,8 +197,8 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 			"compactedObjects": compressedObjects,
 		},
 	}
-	if cr.ProjectKey.GitRepoKey != "" {
-		secret.Annotations["kluctl.io/result-project-normalized-url"] = cr.ProjectKey.GitRepoKey
+	if cr.ProjectKey.GitRepoKey.String() != "" {
+		secret.Annotations["kluctl.io/result-project-repo-key"] = cr.ProjectKey.GitRepoKey.String()
 	}
 	if cr.ProjectKey.SubDir != "" {
 		secret.Annotations["kluctl.io/result-project-subdir"] = cr.ProjectKey.SubDir
@@ -302,7 +302,7 @@ func (s *ResultStoreSecrets) parseSummary(obj client.Object) (*result.CommandRes
 
 func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary, project *result.ProjectKey) bool {
 	if project != nil {
-		if project.GitRepoKey != "" && summary.ProjectKey.GitRepoKey != project.GitRepoKey {
+		if project.GitRepoKey.String() != "" && summary.ProjectKey.GitRepoKey != project.GitRepoKey {
 			return false
 		}
 		if project.SubDir != "" && summary.ProjectKey.SubDir != project.SubDir {

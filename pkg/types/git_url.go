@@ -94,12 +94,9 @@ func (u *GitUrl) NormalizePort() string {
 
 func (u *GitUrl) Normalize() *GitUrl {
 	path := strings.ToLower(u.Path)
-	if strings.HasSuffix(path, ".git") {
-		path = path[:len(path)-len(".git")]
-	}
-	if strings.HasSuffix(path, "/") {
-		path = path[:len(path)-1]
-	}
+	path = strings.TrimSuffix(path, ".git")
+	path = strings.TrimSuffix(path, "/")
+
 	hostname := strings.ToLower(u.Hostname())
 	port := u.NormalizePort()
 
@@ -112,11 +109,53 @@ func (u *GitUrl) Normalize() *GitUrl {
 	return &u2
 }
 
-func (u *GitUrl) NormalizedRepoKey() string {
+func (u *GitUrl) RepoKey() GitRepoKey {
 	u2 := u.Normalize()
-	username := ""
-	if u.User != nil && u.User.Username() != "" {
-		username = u.User.Username() + "@"
+	path := strings.TrimPrefix(u2.Path, "/")
+	return GitRepoKey{
+		Host: u2.Host,
+		Path: path,
 	}
-	return fmt.Sprintf("%s%s:%s%s", username, u2.Hostname(), u2.Port(), u2.Path)
+}
+
+// +kubebuilder:validation:Type=string
+type GitRepoKey struct {
+	Host string `json:"-"`
+	Path string `json:"-"`
+}
+
+func (u GitRepoKey) String() string {
+	if u.Host == "" && u.Path == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s", u.Host, u.Path)
+}
+
+func (u *GitRepoKey) UnmarshalJSON(b []byte) error {
+	var s string
+	err := json.Unmarshal(b, &s)
+	if err != nil {
+		return err
+	}
+	if s == "" {
+		u.Host = ""
+		u.Path = ""
+		return nil
+	}
+	s2 := strings.SplitN(s, "/", 2)
+	if len(s2) != 2 {
+		return fmt.Errorf("invalid git repo key: %s", s)
+	}
+	u.Host = s2[0]
+	u.Path = s2[1]
+	return nil
+}
+
+func (u GitRepoKey) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(u.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return b, err
 }

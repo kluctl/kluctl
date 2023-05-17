@@ -264,8 +264,7 @@ func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err 
 		}
 	}
 
-	u = u.Normalize()
-	ret.RepoUrl = *u
+	ret.RepoKey = u.RepoKey()
 	ret.Override = sp[1]
 	return
 }

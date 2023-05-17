@@ -41,13 +41,13 @@ const (
 )
 
 type ProjectKey struct {
-	GitRepoKey string `json:"gitRepoKey,omitempty"`
-	SubDir     string `json:"subDir,omitempty"`
+	GitRepoKey types.GitRepoKey `json:"gitRepoKey,omitempty"`
+	SubDir     string           `json:"subDir,omitempty"`
 }
 
 func (k ProjectKey) Less(o ProjectKey) bool {
 	if k.GitRepoKey != o.GitRepoKey {
-		return k.GitRepoKey < o.GitRepoKey
+		return k.GitRepoKey.String() < o.GitRepoKey.String()
 	}
 	if k.SubDir != o.SubDir {
 		return k.SubDir < o.SubDir

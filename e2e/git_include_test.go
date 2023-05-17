@@ -90,8 +90,8 @@ func TestLocalGitOverride(t *testing.T) {
 
 	u1, _ := types.ParseGitUrl(ip1.GitUrl())
 	u2, _ := types.ParseGitUrl(ip2.GitUrl())
-	k1 := u1.NormalizedRepoKey()
-	k2 := u2.NormalizedRepoKey()
+	k1 := u1.RepoKey().String()
+	k2 := u2.RepoKey().String()
 
 	p.KluctlMust("deploy", "--yes", "-t", "test",
 		"--local-git-override", fmt.Sprintf("%s=%s", k1, override1),
@@ -130,7 +130,7 @@ func TestLocalGitGroupOverride(t *testing.T) {
 	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
 
 	u1, _ := types.ParseGitUrl(p.GitServer().GitUrl() + "/repos")
-	k1 := u1.NormalizedRepoKey()
+	k1 := u1.RepoKey().String()
 
 	p.KluctlMust("deploy", "--yes", "-t", "test",
 		"--local-git-group-override", fmt.Sprintf("%s=%s", k1, overrideGroupDir),

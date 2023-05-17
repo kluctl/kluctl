@@ -123,9 +123,9 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 		}
 	}
 
-	var normaliedUrl string
+	var repoKey types.GitRepoKey
 	if originUrl != nil {
-		normaliedUrl = originUrl.NormalizedRepoKey()
+		repoKey = originUrl.RepoKey()
 	}
 
 	r.GitInfo = result.GitInfo{
@@ -135,7 +135,7 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 		Commit: head.Hash().String(),
 		Dirty:  !s.IsClean(),
 	}
-	r.ProjectKey.GitRepoKey = normaliedUrl
+	r.ProjectKey.GitRepoKey = repoKey
 	r.ProjectKey.SubDir = subDir
 	return nil
 }
