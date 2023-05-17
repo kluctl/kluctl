@@ -111,7 +111,7 @@ func (rc *ResultsCollector) ListCommandResultSummaries(options ListCommandResult
 		summaries = append(summaries, *x.summary)
 	}
 	sort.Slice(summaries, func(i, j int) bool {
-		return summaries[i].Command.StartTime.After(summaries[j].Command.StartTime.Time)
+		return lessSummary(&summaries[i], &summaries[j])
 	})
 	return summaries, nil
 }

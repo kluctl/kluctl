@@ -43,3 +43,13 @@ func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bo
 	}
 	return true
 }
+
+func lessSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
+	if a.Command.StartTime != b.Command.StartTime {
+		return a.Command.StartTime.After(b.Command.StartTime.Time)
+	}
+	if a.Command.EndTime != b.Command.EndTime {
+		return a.Command.EndTime.After(b.Command.EndTime.Time)
+	}
+	return a.Command.Command < b.Command.Command
+}
