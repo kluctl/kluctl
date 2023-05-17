@@ -600,9 +600,9 @@ spec:
                     type: integer
                   orphanObjects:
                     type: integer
-                  project:
+                  projectKey:
                     properties:
-                      normalizedGitUrl:
+                      gitRepoKey:
                         type: string
                       subDir:
                         type: string
@@ -612,6 +612,74 @@ spec:
                   renderedObjects:
                     type: integer
                   target:
+                    properties:
+                      args:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      context:
+                        type: string
+                      discriminator:
+                        type: string
+                      images:
+                        items:
+                          properties:
+                            container:
+                              type: string
+                            deployTags:
+                              items:
+                                type: string
+                              type: array
+                            deployedImage:
+                              type: string
+                            deployment:
+                              type: string
+                            deploymentDir:
+                              type: string
+                            image:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - kind
+                              - name
+                              type: object
+                            resultImage:
+                              type: string
+                          required:
+                          - image
+                          - resultImage
+                          type: object
+                        type: array
+                      name:
+                        type: string
+                      sealingConfig:
+                        properties:
+                          args:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          certFile:
+                            type: string
+                          secretSets:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                    required:
+                    - name
+                    type: object
+                  targetKey:
                     properties:
                       clusterId:
                         type: string
@@ -636,10 +704,11 @@ spec:
                 - id
                 - newObjects
                 - orphanObjects
-                - project
+                - projectKey
                 - remoteObjects
                 - renderedObjects
                 - target
+                - targetKey
                 - totalChanges
                 - warnings
                 type: object
@@ -807,9 +876,9 @@ spec:
                     type: integer
                   orphanObjects:
                     type: integer
-                  project:
+                  projectKey:
                     properties:
-                      normalizedGitUrl:
+                      gitRepoKey:
                         type: string
                       subDir:
                         type: string
@@ -819,6 +888,74 @@ spec:
                   renderedObjects:
                     type: integer
                   target:
+                    properties:
+                      args:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      context:
+                        type: string
+                      discriminator:
+                        type: string
+                      images:
+                        items:
+                          properties:
+                            container:
+                              type: string
+                            deployTags:
+                              items:
+                                type: string
+                              type: array
+                            deployedImage:
+                              type: string
+                            deployment:
+                              type: string
+                            deploymentDir:
+                              type: string
+                            image:
+                              type: string
+                            namespace:
+                              type: string
+                            object:
+                              properties:
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                                version:
+                                  type: string
+                              required:
+                              - kind
+                              - name
+                              type: object
+                            resultImage:
+                              type: string
+                          required:
+                          - image
+                          - resultImage
+                          type: object
+                        type: array
+                      name:
+                        type: string
+                      sealingConfig:
+                        properties:
+                          args:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          certFile:
+                            type: string
+                          secretSets:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                    required:
+                    - name
+                    type: object
+                  targetKey:
                     properties:
                       clusterId:
                         type: string
@@ -843,10 +980,11 @@ spec:
                 - id
                 - newObjects
                 - orphanObjects
-                - project
+                - projectKey
                 - remoteObjects
                 - renderedObjects
                 - target
+                - targetKey
                 - totalChanges
                 - warnings
                 type: object
@@ -895,6 +1033,9 @@ spec:
                       - ref
                       type: object
                     type: array
+                  endTime:
+                    format: date-time
+                    type: string
                   errors:
                     items:
                       properties:
@@ -954,6 +1095,9 @@ spec:
                       - ref
                       type: object
                     type: array
+                  startTime:
+                    format: date-time
+                    type: string
                   warnings:
                     items:
                       properties:
@@ -981,8 +1125,10 @@ spec:
                       type: object
                     type: array
                 required:
+                - endTime
                 - id
                 - ready
+                - startTime
                 type: object
               observedGeneration:
                 description: ObservedGeneration is the last reconciled generation.
@@ -990,7 +1136,7 @@ spec:
                 type: integer
               projectKey:
                 properties:
-                  normalizedGitUrl:
+                  gitRepoKey:
                     type: string
                   subDir:
                     type: string
