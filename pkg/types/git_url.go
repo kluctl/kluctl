@@ -14,11 +14,16 @@ type GitUrl struct {
 }
 
 func ParseGitUrl(u string) (*GitUrl, error) {
-	u2, err := giturls.Parse(u)
-	if err != nil {
-		return nil, err
+	// we explicitly only test ParseTransport and ParseScp to avoid parsing local Git urls (as done by giturls.Parse)
+	u2, err := giturls.ParseTransport(u)
+	if err == nil {
+		return &GitUrl{*u2}, nil
 	}
-	return &GitUrl{*u2}, nil
+	u2, err = giturls.ParseScp(u)
+	if err == nil {
+		return &GitUrl{*u2}, nil
+	}
+	return nil, fmt.Errorf("failed to parse git url: %s", u)
 }
 
 func ParseGitUrlMust(u string) *GitUrl {

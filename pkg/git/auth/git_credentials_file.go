@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/kluctl/kluctl/v2/pkg/git/giturls"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
@@ -66,7 +65,7 @@ func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl types.GitUrl, gitCr
 		if s.Text() == "" || s.Text()[0] == '#' {
 			continue
 		}
-		u, err := giturls.Parse(s.Text())
+		u, err := types.ParseGitUrl(s.Text())
 		if err != nil {
 			continue
 		}
