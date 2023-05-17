@@ -186,11 +186,13 @@ type ValidateResultEntry struct {
 }
 
 type ValidateResult struct {
-	Id       string                `json:"id"`
-	Ready    bool                  `json:"ready"`
-	Warnings []DeploymentError     `json:"warnings,omitempty"`
-	Errors   []DeploymentError     `json:"errors,omitempty"`
-	Results  []ValidateResultEntry `json:"results,omitempty"`
+	Id        string                `json:"id"`
+	StartTime metav1.Time           `json:"startTime"`
+	EndTime   metav1.Time           `json:"endTime"`
+	Ready     bool                  `json:"ready"`
+	Warnings  []DeploymentError     `json:"warnings,omitempty"`
+	Errors    []DeploymentError     `json:"errors,omitempty"`
+	Results   []ValidateResultEntry `json:"results,omitempty"`
 
 	Drift []ChangedObject `json:"drift,omitempty"`
 }
