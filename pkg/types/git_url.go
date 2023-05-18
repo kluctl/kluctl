@@ -105,6 +105,10 @@ func (u *GitUrl) Normalize() *GitUrl {
 	hostname := strings.ToLower(u.Hostname())
 	port := u.NormalizePort()
 
+	if path != "" && hostname != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
 	u2 := *u
 	u2.Path = path
 	u2.Host = hostname
