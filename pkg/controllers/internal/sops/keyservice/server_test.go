@@ -15,6 +15,7 @@ import (
 	"go.mozilla.org/sops/v3/kms"
 	"go.mozilla.org/sops/v3/pgp"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -25,6 +26,11 @@ import (
 )
 
 func TestServer_EncryptDecrypt_PGP(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// skipping due to error: cannot import armored key data into GnuPG keyring: GNUPGHOME has invalid permissions: got 0777 wanted 0700
+		return
+	}
+
 	const (
 		mockPublicKey   = "testdata/public.gpg"
 		mockPrivateKey  = "testdata/private.gpg"
