@@ -6,7 +6,9 @@ import (
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
@@ -47,6 +49,9 @@ type EnvTestCluster struct {
 func CreateEnvTestCluster(context string) *EnvTestCluster {
 	k := &EnvTestCluster{
 		Context: context,
+		env: envtest.Environment{
+			Scheme: runtime.NewScheme(),
+		},
 	}
 	return k
 }
@@ -61,6 +66,7 @@ func (k *EnvTestCluster) Start() error {
 	k.started = true
 
 	_ = kluctlv1.AddToScheme(k.env.Scheme)
+	_ = corev1.AddToScheme(k.env.Scheme)
 
 	err = k.startCallbackServer()
 	if err != nil {
@@ -99,6 +105,7 @@ func (k *EnvTestCluster) Start() error {
 
 	c, err := client.New(k.config, client.Options{
 		HTTPClient: httpClient,
+		Scheme:     k.env.Scheme,
 	})
 	k.Client = c
 
