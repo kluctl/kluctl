@@ -73,7 +73,7 @@ vet: ## Run go vet against code.
 test: test-unit test-e2e fmt vet ## Run all tests.
 
 .PHONY: test-unit
-test-unit: generate ## Run unit tests.
+test-unit: ## Run unit tests.
 	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out
 
 .PHONY: test-e2e
