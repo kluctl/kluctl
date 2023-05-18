@@ -80,11 +80,6 @@ jobs:
         shell: bash
         run: |
           make test-unit
-      - name: setup-envtest
-        if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
-        shell: bash
-        run: |
-          make install-envtest
       - name: Run e2e tests
         if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
         shell: bash
