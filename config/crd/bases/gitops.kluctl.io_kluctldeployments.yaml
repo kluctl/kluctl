@@ -443,6 +443,8 @@ spec:
                   - type
                   type: object
                 type: array
+              lastDeployError:
+                type: string
               lastDeployResult:
                 description: LastDeployResult is the result of the last deploy command
                 properties:
@@ -719,6 +721,8 @@ spec:
                 type: string
               lastObjectsHash:
                 type: string
+              lastPruneError:
+                type: string
               lastPruneResult:
                 description: LastDeployResult is the result of the last prune command
                 properties:
@@ -988,6 +992,8 @@ spec:
                 - totalChanges
                 - warnings
                 type: object
+              lastValidateError:
+                type: string
               lastValidateResult:
                 description: LastValidateResult is the result of the last validate
                   command
@@ -1130,6 +1136,9 @@ spec:
                 - ready
                 - startTime
                 type: object
+              observedCommit:
+                description: ObservedCommit is the last commit observed
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the last reconciled generation.
                 format: int64

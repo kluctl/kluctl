@@ -3,10 +3,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/go-jinja2"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/internal/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -44,6 +44,7 @@ type preparedProject struct {
 
 	rp *repocache.GitRepoCache
 
+	commit     string
 	tmpDir     string
 	repoDir    string
 	projectDir string
@@ -95,11 +96,12 @@ func prepareProject(ctx context.Context,
 			return nil, fmt.Errorf("failed clone source: %w", err)
 		}
 
-		clonedDir, _, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref.String())
+		clonedDir, gi, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref.String())
 		if err != nil {
 			return nil, err
 		}
 
+		pp.commit = gi.CheckedOutCommit
 		pp.repoDir = clonedDir
 
 		// check kluctl project path exists
@@ -124,12 +126,12 @@ func (pp *preparedProject) cleanup() {
 	}
 }
 
-func (pp *preparedProject) newTarget() (*preparedTarget, error) {
+func (pp *preparedProject) newTarget() *preparedTarget {
 	pt := preparedTarget{
 		pp: pp,
 	}
 
-	return &pt, nil
+	return &pt
 }
 
 func (pt *preparedTarget) restConfigToKubeconfig(restConfig *rest.Config) *api.Config {
@@ -558,24 +560,19 @@ func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context,
 	return nil
 }
 
-func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTarget, cb func(p *kluctl_project.LoadedKluctlProject) error) error {
-	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
-	if err != nil {
-		return err
-	}
-	defer j2.Close()
-
+func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTarget, j2 *jinja2.Jinja2) (*kluctl_project.LoadedKluctlProject, error) {
+	var err error
 	var sopsDecrypter *decryptor.Decryptor
 	if pp.obj.Spec.Decryption != nil {
 		sopsDecrypter, err = pp.buildSopsDecrypter(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	externalArgs, err := uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -591,54 +588,52 @@ func (pp *preparedProject) withKluctlProject(ctx context.Context, pt *preparedTa
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return cb(p)
+	return p, nil
 }
 
-func (pt *preparedTarget) withKluctlProjectTarget(ctx context.Context, cb func(targetContext *kluctl_project.TargetContext) error) error {
-	return pt.pp.withKluctlProject(ctx, pt, func(p *kluctl_project.LoadedKluctlProject) error {
-		renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
-		if err != nil {
-			return err
-		}
-		images, err := pt.buildImages(ctx)
-		if err != nil {
-			return err
-		}
-		helmCredentials, err := pt.buildHelmCredentials(ctx)
-		if err != nil {
-			return err
-		}
-		inclusion := pt.buildInclusion()
+func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject) (*kluctl_project.TargetContext, error) {
+	renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
+	if err != nil {
+		return nil, err
+	}
+	images, err := pt.buildImages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	helmCredentials, err := pt.buildHelmCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+	inclusion := pt.buildInclusion()
 
-		props := kluctl_project.TargetContextParams{
-			DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
-			Images:          images,
-			Inclusion:       inclusion,
-			HelmCredentials: helmCredentials,
-			RenderOutputDir: renderOutputDir,
-		}
-		if pt.pp.obj.Spec.Target != nil {
-			props.TargetName = *pt.pp.obj.Spec.Target
-		}
-		if pt.pp.obj.Spec.TargetNameOverride != nil {
-			props.TargetNameOverride = *pt.pp.obj.Spec.TargetNameOverride
-		}
-		if pt.pp.obj.Spec.Context != nil {
-			props.ContextOverride = *pt.pp.obj.Spec.Context
-		}
-		targetContext, err := p.NewTargetContext(ctx, props)
-		if err != nil {
-			return err
-		}
-		err = targetContext.DeploymentCollection.Prepare()
-		if err != nil {
-			return err
-		}
-		return cb(targetContext)
-	})
+	props := kluctl_project.TargetContextParams{
+		DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
+		Images:          images,
+		Inclusion:       inclusion,
+		HelmCredentials: helmCredentials,
+		RenderOutputDir: renderOutputDir,
+	}
+	if pt.pp.obj.Spec.Target != nil {
+		props.TargetName = *pt.pp.obj.Spec.Target
+	}
+	if pt.pp.obj.Spec.TargetNameOverride != nil {
+		props.TargetNameOverride = *pt.pp.obj.Spec.TargetNameOverride
+	}
+	if pt.pp.obj.Spec.Context != nil {
+		props.ContextOverride = *pt.pp.obj.Spec.Context
+	}
+	targetContext, err := p.NewTargetContext(ctx, props)
+	if err != nil {
+		return nil, err
+	}
+	err = targetContext.DeploymentCollection.Prepare()
+	if err != nil {
+		return nil, err
+	}
+	return targetContext, nil
 }
 
 func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string) error {

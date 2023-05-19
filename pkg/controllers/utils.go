@@ -9,17 +9,16 @@ import (
 
 func setReadiness(obj *kluctlv1.KluctlDeployment, status metav1.ConditionStatus, reason, message string) {
 	newCondition := metav1.Condition{
-		Type:    meta.ReadyCondition,
-		Status:  status,
-		Reason:  reason,
-		Message: trimString(message, kluctlv1.MaxConditionMessageLength),
+		Type:               meta.ReadyCondition,
+		Status:             status,
+		Reason:             reason,
+		Message:            trimString(message, kluctlv1.MaxConditionMessageLength),
+		ObservedGeneration: obj.Generation,
 	}
 
 	c := obj.GetConditions()
 	apimeta.SetStatusCondition(&c, newCondition)
 	obj.SetConditions(c)
-
-	obj.Status.ObservedGeneration = obj.GetGeneration()
 }
 
 func trimString(str string, limit int) string {

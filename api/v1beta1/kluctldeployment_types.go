@@ -303,6 +303,9 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// ObservedCommit is the last commit observed
+	ObservedCommit string `json:"observedCommit,omitempty"`
+
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
@@ -314,6 +317,13 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	LastObjectsHash string `json:"lastObjectsHash,omitempty"`
+
+	// +optional
+	LastDeployError string `json:"lastDeployError,omitempty"`
+	// +optional
+	LastPruneError string `json:"lastPruneError,omitempty"`
+	// +optional
+	LastValidateError string `json:"lastValidateError,omitempty"`
 
 	// LastDeployResult is the result of the last deploy command
 	// +optional
