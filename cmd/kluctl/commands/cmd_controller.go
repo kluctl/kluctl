@@ -2,16 +2,23 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	"os/user"
+	"path/filepath"
+	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -31,6 +38,9 @@ const controllerName = "kluctl-controller"
 
 type controllerCmd struct {
 	scheme *runtime.Scheme
+
+	Kubeconfig string `group:"controller" help:"Override the kubeconfig to use."`
+	Context    string `group:"controller" help:"Override the context to use."`
 
 	MetricsBindAddress     string `group:"controller" help:"The address the metric endpoint binds to." default:":8080"`
 	HealthProbeBindAddress string `group:"controller" help:"The address the probe endpoint binds to." default:":8081"`
@@ -64,14 +74,27 @@ func (cmd *controllerCmd) Run(ctx context.Context) error {
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	restConfig := flux_utils.GetConfigOrDie(flux_utils.Options{})
+	restConfig, err := cmd.loadConfig(cmd.Kubeconfig, cmd.Context)
+	if err != nil {
+		setupLog.Error(err, "unable to load kubeconfig")
+		os.Exit(1)
+	}
+
+	enabled, err := flowcontrol.IsEnabled(context.Background(), restConfig)
+	if err == nil && enabled {
+		// A negative QPS and Burst indicates that the client should not have a rate limiter.
+		// Ref: https://github.com/kubernetes/kubernetes/blob/v1.24.0/staging/src/k8s.io/client-go/rest/config.go#L354-L364
+		restConfig.QPS = -1
+		restConfig.Burst = -1
+	}
+
 	clientSet, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 cmd.scheme,
 		MetricsBindAddress:     cmd.MetricsBindAddress,
 		Port:                   9443,
@@ -137,4 +160,59 @@ func (cmd *controllerCmd) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// taken from clientcmd
+func (cmd *controllerCmd) loadConfig(kubeconfig string, context string) (config *rest.Config, configErr error) {
+	// If a flag is specified with the config location, use that
+	if len(kubeconfig) > 0 {
+		return cmd.loadConfigWithContext("", &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}, context)
+	}
+
+	// If the recommended kubeconfig env variable is not specified,
+	// try the in-cluster config.
+	kubeconfigPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
+	if len(kubeconfigPath) == 0 {
+		c, err := rest.InClusterConfig()
+		if err == nil {
+			return c, nil
+		}
+
+		defer func() {
+			if configErr != nil {
+				log.Error(err, "unable to load in-cluster config")
+			}
+		}()
+	}
+
+	// If the recommended kubeconfig env variable is set, or there
+	// is no in-cluster config, try the default recommended locations.
+	//
+	// NOTE: For default config file locations, upstream only checks
+	// $HOME for the user's home directory, but we can also try
+	// os/user.HomeDir when $HOME is unset.
+	//
+	// TODO(jlanford): could this be done upstream?
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if _, ok := os.LookupEnv("HOME"); !ok {
+		u, err := user.Current()
+		if err != nil {
+			return nil, fmt.Errorf("could not get current user: %w", err)
+		}
+		loadingRules.Precedence = append(loadingRules.Precedence, filepath.Join(u.HomeDir, clientcmd.RecommendedHomeDir, clientcmd.RecommendedFileName))
+	}
+
+	return cmd.loadConfigWithContext("", loadingRules, context)
+}
+
+// taken from clientcmd
+func (cmd *controllerCmd) loadConfigWithContext(apiServerURL string, loader clientcmd.ClientConfigLoader, context string) (*rest.Config, error) {
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		loader,
+		&clientcmd.ConfigOverrides{
+			ClusterInfo: clientcmdapi.Cluster{
+				Server: apiServerURL,
+			},
+			CurrentContext: context,
+		}).ClientConfig()
 }
