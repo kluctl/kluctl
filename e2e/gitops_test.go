@@ -3,16 +3,17 @@ package e2e
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"math/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"testing"
@@ -49,37 +50,42 @@ func startKluctlController(t *testing.T) context.CancelFunc {
 	return cancel
 }
 
+func triggerReconcile(t *testing.T, k *test_utils.EnvTestCluster, key client.ObjectKey) string {
+	reconcileId := fmt.Sprintf("%d", rand.Int63())
+
+	updateKluctlDeployment(t, k, key, func(kd *kluctlv1.KluctlDeployment) {
+		a := kd.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+		}
+		a[kluctlv1.KluctlRequestReconcileAnnotation] = reconcileId
+		kd.SetAnnotations(a)
+	})
+	return reconcileId
+}
+
 func waitForReconcile(t *testing.T, k *test_utils.EnvTestCluster, key client.ObjectKey) {
 	g := gomega.NewWithT(t)
 
-	var kd kluctlv1.KluctlDeployment
-	err := k.Client.Get(context.TODO(), key, &kd)
-	assert.NoError(t, err)
+	reconcileId := triggerReconcile(t, k, key)
 
-	var lastReconcileTime metav1.Time
-	if kd.Status.LastDeployResult != nil {
-		lastReconcileTime = kd.Status.LastDeployResult.Command.StartTime
-	}
 	g.Eventually(func() bool {
-		err = k.Client.Get(context.TODO(), key, &kd)
+		var kd kluctlv1.KluctlDeployment
+		err := k.Client.Get(context.TODO(), key, &kd)
 		g.Expect(err).To(Succeed())
-		if kd.Status.LastDeployResult == nil {
-			return false
-		}
-		return kd.Status.LastDeployResult.Command.StartTime != lastReconcileTime
+		return kd.Status.LastHandledReconcileAt == reconcileId
 	}, timeout, time.Second).Should(BeTrue())
 }
 
 func waitForCommit(t *testing.T, k *test_utils.EnvTestCluster, key client.ObjectKey, commit string) {
 	g := gomega.NewWithT(t)
 
+	reconcileId := triggerReconcile(t, k, key)
+
 	g.Eventually(func() bool {
-		var obj kluctlv1.KluctlDeployment
-		_ = k.Client.Get(context.Background(), key, &obj)
-		if obj.Status.LastDeployResult == nil {
-			return false
-		}
-		return obj.Status.LastDeployResult.GitInfo.Commit == commit
+		var kd kluctlv1.KluctlDeployment
+		_ = k.Client.Get(context.Background(), key, &kd)
+		return kd.Status.LastHandledReconcileAt == reconcileId && kd.Status.ObservedCommit == commit
 	}, timeout, time.Second).Should(BeTrue())
 }
 
@@ -118,6 +124,23 @@ func createKluctlDeployment(t *testing.T, p *test_utils.TestProject, k *test_uti
 	return client.ObjectKeyFromObject(kluctlDeployment)
 }
 
+func updateKluctlDeployment(t *testing.T, k *test_utils.EnvTestCluster, key client.ObjectKey, update func(kd *kluctlv1.KluctlDeployment)) *kluctlv1.KluctlDeployment {
+	g := NewWithT(t)
+
+	var kd kluctlv1.KluctlDeployment
+	err := k.Client.Get(context.TODO(), key, &kd)
+	g.Expect(err).To(Succeed())
+
+	patch := client.MergeFrom(kd.DeepCopy())
+
+	update(&kd)
+
+	err = k.Client.Patch(context.TODO(), &kd, patch, client.FieldOwner("kubectl"))
+	g.Expect(err).To(Succeed())
+
+	return &kd
+}
+
 func TestGitOpsFieldManager(t *testing.T) {
 	g := NewWithT(t)
 
@@ -150,13 +173,9 @@ data:
 		waitForCommit(t, k, key, getHeadRevision(t, p))
 	})
 
-	var kd kluctlv1.KluctlDeployment
-	err := k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
-
-	kd.Spec.DeployInterval = &kluctlv1.SafeDuration{Duration: metav1.Duration{Duration: interval}}
-	err = k.Client.Update(context.TODO(), &kd)
-	g.Expect(err).To(Succeed())
+	updateKluctlDeployment(t, k, key, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.DeployInterval = &kluctlv1.SafeDuration{Duration: metav1.Duration{Duration: interval}}
+	})
 
 	cm := &corev1.ConfigMap{}
 
@@ -222,12 +241,9 @@ data:
 		g.Expect(cm.Data).To(HaveKeyWithValue("k1", "v2"))
 	})
 
-	err = k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
-
-	kd.Spec.ForceApply = true
-	err = k.Client.Update(context.TODO(), &kd)
-	g.Expect(err).To(Succeed())
+	updateKluctlDeployment(t, k, key, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.ForceApply = true
+	})
 
 	t.Run("forceApply is true and cm1 gets restored even with another field manager", func(t *testing.T) {
 		patch := client.MergeFrom(cm.DeepCopy())
@@ -327,9 +343,9 @@ func TestKluctlDeploymentReconciler_Helm(t *testing.T) {
 	err := k.Client.Create(context.TODO(), credsSecret)
 	g.Expect(err).To(Succeed())
 
-	kd.Spec.HelmCredentials = append(kd.Spec.HelmCredentials, kluctlv1.HelmCredentials{SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"}})
-	err = k.Client.Update(context.TODO(), kd)
-	g.Expect(err).To(Succeed())
+	updateKluctlDeployment(t, k, key, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.HelmCredentials = append(kd.Spec.HelmCredentials, kluctlv1.HelmCredentials{SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"}})
+	})
 
 	t.Run("chart with credentials succeeds", func(t *testing.T) {
 		g.Eventually(func() bool {
@@ -494,19 +510,11 @@ data:
 		g.Expect(err).To(Succeed())
 	})
 
-	kd := &kluctlv1.KluctlDeployment{}
-	g.Expect(k.Client.Get(context.TODO(), key, kd)).To(Succeed())
-	kd.Spec.Prune = true
+	updateKluctlDeployment(t, k, key, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.Prune = true
+	})
 
-	g.Expect(k.Client.Update(context.TODO(), kd)).To(Succeed())
-	g.Eventually(func() bool {
-		var obj kluctlv1.KluctlDeployment
-		_ = k.Client.Get(context.Background(), key, &obj)
-		if obj.Status.LastDeployResult == nil {
-			return false
-		}
-		return obj.Status.ObservedGeneration == obj.Generation && obj.Status.LastDeployResult.GitInfo.Commit == getHeadRevision(t, p)
-	}, timeout, time.Second).Should(BeTrue())
+	waitForReconcile(t, k, key)
 
 	t.Run("cm1 did not get deleted and cm2 got deleted", func(t *testing.T) {
 		err := k.Client.Get(context.TODO(), client.ObjectKey{
@@ -548,12 +556,9 @@ data:
 		"namespace": p.TestSlug(),
 	})
 
-	kd := &kluctlv1.KluctlDeployment{}
-	err := k.Client.Get(context.TODO(), key, kd)
-	g.Expect(err).To(Succeed())
-
-	kd.Spec.Delete = delete
-	g.Expect(k.Client.Update(context.TODO(), kd)).To(Succeed())
+	kd := updateKluctlDeployment(t, k, key, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.Delete = delete
+	})
 
 	waitForCommit(t, k, key, getHeadRevision(t, p))
 
