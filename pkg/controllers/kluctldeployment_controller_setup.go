@@ -22,7 +22,7 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(ctx context.Context, mgr c
 	httpClient.Logger = nil
 	r.httpClient = httpClient
 
-	resultStore, err := results.NewResultStoreSecrets(ctx, mgr.GetConfig(), "kluctl-results", 10)
+	resultStore, err := results.NewResultStoreSecrets(ctx, mgr.GetClient(), mgr.GetCache(), "kluctl-results", 10)
 	if err != nil {
 		return err
 	}
