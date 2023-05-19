@@ -399,30 +399,30 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 
 	var crJson, objectsJson []byte
 	err = utils.RunParallelE(s.ctx, func() error {
-		var ok bool
-		crJson, ok = secret.Data["reducedResult"]
+		j, ok := secret.Data["reducedResult"]
 		if !ok {
 			return fmt.Errorf("reducedResult field not present for %s", options.Id)
 		}
-		crJson, err = utils.UncompressGzip(crJson)
+		j, err := utils.UncompressGzip(j)
 		if err != nil {
 			return err
 		}
+		crJson = j
 		return nil
 	}, func() error {
 		if options.Reduced {
 			return nil
 		}
-		var ok bool
-		objectsJson, ok = secret.Data["compactedObjects"]
+		j, ok := secret.Data["compactedObjects"]
 		if !ok {
 			return fmt.Errorf("compactedObjects field not present for %s", options.Id)
 		}
-		objectsJson, err = utils.UncompressGzip(objectsJson)
+		j, err := utils.UncompressGzip(j)
 		if err != nil {
 			return err
 		}
-		return err
+		objectsJson = j
+		return nil
 	})
 	if err != nil {
 		return nil, err
