@@ -26,9 +26,11 @@ The following arguments are available:
 Controller:
   Controller arguments.
 
+      --context string                     Override the context to use.
       --default-service-account string     Default service account used for impersonation.
       --dry-run                            Run all deployments in dryRun=true mode.
       --health-probe-bind-address string   The address the probe endpoint binds to. (default ":8081")
+      --kubeconfig string                  Override the kubeconfig to use.
       --leader-elect                       Enable leader election for controller manager. Enabling this will
                                            ensure there is only one active controller manager.
       --metrics-bind-address string        The address the metric endpoint binds to. (default ":8080")
