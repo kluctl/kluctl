@@ -13,6 +13,11 @@ ifeq ($(GOOS), linux)
 RACE=-race
 endif
 
+PATHCONF=cat
+ifeq ($(GOOS), windows)
+PATHCONF=cygpath -f- -u
+endif
+
 # Image URL to use all building/pushing image targets
 IMG ?= kluctl/kluctl:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -74,11 +79,11 @@ test: manifests generate test-unit test-e2e fmt vet ## Run all tests.
 
 .PHONY: test-unit
 test-unit: ## Run unit tests.
-	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out
+	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
 
 .PHONY: test-e2e
 test-e2e: envtest ## Run e2e tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $(RACE) ./e2e -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -coverprofile cover.out -test.v
 
 replace-commands-help: ## Replace commands help in docs
 	go run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
