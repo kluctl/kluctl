@@ -70,14 +70,14 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: test-unit test-e2e fmt vet ## Run all tests.
+test: manifests generate test-unit test-e2e fmt vet ## Run all tests.
 
 .PHONY: test-unit
 test-unit: ## Run unit tests.
 	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out
 
 .PHONY: test-e2e
-test-e2e: manifests generate envtest ## Run e2e tests.
+test-e2e: envtest ## Run e2e tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $(RACE) ./e2e -coverprofile cover.out
 
 replace-commands-help: ## Replace commands help in docs
