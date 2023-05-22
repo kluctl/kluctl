@@ -4,9 +4,8 @@ import (
 	"bufio"
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
-	"github.com/kluctl/kluctl/v2/pkg/git/git-url/giturls"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,7 +15,7 @@ type GitCredentialsFileAuthProvider struct {
 	MessageCallbacks messages.MessageCallbacks
 }
 
-func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl git_url.GitUrl) AuthMethodAndCA {
+func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
 	if gitUrl.Scheme != "http" && gitUrl.Scheme != "https" {
 		return AuthMethodAndCA{}
 	}
@@ -46,7 +45,7 @@ func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl g
 	return AuthMethodAndCA{}
 }
 
-func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
+func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl types.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
 	st, err := os.Stat(gitCredentialsPath)
 	if err != nil || st.Mode().IsDir() {
 		return nil
@@ -66,7 +65,7 @@ func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl git_url.GitUrl, git
 		if s.Text() == "" || s.Text()[0] == '#' {
 			continue
 		}
-		u, err := giturls.Parse(s.Text())
+		u, err := types.ParseGitUrl(s.Text())
 		if err != nil {
 			continue
 		}

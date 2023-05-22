@@ -2,11 +2,13 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"testing"
 )
 
@@ -56,6 +58,28 @@ func newTestConfigMap(name string, data map[string]interface{}) *uo.Unstructured
 }
 
 func TestDiff(t *testing.T) {
+	buildRaw := func(x any) *apiextensionsv1.JSON {
+		if x == nil {
+			return nil
+		}
+		b, err := json.Marshal(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &apiextensionsv1.JSON{
+			Raw: b,
+		}
+	}
+	buildChange := func(typ string, jsonPath string, oldValue any, newValue any, unifiedDiff string) result.Change {
+		return result.Change{
+			Type:        typ,
+			JsonPath:    jsonPath,
+			NewValue:    buildRaw(newValue),
+			OldValue:    buildRaw(oldValue),
+			UnifiedDiff: unifiedDiff,
+		}
+	}
+
 	tests := []*diffTestConfig{
 		{
 			name: "One changed object (changed field)",
@@ -65,7 +89,7 @@ func TestDiff(t *testing.T) {
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
-					result.Change{Type: "update", JsonPath: "data.d1", OldValue: "v1", NewValue: "v2", UnifiedDiff: "-v1\n+v2"},
+					buildChange("update", "data.d1", buildRaw("v1"), buildRaw("v2"), "-v1\n+v2"),
 				}, dtc.du.ChangedObjects[0].Changes)
 			},
 		},
@@ -77,7 +101,7 @@ func TestDiff(t *testing.T) {
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
-					result.Change{Type: "insert", JsonPath: "data.d2", OldValue: interface{}(nil), NewValue: "v2", UnifiedDiff: "+v2"},
+					buildChange("insert", "data.d2", nil, buildRaw("v2"), "+v2"),
 				}, dtc.du.ChangedObjects[0].Changes)
 			},
 		},
@@ -89,7 +113,7 @@ func TestDiff(t *testing.T) {
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
-					result.Change{Type: "delete", JsonPath: "data.d2", OldValue: "v2", NewValue: interface{}(nil), UnifiedDiff: "-v2"},
+					buildChange("delete", "data.d2", buildRaw("v2"), nil, "-v2"),
 				}, dtc.du.ChangedObjects[0].Changes)
 			},
 		},
@@ -101,8 +125,8 @@ func TestDiff(t *testing.T) {
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
-					result.Change{Type: "delete", JsonPath: "data.d1", OldValue: "v1", NewValue: interface{}(nil), UnifiedDiff: "-v1"},
-					result.Change{Type: "insert", JsonPath: "data.d2", OldValue: interface{}(nil), NewValue: "v2", UnifiedDiff: "+v2"},
+					buildChange("delete", "data.d1", buildRaw("v1"), nil, "-v1"),
+					buildChange("insert", "data.d2", nil, buildRaw("v2"), "+v2"),
 				}, dtc.du.ChangedObjects[0].Changes)
 			},
 		},
@@ -114,9 +138,9 @@ func TestDiff(t *testing.T) {
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
-					result.Change{Type: "update", JsonPath: "data.d1", OldValue: "v1", NewValue: "v12", UnifiedDiff: "-v1\n+v12"},
-					result.Change{Type: "delete", JsonPath: "data.d2", OldValue: "v2", NewValue: interface{}(nil), UnifiedDiff: "-v2"},
-					result.Change{Type: "insert", JsonPath: "data.d3", OldValue: interface{}(nil), NewValue: "v3", UnifiedDiff: "+v3"},
+					buildChange("update", "data.d1", buildRaw("v1"), buildRaw("v12"), "-v1\n+v12"),
+					buildChange("delete", "data.d2", buildRaw("v2"), nil, "-v2"),
+					buildChange("insert", "data.d3", nil, buildRaw("v3"), "+v3"),
 				}, dtc.du.ChangedObjects[0].Changes)
 			},
 		},

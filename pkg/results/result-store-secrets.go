@@ -11,9 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/rest"
 	toolscache "k8s.io/client-go/tools/cache"
 	"path"
 	"regexp"
@@ -25,70 +23,54 @@ import (
 )
 
 type ResultStoreSecrets struct {
-	ctx context.Context
+	ctx    context.Context
+	client client.Client
+	cache  cache.Cache
+	reader client.Reader
 
-	config           *rest.Config
 	writeNamespace   string
 	keepResultsCount int
 
-	mutex       sync.Mutex
-	client      client.Client
-	cache       cache.Cache
-	informer    cache.Informer
-	cancelCache context.CancelFunc
+	mutex    sync.Mutex
+	informer cache.Informer
 }
 
-func NewResultStoreSecrets(ctx context.Context, config *rest.Config, writeNamespace string, keepResultsCount int) (*ResultStoreSecrets, error) {
+func NewResultStoreSecrets(ctx context.Context, client client.Client, cache cache.Cache, writeNamespace string, keepResultsCount int) (*ResultStoreSecrets, error) {
 	s := &ResultStoreSecrets{
 		ctx:              ctx,
-		config:           config,
+		client:           client,
+		cache:            cache,
 		writeNamespace:   writeNamespace,
 		keepResultsCount: keepResultsCount,
+	}
+	if cache != nil {
+		s.reader = cache
+	} else {
+		s.reader = client
 	}
 	return s, nil
 }
 
-func (s *ResultStoreSecrets) ensureClientAndCache() error {
+func (s *ResultStoreSecrets) ensureInformer() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.client != nil {
+	if s.informer != nil {
 		return nil
 	}
-
-	c, err := client.New(s.config, client.Options{})
-	if err != nil {
-		return err
+	if s.cache == nil {
+		return nil
 	}
-
-	labelSelector, _ := labels.Parse("kluctl.io/result-id")
 
 	var partialSecret metav1.PartialObjectMetadata
 	partialSecret.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "Secret"})
 
-	ca, err := cache.New(s.config, cache.Options{
-		DefaultLabelSelector: labelSelector,
-	})
+	informer, err := s.cache.GetInformer(s.ctx, &partialSecret)
 	if err != nil {
 		return err
 	}
 
-	informer, err := ca.GetInformer(s.ctx, &partialSecret)
-	if err != nil {
-		return err
-	}
-
-	s.client = c
-	s.cache = ca
 	s.informer = informer
-
-	newCtx, cancel := context.WithCancel(s.ctx)
-	s.cancelCache = cancel
-
-	go func() {
-		_ = ca.Start(newCtx)
-	}()
-
 	s.cache.WaitForCacheSync(s.ctx)
 
 	return nil
@@ -99,8 +81,8 @@ var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 func (s *ResultStoreSecrets) buildName(cr *result.CommandResult) string {
 	var name string
 
-	if cr.Project.NormalizedGitUrl != "" {
-		s := path.Base(cr.Project.NormalizedGitUrl)
+	if cr.ProjectKey.GitRepoKey.Path != "" {
+		s := path.Base(cr.ProjectKey.GitRepoKey.Path)
 		if s != "" {
 			name = s + "-"
 		}
@@ -124,7 +106,7 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 		return fmt.Errorf("missing writeNamespace")
 	}
 	var ns corev1.Namespace
-	err := s.client.Get(s.ctx, client.ObjectKey{Name: s.writeNamespace}, &ns)
+	err := s.reader.Get(s.ctx, client.ObjectKey{Name: s.writeNamespace}, &ns)
 	if err != nil && errors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +125,7 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 }
 
 func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error {
-	err := s.ensureClientAndCache()
+	err := s.ensureInformer()
 	if err != nil {
 		return err
 	}
@@ -197,11 +179,11 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 			"compactedObjects": compressedObjects,
 		},
 	}
-	if cr.Project.NormalizedGitUrl != "" {
-		secret.Annotations["kluctl.io/result-project-normalized-url"] = cr.Project.NormalizedGitUrl
+	if cr.ProjectKey.GitRepoKey.String() != "" {
+		secret.Annotations["kluctl.io/result-project-repo-key"] = cr.ProjectKey.GitRepoKey.String()
 	}
-	if cr.Project.SubDir != "" {
-		secret.Annotations["kluctl.io/result-project-subdir"] = cr.Project.SubDir
+	if cr.ProjectKey.SubDir != "" {
+		secret.Annotations["kluctl.io/result-project-subdir"] = cr.ProjectKey.SubDir
 	}
 
 	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
@@ -209,7 +191,7 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 		return err
 	}
 
-	err = s.cleanupResults(cr.Project, cr.Target)
+	err = s.cleanupResults(cr.ProjectKey, cr.TargetKey)
 	if err != nil {
 		return err
 	}
@@ -229,7 +211,7 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 	for _, rs := range results {
 		rs := rs
 
-		if rs.Target != target {
+		if rs.TargetKey != target {
 			continue
 		}
 		cnt++
@@ -249,14 +231,14 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 }
 
 func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error) {
-	err := s.ensureClientAndCache()
+	err := s.ensureInformer()
 	if err != nil {
 		return nil, err
 	}
 
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err = s.cache.List(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
+	err = s.reader.List(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +258,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
-		return ret[i].Command.StartTime >= ret[j].Command.StartTime
+		return lessSummary(&ret[i], &ret[j])
 	})
 
 	return ret, nil
@@ -302,10 +284,10 @@ func (s *ResultStoreSecrets) parseSummary(obj client.Object) (*result.CommandRes
 
 func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary, project *result.ProjectKey) bool {
 	if project != nil {
-		if project.NormalizedGitUrl != "" && summary.Project.NormalizedGitUrl != project.NormalizedGitUrl {
+		if project.GitRepoKey.String() != "" && summary.ProjectKey.GitRepoKey != project.GitRepoKey {
 			return false
 		}
-		if project.SubDir != "" && summary.Project.SubDir != project.SubDir {
+		if project.SubDir != "" && summary.ProjectKey.SubDir != project.SubDir {
 			return false
 		}
 	}
@@ -314,7 +296,7 @@ func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary,
 }
 
 func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResultSummariesOptions, update func(summary *result.CommandResultSummary), delete func(id string)) (func(), error) {
-	err := s.ensureClientAndCache()
+	err := s.ensureInformer()
 	if err != nil {
 		return nil, err
 	}
@@ -360,14 +342,14 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 }
 
 func (s *ResultStoreSecrets) getCommandResultSecret(id string) (*metav1.PartialObjectMetadata, error) {
-	err := s.ensureClientAndCache()
+	err := s.ensureInformer()
 	if err != nil {
 		return nil, err
 	}
 
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err = s.cache.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/result-id": id})
+	err = s.reader.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/result-id": id})
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +385,7 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 	}
 
 	var l corev1.SecretList
-	err = s.client.List(s.ctx, &l, client.MatchingLabels{
+	err = s.reader.List(s.ctx, &l, client.MatchingLabels{
 		"kluctl.io/result-id": options.Id,
 	})
 	if err != nil {
@@ -417,30 +399,30 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 
 	var crJson, objectsJson []byte
 	err = utils.RunParallelE(s.ctx, func() error {
-		var ok bool
-		crJson, ok = secret.Data["reducedResult"]
+		j, ok := secret.Data["reducedResult"]
 		if !ok {
 			return fmt.Errorf("reducedResult field not present for %s", options.Id)
 		}
-		crJson, err = utils.UncompressGzip(crJson)
+		j, err := utils.UncompressGzip(j)
 		if err != nil {
 			return err
 		}
+		crJson = j
 		return nil
 	}, func() error {
 		if options.Reduced {
 			return nil
 		}
-		var ok bool
-		objectsJson, ok = secret.Data["compactedObjects"]
+		j, ok := secret.Data["compactedObjects"]
 		if !ok {
 			return fmt.Errorf("compactedObjects field not present for %s", options.Id)
 		}
-		objectsJson, err = utils.UncompressGzip(objectsJson)
+		j, err := utils.UncompressGzip(j)
 		if err != nil {
 			return err
 		}
-		return err
+		objectsJson = j
+		return nil
 	})
 	if err != nil {
 		return nil, err

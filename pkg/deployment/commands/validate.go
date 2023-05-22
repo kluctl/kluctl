@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ValidateCommand struct {
@@ -35,8 +36,9 @@ func NewValidateCommand(ctx context.Context, discriminator string, c *deployment
 
 func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.ValidateResult, error) {
 	ret := result.ValidateResult{
-		Id:    uuid.New().String(),
-		Ready: true,
+		Id:        uuid.New().String(),
+		StartTime: metav1.Now(),
+		Ready:     true,
 	}
 
 	cmd.dew.Init()
@@ -69,7 +71,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 				appliedObjects[o.Ref] = o.Applied
 			}
 		}
-		discriminator = cmd.r.Target.Discriminator
+		discriminator = cmd.r.TargetKey.Discriminator
 	} else {
 		return nil, fmt.Errorf("either deployment collection or command result must be passed")
 	}
@@ -118,6 +120,8 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 	if len(du.ChangedObjects) != 0 {
 		ret.Drift = du.ChangedObjects
 	}
+
+	ret.EndTime = metav1.Now()
 
 	return &ret, nil
 }

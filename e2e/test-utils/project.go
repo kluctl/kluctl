@@ -1,16 +1,12 @@
 package test_utils
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
-	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
@@ -22,7 +18,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -459,38 +454,7 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 	args = append(args, "--project-dir", p.LocalProjectDir())
 	args = append(args, argsIn...)
 
-	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
-
-	var m sync.Mutex
-	stdoutBuf := bytes.NewBuffer(nil)
-	stdout := status.NewLineRedirector(func(line string) {
-		m.Lock()
-		defer m.Unlock()
-		p.t.Log(line)
-		stdoutBuf.WriteString(line + "\n")
-	})
-	stderrBuf := bytes.NewBuffer(nil)
-
-	ctx := context.Background()
-	ctx = utils.WithTmpBaseDir(ctx, p.t.TempDir())
-	ctx = commands.WithStdStreams(ctx, stdout, stderrBuf)
-	sh := status.NewSimpleStatusHandler(func(message string) {
-		m.Lock()
-		defer m.Unlock()
-		p.t.Log(message)
-		stderrBuf.WriteString(message + "\n")
-	}, false, true)
-	defer func() {
-		if sh != nil {
-			sh.Stop()
-		}
-	}()
-	ctx = status.NewContext(ctx, sh)
-	err := commands.Execute(ctx, args, nil)
-	sh.Stop()
-	sh = nil
-	_ = stdout.Close()
-	return stdoutBuf.String(), stderrBuf.String(), err
+	return KluctlExecute(p.t, context.Background(), args...)
 }
 
 func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {

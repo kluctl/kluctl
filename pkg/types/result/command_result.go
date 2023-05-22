@@ -1,18 +1,19 @@
 package result
 
 import (
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Change struct {
-	Type        string      `json:"type" validate:"required"`
-	JsonPath    string      `json:"jsonPath" validate:"required"`
-	OldValue    interface{} `json:"oldValue,omitempty"`
-	NewValue    interface{} `json:"newValue,omitempty"`
-	UnifiedDiff string      `json:"unifiedDiff,omitempty"`
+	Type        string                `json:"type" validate:"required"`
+	JsonPath    string                `json:"jsonPath" validate:"required"`
+	OldValue    *apiextensionsv1.JSON `json:"oldValue,omitempty"`
+	NewValue    *apiextensionsv1.JSON `json:"newValue,omitempty"`
+	UnifiedDiff string                `json:"unifiedDiff,omitempty"`
 }
 
 type ChangedObject struct {
@@ -40,13 +41,13 @@ const (
 )
 
 type ProjectKey struct {
-	NormalizedGitUrl string `json:"normalizedGitUrl,omitempty"`
-	SubDir           string `json:"subDir,omitempty"`
+	GitRepoKey types.GitRepoKey `json:"gitRepoKey,omitempty"`
+	SubDir     string           `json:"subDir,omitempty"`
 }
 
 func (k ProjectKey) Less(o ProjectKey) bool {
-	if k.NormalizedGitUrl != o.NormalizedGitUrl {
-		return k.NormalizedGitUrl < o.NormalizedGitUrl
+	if k.GitRepoKey != o.GitRepoKey {
+		return k.GitRepoKey.String() < o.GitRepoKey.String()
 	}
 	if k.SubDir != o.SubDir {
 		return k.SubDir < o.SubDir
@@ -75,11 +76,11 @@ func (k TargetKey) Less(o TargetKey) bool {
 
 type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
-	StartTime             types.JsonTime         `json:"startTime"`
-	EndTime               types.JsonTime         `json:"endTime"`
+	StartTime             metav1.Time            `json:"startTime"`
+	EndTime               metav1.Time            `json:"endTime"`
 	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	Command               string                 `json:"command,omitempty"`
-	Target                *types.Target          `json:"target,omitempty"`
+	Target                string                 `json:"target,omitempty"`
 	TargetNameOverride    string                 `json:"targetNameOverride,omitempty"`
 	ContextOverride       string                 `json:"contextOverride,omitempty"`
 	Args                  *uo.UnstructuredObject `json:"args,omitempty"`
@@ -97,11 +98,11 @@ type CommandInfo struct {
 }
 
 type GitInfo struct {
-	Url    *git_url.GitUrl `json:"url"`
-	Ref    string          `json:"ref"`
-	SubDir string          `json:"subDir"`
-	Commit string          `json:"commit"`
-	Dirty  bool            `json:"dirty"`
+	Url    *types.GitUrl `json:"url"`
+	Ref    string        `json:"ref"`
+	SubDir string        `json:"subDir"`
+	Commit string        `json:"commit"`
+	Dirty  bool          `json:"dirty"`
 }
 
 type ClusterInfo struct {
@@ -128,10 +129,11 @@ type ResultObject struct {
 
 type CommandResult struct {
 	Id          string                         `json:"id"`
-	Project     ProjectKey                     `json:"project"`
-	Target      TargetKey                      `json:"target"`
+	ProjectKey  ProjectKey                     `json:"projectKey"`
+	TargetKey   TargetKey                      `json:"targetKey"`
+	Target      types.Target                   `json:"target"`
 	Command     CommandInfo                    `json:"command,omitempty"`
-	GitInfo     *GitInfo                       `json:"gitInfo,omitempty"`
+	GitInfo     GitInfo                        `json:"gitInfo,omitempty"`
 	ClusterInfo ClusterInfo                    `json:"clusterInfo"`
 	Deployment  *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
@@ -184,11 +186,13 @@ type ValidateResultEntry struct {
 }
 
 type ValidateResult struct {
-	Id       string                `json:"id"`
-	Ready    bool                  `json:"ready"`
-	Warnings []DeploymentError     `json:"warnings,omitempty"`
-	Errors   []DeploymentError     `json:"errors,omitempty"`
-	Results  []ValidateResultEntry `json:"results,omitempty"`
+	Id        string                `json:"id"`
+	StartTime metav1.Time           `json:"startTime"`
+	EndTime   metav1.Time           `json:"endTime"`
+	Ready     bool                  `json:"ready"`
+	Warnings  []DeploymentError     `json:"warnings,omitempty"`
+	Errors    []DeploymentError     `json:"errors,omitempty"`
+	Results   []ValidateResultEntry `json:"results,omitempty"`
 
 	Drift []ChangedObject `json:"drift,omitempty"`
 }

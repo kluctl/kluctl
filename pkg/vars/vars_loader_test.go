@@ -16,7 +16,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
@@ -223,7 +222,7 @@ func TestVarsLoader_Git(t *testing.T) {
 	}, "")
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.GitRepoUrl("repo"))
+		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err := vl.LoadVars(vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
@@ -237,7 +236,7 @@ func TestVarsLoader_Git(t *testing.T) {
 	})
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.GitRepoUrl("repo"))
+		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
 		b := true
 		err := vl.LoadVars(vc, &types.VarsSource{
 			IgnoreMissing: &b,
@@ -274,7 +273,7 @@ func TestVarsLoader_GitBranch(t *testing.T) {
 	assert.NoError(t, err)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		url, _ := git_url.Parse(gs.GitRepoUrl("repo"))
+		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,

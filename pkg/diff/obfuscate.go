@@ -2,11 +2,13 @@ package diff
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/ohler55/ojg/jp"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 )
@@ -65,22 +67,35 @@ func (o *Obfuscator) ObfuscateObject(x *uo.UnstructuredObject) (*uo.Unstructured
 }
 
 func (o *Obfuscator) obfuscateSecretChanges(ref k8s.ObjectRef, changes []result.Change) error {
-	replaceValues := func(x any, v string) any {
-		if x == nil {
+	replaceValues := func(j *apiextensionsv1.JSON, v string) *apiextensionsv1.JSON {
+		if j == nil {
 			return nil
 		}
+
+		var x any
+		err := json.Unmarshal(j.Raw, &x)
+		if err != nil {
+			return nil
+		}
+
 		if m, ok := x.(map[string]any); ok {
 			for k, _ := range m {
 				m[k] = v
 			}
-			return m
 		} else if a, ok := x.([]any); ok {
 			for i, _ := range a {
 				a[i] = v
 			}
-			return a
+		} else {
+			x = v
 		}
-		return v
+
+		b, err := json.Marshal(x)
+		if err != nil {
+			return nil
+		}
+
+		return &apiextensionsv1.JSON{Raw: b}
 	}
 
 	for i, _ := range changes {

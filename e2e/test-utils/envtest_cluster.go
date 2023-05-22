@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
@@ -13,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/flowcontrol"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sync"
@@ -20,6 +24,8 @@ import (
 )
 
 type EnvTestCluster struct {
+	CRDDirectoryPaths []string
+
 	env     envtest.Environment
 	started bool
 
@@ -30,6 +36,7 @@ type EnvTestCluster struct {
 
 	HttpClient    *http.Client
 	DynamicClient dynamic.Interface
+	Client        client.Client
 	ServerVersion *version.Info
 
 	callbackServer     webhook.Server
@@ -42,16 +49,24 @@ type EnvTestCluster struct {
 func CreateEnvTestCluster(context string) *EnvTestCluster {
 	k := &EnvTestCluster{
 		Context: context,
+		env: envtest.Environment{
+			Scheme: runtime.NewScheme(),
+		},
 	}
 	return k
 }
 
 func (k *EnvTestCluster) Start() error {
+	k.env.CRDDirectoryPaths = k.CRDDirectoryPaths
+
 	_, err := k.env.Start()
 	if err != nil {
 		return err
 	}
 	k.started = true
+
+	_ = kluctlv1.AddToScheme(k.env.Scheme)
+	_ = corev1.AddToScheme(k.env.Scheme)
 
 	err = k.startCallbackServer()
 	if err != nil {
@@ -76,11 +91,11 @@ func (k *EnvTestCluster) Start() error {
 
 	k.Kubeconfig = kcfg
 
-	client, err := rest.HTTPClientFor(k.config)
+	httpClient, err := rest.HTTPClientFor(k.config)
 	if err != nil {
 		return err
 	}
-	k.HttpClient = client
+	k.HttpClient = httpClient
 
 	dynamicClient, err := dynamic.NewForConfigAndClient(k.config, k.HttpClient)
 	if err != nil {
@@ -88,7 +103,13 @@ func (k *EnvTestCluster) Start() error {
 	}
 	k.DynamicClient = dynamicClient
 
-	discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(k.config, client)
+	c, err := client.New(k.config, client.Options{
+		HTTPClient: httpClient,
+		Scheme:     k.env.Scheme,
+	})
+	k.Client = c
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(k.config, httpClient)
 	if err != nil {
 		return err
 	}

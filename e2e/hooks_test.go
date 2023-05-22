@@ -96,7 +96,7 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
 	s.p.AddKustomizeResources(dir, []test_utils.KustomizeResource{
-		{fmt.Sprintf("%s.yml", opts.name), "", o},
+		{Name: fmt.Sprintf("%s.yml", opts.name), Content: o},
 	})
 }
 

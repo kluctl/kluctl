@@ -72,7 +72,7 @@ func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster) *test_utils
 	p.UpdateTarget("test", nil)
 
 	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
-		{fmt.Sprintf("configmap-%s.yml", "d1"), "", buildDeployment("d1", p.TestSlug(), false)},
+		{Name: fmt.Sprintf("configmap-%s.yml", "d1"), Content: buildDeployment("d1", p.TestSlug(), false)},
 	}, nil)
 
 	return p

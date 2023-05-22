@@ -4,7 +4,7 @@ import (
 	"fmt"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	cp "github.com/otiai10/copy"
@@ -88,10 +88,10 @@ func TestLocalGitOverride(t *testing.T) {
 	_ = cm.SetNestedField("o2", "data", "a")
 	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
 
-	u1, _ := git_url.Parse(ip1.GitUrl())
-	u2, _ := git_url.Parse(ip2.GitUrl())
-	k1 := u1.NormalizedRepoKey()
-	k2 := u2.NormalizedRepoKey()
+	u1, _ := types.ParseGitUrl(ip1.GitUrl())
+	u2, _ := types.ParseGitUrl(ip2.GitUrl())
+	k1 := u1.RepoKey().String()
+	k2 := u2.RepoKey().String()
 
 	p.KluctlMust("deploy", "--yes", "-t", "test",
 		"--local-git-override", fmt.Sprintf("%s=%s", k1, override1),
@@ -129,8 +129,8 @@ func TestLocalGitGroupOverride(t *testing.T) {
 	_ = cm.SetNestedField("o2", "data", "a")
 	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
 
-	u1, _ := git_url.Parse(p.GitServer().GitUrl() + "/repos")
-	k1 := u1.NormalizedRepoKey()
+	u1, _ := types.ParseGitUrl(p.GitServer().GitUrl() + "/repos")
+	k1 := u1.RepoKey().String()
 
 	p.KluctlMust("deploy", "--yes", "-t", "test",
 		"--local-git-group-override", fmt.Sprintf("%s=%s", k1, overrideGroupDir),

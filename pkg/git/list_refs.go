@@ -10,13 +10,13 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v5/storage/memory"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"strconv"
 )
 
 // ListRemoteRefsFastSsh will reuse existing ssh connections from a pool
-func ListRemoteRefsFastSsh(ctx context.Context, url git_url.GitUrl, sshPool *ssh_pool.SshPool, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
+func ListRemoteRefsFastSsh(ctx context.Context, url types.GitUrl, sshPool *ssh_pool.SshPool, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
 	var portInt int64 = 22
 	if url.Port() != "" {
 		var err error
@@ -75,7 +75,7 @@ func ListRemoteRefsFastSsh(ctx context.Context, url git_url.GitUrl, sshPool *ssh
 	return resultRefs, nil
 }
 
-func ListRemoteRefsSlow(ctx context.Context, url git_url.GitUrl, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
+func ListRemoteRefsSlow(ctx context.Context, url types.GitUrl, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
 	storage := memory.NewStorage()
 	remote := git.NewRemote(storage, &config.RemoteConfig{
 		Name:  "origin",
@@ -93,7 +93,7 @@ func ListRemoteRefsSlow(ctx context.Context, url git_url.GitUrl, auth auth2.Auth
 	return remoteRefs, nil
 }
 
-func ListRemoteRefs(ctx context.Context, url git_url.GitUrl, sshPool *ssh_pool.SshPool, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
+func ListRemoteRefs(ctx context.Context, url types.GitUrl, sshPool *ssh_pool.SshPool, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
 	if url.IsSsh() {
 		refs, err := ListRemoteRefsFastSsh(ctx, url, sshPool, auth)
 		if err == nil {

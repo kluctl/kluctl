@@ -3,6 +3,7 @@ package repocache
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	git_url "github.com/kluctl/kluctl/v2/pkg/git/git-url"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -25,7 +25,7 @@ type GitRepoCache struct {
 	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
 
-	repos      map[string]*CacheEntry
+	repos      map[types.GitRepoKey]*CacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides []RepoOverride
@@ -36,7 +36,7 @@ type GitRepoCache struct {
 
 type CacheEntry struct {
 	rp         *GitRepoCache
-	url        git_url.GitUrl
+	url        types.GitUrl
 	mr         *git.MirroredGitRepo
 	defaultRef string
 	refs       map[string]string
@@ -47,13 +47,13 @@ type CacheEntry struct {
 }
 
 type RepoInfo struct {
-	Url        git_url.GitUrl    `json:"url"`
+	Url        types.GitUrl      `json:"url"`
 	RemoteRefs map[string]string `json:"remoteRefs"`
 	DefaultRef string            `json:"defaultRef"`
 }
 
 type RepoOverride struct {
-	RepoUrl  git_url.GitUrl
+	RepoKey  types.GitRepoKey
 	Ref      string
 	Override string
 	IsGroup  bool
@@ -70,7 +70,7 @@ func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProvide
 		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
-		repos:          map[string]*CacheEntry{},
+		repos:          map[types.GitRepoKey]*CacheEntry{},
 		repoOverrides:  repoOverrides,
 	}
 }
@@ -85,28 +85,29 @@ func (rp *GitRepoCache) Clear() {
 	rp.cleanupDirs = nil
 }
 
-func (rp *GitRepoCache) GetEntry(url git_url.GitUrl) (*CacheEntry, error) {
+func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 	rp.reposMutex.Lock()
 	defer rp.reposMutex.Unlock()
 
 	urlN := url.Normalize()
-	repoKey := url.NormalizedRepoKey()
+	repoKey := url.RepoKey()
 
 	// evaluate overrides
 	for _, ro := range rp.repoOverrides {
-		if ro.RepoUrl.Host != urlN.Host {
+		if ro.RepoKey.Host != urlN.Host {
 			continue
 		}
 
 		var overridePath string
 		if ro.IsGroup {
-			if !strings.HasPrefix(urlN.Path, ro.RepoUrl.Path+"/") {
+			prefix := "/" + ro.RepoKey.Path + "/"
+			if !strings.HasPrefix(urlN.Path, prefix) {
 				continue
 			}
-			relPath := strings.TrimPrefix(urlN.Path, ro.RepoUrl.Path+"/")
+			relPath := strings.TrimPrefix(urlN.Path, prefix)
 			overridePath = path.Join(ro.Override, relPath)
 		} else {
-			if ro.RepoUrl.Path != urlN.Path {
+			if "/"+ro.RepoKey.Path != urlN.Path {
 				continue
 			}
 			overridePath = ro.Override

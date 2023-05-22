@@ -1,42 +1,46 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type PruneCommand struct {
 	discriminator string
-	c             *deployment.DeploymentCollection
+	targetCtx     *kluctl_project.TargetContext
 }
 
-func NewPruneCommand(discriminator string, c *deployment.DeploymentCollection) *PruneCommand {
+func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetContext) *PruneCommand {
 	return &PruneCommand{
 		discriminator: discriminator,
-		c:             c,
+		targetCtx:     targetCtx,
 	}
 }
 
-func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
-	if cmd.discriminator == "" {
+func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
+	discriminator := cmd.discriminator
+	if discriminator == "" && cmd.targetCtx != nil {
+		discriminator = cmd.targetCtx.Target.Discriminator
+	}
+	if discriminator == "" {
 		return nil, fmt.Errorf("pruning without a discriminator is not supported")
 	}
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, &cmd.discriminator, nil, false)
+	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
+	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, nil, false)
 	if err != nil {
 		return nil, err
 	}
 
-	deleteRefs, err := FindOrphanObjects(k, ru, cmd.c)
+	deleteRefs, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
 		return nil, err
 	}
@@ -48,16 +52,21 @@ func (cmd *PruneCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb f
 		}
 	}
 
-	deleted, err := utils2.DeleteObjects(ctx, k, deleteRefs, dew, true)
+	deleted, err := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, true)
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:       uuid.New().String(),
-		Objects:  collectObjects(cmd.c, ru, nil, nil, nil, deleted),
+		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, nil, deleted),
 		Warnings: dew.GetWarningsList(),
-	}, nil
+	}
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "prune")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }
 
 func FindOrphanObjects(k *k8s.K8sCluster, ru *utils2.RemoteObjectUtils, c *deployment.DeploymentCollection) ([]k8s2.ObjectRef, error) {

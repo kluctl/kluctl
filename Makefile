@@ -13,144 +13,155 @@ ifeq ($(GOOS), linux)
 RACE=-race
 endif
 
-GOCMD=go
-GOTEST=$(GOCMD) test
-GOVET=$(GOCMD) vet
-BINARY_NAME=kluctl$(EXE)
-TEST_BINARY_NAME=kluctl-e2e$(EXE)
-EXPORT_RESULT?=false
+# Image URL to use all building/pushing image targets
+IMG ?= kluctl/kluctl:latest
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.26.1
 
-# If gobin not set, create one on ./build and add to path.
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
-GOBIN=$(BUILD_DIR)/gobin
+GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
-export PATH:=$(GOBIN):${PATH}
 
-# Architecture to use envtest with
-ENVTEST_ARCH ?= amd64
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL = /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
 
-GREEN  := $(shell tput -Txterm setaf 2)
-YELLOW := $(shell tput -Txterm setaf 3)
-WHITE  := $(shell tput -Txterm setaf 7)
-CYAN   := $(shell tput -Txterm setaf 6)
-RESET  := $(shell tput -Txterm sgr0)
+.PHONY: all
+all: build
 
-.PHONY: all test build
+##@ General
 
-all: help
+# The help target prints out all targets with their descriptions organized
+# beneath their categories. The categories are represented by '##@' and the
+# target descriptions by '##'. The awk commands is responsible for reading the
+# entire set of makefiles included in this invocation, looking for lines of the
+# file as xyz: ## something, and then pretty-format the target and help. Then,
+# if there's a line with ##@ something, that gets pretty-printed as a category.
+# More info on the usage of ANSI control characters for terminal formatting:
+# https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
+# More info on the awk command:
+# http://linuxcommand.org/lc3_adv_awk.php
 
-## Build:
-build: build-go ## Run the complete build pipeline
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-build-go:  ## Build your project and put the output binary in ./bin/
-	mkdir -p ./bin
-	$(GOCMD) build -o ./bin/$(BINARY_NAME)
+##@ Development
 
-clean: ## Remove build related file
-	rm -fr ./bin
-	rm -fr ./out
-	rm -fr ./reports
-	rm -fr ./download-python
+.PHONY: manifests
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-## Envtest setup
-# Repository root based on Git metadata
-REPOSITORY_ROOT := $(shell git rev-parse --show-toplevel)
-BUILD_DIR := $(REPOSITORY_ROOT)/build
-ENVTEST = $(GOBIN)/setup-envtest
-.PHONY: envtest
-setup-envtest: ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+.PHONY: generate
+generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+	go generate ./...
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-# Download the envtest binaries to testbin
-ENVTEST_ASSETS_DIR=$(BUILD_DIR)/testbin
-ENVTEST_KUBERNETES_VERSION?=latest
-install-envtest: setup-envtest
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	$(ENVTEST) use $(ENVTEST_KUBERNETES_VERSION) --arch=$(ENVTEST_ARCH) --bin-dir=$(ENVTEST_ASSETS_DIR)
+.PHONY: fmt
+fmt: ## Run go fmt against code.
+	go fmt ./...
 
-## Test:
-test: test-unit test-e2e ## Runs the complete test suite
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
 
-KUBEBUILDER_ASSETS?="$(shell $(ENVTEST) --arch=$(ENVTEST_ARCH) use -i $(ENVTEST_KUBERNETES_VERSION) --bin-dir=$(ENVTEST_ASSETS_DIR) -p path)"
-test-e2e: test-e2e-build test-e2e-pre-built ## Runs the end to end tests
+.PHONY: test
+test: test-unit test-e2e fmt vet ## Run all tests.
 
-test-e2e-build: ## Builds the end to end tests
-	$(GOCMD) test $(RACE) -c ./e2e -o ./bin/$(TEST_BINARY_NAME)
+.PHONY: test-unit
+test-unit: ## Run unit tests.
+	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out
 
-test-e2e-pre-built: install-envtest
-	KUBEBUILDER_ASSETS=$(KUBEBUILDER_ASSETS) ./bin/$(TEST_BINARY_NAME) -test.v
-
-test-unit: ## Run the unit tests of the project
-ifeq ($(EXPORT_RESULT), true)
-	mkdir -p reports/test-unit
-	GO111MODULE=off $(GOCMD) get -u github.com/jstemmer/go-junit-report
-	$(eval OUTPUT_OPTIONS = | tee /dev/tty | go-junit-report -set-exit-code > reports/test-unit/junit-report.xml)
-endif
-	$(GOTEST) -v $(RACE) $(shell go list ./... | grep -v 'v2/e2e') $(OUTPUT_OPTIONS)
-
-coverage-unit: ## Run the unit tests of the project and export the coverage
-	$(GOTEST) -cover -covermode=count -coverprofile=reports/coverage-unit/profile.cov $(shell go list ./... | grep -v /e2e/)
-	$(GOCMD) tool cover -func profile.cov
-ifeq ($(EXPORT_RESULT), true)
-	mkdir -p reports/coverage-unit
-	GO111MODULE=off $(GOCMD) get -u github.com/AlekSi/gocov-xml
-	GO111MODULE=off $(GOCMD) get -u github.com/axw/gocov/gocov
-	gocov convert  reports/coverage-unit/profile.cov | gocov-xml > reports/coverage-unit/coverage.xml
-endif
-
-## Lint:
-lint: lint-go ## Run all available linters
-
-lint-go: ## Use golintci-lint on your project
-ifeq ($(EXPORT_RESULT), true)
-	mkdir -p reports/lint-go
-	$(eval OUTPUT_OPTIONS = $(shell echo "--out-format checkstyle ./... | tee /dev/tty > reports/lint-go/checkstyle-report.xml" ))
-else
-	$(eval OUTPUT_OPTIONS = $(shell echo ""))
-endif
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:latest-alpine golangci-lint run $(OUTPUT_OPTIONS)
+.PHONY: test-e2e
+test-e2e: manifests generate envtest ## Run e2e tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $(RACE) ./e2e -coverprofile cover.out
 
 replace-commands-help: ## Replace commands help in docs
-	$(GOCMD) run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
+	go run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
 
-MARKDOWN_LINK_CHECK_VERSION=3.10.3 # warning, 3.11.x is broken
+MARKDOWN_LINK_CHECK_VERSION=3.11.2
 markdown-link-check: ## Check markdown files for dead links
 	find . -name '*.md' | xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
 
-## Release:
-version: ## Write next version into version file
-	$(GOCMD) install github.com/bvieira/sv4git/v2/cmd/git-sv@v2.7.0
-	$(eval KLUCTL_VERSION:=$(shell git sv next-version))
-	sed -ibak "s/0.0.0/$(KLUCTL_VERSION)/g" pkg/version/version.go
+##@ Build
 
-changelog: ## Generating changelog
-	git sv changelog -n 1 > CHANGELOG.md
+.PHONY: build
+build: manifests generate fmt vet ## Build manager binary.
+	go build -o bin/kluctl$(EXE) cmd/main.go
 
-## Help:
-help: ## Show this help.
-	@echo ''
-	@echo 'Usage:'
-	@echo '  ${YELLOW}make${RESET} ${GREEN}<target>${RESET}'
-	@echo ''
-	@echo 'Targets:'
-	@awk 'BEGIN {FS = ":.*?## "} { \
-		if (/^[0-9a-zA-Z_-]+:.*?##.*$$/) {printf "    ${YELLOW}%-20s${GREEN}%s${RESET}\n", $$1, $$2} \
-		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
-		}' $(MAKEFILE_LIST)
+.PHONY: run
+run: manifests generate fmt vet ## Run a controller from your host.
+	go run ./cmd/main.go
 
-## Tools
-# go-install-tool will 'go install' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(GOBIN) go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+
+##@ Deployment
+
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
+.PHONY: install
+install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/crd | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: deploy
+deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: deploy-kind
+deploy-kind: manifests kustomize
+	GOOS=linux GOARCH=amd64 make build
+	docker build -t kluctl-kind:latest --build-arg BIN_PATH=./bin/kluctl .
+	kind load docker-image kluctl-kind:latest
+	cd config/manager && $(KUSTOMIZE) edit set image controller=kluctl-kind
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+.PHONY: undeploy
+undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/default | kubectl delete --ignore-not-found=$(ignore-not-found) -f -
+
+##@ Build Dependencies
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+## Tool Binaries
+KUSTOMIZE ?= $(LOCALBIN)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+
+## Tool Versions
+KUSTOMIZE_VERSION ?= v5.0.3
+CONTROLLER_TOOLS_VERSION ?= v0.12.0
+
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+$(KUSTOMIZE): $(LOCALBIN)
+	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
+		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kustomize; \
+	fi
+	test -s $(LOCALBIN)/kustomize || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) --output install_kustomize.sh && bash install_kustomize.sh $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); rm install_kustomize.sh; }
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+.PHONY: envtest
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest

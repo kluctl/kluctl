@@ -1,12 +1,10 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -15,35 +13,35 @@ import (
 )
 
 type PokeImagesCommand struct {
-	c *deployment.DeploymentCollection
+	targetCtx *kluctl_project.TargetContext
 }
 
-func NewPokeImagesCommand(c *deployment.DeploymentCollection) *PokeImagesCommand {
+func NewPokeImagesCommand(targetCtx *kluctl_project.TargetContext) *PokeImagesCommand {
 	return &PokeImagesCommand{
-		c: c,
+		targetCtx: targetCtx,
 	}
 }
 
-func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.CommandResult, error) {
+func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
-	err := ru.UpdateRemoteObjects(k, nil, cmd.c.LocalObjectRefs(), false)
+	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
+	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, nil, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
 		return nil, err
 	}
 
 	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
-	for _, d := range cmd.c.Deployments {
+	for _, d := range cmd.targetCtx.DeploymentCollection.Deployments {
 		for _, o := range d.Objects {
 			allObjects[o.GetK8sRef()] = o
 		}
 	}
 
 	containersAndImages := make(map[k8s2.ObjectRef][]types.FixedImage)
-	for _, fi := range cmd.c.Images.SeenImages(false) {
+	for _, fi := range cmd.targetCtx.DeploymentCollection.Images.SeenImages(false) {
 		_, ok := allObjects[*fi.Object]
 		if !ok {
 			dew.AddError(*fi.Object, fmt.Errorf("object not found while trying to associate image with deployed object"))
@@ -72,7 +70,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 		return o, nil
 	}
 
-	au := utils2.NewApplyDeploymentsUtil(ctx, dew, ru, k, &utils2.ApplyUtilOptions{})
+	au := utils2.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, dew, ru, cmd.targetCtx.SharedContext.K, &utils2.ApplyUtilOptions{})
 
 	for ref, containers := range containersAndImages {
 		ref := ref
@@ -80,7 +78,7 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			au := au.NewApplyUtil(ctx, nil)
+			au := au.NewApplyUtil(cmd.targetCtx.SharedContext.Ctx, nil)
 			remote := ru.GetRemoteObject(ref)
 			if remote == nil {
 				dew.AddWarning(ref, fmt.Errorf("remote object not found, skipped image replacement"))
@@ -94,18 +92,23 @@ func (cmd *PokeImagesCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*resu
 	wg.Wait()
 
 	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
-	du.DiffDeploymentItems(cmd.c.Deployments)
+	du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
-	orphanObjects, err := FindOrphanObjects(k, ru, cmd.c)
+	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
 		return nil, err
 	}
 
-	return &result.CommandResult{
+	r := &result.CommandResult{
 		Id:         uuid.New().String(),
-		Objects:    collectObjects(cmd.c, ru, au, du, orphanObjects, nil),
+		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.c.Images.SeenImages(false),
-	}, nil
+		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
+	}
+	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "deploy")
+	if err != nil {
+		return r, err
+	}
+	return r, nil
 }

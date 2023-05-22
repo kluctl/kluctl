@@ -35,11 +35,21 @@ func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bo
 	if filter == nil {
 		return true
 	}
-	if x.Project.NormalizedGitUrl != filter.NormalizedGitUrl {
+	if x.ProjectKey.GitRepoKey != filter.GitRepoKey {
 		return false
 	}
-	if x.Project.SubDir != filter.SubDir {
+	if x.ProjectKey.SubDir != filter.SubDir {
 		return false
 	}
 	return true
+}
+
+func lessSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
+	if a.Command.StartTime != b.Command.StartTime {
+		return a.Command.StartTime.After(b.Command.StartTime.Time)
+	}
+	if a.Command.EndTime != b.Command.EndTime {
+		return a.Command.EndTime.After(b.Command.EndTime.Time)
+	}
+	return a.Command.Command < b.Command.Command
 }

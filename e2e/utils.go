@@ -15,14 +15,27 @@ import (
 )
 
 func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {
+	r := k.DynamicClient.Resource(v1.SchemeGroupVersion.WithResource("namespaces"))
+	if _, err := r.Get(context.Background(), namespace, metav1.GetOptions{}); err == nil {
+		return
+	}
+
 	var ns unstructured.Unstructured
 	ns.SetName(namespace)
-
-	_, err := k.DynamicClient.Resource(v1.SchemeGroupVersion.WithResource("namespaces")).Create(context.Background(), &ns, metav1.CreateOptions{})
+	_, err := r.Create(context.Background(), &ns, metav1.CreateOptions{})
 
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func getHeadRevision(t *testing.T, p *test_utils.TestProject) string {
+	r := p.GetGitRepo()
+	h, err := r.Head()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h.Hash().String()
 }
 
 func assertObjectExists(t *testing.T, k *test_utils.EnvTestCluster, gvr schema.GroupVersionResource, namespace string, name string) *uo.UnstructuredObject {

@@ -9,8 +9,9 @@ import (
 	"reflect"
 )
 
+// +kubebuilder:pruning:PreserveUnknownFields
 type UnstructuredObject struct {
-	Object map[string]interface{} `json:"object,omitempty,inline"`
+	Object map[string]interface{} `json:"-"`
 }
 
 func (uo *UnstructuredObject) MarshalJSON() ([]byte, error) {
@@ -143,6 +144,14 @@ func (uo *UnstructuredObject) Clone() *UnstructuredObject {
 		panic(err)
 	}
 	return FromMap(c)
+}
+
+func (uo *UnstructuredObject) DeepCopyInto(out *UnstructuredObject) {
+	*out = *uo.Clone()
+}
+
+func (uo *UnstructuredObject) DeepCopy() *UnstructuredObject {
+	return uo.Clone()
 }
 
 func (uo *UnstructuredObject) Merge(other *UnstructuredObject) {
