@@ -7,10 +7,12 @@ import (
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"net"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	"time"
 )
 
 type CallbackHandler func(request admission.Request)
@@ -19,10 +21,10 @@ type CallbackHandlerEntry struct {
 	Callback CallbackHandler
 }
 
-func (k *EnvTestCluster) buildServeCallback(gvr schema.GroupVersionResource, cb CallbackHandler) http.Handler {
+func (k *EnvTestCluster) buildServeCallback() http.Handler {
 	wh := &webhook.Admission{
 		Handler: admission.HandlerFunc(func(ctx context.Context, request admission.Request) admission.Response {
-			k.serveCallback(gvr, request, cb)
+			k.handleWebhook(request)
 			return admission.Allowed("")
 		}),
 	}
@@ -32,18 +34,17 @@ func (k *EnvTestCluster) buildServeCallback(gvr schema.GroupVersionResource, cb 
 	return wh
 }
 
-func (k *EnvTestCluster) serveCallback(gvr schema.GroupVersionResource, request admission.Request, cb CallbackHandler) {
-	if request.Resource.Group != gvr.Group || request.Resource.Version != gvr.Version || request.Resource.Resource != gvr.Resource {
-		return
-	}
-
-	cb(request)
-}
-
 func (k *EnvTestCluster) startCallbackServer() error {
-	k.callbackServer.Host = k.env.WebhookInstallOptions.LocalServingHost
-	k.callbackServer.Port = k.env.WebhookInstallOptions.LocalServingPort
-	k.callbackServer.CertDir = k.env.WebhookInstallOptions.LocalServingCertDir
+	k.callbackServer = webhook.NewServer(webhook.Options{
+		Host:    k.env.WebhookInstallOptions.LocalServingHost,
+		Port:    k.env.WebhookInstallOptions.LocalServingPort,
+		CertDir: k.env.WebhookInstallOptions.LocalServingCertDir,
+	})
+
+	for _, vwh := range k.env.WebhookInstallOptions.ValidatingWebhooks {
+		path := "/" + vwh.Name
+		k.callbackServer.Register(path, k.buildServeCallback())
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	k.callbackServerStop = cancel
@@ -51,6 +52,25 @@ func (k *EnvTestCluster) startCallbackServer() error {
 	go func() {
 		_ = k.callbackServer.Start(ctx)
 	}()
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(k.env.WebhookInstallOptions.LocalServingHost, fmt.Sprintf("%d", k.env.WebhookInstallOptions.LocalServingPort)))
+	if err != nil {
+		return err
+	}
+
+	endTime := time.Now().Add(time.Second * 10)
+	for true {
+		if time.Now().After(endTime) {
+			return fmt.Errorf("timeout while waiting for webhook server")
+		}
+		c, err := net.DialTCP("tcp", nil, tcpAddr)
+		if err != nil {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		_ = c.Close()
+		break
+	}
 
 	return nil
 }
@@ -71,7 +91,6 @@ func (k *EnvTestCluster) InitWebhookCallback(gvr schema.GroupVersionResource, is
 		group = "none"
 	}
 	name := fmt.Sprintf("%s-%s-%s-callback", group, gvr.Version, gvr.Resource)
-	path := "/" + name
 
 	k.env.WebhookInstallOptions.ValidatingWebhooks = append(k.env.WebhookInstallOptions.ValidatingWebhooks, &admissionv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -108,8 +127,6 @@ func (k *EnvTestCluster) InitWebhookCallback(gvr schema.GroupVersionResource, is
 			},
 		},
 	})
-
-	k.callbackServer.Register(path, k.buildServeCallback(gvr, k.handleWebhook))
 }
 
 func (k *EnvTestCluster) handleWebhook(request admission.Request) {

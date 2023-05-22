@@ -132,7 +132,7 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 			},
 		}
 		err = s.client.Create(s.ctx, ns)
-		if err != nil {
+		if err != nil && !errors.IsAlreadyExists(err) {
 			return err
 		}
 	} else if err != nil {
