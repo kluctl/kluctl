@@ -40,7 +40,7 @@ var deleteOrder = [][]string{
 }
 
 func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef {
-	ref = k.Resources.FixNamespaceInRef(ref)
+	ref = k.FixNamespaceInRef(ref)
 	ref.Version = ""
 	return ref
 }

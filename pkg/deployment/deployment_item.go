@@ -581,7 +581,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 
 		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
 			if di.ctx.K != nil {
-				di.ctx.K.Resources.FixNamespace(o, "default")
+				di.ctx.K.FixNamespace(o, "default")
 			}
 
 			// Set common labels/annotations

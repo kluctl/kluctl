@@ -424,6 +424,51 @@ func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params
 	return ret.Stream(k.ctx)
 }
 
+func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) *bool {
+	var obj unstructured.Unstructured
+	obj.SetGroupVersionKind(gvk)
+
+	ret := false
+	_, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+		x, err := c.IsObjectNamespaced(&obj)
+		if err != nil {
+			return err
+		}
+		ret = x
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
+	return &ret
+}
+
+func (k *K8sCluster) FixNamespace(o *uo.UnstructuredObject, def string) {
+	ref := o.GetK8sRef()
+	namespaced := k.IsNamespaced(ref.GroupVersionKind())
+	if namespaced == nil {
+		return
+	}
+	if !*namespaced && ref.Namespace != "" {
+		o.SetK8sNamespace("")
+	} else if *namespaced && ref.Namespace == "" {
+		o.SetK8sNamespace(def)
+	}
+}
+
+func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
+	namespaced := k.IsNamespaced(ref.GroupVersionKind())
+	if namespaced == nil {
+		return ref
+	}
+	if !*namespaced && ref.Namespace != "" {
+		ref.Namespace = ""
+	} else if *namespaced && ref.Namespace == "" {
+		ref.Namespace = "default"
+	}
+	return ref
+}
+
 func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {
 	return k.clientFactory.RESTConfig(), nil
 }

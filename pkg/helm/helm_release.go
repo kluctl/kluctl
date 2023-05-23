@@ -260,7 +260,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 		// add the necessary namespace in the rendered resources
 		if k != nil {
 			err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-				k.Resources.FixNamespace(o, namespace)
+				k.FixNamespace(o, namespace)
 				return nil
 			})
 			if err != nil {

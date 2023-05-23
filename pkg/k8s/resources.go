@@ -3,7 +3,6 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -240,40 +239,6 @@ func (k *k8sResources) UpdateResourcesFromCRD(crd *uo.UnstructuredObject) error 
 	}
 
 	return nil
-}
-
-func (k *k8sResources) IsNamespaced(gv schema.GroupKind) *bool {
-	ar := k.GetPreferredResource(gv)
-	if ar == nil {
-		return nil
-	}
-	return &ar.Namespaced
-}
-
-func (k *k8sResources) FixNamespace(o *uo.UnstructuredObject, def string) {
-	ref := o.GetK8sRef()
-	namespaced := k.IsNamespaced(ref.GroupKind())
-	if namespaced == nil {
-		return
-	}
-	if !*namespaced && ref.Namespace != "" {
-		o.SetK8sNamespace("")
-	} else if *namespaced && ref.Namespace == "" {
-		o.SetK8sNamespace(def)
-	}
-}
-
-func (k *k8sResources) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
-	namespaced := k.IsNamespaced(ref.GroupKind())
-	if namespaced == nil {
-		return ref
-	}
-	if !*namespaced && ref.Namespace != "" {
-		ref.Namespace = ""
-	} else if *namespaced && ref.Namespace == "" {
-		ref.Namespace = "default"
-	}
-	return ref
 }
 
 func (k *k8sResources) GetAllGroupVersions() ([]schema.GroupVersion, error) {
