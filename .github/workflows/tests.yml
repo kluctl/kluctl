@@ -73,9 +73,9 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: tests1-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            tests1-go-${{ runner.os }}-
+            tests-go-${{ runner.os }}-
       - name: Run unit tests
         shell: bash
         run: |
