@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	"github.com/kluctl/kluctl/v2/pkg/results"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -21,12 +20,6 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(ctx context.Context, mgr c
 	httpClient.RetryMax = opts.HTTPRetry
 	httpClient.Logger = nil
 	r.httpClient = httpClient
-
-	resultStore, err := results.NewResultStoreSecrets(ctx, mgr.GetClient(), mgr.GetCache(), "kluctl-results", 10)
-	if err != nil {
-		return err
-	}
-	r.ResultStore = resultStore
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kluctlv1.KluctlDeployment{}, builder.WithPredicates(
