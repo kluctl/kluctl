@@ -3,12 +3,14 @@ package k8s
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
 	"net/url"
@@ -23,6 +25,7 @@ type ClientFactory interface {
 
 	CloseIdleConnections()
 
+	Mapper() meta.ResettableRESTMapper
 	Client(wh rest.WarningHandler) (client.Client, error)
 
 	DiscoveryClient() (discovery.DiscoveryInterface, error)
@@ -35,6 +38,9 @@ type realClientFactory struct {
 	ctx        context.Context
 	config     *rest.Config
 	httpClient *http.Client
+
+	discoveryClient discovery.DiscoveryInterface
+	mapper          meta.ResettableRESTMapper
 }
 
 func (r *realClientFactory) RESTConfig() *rest.Config {
@@ -45,10 +51,16 @@ func (r *realClientFactory) GetCA() []byte {
 	return r.config.CAData
 }
 
+func (r *realClientFactory) Mapper() meta.ResettableRESTMapper {
+	return r.mapper
+}
+
 func (r *realClientFactory) Client(wh rest.WarningHandler) (client.Client, error) {
 	config := rest.CopyConfig(r.config)
 	config.WarningHandler = wh
+
 	return client.New(config, client.Options{
+		Mapper: r.mapper,
 		WarningHandler: client.WarningHandlerOptions{
 			SuppressWarnings: true,
 		},
@@ -56,16 +68,7 @@ func (r *realClientFactory) Client(wh rest.WarningHandler) (client.Client, error
 }
 
 func (r *realClientFactory) DiscoveryClient() (discovery.DiscoveryInterface, error) {
-	apiHost, err := url.Parse(r.config.Host)
-	if err != nil {
-		return nil, err
-	}
-	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(r.ctx), "kube-cache/discovery", apiHost.Hostname())
-	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(r.config), discoveryCacheDir, "", time.Hour*24)
-	if err != nil {
-		return nil, err
-	}
-	return discovery2, nil
+	return r.discoveryClient, nil
 }
 
 func (r *realClientFactory) CoreV1Client(wh rest.WarningHandler) (corev1.CoreV1Interface, error) {
@@ -90,6 +93,19 @@ func (r *realClientFactory) CloseIdleConnections() {
 	r.httpClient.CloseIdleConnections()
 }
 
+func initDiscoveryClient(ctx context.Context, config *rest.Config) (discovery.CachedDiscoveryInterface, error) {
+	apiHost, err := url.Parse(config.Host)
+	if err != nil {
+		return nil, err
+	}
+	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kube-cache/discovery", apiHost.Hostname())
+	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), discoveryCacheDir, "", time.Hour*24)
+	if err != nil {
+		return nil, err
+	}
+	return discovery2, nil
+}
+
 func NewClientFactory(ctx context.Context, configIn *rest.Config) (ClientFactory, error) {
 	restConfig := rest.CopyConfig(configIn)
 	restConfig.QPS = 10
@@ -100,10 +116,19 @@ func NewClientFactory(ctx context.Context, configIn *rest.Config) (ClientFactory
 		return nil, err
 	}
 
+	dc, err := initDiscoveryClient(ctx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(dc)
+
 	return &realClientFactory{
-		ctx:        ctx,
-		config:     restConfig,
-		httpClient: httpClient,
+		ctx:             ctx,
+		config:          restConfig,
+		httpClient:      httpClient,
+		discoveryClient: dc,
+		mapper:          mapper,
 	}, nil
 }
 

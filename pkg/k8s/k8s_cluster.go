@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http"
+	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -34,11 +35,11 @@ type K8sCluster struct {
 	DryRun bool
 
 	clientFactory ClientFactory
-	clients       *k8sClients
+
+	discovery discovery.DiscoveryInterface
+	clients   *k8sClients
 
 	ServerVersion *version.Info
-
-	Resources *k8sResources
 }
 
 func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool) (*K8sCluster, error) {
@@ -50,7 +51,7 @@ func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool
 		clientFactory: clientFactory,
 	}
 
-	k.Resources, err = newK8sResources(ctx, clientFactory)
+	k.discovery, err = clientFactory.DiscoveryClient()
 	if err != nil {
 		return nil, err
 	}
@@ -60,33 +61,11 @@ func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool
 		return nil, err
 	}
 
-	v, err := k.Resources.discovery.ServerVersion()
+	v, err := k.discovery.ServerVersion()
 	if err != nil {
 		return nil, err
 	}
 	k.ServerVersion = v
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	var err1 error
-	var err2 error
-	go func() {
-		err1 = k.Resources.updateResources()
-		wg.Done()
-	}()
-	go func() {
-		err2 = k.Resources.updateResourcesFromCRDs(k.clients)
-		wg.Done()
-	}()
-	wg.Wait()
-
-	if err1 != nil {
-		return nil, err1
-	}
-	if err2 != nil {
-		return nil, err2
-	}
 
 	return k, nil
 }
@@ -201,6 +180,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 			return apiWarnings, err
 		}
 	}
+
 	return apiWarnings, nil
 }
 
@@ -467,6 +447,63 @@ func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
 		ref.Namespace = "default"
 	}
 	return ref
+}
+
+func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
+	if gvk.Kind == "KluctlDeployment" {
+		runtime.Breakpoint()
+	}
+
+	rms, err := k.clientFactory.Mapper().RESTMappings(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	var rm *meta.RESTMapping
+	for _, x := range rms {
+		if x.GroupVersionKind == gvk {
+			rm = x
+			break
+		}
+	}
+	if rm == nil {
+		return nil, fmt.Errorf("rest mapping not found")
+	}
+
+	ref := k8s.NewObjectRef(apiextensionsv1.GroupName, "v1", "CustomResourceDefinition", fmt.Sprintf("%s.%s", rm.Resource.Resource, gvk.Group), "")
+
+	crd, _, err := k.GetSingleObject(ref)
+	if err != nil {
+		return nil, err
+	}
+
+	versions, ok, err := crd.GetNestedObjectList("spec", "versions")
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("versions not found in CRD")
+	}
+
+	for _, v := range versions {
+		name, _, _ := v.GetNestedString("name")
+		if name != gvk.Version {
+			continue
+		}
+		s, ok, err := v.GetNestedObject("schema", "openAPIV3Schema")
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("version %s has no schema", name)
+		}
+		return s, nil
+	}
+	return nil, fmt.Errorf("schema for %s not found", gvk.String())
+}
+
+func (k *K8sCluster) ResetMapper() {
+	k.clientFactory.Mapper().Reset()
 }
 
 func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {

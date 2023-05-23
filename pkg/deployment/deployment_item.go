@@ -14,7 +14,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path"
 	"path/filepath"
@@ -538,32 +537,6 @@ func (di *DeploymentItem) buildKustomize() error {
 		di.Config.RenderedObjects = append(di.Config.RenderedObjects, o.GetK8sRef())
 	}
 
-	return nil
-}
-
-var crdGV = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
-
-// postprocessCRDs will update api resources from freshly deployed CRDs
-// value even if the CRD is not deployed yet.
-func (di *DeploymentItem) postprocessCRDs() error {
-	if di.dir == nil {
-		return nil
-	}
-	if di.ctx.K == nil {
-		return nil
-	}
-
-	for _, o := range di.Objects {
-		gvk := o.GetK8sGVK()
-		if gvk.GroupKind() != crdGV {
-			continue
-		}
-
-		err := di.ctx.K.Resources.UpdateResourcesFromCRD(o)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

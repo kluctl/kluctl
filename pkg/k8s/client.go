@@ -3,7 +3,6 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
@@ -109,15 +108,5 @@ func (k *k8sClients) withCClientFromPool(dryRun bool, cb func(c client.Client) e
 			c = client.NewDryRunClient(c)
 		}
 		return cb(c)
-	})
-}
-
-func (k *k8sClients) withDynamicClientForGVR(gvr *schema.GroupVersionResource, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
-	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		if namespace != "" {
-			return cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
-		} else {
-			return cb(p.dynamicClient.Resource(*gvr))
-		}
 	})
 }

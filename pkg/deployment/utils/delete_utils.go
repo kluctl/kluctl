@@ -75,7 +75,11 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 	}
 
 	filteredResources := make(map[schema.GroupKind]bool)
-	for _, gvk := range k.Resources.GetFilteredPreferredGVKs(filterFunc) {
+	gvks, err := k.GetFilteredPreferredGVKs(filterFunc)
+	if err != nil {
+		return nil, err
+	}
+	for _, gvk := range gvks {
 		filteredResources[gvk.GroupKind()] = true
 	}
 

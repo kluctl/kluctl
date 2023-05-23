@@ -41,6 +41,10 @@ func (f *fakeClientFactory) GetCA() []byte {
 func (f *fakeClientFactory) CloseIdleConnections() {
 }
 
+func (f *fakeClientFactory) Mapper() meta.ResettableRESTMapper {
+	return nil
+}
+
 func (f *fakeClientFactory) Client(wh rest.WarningHandler) (client.Client, error) {
 	return f.clientBuilder.Build(), nil
 }
