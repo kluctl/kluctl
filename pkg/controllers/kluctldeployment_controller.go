@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/internal/metrics"
+	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/results"
