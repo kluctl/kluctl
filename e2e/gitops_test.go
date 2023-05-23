@@ -100,6 +100,7 @@ func (suite *GitopsTestSuite) startController() {
 		tmpKubeconfig,
 		"--context",
 		"context1",
+		"--write-command-result",
 	}
 	done := make(chan struct{})
 	go func() {
