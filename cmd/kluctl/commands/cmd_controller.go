@@ -26,13 +26,8 @@ import (
 )
 
 var (
-	setupLog        = ctrl.Log.WithName("setup")
-	metricsRecorder = metrics.NewRecorder()
+	setupLog = ctrl.Log.WithName("setup")
 )
-
-func init() {
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
-}
 
 const controllerName = "kluctl-controller"
 
@@ -68,6 +63,9 @@ func (cmd *controllerCmd) initScheme() {
 
 func (cmd *controllerCmd) Run(ctx context.Context) error {
 	cmd.initScheme()
+
+	metricsRecorder := metrics.NewRecorder()
+	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
 	opts := zap.Options{
 		Development: true,
