@@ -250,7 +250,7 @@ func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 		o := k8s.PatchOptions{
 			ForceDryRun: a.o.DryRun,
 		}
-		r, apiWarnings, err := a.k.PatchObject(x, o)
+		r, apiWarnings, err := a.k.ApplyObject(x, o)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			a.HandleError(ref, err)
@@ -324,7 +324,7 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 		ForceDryRun: a.o.DryRun,
 		ForceApply:  true,
 	}
-	r, apiWarnings, err := a.k.PatchObject(x2, options)
+	r, apiWarnings, err := a.k.ApplyObject(x2, options)
 	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		// We didn't manage to solve it, better to abort (and not retry with replace!)
@@ -367,7 +367,7 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	options := k8s.PatchOptions{
 		ForceDryRun: a.o.DryRun,
 	}
-	r, apiWarnings, err := a.k.PatchObject(x, options)
+	r, apiWarnings, err := a.k.ApplyObject(x, options)
 	if r != nil && usesDummyName {
 		tmpName := r.GetK8sName()
 		_ = r.ReplaceKeys(tmpName, ref.Name)

@@ -2,11 +2,11 @@ package k8s
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"k8s.io/client-go/metadata"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
 	"time"
@@ -17,15 +17,12 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
@@ -120,72 +117,57 @@ func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
 	return ret
 }
 
-func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
-	var result []*uo.UnstructuredObject
+func (k *K8sCluster) doList(l client.ObjectList, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
+	apiWarnings, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+		return c.List(k.ctx, l, client.InNamespace(namespace), client.MatchingLabels(labels))
+	})
+	if err != nil {
+		return nil, apiWarnings, err
+	}
 
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, gvk, namespace, func(r dynamic.ResourceInterface) error {
-		o := v1.ListOptions{
-			LabelSelector: k.buildLabelSelector(labels),
-		}
-		x, err := r.List(k.ctx, o)
-		if err != nil {
-			return err
-		}
-		for _, o := range x.Items {
+	var result []*uo.UnstructuredObject
+	if l2, ok := l.(*unstructured.UnstructuredList); ok {
+		for _, o := range l2.Items {
 			result = append(result, uo.FromUnstructured(&o))
 		}
-		return nil
-	})
+	} else if l2, ok := l.(*v1.PartialObjectMetadataList); ok {
+		for _, o := range l2.Items {
+			x, err := uo.FromStruct(&o)
+			if err != nil {
+				return nil, apiWarnings, err
+			}
+			result = append(result, x)
+		}
+	}
 	return result, apiWarnings, err
+}
+func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
+	var l unstructured.UnstructuredList
+	l.SetGroupVersionKind(gvk)
+	return k.doList(&l, namespace, labels)
 }
 
 func (k *K8sCluster) ListMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
-	var result []*uo.UnstructuredObject
-
-	gvr, err := k.Resources.GetGVRForGVK(gvk)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	apiWarnings, err := k.clients.withClientFromPool(func(p *parallelClientEntry) error {
-		var r metadata.ResourceInterface
-		if namespace == "" {
-			r = p.metadataClient.Resource(*gvr)
-		} else {
-			r = p.metadataClient.Resource(*gvr).Namespace(namespace)
-		}
-		o := v1.ListOptions{
-			LabelSelector: k.buildLabelSelector(labels),
-		}
-		x, err := r.List(k.ctx, o)
-		if err != nil {
-			return err
-		}
-		for _, o := range x.Items {
-			u, err := uo.FromStruct(o)
-			if err != nil {
-				return err
-			}
-			u.SetK8sGVK(gvk)
-			result = append(result, u)
-		}
-		return nil
-	})
-	return result, apiWarnings, err
+	var l v1.PartialObjectMetadataList
+	l.SetGroupVersionKind(gvk)
+	return k.doList(&l, namespace, labels)
 }
 
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
-	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
-		o := v1.GetOptions{}
-		x, err := r.Get(k.ctx, ref.Name, o)
-		if err != nil {
-			return err
-		}
-		result = uo.FromUnstructured(x)
-		return nil
+	var o unstructured.Unstructured
+	o.SetGroupVersionKind(ref.GroupVersionKind())
+
+	apiWarnings, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+		return c.Get(k.ctx, client.ObjectKey{
+			Name:      ref.Name,
+			Namespace: ref.Namespace,
+		}, &o)
+
 	})
-	return result, apiWarnings, err
+	if err != nil {
+		return nil, apiWarnings, err
+	}
+	return uo.FromUnstructured(&o), apiWarnings, nil
 }
 
 type DeleteOptions struct {
@@ -197,25 +179,19 @@ type DeleteOptions struct {
 func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
 
-	pp := v1.DeletePropagationBackground
-	o := v1.DeleteOptions{
-		PropagationPolicy: &pp,
-	}
-	if dryRun {
-		o.DryRun = []string{"All"}
-	}
+	var o unstructured.Unstructured
+	o.SetGroupVersionKind(ref.GroupVersionKind())
+	o.SetName(ref.Name)
+	o.SetNamespace(ref.Namespace)
 
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
-		err := r.Delete(k.ctx, ref.Name, o)
-		if err != nil {
-			if options.IgnoreNotFoundError && errors.IsNotFound(err) {
-				return nil
-			}
-			return err
-		}
-		return nil
+	apiWarnings, err := k.clients.withCClientFromPool(dryRun, func(c client.Client) error {
+		return c.Delete(k.ctx, &o, client.PropagationPolicy(v1.DeletePropagationBackground))
 	})
+
 	if err != nil {
+		if options.IgnoreNotFoundError && errors.IsNotFound(err) {
+			return apiWarnings, nil
+		}
 		return apiWarnings, err
 	}
 
@@ -342,54 +318,35 @@ type PatchOptions struct {
 	ForceApply  bool
 }
 
-func (k *K8sCluster) doPatch(ref k8s.ObjectRef, data []byte, patchType types.PatchType, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
-	dryRun := k.DryRun || options.ForceDryRun
-
-	po := v1.PatchOptions{
-		FieldManager: "kluctl",
-	}
-	if dryRun {
-		po.DryRun = []string{"All"}
-	}
-	if options.ForceApply {
-		po.Force = &options.ForceApply
-	}
-
+func (k *K8sCluster) doPatch(ref k8s.ObjectRef, obj client.Object, patch client.Patch, options PatchOptions) ([]ApiWarning, error) {
 	status.Trace(k.ctx, "patching %s", ref.String())
 
-	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Patch(k.ctx, ref.Name, patchType, data, po)
+	var opts []client.PatchOption
+	if options.ForceApply {
+		opts = append(opts, client.ForceOwnership)
+	}
+	if options.ForceDryRun {
+		opts = append(opts, client.DryRunAll)
+	}
+	opts = append(opts, client.FieldOwner("kluctl"))
+
+	apiWarnings, err := k.clients.withCClientFromPool(k.DryRun, func(c client.Client) error {
+		err := c.Patch(k.ctx, obj, patch, opts...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
 		}
-		result = uo.FromUnstructured(x)
 		return nil
 	})
-	return result, apiWarnings, err
+	return apiWarnings, err
 }
 
-func (k *K8sCluster) PatchObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
-	data, err := yaml.WriteYamlBytes(o)
+func (k *K8sCluster) ApplyObject(o *uo.UnstructuredObject, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
+	obj := o.Clone().ToUnstructured()
+	apiWarnings, err := k.doPatch(o.GetK8sRef(), obj, client.Apply, options)
 	if err != nil {
-		return nil, nil, err
+		return nil, apiWarnings, err
 	}
-
-	return k.doPatch(o.GetK8sRef(), data, types.ApplyPatchType, options)
-}
-
-type JsonPatch struct {
-	Op    string `json:"op"`
-	Path  string `json:"path"`
-	Value any    `json:"value"`
-}
-
-func (k *K8sCluster) PatchObjectWithJsonPatch(ref k8s.ObjectRef, patch interface{}, options PatchOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
-	data, err := json.Marshal(patch)
-	if err != nil {
-		return nil, nil, err
-	}
-	return k.doPatch(ref, data, types.JSONPatchType, options)
+	return uo.FromUnstructured(obj), apiWarnings, nil
 }
 
 type UpdateOptions struct {
@@ -397,28 +354,24 @@ type UpdateOptions struct {
 }
 
 func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOptions) (*uo.UnstructuredObject, []ApiWarning, error) {
-	dryRun := k.DryRun || options.ForceDryRun
 	ref := o.GetK8sRef()
-
-	updateOpts := v1.UpdateOptions{
-		FieldManager: "kluctl",
-	}
-	if dryRun {
-		updateOpts.DryRun = []string{"All"}
-	}
+	obj := o.Clone().ToUnstructured()
 
 	status.Trace(k.ctx, "updating %s", ref.String())
 
-	var result *uo.UnstructuredObject
-	apiWarnings, err := k.clients.withDynamicClientForGVK(k.Resources, ref.GroupVersionKind(), ref.Namespace, func(r dynamic.ResourceInterface) error {
-		x, err := r.Update(k.ctx, o.ToUnstructured(), updateOpts)
-		if err != nil {
-			return err
-		}
-		result = uo.FromUnstructured(x)
-		return nil
+	var opts []client.UpdateOption
+	if options.ForceDryRun {
+		opts = append(opts, client.DryRunAll)
+	}
+	opts = append(opts, client.FieldOwner("kluctl"))
+
+	apiWarnings, err := k.clients.withCClientFromPool(k.DryRun, func(c client.Client) error {
+		return c.Update(k.ctx, obj, opts...)
 	})
-	return result, apiWarnings, err
+	if err != nil {
+		return nil, apiWarnings, err
+	}
+	return uo.FromUnstructured(obj), apiWarnings, nil
 }
 
 // envtestProxyGet checks the environment variables KLUCTL_K8S_SERVICE_PROXY_XXX to enable testing of proxy requests with envtest

@@ -102,6 +102,16 @@ func (k *k8sClients) withClientFromPool(cb func(p *parallelClientEntry) error) (
 	}
 }
 
+func (k *k8sClients) withCClientFromPool(dryRun bool, cb func(c client.Client) error) ([]ApiWarning, error) {
+	return k.withClientFromPool(func(p *parallelClientEntry) error {
+		c := p.client
+		if dryRun {
+			c = client.NewDryRunClient(c)
+		}
+		return cb(c)
+	})
+}
+
 func (k *k8sClients) withDynamicClientForGVR(gvr *schema.GroupVersionResource, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
 	return k.withClientFromPool(func(p *parallelClientEntry) error {
 		if namespace != "" {
@@ -110,12 +120,4 @@ func (k *k8sClients) withDynamicClientForGVR(gvr *schema.GroupVersionResource, n
 			return cb(p.dynamicClient.Resource(*gvr))
 		}
 	})
-}
-
-func (k *k8sClients) withDynamicClientForGVK(resources *k8sResources, gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
-	gvr, err := resources.GetGVRForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
-	return k.withDynamicClientForGVR(gvr, namespace, cb)
 }
