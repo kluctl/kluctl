@@ -65,7 +65,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-retryablehttp v0.7.1
+	github.com/hashicorp/go-retryablehttp v0.7.2
 	github.com/huandu/xstrings v1.4.0
 	github.com/onsi/gomega v1.27.7
 	github.com/otiai10/copy v1.11.0
