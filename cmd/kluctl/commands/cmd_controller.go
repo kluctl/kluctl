@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,6 +45,8 @@ type controllerCmd struct {
 
 	DefaultServiceAccount string `group:"controller" help:"Default service account used for impersonation."`
 	DryRun                bool   `group:"controller" help:"Run all deployments in dryRun=true mode."`
+
+	args.CommandResultFlags
 }
 
 func (cmd *controllerCmd) Help() string {
@@ -131,6 +135,14 @@ func (cmd *controllerCmd) Run(ctx context.Context) error {
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsRecorder,
 		SshPool:               sshPool,
+	}
+
+	if cmd.WriteCommandResult {
+		resultStore, err := results.NewResultStoreSecrets(ctx, mgr.GetClient(), mgr.GetCache(), cmd.CommandResultNamespace, cmd.KeepCommandResultsCount)
+		if err != nil {
+			return err
+		}
+		r.ResultStore = resultStore
 	}
 
 	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{
