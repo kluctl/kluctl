@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type k8sClients struct {
@@ -17,6 +18,8 @@ type k8sClients struct {
 }
 
 type parallelClientEntry struct {
+	client client.Client
+
 	corev1         corev1.CoreV1Interface
 	dynamicClient  dynamic.Interface
 	metadataClient metadata.Interface
@@ -50,6 +53,11 @@ func newK8sClients(ctx context.Context, clientFactory ClientFactory, count int) 
 
 	for i := 0; i < count; i++ {
 		p := &parallelClientEntry{}
+
+		p.client, err = clientFactory.Client(p)
+		if err != nil {
+			return nil, err
+		}
 
 		p.corev1, err = clientFactory.CoreV1Client(p)
 		if err != nil {

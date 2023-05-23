@@ -16,6 +16,8 @@ import (
 	fake_metadata "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/testing"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fake2 "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/kustomize/kyaml/openapi"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 	"strings"
@@ -25,6 +27,7 @@ type fakeClientFactory struct {
 	clientSet      *fake.Clientset
 	dynamicClient  *fake_dynamic.FakeDynamicClient
 	metadataClient *fake_metadata.FakeMetadataClient
+	clientBuilder  *fake2.ClientBuilder
 }
 
 func (f *fakeClientFactory) RESTConfig() *rest.Config {
@@ -36,6 +39,10 @@ func (f *fakeClientFactory) GetCA() []byte {
 }
 
 func (f *fakeClientFactory) CloseIdleConnections() {
+}
+
+func (f *fakeClientFactory) Client(wh rest.WarningHandler) (client.Client, error) {
+	return f.clientBuilder.Build(), nil
 }
 
 func (f *fakeClientFactory) DiscoveryClient() (discovery.DiscoveryInterface, error) {
@@ -65,10 +72,15 @@ func NewFakeClientFactory(objects ...runtime.Object) *fakeClientFactory {
 	dynamicClient := fake_dynamic.NewSimpleDynamicClient(scheme, objects...)
 	metadataClient := fake_metadata.NewSimpleMetadataClient(scheme, objects...)
 
+	clientBuilder := fake2.NewClientBuilder().
+		WithScheme(scheme).
+		WithRuntimeObjects(objects...)
+
 	return &fakeClientFactory{
 		clientSet:      clientSet,
 		dynamicClient:  dynamicClient,
 		metadataClient: metadataClient,
+		clientBuilder:  clientBuilder,
 	}
 }
 

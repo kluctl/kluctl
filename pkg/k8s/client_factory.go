@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
@@ -21,6 +22,8 @@ type ClientFactory interface {
 	GetCA() []byte
 
 	CloseIdleConnections()
+
+	Client(wh rest.WarningHandler) (client.Client, error)
 
 	DiscoveryClient() (discovery.DiscoveryInterface, error)
 	CoreV1Client(wh rest.WarningHandler) (corev1.CoreV1Interface, error)
@@ -40,6 +43,16 @@ func (r *realClientFactory) RESTConfig() *rest.Config {
 
 func (r *realClientFactory) GetCA() []byte {
 	return r.config.CAData
+}
+
+func (r *realClientFactory) Client(wh rest.WarningHandler) (client.Client, error) {
+	config := rest.CopyConfig(r.config)
+	config.WarningHandler = wh
+	return client.New(config, client.Options{
+		WarningHandler: client.WarningHandlerOptions{
+			SuppressWarnings: true,
+		},
+	})
 }
 
 func (r *realClientFactory) DiscoveryClient() (discovery.DiscoveryInterface, error) {
