@@ -200,17 +200,6 @@ func (c *DeploymentCollection) buildKustomizeObjects() error {
 	s.Success()
 
 	s = status.Start(c.ctx.Ctx, "Postprocessing objects")
-	for _, d_ := range c.Deployments {
-		d := d_
-		g.RunE(func() error {
-			err := d.postprocessCRDs()
-			if err != nil {
-				return fmt.Errorf("postprocessing CRDs failed: %w", err)
-			}
-			return nil
-		})
-	}
-	g.Wait()
 
 	g = utils.NewGoHelper(c.ctx.Ctx, 16)
 	for _, d_ := range c.Deployments {

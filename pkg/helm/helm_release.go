@@ -203,7 +203,10 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	client.Replace = true
 	client.ClientOnly = true
 	client.KubeVersion = kubeVersion
-	client.APIVersions = hr.getApiVersions(k)
+	client.APIVersions, err = hr.getApiVersions(k)
+	if err != nil {
+		return err
+	}
 
 	if hr.Config.SkipCRDs {
 		client.SkipCRDs = true
@@ -260,7 +263,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 		// add the necessary namespace in the rendered resources
 		if k != nil {
 			err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-				k.Resources.FixNamespace(o, namespace)
+				k.FixNamespace(o, namespace)
 				return nil
 			})
 			if err != nil {
@@ -281,14 +284,17 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	return nil
 }
 
-func (hr *Release) getApiVersions(k *k8s.K8sCluster) chartutil.VersionSet {
+func (hr *Release) getApiVersions(k *k8s.K8sCluster) (chartutil.VersionSet, error) {
 	if k == nil {
-		return nil
+		return nil, nil
 	}
 
 	m := map[string]bool{}
 
-	gvks := k.Resources.GetFilteredGVKs(nil)
+	gvks, err := k.GetFilteredGVKs(nil)
+	if err != nil {
+		return nil, err
+	}
 	for _, gvk := range gvks {
 		gvStr := gvk.GroupVersion().String()
 		m[gvStr] = true
@@ -301,7 +307,7 @@ func (hr *Release) getApiVersions(k *k8s.K8sCluster) chartutil.VersionSet {
 		ret = append(ret, id)
 	}
 
-	return ret
+	return ret, nil
 }
 
 func (hr *Release) parseRenderedManifests(s string) ([]*uo.UnstructuredObject, error) {

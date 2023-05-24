@@ -3,10 +3,8 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type k8sClients struct {
@@ -17,9 +15,8 @@ type k8sClients struct {
 }
 
 type parallelClientEntry struct {
-	corev1         corev1.CoreV1Interface
-	dynamicClient  dynamic.Interface
-	metadataClient metadata.Interface
+	client client.Client
+	corev1 corev1.CoreV1Interface
 
 	warnings []ApiWarning
 }
@@ -51,17 +48,12 @@ func newK8sClients(ctx context.Context, clientFactory ClientFactory, count int) 
 	for i := 0; i < count; i++ {
 		p := &parallelClientEntry{}
 
+		p.client, err = clientFactory.Client(p)
+		if err != nil {
+			return nil, err
+		}
+
 		p.corev1, err = clientFactory.CoreV1Client(p)
-		if err != nil {
-			return nil, err
-		}
-
-		p.dynamicClient, err = clientFactory.DynamicClient(p)
-		if err != nil {
-			return nil, err
-		}
-
-		p.metadataClient, err = clientFactory.MetadataClient(p)
 		if err != nil {
 			return nil, err
 		}
@@ -94,20 +86,12 @@ func (k *k8sClients) withClientFromPool(cb func(p *parallelClientEntry) error) (
 	}
 }
 
-func (k *k8sClients) withDynamicClientForGVR(gvr *schema.GroupVersionResource, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
+func (k *k8sClients) withCClientFromPool(dryRun bool, cb func(c client.Client) error) ([]ApiWarning, error) {
 	return k.withClientFromPool(func(p *parallelClientEntry) error {
-		if namespace != "" {
-			return cb(p.dynamicClient.Resource(*gvr).Namespace(namespace))
-		} else {
-			return cb(p.dynamicClient.Resource(*gvr))
+		c := p.client
+		if dryRun {
+			c = client.NewDryRunClient(c)
 		}
+		return cb(c)
 	})
-}
-
-func (k *k8sClients) withDynamicClientForGVK(resources *k8sResources, gvk schema.GroupVersionKind, namespace string, cb func(r dynamic.ResourceInterface) error) ([]ApiWarning, error) {
-	gvr, err := resources.GetGVRForGVK(gvk)
-	if err != nil {
-		return nil, err
-	}
-	return k.withDynamicClientForGVR(gvr, namespace, cb)
 }

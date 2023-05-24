@@ -14,7 +14,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"path"
 	"path/filepath"
@@ -541,32 +540,6 @@ func (di *DeploymentItem) buildKustomize() error {
 	return nil
 }
 
-var crdGV = schema.GroupKind{Group: "apiextensions.k8s.io", Kind: "CustomResourceDefinition"}
-
-// postprocessCRDs will update api resources from freshly deployed CRDs
-// value even if the CRD is not deployed yet.
-func (di *DeploymentItem) postprocessCRDs() error {
-	if di.dir == nil {
-		return nil
-	}
-	if di.ctx.K == nil {
-		return nil
-	}
-
-	for _, o := range di.Objects {
-		gvk := o.GetK8sGVK()
-		if gvk.GroupKind() != crdGV {
-			continue
-		}
-
-		err := di.ctx.K.Resources.UpdateResourcesFromCRD(o)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (di *DeploymentItem) postprocessObjects(images *Images) error {
 	if di.dir == nil {
 		return nil
@@ -581,7 +554,7 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 
 		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
 			if di.ctx.K != nil {
-				di.ctx.K.Resources.FixNamespace(o, "default")
+				di.ctx.K.FixNamespace(o, "default")
 			}
 
 			// Set common labels/annotations

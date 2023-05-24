@@ -250,7 +250,7 @@ func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 		o := k8s.PatchOptions{
 			ForceDryRun: a.o.DryRun,
 		}
-		r, apiWarnings, err := a.k.PatchObject(x, o)
+		r, apiWarnings, err := a.k.ApplyObject(x, o)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
 			a.HandleError(ref, err)
@@ -324,7 +324,7 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 		ForceDryRun: a.o.DryRun,
 		ForceApply:  true,
 	}
-	r, apiWarnings, err := a.k.PatchObject(x2, options)
+	r, apiWarnings, err := a.k.ApplyObject(x2, options)
 	a.handleApiWarnings(ref, apiWarnings)
 	if err != nil {
 		// We didn't manage to solve it, better to abort (and not retry with replace!)
@@ -367,17 +367,23 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	options := k8s.PatchOptions{
 		ForceDryRun: a.o.DryRun,
 	}
-	r, apiWarnings, err := a.k.PatchObject(x, options)
+	r, apiWarnings, err := a.k.ApplyObject(x, options)
 	if r != nil && usesDummyName {
 		tmpName := r.GetK8sName()
 		_ = r.ReplaceKeys(tmpName, ref.Name)
 		_ = r.ReplaceValues(tmpName, ref.Name)
 		r.SetK8sNamespace(ref.Namespace)
-	} else if a.o.DryRun && errors.IsNotFound(err) {
+	} else if meta.IsNoMatchError(err) {
 		if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
-			a.handleResult(x, hook)
-			a.HandleWarning(x.GetK8sRef(), fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
-			return
+			if a.o.DryRun {
+				a.handleResult(x, hook)
+				a.HandleWarning(x.GetK8sRef(), fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
+				return
+			} else {
+				// retry with invalidated discovery
+				a.k.ResetMapper()
+				r, apiWarnings, err = a.k.ApplyObject(x, options)
+			}
 		}
 	}
 	if r != nil && ref.GroupKind().String() == "Namespace" {
@@ -502,7 +508,11 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	toDelete := map[k8s2.ObjectRef]bool{}
 	for _, x := range d.Config.DeleteObjects {
-		for _, gvk := range a.k.Resources.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind)) {
+		gvks, err := a.k.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
+		if err != nil {
+			a.HandleError(k8s2.ObjectRef{}, err)
+		}
+		for _, gvk := range gvks {
 			ref := k8s2.ObjectRef{
 				Group:     gvk.Group,
 				Version:   gvk.Version,

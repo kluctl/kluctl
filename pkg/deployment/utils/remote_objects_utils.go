@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sync"
@@ -51,7 +52,7 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	errCount := 0
 	permissionErrCount := 0
 
-	gvks := k.Resources.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
+	gvks, err := k.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
 		if onlyUsedGKs != nil {
 			gk := schema.GroupKind{
 				Group: ar.Group,
@@ -63,6 +64,9 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 		}
 		return utils.FindStrInSlice(ar.Verbs, "list") != -1
 	})
+	if err != nil {
+		return err
+	}
 
 	g := utils.NewGoHelper(u.ctx, 0)
 	for _, gvk := range gvks {
@@ -141,7 +145,7 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 			r, apiWarnings, err := k.GetSingleObject(ref)
 			u.dew.AddApiWarnings(ref, apiWarnings)
 			if err != nil {
-				if errors2.IsNotFound(err) {
+				if errors2.IsNotFound(err) || meta.IsNoMatchError(err) {
 					return
 				}
 				if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {

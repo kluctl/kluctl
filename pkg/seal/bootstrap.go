@@ -87,11 +87,11 @@ func writeKey(k *k8s.K8sCluster, key *rsa.PrivateKey, certs []*x509.Certificate,
 		v1.TLSCertKey: string(certbytes),
 	}
 
-	_, _, err := k.ReadWrite().PatchObject(secret, k8s.PatchOptions{})
+	_, _, err := k.ReadWrite().ApplyObject(secret, k8s.PatchOptions{})
 	if err != nil {
 		return err
 	}
-	_, _, err = k.ReadWrite().PatchObject(configMap, k8s.PatchOptions{})
+	_, _, err = k.ReadWrite().ApplyObject(configMap, k8s.PatchOptions{})
 	if err != nil {
 		return err
 	}

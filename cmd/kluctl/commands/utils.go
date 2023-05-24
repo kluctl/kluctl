@@ -21,8 +21,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
-	cache2 "sigs.k8s.io/controller-runtime/pkg/cache"
-	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -201,26 +199,12 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	var resultStore results.ResultStore
 	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
-		rc, err := targetCtx.SharedContext.K.ToRESTConfig()
-		if err != nil {
-			return err
-		}
-		client, err := client2.New(rc, client2.Options{})
-		if err != nil {
-			return err
-		}
-		cache, err := cache2.New(rc, cache2.Options{})
+		client, err := targetCtx.SharedContext.K.ToClient()
 		if err != nil {
 			return err
 		}
 
-		cancelCtx, cancelFunc := context.WithCancel(ctx)
-		defer cancelFunc()
-		go func() {
-			_ = cache.Start(cancelCtx)
-		}()
-
-		resultStore, err = results.NewResultStoreSecrets(cancelCtx, client, cache, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount)
+		resultStore, err = results.NewResultStoreSecrets(ctx, client, nil, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount)
 		if err != nil {
 			return err
 		}
