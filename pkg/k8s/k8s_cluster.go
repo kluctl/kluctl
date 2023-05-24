@@ -37,7 +37,7 @@ type K8sCluster struct {
 	clientFactory ClientFactory
 
 	discovery      discovery.DiscoveryInterface
-	discoveryMutex sync.Mutex
+	discoveryMutex *sync.Mutex
 
 	clients *k8sClients
 
@@ -48,9 +48,10 @@ func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool
 	var err error
 
 	k := &K8sCluster{
-		ctx:           ctx,
-		DryRun:        dryRun,
-		clientFactory: clientFactory,
+		ctx:            ctx,
+		DryRun:         dryRun,
+		clientFactory:  clientFactory,
+		discoveryMutex: &sync.Mutex{},
 	}
 
 	k.discovery, err = clientFactory.DiscoveryClient()
