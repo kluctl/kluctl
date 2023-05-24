@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -35,8 +36,10 @@ type K8sCluster struct {
 
 	clientFactory ClientFactory
 
-	discovery discovery.DiscoveryInterface
-	clients   *k8sClients
+	discovery      discovery.DiscoveryInterface
+	discoveryMutex sync.Mutex
+
+	clients *k8sClients
 
 	ServerVersion *version.Info
 }

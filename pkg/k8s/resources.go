@@ -22,6 +22,11 @@ func (k *K8sCluster) doGetApiGroupResources() ([]*restmapper.APIGroupResources, 
 	// the discovery client doesn't support cancellation, so we need to run it in the background and wait for it
 	finished := make(chan error)
 	go func() {
+		// there is a race deep inside the cached discovery client
+		// see https://github.com/kubernetes/apimachinery/issues/156
+		k.discoveryMutex.Lock()
+		defer k.discoveryMutex.Unlock()
+
 		var err error
 		ret, err = restmapper.GetAPIGroupResources(k.discovery)
 		if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
