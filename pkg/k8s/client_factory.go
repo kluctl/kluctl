@@ -25,13 +25,11 @@ type ClientFactory interface {
 
 	CloseIdleConnections()
 
-	Mapper() meta.ResettableRESTMapper
+	Mapper() meta.RESTMapper
 	Client(wh rest.WarningHandler) (client.Client, error)
 
 	DiscoveryClient() (discovery.DiscoveryInterface, error)
 	CoreV1Client(wh rest.WarningHandler) (corev1.CoreV1Interface, error)
-	DynamicClient(wh rest.WarningHandler) (dynamic.Interface, error)
-	MetadataClient(wh rest.WarningHandler) (metadata.Interface, error)
 }
 
 type realClientFactory struct {
@@ -51,7 +49,7 @@ func (r *realClientFactory) GetCA() []byte {
 	return r.config.CAData
 }
 
-func (r *realClientFactory) Mapper() meta.ResettableRESTMapper {
+func (r *realClientFactory) Mapper() meta.RESTMapper {
 	return r.mapper
 }
 

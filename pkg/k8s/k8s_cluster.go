@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/restmapper"
 )
 
 type K8sCluster struct {
@@ -503,7 +502,13 @@ func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.Unstructu
 }
 
 func (k *K8sCluster) ResetMapper() {
-	k.clientFactory.Mapper().Reset()
+	if m, ok := k.clientFactory.Mapper().(meta.ResettableRESTMapper); ok {
+		m.Reset()
+	}
+}
+
+func (k *K8sCluster) ToClient() (client.Client, error) {
+	return k.clientFactory.Client(nil)
 }
 
 func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {
@@ -511,11 +516,7 @@ func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {
 }
 
 func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
-	d, err := k.clientFactory.DiscoveryClient()
-	if err != nil {
-		return nil, err
-	}
-	cd, ok := d.(discovery.CachedDiscoveryInterface)
+	cd, ok := k.discovery.(discovery.CachedDiscoveryInterface)
 	if !ok {
 		return nil, fmt.Errorf("not a CachedDiscoveryInterface")
 	}
@@ -523,12 +524,5 @@ func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, er
 }
 
 func (k *K8sCluster) ToRESTMapper() (meta.RESTMapper, error) {
-	discoveryClient, err := k.ToDiscoveryClient()
-	if err != nil {
-		return nil, err
-	}
-
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
-	expander := restmapper.NewShortcutExpander(mapper, discoveryClient)
-	return expander, nil
+	return k.clientFactory.Mapper(), nil
 }

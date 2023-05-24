@@ -3,9 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -18,10 +16,7 @@ type k8sClients struct {
 
 type parallelClientEntry struct {
 	client client.Client
-
-	corev1         corev1.CoreV1Interface
-	dynamicClient  dynamic.Interface
-	metadataClient metadata.Interface
+	corev1 corev1.CoreV1Interface
 
 	warnings []ApiWarning
 }
@@ -59,16 +54,6 @@ func newK8sClients(ctx context.Context, clientFactory ClientFactory, count int) 
 		}
 
 		p.corev1, err = clientFactory.CoreV1Client(p)
-		if err != nil {
-			return nil, err
-		}
-
-		p.dynamicClient, err = clientFactory.DynamicClient(p)
-		if err != nil {
-			return nil, err
-		}
-
-		p.metadataClient, err = clientFactory.MetadataClient(p)
 		if err != nil {
 			return nil, err
 		}
