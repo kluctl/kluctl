@@ -103,20 +103,24 @@ func (k *K8sCluster) doList(l client.ObjectList, namespace string, labels map[st
 		return nil, apiWarnings, err
 	}
 
-	var result []*uo.UnstructuredObject
-	if l2, ok := l.(*unstructured.UnstructuredList); ok {
-		for _, o := range l2.Items {
-			result = append(result, uo.FromUnstructured(&o))
-		}
-	} else if l2, ok := l.(*v1.PartialObjectMetadataList); ok {
-		for _, o := range l2.Items {
-			x, err := uo.FromStruct(&o)
+	items, err := meta.ExtractList(l)
+	if err != nil {
+		return nil, apiWarnings, err
+	}
+
+	result := make([]*uo.UnstructuredObject, len(items))
+	for i, o := range items {
+		if u, ok := o.(*unstructured.Unstructured); ok {
+			result[i] = uo.FromUnstructured(u)
+		} else {
+			x, err := uo.FromStruct(o)
 			if err != nil {
 				return nil, apiWarnings, err
 			}
-			result = append(result, x)
+			result[i] = x
 		}
 	}
+
 	return result, apiWarnings, err
 }
 func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
