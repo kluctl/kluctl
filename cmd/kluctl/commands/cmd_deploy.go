@@ -27,6 +27,8 @@ type deployCmd struct {
 	args.CommandResultFlags
 
 	NoWait bool `group:"misc" help:"Don't wait for objects readiness'"`
+
+	internal bool
 }
 
 func (cmd *deployCmd) Help() string {
@@ -47,6 +49,7 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
+		internalDeploy:       cmd.internal,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		return cmd.runCmdDeploy(cmdCtx)

@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
@@ -42,9 +42,12 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		return err
 	}
 
-	repoRoot, err := git.DetectGitRepositoryRoot(projectDir)
-	if err != nil {
-		status.Warning(ctx, "Failed to detect git project root. This might cause follow-up errors")
+	var repoRoot string
+	if !internalDeploy {
+		repoRoot, err = git.DetectGitRepositoryRoot(projectDir)
+		if err != nil {
+			status.Warning(ctx, "Failed to detect git project root. This might cause follow-up errors")
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, projectFlags.Timeout)
@@ -126,6 +129,7 @@ type projectTargetCommandArgs struct {
 	renderOutputDirFlags args.RenderOutputDirFlags
 	commandResultFlags   *args.CommandResultFlags
 
+	internalDeploy    bool
 	forSeal           bool
 	forCompletion     bool
 	offlineKubernetes bool
@@ -140,7 +144,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }

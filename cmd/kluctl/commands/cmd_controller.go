@@ -1,5 +1,6 @@
 package commands
 
 type controllerCmd struct {
-	Run_ controllerRunCmd `cmd:"run" help:"Run the Kluctl controller"`
+	Install controllerInstallCmd `cmd:"" help:"Install the Kluctl controller"`
+	Run_    controllerRunCmd     `cmd:"run" help:"Run the Kluctl controller"`
 }

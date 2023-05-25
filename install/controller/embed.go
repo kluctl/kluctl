@@ -3,4 +3,4 @@ package controller
 import "embed"
 
 //go:embed all:*
-var Config embed.FS
+var Project embed.FS
