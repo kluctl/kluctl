@@ -94,6 +94,11 @@ func (in *DeploymentItemConfig) DeepCopyInto(out *DeploymentItemConfig) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.Message != nil {
+		in, out := &in.Message, &out.Message
+		*out = new(string)
+		**out = **in
+	}
 	if in.Vars != nil {
 		in, out := &in.Vars, &out.Vars
 		*out = make([]*VarsSource, len(*in))

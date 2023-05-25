@@ -13,6 +13,7 @@ type DeploymentItemConfig struct {
 	Git              *GitProject              `json:"git,omitempty"`
 	Tags             []string                 `json:"tags,omitempty"`
 	Barrier          bool                     `json:"barrier,omitempty"`
+	Message          *string                  `json:"message,omitempty"`
 	WaitReadiness    bool                     `json:"waitReadiness,omitempty"`
 	Vars             []*VarsSource            `json:"vars,omitempty"`
 	SkipDeleteIfTags bool                     `json:"skipDeleteIfTags,omitempty"`
