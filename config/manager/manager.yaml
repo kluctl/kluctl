@@ -69,6 +69,7 @@ spec:
       - command:
         - kluctl
         - controller
+        - run
         args:
         - --leader-elect
         image: ghcr.io/kluctl/kluctl:latest

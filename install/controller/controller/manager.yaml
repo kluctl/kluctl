@@ -42,6 +42,7 @@ spec:
         command:
         - kluctl
         - controller
+        - run
         image: ghcr.io/kluctl/kluctl:latest
         imagePullPolicy: IfNotPresent
         livenessProbe:

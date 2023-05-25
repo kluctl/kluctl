@@ -96,6 +96,7 @@ func (suite *GitopsTestSuite) startController() {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	args := []string{
 		"controller",
+		"run",
 		"--kubeconfig",
 		tmpKubeconfig,
 		"--context",
