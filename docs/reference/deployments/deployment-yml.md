@@ -128,6 +128,24 @@ deployments:
 - path: kustomizeDeployment3
 ```
 
+To create a barrier with a custom message, include the message parameter when creating the barrier. The message parameter accepts a string value that represents the custom message.
+
+Example:
+```yaml
+deployments:
+- path: kustomizeDeployment1
+- path: kustomizeDeployment2
+- include: subDeployment1
+- barrier: true
+  message: "Waiting for subDeployment1 to be finished"
+# At this point, it's ensured that kustomizeDeployment1, kustomizeDeployment2 and all sub-deployments from
+# subDeployment1 are fully deployed.
+- path: kustomizeDeployment3
+```
+If no custom message is provided, the barrier will be created without a specific message, and the default behavior will be applied.
+
+When viewing the `kluctl deploy` status, the custom message, if provided, will be displayed along with default barrier information.
+
 ### deleteObjects
 Causes kluctl to delete matching objects, specified by a list of group/kind/name/namespace dictionaries.
 The order/parallelization of deletion is identical to the order and parallelization of normal deployment items,
