@@ -1,0 +1,13 @@
+resources:
+  - crd.yaml
+  - manager.yaml
+  - rbac.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: kluctl-controller
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/image
+        value: ghcr.io/kluctl/kluctl:{{ args.controller_version }}

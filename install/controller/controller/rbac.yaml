@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: controller
+    app.kubernetes.io/instance: kluctl-controller-sa
+    app.kubernetes.io/managed-by: kluctl
+    app.kubernetes.io/name: serviceaccount
+    app.kubernetes.io/part-of: controller
+  name: kluctl-controller
+  namespace: kluctl-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: controller
+    app.kubernetes.io/instance: leader-election-role
+    app.kubernetes.io/managed-by: kluctl
+    app.kubernetes.io/name: role
+    app.kubernetes.io/part-of: controller
+  name: kluctl-controller-leader-election-role
+  namespace: kluctl-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kluctl-controller-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments/status
+  verbs:
+  - get
+- apiGroups:
+  - gitops.kluctl.io
+  resources:
+  - kluctldeployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gitops.kluctl.io
+  resources:
+  - kluctldeployments/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - gitops.kluctl.io
+  resources:
+  - kluctldeployments/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: controller
+    app.kubernetes.io/instance: leader-election-rolebinding
+    app.kubernetes.io/managed-by: kluctl
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/part-of: controller
+  name: kluctl-controller-leader-election-rolebinding
+  namespace: kluctl-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kluctl-controller-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: kluctl-controller
+  namespace: kluctl-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: controller
+    app.kubernetes.io/instance: kluctl-controller-rolebinding
+    app.kubernetes.io/managed-by: kluctl
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: controller
+  name: kluctl-controller-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kluctl-controller-role
+subjects:
+- kind: ServiceAccount
+  name: kluctl-controller
+  namespace: kluctl-system
