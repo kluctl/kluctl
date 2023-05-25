@@ -34,6 +34,7 @@ type DeploymentItem struct {
 
 	// These values come from the metadata of the kustomization.yml
 	Barrier       bool
+	Message       *string
 	WaitReadiness bool
 
 	Objects []*uo.UnstructuredObject

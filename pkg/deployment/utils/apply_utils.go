@@ -697,10 +697,21 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.Deploy
 			sctx.Failed()
 		}()
 
+		var message *string
+
+		if d.Message != nil {
+			message = d.Message
+		}
+
+		if d.Config.Message != nil {
+			message = d.Config.Message
+		}
+
 		barrier := d.Config.Barrier || d.Barrier
 		if barrier {
-			sctx := status.StartWithOptions(a.ctx, status.WithStatus("Waiting on barrier..."), status.WithTotal(1))
+			sctx := status.StartWithOptions(a.ctx, status.WithStatus("Waiting on barrier: "+*message), status.WithTotal(1))
 			wg.Wait()
+			time.Sleep(10 * time.Second)
 			sctx.UpdateAndInfoFallback(fmt.Sprintf("Finished waiting"))
 			sctx.Success()
 		}
