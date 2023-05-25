@@ -7,13 +7,14 @@ metadata:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: controller
     app.kubernetes.io/part-of: controller
-    app.kubernetes.io/managed-by: kustomize
-  name: leader-election-rolebinding
+    app.kubernetes.io/managed-by: kluctl
+  name: kluctl-controller-leader-election-rolebinding
+  namespace: kluctl-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: leader-election-role
+  name: kluctl-controller-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: controller-manager
-  namespace: system
+  name: kluctl-controller
+  namespace: kluctl-system
