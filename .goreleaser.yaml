@@ -52,7 +52,7 @@ sboms:
 checksum:
   name_template: '{{ .ProjectName }}_v{{ .Version }}_checksums.txt'
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ incminor .Version }}-next"
 changelog:
   sort: asc
   filters:
