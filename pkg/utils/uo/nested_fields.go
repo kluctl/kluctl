@@ -270,3 +270,23 @@ func (uo *UnstructuredObject) SetNestedFieldDefault(defaultValue interface{}, ke
 	}
 	return uo.SetNestedField(defaultValue, keys...)
 }
+
+func (uo *UnstructuredObject) GetNestedBool(keys ...interface{}) (bool, bool, error) {
+	v, found, err := uo.GetNestedField(keys...)
+	if err != nil {
+		return false, false, err
+	}
+	if !found {
+		return false, true, nil
+	}
+	if x, ok := v.(bool); ok {
+		return x, true, nil
+	} else if x, ok := v.(*bool); ok {
+		if x == nil {
+			return false, true, nil
+		}
+		return *x, true, nil
+	} else {
+		return false, false, fmt.Errorf("field is not a bool")
+	}
+}

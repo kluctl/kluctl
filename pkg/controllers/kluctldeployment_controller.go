@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	errors2 "errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
@@ -13,9 +14,13 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"k8s.io/apimachinery/pkg/api/errors"
+	meta2 "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
@@ -29,7 +34,6 @@ import (
 type KluctlDeploymentReconciler struct {
 	client.Client
 	RestConfig            *rest.Config
-	ClientSet             *kubernetes.Clientset
 	httpClient            *retryablehttp.Client
 	requeueDependency     time.Duration
 	Scheme                *runtime.Scheme
@@ -52,6 +56,8 @@ type KluctlDeploymentReconcilerOpts struct {
 // +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments/finalizers,verbs=get;create;update;patch;delete
+// +kubebuilder:rbac:groups=flux.kluctl.io,resources=kluctldeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=flux.kluctl.io,resources=kluctldeployments/status,verbs=get
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -92,6 +98,10 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Examine if the object is under deletion
 	if !obj.GetDeletionTimestamp().IsZero() {
 		return r.finalize(ctx, obj)
+	}
+
+	if r.checkLegacyKluctlDeployment(ctx, obj) {
+		return ctrl.Result{}, nil
 	}
 
 	// Return early if the KluctlDeployment is suspended.
@@ -504,6 +514,45 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 	pt := pp.newTarget()
 
 	_, _ = pt.kluctlDelete(ctx, obj.Status.TargetKey.Discriminator)
+}
+
+// checkLegacyKluctlDeployment checks if a legacy KluctlDeployment from the old flux.kluctl.io group is present. If yes
+// we must ensure that this object is served by a recent legacy controller version which understands that it should stop
+// reconciliation in case the new gitops.kluctl.io object is present
+func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlDeployment) bool {
+	log := ctrl.LoggerFrom(ctx)
+
+	obj2 := uo.New()
+	obj2.SetK8sGVK(schema.GroupVersionKind{
+		Group:   "flux.kluctl.io",
+		Version: "v1alpha1",
+		Kind:    "KluctlDeployment",
+	})
+	err := r.Get(ctx, client.ObjectKeyFromObject(obj), obj2.ToUnstructured())
+	if err != nil {
+		err = errors2.Unwrap(err)
+		if meta2.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) {
+			// legacy object not present, we're safe to continue
+			return false
+		}
+		log.Error(err, "Failed to retrieve legacy KluctlDeployment. Skipping reconciliation.")
+		// some unexpected error...we should be on the safe side and bail out reconciliation
+		return true
+	}
+
+	readyForMigration, _, err := obj2.GetNestedBool("")
+	if err != nil {
+		// some unexpected error...we should be on the safe side and bail out reconciliation
+		log.Error(err, "Failed to retrieve readyForMigration value. Skipping reconciliation.")
+		return true
+	}
+	if !readyForMigration {
+		log.V(1).Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. " +
+			"Please ensure that you have upgraded to the latest version of the legacy flux-kluctl-controller and that is is still running.")
+		return true
+	}
+
+	return false
 }
 
 func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.KluctlDeployment) {

@@ -22,6 +22,20 @@ rules:
   - create
   - patch
 - apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - flux.kluctl.io
+  resources:
+  - kluctldeployments/status
+  verbs:
+  - get
+- apiGroups:
   - gitops.kluctl.io
   resources:
   - kluctldeployments
