@@ -711,7 +711,6 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.Deploy
 		if barrier {
 			sctx := status.StartWithOptions(a.ctx, status.WithStatus("Waiting on barrier: "+*message), status.WithTotal(1))
 			wg.Wait()
-			time.Sleep(10 * time.Second)
 			sctx.UpdateAndInfoFallback(fmt.Sprintf("Finished waiting"))
 			sctx.Success()
 		}
