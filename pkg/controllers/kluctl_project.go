@@ -14,9 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"helm.sh/helm/v3/pkg/repo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -545,12 +545,13 @@ func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context,
 	if name == "" {
 		return nil
 	}
-	sa, err := pp.r.ClientSet.CoreV1().ServiceAccounts(pp.obj.Namespace).Get(ctx, name, metav1.GetOptions{})
+	var sa corev1.ServiceAccount
+	err := pp.r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: pp.obj.Namespace}, &sa)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve service account %s: %w", name, err)
 	}
 
-	ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, pp.r.Client, sa)
+	ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, pp.r.Client, &sa)
 	if err != nil {
 		return err
 	}

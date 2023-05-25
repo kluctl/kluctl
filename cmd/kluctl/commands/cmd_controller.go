@@ -12,7 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -90,12 +89,6 @@ func (cmd *controllerCmd) Run(ctx context.Context) error {
 		restConfig.Burst = -1
 	}
 
-	clientSet, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 cmd.scheme,
 		MetricsBindAddress:     cmd.MetricsBindAddress,
@@ -130,7 +123,6 @@ func (cmd *controllerCmd) Run(ctx context.Context) error {
 		DryRun:                cmd.DryRun,
 		RestConfig:            restConfig,
 		Client:                mgr.GetClient(),
-		ClientSet:             clientSet,
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         eventRecorder,
 		MetricsRecorder:       metricsRecorder,
