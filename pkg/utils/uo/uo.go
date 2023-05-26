@@ -19,7 +19,7 @@ func (uo *UnstructuredObject) MarshalJSON() ([]byte, error) {
 }
 
 func (uo *UnstructuredObject) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, &uo.Object)
+	return yaml.ReadYamlBytes(b, &uo.Object)
 }
 
 func (uo *UnstructuredObject) IsZero() bool {

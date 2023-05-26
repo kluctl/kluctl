@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/url"
 )
 
@@ -11,7 +12,7 @@ type YamlUrl struct {
 
 func (u *YamlUrl) UnmarshalJSON(b []byte) error {
 	var s string
-	err := json.Unmarshal(b, &s)
+	err := yaml.ReadYamlBytes(b, &s)
 	if err != nil {
 		return err
 	}

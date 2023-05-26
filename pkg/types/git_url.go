@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/giturls"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/url"
 	"strings"
 )
@@ -43,7 +44,7 @@ func (in *GitUrl) DeepCopyInto(out *GitUrl) {
 
 func (u *GitUrl) UnmarshalJSON(b []byte) error {
 	var s string
-	err := json.Unmarshal(b, &s)
+	err := yaml.ReadYamlBytes(b, &s)
 	if err != nil {
 		return err
 	}
@@ -142,7 +143,7 @@ func (u GitRepoKey) String() string {
 
 func (u *GitRepoKey) UnmarshalJSON(b []byte) error {
 	var s string
-	err := json.Unmarshal(b, &s)
+	err := yaml.ReadYamlBytes(b, &s)
 	if err != nil {
 		return err
 	}

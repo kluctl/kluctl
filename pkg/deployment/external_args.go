@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -61,7 +60,7 @@ func LoadDefaultArgs(args []*types.DeploymentArg, deployArgs *uo.UnstructuredObj
 	for _, a := range args {
 		if a.Default != nil {
 			var v any
-			err := json.Unmarshal(a.Default.Raw, &v)
+			err := yaml.ReadYamlBytes(a.Default.Raw, &v)
 			if err != nil {
 				return err
 			}

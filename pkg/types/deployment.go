@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/json"
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -70,14 +69,14 @@ type SingleStringOrList []string
 
 func (s *SingleStringOrList) UnmarshalJSON(b []byte) error {
 	var single string
-	if err := json.Unmarshal(b, &single); err == nil {
+	if err := yaml.ReadYamlBytes(b, &single); err == nil {
 		// it's a single project
 		*s = []string{single}
 		return nil
 	}
 	// try as array
 	var arr []string
-	if err := json.Unmarshal(b, &arr); err != nil {
+	if err := yaml.ReadYamlBytes(b, &arr); err != nil {
 		return err
 	}
 	*s = arr
