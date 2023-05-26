@@ -39,7 +39,7 @@ export const TargetsView = () => {
         setSelectedTargetSummary(ts)
     }
 
-    return <Box width={"max-content"}>
+    return <Box width={"max-content"} p='0 40px'>
         <CommandResultDetailsDrawer rs={selectedCommandResult} onClose={() => setSelectedCommandResult(undefined)}/>
         <TargetDetailsDrawer ts={selectedTargetSummary} onClose={() => setSelectedTargetSummary(undefined)}/>
         <Box display={"flex"} alignItems={"center"} p={1}>

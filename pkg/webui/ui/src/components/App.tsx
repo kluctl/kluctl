@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 
 import '../index.css';
-import { Box } from "@mui/material";
+import { Box, ThemeProvider } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
+import { light } from './theme';
 
 export interface AppOutletContext {
     filters?: React.ReactNode
@@ -22,9 +23,13 @@ const App = () => {
         setFilters: setFilters,
     }
 
-    return <Box width={"100%"} height={"100%"}>
-        <LeftDrawer content={<Outlet context={context}/>} context={context}/>
-    </Box>
+    return (
+        <ThemeProvider theme={light}>
+            <Box width={"100%"} height={"100%"}>
+                <LeftDrawer content={<Outlet context={context} />} context={context} />
+            </Box>
+        </ThemeProvider>
+    );
 };
 
 export default App;
