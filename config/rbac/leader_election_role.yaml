@@ -8,8 +8,9 @@ metadata:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: controller
     app.kubernetes.io/part-of: controller
-    app.kubernetes.io/managed-by: kustomize
-  name: leader-election-role
+    app.kubernetes.io/managed-by: kluctl
+  name: kluctl-controller-leader-election-role
+  namespace: kluctl-system
 rules:
 - apiGroups:
   - ""

@@ -66,7 +66,7 @@ type cli struct {
 	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
 	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
-	Controller  controllerCmd  `cmd:"" help:"Run the Kluctl controller"`
+	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -78,7 +78,6 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
-	{group: "controller", title: "Controller:", description: "Controller arguments."},
 }
 
 var origStderr = os.Stderr

@@ -38,11 +38,13 @@ func (c *LoadedKluctlProject) getConfigPath() string {
 func (c *LoadedKluctlProject) loadKluctlProject() error {
 	var err error
 
-	c.projectRootDir = c.LoadArgs.RepoRoot
 	c.ProjectDir = c.LoadArgs.ProjectDir
-	err = utils.CheckInDir(c.projectRootDir, c.ProjectDir)
-	if err != nil {
-		return err
+
+	if c.LoadArgs.RepoRoot != "" {
+		err = utils.CheckInDir(c.LoadArgs.RepoRoot, c.ProjectDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	configPath := c.getConfigPath()

@@ -155,7 +155,7 @@ func (cmd *sealCmd) loadCert(cmdCtx *commandCtx) (*x509.Certificate, error) {
 }
 
 func (cmd *sealCmd) Run(ctx context.Context) error {
-	return withKluctlProjectFromArgs(ctx, cmd.ProjectFlags, nil, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, cmd.ProjectFlags, nil, false, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
 		noTargetMatch := true

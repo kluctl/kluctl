@@ -18,8 +18,7 @@ type LoadedKluctlProject struct {
 
 	TmpDir string
 
-	projectRootDir string
-	ProjectDir     string
+	ProjectDir string
 
 	sealedSecretsDir string
 

@@ -48,6 +48,15 @@ jobs:
             git diff
             exit 1
           fi
+      - name: Verify generated manifests are up-to-date
+        run: |
+          make manifests
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "make manifests must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
 
   tests:
     strategy:

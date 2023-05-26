@@ -106,7 +106,10 @@ func (c *rootCommand) buildCobraSubCommands(cg *commandAndGroups, cmdStruct inte
 		v2 := v.Field(i).Addr().Interface()
 		name := buildCobraName(f.Name)
 
-		if _, ok := f.Tag.Lookup("cmd"); ok {
+		if cmd, ok := f.Tag.Lookup("cmd"); ok {
+			if cmd != "" {
+				name = cmd
+			}
 			// subcommand
 			shortHelp := f.Tag.Get("help")
 			longHelp := ""
