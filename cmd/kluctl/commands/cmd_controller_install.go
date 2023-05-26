@@ -14,8 +14,8 @@ type controllerInstallCmd struct {
 	args.DryRunFlags
 	args.CommandResultFlags
 
-	Context           string `group:"controller" help:"Override the context to use."`
-	ControllerVersion string `group:"controller" help:"Specify the controller version to install."`
+	Context           string `group:"misc" help:"Override the context to use."`
+	ControllerVersion string `group:"misc" help:"Specify the controller version to install."`
 }
 
 func (cmd *controllerInstallCmd) Help() string {

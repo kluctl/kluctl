@@ -35,15 +35,15 @@ const controllerName = "kluctl-controller"
 type controllerRunCmd struct {
 	scheme *runtime.Scheme
 
-	Kubeconfig string `group:"controller" help:"Override the kubeconfig to use."`
-	Context    string `group:"controller" help:"Override the context to use."`
+	Kubeconfig string `group:"misc" help:"Override the kubeconfig to use."`
+	Context    string `group:"misc" help:"Override the context to use."`
 
-	MetricsBindAddress     string `group:"controller" help:"The address the metric endpoint binds to." default:":8080"`
-	HealthProbeBindAddress string `group:"controller" help:"The address the probe endpoint binds to." default:":8081"`
-	LeaderElect            bool   `group:"controller" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	MetricsBindAddress     string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
+	HealthProbeBindAddress string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
+	LeaderElect            bool   `group:"misc" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
 
-	DefaultServiceAccount string `group:"controller" help:"Default service account used for impersonation."`
-	DryRun                bool   `group:"controller" help:"Run all deployments in dryRun=true mode."`
+	DefaultServiceAccount string `group:"misc" help:"Default service account used for impersonation."`
+	DryRun                bool   `group:"misc" help:"Run all deployments in dryRun=true mode."`
 
 	args.CommandResultFlags
 }

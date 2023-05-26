@@ -135,7 +135,10 @@ func getHelpSection(command string, section string) []string {
 		log.Fatal(err)
 	}
 
-	helpCmd := exec.Command(exe, command, "--help")
+	args := strings.Split(command, " ")
+	args = append(args, "--help")
+
+	helpCmd := exec.Command(exe, args...)
 	helpCmd.Env = os.Environ()
 	helpCmd.Env = append(helpCmd.Env, "CALL_KLUCTL=true")
 

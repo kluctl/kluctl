@@ -1,8 +1,8 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "controller"
-linkTitle: "controller"
+title: "controller run"
+linkTitle: "controller run"
 weight: 10
 description: >
     controller command
@@ -10,8 +10,8 @@ description: >
 -->
 
 ## Command
-<!-- BEGIN SECTION "controller" "Usage" false -->
-Usage: kluctl controller [flags]
+<!-- BEGIN SECTION "controller run" "Usage" false -->
+Usage: kluctl controller run [flags]
 
 Run the Kluctl controller
 This command will run the Kluctl Controller. This is usually meant to be run inside a cluster and not from your local machine.
@@ -21,10 +21,10 @@ This command will run the Kluctl Controller. This is usually meant to be run ins
 ## Arguments
 
 The following arguments are available:
-<!-- BEGIN SECTION "controller" "Controller" true -->
+<!-- BEGIN SECTION "controller run" "Misc arguments" true -->
 ```
-Controller:
-  Controller arguments.
+Misc arguments:
+  Command specific arguments.
 
       --context string                     Override the context to use.
       --default-service-account string     Default service account used for impersonation.
