@@ -17,11 +17,16 @@ Kluctl is centered around "targets", which can be a cluster or a specific enviro
 or multiple clusters. Targets can be deployed, diffed, pruned, deleted, and so on. The idea is to have the same set of
 operations for every target, no matter how simple or complex the deployment and/or target is.
 
-Kluctl does not depend on external operators/controllers and allows to use the same deployment wherever you want,
+Kluctl does not strictly depend on a controller and allows to use the same deployment wherever you want,
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
 local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
 
-Flux support is in alpha stadium and available via the [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
+If you want to follow a pull based GitOps flow, then you can use the Kluctl Controller, which then allows you to use
+`KluctlDeployment` custom resources to define your Kluctl deployments.
+
+Please note: GitOps support was previously implemented via the now deprecated [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
+Historically, the flux-kluctl-controller depended on the Flux ecosystem (the source-controller to be specific), which
+has changed in the meantime, meaning that it runs completely independent and thus is not part of the Flux ecosystem anymore.
 
 ## What can I do with Kluctl?
 
