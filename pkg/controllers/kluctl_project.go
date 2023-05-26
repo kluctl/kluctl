@@ -640,6 +640,11 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string) error {
 	log := ctrl.LoggerFrom(ctx)
 
+	if cmdErr != nil {
+		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
+		return cmdErr
+	}
+
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
 	cmdResult.GitInfo.Url = &pt.pp.obj.Spec.Source.URL
 	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
@@ -655,10 +660,6 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 	defer pt.exportCommandResultMetricsToProm(summary)
-	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
-		return cmdErr
-	}
 
 	msg := fmt.Sprintf("%s succeeded.", commandName)
 	if summary.NewObjects != 0 {
