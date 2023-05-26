@@ -310,6 +310,9 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 		if err != nil {
 			return
 		}
+		if summary == nil {
+			return
+		}
 		if !s.filterSummary(summary, options.ProjectFilter) {
 			return
 		}

@@ -11,3 +11,12 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/image
         value: ghcr.io/kluctl/kluctl:{{ args.controller_version }}
+{% if args.controller_version.endswith("-next-amd64") or args.controller_version.endswith("-next-arm64") %}
+  - target:
+      kind: Deployment
+      name: kluctl-controller
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always
+{% endif %}

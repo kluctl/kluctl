@@ -134,6 +134,21 @@ type GitRepoKey struct {
 	Path string `json:"-"`
 }
 
+func ParseGitRepoKey(s string) (GitRepoKey, error) {
+	if s == "" {
+		return GitRepoKey{}, nil
+	}
+
+	s2 := strings.SplitN(s, "/", 2)
+	if len(s2) != 2 {
+		return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
+	}
+	return GitRepoKey{
+		Host: s2[0],
+		Path: s2[1],
+	}, nil
+}
+
 func (u GitRepoKey) String() string {
 	if u.Host == "" && u.Path == "" {
 		return ""
@@ -152,12 +167,11 @@ func (u *GitRepoKey) UnmarshalJSON(b []byte) error {
 		u.Path = ""
 		return nil
 	}
-	s2 := strings.SplitN(s, "/", 2)
-	if len(s2) != 2 {
-		return fmt.Errorf("invalid git repo key: %s", s)
+	x, err := ParseGitRepoKey(s)
+	if err != nil {
+		return err
 	}
-	u.Host = s2[0]
-	u.Path = s2[1]
+	*u = x
 	return nil
 }
 
