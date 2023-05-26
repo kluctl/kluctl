@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,12 +19,12 @@ type GitProject struct {
 }
 
 func (gp *GitProject) UnmarshalJSON(b []byte) error {
-	if err := json.Unmarshal(b, &gp.Url); err == nil {
+	if err := yaml.ReadYamlBytes(b, &gp.Url); err == nil {
 		// it's a simple string
 		return nil
 	}
 	type raw GitProject
-	return json.Unmarshal(b, (*raw)(gp))
+	return yaml.ReadYamlBytes(b, (*raw)(gp))
 }
 
 // invalidDirName evaluate directory name against forbidden characters

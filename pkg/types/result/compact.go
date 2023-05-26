@@ -73,7 +73,7 @@ func (l CompactedObjects) MarshalJSON() ([]byte, error) {
 
 func (l *CompactedObjects) UnmarshalJSON(b []byte) error {
 	var compactedList []CompactedObject
-	err := json.Unmarshal(b, &compactedList)
+	err := yaml.ReadYamlBytes(b, &compactedList)
 	if err != nil {
 		return err
 	}
