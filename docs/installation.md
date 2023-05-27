@@ -10,13 +10,17 @@ description: "Installing kluctl."
 
 # Installation
 
-## Binaries
+Kluctl is available as a CLI and as a GitOps controller.
+
+## Installing the CLI
+
+### Binaries
 
 The kluctl CLI is available as a binary executable for all major platforms,
 the binaries can be downloaded form GitHub
 [releases page](https://github.com/kluctl/kluctl/releases).
 
-## Installation with Homebrew
+### Installation with Homebrew
 
 With [Homebrew](https://brew.sh) for macOS and Linux:
 
@@ -24,7 +28,7 @@ With [Homebrew](https://brew.sh) for macOS and Linux:
 brew install kluctl/tap/kluctl
 ```
 
-## Installation with Bash
+### Installation with Bash
 
 With [Bash](https://www.gnu.org/software/bash/) for macOS and Linux:
 
@@ -38,7 +42,7 @@ The install script does the following:
 * copies the kluctl binary to `/usr/local/bin`
 * removes the temporary directory
 
-## Build from source
+### Build from source
 
 Clone the repository:
 
@@ -61,7 +65,7 @@ Run the binary:
 
 
 <!-- TODO uncomment when chocolatey support is implemented
-## Chocolatey
+### Chocolatey
 
 With [Chocolatey](https://chocolatey.org/) for Windows:
 
@@ -84,8 +88,30 @@ are also supported with their own sub-commands.
 
 -->
 
-## Container images
+### Container images
 
 A container image with `kluctl` is available on GitHub:
 
 * `ghcr.io/kluctl/kluctl:<version>`
+
+## Installing the GitOps Controller
+
+The controller can be installed via two available options.
+
+### Using the "install" sub-command
+
+The [`kluctl controller install`](./reference/commands/controller-install.md) command can be used to install the
+controller. It will use an embedded version of the Controller Kluctl deployment project
+found [here](https://github.com/kluctl/kluctl/tree/main/install/controller).
+
+### Using a Kluctl deployment
+
+To manage and install the controller via Kluctl, you can use a Git include in your own deployment:
+
+```yaml
+deployments:
+  - git:
+      url: https://github.com/kluctl/kluctl.git
+      subDir: install/controller
+      ref: v0.0.0
+```
