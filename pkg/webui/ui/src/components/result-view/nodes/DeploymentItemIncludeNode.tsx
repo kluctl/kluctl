@@ -3,7 +3,7 @@ import React from 'react';
 import { DeploymentItemConfig, DeploymentProjectConfig } from "../../../models";
 import { NodeData } from "./NodeData";
 import { FolderZip } from "@mui/icons-material";
-import { GitIcon } from "../../../icons/GitIcon";
+import { GitIcon } from "../../../icons/Icons";
 import { CommandResultProps } from "../CommandResultView";
 import { PropertiesTable } from "../../PropertiesTable";
 import { buildDeploymentItemSummaryProps } from "./DeploymentItemNode";

@@ -7,11 +7,20 @@ const paletteDark = {
 
 const paletteLight = {
     primary: { main: '#222222' },
-    secondary: { main: '#39403E'}
+    secondary: { main: '#39403E' },
+    background: { default: '#DFEBE9', paper: '#DFEBE9' },
+    text: { primary: '#222222' }
 } satisfies PaletteOptions;
 
 export const light = createTheme({
     palette: paletteLight,
+    typography: {
+        fontFamily: 'Nunito Variable',
+        h1: { color: '#222222' },
+        h6: { color: '#39403E' },
+        subtitle1: { color: '#39403E' },
+        subtitle2: { fontSize: '14px', lineHeight: 1.2 }
+    },
     components: {
         MuiDivider: {
             styleOverrides: {
@@ -32,6 +41,9 @@ export const light = createTheme({
 
 export const dark = createTheme({
     palette: paletteDark,
+    typography: {
+        fontFamily: 'Nunito Variable'
+    },
     components: {
         MuiListItem: {
             styleOverrides: {
@@ -53,10 +65,10 @@ export const dark = createTheme({
             styleOverrides: {
                 root: {
                     border: 'none'
-                }, 
+                },
                 paper: {
                     border: 'none'
-                }, 
+                },
             }
         },
         MuiDivider: {

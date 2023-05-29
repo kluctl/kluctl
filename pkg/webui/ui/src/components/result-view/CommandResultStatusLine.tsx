@@ -20,7 +20,15 @@ export const StatusLine = (props: StatusLineProps) => {
             children.push(
                 <Box key={children.length} display={"flex"} flexDirection={"column"}>
                     <Tooltip title={n + " " + t}>
-                        {icon}
+                        <Box
+                            display='flex'
+                            alignItems='center'
+                            justifyContent='center'
+                            width='24px'
+                            height='24px'
+                        >
+                            {icon}
+                        </Box>
                     </Tooltip>
                     <Typography fontSize={"10px"} align={"center"}>{n}</Typography>
                 </Box>
@@ -28,12 +36,12 @@ export const StatusLine = (props: StatusLineProps) => {
         }
     }
 
-    doPush(props.errors, "total errors.", <Dangerous color={"error"}/>)
-    doPush(props.warnings, "total warnings.", <Warning color={"warning"}/>)
-    doPush(props.newObjects, "new objects.", <LibraryAdd color={"info"}/>)
-    doPush(props.deletedObjects, "deleted objects.", <Delete color={"info"}/>)
-    doPush(props.orphanObjects, "orphan objects.", <LinkOff color={"info"}/>)
-    doPush(props.changedObjects, "changed objects.", <Difference color={"info"}/>)
+    doPush(props.errors, "total errors.", <Dangerous color={"error"} />)
+    doPush(props.warnings, "total warnings.", <Warning color={"warning"} />)
+    doPush(props.newObjects, "new objects.", <LibraryAdd color={"info"} />)
+    doPush(props.deletedObjects, "deleted objects.", <Delete color={"info"} />)
+    doPush(props.orphanObjects, "orphan objects.", <LinkOff color={"info"} />)
+    doPush(props.changedObjects, "changed objects.", <Difference color={"info"} />)
 
     return <Box display="flex" width={"100%"}>
         {children}
@@ -42,18 +50,18 @@ export const StatusLine = (props: StatusLineProps) => {
 
 export const CommandResultStatusLine = (props: { rs: CommandResultSummary }) => {
     return <StatusLine errors={props.rs.errors}
-                       warnings={props.rs.warnings}
-                       changedObjects={props.rs.changedObjects}
-                       newObjects={props.rs.newObjects}
-                       deletedObjects={props.rs.deletedObjects}
-                       orphanObjects={props.rs.orphanObjects}
+        warnings={props.rs.warnings}
+        changedObjects={props.rs.changedObjects}
+        newObjects={props.rs.newObjects}
+        deletedObjects={props.rs.deletedObjects}
+        orphanObjects={props.rs.orphanObjects}
     />
 }
 
 
 export const ValidateResultStatusLine = (props: { vr?: ValidateResult }) => {
     return <StatusLine errors={props.vr?.errors?.length}
-                       warnings={props.vr?.warnings?.length}
-                       changedObjects={props.vr?.drift?.length}
+        warnings={props.vr?.warnings?.length}
+        changedObjects={props.vr?.drift?.length}
     />
 }

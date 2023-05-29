@@ -1,4 +1,4 @@
-import { createBrowserRouter, createHashRouter, useRouteError } from "react-router-dom";
+import { createHashRouter, useRouteError } from "react-router-dom";
 import React from "react";
 import App from "./App";
 import { projectsLoader, TargetsView } from "./targets-view/TargetsView";

@@ -22,7 +22,7 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
         setAnchorEl(null);
     };
 
-    const icon = props.icon || <MoreVert/>
+    const icon = props.icon || <MoreVert />
 
     return <React.Fragment>
         <IconButton
@@ -31,6 +31,7 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
             aria-controls={menuOpen ? 'account-menu' : undefined}
             aria-haspopup="true"
             aria-expanded={menuOpen ? 'true' : undefined}
+            sx={{ padding: 0 }}
         >
             {icon}
         </IconButton>
@@ -39,7 +40,7 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
             id="account-menu"
             open={menuOpen}
             onClose={handleMenuClose}
-            onClick={ e => {e.stopPropagation(); handleMenuClose()}}
+            onClick={e => { e.stopPropagation(); handleMenuClose() }}
             PaperProps={{
                 elevation: 0,
                 sx: {

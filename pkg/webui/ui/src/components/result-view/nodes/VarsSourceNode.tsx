@@ -2,7 +2,7 @@ import { VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
 import { Category, Cloud, Dvr, Http, Lock, Settings, Source } from "@mui/icons-material";
-import { GitIcon } from "../../../icons/GitIcon";
+import { GitIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
 import { Box } from "@mui/material";

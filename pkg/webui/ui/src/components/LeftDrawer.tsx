@@ -4,27 +4,22 @@ import { CSSObject, styled, Theme, ThemeProvider, useTheme } from '@mui/material
 import Box from '@mui/material/Box';
 import MuiDrawer from '@mui/material/Drawer';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
 import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { Link } from "react-router-dom";
 import { AppOutletContext } from "./App";
-import { KluctlLogo } from "../icons/KluctlLogo";
-import { Targets } from '../icons/Targets';
+import { KluctlLogo, TargetsIcon, KluctlText, SearchIcon } from '../icons/Icons';
 import { dark } from './theme';
-import { KluctlText } from '../icons/KluctlText';
 import { Typography } from '@mui/material';
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 96;
+const appBarHeight = 106;
 
 const openedMixin = (theme: Theme): CSSObject => ({
     width: drawerWidthOpen,
@@ -45,7 +40,7 @@ const closedMixin = (theme: Theme): CSSObject => ({
 });
 
 const DrawerHeader = styled('div')(({ theme }) => ({
-    height: '106px',
+    height: appBarHeight,
     padding: '31px 23px 0 23px',
     // necessary for content to be below app bar
     ...theme.mixins.toolbar,
@@ -58,7 +53,7 @@ interface AppBarProps extends MuiAppBarProps {
 const AppBar = styled(MuiAppBar, {
     shouldForwardProp: (prop) => prop !== 'open',
 })<AppBarProps>(({ theme, open }) => ({
-    height: 106,
+    height: appBarHeight,
     border: 'none',
     boxShadow: 'none',
     background: 'transparent',
@@ -133,16 +128,47 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
 
     const [open, setOpen] = useState(true);
 
+    const theme = useTheme();
+
     const toggleDrawer = () => {
         setOpen(o => !o);
     };
 
     return (
-        <Box sx={{ display: 'flex' }} height={"100%"}>
-            <AppBar position="fixed" open={open}>
-                <Typography variant='h1' fontSize='32px' fontWeight='bold'>
-                    Dashboard
-                </Typography>
+        <Box display='flex' height='100%'>
+            <AppBar position='fixed' open={open}>
+                <Box display='flex' justifyContent='space-between'>
+                    <Typography variant='h1' fontSize='32px' fontWeight='bold' lineHeight='40px'>
+                        Dashboard
+                    </Typography>
+                    <Box
+                        height='40px'
+                        maxWidth='314px'
+                        flexGrow={1}
+                        borderRadius='10px'
+                        display='flex'
+                        justifyContent='space-between'
+                        alignItems='center'
+                        padding='0 9px 0 15px'
+                        sx={{ background: theme.palette.background.default }}
+                    >
+                        <input
+                            type='text'
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                outline: 'none',
+                                height: '20px',
+                                lineHeight: '20px',
+                                fontSize: '18px'
+                            }}
+                            placeholder='Search'
+                        />
+                        <IconButton sx={{ padding: 0, height: 40, width: 40 }}>
+                            <SearchIcon />
+                        </IconButton>
+                    </Box>
+                </Box>
                 <Divider />
             </AppBar>
             <ThemeProvider theme={dark}>
@@ -156,17 +182,19 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
                         </IconButton>
                     </DrawerHeader>
                     <Divider />
-                    <List>
-                        <Item text={"Targets"} open={open} icon={<Targets />} to={"targets"} />
+                    <List sx={{ padding: 0 }}>
+                        <Item text={"Targets"} open={open} icon={<TargetsIcon />} to={"targets"} />
                         <Divider />
                         {context.filters}
                     </List>
                     {context.filters && <Divider />}
                 </Drawer>
             </ThemeProvider>
-            <Box component="main" sx={{ flexGrow: 1 }} minWidth={0}>
+            <Box component="main" sx={{ flexGrow: 1, height: '100%', overflow: 'hidden' }} minWidth={0}>
                 <DrawerHeader />
-                {props.content}
+                <Box width='100%' height={`calc(100% - ${appBarHeight}px)`} overflow='auto'>
+                    {props.content}
+                </Box>
             </Box>
         </Box>
     );
