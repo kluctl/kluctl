@@ -650,10 +650,13 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
 	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.RepoKey()
 
-	log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
-	err := pt.pp.r.ResultStore.WriteCommandResult(cmdResult)
-	if err != nil {
-		log.Error(err, "Writing command result failed")
+	var err error
+	if pt.pp.r.ResultStore != nil {
+		log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
+		err = pt.pp.r.ResultStore.WriteCommandResult(cmdResult)
+		if err != nil {
+			log.Error(err, "Writing command result failed")
+		}
 	}
 
 	summary := cmdResult.BuildSummary()
