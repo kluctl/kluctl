@@ -1,6 +1,6 @@
 import { useLoaderData } from "react-router-dom";
 import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
-import { Box, BoxProps, Typography } from "@mui/material";
+import { Box, BoxProps, Typography, useTheme } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useAppOutletContext } from "../App";
 import { api } from "../../api";
@@ -16,6 +16,7 @@ const colWidth = 433;
 const cardWidth = 247;
 const projectCardHeight = 80;
 const cardHeight = 126;
+const cardGap = 20;
 
 export async function projectsLoader() {
     const projects = await api.listProjects()
@@ -49,16 +50,101 @@ function Card({ children, ...rest }: BoxProps) {
 }
 
 function CardCol({ children, ...rest }: BoxProps) {
-    return <Box display='flex' flexDirection='column' gap='20px' {...rest}>
+    return <Box display='flex' flexDirection='column' gap={`${cardGap}px`} {...rest}>
         {children}
     </Box>
 }
 
 function CardRow({ children, ...rest }: BoxProps) {
-    return <Box display='flex' gap='20px' {...rest}>
+    return <Box display='flex' gap={`${cardGap}px`} {...rest}>
         {children}
     </Box>
 }
+
+const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.Element | null => {
+    const theme = useTheme();
+    const height = targetCount * cardHeight + (targetCount - 1) * cardGap
+    const width = 169;
+    const curveRadius = 12;
+    const circleRadius = 5;
+    const strokeWidth = 2;
+
+    if (targetCount <= 0) {
+        return null;
+    }
+
+    const targetsCenterYs = Array(targetCount).fill(0).map((_, i) =>
+        cardHeight / 2 + i * (cardHeight + cardGap)
+    );
+    const rootCenterY = height / 2;
+
+    return <svg
+        width='169'
+        height={height}
+        viewBox={`0 0 169 ${height}`}
+        fill='none'
+    >
+        {targetsCenterYs.map((cy, i) => {
+            let d: React.SVGAttributes<SVGPathElement>['d'];
+            if (targetCount % 2 === 1 && i === Math.floor(targetCount / 2)) {
+                // target is in the middle.
+                d = `
+                        M ${circleRadius},${rootCenterY}
+                        h ${width - circleRadius}
+                    `;
+            } else if (i < targetCount / 2) {
+                // target is higher than root.
+                d = `
+                        M ${circleRadius},${rootCenterY}
+                        h ${width / 2 - curveRadius - circleRadius}
+                        a ${curveRadius} ${curveRadius} 90 0 0 ${curveRadius} -${curveRadius}
+                        v ${cy - rootCenterY + curveRadius * 2}
+                        a ${curveRadius} ${curveRadius} 90 0 1 ${curveRadius} -${curveRadius}
+                        h ${width / 2 - curveRadius - circleRadius}
+                    `;
+            } else {
+                // target is lower than root.
+                d = `
+                    M ${circleRadius},${rootCenterY}
+                    h ${width / 2 - curveRadius - circleRadius}
+                    a ${curveRadius} ${curveRadius} 90 0 1 ${curveRadius} ${curveRadius}
+                    v ${cy - rootCenterY - curveRadius * 2}
+                    a ${curveRadius} ${curveRadius} 90 0 0 ${curveRadius} ${curveRadius}
+                    h ${width / 2 - curveRadius - circleRadius}
+                `;
+            }
+
+            return [
+                <path
+                    key={`path-${i}`}
+                    d={d}
+                    stroke={theme.palette.secondary.main}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                />,
+                <circle
+                    key={`circle-${i}`}
+                    cx={width - circleRadius - strokeWidth / 2}
+                    cy={cy}
+                    r={circleRadius}
+                    fill={theme.palette.background.default}
+                    stroke={theme.palette.secondary.main}
+                    strokeWidth={strokeWidth}
+                />
+            ]
+        })}
+        <circle
+            key='circle-root'
+            cx={circleRadius + strokeWidth / 2}
+            cy={rootCenterY}
+            r={circleRadius}
+            fill={theme.palette.background.default}
+            stroke={theme.palette.secondary.main}
+            strokeWidth={strokeWidth}
+        />
+    </svg>
+});
 
 export const TargetsView = () => {
     const context = useAppOutletContext()
@@ -80,12 +166,6 @@ export const TargetsView = () => {
         setSelectedTargetSummary(ts)
     }
 
-    useEffect(() => {
-        if (projects[2].targets.length < 3) {
-            projects[2].targets.push(projects[2].targets[0])
-        }
-    })
-
     return <Box width={"max-content"} p='0 40px'>
         <CommandResultDetailsDrawer rs={selectedCommandResult} onClose={() => setSelectedCommandResult(undefined)} />
         <TargetDetailsDrawer ts={selectedTargetSummary} onClose={() => setSelectedTargetSummary(undefined)} />
@@ -98,11 +178,20 @@ export const TargetsView = () => {
         {projects.map((ps, i) => {
             return <Box key={i}>
                 <Box key={i} display={"flex"} alignItems={"center"} margin='40px 0'>
-                    <CardCol width={colWidth}>
+                    <Box display='flex' alignItems='center' width={colWidth}>
                         <Card height={projectCardHeight}>
                             <ProjectItem ps={ps} />
                         </Card>
-                    </CardCol>
+                        <Box
+                            flexGrow={1}
+                            height={ps.targets.length * cardHeight + (ps.targets.length - 1) * cardGap}
+                            display='flex'
+                            justifyContent='center'
+                            alignItems='center'
+                        >
+                            <RelationTree targetCount={ps.targets.length} />
+                        </Box>
+                    </Box>
 
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
