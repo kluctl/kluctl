@@ -7,7 +7,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"net/http"
-	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
@@ -457,10 +456,6 @@ func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
 }
 
 func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	if gvk.Kind == "KluctlDeployment" {
-		runtime.Breakpoint()
-	}
-
 	rms, err := k.clientFactory.Mapper().RESTMappings(gvk.GroupKind(), gvk.Version)
 	if err != nil {
 		return nil, err
