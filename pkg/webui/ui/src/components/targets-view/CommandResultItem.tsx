@@ -75,10 +75,7 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
                         textAlign='left'
                         textOverflow='ellipsis'
                         overflow='hidden'
-                        lineHeight='27.28px'
                         flexGrow={1}
-                        fontSize='20px'
-                        fontWeight={800}
                     >
                         {props.rs.commandInfo?.command}
                     </Typography>

@@ -9,7 +9,7 @@ import Paper from '@mui/material/Paper';
 
 export function PropertiesTable(props: {properties: {name: string, value: React.ReactNode}[]}) {
     return (
-        <TableContainer component={Paper}>
+        <TableContainer component={Paper} sx={{ padding: '10px 0' }}>
             <Table>
                 <TableHead>
                     <TableRow>

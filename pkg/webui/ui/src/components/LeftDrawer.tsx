@@ -19,7 +19,6 @@ import { Typography } from '@mui/material';
 
 const drawerWidthOpen = 224;
 const drawerWidthClosed = 96;
-const appBarHeight = 106;
 
 const openedMixin = (theme: Theme): CSSObject => ({
     width: drawerWidthOpen,
@@ -40,7 +39,7 @@ const closedMixin = (theme: Theme): CSSObject => ({
 });
 
 const DrawerHeader = styled('div')(({ theme }) => ({
-    height: appBarHeight,
+    height: theme.consts.appBarHeight,
     padding: '31px 23px 0 23px',
     // necessary for content to be below app bar
     ...theme.mixins.toolbar,
@@ -53,7 +52,7 @@ interface AppBarProps extends MuiAppBarProps {
 const AppBar = styled(MuiAppBar, {
     shouldForwardProp: (prop) => prop !== 'open',
 })<AppBarProps>(({ theme, open }) => ({
-    height: appBarHeight,
+    height: theme.consts.appBarHeight,
     border: 'none',
     boxShadow: 'none',
     background: 'transparent',
@@ -138,7 +137,7 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
         <Box display='flex' height='100%'>
             <AppBar position='fixed' open={open}>
                 <Box display='flex' justifyContent='space-between'>
-                    <Typography variant='h1' fontSize='32px' fontWeight='bold' lineHeight='40px'>
+                    <Typography variant='h1'>
                         Dashboard
                     </Typography>
                     <Box
@@ -169,7 +168,6 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
                         </IconButton>
                     </Box>
                 </Box>
-                <Divider />
             </AppBar>
             <ThemeProvider theme={dark}>
                 <Drawer variant="permanent" open={open}>
@@ -192,7 +190,8 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
             </ThemeProvider>
             <Box component="main" sx={{ flexGrow: 1, height: '100%', overflow: 'hidden' }} minWidth={0}>
                 <DrawerHeader />
-                <Box width='100%' height={`calc(100% - ${appBarHeight}px)`} overflow='auto'>
+                <Divider sx={{ margin: '0 40px' }}/>
+                <Box width='100%' height={`calc(100% - ${theme.consts.appBarHeight}px)`} overflow='auto'>
                     {props.content}
                 </Box>
             </Box>

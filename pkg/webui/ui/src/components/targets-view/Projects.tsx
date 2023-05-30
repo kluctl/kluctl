@@ -38,10 +38,7 @@ export const ProjectItem = (props: { ps: ProjectSummary }) => {
                                 textAlign='left'
                                 textOverflow='ellipsis'
                                 overflow='hidden'
-                                lineHeight={1.2}
                                 flexGrow={1}
-                                fontSize='20px'
-                                fontWeight={800}
                             >
                                 {name}
                             </Typography>

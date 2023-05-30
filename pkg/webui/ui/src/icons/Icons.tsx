@@ -9,6 +9,7 @@ import { ReactComponent as ProjectIconSvg } from './project.svg';
 import { ReactComponent as CpuIconSvg } from './cpu.svg';
 import { ReactComponent as FingerScanIconSvg } from './finger-scan.svg';
 import { ReactComponent as TreeViewIconSvg } from './tree-view.svg';
+import { ReactComponent as CloseIconSvg } from './close.svg';
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -61,4 +62,8 @@ export const MessageQuestionIcon = (props: { color: string }) => {
 
 export const TreeViewIcon = () => {
     return <TreeViewIconSvg width="26px" height="26px" />
+}
+
+export const CloseIcon = () => {
+    return <CloseIconSvg width="24px" height="24px" />
 }

@@ -1,8 +1,9 @@
-import { PaletteOptions, createTheme } from '@mui/material/styles';
+import { PaletteOptions, ThemeOptions, createTheme } from '@mui/material/styles';
 
 const paletteDark = {
     primary: { main: '#DFEBE9' },
-    background: { default: '#222222', paper: '#222222' }
+    background: { default: '#222222', paper: '#222222' },
+    text: { primary: '#DFEBE9' }
 } satisfies PaletteOptions;
 
 const paletteLight = {
@@ -12,13 +13,53 @@ const paletteLight = {
     text: { primary: '#222222' }
 } satisfies PaletteOptions;
 
-export const light = createTheme({
-    palette: paletteLight,
+declare module '@mui/material/styles' {
+    interface Theme {
+        consts: {
+            appBarHeight: number;
+        };
+    }
+    // allow configuration using `createTheme`
+    interface ThemeOptions {
+        consts?: {
+            appBarHeight?: number;
+        };
+    }
+}
+
+export const common = createTheme({
+    consts: {
+        appBarHeight: 106
+    },
     typography: {
         fontFamily: 'Nunito Variable',
-        h1: { color: '#222222' },
-        h6: { color: '#39403E' },
-        subtitle1: { color: '#39403E' },
+    }
+});
+
+export const light = createTheme(common, {
+    palette: paletteLight,
+    typography: {
+        h1: {
+            color: paletteLight.text.primary,
+            fontWeight: 700,
+            fontSize: '32px',
+            lineHeight: '44px',
+            letterSpacing: '1px',
+        },
+        h2: {
+            color: paletteLight.text.primary,
+            fontWeight: 700,
+            fontSize: '20px',
+            lineHeight: '27px',
+            letterSpacing: '1px',
+        },
+        h6: {
+            color: paletteLight.secondary.main,
+            fontWeight: 800,
+            fontSize: '20px',
+            lineHeight: '27px'
+        },
+        subtitle1: { color: paletteLight.secondary.main },
         subtitle2: { fontSize: '14px', lineHeight: 1.2 }
     },
     components: {
@@ -35,14 +76,51 @@ export const light = createTheme({
                     color: paletteLight.primary.main
                 }
             }
+        },
+        MuiTableCell: {
+            styleOverrides: {
+                root: {
+                    border: 'none',
+                    borderTop: `0.5px solid ${paletteLight.secondary.main}`,
+                    fontWeight: 400,
+                    fontSize: '16px',
+                    lineHeight: '22px',
+                    letterSpacing: '1px',
+                    position: 'relative',
+                    ':after': {
+                        content: '""',
+                        position: 'absolute',
+                        top: '10px',
+                        right: 0,
+                        bottom: '10px',
+                        display: 'block',
+                        borderRight: '0.5px solid #39403E',
+                    },
+                    ':last-of-type:after': {
+                        content: 'none'
+                    }
+                },
+                head: {
+                    border: 'none',
+                }
+            }
         }
     }
-});
+} satisfies ThemeOptions);
 
-export const dark = createTheme({
+export const dark = createTheme(common, {
     palette: paletteDark,
     typography: {
-        fontFamily: 'Nunito Variable'
+        allVariants: {
+            color: paletteDark.text.primary
+        },
+        h4: { 
+            color: paletteDark.text.primary,
+            fontWeight: 700,
+            fontSize: '24px',
+            lineHeight: '33px',
+            letterSpacing: '1px',
+        }
     },
     components: {
         MuiListItem: {
@@ -79,6 +157,32 @@ export const dark = createTheme({
                     margin: '0 13px'
                 }
             }
+        },
+        MuiTabs: {
+            styleOverrides: {
+                root: {
+                    height: '36px',
+                    minHeight: 0,
+                    textTransform: 'none'
+                },
+                indicator: {
+                    backgroundColor: '#59A588'
+                }
+            }
+        },
+        MuiTab: {
+            styleOverrides: {
+                root: {
+                    height: '36px',
+                    minHeight: 0,
+                    fontWeight: 400,
+                    fontSize: '16px',
+                    lineHeight: '22px',
+                    letterSpacing: '1px',
+                    textTransform: 'none',
+                    padding: '7px 5px'
+                }
+            }
         }
     }
-})
+} satisfies ThemeOptions)

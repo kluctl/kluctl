@@ -39,7 +39,7 @@ function ColHeader({ children }: { children: React.ReactNode }) {
             }
         }}
     >
-        <Typography variant={"h6"} textAlign='left' fontSize='20px' fontWeight={700}>{children}</Typography>
+        <Typography variant='h2' textAlign='left'>{children}</Typography>
     </Box>
 }
 
@@ -79,9 +79,9 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
     const rootCenterY = height / 2;
 
     return <svg
-        width='169'
+        width={width}
         height={height}
-        viewBox={`0 0 169 ${height}`}
+        viewBox={`0 0 ${width} ${height}`}
         fill='none'
     >
         {targetsCenterYs.map((cy, i) => {
