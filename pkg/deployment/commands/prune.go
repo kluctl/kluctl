@@ -14,12 +14,14 @@ import (
 type PruneCommand struct {
 	discriminator string
 	targetCtx     *kluctl_project.TargetContext
+	wait          bool
 }
 
-func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetContext) *PruneCommand {
+func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetContext, wait bool) *PruneCommand {
 	return &PruneCommand{
 		discriminator: discriminator,
 		targetCtx:     targetCtx,
+		wait:          wait,
 	}
 }
 
@@ -52,7 +54,7 @@ func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*resu
 		}
 	}
 
-	deleted, err := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, true)
+	deleted, err := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, cmd.wait)
 	if err != nil {
 		return nil, err
 	}

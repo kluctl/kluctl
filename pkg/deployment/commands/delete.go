@@ -18,13 +18,15 @@ type DeleteCommand struct {
 	discriminator string
 	targetCtx     *kluctl_project.TargetContext
 	inclusion     *utils.Inclusion
+	wait          bool
 }
 
-func NewDeleteCommand(discriminator string, targetCtx *kluctl_project.TargetContext, inclusion *utils.Inclusion) *DeleteCommand {
+func NewDeleteCommand(discriminator string, targetCtx *kluctl_project.TargetContext, inclusion *utils.Inclusion, wait bool) *DeleteCommand {
 	return &DeleteCommand{
 		discriminator: discriminator,
 		targetCtx:     targetCtx,
 		inclusion:     inclusion,
+		wait:          wait,
 	}
 }
 
@@ -64,7 +66,7 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 		}
 	}
 
-	deleted, err := utils2.DeleteObjects(ctx, k, deleteRefs, dew, true)
+	deleted, err := utils2.DeleteObjects(ctx, k, deleteRefs, dew, cmd.wait)
 	if err != nil {
 		return nil, err
 	}
