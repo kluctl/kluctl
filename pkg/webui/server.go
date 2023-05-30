@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"io/fs"
 	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
@@ -52,7 +53,30 @@ func (s *CommandResultsServer) Run(port int) error {
 
 	router := gin.Default()
 
-	router.StaticFS("/webui", http.FS(uiFS))
+	dis, err := fs.ReadDir(uiFS, ".")
+	if err != nil {
+		return err
+	}
+
+	for _, di := range dis {
+		if di.IsDir() {
+			x, err := fs.Sub(uiFS, di.Name())
+			if err != nil {
+				return err
+			}
+			router.StaticFS("/"+di.Name(), http.FS(x))
+		} else {
+			router.StaticFileFS("/"+di.Name(), di.Name(), http.FS(uiFS))
+		}
+	}
+	router.GET("/", func(c *gin.Context) {
+		b, err := fs.ReadFile(uiFS, "index.html")
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", b)
+	})
 
 	api := router.Group("/api")
 	api.GET("/getShortNames", s.getShortNames)
