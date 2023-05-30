@@ -74,8 +74,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	patch := client.MergeFrom(obj.DeepCopy())
-
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, r.calcTimeout(obj))
 	defer cancel()
@@ -88,6 +86,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Add our finalizer if it does not exist
 	if !controllerutil.ContainsFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer) {
+		patch := client.MergeFrom(obj.DeepCopy())
 		controllerutil.AddFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer)
 		if err := r.Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 			log.Error(err, "unable to register finalizer")
@@ -121,6 +120,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// set the reconciliation status to progressing
 	if obj.Status.ObservedGeneration == 0 {
+		patch := client.MergeFrom(obj.DeepCopy())
 		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
 		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 			return ctrl.Result{Requeue: true}, err
@@ -128,6 +128,8 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		r.recordReadiness(ctx, obj)
 	}
+
+	patch := client.MergeFrom(obj.DeepCopy())
 
 	// record the value of the reconciliation request, if any
 	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
