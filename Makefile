@@ -66,7 +66,7 @@ manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRol
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/reference/controller/api/kluctl-controller.md
+	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/reference/gitops/api/kluctl-controller.md
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
