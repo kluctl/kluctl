@@ -156,7 +156,7 @@ The above example is equivalent to calling `kluctl deploy -t prod -a arg1=value1
 
 ### images
 `spec.images` specifies a list of fixed images to be used by
-[`image.get_image(...)`](../../../deployments/images#imagesget_image). Example:
+[`image.get_image(...)`](../../../deployments/images.md#imagesget_image). Example:
 
 ```
 apiVersion: gitops.kluctl.io/v1beta1
