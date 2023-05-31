@@ -3,6 +3,7 @@ package test_resources
 import (
 	"context"
 	"embed"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -79,20 +81,28 @@ func waitReadiness(k *test_utils.EnvTestCluster, x *uo.UnstructuredObject) {
 	}
 }
 
-func ApplyYaml(name string, k *test_utils.EnvTestCluster) {
+func ApplyYaml(t *testing.T, name string, k *test_utils.EnvTestCluster) {
 	tmpFile := GetYamlTmpFile(name)
 	defer os.Remove(tmpFile)
 
+	doPanic := func(err error) {
+		if t != nil {
+			t.Fatal(err)
+		} else {
+			panic(err)
+		}
+	}
+
 	docs, err := yaml.ReadYamlAllFile(tmpFile)
 	if err != nil {
-		panic(err)
+		doPanic(err)
 	}
 
 	var objects []*uo.UnstructuredObject
 	for _, doc := range docs {
 		m, ok := doc.(map[string]any)
 		if !ok {
-			panic("not a map!")
+			doPanic(fmt.Errorf("not a map!"))
 		}
 		x := uo.FromMap(m)
 		objects = append(objects, x)
@@ -119,7 +129,7 @@ func ApplyYaml(name string, k *test_utils.EnvTestCluster) {
 
 			data, err := yaml.WriteYamlBytes(x)
 			if err != nil {
-				panic(err)
+				doPanic(err)
 			}
 
 			gvr := guessGVR(x.GetK8sGVK())
@@ -129,7 +139,7 @@ func ApplyYaml(name string, k *test_utils.EnvTestCluster) {
 					FieldManager: "e2e-tests",
 				})
 			if err != nil {
-				panic(err)
+				doPanic(err)
 			}
 
 			// wait for CRDs to get accepted

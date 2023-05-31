@@ -30,7 +30,7 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		test_resources.ApplyYaml("sealed-secrets.yaml", defaultCluster1)
+		test_resources.ApplyYaml(nil, "sealed-secrets.yaml", defaultCluster1)
 	}()
 	go func() {
 		defer wg.Done()
@@ -41,7 +41,7 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		test_resources.ApplyYaml("sealed-secrets.yaml", defaultCluster2)
+		test_resources.ApplyYaml(nil, "sealed-secrets.yaml", defaultCluster2)
 	}()
 	wg.Wait()
 
