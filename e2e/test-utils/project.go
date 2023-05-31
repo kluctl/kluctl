@@ -26,6 +26,7 @@ type TestProject struct {
 
 	extraEnv   []string
 	useProcess bool
+	bare       bool
 
 	gitServer   *git2.TestGitServer
 	gitRepoName string
@@ -58,6 +59,12 @@ func WithGitSubDir(subDir string) TestProjectOption {
 	}
 }
 
+func WithBareProject() TestProjectOption {
+	return func(p *TestProject) {
+		p.bare = true
+	}
+}
+
 func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	p := &TestProject{
 		t:           t,
@@ -73,13 +80,15 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	}
 	p.gitServer.GitInit(p.gitRepoName)
 
-	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name or 'no-name' }}", rand.String(16)), "discriminator")
-		return nil
-	})
-	p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
-		return nil
-	})
+	if !p.bare {
+		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name or 'no-name' }}", rand.String(16)), "discriminator")
+			return nil
+		})
+		p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
+			return nil
+		})
+	}
 	return p
 }
 
