@@ -5,6 +5,7 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
+	"path/filepath"
 	"testing"
 )
 
@@ -189,4 +190,72 @@ func TestTemplateIgnore(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"k1": `{{ "a" }}`,
 	}, cm3.Object["data"])
+}
+
+func testLocalIncludes(t *testing.T, projectDir string) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t, test_utils.WithBareProject())
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateDeploymentYaml("base", func(o *uo.UnstructuredObject) error {
+		*o = *uo.FromMap(map[string]interface{}{
+			"deployments": []map[string]any{
+				{"path": "cm"},
+			},
+		})
+		return nil
+	})
+	p.UpdateYaml("base/cm/cm.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *createConfigMapObject(map[string]string{
+			"d1": "v1",
+		}, resourceOpts{name: "{{ name }}", namespace: p.TestSlug()})
+		return nil
+	}, "")
+
+	baseDir, _ := filepath.Rel(filepath.Join(p.LocalProjectDir(), projectDir), filepath.Join(p.LocalRepoDir(), "base"))
+	baseDir = filepath.ToSlash(baseDir)
+
+	p.UpdateDeploymentYaml(projectDir, func(o *uo.UnstructuredObject) error {
+		*o = *uo.FromMap(map[string]interface{}{
+			"deployments": []map[string]any{
+				{
+					"include": baseDir,
+					"vars": []map[string]any{
+						{
+							"values": map[string]any{
+								"name": "cm-inc1",
+							},
+						},
+					},
+				},
+				{
+					"include": baseDir,
+					"vars": []map[string]any{
+						{
+							"values": map[string]any{
+								"name": "cm-inc2",
+							},
+						},
+					},
+				},
+			},
+		})
+		return nil
+	})
+
+	p.KluctlMust("deploy", "--yes", "--project-dir", filepath.Join(p.LocalProjectDir(), projectDir))
+	assertConfigMapExists(t, k, p.TestSlug(), "cm-inc1")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm-inc2")
+}
+
+func TestIncludeLocalFromRoot(t *testing.T) {
+	testLocalIncludes(t, ".")
+}
+
+func TestIncludeLocalFromSubdir(t *testing.T) {
+	testLocalIncludes(t, "foo")
 }
