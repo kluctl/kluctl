@@ -114,26 +114,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
 	}
 
-	// record the value of the reconciliation request, if any
-	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
-		patch := client.MergeFrom(obj.DeepCopy())
-		obj.Status.LastHandledReconcileAt = v
-		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	// set the reconciliation status to progressing
-	if obj.Status.ObservedGeneration == 0 {
-		patch := client.MergeFrom(obj.DeepCopy())
-		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
-		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
-			return ctrl.Result{Requeue: true}, err
-		}
-
-		r.recordReadiness(ctx, obj)
-	}
-
 	patch := client.MergeFrom(obj.DeepCopy())
 	// reconcile kluctlDeployment by applying the latest revision
 	ctrlResult, reconcileErr := r.doReconcile(ctx, obj)
@@ -190,6 +170,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return doFail(kluctlv1.PrepareFailedReason, err)
 	}
 
+	// record the value of the reconciliation request, if any
+	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
+		obj.Status.LastHandledReconcileAt = v
+	}
+
 	legacyKd, err := r.checkLegacyKluctlDeployment(ctx, obj)
 	if err != nil {
 		return nil, err
@@ -213,6 +198,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			r.recordReadiness(ctx, obj)
 			return &ctrl.Result{Requeue: true}, nil
 		}
+	}
+
+	// set the reconciliation status to progressing
+	if obj.Status.ObservedGeneration == 0 {
+		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
+		r.recordReadiness(ctx, obj)
 	}
 
 	oldGeneration := obj.Status.ObservedGeneration
