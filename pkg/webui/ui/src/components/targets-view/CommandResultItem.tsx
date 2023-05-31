@@ -1,5 +1,4 @@
 import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
-import { CleaningServices, CloudSync, Delete, Difference } from "@mui/icons-material";
 import { useEffect, useMemo, useState } from "react";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
@@ -8,7 +7,7 @@ import { Box, IconButton, Tooltip, Typography } from "@mui/material";
 import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { useNavigate } from "react-router";
 import { formatDurationShort } from "../../utils/duration";
-import { TreeViewIcon } from "../../icons/Icons";
+import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 
 export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary, rs: CommandResultSummary, onSelectCommandResult: (rs?: CommandResultSummary) => void }) => {
     const calcAgo = () => {
@@ -21,22 +20,22 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
     const navigate = useNavigate()
     const [ago, setAgo] = useState(calcAgo())
 
-    let Icon = Difference
+    let Icon: () => JSX.Element = DiffIcon
     switch (props.rs.commandInfo?.command) {
         case "delete":
-            Icon = Delete
+            Icon = PruneIcon
             break
         case "deploy":
-            Icon = CloudSync
+            Icon = DeployIcon
             break
         case "diff":
-            Icon = Difference
+            Icon = DiffIcon
             break
         case "poke-images":
-            Icon = CloudSync
+            Icon = DeployIcon
             break
         case "prune":
-            Icon = CleaningServices
+            Icon = PruneIcon
             break
     }
 
@@ -66,7 +65,7 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
             <Box display='flex' gap='15px'>
                 <Box width='45px' height='45px' flex='0 0 auto' justifyContent='center' alignItems='center'>
                     <Tooltip title={iconTooltip}>
-                        <Icon fontSize={"large"} />
+                        <Icon />
                     </Tooltip>
                 </Box>
                 <Box flexGrow={1}>

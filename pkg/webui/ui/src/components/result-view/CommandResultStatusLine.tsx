@@ -1,7 +1,7 @@
 import { CommandResultSummary, ValidateResult } from "../../models";
 import { Box, Tooltip, Typography } from "@mui/material";
-import { Dangerous, Delete, Difference, LibraryAdd, LinkOff, Warning } from "@mui/icons-material";
 import React from "react";
+import { AddedIcon, ChangedIcon, ErrorIcon, OrphanIcon, TrashIcon, WarningIcon } from "../../icons/Icons";
 
 export interface StatusLineProps {
     errors?: number
@@ -36,12 +36,12 @@ export const StatusLine = (props: StatusLineProps) => {
         }
     }
 
-    doPush(props.errors, "total errors.", <Dangerous color={"error"} />)
-    doPush(props.warnings, "total warnings.", <Warning color={"warning"} />)
-    doPush(props.newObjects, "new objects.", <LibraryAdd color={"info"} />)
-    doPush(props.deletedObjects, "deleted objects.", <Delete color={"info"} />)
-    doPush(props.orphanObjects, "orphan objects.", <LinkOff color={"info"} />)
-    doPush(props.changedObjects, "changed objects.", <Difference color={"info"} />)
+    doPush(props.errors, "total errors.", <ErrorIcon />)
+    doPush(props.warnings, "total warnings.", <WarningIcon />)
+    doPush(props.newObjects, "new objects.", <AddedIcon />)
+    doPush(props.deletedObjects, "deleted objects.", <TrashIcon />)
+    doPush(props.orphanObjects, "orphan objects.", <OrphanIcon />)
+    doPush(props.changedObjects, "changed objects.", <ChangedIcon />)
 
     return <Box display="flex" width={"100%"}>
         {children}
