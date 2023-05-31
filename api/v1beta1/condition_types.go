@@ -35,4 +35,7 @@ const (
 	// ReconciliationSucceededReason represents the fact that
 	// the reconciliation succeeded.
 	ReconciliationSucceededReason string = "ReconciliationSucceeded"
+
+	// WaitingForLegacyMigrationReason means that the controller is waiting for the legacy controller to set `readyForMigration=true`
+	WaitingForLegacyMigrationReason string = "WaitingForLegacyMigration"
 )

@@ -14,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta2 "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,7 +63,6 @@ type KluctlDeploymentReconcilerOpts struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := ctrl.LoggerFrom(ctx)
 	reconcileStart := time.Now()
 
 	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(message string) {
@@ -99,10 +99,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.finalize(ctx, obj)
 	}
 
-	if r.checkLegacyKluctlDeployment(ctx, obj) {
-		return ctrl.Result{}, nil
-	}
-
 	// Return early if the KluctlDeployment is suspended.
 	if obj.Spec.Suspend {
 		log.Info("Reconciliation is suspended for this object")
@@ -118,24 +114,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
 	}
 
-	// set the reconciliation status to progressing
-	if obj.Status.ObservedGeneration == 0 {
-		patch := client.MergeFrom(obj.DeepCopy())
-		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
-		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
-			return ctrl.Result{Requeue: true}, err
-		}
-
-		r.recordReadiness(ctx, obj)
-	}
-
 	patch := client.MergeFrom(obj.DeepCopy())
-
-	// record the value of the reconciliation request, if any
-	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
-		obj.Status.LastHandledReconcileAt = v
-	}
-
 	// reconcile kluctlDeployment by applying the latest revision
 	ctrlResult, reconcileErr := r.doReconcile(ctx, obj)
 	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
@@ -177,6 +156,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	ctx context.Context,
 	obj *kluctlv1.KluctlDeployment) (*ctrl.Result, error) {
 
+	log := ctrl.LoggerFrom(ctx)
+
 	r.exportDeploymentObjectToProm(obj)
 
 	doFail := func(reason string, err error) (*ctrl.Result, error) {
@@ -187,6 +168,42 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	doFailPrepare := func(err error) (*ctrl.Result, error) {
 		return doFail(kluctlv1.PrepareFailedReason, err)
+	}
+
+	// record the value of the reconciliation request, if any
+	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
+		obj.Status.LastHandledReconcileAt = v
+	}
+
+	legacyKd, err := r.checkLegacyKluctlDeployment(ctx, obj)
+	if err != nil {
+		return nil, err
+	}
+	if legacyKd {
+		c := meta2.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
+		if c != nil && c.Reason == kluctlv1.WaitingForLegacyMigrationReason {
+			log.Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. ")
+			return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
+		}
+		log.Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. " +
+			"Please ensure that you have upgraded to the latest version of the legacy flux-kluctl-controller and that is is still running.")
+		setReadiness(obj, metav1.ConditionFalse, kluctlv1.WaitingForLegacyMigrationReason, "waiting for the legacy controller to set readyForMigration=true")
+		r.recordReadiness(ctx, obj)
+		return &ctrl.Result{Requeue: true}, nil
+	} else {
+		c := meta2.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
+		if c != nil && c.Reason == kluctlv1.WaitingForLegacyMigrationReason {
+			log.Info("legacy KluctlDeployment has the readyForMigration status set now")
+			setReadiness(obj, metav1.ConditionFalse, meta.ProgressingReason, "migration is finished")
+			r.recordReadiness(ctx, obj)
+			return &ctrl.Result{Requeue: true}, nil
+		}
+	}
+
+	// set the reconciliation status to progressing
+	if obj.Status.ObservedGeneration == 0 {
+		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
+		r.recordReadiness(ctx, obj)
 	}
 
 	oldGeneration := obj.Status.ObservedGeneration
@@ -521,7 +538,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 // checkLegacyKluctlDeployment checks if a legacy KluctlDeployment from the old flux.kluctl.io group is present. If yes
 // we must ensure that this object is served by a recent legacy controller version which understands that it should stop
 // reconciliation in case the new gitops.kluctl.io object is present
-func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlDeployment) bool {
+func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlDeployment) (bool, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	var obj2 unstructured.Unstructured
@@ -537,26 +554,24 @@ func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Con
 		}
 		if meta2.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) {
 			// legacy object not present, we're safe to continue
-			return false
+			return false, nil
 		}
 		log.Error(err, "Failed to retrieve legacy KluctlDeployment. Skipping reconciliation.")
 		// some unexpected error...we should be on the safe side and bail out reconciliation
-		return true
+		return true, err
 	}
 
 	readyForMigration, _, err := unstructured.NestedBool(obj2.Object, "status", "readyForMigration")
 	if err != nil {
 		// some unexpected error...we should be on the safe side and bail out reconciliation
 		log.Error(err, "Failed to retrieve readyForMigration value. Skipping reconciliation.")
-		return true
+		return true, err
 	}
 	if !readyForMigration {
-		log.V(1).Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. " +
-			"Please ensure that you have upgraded to the latest version of the legacy flux-kluctl-controller and that is is still running.")
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }
 
 func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.KluctlDeployment) {

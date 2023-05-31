@@ -216,7 +216,7 @@ func TestSeal_WithBootstrap(t *testing.T) {
 	sealedSecretsDir := p.LocalProjectDir()
 	assert.FileExists(t, filepath.Join(sealedSecretsDir, ".sealed-secrets/secret-deployment/test-target/secret-secret.yml"))
 
-	test_resources.ApplyYaml("sealed-secrets.yaml", k)
+	test_resources.ApplyYaml(t, "sealed-secrets.yaml", k)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test-target")
 
