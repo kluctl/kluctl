@@ -64,6 +64,10 @@ manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRol
 	$(KUSTOMIZE) build config/rbac > install/controller/controller/rbac.yaml
 	$(KUSTOMIZE) build config/manager > install/controller/controller/manager.yaml
 
+# Generate API reference documentation
+api-docs: gen-crd-api-reference-docs
+	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/reference/controller/api/kluctl-controller.md
+
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	go generate ./...
@@ -168,6 +172,12 @@ controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessar
 $(CONTROLLER_GEN): $(LOCALBIN)
 	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
+# Find or download gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS = $(LOCALBIN)/gen-crd-api-reference-docs
+.PHONY: gen-crd-api-reference-docs
+gen-crd-api-reference-docs:
+	GOBIN=$(LOCALBIN) go install github.com/ahmetb/gen-crd-api-reference-docs@v0.3.0
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
