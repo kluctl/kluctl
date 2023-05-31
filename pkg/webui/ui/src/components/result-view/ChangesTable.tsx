@@ -5,18 +5,16 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 import { buildRefKindElement, buildRefString } from "../../api";
 import { Box, Typography } from "@mui/material";
 import { CodeViewer } from "../CodeViewer";
 import { DiffStatus } from "./nodes/NodeData";
-import Divider from "@mui/material/Divider";
 import { ObjectRef } from "../../models";
 
 const RefList = (props: { title: string, refs: ObjectRef[] }) => {
-    return <Box>
+    return <Box py='10px'>
         <Typography align={"center"} variant={"h5"}>{props.title}</Typography>
-        <TableContainer component={Paper}>
+        <TableContainer>
             <Table>
                 <TableHead>
                     <TableRow>
@@ -48,7 +46,6 @@ const RefList = (props: { title: string, refs: ObjectRef[] }) => {
                 </TableBody>
             </Table>
         </TableContainer>
-        <Box height={"20px"}></Box>
     </Box>
 }
 
@@ -56,15 +53,22 @@ export function ChangesTable(props: { diffStatus: DiffStatus }) {
     let changedObjects: React.ReactElement | undefined
 
     if (props.diffStatus.changedObjects.length) {
-        changedObjects = <Box>
+        changedObjects = <Box py='10px'>
             <Typography align={"center"} variant={"h5"}>Changed Objects</Typography>
             {props.diffStatus.changedObjects.map((co, i) => (
-                <TableContainer key={i} component={Paper}>
+                <TableContainer key={i}>
                     <Table>
                         <TableHead>
                             <TableRow>
-                                <TableCell align="left" colSpan={2}>
-                                    <Typography variant="h6">{buildRefString(co.ref)}</Typography>
+                                <TableCell align="left" colSpan={2} sx={{ padding: '24px 16px 5px 16px' }}>
+                                    <Typography
+                                        sx={{
+                                            fontWeight: 500,
+                                            fontSize: '20px',
+                                            lineHeight: '27px',
+                                            letterSpacing: '1px',
+                                        }}
+                                    >{buildRefString(co.ref)}</Typography>
                                 </TableCell>
                             </TableRow>
                             <TableRow>
@@ -81,25 +85,25 @@ export function ChangesTable(props: { diffStatus: DiffStatus }) {
                                         </Box>
                                     </TableCell>
                                     <TableCell>
-                                        <CodeViewer code={c.unifiedDiff || ""} language={"diff"}/>
+                                        <CodeViewer code={c.unifiedDiff || ""} language={"diff"} />
                                     </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                 </TableContainer>
-            ))}
-            <Divider/>
-        </Box>
+            ))
+            }
+        </Box >
     }
 
     return <Box width={"100%"} display={"flex"} flexDirection={"column"}>
         {props.diffStatus.newObjects.length ?
-            <RefList title={"New Objects"} refs={props.diffStatus.newObjects}/> : <></>}
+            <RefList title={"New Objects"} refs={props.diffStatus.newObjects} /> : <></>}
         {props.diffStatus.deletedObjects.length ?
-            <RefList title={"Deleted Objects"} refs={props.diffStatus.deletedObjects}/> : <></>}
+            <RefList title={"Deleted Objects"} refs={props.diffStatus.deletedObjects} /> : <></>}
         {props.diffStatus.orphanObjects.length ?
-            <RefList title={"Orphan Objects"} refs={props.diffStatus.orphanObjects}/> : <></>}
+            <RefList title={"Orphan Objects"} refs={props.diffStatus.orphanObjects} /> : <></>}
         {changedObjects}
     </Box>
 }

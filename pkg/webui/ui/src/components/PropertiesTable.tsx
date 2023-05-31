@@ -5,11 +5,10 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 
 export function PropertiesTable(props: {properties: {name: string, value: React.ReactNode}[]}) {
     return (
-        <TableContainer component={Paper} sx={{ padding: '10px 0' }}>
+        <TableContainer>
             <Table>
                 <TableHead>
                     <TableRow>

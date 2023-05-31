@@ -53,6 +53,13 @@ export const light = createTheme(common, {
             lineHeight: '27px',
             letterSpacing: '1px',
         },
+        h5: {
+            color: paletteLight.secondary.main,
+            fontWeight: 700,
+            fontSize: '22px',
+            lineHeight: '30px',
+            letterSpacing: '1px',
+        },
         h6: {
             color: paletteLight.secondary.main,
             fontWeight: 800,
@@ -94,10 +101,13 @@ export const light = createTheme(common, {
                         right: 0,
                         bottom: '10px',
                         display: 'block',
-                        borderRight: '0.5px solid #39403E',
+                        borderRight: `0.5px solid ${paletteLight.secondary.main}`,
                     },
                     ':last-of-type:after': {
                         content: 'none'
+                    },
+                    ':last-of-type': {
+                        overflowWrap: 'anywhere'
                     }
                 },
                 head: {
@@ -114,7 +124,7 @@ export const dark = createTheme(common, {
         allVariants: {
             color: paletteDark.text.primary
         },
-        h4: { 
+        h4: {
             color: paletteDark.text.primary,
             fontWeight: 700,
             fontSize: '24px',
@@ -180,7 +190,11 @@ export const dark = createTheme(common, {
                     lineHeight: '22px',
                     letterSpacing: '1px',
                     textTransform: 'none',
-                    padding: '7px 5px'
+                    padding: '7px 5px',
+                    color: '#8A8E91',
+                    '&.Mui-selected': {
+                        color: paletteDark.text.primary
+                    }
                 }
             }
         }

@@ -4,8 +4,9 @@ import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import React, { Suspense, useEffect, useState } from "react";
 import { NodeData } from "../result-view/nodes/NodeData";
 import { SidePanel } from "../result-view/SidePanel";
-import { Box, Drawer } from "@mui/material";
+import { Box, Drawer, ThemeProvider } from "@mui/material";
 import { Loading } from "../Loading";
+import { dark } from "../theme";
 
 async function doGetRootNode(rs: CommandResultSummary) {
     const shortNames = api.getShortNames()
@@ -34,21 +35,24 @@ export const CommandResultDetailsDrawer = (props: { rs?: CommandResultSummary, o
         setPromise(doGetRootNode(props.rs))
     }, [props.rs])
 
-    const Content = () => {
+    const Content = (props: { onClose: () => void }) => {
         const node = usePromise(promise)
-        return <SidePanel provider={node}/>
+        return <SidePanel provider={node} onClose={props.onClose} />
     }
 
-    return <Drawer
-        sx={{ zIndex: 1300 }}
-        anchor={"right"}
-        open={props.rs !== undefined}
-        onClose={() => props.onClose()}
-    >
-        <Box width={"800px"} height={"100%"}>
-            <Suspense fallback={<Loading/>}>
-                <Content/>
-            </Suspense>
-        </Box>
-    </Drawer>
+    return <ThemeProvider theme={dark}>
+        <Drawer
+            sx={{ zIndex: 1300 }}
+            anchor={"right"}
+            open={props.rs !== undefined}
+            onClose={props.onClose}
+            ModalProps={{ BackdropProps: { invisible: true } }}
+        >
+            <Box width={"720px"} height={"100%"}>
+                <Suspense fallback={<Loading />}>
+                    <Content onClose={props.onClose} />
+                </Suspense>
+            </Box>
+        </Drawer>
+    </ThemeProvider>
 }

@@ -1,4 +1,4 @@
-import { Box, Divider, IconButton, Tab, ThemeProvider, Typography, useTheme } from "@mui/material";
+import { Box, Divider, IconButton, Paper, Tab, ThemeProvider, Typography, useTheme } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
 import { CloseIcon } from "../../icons/Icons";
@@ -59,7 +59,7 @@ export const SidePanel = (props: SidePanelProps) => {
         return <></>
     }
 
-    return <Box width={"100%"} height={"100%"} display="flex" flexDirection="column">
+    return <Box width={"100%"} height={"100%"} display="flex" flexDirection="column" overflow='hidden'>
         <TabContext value={selectedTab}>
             <Box height={theme.consts.appBarHeight} display='flex' flexDirection='column' flex='0 0 auto' justifyContent='space-between'>
                 <Box flex='1 1 auto' display='flex' justifyContent='space-between'>
@@ -83,11 +83,13 @@ export const SidePanel = (props: SidePanelProps) => {
                 </Box>
             </Box>
             <Divider sx={{ margin: 0 }} />
-            <Box>
+            <Box overflow='auto' p='30px'>
                 {tabs.map((tab, index) => {
-                    return <ThemeProvider theme={light}>
-                        <TabPanel value={tab.label} key={index} sx={{ overflowY: "auto", padding: '30px' }}>
-                            {tab.content}
+                    return <ThemeProvider theme={light} key={index}>
+                        <TabPanel value={tab.label} sx={{ padding: 0 }}>
+                            <Paper sx={{ padding: '10px 0' }}>
+                                {tab.content}
+                            </Paper>
                         </TabPanel>
                     </ThemeProvider>
                 })}

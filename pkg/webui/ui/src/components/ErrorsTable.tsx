@@ -5,7 +5,6 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 import { DeploymentError } from "../models";
 import { Box, Divider, List, ListItem, ListItemText } from "@mui/material";
 import { buildRefKindElement } from "../api";
@@ -13,7 +12,7 @@ import { buildRefKindElement } from "../api";
 export function ErrorsTable(props: { errors: DeploymentError[] }) {
     return <>
         <Box height={"100%"}>
-            <TableContainer component={Paper}>
+            <TableContainer>
                 <Table>
                     <TableHead>
                         <TableRow>
@@ -25,7 +24,7 @@ export function ErrorsTable(props: { errors: DeploymentError[] }) {
                         {props.errors?.map((e, i) => (
                             <TableRow key={i}>
                                 <TableCell sx={{ minWidth: "150px" }}>
-                                    <List>
+                                    <List disablePadding>
                                         {buildRefKindElement(e.ref, <>
                                             <ListItem>
                                                 <ListItemText primary={e.ref.kind}/>
