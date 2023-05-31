@@ -50,6 +50,10 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		}
 	}
 
+	if repoRoot == "" {
+		repoRoot = projectDir
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, projectFlags.Timeout)
 	defer cancel()
 
