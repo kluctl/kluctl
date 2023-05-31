@@ -2,4 +2,4 @@ discriminator: kluctl.io-controller
 
 args:
   - name: controller_version
-    default: v2.20.1
+    default: v2.20.2
