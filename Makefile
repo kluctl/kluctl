@@ -97,7 +97,11 @@ replace-commands-help: ## Replace commands help in docs
 
 MARKDOWN_LINK_CHECK_VERSION=3.11.2
 markdown-link-check: ## Check markdown files for dead links
-	find . -name '*.md' | xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
+	find . -name '*.md' \
+		-and -not -path './docs/reference/gitops/api/kluctl-controller.md' \
+		-and -not -path './pkg/webui/ui/node_modules/*' \
+		-and -not -path './pkg/webui/ui/build/*' | \
+		xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
 
 ##@ Build
 
