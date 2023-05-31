@@ -44,7 +44,11 @@ type TargetContextParams struct {
 }
 
 func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params TargetContextParams) (*TargetContext, error) {
-	deploymentDir, err := filepath.Abs(p.LoadArgs.ProjectDir)
+	repoRoot, err := filepath.Abs(p.LoadArgs.RepoRoot)
+	if err != nil {
+		return nil, err
+	}
+	relProjectDir, err := filepath.Rel(repoRoot, p.LoadArgs.ProjectDir)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +133,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		DefaultSealedSecretsOutputPattern: target.Name,
 	}
 
-	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(deploymentDir), ".", nil)
+	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(repoRoot), relProjectDir, nil)
 	if err != nil {
 		return nil, err
 	}
