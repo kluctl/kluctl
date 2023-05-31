@@ -93,7 +93,7 @@ func (cmd *sealCmd) loadCert(cmdCtx *commandCtx) (*x509.Certificate, error) {
 	var certFile string
 
 	if sealingConfig != nil && sealingConfig.CertFile != nil {
-		path, err := securejoin.SecureJoin(cmdCtx.targetCtx.KluctlProject.ProjectDir, *sealingConfig.CertFile)
+		path, err := securejoin.SecureJoin(cmdCtx.targetCtx.KluctlProject.LoadArgs.ProjectDir, *sealingConfig.CertFile)
 		if err != nil {
 			return nil, err
 		}

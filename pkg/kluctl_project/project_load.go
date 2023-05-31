@@ -27,7 +27,7 @@ type LoadKluctlProjectArgs struct {
 func (c *LoadedKluctlProject) getConfigPath() string {
 	configPath := c.LoadArgs.ProjectConfig
 	if configPath == "" {
-		p := yaml.FixPathExt(filepath.Join(c.ProjectDir, ".kluctl.yml"))
+		p := yaml.FixPathExt(filepath.Join(c.LoadArgs.ProjectDir, ".kluctl.yml"))
 		if utils.IsFile(p) {
 			configPath = p
 		}
@@ -38,10 +38,8 @@ func (c *LoadedKluctlProject) getConfigPath() string {
 func (c *LoadedKluctlProject) loadKluctlProject() error {
 	var err error
 
-	c.ProjectDir = c.LoadArgs.ProjectDir
-
 	if c.LoadArgs.RepoRoot != "" {
-		err = utils.CheckInDir(c.LoadArgs.RepoRoot, c.ProjectDir)
+		err = utils.CheckInDir(c.LoadArgs.RepoRoot, c.LoadArgs.ProjectDir)
 		if err != nil {
 			return err
 		}
@@ -59,7 +57,7 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 	s := status.Start(c.ctx, "Loading kluctl project")
 	defer s.Failed()
 
-	c.sealedSecretsDir = filepath.Join(c.ProjectDir, ".sealed-secrets")
+	c.sealedSecretsDir = filepath.Join(c.LoadArgs.ProjectDir, ".sealed-secrets")
 
 	sealedSecretsUsed := false
 	if c.Config.SecretsConfig != nil {

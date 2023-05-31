@@ -44,7 +44,7 @@ type TargetContextParams struct {
 }
 
 func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params TargetContextParams) (*TargetContext, error) {
-	deploymentDir, err := filepath.Abs(p.ProjectDir)
+	deploymentDir, err := filepath.Abs(p.LoadArgs.ProjectDir)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, e
 }
 
 func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
-	searchDirs := []string{p.ProjectDir}
+	searchDirs := []string{p.LoadArgs.ProjectDir}
 
 	for _, secretSetName := range target.SealingConfig.SecretSets {
 		secretEntry, err := p.findSecretsEntry(secretSetName)

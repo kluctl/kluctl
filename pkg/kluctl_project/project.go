@@ -18,8 +18,6 @@ type LoadedKluctlProject struct {
 
 	TmpDir string
 
-	ProjectDir string
-
 	sealedSecretsDir string
 
 	Config  types2.KluctlProject
