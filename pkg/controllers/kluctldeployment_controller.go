@@ -118,6 +118,15 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
 	}
 
+	// record the value of the reconciliation request, if any
+	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
+		patch := client.MergeFrom(obj.DeepCopy())
+		obj.Status.LastHandledReconcileAt = v
+		if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// set the reconciliation status to progressing
 	if obj.Status.ObservedGeneration == 0 {
 		patch := client.MergeFrom(obj.DeepCopy())
@@ -130,12 +139,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	patch := client.MergeFrom(obj.DeepCopy())
-
-	// record the value of the reconciliation request, if any
-	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
-		obj.Status.LastHandledReconcileAt = v
-	}
-
 	// reconcile kluctlDeployment by applying the latest revision
 	ctrlResult, reconcileErr := r.doReconcile(ctx, obj)
 	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
