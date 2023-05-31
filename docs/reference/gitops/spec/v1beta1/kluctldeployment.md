@@ -362,8 +362,8 @@ stringData:
 
 ## Helm Repository authentication
 
-Kluctl allows to [integrate Helm Charts](../../../deployments/helm) in two different ways.
-One is to [pre-pull charts](../../../commands/helm-pull) and put them into version control,
+Kluctl allows to [integrate Helm Charts](../../../deployments/helm.md) in two different ways.
+One is to [pre-pull charts](../../../commands/helm-pull.md) and put them into version control,
 making it unnecessary to pull them at deploy time. This option also means that you don't have to take any special care
 on the controller side.
 
@@ -432,7 +432,7 @@ This will pass the credentials to all requests, even if the hostname changes.
 
 ## Secrets Decryption
 
-Kluctl offers a [SOPS Integration](../../../deployments/sops) that allows to use encrypted
+Kluctl offers a [SOPS Integration](../../../deployments/sops.md) that allows to use encrypted
 manifests and variable sources in Kluctl deployments. Decryption by the controller is also supported and currently
 mirrors how the [Secrets Decryption configuration](https://fluxcd.io/flux/components/kustomize/kustomization/#secrets-decryption)
 of the Flux Kustomize Controller. To configure it in the `KluctlDeployment`, simply set the `decryption` field in the
