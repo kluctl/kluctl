@@ -14,10 +14,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta2 "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -524,15 +524,17 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Context, obj *kluctlv1.KluctlDeployment) bool {
 	log := ctrl.LoggerFrom(ctx)
 
-	obj2 := uo.New()
-	obj2.SetK8sGVK(schema.GroupVersionKind{
+	var obj2 unstructured.Unstructured
+	obj2.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "flux.kluctl.io",
 		Version: "v1alpha1",
 		Kind:    "KluctlDeployment",
 	})
-	err := r.Get(ctx, client.ObjectKeyFromObject(obj), obj2.ToUnstructured())
+	err := r.Get(ctx, client.ObjectKeyFromObject(obj), &obj2)
 	if err != nil {
-		err = errors2.Unwrap(err)
+		if errors2.Unwrap(err) != nil {
+			err = errors2.Unwrap(err)
+		}
 		if meta2.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) {
 			// legacy object not present, we're safe to continue
 			return false
@@ -542,7 +544,7 @@ func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Con
 		return true
 	}
 
-	readyForMigration, _, err := obj2.GetNestedBool("")
+	readyForMigration, _, err := unstructured.NestedBool(obj2.Object, "status", "readyForMigration")
 	if err != nil {
 		// some unexpected error...we should be on the safe side and bail out reconciliation
 		log.Error(err, "Failed to retrieve readyForMigration value. Skipping reconciliation.")
