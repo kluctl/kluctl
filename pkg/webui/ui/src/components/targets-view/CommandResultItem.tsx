@@ -63,11 +63,11 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
     >
         <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
             <Box display='flex' gap='15px'>
-                <Box width='45px' height='45px' flex='0 0 auto' justifyContent='center' alignItems='center'>
-                    <Tooltip title={iconTooltip}>
+                <Tooltip title={iconTooltip}>
+                    <Box width='45px' height='45px' flex='0 0 auto' justifyContent='center' alignItems='center'>
                         <Icon />
-                    </Tooltip>
-                </Box>
+                    </Box>
+                </Tooltip>
                 <Box flexGrow={1}>
                     <Typography
                         variant='h6'
