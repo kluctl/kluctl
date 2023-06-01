@@ -100,24 +100,36 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
 );
 
 function Item(props: { text: string, open: boolean, icon: React.ReactNode, to: string }) {
-    return <ListItem component={Link} to={props.to} key={props.text} disablePadding sx={{ display: 'block' }}>
+    return <ListItem component={Link} to={props.to} key={props.text} disablePadding sx={{ display: 'block', margin: '14px 0' }}>
         <ListItemButton
             sx={{
-                minHeight: 48,
-                justifyContent: props.open ? 'initial' : 'center',
-                px: '24px',
+                height: '60px',
+                justifyContent: 'start',
+                alignItems: 'center',
+                gap: '15px',
+                padding: '0 24px'
             }}
         >
             <ListItemIcon
                 sx={{
                     minWidth: 0,
-                    mr: props.open ? 3 : 'auto',
+                    flex: '0 0 auto',
                     justifyContent: 'center',
+                    alignItems: 'center',
                 }}
             >
                 {props.icon}
             </ListItemIcon>
-            <ListItemText primary={props.text} sx={{ opacity: props.open ? 1 : 0 }} />
+            <ListItemText
+                primary={props.text}
+                sx={{ display: props.open ? 'block' : 'none', margin: 0 }}
+                primaryTypographyProps={{
+                    fontWeight: 500,
+                    fontSize: '24px',
+                    lineHeight: '33px',
+                    letterSpacing: '1px',
+                }}
+            />
         </ListItemButton>
     </ListItem>
 }
@@ -180,9 +192,8 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
                         </IconButton>
                     </DrawerHeader>
                     <Divider />
-                    <List sx={{ padding: 0 }}>
+                    <List sx={{ padding: '10px 0 0 0' }}>
                         <Item text={"Targets"} open={open} icon={<TargetsIcon />} to={"targets"} />
-                        <Divider />
                         {context.filters}
                     </List>
                     {context.filters && <Divider />}
@@ -190,7 +201,7 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
             </ThemeProvider>
             <Box component="main" sx={{ flexGrow: 1, height: '100%', overflow: 'hidden' }} minWidth={0}>
                 <DrawerHeader />
-                <Divider sx={{ margin: '0 40px' }}/>
+                <Divider sx={{ margin: '0 40px' }} />
                 <Box width='100%' height={`calc(100% - ${theme.consts.appBarHeight}px)`} overflow='auto'>
                     {props.content}
                 </Box>
