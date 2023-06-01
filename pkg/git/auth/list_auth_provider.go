@@ -6,7 +6,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	ssh2 "golang.org/x/crypto/ssh"
 	"strings"
 )
 
@@ -26,28 +25,6 @@ type AuthEntry struct {
 	KnownHosts []byte
 
 	CABundle []byte
-}
-
-type KnownHostsWrapper struct {
-	authMethod      ssh.AuthMethod
-	hostKeyCallback ssh2.HostKeyCallback
-}
-
-func (w *KnownHostsWrapper) String() string {
-	return w.authMethod.String()
-}
-
-func (w *KnownHostsWrapper) Name() string {
-	return w.authMethod.Name()
-}
-
-func (w *KnownHostsWrapper) ClientConfig() (*ssh2.ClientConfig, error) {
-	ccfg, err := w.authMethod.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-	ccfg.HostKeyCallback = w.hostKeyCallback
-	return ccfg, nil
 }
 
 func (a *ListAuthProvider) AddEntry(e AuthEntry) {
@@ -102,11 +79,9 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) A
 			if err != nil {
 				a.MessageCallbacks.Trace("ListAuthProvider: failed to parse private key: %v", err)
 			} else {
+				pk.HostKeyCallback = buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts)
 				return AuthMethodAndCA{
-					AuthMethod: &KnownHostsWrapper{
-						authMethod:      pk,
-						hostKeyCallback: buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts),
-					},
+					AuthMethod: pk,
 					Hash: func() ([]byte, error) {
 						return buildHash(pk.Signer)
 					},
