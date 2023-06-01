@@ -1,4 +1,4 @@
-{% set controller_version = (args.controller_version if args.controller_version is defined else controller_version) | default("v2.20.2") %}
+{% set controller_version = (args.controller_version if args.controller_version is defined else controller_version) | default("v2.20.3") %}
 
 resources:
   - crd.yaml
