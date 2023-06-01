@@ -19,6 +19,13 @@ import { ReactComponent as TrashIconSvg } from './trash.svg';
 import { ReactComponent as OrphanIconSvg } from './orphan.svg';
 import { ReactComponent as AddedIconSvg } from './added.svg';
 import { ReactComponent as ChangedIconSvg } from './changed.svg';
+import { ReactComponent as CheckboxIconSvg } from './checkbox.svg';
+import { ReactComponent as CheckboxCheckedIconSvg } from './checkbox-checked.svg';
+import { ReactComponent as CheckboxDisabledIconSvg } from './checkbox-disabled.svg';
+import { ReactComponent as ArrowLeftIconSvg } from './arrow-left.svg';
+import { ReactComponent as WarningSignIconSvg } from './warning-sign.svg';
+import { ReactComponent as ChangesIconSvg } from './changes.svg';
+import { ReactComponent as StarIconSvg } from './star.svg';
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -111,4 +118,32 @@ export const AddedIcon = () => {
 
 export const ChangedIcon = () => {
     return <ChangedIconSvg width="24px" height="24px" />
+}
+
+export const CheckboxIcon = () => {
+    return <CheckboxIconSvg width="24px" height="24px" />
+}
+
+export const CheckboxCheckedIcon = () => {
+    return <CheckboxCheckedIconSvg width="24px" height="24px" />
+}
+
+export const CheckboxDisabledIcon = () => {
+    return <CheckboxDisabledIconSvg width="24px" height="24px" />
+}
+
+export const ArrowLeftIcon = () => {
+    return <ArrowLeftIconSvg width="40px" height="40px" />
+}
+
+export const WarningSignIcon = () => {
+    return <WarningSignIconSvg width="21px" height="21px" />
+}
+
+export const ChangesIcon = () => {
+    return <ChangesIconSvg width="21px" height="21px" />
+}
+
+export const StarIcon = () => {
+    return <StarIconSvg width="21px" height="21px" />
 }

@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { Dispatch, SetStateAction, useState } from 'react';
 
 import '../index.css';
 import { Box, ThemeProvider } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
 import { light } from './theme';
+import { ActiveFilters } from './result-view/NodeStatusFilter';
 
 export interface AppOutletContext {
-    filters?: React.ReactNode
-    setFilters: (filter: React.ReactNode) => void
+    filters?: ActiveFilters
+    setFilters: Dispatch<SetStateAction<ActiveFilters | undefined>>
 }
 
 export function useAppOutletContext(): AppOutletContext {
@@ -16,7 +17,7 @@ export function useAppOutletContext(): AppOutletContext {
 }
 
 const App = () => {
-    const [filters, setFilters] = useState<React.ReactNode>()
+    const [filters, setFilters] = useState<ActiveFilters>()
 
     const context: AppOutletContext = {
         filters: filters,

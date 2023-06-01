@@ -11,9 +11,9 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AppOutletContext } from "./App";
-import { KluctlLogo, TargetsIcon, KluctlText, SearchIcon } from '../icons/Icons';
+import { KluctlLogo, TargetsIcon, KluctlText, SearchIcon, ArrowLeftIcon } from '../icons/Icons';
 import { dark } from './theme';
 import { Typography } from '@mui/material';
 
@@ -135,50 +135,74 @@ function Item(props: { text: string, open: boolean, icon: React.ReactNode, to: s
 }
 
 export default function LeftDrawer(props: { content: React.ReactNode, context: AppOutletContext }) {
-    const context = props.context
-
     const [open, setOpen] = useState(true);
-
+    const location = useLocation()
+    const navigate = useNavigate();
     const theme = useTheme();
 
     const toggleDrawer = () => {
         setOpen(o => !o);
     };
 
+    const path = location.pathname.split('/')[1];
+    let header: JSX.Element | null = null;
+    switch (path) {
+        case 'targets':
+            header = <>
+                <Typography variant='h1'>
+                    Dashboard
+                </Typography>
+                <Box
+                    height='40px'
+                    maxWidth='314px'
+                    flexGrow={1}
+                    borderRadius='10px'
+                    display='flex'
+                    justifyContent='space-between'
+                    alignItems='center'
+                    padding='0 9px 0 15px'
+                    sx={{ background: theme.palette.background.default }}
+                >
+                    <input
+                        type='text'
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            outline: 'none',
+                            height: '20px',
+                            lineHeight: '20px',
+                            fontSize: '18px'
+                        }}
+                        placeholder='Search'
+                    />
+                    <IconButton sx={{ padding: 0, height: 40, width: 40 }}>
+                        <SearchIcon />
+                    </IconButton>
+                </Box>
+            </>
+            break;
+        case 'results':
+            header = <Box
+                display='flex'
+                alignItems='center'
+                justifyContent='start'
+                gap='12px'
+            >
+                <IconButton sx={{ padding: 0 }} onClick={() => navigate('/targets')}>
+                    <ArrowLeftIcon />
+                </IconButton>
+                <Typography variant='h1'>
+                    Result Tree
+                </Typography>
+            </Box>
+            break;
+    }
+
     return (
         <Box display='flex' height='100%'>
             <AppBar position='fixed' open={open}>
                 <Box display='flex' justifyContent='space-between'>
-                    <Typography variant='h1'>
-                        Dashboard
-                    </Typography>
-                    <Box
-                        height='40px'
-                        maxWidth='314px'
-                        flexGrow={1}
-                        borderRadius='10px'
-                        display='flex'
-                        justifyContent='space-between'
-                        alignItems='center'
-                        padding='0 9px 0 15px'
-                        sx={{ background: theme.palette.background.default }}
-                    >
-                        <input
-                            type='text'
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                outline: 'none',
-                                height: '20px',
-                                lineHeight: '20px',
-                                fontSize: '18px'
-                            }}
-                            placeholder='Search'
-                        />
-                        <IconButton sx={{ padding: 0, height: 40, width: 40 }}>
-                            <SearchIcon />
-                        </IconButton>
-                    </Box>
+                    {header}
                 </Box>
             </AppBar>
             <ThemeProvider theme={dark}>
@@ -194,9 +218,7 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
                     <Divider />
                     <List sx={{ padding: '10px 0 0 0' }}>
                         <Item text={"Targets"} open={open} icon={<TargetsIcon />} to={"targets"} />
-                        {context.filters}
                     </List>
-                    {context.filters && <Divider />}
                 </Drawer>
             </ThemeProvider>
             <Box component="main" sx={{ flexGrow: 1, height: '100%', overflow: 'hidden' }} minWidth={0}>
