@@ -90,6 +90,9 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 
 	g, err := git2.PlainOpen(targetCtx.KluctlProject.LoadArgs.RepoRoot)
 	if err != nil {
+		if err == git2.ErrRepositoryNotExists {
+			return nil
+		}
 		return err
 	}
 
