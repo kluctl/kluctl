@@ -73,7 +73,7 @@ export const light = createTheme(common, {
         MuiDivider: {
             styleOverrides: {
                 root: {
-                    borderColor: 'rgba(0, 0, 0, 0.5)'
+                    borderColor: paletteLight.secondary.main,
                 }
             }
         },

@@ -9,6 +9,7 @@ import { NodeData } from "./nodes/NodeData";
 import { ActiveFilters, FilterNode } from "./NodeStatusFilter";
 import { CommandResultProps } from "./CommandResultView";
 import { Loading } from "../Loading";
+import { Box, Divider, Paper, useTheme } from '@mui/material';
 
 export interface CommandResultTreeProps {
     commandResultProps?: CommandResultProps
@@ -18,6 +19,7 @@ export interface CommandResultTreeProps {
 }
 
 const CommandResultTree = (props: CommandResultTreeProps) => {
+    const theme = useTheme();
     const [expanded, setExpanded] = useState<string[]>(["root"]);
     const [selectedNodeId, setSelectedNodeId] = useState<string>()
 
@@ -67,8 +69,50 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
         return <TreeItem
             key={nodes.id}
             nodeId={nodes.id}
-            label={<div onClick={(e: React.SyntheticEvent) => handleItemClick(e, nodes)}>{nodes.buildTreeItem()}</div>}
-            sx={{ marginBottom: "5px", marginTop: "5px" }}
+            label={
+                <Box
+                    display='flex'
+                    alignItems='center'
+                    onClick={(e: React.SyntheticEvent) => handleItemClick(e, nodes)}
+                    pl='22px'
+                    position='relative'
+                >
+                    {nodes.children.length !== 0 &&
+                        <Divider
+                            orientation='vertical'
+                            sx={{
+                                height: '40px',
+                                position: 'absolute',
+                                left: 0
+                            }}
+                        />
+                    }
+                    {nodes.buildTreeItem()}
+                </Box>
+            }
+            sx={{
+                '& .MuiTreeItem-content': {
+                    height: '78px',
+                    borderBottom: `0.5px solid ${theme.palette.secondary.main}`,
+                    padding: 0,
+                    '& .MuiTreeItem-iconContainer': {
+                        width: '50px',
+                        height: '50px',
+                        margin: 0,
+                        padding: 0,
+                        display: nodes.children.length !== 0 ? 'flex' : 'none',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                    },
+                    '& .MuiTreeItem-label': {
+                        margin: 0,
+                        padding: 0
+                    }
+                },
+                '& .MuiTreeItem-group': {
+                    margin: '0 0 0 38px'
+                },
+            }}
             onDoubleClick={(e: React.SyntheticEvent) => handleDoubleClick(e, nodes)}
         >
             {Array.isArray(nodes.children)
@@ -78,18 +122,20 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
     };
 
     if (!rootNode) {
-        return <Loading/>
+        return <Loading />
     }
 
-    return <TreeView expanded={expanded}
-                     onNodeToggle={handleToggle}
-                     aria-label="rich object"
-                     defaultCollapseIcon={<ExpandMoreIcon/>}
-                     defaultExpandIcon={<ChevronRightIcon/>}
-                     sx={{ width: "100%" }}
-    >
-        {renderTree(rootNode)}
-    </TreeView>
+    return <Paper sx={{ padding: '20px 40px' }}>
+        <TreeView expanded={expanded}
+            onNodeToggle={handleToggle}
+            aria-label="rich object"
+            defaultCollapseIcon={<ExpandMoreIcon />}
+            defaultExpandIcon={<ChevronRightIcon />}
+            sx={{ width: "100%" }}
+        >
+            {renderTree(rootNode)}
+        </TreeView>
+    </Paper>
 }
 
 export default CommandResultTree;

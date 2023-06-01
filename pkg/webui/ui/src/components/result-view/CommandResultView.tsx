@@ -1,10 +1,10 @@
 import * as React from 'react';
-import { useEffect, useState } from 'react';
-import { Box, Checkbox, CheckboxProps, Divider, FormControlLabel, FormLabel, Typography } from "@mui/material";
+import { useState } from 'react';
+import { Box, Checkbox, CheckboxProps, Divider, FormControlLabel, Typography } from "@mui/material";
 import { CommandResult, CommandResultSummary, ShortName } from "../../models";
 import { NodeData } from "./nodes/NodeData";
 import { SidePanel } from "./SidePanel";
-import { ActiveFilters, NodeStatusFilter } from "./NodeStatusFilter";
+import { ActiveFilters } from "./NodeStatusFilter";
 import CommandResultTree from "./CommandResultTree";
 import { useLoaderData } from "react-router-dom";
 import { api } from "../../api";
@@ -109,8 +109,14 @@ export const CommandResultView = () => {
         }));
     }
 
-    return <Box width={"100%"} height={"100%"} p='0 40px'>
-        <Box display={"flex"} alignItems={"center"} minHeight='70px'>
+    return <Box
+        width='100%'
+        height='100%'
+        display='flex'
+        flexDirection='column'
+        overflow='hidden'
+    >
+        <Box display='flex' alignItems='center' minHeight='70px' p='0 40px'>
             <FilterCheckbox
                 text='Only important'
                 checked={!!context.filters?.onlyImportant}
@@ -132,12 +138,15 @@ export const CommandResultView = () => {
                 onChange={handleFilterChange('onlyWithErrorsOrWarnings')}
             />
         </Box>
-        <Divider />
-        <Box width={"50%"} minWidth={0} overflow={"auto"}>
-            <CommandResultTree commandResultProps={commandResultProps} onSelectNode={setSidePanelNode}
-                activeFilters={context.filters} />
+        <Divider sx={{ margin: '0 40px' }} />
+        <Box p='25px 40px' overflow='auto'>
+            <CommandResultTree
+                commandResultProps={commandResultProps}
+                onSelectNode={setSidePanelNode}
+                activeFilters={context.filters}
+            />
         </Box>
-        <Box width={"50%"} minWidth={0}>
+        <Box>
             <SidePanel provider={sidePanelNode} />
         </Box>
     </Box>
