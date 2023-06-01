@@ -1,9 +1,11 @@
-FROM alpine:3.18.0
+# We must use a glibc based distro due to embedded python not supporting musl libc for aarch64 (only amd64+musl is supported)
+# see https://github.com/indygreg/python-build-standalone/issues/87
+FROM debian:bullseye-slim
 
-RUN apk add ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # We need git for kustomize to support overlays from git
-RUN apk add git
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
