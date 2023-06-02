@@ -1,4 +1,4 @@
-name: goreleaser-release
+name: goreleaser-nightly
 
 on:
   push:
