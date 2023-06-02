@@ -52,7 +52,12 @@ sboms:
 checksum:
   name_template: '{{ .ProjectName }}_v{{ .Version }}_checksums.txt'
 snapshot:
-  name_template: "{{ incminor .Version }}-next"
+  name_template: "{{ incminor .Version }}-snapshot"
+nightly:
+  name_template: 'devel'
+  tag_name: devel
+  publish_release: true
+  keep_single_release: true
 changelog:
   sort: asc
   filters:
@@ -100,7 +105,7 @@ dockers:
       - "ghcr.io/kluctl/kluctl:v{{ .Version }}-arm64"
 
 docker_manifests:
-  - name_template: ghcr.io/kluctl/kluctl:{{ .Tag }}
+  - name_template: ghcr.io/kluctl/kluctl:{{ .Version }}
     image_templates:
       - "ghcr.io/kluctl/kluctl:v{{ .Version }}-amd64"
       - "ghcr.io/kluctl/kluctl:v{{ .Version }}-arm64"
