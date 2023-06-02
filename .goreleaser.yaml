@@ -54,7 +54,7 @@ checksum:
 snapshot:
   name_template: "{{ incminor .Version }}-snapshot"
 nightly:
-  name_template: 'devel'
+  name_template: '{{ incminor .Version }}-devel'
   tag_name: devel
   publish_release: true
   keep_single_release: true
