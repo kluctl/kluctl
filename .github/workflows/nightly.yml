@@ -44,6 +44,10 @@ jobs:
           key: ${{ runner.os }}-goreleaser-nightly-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-goreleaser-nightly-
+      - name: Set .goreleaser.yaml's release.draft=false
+        shell: bash
+        run: |
+          cat .goreleaser.yaml | sed 's/draft: true/draft: false/g' > .goreleaser.yaml.tmp && mv .goreleaser.yaml.tmp .goreleaser.yaml
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
         with:
