@@ -2,8 +2,6 @@
 # see https://github.com/indygreg/python-build-standalone/issues/87
 FROM cgr.dev/chainguard/wolfi-base
 
-RUN apk add ca-certificates
-
 # We need git for kustomize to support overlays from git
 RUN apk add git
 
