@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/kluctl/kluctl/workflows/tests/badge.svg)](https://github.com/kluctl/kluctl/actions)
 [![license](https://img.shields.io/github/license/kluctl/kluctl.svg)](https://github.com/kluctl/kluctl/blob/main/LICENSE)
-[![release](https://img.shields.io/github/release/kluctl/kluctl/all.svg)](https://github.com/kluctl/kluctl/releases)
+[![release](https://img.shields.io/github/release/kluctl/kluctl.svg)](https://github.com/kluctl/kluctl/releases)
 
 <img alt="kluctl" src="logo/kluctl.svg" width="200"/>
 
