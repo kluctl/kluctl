@@ -13,7 +13,7 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/image
         value: ghcr.io/kluctl/kluctl:{{ controller_version }}
-{% if controller_version.endswith("-next-amd64") or controller_version.endswith("-next-arm64") %}
+{% if "-devel" in controller_version %}
   - target:
       kind: Deployment
       name: kluctl-controller
