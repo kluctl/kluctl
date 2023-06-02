@@ -72,7 +72,7 @@ changelog:
 release:
   draft: true
   prerelease: auto
-  name_template: "{{.ProjectName}}-{{.Tag}}"
+  name_template: "{{ .ProjectName }}-v{{ .Version }}"
 
 dockers:
   - id: linux-amd64
