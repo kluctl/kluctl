@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"time"
@@ -327,15 +328,103 @@ type KluctlDeploymentStatus struct {
 
 	// LastDeployResult is the result of the last deploy command
 	// +optional
-	LastDeployResult *result.CommandResultSummary `json:"lastDeployResult,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	LastDeployResult *runtime.RawExtension `json:"lastDeployResult,omitempty"`
 
 	// LastDeployResult is the result of the last prune command
 	// +optional
-	LastPruneResult *result.CommandResultSummary `json:"lastPruneResult,omitempty"`
+	LastPruneResult *runtime.RawExtension `json:"lastPruneResult,omitempty"`
 
 	// LastValidateResult is the result of the last validate command
 	// +optional
-	LastValidateResult *result.ValidateResult `json:"lastValidateResult,omitempty"`
+	LastValidateResult *runtime.RawExtension `json:"lastValidateResult,omitempty"`
+}
+
+func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary, err error) error {
+	s.LastDeployError = ""
+	if err != nil {
+		s.LastDeployError = err.Error()
+	}
+	if crs == nil {
+		s.LastDeployResult = nil
+	} else {
+		b, err := yaml.WriteJsonString(crs)
+		if err != nil {
+			return err
+		}
+		s.LastDeployResult = &runtime.RawExtension{Raw: []byte(b)}
+	}
+	return nil
+}
+
+func (s *KluctlDeploymentStatus) SetLastPruneResult(crs *result.CommandResultSummary, err error) error {
+	s.LastPruneError = ""
+	if err != nil {
+		s.LastPruneError = err.Error()
+	}
+	if crs == nil {
+		s.LastPruneResult = nil
+	} else {
+		b, err := yaml.WriteJsonString(crs)
+		if err != nil {
+			return err
+		}
+		s.LastPruneResult = &runtime.RawExtension{Raw: []byte(b)}
+	}
+	return nil
+}
+
+func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult, err error) error {
+	s.LastValidateError = ""
+	if err != nil {
+		s.LastValidateError = err.Error()
+	}
+	if crs == nil {
+		s.LastValidateResult = nil
+	} else {
+		b, err := yaml.WriteJsonString(crs)
+		if err != nil {
+			return err
+		}
+		s.LastValidateResult = &runtime.RawExtension{Raw: []byte(b)}
+	}
+	return nil
+}
+
+func (s *KluctlDeploymentStatus) GetLastDeployResult() (*result.CommandResultSummary, error) {
+	if s.LastDeployResult == nil {
+		return nil, nil
+	}
+	var ret result.CommandResultSummary
+	err := yaml.ReadYamlBytes(s.LastDeployResult.Raw, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
+func (s *KluctlDeploymentStatus) GetLastPruneResult() (*result.CommandResultSummary, error) {
+	if s.LastPruneResult == nil {
+		return nil, nil
+	}
+	var ret result.CommandResultSummary
+	err := yaml.ReadYamlBytes(s.LastPruneResult.Raw, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
+func (s *KluctlDeploymentStatus) GetLastValidateResult() (*result.ValidateResult, error) {
+	if s.LastValidateResult == nil {
+		return nil, nil
+	}
+	var ret result.ValidateResult
+	err := yaml.ReadYamlBytes(s.LastValidateResult.Raw, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
 }
 
 //+kubebuilder:object:root=true

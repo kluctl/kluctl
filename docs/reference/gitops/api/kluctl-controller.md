@@ -1194,7 +1194,7 @@ string
 <td>
 <code>lastDeployResult</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types/result.CommandResultSummary
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
@@ -1206,7 +1206,7 @@ github.com/kluctl/kluctl/v2/pkg/types/result.CommandResultSummary
 <td>
 <code>lastPruneResult</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types/result.CommandResultSummary
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
@@ -1218,7 +1218,7 @@ github.com/kluctl/kluctl/v2/pkg/types/result.CommandResultSummary
 <td>
 <code>lastValidateResult</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types/result.ValidateResult
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>

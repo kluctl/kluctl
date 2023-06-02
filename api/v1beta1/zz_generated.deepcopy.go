@@ -255,17 +255,17 @@ func (in *KluctlDeploymentStatus) DeepCopyInto(out *KluctlDeploymentStatus) {
 	}
 	if in.LastDeployResult != nil {
 		in, out := &in.LastDeployResult, &out.LastDeployResult
-		*out = new(result.CommandResultSummary)
+		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.LastPruneResult != nil {
 		in, out := &in.LastPruneResult, &out.LastPruneResult
-		*out = new(result.CommandResultSummary)
+		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.LastValidateResult != nil {
 		in, out := &in.LastValidateResult, &out.LastValidateResult
-		*out = new(result.ValidateResult)
+		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
 }
