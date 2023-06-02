@@ -14,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta2 "k8s.io/apimachinery/pkg/api/meta"
@@ -311,29 +312,26 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		} else {
 			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
 		}
-		obj.Status.LastDeployResult = deployResult.BuildSummary()
-		obj.Status.LastDeployError = ""
+		err = obj.Status.SetLastDeployResult(deployResult.BuildSummary(), err)
 		if err != nil {
-			obj.Status.LastDeployError = err.Error()
+			log.Error(err, "Failed to write deploy result")
 		}
 	}
 
 	if needPrune {
 		// run garbage collection for stale objects that do not have pruning disabled
 		pruneResult, err := pt.kluctlPrune(ctx, targetContext)
-		obj.Status.LastPruneResult = pruneResult.BuildSummary()
-		obj.Status.LastPruneError = ""
+		err = obj.Status.SetLastPruneResult(pruneResult.BuildSummary(), err)
 		if err != nil {
-			obj.Status.LastPruneError = err.Error()
+			log.Error(err, "Failed to write prune result")
 		}
 	}
 
 	if needValidate {
 		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult)
-		obj.Status.LastValidateResult = validateResult
-		obj.Status.LastValidateError = ""
+		err = obj.Status.SetLastValidateResult(validateResult, err)
 		if err != nil {
-			obj.Status.LastValidateError = err.Error()
+			log.Error(err, "Failed to write validate result")
 		}
 	}
 
@@ -344,7 +342,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		ctrlResult.Requeue = true
 	}
 
-	finalStatus, reason := r.buildFinalStatus(obj)
+	finalStatus, reason := r.buildFinalStatus(ctx, obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		setReadiness(obj, metav1.ConditionFalse, reason, finalStatus)
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
@@ -355,7 +353,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	return &ctrlResult, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {
+func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {
+	log := ctrl.LoggerFrom(ctx)
+
 	if obj.Status.LastDeployError != "" {
 		finalStatus = obj.Status.LastDeployError
 		reason = kluctlv1.DeployFailedReason
@@ -370,9 +370,31 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(obj *kluctlv1.KluctlDeploy
 		return
 	}
 
-	deployOk := obj.Status.LastDeployResult != nil && obj.Status.LastDeployResult.Errors == 0
-	pruneOk := obj.Status.LastPruneResult != nil && obj.Status.LastPruneResult.Errors == 0
-	validateOk := obj.Status.LastValidateResult != nil && len(obj.Status.LastValidateResult.Errors) == 0 && obj.Status.LastValidateResult.Ready
+	var lastDeployResult *result.CommandResultSummary
+	var lastPruneResult *result.CommandResultSummary
+	var lastValidateResult *result.ValidateResult
+	if obj.Status.LastDeployResult != nil {
+		err := yaml.ReadYamlBytes(obj.Status.LastDeployResult.Raw, &lastDeployResult)
+		if err != nil {
+			log.Info(fmt.Sprintf("Failed to parse last deploy result: %s", err.Error()))
+		}
+	}
+	if obj.Status.LastPruneResult != nil {
+		err := yaml.ReadYamlBytes(obj.Status.LastPruneResult.Raw, &lastPruneResult)
+		if err != nil {
+			log.Info(fmt.Sprintf("Failed to parse last prune result: %s", err.Error()))
+		}
+	}
+	if obj.Status.LastValidateResult != nil {
+		err := yaml.ReadYamlBytes(obj.Status.LastValidateResult.Raw, &lastValidateResult)
+		if err != nil {
+			log.Info(fmt.Sprintf("Failed to parse last validate result: %s", err.Error()))
+		}
+	}
+
+	deployOk := lastDeployResult != nil && lastDeployResult.Errors == 0
+	pruneOk := lastPruneResult != nil && lastPruneResult.Errors == 0
+	validateOk := lastValidateResult != nil && len(lastValidateResult.Errors) == 0 && lastValidateResult.Ready
 
 	if !obj.Spec.Prune {
 		pruneOk = true
@@ -464,7 +486,13 @@ func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployme
 		return nil
 	}
 
-	t := obj.Status.LastDeployResult.Command.EndTime.Add(obj.Spec.DeployInterval.Duration.Duration)
+	var lastDeployResult result.CommandResultSummary
+	err := yaml.ReadYamlBytes(obj.Status.LastDeployResult.Raw, &lastDeployResult)
+	if err != nil {
+		return nil
+	}
+
+	t := lastDeployResult.Command.EndTime.Add(obj.Spec.DeployInterval.Duration.Duration)
 	return &t
 }
 
@@ -489,7 +517,13 @@ func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeploy
 		d = obj.Spec.ValidateInterval.Duration.Duration
 	}
 
-	t := obj.Status.LastValidateResult.EndTime.Add(d)
+	var lastValidateResult result.ValidateResult
+	err := yaml.ReadYamlBytes(obj.Status.LastValidateResult.Raw, &lastValidateResult)
+	if err != nil {
+		return nil
+	}
+
+	t := lastValidateResult.EndTime.Add(d)
 	return &t
 }
 
