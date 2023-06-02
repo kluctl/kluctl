@@ -2,6 +2,7 @@ package args
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -11,7 +12,7 @@ type ProjectDir struct {
 
 func (a ProjectDir) GetProjectDir() (string, error) {
 	if a.ProjectDir != "" {
-		return a.ProjectDir.String(), nil
+		return filepath.Abs(a.ProjectDir.String())
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
