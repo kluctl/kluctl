@@ -113,5 +113,5 @@ deployments:
   - git:
       url: https://github.com/kluctl/kluctl.git
       subDir: install/controller
-      ref: v2.20.3
+      ref: v2.20.4
 ```
