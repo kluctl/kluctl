@@ -44,16 +44,18 @@ func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.
 	rs, err := results.NewResultStoreSecrets(context.TODO(), suite.k.Client, nil, "", 0)
 	g.Expect(err).To(Succeed())
 
+	lastDeployResult, err := kd.Status.GetLastDeployResult()
+	g.Expect(err).To(Succeed())
 	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{
-		Id: kd.Status.LastDeployResult.Id,
+		Id: lastDeployResult.Id,
 	})
 	g.Expect(err).To(Succeed())
 
 	g.Expect(cr.Errors).To(ConsistOf(expectedErrors))
 	g.Expect(cr.Warnings).To(ConsistOf(expectedWarnings))
 
-	g.Expect(kd.Status.LastDeployResult.Errors).To(Equal(len(expectedErrors)))
-	g.Expect(kd.Status.LastDeployResult.Warnings).To(Equal(len(expectedWarnings)))
+	g.Expect(lastDeployResult.Errors).To(ConsistOf(expectedErrors))
+	g.Expect(lastDeployResult.Warnings).To(ConsistOf(expectedWarnings))
 }
 
 func (suite *GitopsTestSuite) TestGitOpsErrors() {

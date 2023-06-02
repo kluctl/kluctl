@@ -820,6 +820,6 @@ func (pt *preparedTarget) exportCommandResultMetricsToProm(summary *result.Comma
 	internal_metrics.NewKluctlNumberOfDeletedObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(summary.DeletedObjects))
 	internal_metrics.NewKluctlNumberOfChangedObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(summary.ChangedObjects))
 	internal_metrics.NewKluctlNumberOfOrphanObjects(pt.pp.obj.Namespace, pt.pp.obj.Name).Set(float64(summary.OrphanObjects))
-	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, summary.Command.Command).Set(float64(summary.Warnings))
-	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, summary.Command.Command).Set(float64(summary.Errors))
+	internal_metrics.NewKluctlNumberOfWarnings(pt.pp.obj.Namespace, pt.pp.obj.Name, summary.Command.Command).Set(float64(len(summary.Warnings)))
+	internal_metrics.NewKluctlNumberOfErrors(pt.pp.obj.Namespace, pt.pp.obj.Name, summary.Command.Command).Set(float64(len(summary.Errors)))
 }
