@@ -1,13 +1,13 @@
 import React from 'react';
 
 import { NodeData } from "./NodeData";
-import { CloudSync } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
 import { CommandResultProps } from "../CommandResultView";
 
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
+import { DeployIcon } from '../../../icons/Icons';
 
 export class CommandResultNodeData extends NodeData {
     dumpedTargetYaml?: string
@@ -25,7 +25,7 @@ export class CommandResultNodeData extends NodeData {
     }
 
     buildIcon(): [React.ReactNode, string] {
-        return [<CloudSync fontSize={"large"}/>, "result"]
+        return [<DeployIcon />, "result"]
     }
 
     buildSidePanelTabs(): SidePanelTab[] {

@@ -1,8 +1,8 @@
 import { VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
-import { Category, Cloud, Dvr, Http, Lock, Settings, Source } from "@mui/icons-material";
-import { GitIcon } from "../../../icons/Icons";
+import { Category, Cloud, Dvr, Http, Lock, Settings } from "@mui/icons-material";
+import { FileIcon, GitIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
 import { Box } from "@mui/material";
@@ -59,7 +59,7 @@ export class VarsSourceNodeData extends NodeData {
                 label: () => {
                     return this.varsSource.file
                 },
-                icon: () => <Source fontSize={"large"}/>,
+                icon: () => <FileIcon />,
                 sourceProps: () => [
                     {name: "File", value: this.varsSource.file}
                 ]

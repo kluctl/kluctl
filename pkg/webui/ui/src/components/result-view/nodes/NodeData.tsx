@@ -1,6 +1,6 @@
 import { ChangedObject, DeploymentError, ObjectRef, ResultObject } from "../../../models";
 import React from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Divider, Typography } from "@mui/material";
 import { CommandResultProps } from "../CommandResultView";
 import { ChangesTable } from "../ChangesTable";
 import { ErrorsTable } from "../../ErrorsTable";
@@ -123,26 +123,86 @@ export abstract class NodeData implements SidePanelProvider {
         />
     }
 
-    buildTreeItem(): React.ReactNode {
-        const [icon, iconText] = this.buildIcon()
+    buildTreeItem(hasChildren?: boolean): React.ReactNode {
+        const [icon, iconText] = this.buildIcon();
 
-        return <Box>
-            <Box display={"flex"}>
-                <Box display="flex" justifyContent="center" alignItems="center">
-                    <Box display="flex" flexDirection={"column"} alignItems={"center"}>
-                        {icon}
-                        <Typography fontSize={"10px"} color={"gray"}>{iconText}</Typography>
-                    </Box>
-                </Box>
-                <Box display={"flex"} flexDirection={"column"}>
-                    <Box>
-                        {this.buildSidePanelTitle()}<br/>
-                    </Box>
-                    <Box>
-                        {this.buildStatusLine()}
-                    </Box>
-                </Box>
+        const hasStatusLine = [
+            this.healthStatus?.errors.length,
+            this.healthStatus?.warnings.length,
+            this.diffStatus?.changedObjects.length,
+            this.diffStatus?.newObjects.length,
+            this.diffStatus?.deletedObjects.length,
+            this.diffStatus?.orphanObjects.length,
+        ].some(x => (x || 0) > 0);
+
+        return <Box
+            display='flex'
+            height='100%'
+            flex='1 1 auto'
+        >
+            <Box
+                display='flex'
+                flexDirection='column'
+                alignItems='center'
+                justifyContent='center'
+                width='30px'
+                height='100%'
+                flex='0 0 auto'
+                mr='13px'
+                sx={{
+                    '& svg': {
+                        width: '30px',
+                        height: '30px'
+                    }
+                }}
+            >
+                {icon}
+                <Typography
+                    variant='subtitle1'
+                    component='div'
+                    fontSize='12px'
+                    fontWeight={400}
+                    lineHeight='16px'
+                    height='16px'
+                >
+                    {iconText}
+                </Typography>
             </Box>
+            <Box
+                display='flex'
+                height='100%'
+                flex='1 1 auto'
+                py='15px'
+            >
+                <Typography
+                    variant='h6'
+                    component='div'
+                    sx={{ wordBreak: 'break-all' }}
+                    {...(hasChildren ? {} : { fontSize: '16px', lineHeight: '22px' })}
+                >
+                    {this.buildSidePanelTitle()}
+                </Typography>
+            </Box>
+            {hasStatusLine && <Box
+                height='100%'
+                width='172px'
+                flex='0 0 auto'
+                display='flex'
+                alignItems='center'
+                px='14px'
+                ml='14px'
+                position='relative'
+            >
+                <Divider
+                    orientation='vertical'
+                    sx={{
+                        height: '40px',
+                        position: 'absolute',
+                        left: 0
+                    }}
+                />
+                {this.buildStatusLine()}
+            </Box>}
         </Box>
     }
 
@@ -153,7 +213,7 @@ export abstract class NodeData implements SidePanelProvider {
     }
 
     buildObjectPage(ref: ObjectRef, objectType: ObjectType): React.ReactNode {
-        return <ObjectYaml treeProps={this.props} objectRef={ref} objectType={objectType}/>
+        return <ObjectYaml treeProps={this.props} objectRef={ref} objectType={objectType} />
     }
 
     buildChangesPage(tabs: { label: string, content: React.ReactNode }[]) {
@@ -162,7 +222,7 @@ export abstract class NodeData implements SidePanelProvider {
         }
         tabs.push({
             label: "Changes",
-            content: <ChangesTable diffStatus={this.diffStatus}/>
+            content: <ChangesTable diffStatus={this.diffStatus} />
         })
     }
 
@@ -172,7 +232,7 @@ export abstract class NodeData implements SidePanelProvider {
         }
         tabs.push({
             label: "Errors",
-            content: <ErrorsTable errors={this.healthStatus.errors}/>
+            content: <ErrorsTable errors={this.healthStatus.errors} />
         })
     }
 
@@ -182,7 +242,7 @@ export abstract class NodeData implements SidePanelProvider {
         }
         tabs.push({
             label: "Warnings",
-            content: <ErrorsTable errors={this.healthStatus.warnings}/>
+            content: <ErrorsTable errors={this.healthStatus.warnings} />
         })
     }
 }

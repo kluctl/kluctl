@@ -1,9 +1,9 @@
 import { VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
-import { DataArray } from "@mui/icons-material";
 import { CommandResultProps } from "../CommandResultView";
 import { SidePanelTab } from "../SidePanel";
+import { BracketsSquareIcon } from "../../../icons/Icons";
 
 export class VarsSourceCollectionNodeData extends NodeData {
     varsSources: VarsSource[] = []
@@ -17,7 +17,7 @@ export class VarsSourceCollectionNodeData extends NodeData {
     }
 
     buildIcon(): [React.ReactNode, string] {
-        return [<DataArray fontSize={"large"}/>, "vars"]
+        return [<BracketsSquareIcon />, "vars"]
     }
 
     buildSidePanelTabs(): SidePanelTab[] {

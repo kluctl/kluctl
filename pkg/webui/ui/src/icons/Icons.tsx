@@ -26,6 +26,13 @@ import { ReactComponent as ArrowLeftIconSvg } from './arrow-left.svg';
 import { ReactComponent as WarningSignIconSvg } from './warning-sign.svg';
 import { ReactComponent as ChangesIconSvg } from './changes.svg';
 import { ReactComponent as StarIconSvg } from './star.svg';
+import { ReactComponent as TriangleDownIconSvg } from './triangle-down.svg';
+import { ReactComponent as TriangleRightIconSvg } from './triangle-right.svg';
+import { ReactComponent as BracketsCurlyIconSvg } from './brackets-curly.svg';
+import { ReactComponent as BracketsSquareIconSvg } from './brackets-square.svg';
+import { ReactComponent as FileIconSvg } from './file.svg';
+import { ReactComponent as ResultIconSvg } from './result.svg';
+import { ReactComponent as IncludeIconSvg } from './include.svg';
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -146,4 +153,32 @@ export const ChangesIcon = () => {
 
 export const StarIcon = () => {
     return <StarIconSvg width="21px" height="21px" />
+}
+
+export const TriangleDownIcon = () => {
+    return <TriangleDownIconSvg width="50px" height="50px" />
+}
+
+export const TriangleRightIcon = () => {
+    return <TriangleRightIconSvg width="50px" height="50px" />
+}
+
+export const BracketsCurlyIcon = () => {
+    return <BracketsCurlyIconSvg width="22px" height="18px" />
+}
+
+export const BracketsSquareIcon = () => {
+    return <BracketsSquareIconSvg width="22px" height="18px" />
+}
+
+export const FileIcon = () => {
+    return <FileIconSvg width="40px" height="40px" />
+}
+
+export const ResultIcon = () => {
+    return <ResultIconSvg width="30px" height="30px" />
+}
+
+export const IncludeIcon = () => {
+    return <IncludeIconSvg width="30px" height="30px" />
 }

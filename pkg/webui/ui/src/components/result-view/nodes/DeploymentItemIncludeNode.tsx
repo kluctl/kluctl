@@ -2,8 +2,7 @@ import React from 'react';
 
 import { DeploymentItemConfig, DeploymentProjectConfig } from "../../../models";
 import { NodeData } from "./NodeData";
-import { FolderZip } from "@mui/icons-material";
-import { GitIcon } from "../../../icons/Icons";
+import { GitIcon, IncludeIcon } from "../../../icons/Icons";
 import { CommandResultProps } from "../CommandResultView";
 import { PropertiesTable } from "../../PropertiesTable";
 import { buildDeploymentItemSummaryProps } from "./DeploymentItemNode";
@@ -39,7 +38,7 @@ export class DeploymentItemIncludeNodeData extends NodeData {
         if (this.deploymentItem.git) {
             return [<GitIcon/>, "git"]
         }
-        return [<FolderZip fontSize={"large"}/>, "include"]
+        return [<IncludeIcon />, "include"]
     }
 
     buildSidePanelTabs(): SidePanelTab[] {
