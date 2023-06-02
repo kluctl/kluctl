@@ -2,9 +2,8 @@ name: goreleaser-release
 
 on:
   push:
-    # run only against tags
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -42,15 +41,15 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: ${{ runner.os }}-goreleaser-release-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-goreleaser-nightly-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-goreleaser-release-
+            ${{ runner.os }}-goreleaser-nightly-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser-pro
           version: latest
-          args: release --clean
+          args: release --nightly --clean
         env:
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
