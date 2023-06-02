@@ -1,11 +1,11 @@
 # We must use a glibc based distro due to embedded python not supporting musl libc for aarch64 (only amd64+musl is supported)
 # see https://github.com/indygreg/python-build-standalone/issues/87
-FROM debian:bullseye-slim
+FROM cgr.dev/chainguard/wolfi-base
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apk add ca-certificates
 
 # We need git for kustomize to support overlays from git
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+RUN apk add git
 
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
