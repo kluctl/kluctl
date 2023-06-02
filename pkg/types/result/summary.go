@@ -23,8 +23,9 @@ type CommandResultSummary struct {
 	ChangedObjects int `json:"changedObjects"`
 	OrphanObjects  int `json:"orphanObjects"`
 	DeletedObjects int `json:"deletedObjects"`
-	Errors         int `json:"errors"`
-	Warnings       int `json:"warnings"`
+
+	Errors   []DeploymentError `json:"errors"`
+	Warnings []DeploymentError `json:"warnings"`
 
 	TotalChanges int `json:"totalChanges"`
 }
@@ -73,8 +74,8 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 		ChangedObjects:     count(func(o ResultObject) bool { return len(o.Changes) != 0 }),
 		OrphanObjects:      count(func(o ResultObject) bool { return o.Orphan }),
 		DeletedObjects:     count(func(o ResultObject) bool { return o.Deleted }),
-		Errors:             len(cr.Errors),
-		Warnings:           len(cr.Warnings),
+		Errors:             cr.Errors,
+		Warnings:           cr.Warnings,
 	}
 	for _, o := range cr.Objects {
 		ret.TotalChanges += len(o.Changes)
