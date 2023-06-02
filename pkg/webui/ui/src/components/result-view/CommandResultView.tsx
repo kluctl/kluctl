@@ -1,15 +1,16 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Box, Checkbox, CheckboxProps, Divider, FormControlLabel, Typography } from "@mui/material";
+import { Box, Checkbox, CheckboxProps, Divider, Drawer, FormControlLabel, ThemeProvider, Typography } from "@mui/material";
 import { CommandResult, CommandResultSummary, ShortName } from "../../models";
 import { NodeData } from "./nodes/NodeData";
-import { SidePanel } from "./SidePanel";
+import { SidePanel, SidePanelProvider } from "./SidePanel";
 import { ActiveFilters } from "./NodeStatusFilter";
 import CommandResultTree from "./CommandResultTree";
 import { useLoaderData } from "react-router-dom";
 import { api } from "../../api";
 import { useAppOutletContext } from "../App";
 import { ChangesIcon, CheckboxCheckedIcon, CheckboxIcon, StarIcon, WarningSignIcon } from '../../icons/Icons';
+import { dark } from '../theme';
 
 export interface CommandResultProps {
     shortNames: ShortName[]
@@ -83,6 +84,22 @@ const FilterCheckbox = (props: {
     />
 }
 
+function DetailsDrawer(props: { nodeData?: NodeData, onClose?: () => void }) {
+    return <ThemeProvider theme={dark}>
+        <Drawer
+            sx={{ zIndex: 1300 }}
+            anchor={"right"}
+            open={props.nodeData !== undefined}
+            onClose={props.onClose}
+            ModalProps={{ BackdropProps: { invisible: true } }}
+        >
+            <Box width={"720px"} height={"100%"}>
+                <SidePanel provider={props.nodeData} onClose={props.onClose} />
+            </Box>
+        </Drawer>
+    </ThemeProvider>;
+}
+
 const defaultFilters = {
     onlyImportant: false,
     onlyChanged: false,
@@ -116,6 +133,10 @@ export const CommandResultView = () => {
         flexDirection='column'
         overflow='hidden'
     >
+        <DetailsDrawer 
+            nodeData={sidePanelNode}
+            onClose={() => setSidePanelNode(undefined)}
+        />
         <Box display='flex' alignItems='center' minHeight='70px' p='0 40px'>
             <FilterCheckbox
                 text='Only important'
@@ -145,9 +166,6 @@ export const CommandResultView = () => {
                 onSelectNode={setSidePanelNode}
                 activeFilters={context.filters}
             />
-        </Box>
-        <Box>
-            <SidePanel provider={sidePanelNode} />
         </Box>
     </Box>
 }

@@ -61,7 +61,7 @@ export const SidePanel = (props: SidePanelProps) => {
 
     return <Box width={"100%"} height={"100%"} display="flex" flexDirection="column" overflow='hidden'>
         <TabContext value={selectedTab}>
-            <Box height={theme.consts.appBarHeight} display='flex' flexDirection='column' flex='0 0 auto' justifyContent='space-between'>
+            <Box minHeight={theme.consts.appBarHeight} display='flex' flexDirection='column' flex='0 0 auto' justifyContent='space-between'>
                 <Box flex='1 1 auto' display='flex' justifyContent='space-between'>
                     <Box flex='1 1 auto' pt='25px' pl='35px'>
                         <Typography variant="h4">

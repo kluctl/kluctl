@@ -45,21 +45,10 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
     };
 
     const handleItemClick = (e: React.SyntheticEvent, node: NodeData) => {
-        setSelectedNodeId(node.id)
-        e.stopPropagation()
+        setSelectedNodeId(node.id);
+        props.onSelectNode(node);
+        e.stopPropagation();
     }
-
-    const onSelectNode = props.onSelectNode
-    useEffect(() => {
-        if (!nodeMap || !selectedNodeId) {
-            return
-        }
-        const node = nodeMap.get(selectedNodeId)
-        if (!node) {
-            setSelectedNodeId(undefined)
-        }
-        onSelectNode(node)
-    }, [nodeMap, selectedNodeId, onSelectNode])
 
     const renderTree = (nodes: NodeData) => {
         if (!FilterNode(nodes, props.activeFilters)) {
