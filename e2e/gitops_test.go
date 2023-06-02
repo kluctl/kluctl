@@ -567,7 +567,9 @@ data:
 		if obj.Status.LastDeployResult == nil {
 			return false
 		}
-		return obj.Status.LastDeployResult.GitInfo.Commit == getHeadRevision(suite.T(), p)
+		ldr, err := obj.Status.GetLastDeployResult()
+		g.Expect(err).To(Succeed())
+		return ldr.GitInfo.Commit == getHeadRevision(suite.T(), p)
 	}, timeout, time.Second).Should(BeTrue())
 
 	suite.Run("cm1 and cm2 were not deleted", func() {

@@ -392,8 +392,8 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 		}
 	}
 
-	deployOk := lastDeployResult != nil && lastDeployResult.Errors == 0
-	pruneOk := lastPruneResult != nil && lastPruneResult.Errors == 0
+	deployOk := lastDeployResult != nil && len(lastDeployResult.Errors) == 0
+	pruneOk := lastPruneResult != nil && len(lastPruneResult.Errors) == 0
 	validateOk := lastValidateResult != nil && len(lastValidateResult.Errors) == 0 && lastValidateResult.Ready
 
 	if !obj.Spec.Prune {
