@@ -73,6 +73,12 @@ release:
   draft: true
   prerelease: auto
   name_template: "{{ .ProjectName }}-v{{ .Version }}"
+  header: |
+    {{- if .IsNightly -}}
+    ## Development build
+    This is a development build of the main branch and not meant for production use.
+    Docker images are also available via: `ghcr.io/kluctl/kluctl:v{{ .Version }}`
+    {{- end -}}
 
 dockers:
   - id: linux-amd64
