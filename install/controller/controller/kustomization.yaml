@@ -13,12 +13,25 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/image
         value: ghcr.io/kluctl/kluctl:{{ controller_version }}
-{% if "-devel" in controller_version %}
   - target:
       kind: Deployment
       name: kluctl-controller
     patch: |-
+      - op: test
+        path: /kind
+        value: Deployment # this is just a dummy test to avoid empty patches
+{% if "-devel" in controller_version %}
       - op: add
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
 {% endif %}
+{% for a in get_var("args.controller_args", []) %}
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: "{{ a }}"
+{% endfor %}
+{% for a in get_var("args.controller_envs", []) %}
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: {{ a | to_json }}
+{% endfor %}
