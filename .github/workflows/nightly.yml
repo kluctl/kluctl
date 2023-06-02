@@ -9,6 +9,8 @@ permissions:
   contents: write
   packages: write
 
+concurrency: goreleaser-nightly
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
