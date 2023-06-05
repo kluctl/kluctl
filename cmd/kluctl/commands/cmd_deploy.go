@@ -27,6 +27,7 @@ type deployCmd struct {
 	args.CommandResultFlags
 
 	NoWait bool `group:"misc" help:"Don't wait for objects readiness'"`
+	Prune  bool `group:"misc" help:"Prune orphaned objects directly after deploying. See the help for the 'prune' sub-command for details.'"`
 
 	internal bool
 }
@@ -67,6 +68,8 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	cmd2.AbortOnError = cmd.AbortOnError
 	cmd2.ReadinessTimeout = cmd.ReadinessTimeout
 	cmd2.NoWait = cmd.NoWait
+	cmd2.Prune = cmd.Prune
+	cmd2.WaitPrune = !cmd.NoWait
 
 	cb := func(diffResult *result.CommandResult) error {
 		return cmd.diffResultCb(cmdCtx, diffResult)

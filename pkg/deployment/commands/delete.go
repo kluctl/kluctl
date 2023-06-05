@@ -66,10 +66,7 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 		}
 	}
 
-	deleted, err := utils2.DeleteObjects(ctx, k, deleteRefs, dew, cmd.wait)
-	if err != nil {
-		return nil, err
-	}
+	deleted := utils2.DeleteObjects(ctx, k, deleteRefs, dew, cmd.wait)
 
 	var c *deployment.DeploymentCollection
 	if cmd.targetCtx != nil {
