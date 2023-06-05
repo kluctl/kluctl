@@ -707,6 +707,8 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.AbortOnError = pt.pp.obj.Spec.AbortOnError
 	cmd.ReadinessTimeout = time.Minute * 10
 	cmd.NoWait = pt.pp.obj.Spec.NoWait
+	cmd.Prune = pt.pp.obj.Spec.Prune
+	cmd.WaitPrune = false
 
 	cmdResult, err := cmd.Run(nil)
 	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
@@ -720,26 +722,6 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 
 	cmdResult, err := cmd.Run()
 	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
-	return cmdResult, err
-}
-
-func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
-	if !pt.pp.obj.Spec.Prune {
-		return nil, nil
-	}
-
-	timer := prometheus.NewTimer(internal_metrics.NewKluctlPruneDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
-	defer timer.ObserveDuration()
-
-	cmd := commands.NewPruneCommand("", targetContext, false)
-	cmdResult, err := cmd.Run(func(refs []k8s.ObjectRef) error {
-		pt.printDeletedRefs(ctx, refs)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	err = pt.handleCommandResult(ctx, err, cmdResult, "prune")
 	return cmdResult, err
 }
 

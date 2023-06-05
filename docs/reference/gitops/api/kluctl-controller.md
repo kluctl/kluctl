@@ -1170,17 +1170,6 @@ string
 </tr>
 <tr>
 <td>
-<code>lastPruneError</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
 <code>lastValidateError</code><br>
 <em>
 string
@@ -1200,18 +1189,6 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 <td>
 <em>(Optional)</em>
 <p>LastDeployResult is the result of the last deploy command</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastPruneResult</code><br>
-<em>
-k8s.io/apimachinery/pkg/runtime.RawExtension
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LastDeployResult is the result of the last prune command</p>
 </td>
 </tr>
 <tr>

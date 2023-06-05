@@ -21,10 +21,6 @@ const (
 	// kluctl deploy command failed.
 	DeployFailedReason string = "DeployFailed"
 
-	// PruneFailedReason represents the fact that the
-	// pruning of the KluctlDeployment failed.
-	PruneFailedReason string = "PruneFailed"
-
 	// ValidateFailedReason represents the fact that the
 	// validate of the KluctlDeployment failed.
 	ValidateFailedReason string = "ValidateFailed"
