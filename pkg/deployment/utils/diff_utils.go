@@ -127,13 +127,7 @@ func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef,
 func (u *DiffUtil) calcRemoteObjectsForDiff() {
 	u.remoteDiffObjects = make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, o := range u.ru.remoteObjects {
-		diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
-		if diffName == nil {
-			x := o.GetK8sName()
-			diffName = &x
-		}
-		diffRef := o.GetK8sRef()
-		diffRef.Name = *diffName
+		diffRef := u.GetDiffRef(o)
 		oldCreationTime := time.Time{}
 		if old, ok := u.remoteDiffObjects[diffRef]; ok {
 			oldCreationTime = old.GetK8sCreationTime()
@@ -145,11 +139,16 @@ func (u *DiffUtil) calcRemoteObjectsForDiff() {
 }
 
 func (u *DiffUtil) getRemoteObjectForDiff(localObject *uo.UnstructuredObject) (k8s2.ObjectRef, *uo.UnstructuredObject) {
-	ref := localObject.GetK8sRef()
-	diffName := localObject.GetK8sAnnotation("kluctl.io/diff-name")
+	ref := u.GetDiffRef(localObject)
+	o, _ := u.remoteDiffObjects[ref]
+	return ref, o
+}
+
+func (u *DiffUtil) GetDiffRef(o *uo.UnstructuredObject) k8s2.ObjectRef {
+	ref := o.GetK8sRef()
+	diffName := o.GetK8sAnnotation("kluctl.io/diff-name")
 	if diffName != nil {
 		ref.Name = *diffName
 	}
-	o, _ := u.remoteDiffObjects[ref]
-	return ref, o
+	return ref
 }
