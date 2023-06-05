@@ -68,7 +68,9 @@ export class NodeBuilder {
     buildRoot(): [CommandResultNodeData, Map<string, NodeData>] {
         const rootNode = new CommandResultNodeData(this.props, "root")
 
-        this.buildDeploymentProjectChildren(rootNode, this.props.commandResult.deployment!)
+        if (this.props.commandResult.deployment) {
+            this.buildDeploymentProjectChildren(rootNode, this.props.commandResult.deployment)
+        }
 
         if (this.deletedObjectsMap.size) {
             this.buildDeletedOrOrphanNode(rootNode, true, Array.from(this.deletedObjectsMap.values()))
