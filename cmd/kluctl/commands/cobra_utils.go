@@ -251,6 +251,10 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 		if v != nil {
 			if x, ok := v.(string); ok {
 				a = []string{x}
+			} else if x, ok := v.(bool); ok {
+				a = []string{strconv.FormatBool(x)}
+			} else if x, ok := v.(int); ok {
+				a = []string{strconv.FormatInt(int64(x), 10)}
 			} else if x, ok := v.([]any); ok {
 				for _, y := range x {
 					s, ok := y.(string)
