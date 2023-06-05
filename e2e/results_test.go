@@ -4,6 +4,7 @@ import (
 	"context"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +45,13 @@ func TestWriteResult(t *testing.T) {
 	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, nil, "kluctl-results", 0)
 	assert.NoError(t, err)
 
-	summaries, err := rs.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	opts := results.ListCommandResultSummariesOptions{
+		ProjectFilter: &result.ProjectKey{
+			GitRepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
+		},
+	}
+
+	summaries, err := rs.ListCommandResultSummaries(opts)
 	assert.NoError(t, err)
 	assert.Len(t, summaries, 1)
 	assertSummary(t, result.CommandResultSummary{
@@ -63,7 +70,7 @@ func TestWriteResult(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
-	summaries, err = rs.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	summaries, err = rs.ListCommandResultSummaries(opts)
 	assert.NoError(t, err)
 	assert.Len(t, summaries, 2)
 	assertSummary(t, result.CommandResultSummary{
@@ -80,7 +87,7 @@ func TestWriteResult(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
-	summaries, err = rs.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	summaries, err = rs.ListCommandResultSummaries(opts)
 	assert.NoError(t, err)
 	assert.Len(t, summaries, 3)
 	assertSummary(t, result.CommandResultSummary{
@@ -91,7 +98,7 @@ func TestWriteResult(t *testing.T) {
 	p.KluctlMust("prune", "--yes", "-t", "test", "--write-command-result")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 
-	summaries, err = rs.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	summaries, err = rs.ListCommandResultSummaries(opts)
 	assert.NoError(t, err)
 	assert.Len(t, summaries, 4)
 	assertSummary(t, result.CommandResultSummary{
