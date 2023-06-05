@@ -1,7 +1,6 @@
 package webui
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/results"
@@ -111,16 +110,6 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 	}
 
 	err = utils.FsCopyDir(uiFS, ".", tmpDir)
-	if err != nil {
-		return err
-	}
-
-	indexHtml, err := os.ReadFile(filepath.Join(tmpDir, "index.html"))
-	if err != nil {
-		return err
-	}
-	indexHtml = bytes.ReplaceAll(indexHtml, []byte("/webui/"), []byte("./"))
-	err = os.WriteFile(filepath.Join(tmpDir, "index.html"), indexHtml, 0)
 	if err != nil {
 		return err
 	}
