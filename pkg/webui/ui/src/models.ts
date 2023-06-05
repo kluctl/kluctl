@@ -677,8 +677,8 @@ export class CommandResultSummary {
     changedObjects: number;
     orphanObjects: number;
     deletedObjects: number;
-    errors: number;
-    warnings: number;
+    errors: DeploymentError[];
+    warnings: DeploymentError[];
     totalChanges: number;
 
     constructor(source: any = {}) {
@@ -698,8 +698,8 @@ export class CommandResultSummary {
         this.changedObjects = source["changedObjects"];
         this.orphanObjects = source["orphanObjects"];
         this.deletedObjects = source["deletedObjects"];
-        this.errors = source["errors"];
-        this.warnings = source["warnings"];
+        this.errors = this.convertValues(source["errors"], DeploymentError);
+        this.warnings = this.convertValues(source["warnings"], DeploymentError);
         this.totalChanges = source["totalChanges"];
     }
 

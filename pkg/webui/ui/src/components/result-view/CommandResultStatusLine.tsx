@@ -49,8 +49,8 @@ export const StatusLine = (props: StatusLineProps) => {
 }
 
 export const CommandResultStatusLine = (props: { rs: CommandResultSummary }) => {
-    return <StatusLine errors={props.rs.errors}
-        warnings={props.rs.warnings}
+    return <StatusLine errors={props.rs.errors?.length}
+        warnings={props.rs.warnings?.length}
         changedObjects={props.rs.changedObjects}
         newObjects={props.rs.newObjects}
         deletedObjects={props.rs.deletedObjects}
