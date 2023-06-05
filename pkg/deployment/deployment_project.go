@@ -2,6 +2,9 @@ package deployment
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
+
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -9,8 +12,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	"path/filepath"
-	"strings"
 )
 
 type DeploymentProject struct {
@@ -130,7 +131,11 @@ func (p *DeploymentProject) processConfig() error {
 		if len(item.Tags) != 0 {
 			continue
 		}
-		if item.Path != nil {
+		if (item.Path != nil) && *item.Path == "." {
+			// for path specified as local directory with `.` skip tag as does not match
+			// regex used for validation  '(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?')
+			continue
+		} else if item.Path != nil {
 			item.Tags = []string{filepath.Base(*item.Path)}
 		} else if item.Include != nil {
 			item.Tags = []string{filepath.Base(*item.Include)}
