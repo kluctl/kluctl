@@ -10,6 +10,8 @@ import (
 
 func collectObjects(c *deployment.DeploymentCollection, ru *utils.RemoteObjectUtils, au *utils.ApplyDeploymentsUtil, du *utils.DiffUtil, orphans []k8s.ObjectRef, deleted []k8s.ObjectRef) []result.ResultObject {
 	m := map[k8s.ObjectRef]*result.ResultObject{}
+	remoteDiffNames := map[k8s.ObjectRef]k8s.ObjectRef{}
+	appliedDiffNames := map[k8s.ObjectRef]k8s.ObjectRef{}
 
 	getOrCreate := func(ref k8s.ObjectRef) *result.ResultObject {
 		x, ok := m[ref]
@@ -23,40 +25,65 @@ func collectObjects(c *deployment.DeploymentCollection, ru *utils.RemoteObjectUt
 
 	if c != nil {
 		for _, x := range c.LocalObjects() {
-			o := getOrCreate(x.GetK8sRef())
+			dn := du.GetDiffRef(x)
+			o := getOrCreate(dn)
 			o.Rendered = x
 		}
 	}
 	if ru != nil {
 		for _, x := range ru.GetFilteredRemoteObjects(nil) {
-			o := getOrCreate(x.GetK8sRef())
+			dn := du.GetDiffRef(x)
+			remoteDiffNames[x.GetK8sRef()] = dn
+
+			o := getOrCreate(dn)
 			o.Remote = x
 		}
 	}
 
 	if au != nil {
 		for _, x := range au.GetAppliedObjects() {
-			o := getOrCreate(x.GetK8sRef())
+			dn := du.GetDiffRef(x)
+			appliedDiffNames[x.GetK8sRef()] = dn
+			o := getOrCreate(dn)
 			o.Applied = x
 		}
 
 		for _, x := range au.GetAppliedHookObjects() {
-			o := getOrCreate(x.GetK8sRef())
+			dn := du.GetDiffRef(x)
+			appliedDiffNames[x.GetK8sRef()] = dn
+			o := getOrCreate(dn)
 			o.Hook = true
 		}
-		for _, x := range au.GetNewObjectRefs() {
-			o := getOrCreate(x)
-			o.New = true
-		}
 		for _, x := range au.GetDeletedObjects() {
-			o := getOrCreate(x)
+			dn, ok := remoteDiffNames[x]
+			if !ok {
+				dn = x
+			}
+			o := getOrCreate(dn)
 			o.Deleted = true
 		}
 	}
 	if du != nil {
 		for _, x := range du.ChangedObjects {
-			o := getOrCreate(x.Ref)
+			dn, ok := appliedDiffNames[x.Ref]
+			if !ok {
+				dn = x.Ref
+			}
+			o := getOrCreate(dn)
 			o.Changes = x.Changes
+		}
+	}
+	if au != nil {
+		for _, x := range au.GetNewObjectRefs() {
+			dn, ok := appliedDiffNames[x]
+			if !ok {
+				dn = x
+			}
+			o := getOrCreate(dn)
+			if len(o.Changes) != 0 {
+				continue
+			}
+			o.New = true
 		}
 	}
 	for _, x := range orphans {
