@@ -322,18 +322,12 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	LastDeployError string `json:"lastDeployError,omitempty"`
 	// +optional
-	LastPruneError string `json:"lastPruneError,omitempty"`
-	// +optional
 	LastValidateError string `json:"lastValidateError,omitempty"`
 
 	// LastDeployResult is the result of the last deploy command
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	LastDeployResult *runtime.RawExtension `json:"lastDeployResult,omitempty"`
-
-	// LastDeployResult is the result of the last prune command
-	// +optional
-	LastPruneResult *runtime.RawExtension `json:"lastPruneResult,omitempty"`
 
 	// LastValidateResult is the result of the last validate command
 	// +optional
@@ -353,23 +347,6 @@ func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSu
 			return err
 		}
 		s.LastDeployResult = &runtime.RawExtension{Raw: []byte(b)}
-	}
-	return nil
-}
-
-func (s *KluctlDeploymentStatus) SetLastPruneResult(crs *result.CommandResultSummary, err error) error {
-	s.LastPruneError = ""
-	if err != nil {
-		s.LastPruneError = err.Error()
-	}
-	if crs == nil {
-		s.LastPruneResult = nil
-	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
-		s.LastPruneResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
 	return nil
 }
@@ -397,18 +374,6 @@ func (s *KluctlDeploymentStatus) GetLastDeployResult() (*result.CommandResultSum
 	}
 	var ret result.CommandResultSummary
 	err := yaml.ReadYamlBytes(s.LastDeployResult.Raw, &ret)
-	if err != nil {
-		return nil, err
-	}
-	return &ret, nil
-}
-
-func (s *KluctlDeploymentStatus) GetLastPruneResult() (*result.CommandResultSummary, error) {
-	if s.LastPruneResult == nil {
-		return nil, nil
-	}
-	var ret result.CommandResultSummary
-	err := yaml.ReadYamlBytes(s.LastPruneResult.Raw, &ret)
 	if err != nil {
 		return nil, err
 	}

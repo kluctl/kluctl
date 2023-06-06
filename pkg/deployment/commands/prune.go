@@ -54,10 +54,7 @@ func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*resu
 		}
 	}
 
-	deleted, err := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, cmd.wait)
-	if err != nil {
-		return nil, err
-	}
+	deleted := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, cmd.wait)
 
 	r := &result.CommandResult{
 		Id:       uuid.New().String(),

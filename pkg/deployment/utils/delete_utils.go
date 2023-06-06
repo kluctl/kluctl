@@ -163,7 +163,7 @@ func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.Unstructure
 	return ret, nil
 }
 
-func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dew *DeploymentErrorsAndWarnings, doWait bool) ([]k8s2.ObjectRef, error) {
+func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef, dew *DeploymentErrorsAndWarnings, doWait bool) []k8s2.ObjectRef {
 	g := utils.NewGoHelper(ctx, 8)
 
 	var ret []k8s2.ObjectRef
@@ -210,5 +210,5 @@ func DeleteObjects(ctx context.Context, k *k8s.K8sCluster, refs []k8s2.ObjectRef
 	}
 	g.Wait()
 
-	return ret, nil
+	return ret
 }

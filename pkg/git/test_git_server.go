@@ -3,6 +3,7 @@ package git
 import (
 	"context"
 	"fmt"
+	config2 "github.com/go-git/go-git/v5/config"
 	"log"
 	"net"
 	"net/http"
@@ -84,6 +85,15 @@ func (p *TestGitServer) GitInit(repo string) {
 	if err != nil {
 		p.t.Fatal(err)
 	}
+
+	_, err = r.CreateRemote(&config2.RemoteConfig{
+		Name: "origin",
+		URLs: []string{p.GitRepoUrl(repo)},
+	})
+	if err != nil {
+		p.t.Fatal(err)
+	}
+
 	config, err := r.Config()
 	if err != nil {
 		p.t.Fatal(err)

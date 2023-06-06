@@ -258,7 +258,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	needDeploy := false
-	needPrune := false
 	needValidate := false
 
 	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
@@ -293,13 +292,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.LastValidateError = ""
 	}
 
-	if obj.Spec.Prune {
-		needPrune = needDeploy
-	} else {
-		obj.Status.LastPruneResult = nil
-		obj.Status.LastPruneError = ""
-	}
-
 	obj.Status.LastObjectsHash = objectsHash
 
 	var deployResult *result.CommandResult
@@ -315,15 +307,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		err = obj.Status.SetLastDeployResult(deployResult.BuildSummary(), err)
 		if err != nil {
 			log.Error(err, "Failed to write deploy result")
-		}
-	}
-
-	if needPrune {
-		// run garbage collection for stale objects that do not have pruning disabled
-		pruneResult, err := pt.kluctlPrune(ctx, targetContext)
-		err = obj.Status.SetLastPruneResult(pruneResult.BuildSummary(), err)
-		if err != nil {
-			log.Error(err, "Failed to write prune result")
 		}
 	}
 
@@ -360,10 +343,6 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 		finalStatus = obj.Status.LastDeployError
 		reason = kluctlv1.DeployFailedReason
 		return
-	} else if obj.Status.LastPruneError != "" {
-		finalStatus = obj.Status.LastPruneError
-		reason = kluctlv1.PruneFailedReason
-		return
 	} else if obj.Status.LastValidateError != "" {
 		finalStatus = obj.Status.LastValidateError
 		reason = kluctlv1.ValidateFailedReason
@@ -371,18 +350,11 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 	}
 
 	var lastDeployResult *result.CommandResultSummary
-	var lastPruneResult *result.CommandResultSummary
 	var lastValidateResult *result.ValidateResult
 	if obj.Status.LastDeployResult != nil {
 		err := yaml.ReadYamlBytes(obj.Status.LastDeployResult.Raw, &lastDeployResult)
 		if err != nil {
 			log.Info(fmt.Sprintf("Failed to parse last deploy result: %s", err.Error()))
-		}
-	}
-	if obj.Status.LastPruneResult != nil {
-		err := yaml.ReadYamlBytes(obj.Status.LastPruneResult.Raw, &lastPruneResult)
-		if err != nil {
-			log.Info(fmt.Sprintf("Failed to parse last prune result: %s", err.Error()))
 		}
 	}
 	if obj.Status.LastValidateResult != nil {
@@ -393,12 +365,8 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 	}
 
 	deployOk := lastDeployResult != nil && len(lastDeployResult.Errors) == 0
-	pruneOk := lastPruneResult != nil && len(lastPruneResult.Errors) == 0
 	validateOk := lastValidateResult != nil && len(lastValidateResult.Errors) == 0 && lastValidateResult.Ready
 
-	if !obj.Spec.Prune {
-		pruneOk = true
-	}
 	if !obj.Spec.Validate {
 		validateOk = true
 	}
@@ -406,17 +374,6 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 	if obj.Status.LastDeployResult != nil {
 		finalStatus += "deploy: "
 		if deployOk {
-			finalStatus += "ok"
-		} else {
-			finalStatus += "failed"
-		}
-	}
-	if obj.Spec.Prune && obj.Status.LastPruneResult != nil {
-		if finalStatus != "" {
-			finalStatus += ", "
-		}
-		finalStatus += "prune: "
-		if pruneOk {
 			finalStatus += "ok"
 		} else {
 			finalStatus += "failed"
@@ -434,7 +391,7 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 		}
 	}
 
-	if deployOk && pruneOk {
+	if deployOk {
 		if validateOk {
 			reason = kluctlv1.ReconciliationSucceededReason
 		} else {

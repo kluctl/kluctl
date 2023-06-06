@@ -455,12 +455,6 @@ spec:
                 type: string
               lastObjectsHash:
                 type: string
-              lastPruneError:
-                type: string
-              lastPruneResult:
-                description: LastDeployResult is the result of the last prune command
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               lastValidateError:
                 type: string
               lastValidateResult:

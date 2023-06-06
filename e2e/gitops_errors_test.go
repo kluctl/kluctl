@@ -226,13 +226,15 @@ data:
 			return nil
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PruneFailedReason, "pruning without a discriminator is not supported", nil, nil)
+		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
+			{Message: "pruning without a discriminator is not supported"},
+		}, nil)
 		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
 			_ = o.SetNestedField(backup, "discriminator")
 			return nil
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-		suite.assertErrors(key, metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, "deploy: ok, prune: ok", nil, nil)
+		suite.assertErrors(key, metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, "deploy: ok", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Prune = false
 		})

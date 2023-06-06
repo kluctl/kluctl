@@ -20,6 +20,8 @@ type DeployCommand struct {
 	AbortOnError        bool
 	ReadinessTimeout    time.Duration
 	NoWait              bool
+	Prune               bool
+	WaitPrune           bool
 }
 
 func NewDeployCommand(targetCtx *kluctl_project.TargetContext) *DeployCommand {
@@ -92,9 +94,30 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	if err != nil {
 		return nil, err
 	}
+
+	var deleted []k8s2.ObjectRef
+	if cmd.Prune && cmd.targetCtx.Target.Discriminator == "" {
+		dew.AddError(k8s2.ObjectRef{}, fmt.Errorf("pruning without a discriminator is not supported"))
+	} else if cmd.Prune {
+		deleted = utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, orphanObjects, dew, cmd.WaitPrune)
+
+		// now clean up the list of orphan objects (remove the ones that got deleted)
+		ds := map[k8s2.ObjectRef]bool{}
+		for _, x := range deleted {
+			ds[x] = true
+		}
+		var tmp []k8s2.ObjectRef
+		for _, x := range orphanObjects {
+			if _, ok := ds[x]; !ok {
+				tmp = append(tmp, x)
+			}
+		}
+		orphanObjects = tmp
+	}
+
 	r := &result.CommandResult{
 		Id:         uuid.New().String(),
-		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
+		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, deleted),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),
 		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
