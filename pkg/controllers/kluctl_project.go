@@ -646,6 +646,11 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
+	cmdResult.Command.KluctlDeployment = &result.KluctlDeploymentInfo{
+		Name:      pt.pp.obj.Name,
+		Namespace: pt.pp.obj.Namespace,
+	}
+
 	cmdResult.GitInfo.Url = &pt.pp.obj.Spec.Source.URL
 	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
 	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.RepoKey()
