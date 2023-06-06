@@ -29,8 +29,6 @@ type DeploymentError struct {
 type KluctlDeploymentInfo struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	GitUrl    string `json:"gitUrl"`
-	GitRef    string `json:"gitRef"`
 }
 
 type CommandInitiator string
