@@ -3,7 +3,7 @@ import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../model
 import { Box, BoxProps, Typography, useTheme } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useAppOutletContext } from "../App";
-import { api } from "../../api";
+import { getApi } from "../../api";
 import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
@@ -19,6 +19,7 @@ const cardHeight = 126;
 const cardGap = 20;
 
 export async function projectsLoader() {
+    const api = await getApi()
     const projects = await api.listProjects()
     return projects
 }

@@ -5,7 +5,7 @@ import { Box, Typography, useTheme } from "@mui/material";
 import React from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material";
-import { api } from "../../api";
+import { getApi } from "../../api";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
@@ -57,7 +57,8 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
     actionMenuItems.push({
         icon: <PublishedWithChanges />,
         text: "Validate now",
-        handler: () => {
+        handler: async () => {
+            const api = await getApi()
             api.validateNow(props.ps.project, props.ts.target)
         }
     })
@@ -65,7 +66,6 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
     let kd: KluctlDeploymentInfo | undefined
     let allKdEqual = true
     props.ts.commandResults?.forEach(rs => {
-        console.log(rs)
         if (rs.commandInfo.kluctlDeployment) {
             if (!kd) {
                 kd = rs.commandInfo.kluctlDeployment
@@ -81,14 +81,16 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
         actionMenuItems.push({
             icon: <PublishedWithChanges />,
             text: "Reconcile",
-            handler: () => {
+            handler: async () => {
+                const api = await getApi()
                 api.reconcileNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
             }
         })
         actionMenuItems.push({
             icon: <PublishedWithChanges />,
             text: "Deploy",
-            handler: () => {
+            handler: async () => {
+                const api = await getApi()
                 api.deployNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
             }
         })

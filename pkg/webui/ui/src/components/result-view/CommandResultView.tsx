@@ -7,10 +7,10 @@ import { SidePanel, SidePanelProvider } from "./SidePanel";
 import { ActiveFilters } from "./NodeStatusFilter";
 import CommandResultTree from "./CommandResultTree";
 import { useLoaderData } from "react-router-dom";
-import { api } from "../../api";
 import { useAppOutletContext } from "../App";
 import { ChangesIcon, CheckboxCheckedIcon, CheckboxIcon, StarIcon, WarningSignIcon } from '../../icons/Icons';
 import { dark } from '../theme';
+import { getApi } from "../../api";
 
 export interface CommandResultProps {
     shortNames: ShortName[]
@@ -19,6 +19,7 @@ export interface CommandResultProps {
 }
 
 export async function commandResultLoader({ params }: any) {
+    const api = await getApi()
     const result = api.getResult(params.id)
     const shortNames = api.getShortNames()
     const summaries = api.listResults()

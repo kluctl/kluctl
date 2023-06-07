@@ -35,6 +35,22 @@ export interface Api {
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
 }
 
+let apiPromise: Promise<any> | undefined = undefined
+export async function getApi(): Promise<Api> {
+    if (!apiPromise) {
+        apiPromise = loadScript(staticPath + "/projects.js")
+    }
+
+    try {
+        await apiPromise
+        return new StaticApi()
+    } catch (error) {
+        return new RealApi()
+    }
+}
+
+export let api = getApi()
+
 class RealApi implements Api {
     async getShortNames(): Promise<ShortName[]> {
         let url = `${apiUrl}/getShortNames`
@@ -169,13 +185,6 @@ class StaticApi implements Api {
     deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
-}
-
-export let api: Api
-if (isStaticBuild) {
-    api = new StaticApi()
-} else {
-    api = new RealApi()
 }
 
 function handleErrors(response: Response) {

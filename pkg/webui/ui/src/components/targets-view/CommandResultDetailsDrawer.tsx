@@ -1,5 +1,5 @@
 import { CommandResultSummary } from "../../models";
-import { api, usePromise } from "../../api";
+import { getApi, usePromise } from "../../api";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import React, { Suspense, useEffect, useState } from "react";
 import { NodeData } from "../result-view/nodes/NodeData";
@@ -9,6 +9,7 @@ import { Loading } from "../Loading";
 import { dark } from "../theme";
 
 async function doGetRootNode(rs: CommandResultSummary) {
+    const api = await getApi()
     const shortNames = api.getShortNames()
     const r = api.getResult(rs.id)
     const builder = new NodeBuilder({

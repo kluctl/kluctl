@@ -1,5 +1,3 @@
-declare var isStaticBuild: bool;
-
 declare const staticResults: Map<string, any>;
 
 declare const staticShortNames: any[];
