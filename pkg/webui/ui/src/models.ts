@@ -410,15 +410,11 @@ export class GitInfo {
 export class KluctlDeploymentInfo {
     name: string;
     namespace: string;
-    gitUrl: string;
-    gitRef: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.name = source["name"];
         this.namespace = source["namespace"];
-        this.gitUrl = source["gitUrl"];
-        this.gitRef = source["gitRef"];
     }
 }
 export class CommandInfo {
