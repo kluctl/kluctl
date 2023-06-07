@@ -4,11 +4,12 @@ import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import { Suspense, useEffect, useState } from "react";
 import { NodeData } from "../result-view/nodes/NodeData";
 import { SidePanel } from "../result-view/SidePanel";
-import { Box, Drawer, ThemeProvider } from "@mui/material";
+import { Box, Drawer, ThemeProvider, useTheme } from "@mui/material";
 import { Loading } from "../Loading";
-import { dark, light } from "../theme";
+import { dark } from "../theme";
 import { Card, CardCol } from "./Card";
 import { CommandResultItem } from "./CommandResultItem";
+import React from "react";
 
 const sidePanelWidth = 720;
 
@@ -25,68 +26,81 @@ async function doGetRootNode(rs: CommandResultSummary) {
     return node
 }
 
-export const CommandResultDetailsDrawer = (props: { rs?: CommandResultSummary, ts?: TargetSummary, ps?: ProjectSummary, onClose: () => void }) => {
-    const [prevId, setPrevId] = useState<string>()
-    const [promise, setPromise] = useState<Promise<NodeData>>(new Promise(() => undefined))
+export const CommandResultDetailsDrawer = React.memo((props: {
+    rs?: CommandResultSummary,
+    ts?: TargetSummary,
+    ps?: ProjectSummary,
+    onClose: () => void
+}) => {
+    const { ps, ts } = props;
+    const theme = useTheme();
+    const [promise, setPromise] = useState<Promise<NodeData>>(new Promise(() => undefined));
+    const [selectedCommandResult, setSelectedCommandResult] = useState<CommandResultSummary | undefined>();
+    const [prevTargetSummary, setPrevTargetSummary] = useState<TargetSummary | undefined>(ts);
+
+    if (prevTargetSummary !== ts) {
+        setPrevTargetSummary(ts);
+        setSelectedCommandResult(ts?.commandResults?.[0]);
+    }
 
     useEffect(() => {
-        if (props.rs === undefined) {
+        if (selectedCommandResult === undefined) {
             return
         }
-        if (props.rs.id === prevId) {
-            return
-        }
-        setPrevId(props.rs.id)
-        setPromise(doGetRootNode(props.rs))
-    }, [props.rs, prevId])
+        setPromise(doGetRootNode(selectedCommandResult));
+    }, [selectedCommandResult])
 
     const Content = (props: { onClose: () => void }) => {
         const node = usePromise(promise)
         return <SidePanel provider={node} onClose={props.onClose} />
     }
 
-    const { ps, ts } = props;
-
-    return <ThemeProvider theme={dark}>
-        <Drawer
-            sx={{ zIndex: 1300 }}
-            anchor={"right"}
-            open={props.rs !== undefined}
-            onClose={props.onClose}
-        >
-            <Box width={sidePanelWidth} height={"100%"}>
-                <Suspense fallback={<Loading />}>
-                    <Content onClose={props.onClose} />
-                </Suspense>
+    return <>
+        {ps && ts &&
+            <Box
+                sx={{
+                    position: 'fixed',
+                    top: 0,
+                    bottom: 0,
+                    right: sidePanelWidth,
+                    width: `calc(100% - ${sidePanelWidth}px)`,
+                    overflow: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '25px 0',
+                    zIndex: theme.zIndex.modal + 1
+                }}
+                onClick={props.onClose}
+            >
+                <CardCol onClick={(e) => e.stopPropagation()} flexGrow={1} justifyContent='center'>
+                    {ts.commandResults?.map((rs, i) => {
+                        return <Card key={i}>
+                            <CommandResultItem
+                                ps={ps}
+                                ts={ts}
+                                rs={rs}
+                                onSelectCommandResult={setSelectedCommandResult}
+                                selected={rs === selectedCommandResult}
+                            />
+                        </Card>
+                    })}
+                </CardCol>
             </Box>
-            <ThemeProvider theme={light}>
-                <Box
-                    sx={{
-                        position: 'fixed',
-                        top: 0,
-                        bottom: 0,
-                        left: 0,
-                        right: sidePanelWidth,
-                        padding: '30px',
-                        overflow: 'auto',
-                        display: 'flex',
-                        justifyContent: 'center'
-                    }}
-                >
-                    <CardCol>
-                        {ps && ts?.commandResults?.map((rs, i) => {
-                            return <Card key={i} >
-                                <CommandResultItem
-                                    ps={ps}
-                                    ts={ts}
-                                    rs={rs}
-                                    onSelectCommandResult={() => { }}
-                                />
-                            </Card>
-                        })}
-                    </CardCol>
+        }
+        <ThemeProvider theme={dark}>
+            <Drawer
+                sx={{ zIndex: 1300 }}
+                anchor={"right"}
+                open={props.rs !== undefined}
+                onClose={props.onClose}
+            >
+                <Box width={sidePanelWidth} height={"100%"}>
+                    <Suspense fallback={<Loading />}>
+                        <Content onClose={props.onClose} />
+                    </Suspense>
                 </Box>
-            </ThemeProvider>
-        </Drawer>
-    </ThemeProvider>
-}
+            </Drawer>
+        </ThemeProvider>
+    </>
+});

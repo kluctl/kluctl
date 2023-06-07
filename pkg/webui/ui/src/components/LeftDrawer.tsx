@@ -17,11 +17,8 @@ import { KluctlLogo, TargetsIcon, KluctlText, SearchIcon, ArrowLeftIcon } from '
 import { dark } from './theme';
 import { Typography } from '@mui/material';
 
-const drawerWidthOpen = 224;
-const drawerWidthClosed = 96;
-
 const openedMixin = (theme: Theme): CSSObject => ({
-    width: drawerWidthOpen,
+    width: theme.consts.leftDrawerWidthOpen,
     transition: theme.transitions.create('width', {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.enteringScreen,
@@ -35,7 +32,7 @@ const closedMixin = (theme: Theme): CSSObject => ({
         duration: theme.transitions.duration.leavingScreen,
     }),
     overflowX: 'hidden',
-    width: drawerWidthClosed,
+    width: theme.consts.leftDrawerWidthClosed,
 });
 
 const DrawerHeader = styled('div')(({ theme }) => ({
@@ -57,17 +54,17 @@ const AppBar = styled(MuiAppBar, {
     boxShadow: 'none',
     background: 'transparent',
     padding: '40px 40px 0 40px',
-    marginLeft: drawerWidthClosed,
+    marginLeft: theme.consts.leftDrawerWidthClosed,
     justifyContent: 'space-between',
-    width: `calc(100% - ${drawerWidthClosed}px)`,
+    width: `calc(100% - ${theme.consts.leftDrawerWidthClosed}px)`,
     zIndex: theme.zIndex.drawer + 1,
     transition: theme.transitions.create(['width', 'margin'], {
         easing: theme.transitions.easing.sharp,
         duration: theme.transitions.duration.leavingScreen,
     }),
     ...(open && {
-        marginLeft: drawerWidthOpen,
-        width: `calc(100% - ${drawerWidthOpen}px)`,
+        marginLeft: theme.consts.leftDrawerWidthOpen,
+        width: `calc(100% - ${theme.consts.leftDrawerWidthOpen}px)`,
         transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
@@ -77,7 +74,7 @@ const AppBar = styled(MuiAppBar, {
 
 const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' })(
     ({ theme, open }) => ({
-        width: drawerWidthOpen,
+        width: theme.consts.leftDrawerWidthOpen,
         flexShrink: 0,
         whiteSpace: 'nowrap',
         boxSizing: 'border-box',

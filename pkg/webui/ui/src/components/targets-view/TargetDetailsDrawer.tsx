@@ -95,18 +95,18 @@ class MyProvider implements SidePanelProvider {
     }
 }
 
-export const TargetDetailsDrawer = (props: { ts?: TargetSummary, onClose: () => void }) => {
+export const TargetDetailsDrawer = React.memo((props: { ts?: TargetSummary, onClose: () => void }) => {
     return <ThemeProvider theme={dark}>
         <Drawer
             sx={{ zIndex: 1300 }}
             anchor={"right"}
             open={props.ts !== undefined}
             onClose={props.onClose}
-            ModalProps={{ BackdropProps: { invisible: true }}}
+            ModalProps={{ BackdropProps: { invisible: true } }}
         >
             <Box width={"382px"} height={"100%"}>
-                <SidePanel provider={new MyProvider(props.ts)} onClose={props.onClose}/>
+                <SidePanel provider={new MyProvider(props.ts)} onClose={props.onClose} />
             </Box>
         </Drawer>
     </ThemeProvider>;
-}
+});

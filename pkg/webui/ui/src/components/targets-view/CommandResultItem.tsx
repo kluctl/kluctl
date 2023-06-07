@@ -1,3 +1,4 @@
+import React from "react";
 import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
 import { useEffect, useMemo, useState } from "react";
 import * as yaml from "js-yaml";
@@ -9,16 +10,22 @@ import { useNavigate } from "react-router";
 import { formatDurationShort } from "../../utils/duration";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 
-export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary, rs: CommandResultSummary, onSelectCommandResult: (rs: CommandResultSummary) => void }) => {
-    const calcAgo = () => {
-        const t1 = new Date(props.rs.commandInfo.startTime)
-        const t2 = new Date()
-        const d = t2.getTime() - t1.getTime()
-        return formatDurationShort(d)
-    }
+const calcAgo = (startTime: string) => {
+    const t1 = new Date(startTime)
+    const t2 = new Date()
+    const d = t2.getTime() - t1.getTime()
+    return formatDurationShort(d)
+}
 
+export const CommandResultItem = React.memo((props: { 
+    ps: ProjectSummary, 
+    ts: TargetSummary, 
+    rs: CommandResultSummary, 
+    onSelectCommandResult: (rs: CommandResultSummary) => void,
+    selected?: boolean;
+}) => {
     const navigate = useNavigate()
-    const [ago, setAgo] = useState(calcAgo())
+    const [ago, setAgo] = useState(calcAgo(props.rs.commandInfo.startTime))
 
     let Icon: () => JSX.Element = DiffIcon
     switch (props.rs.commandInfo?.command) {
@@ -45,9 +52,9 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
     let iconTooltip = <CodeViewer code={cmdInfoYaml} language={"yaml"} />
 
     useEffect(() => {
-        const interval = setInterval(() => setAgo(calcAgo()), 5000);
+        const interval = setInterval(() => setAgo(calcAgo(props.rs.commandInfo.startTime)), 5000);
         return () => clearInterval(interval);
-    }, [])
+    }, [props.rs.commandInfo.startTime])
 
     return <Paper
         elevation={5}
@@ -57,7 +64,8 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
             borderRadius: '12px',
             border: '1px solid #59A588',
             boxShadow: '4px 4px 10px #1E617A',
-            padding: '20px 16px 5px 16px'
+            padding: '20px 16px 5px 16px',
+            outline: props.selected ? '8px solid #59A588' : 'none'
         }}
         onClick={e => props.onSelectCommandResult(props.rs)}
     >
@@ -116,4 +124,4 @@ export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary
             </Box>
         </Box>
     </Paper>
-}
+});

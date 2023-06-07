@@ -1,7 +1,7 @@
 import { useLoaderData } from "react-router-dom";
 import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useAppOutletContext } from "../App";
 import { getApi } from "../../api";
 import { ProjectItem } from "./Projects";
@@ -140,25 +140,34 @@ export const TargetsView = () => {
         context.setFilters(undefined)
     })
 
-    const doSetSelectedCommandResult = (o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
+    const doSetSelectedCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
         setSelectedCommandResult(o);
         setSelectedTargetSummary(undefined);
-    }
-    const doSetSelectedTargetSummary = (ts?: TargetSummary) => {
+    }, []);
+
+    const doSetSelectedTargetSummary = useCallback((ts?: TargetSummary) => {
         setSelectedCommandResult(undefined);
         setSelectedTargetSummary(ts);
-    }
+    }, []);
+
+    const onCommandResultDetailsDrawerClose = useCallback(() => {
+        doSetSelectedCommandResult(undefined);
+    }, [doSetSelectedCommandResult]);
+
+    const onTargetDetailsDrawerClose = useCallback(() => {
+        setSelectedTargetSummary(undefined);
+    }, [setSelectedTargetSummary]);
 
     return <Box minWidth={colWidth * 3} p='0 40px'>
         <CommandResultDetailsDrawer
             rs={selectedCommandResult?.rs}
             ts={selectedCommandResult?.ts}
             ps={selectedCommandResult?.ps}
-            onClose={() => doSetSelectedCommandResult(undefined)}
+            onClose={onCommandResultDetailsDrawerClose}
         />
         <TargetDetailsDrawer
             ts={selectedTargetSummary}
-            onClose={() => setSelectedTargetSummary(undefined)}
+            onClose={onTargetDetailsDrawerClose}
         />
         <Box display={"flex"} alignItems={"center"} height='70px'>
             <ColHeader>Projects</ColHeader>

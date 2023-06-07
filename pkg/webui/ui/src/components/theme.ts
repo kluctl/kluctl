@@ -17,22 +17,40 @@ declare module '@mui/material/styles' {
     interface Theme {
         consts: {
             appBarHeight: number;
+            leftDrawerWidthOpen: number;
+            leftDrawerWidthClosed: number;
         };
     }
     // allow configuration using `createTheme`
     interface ThemeOptions {
         consts?: {
             appBarHeight?: number;
+            leftDrawerWidthOpen?: number;
+            leftDrawerWidthClosed?: number;
         };
     }
 }
 
 export const common = createTheme({
     consts: {
-        appBarHeight: 106
+        appBarHeight: 106,
+        leftDrawerWidthOpen: 224,
+        leftDrawerWidthClosed: 96
     },
     typography: {
         fontFamily: 'Nunito Variable',
+    },
+    components: {
+        MuiBackdrop: {
+            styleOverrides: {
+                root: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.65)'
+                },
+                invisible: {
+                    backgroundColor: 'transparent'
+                }
+            }
+        }
     }
 });
 
