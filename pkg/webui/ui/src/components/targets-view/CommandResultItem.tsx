@@ -9,7 +9,7 @@ import { useNavigate } from "react-router";
 import { formatDurationShort } from "../../utils/duration";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 
-export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary, rs: CommandResultSummary, onSelectCommandResult: (rs?: CommandResultSummary) => void }) => {
+export const CommandResultItem = (props: { ps: ProjectSummary, ts: TargetSummary, rs: CommandResultSummary, onSelectCommandResult: (rs: CommandResultSummary) => void }) => {
     const calcAgo = () => {
         const t1 = new Date(props.rs.commandInfo.startTime)
         const t2 = new Date()
