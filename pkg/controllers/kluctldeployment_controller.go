@@ -208,10 +208,10 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	oldGeneration := obj.Status.ObservedGeneration
+	oldDeployRequest := obj.Status.LastHandledDeployAt
+	curDeployRequest, _ := obj.GetAnnotations()[kluctlv1.KluctlRequestDeployAnnotation]
 	obj.Status.ObservedGeneration = obj.GetGeneration()
-	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestDeployAnnotation]; ok {
-		obj.Status.LastHandledDeployAt = v
-	}
+	obj.Status.LastHandledDeployAt = curDeployRequest
 
 	pp, err := prepareProject(ctx, r, obj, true)
 	if err != nil {
@@ -264,7 +264,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
 		// either never deployed or source code changed
 		needDeploy = true
-	} else if r.checkRequestedDeploy(obj) {
+	} else if curDeployRequest != "" && oldDeployRequest != curDeployRequest {
 		// explicitly requested a deploy
 		needDeploy = true
 	} else if oldGeneration != obj.GetGeneration() {
@@ -494,17 +494,6 @@ func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployme
 
 	t := lastDeployResult.Command.EndTime.Add(obj.Spec.DeployInterval.Duration.Duration)
 	return &t
-}
-
-func (r *KluctlDeploymentReconciler) checkRequestedDeploy(obj *kluctlv1.KluctlDeployment) bool {
-	v, ok := obj.Annotations[kluctlv1.KluctlRequestDeployAnnotation]
-	if !ok {
-		return false
-	}
-	if v != obj.Status.LastHandledDeployAt {
-		return true
-	}
-	return false
 }
 
 func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeployment) *time.Time {
