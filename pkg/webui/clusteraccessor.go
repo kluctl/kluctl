@@ -2,8 +2,11 @@ package webui
 
 import (
 	"context"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -61,8 +64,19 @@ func (ca *clusterAccessor) initClient() {
 }
 
 func (ca *clusterAccessor) tryInitClient() error {
-	var err error
-	c, err := client.New(ca.config, client.Options{})
+	scheme := runtime.NewScheme()
+	err := clientgoscheme.AddToScheme(scheme)
+	if err != nil {
+		return err
+	}
+	err = kluctlv1.AddToScheme(scheme)
+	if err != nil {
+		return err
+	}
+
+	c, err := client.New(ca.config, client.Options{
+		Scheme: scheme,
+	})
 	if err != nil {
 		return err
 	}

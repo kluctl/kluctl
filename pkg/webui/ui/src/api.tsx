@@ -31,6 +31,8 @@ export interface Api {
     getResult(resultId: string): Promise<CommandResult>
     getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
     validateNow(project: ProjectKey, target: TargetKey): Promise<Response>
+    reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
+    deployNow(cluster: string, name: string, namespace: string): Promise<Response>
 }
 
 class RealApi implements Api {
@@ -80,21 +82,39 @@ class RealApi implements Api {
             .then(response => response.json());
     }
 
-    async validateNow(project: ProjectKey, target: TargetKey) {
-        const key = {
-            "project": project,
-            "target": target,
-        }
-
-        let url = `${apiUrl}/validateNow`
+    async doPost(f: string, body: any) {
+        let url = `${apiUrl}/${f}`
         return fetch(url, {
             method: "POST",
-            body: JSON.stringify(key),
+            body: JSON.stringify(body),
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
         }).then(handleErrors);
+    }
+
+    async validateNow(project: ProjectKey, target: TargetKey) {
+        return this.doPost("validateNow", {
+            "project": project,
+            "target": target,
+        })
+    }
+
+    async deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        return this.doPost("deployNow", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+        })
+    }
+
+    async reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        return this.doPost("reconcileNow", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+        })
     }
 }
 
@@ -141,6 +161,12 @@ class StaticApi implements Api {
         }
     }
     validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {
+        throw new Error("not implemented")
+    }
+    reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        throw new Error("not implemented")
+    }
+    deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
 }

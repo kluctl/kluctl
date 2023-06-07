@@ -1,4 +1,4 @@
-import { ProjectSummary, TargetSummary } from "../../models";
+import { KluctlDeploymentInfo, ProjectSummary, TargetSummary } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import Paper from "@mui/material/Paper";
 import { Box, Typography, useTheme } from "@mui/material";
@@ -61,6 +61,38 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
             api.validateNow(props.ps.project, props.ts.target)
         }
     })
+
+    let kd: KluctlDeploymentInfo | undefined
+    let allKdEqual = true
+    props.ts.commandResults?.forEach(rs => {
+        console.log(rs)
+        if (rs.commandInfo.kluctlDeployment) {
+            if (!kd) {
+                kd = rs.commandInfo.kluctlDeployment
+            } else {
+                if (kd.name !== rs.commandInfo.kluctlDeployment.name || kd.namespace !== rs.commandInfo.kluctlDeployment.namespace) {
+                    allKdEqual = false
+                }
+            }
+        }
+    })
+
+    if (kd && allKdEqual) {
+        actionMenuItems.push({
+            icon: <PublishedWithChanges />,
+            text: "Reconcile",
+            handler: () => {
+                api.reconcileNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
+            }
+        })
+        actionMenuItems.push({
+            icon: <PublishedWithChanges />,
+            text: "Deploy",
+            handler: () => {
+                api.deployNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
+            }
+        })
+    }
 
     const allContexts: string[] = []
 

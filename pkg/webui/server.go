@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -11,10 +12,16 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io/fs"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
+
+const webuiManager = "kluctl-webui"
 
 type CommandResultsServer struct {
 	ctx       context.Context
@@ -85,6 +92,8 @@ func (s *CommandResultsServer) Run(port int) error {
 	api.GET("/getResult", s.getResult)
 	api.GET("/getResultObject", s.getResultObject)
 	api.POST("/validateNow", s.validateNow)
+	api.POST("/reconcileNow", s.reconcileNow)
+	api.POST("/deployNow", s.deployNow)
 
 	address := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", address)
@@ -301,4 +310,57 @@ func (s *CommandResultsServer) validateNow(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+type kluctlDeploymentParam struct {
+	Cluster   string `json:"cluster"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {
+	var params kluctlDeploymentParam
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	ca := s.cam.getForClusterId(params.Cluster)
+	if ca == nil {
+		_ = c.AbortWithError(http.StatusNotFound, err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	var kd kluctlv1.KluctlDeployment
+	err = ca.getClient().Get(ctx, client.ObjectKey{Name: params.Name, Namespace: params.Namespace}, &kd)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			_ = c.AbortWithError(http.StatusNotFound, err)
+			return
+		}
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	patch := client.MergeFrom(kd.DeepCopy())
+	metav1.SetMetaDataAnnotation(&kd.ObjectMeta, aname, avalue)
+	err = ca.getClient().Patch(ctx, &kd, patch, client.FieldOwner(webuiManager))
+	if err != nil {
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
+func (s *CommandResultsServer) reconcileNow(c *gin.Context) {
+	s.doSetAnnotation(c, kluctlv1.KluctlRequestReconcileAnnotation, time.Now().Format(time.RFC3339Nano))
+}
+
+func (s *CommandResultsServer) deployNow(c *gin.Context) {
+	s.doSetAnnotation(c, kluctlv1.KluctlRequestDeployAnnotation, time.Now().Format(time.RFC3339Nano))
 }
