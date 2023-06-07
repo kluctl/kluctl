@@ -23,7 +23,7 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(ctx context.Context, mgr c
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kluctlv1.KluctlDeployment{}, builder.WithPredicates(
-			predicate.Or(predicate.GenerationChangedPredicate{}, ReconcileRequestedPredicate{}, DeployRequestedPredicate{}),
+			predicate.Or(predicate.GenerationChangedPredicate{}, ReconcileRequestedPredicate{}),
 		)).
 		Complete(r)
 }

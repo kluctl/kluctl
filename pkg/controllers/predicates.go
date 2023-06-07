@@ -16,35 +16,11 @@ func (ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	if val, ok := e.ObjectNew.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
-		if valOld, okOld := e.ObjectOld.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; okOld {
-			return val != valOld
-		}
-		return true
-	}
-	return false
-}
-
-type DeployRequestedPredicate struct {
-	predicate.Funcs
-}
-
-func (DeployRequestedPredicate) Update(e event.UpdateEvent) bool {
-	if e.ObjectOld == nil || e.ObjectNew == nil {
-		return false
+	check := func(aname string) bool {
+		v1, ok1 := e.ObjectNew.GetAnnotations()[aname]
+		v2, ok2 := e.ObjectOld.GetAnnotations()[aname]
+		return ok1 != ok2 || v1 != v2
 	}
 
-	if val, ok := e.ObjectNew.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
-		if valOld, okOld := e.ObjectOld.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; okOld {
-			return val != valOld
-		}
-		return true
-	}
-	if val, ok := e.ObjectNew.GetAnnotations()[kluctlv1.KluctlRequestDeployAnnotation]; ok {
-		if valOld, okOld := e.ObjectOld.GetAnnotations()[kluctlv1.KluctlRequestDeployAnnotation]; okOld {
-			return val != valOld
-		}
-		return true
-	}
-	return false
+	return check(kluctlv1.KluctlRequestReconcileAnnotation) || check(kluctlv1.KluctlRequestDeployAnnotation)
 }
