@@ -176,8 +176,8 @@ export const TargetsView = () => {
         </Box>
         <Divider />
         {projects.map((ps, i) => {
-            return <Box key={i}>
-                <Box key={i} display={"flex"} alignItems={"center"} margin='40px 0'>
+            return <Box key={JSON.stringify(ps.project)}>
+                <Box display={"flex"} alignItems={"center"} margin='40px 0'>
                     <Box display='flex' alignItems='center' width={colWidth} flex='0 0 auto'>
                         <Card height={projectCardHeight}>
                             <ProjectItem ps={ps} />
@@ -195,7 +195,7 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
-                            return <Box key={i} display='flex'>
+                            return <Box key={JSON.stringify(ts.target)} display='flex'>
                                 <Card>
                                     <TargetItem ps={ps} ts={ts}
                                         onSelectTarget={(ts) => doSetSelectedTargetSummary(ts)} />
@@ -245,7 +245,7 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
-                            return <CardRow key={i} height={cardHeight}>
+                            return <CardRow key={JSON.stringify(ts.target)} height={cardHeight}>
                                 {ts.commandResults?.map((rs, i) => {
                                     return <Card
                                         key={i}
