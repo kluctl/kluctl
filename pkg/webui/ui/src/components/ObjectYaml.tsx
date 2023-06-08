@@ -1,6 +1,6 @@
 import { CommandResultProps } from "./result-view/CommandResultView";
 import { ObjectRef } from "../models";
-import { getApi, ObjectType, usePromise } from "../api";
+import { api, ObjectType, usePromise } from "../api";
 import React, { Suspense, useEffect, useState } from "react";
 import { CodeViewer } from "./CodeViewer";
 
@@ -11,7 +11,6 @@ export const ObjectYaml = (props: {treeProps: CommandResultProps, objectRef: Obj
     const [promise, setPromise] = useState<Promise<string>>()
 
     const getData = async () => {
-        const api = await getApi()
         const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
         return yaml.dump(o)
     }

@@ -14,10 +14,11 @@ func main() {
 	converter := typescriptify.New().
 		WithBackupDir("").
 		Add(result.CommandResult{}).
-		Add(result.ProjectSummary{}).
 		Add(result.CommandResultSummary{}).
+		Add(result.ValidateResult{}).
 		Add(webui.ShortName{}).
 		Add(uo.UnstructuredObject{}).
+		Add(webui.ProjectTargetKey{}).
 		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.GitRepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.YamlUrl{}, typescriptify.TypeOptions{TSType: "string"}).

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	cp "github.com/otiai10/copy"
@@ -34,8 +33,6 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 	if err != nil {
 		return err
 	}
-
-	projects := result.BuildProjectSummaries(summaries)
 
 	err = os.MkdirAll(filepath.Join(tmpDir, "staticdata"), 0o700)
 	if err != nil {
@@ -85,16 +82,6 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 	}
 	j = `const staticSummaries=` + j
 	err = os.WriteFile(filepath.Join(tmpDir, "staticdata/summaries.js"), []byte(j), 0o600)
-	if err != nil {
-		return err
-	}
-
-	j, err = yaml.WriteJsonString(projects)
-	if err != nil {
-		return err
-	}
-	j = `const staticProjects=` + j
-	err = os.WriteFile(filepath.Join(tmpDir, "staticdata/projects.js"), []byte(j), 0o600)
 	if err != nil {
 		return err
 	}

@@ -1,5 +1,5 @@
 import React from "react";
-import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
+import { CommandResultSummary } from "../../models";
 import { useEffect, useMemo, useState } from "react";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
@@ -9,6 +9,7 @@ import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine"
 import { useNavigate } from "react-router";
 import { formatDurationShort } from "../../utils/duration";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
+import { ProjectSummary, TargetSummary } from "../../project-summaries";
 
 const calcAgo = (startTime: string) => {
     const t1 = new Date(startTime)
@@ -18,8 +19,8 @@ const calcAgo = (startTime: string) => {
 }
 
 export const CommandResultItem = React.memo((props: { 
-    ps: ProjectSummary, 
-    ts: TargetSummary, 
+    ps: ProjectSummary,
+    ts: TargetSummary,
     rs: CommandResultSummary, 
     onSelectCommandResult: (rs: CommandResultSummary) => void,
     selected?: boolean;

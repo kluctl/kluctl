@@ -1,9 +1,8 @@
-import { useLoaderData } from "react-router-dom";
-import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
+import { CommandResultSummary } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useEffect, useState } from "react";
-import { useAppOutletContext } from "../App";
-import { getApi } from "../../api";
+import React, { useCallback, useContext, useEffect, useState } from "react";
+import { AppContext, useAppOutletContext } from "../App";
+import { api } from "../../api";
 import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
@@ -11,17 +10,13 @@ import { CommandResultItem } from "./CommandResultItem";
 import { CommandResultDetailsDrawer } from "./CommandResultDetailsDrawer";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
 import { Card, CardCol, CardRow, cardGap, cardHeight, cardWidth, projectCardHeight } from "./Card";
+import { buildProjectSummaries, ProjectSummary, TargetSummary } from "../../project-summaries";
+import { sum } from "lodash";
 
 const colWidth = 416;
 const curveRadius = 12;
 const circleRadius = 5;
 const strokeWidth = 2;
-
-export async function projectsLoader() {
-    const api = await getApi()
-    const projects = await api.listProjects()
-    return projects
-}
 
 function ColHeader({ children }: { children: React.ReactNode }) {
     return <Box
@@ -134,11 +129,8 @@ export const TargetsView = () => {
     const [selectedCommandResult, setSelectedCommandResult] = useState<{rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary} | undefined>();
     const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
 
-    const projects = useLoaderData() as ProjectSummary[];
-
-    useEffect(() => {
-        context.setFilters(undefined)
-    })
+    const appContext = useContext(AppContext)
+    const projects = appContext.projects
 
     const doSetSelectedCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
         setSelectedCommandResult(o);

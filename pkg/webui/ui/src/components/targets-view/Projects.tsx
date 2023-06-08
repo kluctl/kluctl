@@ -1,10 +1,10 @@
-import { ProjectSummary } from "../../models";
 import { getLastPathElement } from "../../utils/misc";
 import Paper from "@mui/material/Paper";
 import { Box, Typography } from "@mui/material";
 import React from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { ProjectIcon } from "../../icons/Icons";
+import { ProjectSummary } from "../../project-summaries";
 
 export const ProjectItem = (props: { ps: ProjectSummary }) => {
     const name = getLastPathElement(props.ps.project.gitRepoKey)

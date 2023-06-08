@@ -11,7 +11,9 @@ import (
 )
 
 const shortValidationInterval = time.Second * 15
-const longValidationInterval = time.Minute * 5
+const longValidationInterval = time.Minute * 1
+
+type validateResultHandler func(key ProjectTargetKey, r *result.ValidateResult)
 
 type validatorManager struct {
 	ctx context.Context
@@ -19,22 +21,23 @@ type validatorManager struct {
 	store results.ResultStore
 	cam   *clusterAccessorManager
 
-	validators map[projectTargetKey]*validatorEntry
+	validators map[ProjectTargetKey]*validatorEntry
+	handlers   map[int]validateResultHandler
+	nextId     int
 	mutex      sync.Mutex
 }
 
-type projectTargetKey struct {
+type ProjectTargetKey struct {
 	Project result.ProjectKey `json:"project"`
 	Target  result.TargetKey  `json:"target"`
 }
 
 type validatorEntry struct {
 	vm             *validatorManager
-	key            projectTargetKey
+	key            ProjectTargetKey
 	ch             chan bool
 	validateResult *result.ValidateResult
 	err            error
-	mutex          sync.Mutex
 }
 
 func newValidatorManager(ctx context.Context, store results.ResultStore, cam *clusterAccessorManager) *validatorManager {
@@ -42,7 +45,8 @@ func newValidatorManager(ctx context.Context, store results.ResultStore, cam *cl
 		ctx:        ctx,
 		store:      store,
 		cam:        cam,
-		validators: map[projectTargetKey]*validatorEntry{},
+		validators: map[ProjectTargetKey]*validatorEntry{},
+		handlers:   map[int]validateResultHandler{},
 	}
 }
 
@@ -53,31 +57,29 @@ func (vm *validatorManager) start() {
 			return
 		}
 
-		projects := result.BuildProjectSummaries(summaries)
-
-		found := map[projectTargetKey]bool{}
-		for _, project := range projects {
-			for _, target := range project.Targets {
-				k := projectTargetKey{
-					Project: project.Project,
-					Target:  target.Target,
-				}
-
-				vm.mutex.Lock()
-				_, ok := vm.validators[k]
-				if !ok {
-					v := &validatorEntry{
-						vm:  vm,
-						key: k,
-						ch:  make(chan bool),
-					}
-					vm.validators[k] = v
-					go v.run()
-				}
-				vm.mutex.Unlock()
-
-				found[k] = true
+		found := map[ProjectTargetKey]bool{}
+		for _, rs := range summaries {
+			k := ProjectTargetKey{
+				Project: rs.ProjectKey,
+				Target:  rs.TargetKey,
 			}
+			if _, ok := found[k]; ok {
+				continue
+			}
+			vm.mutex.Lock()
+			_, ok := vm.validators[k]
+			if !ok {
+				v := &validatorEntry{
+					vm:  vm,
+					key: k,
+					ch:  make(chan bool),
+				}
+				vm.validators[k] = v
+				go v.run()
+			}
+			vm.mutex.Unlock()
+
+			found[k] = true
 		}
 
 		vm.mutex.Lock()
@@ -98,7 +100,29 @@ func (vm *validatorManager) start() {
 	}()
 }
 
-func (vm *validatorManager) getValidateResult(key projectTargetKey) (*result.ValidateResult, error) {
+func (vm *validatorManager) addHandler(h validateResultHandler) func() {
+	vm.mutex.Lock()
+	defer vm.mutex.Unlock()
+
+	id := vm.nextId
+	vm.nextId++
+
+	vm.handlers[id] = h
+
+	for _, v := range vm.validators {
+		if v.validateResult != nil {
+			h(v.key, v.validateResult)
+		}
+	}
+
+	return func() {
+		vm.mutex.Lock()
+		defer vm.mutex.Unlock()
+		delete(vm.handlers, id)
+	}
+}
+
+func (vm *validatorManager) getValidateResult(key ProjectTargetKey) (*result.ValidateResult, error) {
 	vm.mutex.Lock()
 	defer vm.mutex.Unlock()
 	v := vm.validators[key]
@@ -108,7 +132,7 @@ func (vm *validatorManager) getValidateResult(key projectTargetKey) (*result.Val
 	return v.validateResult, v.err
 }
 
-func (vm *validatorManager) validateNow(key projectTargetKey) bool {
+func (vm *validatorManager) validateNow(key ProjectTargetKey) bool {
 	vm.mutex.Lock()
 	defer vm.mutex.Unlock()
 	v := vm.validators[key]
@@ -130,19 +154,17 @@ func (v *validatorEntry) run() {
 		if err != nil {
 			return
 		}
-		projects := result.BuildProjectSummaries(summaries)
+
+		var targetSummaries []result.CommandResultSummary
+		for _, rs := range summaries {
+			if rs.TargetKey == v.key.Target {
+				targetSummaries = append(targetSummaries, rs)
+			}
+		}
 
 		longWait := false
-	outer:
-		for _, p := range projects {
-			if p.Project == v.key.Project {
-				for _, t := range p.Targets {
-					if t.Target == v.key.Target {
-						longWait = v.runOnce(t)
-						break outer
-					}
-				}
-			}
+		if len(targetSummaries) != 0 {
+			longWait = v.runOnce(targetSummaries)
 		}
 
 		waitTime := shortValidationInterval
@@ -173,11 +195,11 @@ func (v *validatorEntry) findFullProjectResult(summaries []result.CommandResultS
 	return nil
 }
 
-func (v *validatorEntry) runOnce(target *result.TargetSummary) bool {
+func (v *validatorEntry) runOnce(summaries []result.CommandResultSummary) bool {
 	s := status.Start(v.vm.ctx, "Validating: %v", v.key)
 	defer s.Failed()
 
-	summary := v.findFullProjectResult(target.CommandResults)
+	summary := v.findFullProjectResult(summaries)
 	if summary == nil {
 		s.FailedWithMessage("No result summaries for %v", v.key)
 		return false
@@ -214,10 +236,14 @@ func (v *validatorEntry) runOnce(target *result.TargetSummary) bool {
 	}
 	s.Success()
 
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
+	v.vm.mutex.Lock()
+	defer v.vm.mutex.Unlock()
 	v.validateResult = vr
 	v.err = err
+
+	for _, h := range v.vm.handlers {
+		h(v.key, vr)
+	}
 
 	return true
 }

@@ -1,4 +1,3 @@
-import { TargetSummary } from "../../models";
 import { Box, Drawer, ThemeProvider } from "@mui/material";
 import { SidePanel, SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
 import React from "react";
@@ -7,6 +6,7 @@ import { DiffStatus } from "../result-view/nodes/NodeData";
 import { ChangesTable } from "../result-view/ChangesTable";
 import { ErrorsTable } from "../ErrorsTable";
 import { dark } from "../theme";
+import { TargetSummary } from "../../project-summaries";
 
 class MyProvider implements SidePanelProvider {
     private ts?: TargetSummary;

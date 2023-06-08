@@ -7,7 +7,6 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -87,13 +86,13 @@ func (s *CommandResultsServer) Run(port int) error {
 
 	api := router.Group("/api")
 	api.GET("/getShortNames", s.getShortNames)
-	api.GET("/listProjects", s.listProjects)
-	api.GET("/listResults", s.listResults)
 	api.GET("/getResult", s.getResult)
+	api.GET("/getResultSummary", s.getResultSummary)
 	api.GET("/getResultObject", s.getResultObject)
 	api.POST("/validateNow", s.validateNow)
 	api.POST("/reconcileNow", s.reconcileNow)
 	api.POST("/deployNow", s.deployNow)
+	api.Any("/ws", s.ws)
 
 	address := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", address)
@@ -114,67 +113,6 @@ func (s *CommandResultsServer) Run(port int) error {
 
 func (s *CommandResultsServer) getShortNames(c *gin.Context) {
 	c.JSON(http.StatusOK, GetShortNames())
-}
-
-func (s *CommandResultsServer) listResults(c *gin.Context) {
-	args := struct {
-		FilterProject string `form:"filterProject"`
-		FilterSubDir  string `form:"filterSubDir"`
-	}{}
-	err := c.BindQuery(&args)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	repoKey, err := types.ParseGitRepoKey(args.FilterProject)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	var filter *result.ProjectKey
-	if args.FilterProject != "" {
-		filter = &result.ProjectKey{
-			GitRepoKey: repoKey,
-			SubDir:     args.FilterSubDir,
-		}
-	}
-
-	summaries, err := s.collector.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{
-		ProjectFilter: filter,
-	})
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, summaries)
-}
-
-func (s *CommandResultsServer) listProjects(c *gin.Context) {
-	summaries, err := s.collector.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{})
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	projects := result.BuildProjectSummaries(summaries)
-
-	for _, p := range projects {
-		for _, t := range p.Targets {
-			key := projectTargetKey{
-				Project: p.Project,
-				Target:  t.Target,
-			}
-			vr, err := s.vam.getValidateResult(key)
-			if err == nil {
-				t.LastValidateResult = vr
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, projects)
 }
 
 type resultIdParam struct {
@@ -214,6 +152,28 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 		Id:      params.ResultId,
 		Reduced: true,
 	})
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if sr == nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	c.JSON(http.StatusOK, sr)
+}
+
+func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
+	var params resultIdParam
+
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	sr, err := s.collector.GetCommandResultSummary(params.ResultId)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -292,14 +252,14 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 }
 
 func (s *CommandResultsServer) validateNow(c *gin.Context) {
-	var params projectTargetKey
+	var params ProjectTargetKey
 	err := c.Bind(&params)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	key := projectTargetKey{
+	key := ProjectTargetKey{
 		Project: params.Project,
 		Target:  params.Target,
 	}

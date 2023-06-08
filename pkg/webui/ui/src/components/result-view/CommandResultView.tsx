@@ -10,7 +10,7 @@ import { useLoaderData } from "react-router-dom";
 import { useAppOutletContext } from "../App";
 import { ChangesIcon, CheckboxCheckedIcon, CheckboxIcon, StarIcon, WarningSignIcon } from '../../icons/Icons';
 import { dark } from '../theme';
-import { getApi } from "../../api";
+import { api } from "../../api";
 
 export interface CommandResultProps {
     shortNames: ShortName[]
@@ -19,14 +19,13 @@ export interface CommandResultProps {
 }
 
 export async function commandResultLoader({ params }: any) {
-    const api = await getApi()
     const result = api.getResult(params.id)
     const shortNames = api.getShortNames()
-    const summaries = api.listResults()
+    const rs = api.getResult(params.id)
 
     return {
         shortNames: await shortNames,
-        summary: (await summaries).find(x => x.id === params.id),
+        summary: await rs,
         commandResult: await result,
     }
 }

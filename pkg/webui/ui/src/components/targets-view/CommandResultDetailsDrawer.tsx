@@ -1,5 +1,5 @@
-import { CommandResultSummary, ProjectSummary, TargetSummary } from "../../models";
-import { getApi, usePromise } from "../../api";
+import { CommandResultSummary } from "../../models";
+import { api, usePromise } from "../../api";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import { Suspense, useEffect, useState } from "react";
 import { NodeData } from "../result-view/nodes/NodeData";
@@ -10,11 +10,11 @@ import { dark } from "../theme";
 import { Card, CardCol } from "./Card";
 import { CommandResultItem } from "./CommandResultItem";
 import React from "react";
+import { ProjectSummary, TargetSummary } from "../../project-summaries";
 
 const sidePanelWidth = 720;
 
 async function doGetRootNode(rs: CommandResultSummary) {
-    const api = await getApi()
     const shortNames = api.getShortNames()
     const r = api.getResult(rs.id)
     const builder = new NodeBuilder({

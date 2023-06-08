@@ -815,65 +815,6 @@ export class ValidateResult {
 	    return a;
 	}
 }
-export class TargetSummary {
-    target: TargetKey;
-    lastValidateResult?: ValidateResult;
-    commandResults?: CommandResultSummary[];
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.target = this.convertValues(source["target"], TargetKey);
-        this.lastValidateResult = this.convertValues(source["lastValidateResult"], ValidateResult);
-        this.commandResults = this.convertValues(source["commandResults"], CommandResultSummary);
-    }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (a.slice) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
-}
-export class ProjectSummary {
-    project: ProjectKey;
-    targets: TargetSummary[];
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.project = this.convertValues(source["project"], ProjectKey);
-        this.targets = this.convertValues(source["targets"], TargetSummary);
-    }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (a.slice) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
-}
-
 export class ShortName {
     group?: string;
     kind: string;
@@ -893,4 +834,32 @@ export class UnstructuredObject {
         if ('string' === typeof source) source = JSON.parse(source);
 
     }
+}
+export class ProjectTargetKey {
+    project: ProjectKey;
+    target: TargetKey;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.project = this.convertValues(source["project"], ProjectKey);
+        this.target = this.convertValues(source["target"], TargetKey);
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (a.slice) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
 }
