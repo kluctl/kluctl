@@ -104,7 +104,7 @@ export const TargetDetailsDrawer = React.memo((props: { ts?: TargetSummary, onCl
             onClose={props.onClose}
             ModalProps={{ BackdropProps: { invisible: true } }}
         >
-            <Box width={"382px"} height={"100%"}>
+            <Box width={"600px"} height={"100%"}>
                 <SidePanel provider={new MyProvider(props.ts)} onClose={props.onClose} />
             </Box>
         </Drawer>
