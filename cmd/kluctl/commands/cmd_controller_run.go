@@ -131,11 +131,11 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	if cmd.WriteCommandResult {
-		wc, ok := mgr.GetClient().(client.WithWatch)
-		if !ok {
-			return fmt.Errorf("client does not implement WithWatch")
+		c, err := client.NewWithWatch(restConfig, client.Options{})
+		if err != nil {
+			return err
 		}
-		resultStore, err := results.NewResultStoreSecrets(ctx, wc, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount)
+		resultStore, err := results.NewResultStoreSecrets(ctx, c, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount)
 		if err != nil {
 			return err
 		}
