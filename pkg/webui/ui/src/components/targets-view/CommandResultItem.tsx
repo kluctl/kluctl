@@ -6,16 +6,9 @@ import Paper from "@mui/material/Paper";
 import { Box, IconButton, Tooltip, Typography } from "@mui/material";
 import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { useNavigate } from "react-router";
-import { formatDurationShort } from "../../utils/duration";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-
-const calcAgo = (startTime: string) => {
-    const t1 = new Date(startTime)
-    const t2 = new Date()
-    const d = t2.getTime() - t1.getTime()
-    return formatDurationShort(d)
-}
+import { calcAgo } from "../../utils/duration";
 
 export const CommandResultItem = React.memo((props: {
     ps: ProjectSummary,

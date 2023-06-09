@@ -28,3 +28,10 @@ export function formatDurationShort(ms: number) {
     }
     return f[1] + f[0]
 }
+
+export const calcAgo = (startTime: string) => {
+    const t1 = new Date(startTime)
+    const t2 = new Date()
+    const d = t2.getTime() - t1.getTime()
+    return formatDurationShort(d)
+}

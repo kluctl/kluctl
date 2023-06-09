@@ -129,6 +129,9 @@ class RealApi implements Api {
                     sleep(5000).then(connect)
                 }
             }
+            ws.onerror = function (event) {
+                console.log("ws error", event)
+            }
             ws.onmessage = function (event: MessageEvent) {
                 if (cancelled) {
                     return

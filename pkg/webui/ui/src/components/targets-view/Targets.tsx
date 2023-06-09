@@ -8,6 +8,7 @@ import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material
 import { api } from "../../api";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
+import { calcAgo } from "../../utils/duration";
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
@@ -45,6 +46,7 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         if (props.ts.lastValidateResult.drift?.length) {
             tooltip.push(`Target has ${props.ts.lastValidateResult.drift.length} drifted objects.`)
         }
+        tooltip.push("Validation performed " + calcAgo(props.ts.lastValidateResult.startTime) + " ago")
     }
 
     return <Tooltip title={tooltip.map(t => <Typography key={t}>{t}</Typography>)}>

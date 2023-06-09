@@ -77,7 +77,6 @@ const App = () => {
     }, [])
 
     const projects = useMemo(() => {
-        console.log("buildProjectSummaries")
         return buildProjectSummaries(summaries, validateResults)
     }, [summaries, validateResults])
 
