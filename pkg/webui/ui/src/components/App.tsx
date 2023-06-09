@@ -32,23 +32,28 @@ export const AppContext = createContext<AppContextProps>({
 const App = () => {
     const [filters, setFilters] = useState<ActiveFilters>()
 
-    const summaries = useRef<Map<string, CommandResultSummary>>(new Map())
-    const validateResults = useRef<Map<string, ValidateResult>>(new Map())
+    const summariesRef = useRef<Map<string, CommandResultSummary>>(new Map())
+    const validateResultsRef = useRef<Map<string, ValidateResult>>(new Map())
+    const [summaries, setSummaries] = useState(summariesRef.current)
+    const [validateResults, setValidateResults] = useState(validateResultsRef.current)
 
     useEffect(() => {
         const updateSummary = (rs: CommandResultSummary) => {
             console.log("update_summary", rs.id, rs.commandInfo.startTime)
-            summaries.current.set(rs.id, rs)
+            summariesRef.current.set(rs.id, rs)
+            setSummaries(new Map(summariesRef.current))
         }
 
         const deleteSummary = (id: string) => {
             console.log("delete_summary", id)
-            summaries.current.delete(id)
+            summariesRef.current.delete(id)
+            setSummaries(new Map(summariesRef.current))
         }
 
         const updateValidateResult = (key: ProjectTargetKey, vr: ValidateResult) => {
             console.log("validate_result", key)
-            validateResults.current.set(JSON.stringify(key), vr)
+            validateResultsRef.current.set(JSON.stringify(key), vr)
+            setValidateResults(new Map(validateResultsRef.current))
         }
 
         console.log("starting listenResults")
@@ -73,13 +78,13 @@ const App = () => {
 
     const projects = useMemo(() => {
         console.log("buildProjectSummaries")
-        return buildProjectSummaries(summaries.current, validateResults.current)
+        return buildProjectSummaries(summaries, validateResults)
     }, [summaries, validateResults])
 
     const appContext = {
-        summaries: summaries.current,
+        summaries: summariesRef.current,
         projects: projects,
-        validateResults: validateResults.current,
+        validateResults: validateResults,
     }
 
     const outletContext: AppOutletContext = {
