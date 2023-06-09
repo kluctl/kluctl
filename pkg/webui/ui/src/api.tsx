@@ -222,10 +222,10 @@ class StaticApi implements Api {
         await loadScript(staticPath + "/summaries.js")
 
         staticSummaries.forEach(rs => {
-            if (filterProject && filterProject != rs.project.normalizedGitUrl) {
+            if (filterProject && filterProject !== rs.project.normalizedGitUrl) {
                 return
             }
-            if (filterSubDir && filterSubDir != rs.project.subDir) {
+            if (filterSubDir && filterSubDir !== rs.project.subDir) {
                 return
             }
             handle({
@@ -244,7 +244,7 @@ class StaticApi implements Api {
     async getResultSummary(resultId: string): Promise<CommandResultSummary> {
         await loadScript(staticPath + "/summaries.js")
         return staticSummaries.filter(s => {
-            return s.id == resultId
+            return s.id === resultId
         }).at(0)
     }
     async getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {

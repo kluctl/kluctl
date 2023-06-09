@@ -10,12 +10,11 @@ import { Loading } from "./Loading";
 export const ObjectYaml = (props: {treeProps: CommandResultProps, objectRef: ObjectRef, objectType: ObjectType}) => {
     const [promise, setPromise] = useState<Promise<string>>()
 
-    const getData = async () => {
-        const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
-        return yaml.dump(o)
-    }
-
     useEffect(() => {
+        const getData = async () => {
+            const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
+            return yaml.dump(o)
+        }
         setPromise(getData())
     }, [props.treeProps, props.objectRef, props.objectType])
 

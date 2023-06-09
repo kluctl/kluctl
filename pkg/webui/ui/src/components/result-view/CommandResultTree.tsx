@@ -20,9 +20,8 @@ export interface CommandResultTreeProps {
 const CommandResultTree = (props: CommandResultTreeProps) => {
     const theme = useTheme();
     const [expanded, setExpanded] = useState<string[]>(["root"]);
-    const [selectedNodeId, setSelectedNodeId] = useState<string>()
 
-    const [rootNode, nodeMap] = useMemo(() => {
+    const [rootNode] = useMemo(() => {
         if (!props.commandResultProps) {
             return [undefined, undefined]
         }
@@ -45,7 +44,6 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
     };
 
     const handleItemClick = (e: React.SyntheticEvent, node: NodeData) => {
-        setSelectedNodeId(node.id);
         props.onSelectNode(node);
         e.stopPropagation();
     }

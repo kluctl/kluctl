@@ -1,7 +1,7 @@
 import { CommandResultSummary } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
 import React, { useCallback, useContext, useState } from "react";
-import { AppContext, useAppOutletContext } from "../App";
+import { AppContext } from "../App";
 import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
@@ -123,7 +123,6 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
 
 export const TargetsView = () => {
     const theme = useTheme();
-    const context = useAppOutletContext()
     const [selectedCommandResult, setSelectedCommandResult] = useState<{rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary} | undefined>();
     const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
     const [selectedCardRect, setSelectedCardRect] = useState<DOMRect | undefined>();

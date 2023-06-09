@@ -1,4 +1,4 @@
-import React, { createContext, Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
+import React, { createContext, Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 
 import '../index.css';
 import { Box, ThemeProvider } from "@mui/material";
@@ -30,32 +30,27 @@ export const AppContext = createContext<AppContextProps>({
 });
 
 const App = () => {
-    let [summaries, setSummaries] = useState<Map<string, CommandResultSummary>>(new Map())
-    let [validateResults, setValidateResults] = useState<Map<string, ValidateResult>>(new Map())
     const [filters, setFilters] = useState<ActiveFilters>()
 
-    const updateSummary = (rs: CommandResultSummary) => {
-        console.log("update_summary", rs.id, rs.commandInfo.startTime)
-        summaries.set(rs.id, rs)
-        summaries = new Map(summaries)
-        setSummaries(summaries)
-    }
-
-    const deleteSummary = (id: string) => {
-        console.log("delete_summary", id)
-        summaries.delete(id)
-        summaries = new Map(summaries)
-        setSummaries(summaries)
-    }
-
-    const updateValidateResult = (key: ProjectTargetKey, vr: ValidateResult) => {
-        console.log("validate_result", key)
-        validateResults.set(JSON.stringify(key), vr)
-        validateResults = new Map(validateResults)
-        setValidateResults(validateResults)
-    }
+    const summaries = useRef<Map<string, CommandResultSummary>>(new Map())
+    const validateResults = useRef<Map<string, ValidateResult>>(new Map())
 
     useEffect(() => {
+        const updateSummary = (rs: CommandResultSummary) => {
+            console.log("update_summary", rs.id, rs.commandInfo.startTime)
+            summaries.current.set(rs.id, rs)
+        }
+
+        const deleteSummary = (id: string) => {
+            console.log("delete_summary", id)
+            summaries.current.delete(id)
+        }
+
+        const updateValidateResult = (key: ProjectTargetKey, vr: ValidateResult) => {
+            console.log("validate_result", key)
+            validateResults.current.set(JSON.stringify(key), vr)
+        }
+
         console.log("starting listenResults")
         const cancel = api.listenUpdates(undefined, undefined, msg => {
             switch(msg.type) {
@@ -77,13 +72,14 @@ const App = () => {
     }, [])
 
     const projects = useMemo(() => {
-        return buildProjectSummaries(summaries, validateResults)
+        console.log("buildProjectSummaries")
+        return buildProjectSummaries(summaries.current, validateResults.current)
     }, [summaries, validateResults])
 
     const appContext = {
-        summaries: summaries,
+        summaries: summaries.current,
         projects: projects,
-        validateResults: validateResults,
+        validateResults: validateResults.current,
     }
 
     const outletContext: AppOutletContext = {
