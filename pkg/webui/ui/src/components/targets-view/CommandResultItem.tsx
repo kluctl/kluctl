@@ -18,18 +18,19 @@ const calcAgo = (startTime: string) => {
     return formatDurationShort(d)
 }
 
-export const CommandResultItem = React.memo((props: { 
+export const CommandResultItem = React.memo((props: {
     ps: ProjectSummary,
     ts: TargetSummary,
-    rs: CommandResultSummary, 
+    rs: CommandResultSummary,
     onSelectCommandResult: (rs: CommandResultSummary) => void,
     selected?: boolean;
 }) => {
+    const { rs, onSelectCommandResult, selected } = props;
     const navigate = useNavigate()
-    const [ago, setAgo] = useState(calcAgo(props.rs.commandInfo.startTime))
+    const [ago, setAgo] = useState(calcAgo(rs.commandInfo.startTime))
 
     let Icon: () => JSX.Element = DiffIcon
-    switch (props.rs.commandInfo?.command) {
+    switch (rs.commandInfo?.command) {
         case "delete":
             Icon = PruneIcon
             break
@@ -47,15 +48,15 @@ export const CommandResultItem = React.memo((props: {
             break
     }
 
-    const cmdInfoYaml = useMemo(() => {
-        return yaml.dump(props.rs.commandInfo)
-    }, [props.rs])
-    let iconTooltip = <CodeViewer code={cmdInfoYaml} language={"yaml"} />
+    const iconTooltip = useMemo(() => {
+        const cmdInfoYaml = yaml.dump(rs.commandInfo);
+        return <CodeViewer code={cmdInfoYaml} language={"yaml"} />
+    }, [rs.commandInfo]);
 
     useEffect(() => {
-        const interval = setInterval(() => setAgo(calcAgo(props.rs.commandInfo.startTime)), 5000);
+        const interval = setInterval(() => setAgo(calcAgo(rs.commandInfo.startTime)), 5000);
         return () => clearInterval(interval);
-    }, [props.rs.commandInfo.startTime])
+    }, [rs.commandInfo.startTime]);
 
     return <Paper
         elevation={5}
@@ -66,9 +67,9 @@ export const CommandResultItem = React.memo((props: {
             border: '1px solid #59A588',
             boxShadow: '4px 4px 10px #1E617A',
             padding: '20px 16px 5px 16px',
-            outline: props.selected ? '8px solid #59A588' : 'none'
+            outline: selected ? '8px solid #59A588' : 'none'
         }}
-        onClick={e => props.onSelectCommandResult(props.rs)}
+        onClick={() => onSelectCommandResult(rs)}
     >
         <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
             <Box display='flex' gap='15px'>
@@ -85,9 +86,9 @@ export const CommandResultItem = React.memo((props: {
                         overflow='hidden'
                         flexGrow={1}
                     >
-                        {props.rs.commandInfo?.command}
+                        {rs.commandInfo?.command}
                     </Typography>
-                    <Tooltip title={props.rs.commandInfo.startTime}>
+                    <Tooltip title={rs.commandInfo.startTime}>
                         <Typography
                             variant='subtitle1'
                             textAlign='left'
@@ -103,13 +104,13 @@ export const CommandResultItem = React.memo((props: {
             </Box>
             <Box display='flex' alignItems='center' justifyContent='space-between'>
                 <Box display='flex' gap='6px' alignItems='center'>
-                    <CommandResultStatusLine rs={props.rs} />
+                    <CommandResultStatusLine rs={rs} />
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center' height='39px'>
                     <IconButton
                         onClick={e => {
                             e.stopPropagation();
-                            navigate(`/results/${props.rs.id}`);
+                            navigate(`/results/${rs.id}`);
                         }}
                         sx={{
                             padding: 0,

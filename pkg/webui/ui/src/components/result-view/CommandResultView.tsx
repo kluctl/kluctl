@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Box, Checkbox, CheckboxProps, Divider, Drawer, FormControlLabel, ThemeProvider, Typography } from "@mui/material";
 import { CommandResult, CommandResultSummary, ShortName } from "../../models";
 import { NodeData } from "./nodes/NodeData";
-import { SidePanel, SidePanelProvider } from "./SidePanel";
+import { SidePanel } from "./SidePanel";
 import { ActiveFilters } from "./NodeStatusFilter";
 import CommandResultTree from "./CommandResultTree";
 import { useLoaderData } from "react-router-dom";

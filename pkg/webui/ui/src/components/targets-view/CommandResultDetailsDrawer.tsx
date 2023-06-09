@@ -1,16 +1,17 @@
 import { CommandResultSummary } from "../../models";
 import { api, usePromise } from "../../api";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { NodeData } from "../result-view/nodes/NodeData";
 import { SidePanel } from "../result-view/SidePanel";
 import { Box, Drawer, ThemeProvider, useTheme } from "@mui/material";
 import { Loading } from "../Loading";
 import { dark } from "../theme";
-import { Card, CardCol } from "./Card";
+import { Card, cardGap, cardHeight } from "./Card";
 import { CommandResultItem } from "./CommandResultItem";
 import React from "react";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
+import { cardWidth } from "./Card";
 
 const sidePanelWidth = 720;
 
@@ -22,7 +23,7 @@ async function doGetRootNode(rs: CommandResultSummary) {
         summary: rs,
         commandResult: await r,
     })
-    const [node, nodeMap] = builder.buildRoot()
+    const [node] = builder.buildRoot()
     return node
 }
 
@@ -30,13 +31,16 @@ export const CommandResultDetailsDrawer = React.memo((props: {
     rs?: CommandResultSummary,
     ts?: TargetSummary,
     ps?: ProjectSummary,
-    onClose: () => void
+    onClose: () => void,
+    selectedCardRect?: DOMRect
 }) => {
-    const { ps, ts } = props;
+    const { ps, ts, selectedCardRect } = props;
     const theme = useTheme();
     const [promise, setPromise] = useState<Promise<NodeData>>(new Promise(() => undefined));
     const [selectedCommandResult, setSelectedCommandResult] = useState<CommandResultSummary | undefined>();
     const [prevTargetSummary, setPrevTargetSummary] = useState<TargetSummary | undefined>(ts);
+    const [cardsCoords, setCardsCoords] = useState<{ left: number, top: number }[]>([]);
+    const [transitionRunning, setTransitionRunning] = useState(false);
 
     if (prevTargetSummary !== ts) {
         setPrevTargetSummary(ts);
@@ -55,8 +59,81 @@ export const CommandResultDetailsDrawer = React.memo((props: {
         return <SidePanel provider={node} onClose={props.onClose} />
     }
 
+    const cardsContainerElem = useRef<HTMLElement>();
+
+    useEffect(() => {
+        const rect = cardsContainerElem.current?.getBoundingClientRect();
+        if (!rect || !selectedCardRect || !ts?.commandResults) {
+            setCardsCoords([]);
+            return;
+        }
+
+        const initialCoords = ts.commandResults.map(() => ({
+            left: selectedCardRect.left - rect.left,
+            top: selectedCardRect.top - rect.top
+        }));
+
+        setCardsCoords(initialCoords);
+        setTransitionRunning(true);
+    }, [selectedCardRect, ts?.commandResults]);
+
+    useEffect(() => {
+        if (cardsCoords.length > 0) {
+            const targetCoords = cardsCoords.map((_, i) => ({
+                left: 0,
+                top: i * (cardHeight + cardGap)
+            }));
+
+            if (cardsCoords.length === targetCoords.length
+                && cardsCoords.every(({ left, top }, i) =>
+                    targetCoords[i].left === left && targetCoords[i].top === top
+                )
+            ) {
+                return;
+            }
+
+            setTimeout(() => {
+                setCardsCoords(targetCoords);
+                setTimeout(() => {
+                    setTransitionRunning(false);
+                }, theme.transitions.duration.enteringScreen)
+            }, 10);
+        }
+    }, [cardsCoords, theme.transitions.duration.enteringScreen])
+
+    const zIndex = theme.zIndex.modal + 1;
+
+    const cards = useMemo(() => {
+        if (!(ps && ts && ts.commandResults && ts.commandResults.length > 0 && cardsCoords.length > 0)) {
+            return null;
+        }
+
+        return ts.commandResults.map((rs, i) => {
+            return <Card
+                key={i}
+                sx={{
+                    position: 'absolute',
+                    translate: `${cardsCoords[i].left}px ${cardsCoords[i].top}px`,
+                    zIndex: zIndex,
+                    transition: theme.transitions.create(['translate'], {
+                        easing: theme.transitions.easing.sharp,
+                        duration: theme.transitions.duration.enteringScreen,
+                    })
+                }}
+            >
+                <CommandResultItem
+                    ps={ps}
+                    ts={ts}
+                    rs={rs}
+                    onSelectCommandResult={setSelectedCommandResult}
+                    selected={rs === selectedCommandResult}
+                />
+            </Card>
+        })
+    }, [ps, ts, cardsCoords, zIndex, theme.transitions, selectedCommandResult])
+
     return <>
-        {ps && ts &&
+        {ps && ts && ts.commandResults && ts.commandResults.length > 0 &&
             <Box
                 sx={{
                     position: 'fixed',
@@ -64,28 +141,26 @@ export const CommandResultDetailsDrawer = React.memo((props: {
                     bottom: 0,
                     right: sidePanelWidth,
                     width: `calc(100% - ${sidePanelWidth}px)`,
-                    overflow: 'auto',
+                    overflowX: 'visible',
+                    overflowY: transitionRunning ? 'visible' : 'auto',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     padding: '25px 0',
-                    zIndex: theme.zIndex.modal + 1
+                    zIndex: zIndex
                 }}
                 onClick={props.onClose}
             >
-                <CardCol onClick={(e) => e.stopPropagation()} flexGrow={1} justifyContent='center'>
-                    {ts.commandResults?.map((rs, i) => {
-                        return <Card key={i}>
-                            <CommandResultItem
-                                ps={ps}
-                                ts={ts}
-                                rs={rs}
-                                onSelectCommandResult={setSelectedCommandResult}
-                                selected={rs === selectedCommandResult}
-                            />
-                        </Card>
-                    })}
-                </CardCol>
+                <Box
+                    onClick={(e) => e.stopPropagation()}
+                    position='relative'
+                    width={cardWidth}
+                    height={cardHeight * ts.commandResults.length + cardGap * (ts.commandResults.length - 1)}
+                    ref={cardsContainerElem}
+                >
+                    {cards}
+                </Box>
             </Box>
         }
         <ThemeProvider theme={dark}>

@@ -128,27 +128,29 @@ export const TargetsView = () => {
     const context = useAppOutletContext()
     const [selectedCommandResult, setSelectedCommandResult] = useState<{rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary} | undefined>();
     const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
+    const [selectedCardRect, setSelectedCardRect] = useState<DOMRect | undefined>();
 
     const appContext = useContext(AppContext)
     const projects = appContext.projects
 
-    const doSetSelectedCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
-        setSelectedCommandResult(o);
+    const onTargetDetailsDrawerClose = useCallback(() => {
         setSelectedTargetSummary(undefined);
-    }, []);
-
-    const doSetSelectedTargetSummary = useCallback((ts?: TargetSummary) => {
-        setSelectedCommandResult(undefined);
-        setSelectedTargetSummary(ts);
     }, []);
 
     const onCommandResultDetailsDrawerClose = useCallback(() => {
-        doSetSelectedCommandResult(undefined);
-    }, [doSetSelectedCommandResult]);
+        setSelectedCommandResult(undefined);
+        setSelectedCardRect(undefined);
+    }, []);
 
-    const onTargetDetailsDrawerClose = useCallback(() => {
-        setSelectedTargetSummary(undefined);
-    }, [setSelectedTargetSummary]);
+    const doSetSelectedCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
+        onTargetDetailsDrawerClose();
+        setSelectedCommandResult(o);
+    }, [onTargetDetailsDrawerClose]);
+    
+    const doSetSelectedTargetSummary = useCallback((ts?: TargetSummary) => {
+        onCommandResultDetailsDrawerClose();
+        setSelectedTargetSummary(ts);
+    }, [onCommandResultDetailsDrawerClose]);
 
     return <Box minWidth={colWidth * 3} p='0 40px'>
         <CommandResultDetailsDrawer
@@ -156,6 +158,7 @@ export const TargetsView = () => {
             ts={selectedCommandResult?.ts}
             ps={selectedCommandResult?.ps}
             onClose={onCommandResultDetailsDrawerClose}
+            selectedCardRect={selectedCardRect}
         />
         <TargetDetailsDrawer
             ts={selectedTargetSummary}
@@ -245,6 +248,10 @@ export const TargetsView = () => {
                                             translate: i === 0 ? 'none' : `-${i * (cardWidth + cardGap / 2)}px`,
                                             zIndex: -i,
                                             display: i < 4 ? 'flex' : 'none'
+                                        }}
+                                        onClick={(e) => {
+                                            const rect = e.currentTarget.getBoundingClientRect();
+                                            setSelectedCardRect(rect);
                                         }}
                                     >
                                         <CommandResultItem
