@@ -18,7 +18,7 @@ export const StatusLine = (props: StatusLineProps) => {
     const doPush = (n: number | undefined, t: string, icon: React.ReactElement) => {
         if (n) {
             children.push(
-                <Box key={children.length} display={"flex"} flexDirection={"column"}>
+                <Box key={t} display={"flex"} flexDirection={"column"}>
                     <Tooltip title={n + " " + t}>
                         <Box
                             display='flex'

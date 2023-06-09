@@ -10,6 +10,7 @@ import { Box, Typography } from "@mui/material";
 import { CodeViewer } from "../CodeViewer";
 import { DiffStatus } from "./nodes/NodeData";
 import { ObjectRef } from "../../models";
+import { buildListKey } from "../../utils/listKey";
 
 const RefList = (props: { title: string, refs: ObjectRef[] }) => {
     return <Box py='10px'>
@@ -30,8 +31,8 @@ const RefList = (props: { title: string, refs: ObjectRef[] }) => {
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {props.refs.map((ref, i) => {
-                        return <TableRow key={i}>
+                    {props.refs.map(ref => {
+                        return <TableRow key={buildRefString(ref)}>
                             <TableCell>
                                 {buildRefKindElement(ref)}
                             </TableCell>
@@ -55,8 +56,8 @@ export function ChangesTable(props: { diffStatus: DiffStatus }) {
     if (props.diffStatus.changedObjects.length) {
         changedObjects = <Box py='10px'>
             <Typography align={"center"} variant={"h5"}>Changed Objects</Typography>
-            {props.diffStatus.changedObjects.map((co, i) => (
-                <TableContainer key={i}>
+            {props.diffStatus.changedObjects.map(co => (
+                <TableContainer key={buildRefString(co.ref)}>
                     <Table>
                         <TableHead>
                             <TableRow>
@@ -77,8 +78,8 @@ export function ChangesTable(props: { diffStatus: DiffStatus }) {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {co.changes?.map((c, i) => (
-                                <TableRow key={i}>
+                            {co.changes?.map(c => (
+                                <TableRow key={buildListKey(c)}>
                                     <TableCell>
                                         <Box minWidth={"100px"} sx={{ overflowWrap: "anywhere" }}>
                                             <Typography>{c.jsonPath}</Typography>

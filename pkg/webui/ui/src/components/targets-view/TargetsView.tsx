@@ -10,6 +10,7 @@ import { CommandResultDetailsDrawer } from "./CommandResultDetailsDrawer";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
 import { Card, CardCol, cardGap, cardHeight, CardRow, cardWidth, projectCardHeight } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
+import { buildListKey } from "../../utils/listKey";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -168,7 +169,7 @@ export const TargetsView = () => {
         </Box>
         <Divider />
         {projects.map((ps, i) => {
-            return <Box key={JSON.stringify(ps.project)}>
+            return <Box key={buildListKey(ps.project)}>
                 <Box display={"flex"} alignItems={"center"} margin='40px 0'>
                     <Box display='flex' alignItems='center' width={colWidth} flex='0 0 auto'>
                         <Card height={projectCardHeight}>
@@ -187,7 +188,7 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
-                            return <Box key={JSON.stringify(ts.target)} display='flex'>
+                            return <Box key={buildListKey(ts.target)} display='flex'>
                                 <Card>
                                     <TargetItem ps={ps} ts={ts}
                                         onSelectTarget={(ts) => doSetSelectedTargetSummary(ts)} />
@@ -237,10 +238,10 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
-                            return <CardRow key={JSON.stringify(ts.target)} height={cardHeight}>
+                            return <CardRow key={buildListKey(ts.target)} height={cardHeight}>
                                 {ts.commandResults?.map((rs, i) => {
                                     return <Card
-                                        key={i}
+                                        key={rs.id}
                                         sx={{
                                             translate: i === 0 ? 'none' : `-${i * (cardWidth + cardGap / 2)}px`,
                                             zIndex: -i,

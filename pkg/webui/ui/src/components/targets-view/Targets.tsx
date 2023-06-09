@@ -47,7 +47,7 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         }
     }
 
-    return <Tooltip title={tooltip.map((t, i) => <Typography key={i}>{t}</Typography>)}>
+    return <Tooltip title={tooltip.map(t => <Typography key={t}>{t}</Typography>)}>
         <Box display='flex'>{icon}</Box>
     </Tooltip>
 }
@@ -113,8 +113,8 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
 
     const contextTooltip = <Box textAlign={"center"}>
         <Typography variant="subtitle2">All known contexts:</Typography>
-        {allContexts.map((context, i) => (
-            <Typography key={i} variant="subtitle2">{context}</Typography>
+        {allContexts.map(context=> (
+            <Typography key={context} variant="subtitle2">{context}</Typography>
         ))}
     </Box>
 

@@ -8,6 +8,7 @@ import TableRow from '@mui/material/TableRow';
 import { DeploymentError } from "../models";
 import { Box, Divider, List, ListItem, ListItemText } from "@mui/material";
 import { buildRefKindElement } from "../api";
+import { buildListKey } from "../utils/listKey";
 
 export function ErrorsTable(props: { errors: DeploymentError[] }) {
     return <>
@@ -21,8 +22,8 @@ export function ErrorsTable(props: { errors: DeploymentError[] }) {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {props.errors?.map((e, i) => (
-                            <TableRow key={i}>
+                        {props.errors?.map(e=> (
+                            <TableRow key={buildListKey(e)}>
                                 <TableCell sx={{ minWidth: "150px" }}>
                                     <List disablePadding>
                                         {buildRefKindElement(e.ref, <>

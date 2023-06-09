@@ -108,7 +108,7 @@ export const CommandResultDetailsDrawer = React.memo((props: {
 
         return ts.commandResults.map((rs, i) => {
             return <Card
-                key={i}
+                key={rs.id}
                 sx={{
                     position: 'absolute',
                     translate: `${cardsCoords[i].left}px ${cardsCoords[i].top}px`,
