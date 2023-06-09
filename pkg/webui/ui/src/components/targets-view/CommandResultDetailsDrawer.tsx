@@ -1,17 +1,15 @@
 import { CommandResultSummary } from "../../models";
 import { api, usePromise } from "../../api";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { NodeData } from "../result-view/nodes/NodeData";
 import { SidePanel } from "../result-view/SidePanel";
 import { Box, Drawer, ThemeProvider, useTheme } from "@mui/material";
 import { Loading } from "../Loading";
 import { dark } from "../theme";
-import { Card, cardGap, cardHeight } from "./Card";
+import { Card, cardGap, cardHeight, cardWidth } from "./Card";
 import { CommandResultItem } from "./CommandResultItem";
-import React from "react";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-import { cardWidth } from "./Card";
 
 const sidePanelWidth = 720;
 

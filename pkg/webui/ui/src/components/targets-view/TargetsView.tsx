@@ -1,17 +1,15 @@
 import { CommandResultSummary } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 import { AppContext, useAppOutletContext } from "../App";
-import { api } from "../../api";
 import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
 import { CommandResultDetailsDrawer } from "./CommandResultDetailsDrawer";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
-import { Card, CardCol, CardRow, cardGap, cardHeight, cardWidth, projectCardHeight } from "./Card";
-import { buildProjectSummaries, ProjectSummary, TargetSummary } from "../../project-summaries";
-import { sum } from "lodash";
+import { Card, CardCol, cardGap, cardHeight, CardRow, cardWidth, projectCardHeight } from "./Card";
+import { ProjectSummary, TargetSummary } from "../../project-summaries";
 
 const colWidth = 416;
 const curveRadius = 12;

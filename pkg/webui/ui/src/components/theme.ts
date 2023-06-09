@@ -1,4 +1,4 @@
-import { PaletteOptions, ThemeOptions, createTheme } from '@mui/material/styles';
+import { createTheme, PaletteOptions, ThemeOptions } from '@mui/material/styles';
 
 const paletteDark = {
     primary: { main: '#DFEBE9' },

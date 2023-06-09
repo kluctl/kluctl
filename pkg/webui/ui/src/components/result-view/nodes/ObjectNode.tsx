@@ -2,13 +2,7 @@ import React from 'react';
 
 import { ObjectRef } from "../../../models";
 import { NodeData } from "./NodeData";
-import {
-    PublishedWithChanges,
-    Settings,
-    SettingsEthernet,
-    SmartToy,
-    SvgIconComponent
-} from "@mui/icons-material";
+import { PublishedWithChanges, Settings, SettingsEthernet, SmartToy, SvgIconComponent } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
 import { findObjectByRef, ObjectType } from "../../../api";
 import { CommandResultProps } from "../CommandResultView";

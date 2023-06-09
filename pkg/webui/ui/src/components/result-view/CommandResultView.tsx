@@ -1,6 +1,15 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Box, Checkbox, CheckboxProps, Divider, Drawer, FormControlLabel, ThemeProvider, Typography } from "@mui/material";
+import {
+    Box,
+    Checkbox,
+    CheckboxProps,
+    Divider,
+    Drawer,
+    FormControlLabel,
+    ThemeProvider,
+    Typography
+} from "@mui/material";
 import { CommandResult, CommandResultSummary, ShortName } from "../../models";
 import { NodeData } from "./nodes/NodeData";
 import { SidePanel } from "./SidePanel";

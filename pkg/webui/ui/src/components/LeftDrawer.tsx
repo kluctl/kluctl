@@ -13,7 +13,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AppOutletContext } from "./App";
-import { KluctlLogo, TargetsIcon, KluctlText, SearchIcon, ArrowLeftIcon } from '../icons/Icons';
+import { ArrowLeftIcon, KluctlLogo, KluctlText, SearchIcon, TargetsIcon } from '../icons/Icons';
 import { dark } from './theme';
 import { Typography } from '@mui/material';
 
