@@ -19,6 +19,11 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: '1.19'
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: pkg/webui/ui/package-lock.json
       - uses: actions/cache@v3
         with:
           path: |
@@ -62,6 +67,17 @@ jobs:
           make api-docs
           if [ ! -z "$(git status --porcelain)" ]; then
             echo "make api-docs must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
+      - name: Verify webui build is up-to-date
+        run: |
+          cd pkg/webui/ui
+          npm install
+          npm run build
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "npm run build must be invoked and the result committed"
             git status
             git diff
             exit 1
