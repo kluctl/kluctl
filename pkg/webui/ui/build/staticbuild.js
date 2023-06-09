@@ -1,0 +1,1 @@
+const staticResults = new Map()
