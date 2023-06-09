@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "homepage": "./",
   "private": true,
-  "proxy": "http://localhost:8080",
+  "proxy": "http://localhost:9090",
   "dependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@emotion/react": "^11.11.1",
