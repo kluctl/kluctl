@@ -36,9 +36,10 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "node build",
+    "build": "node build && npm run fix-assets",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "fix-assets": "go run ./fix-assets"
   },
   "eslintConfig": {
     "extends": [
