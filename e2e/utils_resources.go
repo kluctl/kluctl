@@ -9,6 +9,7 @@ import (
 
 type resourceOpts struct {
 	name        string
+	fname       string
 	namespace   string
 	tags        []string
 	labels      map[string]string
@@ -56,8 +57,12 @@ func createSecretObject(data map[string]string, opts resourceOpts) *uo.Unstructu
 
 func addConfigMapDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts) {
 	o := createConfigMapObject(data, opts)
+	fname := opts.fname
+	if fname == "" {
+		fname = fmt.Sprintf("configmap-%s.yml", opts.name)
+	}
 	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
-		{Name: fmt.Sprintf("configmap-%s.yml", opts.name), Content: o},
+		{Name: fname, Content: o},
 	}, opts.tags)
 	if opts.when != "" {
 		p.UpdateDeploymentItems(filepath.Dir(dir), func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
