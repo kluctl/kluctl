@@ -48,12 +48,13 @@ func (dtc *diffTestConfig) appliedObjectsMap() map[k8s2.ObjectRef]*uo.Unstructur
 	return ret
 }
 
-func newTestConfigMap(name string, data map[string]interface{}) *uo.UnstructuredObject {
+func newTestConfigMap(name string, data map[string]interface{}, annotations map[string]string) *uo.UnstructuredObject {
 	o := uo.New()
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	o.SetK8sName(name)
 	o.SetK8sNamespace("default")
 	o.SetNestedField(data, "data")
+	o.SetK8sAnnotations(annotations)
 	return o
 }
 
@@ -83,9 +84,9 @@ func TestDiff(t *testing.T) {
 	tests := []*diffTestConfig{
 		{
 			name: "One changed object (changed field)",
-			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"})},
-			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v2"})},
-			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v2"})},
+			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"}, nil)},
+			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v2"}, nil)},
+			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v2"}, nil)},
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
@@ -95,9 +96,9 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			name: "One changed object (new field)",
-			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"})},
-			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"})},
-			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"})},
+			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"}, nil)},
+			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"}, nil)},
+			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"}, nil)},
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
@@ -107,9 +108,9 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			name: "One changed object (removed field)",
-			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"})},
-			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"})},
-			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"})},
+			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"}, nil)},
+			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"}, nil)},
+			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"}, nil)},
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
@@ -119,9 +120,9 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			name: "One changed object (new + removed field)",
-			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"})},
-			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d2": "v2"})},
-			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d2": "v2"})},
+			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1"}, nil)},
+			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d2": "v2"}, nil)},
+			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d2": "v2"}, nil)},
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
@@ -132,15 +133,28 @@ func TestDiff(t *testing.T) {
 		},
 		{
 			name: "One changed object (mixed changes)",
-			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"})},
-			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v12", "d3": "v3"})},
-			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v12", "d3": "v3"})},
+			ro:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v1", "d2": "v2"}, nil)},
+			lo:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v12", "d3": "v3"}, nil)},
+			ao:   []*uo.UnstructuredObject{newTestConfigMap("test", map[string]interface{}{"d1": "v12", "d3": "v3"}, nil)},
 			a: func(t *testing.T, dtc *diffTestConfig) {
 				assert.Len(t, dtc.du.ChangedObjects, 1)
 				assert.Equal(t, []result.Change{
 					buildChange("update", "data.d1", buildRaw("v1"), buildRaw("v12"), "-v1\n+v12"),
 					buildChange("delete", "data.d2", buildRaw("v2"), nil, "-v2"),
 					buildChange("insert", "data.d3", nil, buildRaw("v3"), "+v3"),
+				}, dtc.du.ChangedObjects[0].Changes)
+			},
+		},
+		{
+			name: "kluctl.io/diff-name being set",
+			ro:   []*uo.UnstructuredObject{newTestConfigMap("test1", map[string]interface{}{"d1": "v1"}, map[string]string{"kluctl.io/diff-name": "test"})},
+			lo:   []*uo.UnstructuredObject{newTestConfigMap("test2", map[string]interface{}{"d1": "v2"}, map[string]string{"kluctl.io/diff-name": "test"})},
+			ao:   []*uo.UnstructuredObject{newTestConfigMap("test2", map[string]interface{}{"d1": "v2"}, map[string]string{"kluctl.io/diff-name": "test"})},
+			a: func(t *testing.T, dtc *diffTestConfig) {
+				assert.Len(t, dtc.du.ChangedObjects, 1)
+				assert.Equal(t, []result.Change{
+					buildChange("update", "data.d1", buildRaw("v1"), buildRaw("v2"), "-v1\n+v2"),
+					buildChange("update", "metadata.name", buildRaw("test1"), buildRaw("test2"), "-test1\n+test2"),
 				}, dtc.du.ChangedObjects[0].Changes)
 			},
 		},
