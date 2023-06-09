@@ -57,7 +57,7 @@ func (f *fakeClientFactory) Mapper() meta.RESTMapper {
 	return f.mapper
 }
 
-func (f *fakeClientFactory) Client(wh rest.WarningHandler) (client.Client, error) {
+func (f *fakeClientFactory) Client(wh rest.WarningHandler) (client.WithWatch, error) {
 	return fake2.NewClientBuilder().
 		WithScheme(f.scheme).
 		WithRESTMapper(f.mapper).

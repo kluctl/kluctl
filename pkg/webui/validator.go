@@ -13,7 +13,16 @@ import (
 const shortValidationInterval = time.Second * 15
 const longValidationInterval = time.Minute * 1
 
-type validateResultHandler func(key ProjectTargetKey, r *result.ValidateResult)
+type validationEvent struct {
+	key ProjectTargetKey
+	r   *result.ValidateResult
+}
+
+type validationWatch struct {
+	ch     chan validationEvent
+	closed bool
+	mutex  sync.Mutex
+}
 
 type validatorManager struct {
 	ctx context.Context
@@ -22,8 +31,7 @@ type validatorManager struct {
 	cam   *clusterAccessorManager
 
 	validators map[ProjectTargetKey]*validatorEntry
-	handlers   map[int]validateResultHandler
-	nextId     int
+	watches    []*validationWatch
 	mutex      sync.Mutex
 }
 
@@ -38,6 +46,7 @@ type validatorEntry struct {
 	ch             chan bool
 	validateResult *result.ValidateResult
 	err            error
+	mutex          sync.Mutex
 }
 
 func newValidatorManager(ctx context.Context, store results.ResultStore, cam *clusterAccessorManager) *validatorManager {
@@ -46,7 +55,6 @@ func newValidatorManager(ctx context.Context, store results.ResultStore, cam *cl
 		store:      store,
 		cam:        cam,
 		validators: map[ProjectTargetKey]*validatorEntry{},
-		handlers:   map[int]validateResultHandler{},
 	}
 }
 
@@ -82,14 +90,18 @@ func (vm *validatorManager) start() {
 			found[k] = true
 		}
 
+		var chs []chan bool
 		vm.mutex.Lock()
 		for k, v := range vm.validators {
 			if _, ok := found[k]; !ok {
 				delete(vm.validators, k)
-				close(v.ch)
+				chs = append(chs, v.ch)
 			}
 		}
 		vm.mutex.Unlock()
+		for _, ch := range chs {
+			close(ch)
+		}
 	}
 
 	go func() {
@@ -100,26 +112,48 @@ func (vm *validatorManager) start() {
 	}()
 }
 
-func (vm *validatorManager) addHandler(h validateResultHandler) func() {
+func (vm *validatorManager) watch() ([]validationEvent, chan validationEvent, func()) {
 	vm.mutex.Lock()
 	defer vm.mutex.Unlock()
 
-	id := vm.nextId
-	vm.nextId++
+	w := &validationWatch{
+		ch: make(chan validationEvent),
+	}
+	vm.watches = append(vm.watches, w)
 
-	vm.handlers[id] = h
-
+	var initial []validationEvent
 	for _, v := range vm.validators {
 		if v.validateResult != nil {
-			h(v.key, v.validateResult)
+			initial = append(initial, validationEvent{
+				key: v.key,
+				r:   v.validateResult,
+			})
 		}
 	}
 
-	return func() {
+	cancel := func() {
 		vm.mutex.Lock()
-		defer vm.mutex.Unlock()
-		delete(vm.handlers, id)
+		for i, w2 := range vm.watches {
+			if w == w2 {
+				vm.watches = append(vm.watches[0:i], vm.watches[i+1:]...)
+			}
+		}
+		vm.mutex.Unlock()
+
+		go func() {
+			for x := range w.ch {
+				a := x
+				_ = a
+			}
+		}()
+
+		w.mutex.Lock()
+		close(w.ch)
+		w.closed = true
+		w.mutex.Unlock()
 	}
+
+	return initial, w.ch, cancel
 }
 
 func (vm *validatorManager) getValidateResult(key ProjectTargetKey) (*result.ValidateResult, error) {
@@ -236,13 +270,25 @@ func (v *validatorEntry) runOnce(summaries []result.CommandResultSummary) bool {
 	}
 	s.Success()
 
-	v.vm.mutex.Lock()
-	defer v.vm.mutex.Unlock()
+	v.mutex.Lock()
 	v.validateResult = vr
 	v.err = err
+	event := validationEvent{
+		key: v.key,
+		r:   v.validateResult,
+	}
+	v.mutex.Unlock()
 
-	for _, h := range v.vm.handlers {
-		h(v.key, vr)
+	v.vm.mutex.Lock()
+	watches := append([]*validationWatch{}, v.vm.watches...)
+	v.vm.mutex.Unlock()
+
+	for _, w := range watches {
+		w.mutex.Lock()
+		if !w.closed {
+			w.ch <- event
+		}
+		w.mutex.Unlock()
 	}
 
 	return true

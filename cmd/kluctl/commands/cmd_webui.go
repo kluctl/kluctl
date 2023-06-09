@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/webui"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,18 +88,12 @@ func (cmd *webuiCmd) createResultStores(ctx context.Context) ([]results.ResultSt
 			return nil, nil, err
 		}
 
-		client, err := client.New(config, client.Options{})
+		client, err := client.NewWithWatch(config, client.Options{})
 		if err != nil {
 			return nil, nil, err
 		}
 
-		cache, err := cache.New(config, cache.Options{})
-		if err != nil {
-			return nil, nil, err
-		}
-		go cache.Start(ctx)
-
-		store, err := results.NewResultStoreSecrets(ctx, client, cache, "", 0)
+		store, err := results.NewResultStoreSecrets(ctx, client, "", 0)
 		if err != nil {
 			return nil, nil, err
 		}

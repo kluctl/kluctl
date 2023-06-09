@@ -15,7 +15,7 @@ type ResultsCollector struct {
 	stores []ResultStore
 
 	resultSummaries map[string]summaryEntry
-	handlers        []*handlerEntry
+	watches         []*watchEntry
 
 	initialWG sync.WaitGroup
 	mutex     sync.Mutex
@@ -26,10 +26,11 @@ type summaryEntry struct {
 	summary *result.CommandResultSummary
 }
 
-type handlerEntry struct {
+type watchEntry struct {
 	options ListCommandResultSummariesOptions
-	update  func(result *result.CommandResultSummary)
-	delete  func(id string)
+	ch      chan WatchCommandResultSummaryEvent
+
+	initialQueue []*result.CommandResultSummary
 }
 
 func NewResultsCollector(ctx context.Context, stores []ResultStore) *ResultsCollector {
@@ -61,49 +62,56 @@ func (rc *ResultsCollector) startWatchResults() {
 func (rc *ResultsCollector) runWatchResults(store ResultStore) {
 	initial := true
 	for {
-		_, err := store.WatchCommandResultSummaries(ListCommandResultSummariesOptions{}, func(summary *result.CommandResultSummary) {
-			rc.handleUpdate(store, summary)
-		}, func(id string) {
-			rc.handleDelete(store, id)
-		})
+		l, ch, _, err := store.WatchCommandResultSummaries(ListCommandResultSummariesOptions{})
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
 		if initial {
 			rc.initialWG.Done()
 			initial = false
 		}
-		if err == nil {
-			break
+
+		for _, rs := range l {
+			rc.handleUpdate(store, WatchCommandResultSummaryEvent{
+				Summary: rs,
+			})
 		}
-		time.Sleep(5 * time.Second)
+
+		go func() {
+			for {
+				event, ok := <-ch
+				if !ok {
+					break
+				}
+				rc.handleUpdate(store, event)
+			}
+		}()
+
+		break
 	}
 }
 
-func (rc *ResultsCollector) handleUpdate(store ResultStore, summary *result.CommandResultSummary) {
+func (rc *ResultsCollector) handleUpdate(store ResultStore, event WatchCommandResultSummaryEvent) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
-	rc.resultSummaries[summary.Id] = summaryEntry{
-		store:   store,
-		summary: summary,
-	}
-	for _, h := range rc.handlers {
-		if FilterSummary(summary, h.options.ProjectFilter) {
-			h.update(summary)
+	if event.Delete {
+		_, ok := rc.resultSummaries[event.Summary.Id]
+		if ok {
+			delete(rc.resultSummaries, event.Summary.Id)
+		}
+	} else {
+		rc.resultSummaries[event.Summary.Id] = summaryEntry{
+			store:   store,
+			summary: event.Summary,
 		}
 	}
-}
 
-func (rc *ResultsCollector) handleDelete(store ResultStore, id string) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
-	se, ok := rc.resultSummaries[id]
-	if !ok {
-		return
-	}
-
-	delete(rc.resultSummaries, id)
-	for _, h := range rc.handlers {
-		if FilterSummary(se.summary, h.options.ProjectFilter) {
-			h.delete(id)
+	for _, w := range rc.watches {
+		if FilterSummary(event.Summary, w.options.ProjectFilter) {
+			w.ch <- event
 		}
 	}
 }
@@ -128,34 +136,38 @@ func (rc *ResultsCollector) ListCommandResultSummaries(options ListCommandResult
 	return summaries, nil
 }
 
-func (rc *ResultsCollector) WatchCommandResultSummaries(options ListCommandResultSummariesOptions, update func(summary *result.CommandResultSummary), delete func(id string)) (func(), error) {
+func (rc *ResultsCollector) WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
-	h := &handlerEntry{
+	w := &watchEntry{
 		options: options,
-		update:  update,
-		delete:  delete,
+		ch:      make(chan WatchCommandResultSummaryEvent),
 	}
 
-	rc.handlers = append(rc.handlers, h)
+	rc.watches = append(rc.watches, w)
+
+	var initial []*result.CommandResultSummary
 
 	for _, se := range rc.resultSummaries {
-		if FilterSummary(se.summary, h.options.ProjectFilter) {
-			h.update(se.summary)
+		if FilterSummary(se.summary, options.ProjectFilter) {
+			initial = append(initial, se.summary)
 		}
 	}
 
-	return func() {
+	cancel := func() {
 		rc.mutex.Lock()
-		defer rc.mutex.Unlock()
-		for i, h2 := range rc.handlers {
-			if h2 == h {
-				rc.handlers = append(rc.handlers[:i], rc.handlers[i+1:]...)
+		for i, w2 := range rc.watches {
+			if w2 == w {
+				rc.watches = append(rc.watches[:i], rc.watches[i+1:]...)
 				break
 			}
 		}
-	}, nil
+		rc.mutex.Unlock()
+		close(w.ch)
+	}
+
+	return initial, w.ch, cancel, nil
 }
 
 func (rc *ResultsCollector) HasCommandResult(id string) (bool, error) {

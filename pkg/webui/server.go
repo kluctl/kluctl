@@ -48,11 +48,28 @@ func NewCommandResultsServer(ctx context.Context, collector *results.ResultsColl
 }
 
 func (s *CommandResultsServer) Run(port int) error {
-	_, _ = s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{}, func(summary *result.CommandResultSummary) {
-		status.Info(s.ctx, "Updated result summary for %s", summary.Id)
-	}, func(id string) {
-		status.Info(s.ctx, "Deleted result summary for %s", id)
-	})
+	l, ch, cancel, err := s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	printEvent := func(id string, deleted bool) {
+		if deleted {
+			status.Info(s.ctx, "Deleted result summary for %s", id)
+		} else {
+			status.Info(s.ctx, "Updated result summary for %s", id)
+		}
+	}
+	for _, x := range l {
+		printEvent(x.Id, false)
+	}
+
+	go func() {
+		for event := range ch {
+			printEvent(event.Summary.Id, event.Delete)
+		}
+	}()
 
 	s.cam.start()
 	s.vam.start()
