@@ -12,10 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/watch"
 	"path"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strings"
@@ -24,56 +23,23 @@ import (
 
 type ResultStoreSecrets struct {
 	ctx    context.Context
-	client client.Client
-	cache  cache.Cache
-	reader client.Reader
+	client client.WithWatch
 
 	writeNamespace   string
 	keepResultsCount int
 
-	mutex    sync.Mutex
-	informer cache.Informer
+	mutex sync.Mutex
 }
 
-func NewResultStoreSecrets(ctx context.Context, client client.Client, cache cache.Cache, writeNamespace string, keepResultsCount int) (*ResultStoreSecrets, error) {
+func NewResultStoreSecrets(ctx context.Context, client client.WithWatch, writeNamespace string, keepResultsCount int) (*ResultStoreSecrets, error) {
 	s := &ResultStoreSecrets{
 		ctx:              ctx,
 		client:           client,
-		cache:            cache,
 		writeNamespace:   writeNamespace,
 		keepResultsCount: keepResultsCount,
 	}
-	if cache != nil {
-		s.reader = cache
-	} else {
-		s.reader = client
-	}
+
 	return s, nil
-}
-
-func (s *ResultStoreSecrets) ensureInformer() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if s.informer != nil {
-		return nil
-	}
-	if s.cache == nil {
-		return nil
-	}
-
-	var partialSecret metav1.PartialObjectMetadata
-	partialSecret.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "Secret"})
-
-	informer, err := s.cache.GetInformer(s.ctx, &partialSecret)
-	if err != nil {
-		return err
-	}
-
-	s.informer = informer
-	s.cache.WaitForCacheSync(s.ctx)
-
-	return nil
 }
 
 var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
@@ -106,7 +72,7 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 		return fmt.Errorf("missing writeNamespace")
 	}
 	var ns corev1.Namespace
-	err := s.reader.Get(s.ctx, client.ObjectKey{Name: s.writeNamespace}, &ns)
+	err := s.client.Get(s.ctx, client.ObjectKey{Name: s.writeNamespace}, &ns)
 	if err != nil && errors.IsNotFound(err) {
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -125,12 +91,7 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 }
 
 func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error {
-	err := s.ensureInformer()
-	if err != nil {
-		return err
-	}
-
-	err = s.ensureWriteNamespace()
+	err := s.ensureWriteNamespace()
 	if err != nil {
 		return err
 	}
@@ -231,14 +192,9 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 }
 
 func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error) {
-	err := s.ensureInformer()
-	if err != nil {
-		return nil, err
-	}
-
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err = s.reader.List(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
+	err := s.client.List(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +202,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 	ret := make([]result.CommandResultSummary, 0, len(l.Items))
 
 	for _, x := range l.Items {
-		summary, err := s.parseSummary(&x)
+		summary, err := s.parseSummary(x.GetAnnotations())
 		if err != nil {
 			continue
 		}
@@ -264,11 +220,11 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 	return ret, nil
 }
 
-func (s *ResultStoreSecrets) parseSummary(obj client.Object) (*result.CommandResultSummary, error) {
-	if len(obj.GetAnnotations()) == 0 {
+func (s *ResultStoreSecrets) parseSummary(a map[string]string) (*result.CommandResultSummary, error) {
+	if len(a) == 0 {
 		return nil, nil
 	}
-	summaryJson := obj.GetAnnotations()["kluctl.io/result-summary"]
+	summaryJson := a["kluctl.io/result-summary"]
 	if summaryJson == "" {
 		return nil, nil
 	}
@@ -295,64 +251,69 @@ func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary,
 	return true
 }
 
-func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResultSummariesOptions, update func(summary *result.CommandResultSummary), delete func(id string)) (func(), error) {
-	err := s.ensureInformer()
+func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
+	var l metav1.PartialObjectMetadataList
+	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
+	w, err := s.client.Watch(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	handler := func(obj any, deleted bool) {
-		obj2, ok := obj.(client.Object)
-		if !ok {
-			return
-		}
-		summary, err := s.parseSummary(obj2)
+	var initialListRet []*result.CommandResultSummary
+	for _, x := range l.Items {
+		summary, err := s.parseSummary(x.GetAnnotations())
 		if err != nil {
-			return
-		}
-		if summary == nil {
-			return
+			continue
 		}
 		if !s.filterSummary(summary, options.ProjectFilter) {
-			return
+			continue
 		}
-		if deleted {
-			delete(summary.Id)
-		} else {
-			update(summary)
-		}
+		initialListRet = append(initialListRet, summary)
 	}
 
-	r, err := s.informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			handler(obj, false)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			handler(newObj, false)
-		},
-		DeleteFunc: func(obj interface{}) {
-			handler(obj, true)
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
+	ch := make(chan WatchCommandResultSummaryEvent)
+
+	go func() {
+		for x := range w.ResultChan() {
+			if x.Object == nil {
+				continue
+			}
+			x2, ok := x.Object.(client.Object)
+			if !ok {
+				continue
+			}
+			summary, err := s.parseSummary(x2.GetAnnotations())
+			if err != nil {
+				continue
+			}
+			if !s.filterSummary(summary, options.ProjectFilter) {
+				continue
+			}
+			switch x.Type {
+			case watch.Deleted:
+				ch <- WatchCommandResultSummaryEvent{
+					Delete:  true,
+					Summary: summary,
+				}
+			case watch.Added, watch.Modified:
+				ch <- WatchCommandResultSummaryEvent{
+					Summary: summary,
+				}
+			}
+		}
+		close(ch)
+	}()
 
 	cancel := func() {
-		_ = s.informer.RemoveEventHandler(r)
+		w.Stop()
 	}
-	return cancel, nil
+	return nil, ch, cancel, nil
 }
 
 func (s *ResultStoreSecrets) getCommandResultSecret(id string) (*metav1.PartialObjectMetadata, error) {
-	err := s.ensureInformer()
-	if err != nil {
-		return nil, err
-	}
-
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err = s.reader.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/result-id": id})
+	err := s.client.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/result-id": id})
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +336,7 @@ func (s *ResultStoreSecrets) GetCommandResultSummary(id string) (*result.Command
 	if err != nil {
 		return nil, err
 	}
-	return s.parseSummary(secret)
+	return s.parseSummary(secret.GetAnnotations())
 }
 
 func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
@@ -388,7 +349,7 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 	}
 
 	var l corev1.SecretList
-	err = s.reader.List(s.ctx, &l, client.MatchingLabels{
+	err = s.client.List(s.ctx, &l, client.MatchingLabels{
 		"kluctl.io/result-id": options.Id,
 	})
 	if err != nil {

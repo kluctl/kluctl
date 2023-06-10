@@ -510,7 +510,7 @@ func (k *K8sCluster) ResetMapper() {
 	}
 }
 
-func (k *K8sCluster) ToClient() (client.Client, error) {
+func (k *K8sCluster) ToClient() (client.WithWatch, error) {
 	return k.clientFactory.Client(nil)
 }
 

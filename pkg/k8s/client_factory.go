@@ -26,7 +26,7 @@ type ClientFactory interface {
 	CloseIdleConnections()
 
 	Mapper() meta.RESTMapper
-	Client(wh rest.WarningHandler) (client.Client, error)
+	Client(wh rest.WarningHandler) (client.WithWatch, error)
 
 	DiscoveryClient() (discovery.DiscoveryInterface, error)
 	CoreV1Client(wh rest.WarningHandler) (corev1.CoreV1Interface, error)
@@ -53,11 +53,11 @@ func (r *realClientFactory) Mapper() meta.RESTMapper {
 	return r.mapper
 }
 
-func (r *realClientFactory) Client(wh rest.WarningHandler) (client.Client, error) {
+func (r *realClientFactory) Client(wh rest.WarningHandler) (client.WithWatch, error) {
 	config := rest.CopyConfig(r.config)
 	config.WarningHandler = wh
 
-	return client.New(config, client.Options{
+	return client.NewWithWatch(config, client.Options{
 		Mapper: r.mapper,
 		WarningHandler: client.WarningHandlerOptions{
 			SuppressWarnings: true,

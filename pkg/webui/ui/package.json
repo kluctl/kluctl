@@ -1,0 +1,69 @@
+{
+  "name": "kluctl-webui",
+  "version": "0.1.0",
+  "homepage": "./",
+  "private": true,
+  "proxy": "http://localhost:9090",
+  "dependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@fontsource-variable/nunito": "^5.0.3",
+    "@mui/icons-material": "^5.11.16",
+    "@mui/lab": "^5.0.0-alpha.124",
+    "@mui/material": "^5.13.4",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.34",
+    "@types/react": "^18.2.9",
+    "@types/react-dom": "^18.2.4",
+    "jdenticon": "^3.2.0",
+    "js-sha256": "^0.9.0",
+    "js-yaml": "^4.1.0",
+    "localforage": "^1.10.0",
+    "lodash-core": "^4.17.19",
+    "match-sorter": "^6.3.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router": "^6.10.0",
+    "react-router-dom": "^6.12.1",
+    "react-scripts": "5.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "sort-by": "^1.2.0",
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "node build && npm run fix-assets",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "fix-assets": "go run ./fix-assets"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.5",
+    "@types/lodash": "^4.14.195",
+    "@types/react-syntax-highlighter": "^15.5.7",
+    "rewire": "^6.0.0"
+  }
+}

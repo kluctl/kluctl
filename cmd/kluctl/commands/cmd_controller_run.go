@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -130,7 +131,11 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	if cmd.WriteCommandResult {
-		resultStore, err := results.NewResultStoreSecrets(ctx, mgr.GetClient(), mgr.GetCache(), cmd.CommandResultNamespace, cmd.KeepCommandResultsCount)
+		c, err := client.NewWithWatch(restConfig, client.Options{})
+		if err != nil {
+			return err
+		}
+		resultStore, err := results.NewResultStoreSecrets(ctx, c, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount)
 		if err != nil {
 			return err
 		}

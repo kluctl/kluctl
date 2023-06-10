@@ -36,7 +36,7 @@ type EnvTestCluster struct {
 
 	HttpClient    *http.Client
 	DynamicClient dynamic.Interface
-	Client        client.Client
+	Client        client.WithWatch
 	ServerVersion *version.Info
 
 	callbackServer     webhook.Server
@@ -103,7 +103,7 @@ func (k *EnvTestCluster) Start() error {
 	}
 	k.DynamicClient = dynamicClient
 
-	c, err := client.New(k.config, client.Options{
+	c, err := client.NewWithWatch(k.config, client.Options{
 		HTTPClient: httpClient,
 		Scheme:     k.env.Scheme,
 	})

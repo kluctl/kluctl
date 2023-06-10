@@ -1,6 +1,7 @@
 package results
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
@@ -21,11 +22,16 @@ type GetCommandResultOptions struct {
 	Reduced bool   `json:"reduced,omitempty"`
 }
 
+type WatchCommandResultSummaryEvent struct {
+	Summary *result.CommandResultSummary `json:"summary"`
+	Delete  bool                         `json:"delete"`
+}
+
 type ResultStore interface {
 	WriteCommandResult(cr *result.CommandResult) error
 
 	ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error)
-	WatchCommandResultSummaries(options ListCommandResultSummariesOptions, update func(summary *result.CommandResultSummary), delete func(id string)) (func(), error)
+	WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
 	HasCommandResult(id string) (bool, error)
 	GetCommandResultSummary(id string) (*result.CommandResultSummary, error)
 	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
