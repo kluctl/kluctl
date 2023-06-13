@@ -11,6 +11,7 @@ import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
 import { Card, CardCol, cardGap, cardHeight, CardRow, cardWidth, projectCardHeight } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
+import { HistoryCards } from "./HistoryCards";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -140,7 +141,7 @@ export const TargetsView = () => {
         setSelectedCardRect(undefined);
     }, []);
 
-    const doSetSelectedCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
+    const onSelectCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
         onTargetDetailsDrawerClose();
         setSelectedCommandResult(o);
     }, [onTargetDetailsDrawerClose]);
@@ -150,14 +151,23 @@ export const TargetsView = () => {
         setSelectedTargetSummary(ts);
     }, [onCommandResultDetailsDrawerClose]);
 
+    if (selectedCommandResult && selectedCardRect) {
+        return <HistoryCards 
+            rs={selectedCommandResult.rs}
+            ts={selectedCommandResult.ts}
+            ps={selectedCommandResult.ps}
+            initialCardRect={selectedCardRect}
+        />;
+    }
+
     return <Box minWidth={colWidth * 3} p='0 40px'>
-        <CommandResultDetailsDrawer
+        {/* <CommandResultDetailsDrawer
             rs={selectedCommandResult?.rs}
             ts={selectedCommandResult?.ts}
             ps={selectedCommandResult?.ps}
             onClose={onCommandResultDetailsDrawerClose}
             selectedCardRect={selectedCardRect}
-        />
+        /> */}
         <TargetDetailsDrawer
             ts={selectedTargetSummary}
             onClose={onTargetDetailsDrawerClose}
@@ -196,7 +206,7 @@ export const TargetsView = () => {
                                 <Box flexGrow={1} display='flex' justifyContent='center' alignItems='center' px='9px'>
                                     <svg
                                         xmlns='http://www.w3.org/2000/svg'
-                                        fill='none'
+                                        fill='none' 
                                         style={{
                                             height: `${2 * circleRadius + strokeWidth}`,
                                             width: '100%'
@@ -256,7 +266,7 @@ export const TargetsView = () => {
                                             ps={ps}
                                             ts={ts}
                                             rs={rs}
-                                            onSelectCommandResult={(rs) => doSetSelectedCommandResult({rs, ts, ps})}
+                                            onSelectCommandResult={(rs) => onSelectCommandResult({rs, ts, ps})}
                                         />
                                     </Card>
                                 })}

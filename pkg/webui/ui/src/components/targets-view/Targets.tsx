@@ -1,6 +1,5 @@
 import { KluctlDeploymentInfo } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
-import Paper from "@mui/material/Paper";
 import { Box, Typography, useTheme } from "@mui/material";
 import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
@@ -9,6 +8,7 @@ import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
 import { ApiContext } from "../App";
+import { CardPaper } from "./Card";
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
@@ -116,7 +116,7 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
 
     const contextTooltip = <Box textAlign={"center"}>
         <Typography variant="subtitle2">All known contexts:</Typography>
-        {allContexts.map(context=> (
+        {allContexts.map(context => (
             <Typography key={context} variant="subtitle2">{context}</Typography>
         ))}
     </Box>
@@ -126,16 +126,8 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
         targetName = "<no-name>"
     }
 
-    return <Paper
-        elevation={5}
-        sx={{
-            width: "100%",
-            height: "100%",
-            borderRadius: '12px',
-            border: '1px solid #59A588',
-            boxShadow: '4px 4px 10px #1E617A',
-            padding: '20px 16px 12px 16px'
-        }}
+    return <CardPaper
+        sx={{ padding: '20px 16px 12px 16px' }}
         onClick={e => props.onSelectTarget(props.ts)}
     >
         <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
@@ -184,5 +176,5 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
                 </Box>
             </Box>
         </Box>
-    </Paper>
+    </CardPaper>
 }

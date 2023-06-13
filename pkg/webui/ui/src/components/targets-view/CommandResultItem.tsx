@@ -2,23 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { CommandResultSummary } from "../../models";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
-import Paper from "@mui/material/Paper";
 import { Box, IconButton, Tooltip, Typography } from "@mui/material";
 import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
+import { CardPaper } from "./Card";
 
-export const CommandResultItem = React.memo((props: {
-    ps: ProjectSummary,
-    ts: TargetSummary,
-    rs: CommandResultSummary,
-    onSelectCommandResult: (rs: CommandResultSummary) => void,
-    selected?: boolean;
-}) => {
-    const { rs, onSelectCommandResult, selected } = props;
-    const navigate = useNavigate()
+export const CommandResultItemHeader = React.memo((props: { rs: CommandResultSummary }) => {
+    const { rs } = props;
     const [ago, setAgo] = useState(calcAgo(rs.commandInfo.startTime))
 
     let Icon: () => JSX.Element = DiffIcon
@@ -50,50 +43,53 @@ export const CommandResultItem = React.memo((props: {
         return () => clearInterval(interval);
     }, [rs.commandInfo.startTime]);
 
-    return <Paper
-        elevation={5}
-        sx={{
-            width: "100%",
-            height: "100%",
-            borderRadius: '12px',
-            border: '1px solid #59A588',
-            boxShadow: '4px 4px 10px #1E617A',
-            padding: '20px 16px 5px 16px',
-            outline: selected ? '8px solid #59A588' : 'none'
-        }}
+
+    return <Box display='flex' gap='15px'>
+        <Tooltip title={iconTooltip}>
+            <Box width='45px' height='45px' flex='0 0 auto' justifyContent='center' alignItems='center'>
+                <Icon />
+            </Box>
+        </Tooltip>
+        <Box>
+            <Typography
+                variant='h6'
+                textAlign='left'
+                textOverflow='ellipsis'
+                overflow='hidden'
+            >
+                {rs.commandInfo?.command}
+            </Typography>
+            <Tooltip title={rs.commandInfo.startTime}>
+                <Typography
+                    variant='subtitle1'
+                    textAlign='left'
+                    textOverflow='ellipsis'
+                    overflow='hidden'
+                    whiteSpace='nowrap'
+                    fontSize='14px'
+                    fontWeight={500}
+                    lineHeight='19px'
+                >{ago}</Typography>
+            </Tooltip>
+        </Box>
+    </Box>
+});
+
+export const CommandResultItem = React.memo((props: {
+    ps: ProjectSummary,
+    ts: TargetSummary,
+    rs: CommandResultSummary,
+    onSelectCommandResult: (rs: CommandResultSummary) => void,
+}) => {
+    const { rs, onSelectCommandResult } = props;
+    const navigate = useNavigate()
+
+    return <CardPaper
+        sx={{ padding: '20px 16px 5px 16px' }}
         onClick={() => onSelectCommandResult(rs)}
     >
         <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
-            <Box display='flex' gap='15px'>
-                <Tooltip title={iconTooltip}>
-                    <Box width='45px' height='45px' flex='0 0 auto' justifyContent='center' alignItems='center'>
-                        <Icon />
-                    </Box>
-                </Tooltip>
-                <Box flexGrow={1}>
-                    <Typography
-                        variant='h6'
-                        textAlign='left'
-                        textOverflow='ellipsis'
-                        overflow='hidden'
-                        flexGrow={1}
-                    >
-                        {rs.commandInfo?.command}
-                    </Typography>
-                    <Tooltip title={rs.commandInfo.startTime}>
-                        <Typography
-                            variant='subtitle1'
-                            textAlign='left'
-                            textOverflow='ellipsis'
-                            overflow='hidden'
-                            whiteSpace='nowrap'
-                            fontSize='14px'
-                            fontWeight={500}
-                            lineHeight='19px'
-                        >{ago}</Typography>
-                    </Tooltip>
-                </Box>
-            </Box>
+            <CommandResultItemHeader rs={rs} />
             <Box display='flex' alignItems='center' justifyContent='space-between'>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <CommandResultStatusLine rs={rs} />
@@ -117,5 +113,5 @@ export const CommandResultItem = React.memo((props: {
                 </Box>
             </Box>
         </Box>
-    </Paper>
+    </CardPaper>
 });

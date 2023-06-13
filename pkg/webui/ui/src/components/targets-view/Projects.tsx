@@ -1,10 +1,10 @@
 import { getLastPathElement } from "../../utils/misc";
-import Paper from "@mui/material/Paper";
 import { Box, Typography } from "@mui/material";
 import React from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { ProjectIcon } from "../../icons/Icons";
 import { ProjectSummary } from "../../project-summaries";
+import { CardPaper } from "./Card";
 
 export const ProjectItem = (props: { ps: ProjectSummary }) => {
     const name = getLastPathElement(props.ps.project.gitRepoKey)
@@ -17,16 +17,9 @@ export const ProjectItem = (props: { ps: ProjectSummary }) => {
         </> : <></>}
     </Box>
 
-    return <Paper
-        elevation={5}
-        sx={{
-            width: "100%",
-            height: "100%",
-            borderRadius: '12px',
-            border: '1px solid #59A588',
-            boxShadow: '4px 4px 10px #1E617A',
-            padding: '5px 16px'
-        }}>
+    return <CardPaper
+        sx={{ padding: '5px 16px' }}
+    >
         <Box display="flex" flexDirection={"column"} justifyContent='center' height={"100%"}>
             <Box display='flex' alignItems='center' gap='15px'>
                 {name && (
@@ -59,5 +52,5 @@ export const ProjectItem = (props: { ps: ProjectSummary }) => {
                 </Box>
             </Box>
         </Box>
-    </Paper>
+    </CardPaper>
 }
