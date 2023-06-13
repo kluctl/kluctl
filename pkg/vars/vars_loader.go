@@ -97,6 +97,7 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 	}
 
 	var newVars *uo.UnstructuredObject
+	var sensitive bool
 	if source.Values != nil {
 		newVars = source.Values
 		if rootKey != "" {
@@ -105,21 +106,25 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 			})
 		}
 	} else if source.File != nil {
-		newVars, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
+		newVars, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
 	} else if source.Git != nil {
-		newVars, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
+		newVars, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
 		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
 		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
+		sensitive = true
 	} else if source.SystemEnvVars != nil {
 		newVars, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
+		sensitive = true
 	} else if source.Http != nil {
-		newVars, err = v.loadHttp(varsCtx, &source, ignoreMissing)
+		newVars, sensitive, err = v.loadHttp(varsCtx, &source, ignoreMissing)
 	} else if source.AwsSecretsManager != nil {
 		newVars, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
+		sensitive = true
 	} else if source.Vault != nil {
 		newVars, err = v.loadVault(varsCtx, &source, ignoreMissing)
+		sensitive = true
 	} else {
 		return fmt.Errorf("invalid vars source")
 	}
@@ -127,6 +132,12 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		return err
 	}
 
+	if sourceIn.Sensitive != nil {
+		// override the default
+		sensitive = *sourceIn.Sensitive
+	}
+
+	sourceIn.RenderedSensitive = sensitive
 	sourceIn.RenderedVars = newVars.Clone()
 
 	if source.NoOverride == nil || !*source.NoOverride {
@@ -147,32 +158,32 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 	}
 }
 
-func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string) (*uo.UnstructuredObject, bool, error) {
 	rendered, err := varsCtx.RenderFile(path, searchDirs)
 	if err != nil {
 		// TODO the Jinja2 renderer should be able to better report this error
 		if ignoreMissing && err.Error() == fmt.Sprintf("template %s not found", path) {
-			return uo.New(), nil
+			return uo.New(), false, nil
 		}
-		return nil, fmt.Errorf("failed to render vars file %s: %w", path, err)
+		return nil, false, fmt.Errorf("failed to render vars file %s: %w", path, err)
 	}
 
 	format := formats.FormatForPath(path)
-	decrypted, _, err := sops.MaybeDecrypt(v.sops, []byte(rendered), format, format)
+	decrypted, sensitive, err := sops.MaybeDecrypt(v.sops, []byte(rendered), format, format)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
+		return nil, false, fmt.Errorf("failed to decrypt vars file %s: %w", path, err)
 	}
 	rendered = string(decrypted)
 
 	newVars := uo.New()
 	err = yaml.ReadYamlString(rendered, newVars)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to load vars from %s: %w", path, err)
+		return nil, false, fmt.Errorf("failed to load vars from %s: %w", path, err)
 	}
-	return newVars, nil
+	return newVars, sensitive, nil
 }
 
 func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) (*uo.UnstructuredObject, error) {
@@ -261,10 +272,10 @@ func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignor
 	return v.loadFromString(varsCtx, *secret)
 }
 
-func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, bool, error) {
 	ge, err := v.rp.GetEntry(gitFile.Url)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if gitFile.Ref != nil && gitFile.Ref.Ref != "" {
@@ -275,7 +286,7 @@ func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *typ
 
 	clonedDir, _, err := ge.GetClonedDir(gitFile.Ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
+		return nil, false, fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
 	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir})

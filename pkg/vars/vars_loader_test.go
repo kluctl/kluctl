@@ -155,13 +155,15 @@ func (s *VarsLoaderTestSuite) TestFile() {
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+		vs := &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
-		}, []string{d}, "")
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
 		assert.NoError(s.T(), err)
 
 		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
 		assert.Equal(s.T(), int64(42), v)
+		assert.False(s.T(), vs.RenderedSensitive)
 	})
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
@@ -195,13 +197,15 @@ func (s *VarsLoaderTestSuite) TestSopsFile() {
 	s.T().Setenv(age.SopsAgeKeyEnv, string(key))
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+		vs := &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
-		}, []string{d}, "")
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
 		assert.NoError(s.T(), err)
 
 		v, _, _ := vc.Vars.GetNestedInt("test1", "test2")
 		assert.Equal(s.T(), int64(42), v)
+		assert.True(s.T(), vs.RenderedSensitive)
 	})
 }
 
@@ -464,15 +468,17 @@ func (s *VarsLoaderTestSuite) TestClusterSecret() {
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+		vs := &types.VarsSource{
 			IgnoreMissing: &b,
 			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "s-missing",
 				Namespace: s.namespace(),
 				Key:       "vars",
 			},
-		}, nil, "")
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, nil, "")
 		assert.NoError(s.T(), err)
+		assert.True(s.T(), vs.RenderedSensitive)
 	})
 }
 

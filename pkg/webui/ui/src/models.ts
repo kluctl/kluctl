@@ -295,6 +295,7 @@ export class VarsSourceGit {
 export class VarsSource {
     ignoreMissing?: boolean;
     noOverride?: boolean;
+    sensitive?: boolean;
     values?: any;
     file?: string;
     git?: VarsSourceGit;
@@ -305,12 +306,14 @@ export class VarsSource {
     awsSecretsManager?: VarsSourceAwsSecretsManager;
     vault?: VarsSourceVault;
     when?: string;
+    renderedSensitive?: boolean;
     renderedVars?: any;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.ignoreMissing = source["ignoreMissing"];
         this.noOverride = source["noOverride"];
+        this.sensitive = source["sensitive"];
         this.values = source["values"];
         this.file = source["file"];
         this.git = this.convertValues(source["git"], VarsSourceGit);
@@ -321,6 +324,7 @@ export class VarsSource {
         this.awsSecretsManager = this.convertValues(source["awsSecretsManager"], VarsSourceAwsSecretsManager);
         this.vault = this.convertValues(source["vault"], VarsSourceVault);
         this.when = source["when"];
+        this.renderedSensitive = source["renderedSensitive"];
         this.renderedVars = source["renderedVars"];
     }
 
