@@ -23,16 +23,16 @@ import (
 const webuiManager = "kluctl-webui"
 
 type CommandResultsServer struct {
-	ctx       context.Context
-	collector *results.ResultsCollector
-	cam       *clusterAccessorManager
-	vam       *validatorManager
+	ctx   context.Context
+	store results.ResultStore
+	cam   *clusterAccessorManager
+	vam   *validatorManager
 }
 
-func NewCommandResultsServer(ctx context.Context, collector *results.ResultsCollector, configs []*rest.Config) *CommandResultsServer {
+func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config) *CommandResultsServer {
 	ret := &CommandResultsServer{
-		ctx:       ctx,
-		collector: collector,
+		ctx:   ctx,
+		store: store,
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
@@ -42,13 +42,13 @@ func NewCommandResultsServer(ctx context.Context, collector *results.ResultsColl
 		ret.cam.add(config)
 	}
 
-	ret.vam = newValidatorManager(ctx, collector, ret.cam)
+	ret.vam = newValidatorManager(ctx, store, ret.cam)
 
 	return ret
 }
 
 func (s *CommandResultsServer) Run(port int) error {
-	l, ch, cancel, err := s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	l, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResult(results.GetCommandResultOptions{
+	sr, err := s.store.GetCommandResult(results.GetCommandResultOptions{
 		Id:      params.ResultId,
 		Reduced: true,
 	})
@@ -190,7 +190,7 @@ func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResultSummary(params.ResultId)
+	sr, err := s.store.GetCommandResultSummary(params.ResultId)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -224,7 +224,7 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResult(results.GetCommandResultOptions{
+	sr, err := s.store.GetCommandResult(results.GetCommandResultOptions{
 		Id:      params.ResultId,
 		Reduced: false,
 	})

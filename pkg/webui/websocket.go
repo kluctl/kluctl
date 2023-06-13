@@ -68,7 +68,7 @@ func (s *CommandResultsServer) ws(c *gin.Context) {
 }
 
 func (s *CommandResultsServer) wsHandle(c *websocket.Conn, filter *result.ProjectKey) error {
-	initial, ch, cancel, err := s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{ProjectFilter: filter})
+	initial, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{ProjectFilter: filter})
 	if err != nil {
 		return err
 	}
