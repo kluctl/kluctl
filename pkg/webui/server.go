@@ -76,30 +76,10 @@ func (s *CommandResultsServer) Run(port int) error {
 
 	router := gin.Default()
 
-	dis, err := fs.ReadDir(uiFS, ".")
+	err = s.setupStaticRoutes(router)
 	if err != nil {
 		return err
 	}
-
-	for _, di := range dis {
-		if di.IsDir() {
-			x, err := fs.Sub(uiFS, di.Name())
-			if err != nil {
-				return err
-			}
-			router.StaticFS("/"+di.Name(), http.FS(x))
-		} else {
-			router.StaticFileFS("/"+di.Name(), di.Name(), http.FS(uiFS))
-		}
-	}
-	router.GET("/", func(c *gin.Context) {
-		b, err := fs.ReadFile(uiFS, "index.html")
-		if err != nil {
-			_ = c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		c.Data(http.StatusOK, "text/html; charset=utf-8", b)
-	})
 
 	api := router.Group("/api")
 	api.GET("/getShortNames", s.getShortNames)
@@ -126,6 +106,34 @@ func (s *CommandResultsServer) Run(port int) error {
 	}
 
 	return httpServer.Serve(listener)
+}
+
+func (s *CommandResultsServer) setupStaticRoutes(router gin.IRouter) error {
+	dis, err := fs.ReadDir(uiFS, ".")
+	if err != nil {
+		return err
+	}
+
+	for _, di := range dis {
+		if di.IsDir() {
+			x, err := fs.Sub(uiFS, di.Name())
+			if err != nil {
+				return err
+			}
+			router.StaticFS("/"+di.Name(), http.FS(x))
+		} else {
+			router.StaticFileFS("/"+di.Name(), di.Name(), http.FS(uiFS))
+		}
+	}
+	router.GET("/", func(c *gin.Context) {
+		b, err := fs.ReadFile(uiFS, "index.html")
+		if err != nil {
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", b)
+	})
+	return nil
 }
 
 func (s *CommandResultsServer) getShortNames(c *gin.Context) {
