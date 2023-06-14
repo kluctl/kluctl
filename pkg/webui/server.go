@@ -27,15 +27,35 @@ type CommandResultsServer struct {
 	store results.ResultStore
 	cam   *clusterAccessorManager
 	vam   *validatorManager
+
+	// this is the client for the k8s cluster where the server runs on
+	serverClient client.Client
+
+	auth *authHandler
 }
 
-func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config) *CommandResultsServer {
+func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool) *CommandResultsServer {
 	ret := &CommandResultsServer{
 		ctx:   ctx,
 		store: store,
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
+		serverClient: serverClient,
+	}
+
+	adminEnabled := false
+	if serverClient != nil {
+		adminEnabled = true
+	}
+
+	if authEnabled {
+		ret.auth = &authHandler{
+			ctx:             ctx,
+			adminEnabled:    adminEnabled,
+			serverClient:    serverClient,
+			webuiSecretName: "admin-secret",
+		}
 	}
 
 	for _, config := range configs {
@@ -76,19 +96,28 @@ func (s *CommandResultsServer) Run(port int) error {
 
 	router := gin.Default()
 
+	if s.auth != nil {
+		err = s.auth.setupAuth(router)
+		if err != nil {
+			return err
+		}
+	}
+
 	err = s.setupStaticRoutes(router)
 	if err != nil {
 		return err
 	}
 
 	api := router.Group("/api")
-	api.GET("/getShortNames", s.getShortNames)
-	api.GET("/getResult", s.getResult)
-	api.GET("/getResultSummary", s.getResultSummary)
-	api.GET("/getResultObject", s.getResultObject)
-	api.POST("/validateNow", s.validateNow)
-	api.POST("/reconcileNow", s.reconcileNow)
-	api.POST("/deployNow", s.deployNow)
+	api.GET("/getShortNames", s.auth.authHandler, s.getShortNames)
+	api.GET("/getResult", s.auth.authHandler, s.getResult)
+	api.GET("/getResultSummary", s.auth.authHandler, s.getResultSummary)
+	api.GET("/getResultObject", s.auth.authHandler, s.getResultObject)
+	api.POST("/validateNow", s.auth.authHandler, s.validateNow)
+	api.POST("/reconcileNow", s.auth.authHandler, s.reconcileNow)
+	api.POST("/deployNow", s.auth.authHandler, s.deployNow)
+
+	// handles authentication via the first message
 	api.Any("/ws", s.ws)
 
 	address := fmt.Sprintf(":%d", port)

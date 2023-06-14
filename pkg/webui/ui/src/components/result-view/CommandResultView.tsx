@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import {
     Box,
     Checkbox,
@@ -15,11 +15,12 @@ import { NodeData } from "./nodes/NodeData";
 import { SidePanel } from "./SidePanel";
 import { ActiveFilters } from "./NodeStatusFilter";
 import CommandResultTree from "./CommandResultTree";
-import { useLoaderData } from "react-router-dom";
-import { useAppOutletContext } from "../App";
+import { useParams } from "react-router-dom";
+import { ApiContext, useAppOutletContext } from "../App";
 import { ChangesIcon, CheckboxCheckedIcon, CheckboxIcon, StarIcon, WarningSignIcon } from '../../icons/Icons';
 import { dark } from '../theme';
-import { api } from "../../api";
+import { Api } from "../../api";
+import { Loading, useLoadingHelper } from "../Loading";
 
 export interface CommandResultProps {
     shortNames: ShortName[]
@@ -27,15 +28,15 @@ export interface CommandResultProps {
     commandResult: CommandResult
 }
 
-export async function commandResultLoader({ params }: any) {
-    const result = api.getResult(params.id)
-    const shortNames = api.getShortNames()
-    const rs = api.getResult(params.id)
+async function doLoadCommandResult(api: Api, resultId: string): Promise<CommandResultProps> {
+    const shortNames = await api.getShortNames()
+    const rs = await api.getResultSummary(resultId)
+    const result = await api.getResult(resultId)
 
     return {
-        shortNames: await shortNames,
-        summary: await rs,
-        commandResult: await result,
+        shortNames: shortNames,
+        summary: rs,
+        commandResult: result,
     }
 }
 
@@ -117,8 +118,16 @@ const defaultFilters = {
 
 export const CommandResultView = () => {
     const context = useAppOutletContext();
-    const commandResultProps = useLoaderData() as CommandResultProps;
+    const api = useContext(ApiContext)
     const [sidePanelNode, setSidePanelNode] = useState<NodeData | undefined>();
+
+    const {id} = useParams()
+    const [loading, loadingError, commandResultProps] = useLoadingHelper<CommandResultProps | undefined>(() => {
+        if (!id) {
+            return Promise.resolve(undefined)
+        }
+        return doLoadCommandResult(api, id)
+    }, [id])
 
     const divider = <Divider
         orientation='vertical'
@@ -133,6 +142,12 @@ export const CommandResultView = () => {
             ...(fs || defaultFilters),
             [filter]: checked
         }));
+    }
+
+    if (loading) {
+        return <Loading/>
+    } else if (loadingError) {
+        return <>Error</>
     }
 
     return <Box

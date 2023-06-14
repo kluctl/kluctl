@@ -1,25 +1,27 @@
 import { CommandResultSummary } from "../../models";
-import { api, usePromise } from "../../api";
+import { Api } from "../../api";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { NodeData } from "../result-view/nodes/NodeData";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { SidePanel } from "../result-view/SidePanel";
 import { Box, Drawer, ThemeProvider, useTheme } from "@mui/material";
-import { Loading } from "../Loading";
+import { Loading, useLoadingHelper } from "../Loading";
 import { dark } from "../theme";
 import { Card, cardGap, cardHeight, cardWidth } from "./Card";
 import { CommandResultItem } from "./CommandResultItem";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
+import { ApiContext } from "../App";
+import { CommandResultNodeData } from "../result-view/nodes/CommandResultNode";
 
 const sidePanelWidth = 720;
 
-async function doGetRootNode(rs: CommandResultSummary) {
-    const shortNames = api.getShortNames()
-    const r = api.getResult(rs.id)
+async function doGetRootNode(api: Api, rs: CommandResultSummary) {
+    const shortNames = await api.getShortNames()
+    const r = await api.getResult(rs.id)
+
     const builder = new NodeBuilder({
-        shortNames: await shortNames,
+        shortNames: shortNames,
         summary: rs,
-        commandResult: await r,
+        commandResult: r,
     })
     const [node] = builder.buildRoot()
     return node
@@ -33,8 +35,8 @@ export const CommandResultDetailsDrawer = React.memo((props: {
     selectedCardRect?: DOMRect
 }) => {
     const { ps, ts, selectedCardRect } = props;
+    const api = useContext(ApiContext)
     const theme = useTheme();
-    const [promise, setPromise] = useState<Promise<NodeData>>(new Promise(() => undefined));
     const [selectedCommandResult, setSelectedCommandResult] = useState<CommandResultSummary | undefined>();
     const [prevTargetSummary, setPrevTargetSummary] = useState<TargetSummary | undefined>(ts);
     const [cardsCoords, setCardsCoords] = useState<{ left: number, top: number }[]>([]);
@@ -45,17 +47,12 @@ export const CommandResultDetailsDrawer = React.memo((props: {
         setSelectedCommandResult(ts?.commandResults?.[0]);
     }
 
-    useEffect(() => {
+    const [loading, loadingError, nodeData] = useLoadingHelper<CommandResultNodeData | undefined>(() => {
         if (selectedCommandResult === undefined) {
-            return
+            return Promise.resolve(undefined)
         }
-        setPromise(doGetRootNode(selectedCommandResult));
+        return doGetRootNode(api, selectedCommandResult)
     }, [selectedCommandResult])
-
-    const Content = (props: { onClose: () => void }) => {
-        const node = usePromise(promise)
-        return <SidePanel provider={node} onClose={props.onClose} />
-    }
 
     const cardsContainerElem = useRef<HTMLElement>();
 
@@ -130,6 +127,10 @@ export const CommandResultDetailsDrawer = React.memo((props: {
         })
     }, [ps, ts, cardsCoords, zIndex, theme.transitions, selectedCommandResult])
 
+    if (loadingError) {
+        return <>Error</>
+    }
+
     return <>
         {ps && ts && ts.commandResults && ts.commandResults.length > 0 &&
             <Box
@@ -169,9 +170,9 @@ export const CommandResultDetailsDrawer = React.memo((props: {
                 onClose={props.onClose}
             >
                 <Box width={sidePanelWidth} height={"100%"}>
-                    <Suspense fallback={<Loading />}>
-                        <Content onClose={props.onClose} />
-                    </Suspense>
+                    {loading ? <Loading/> :
+                        <SidePanel provider={nodeData} onClose={props.onClose} />
+                    }
                 </Box>
             </Drawer>
         </ThemeProvider>

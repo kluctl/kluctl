@@ -1,28 +1,25 @@
 import { CommandResultProps } from "./result-view/CommandResultView";
 import { ObjectRef } from "../models";
-import { api, ObjectType, usePromise } from "../api";
-import React, { Suspense, useEffect, useState } from "react";
+import { ObjectType } from "../api";
+import React, { useContext } from "react";
 import { CodeViewer } from "./CodeViewer";
 
+import { Loading, useLoadingHelper } from "./Loading";
+import { ApiContext } from "./App";
 import * as yaml from 'js-yaml';
-import { Loading } from "./Loading";
 
 export const ObjectYaml = (props: {treeProps: CommandResultProps, objectRef: ObjectRef, objectType: ObjectType}) => {
-    const [promise, setPromise] = useState<Promise<string>>()
+    const api = useContext(ApiContext)
+    const [loading, error, content] = useLoadingHelper<string>(async () => {
+        const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
+        return yaml.dump(o)
+    }, [props.treeProps.summary.id, props.objectRef, props.objectType])
 
-    useEffect(() => {
-        const getData = async () => {
-            const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
-            return yaml.dump(o)
-        }
-        setPromise(getData())
-    }, [props.treeProps, props.objectRef, props.objectType])
-
-    const Content = () => {
-        return <CodeViewer code={usePromise(promise)} language={"yaml"}/>
+    if (loading) {
+        return <Loading/>
+    } else if (error) {
+        return <>Error</>
+    } else {
+        return <CodeViewer code={content!} language={"yaml"}/>
     }
-
-    return <Suspense fallback={<Loading/>}>
-        <Content/>
-    </Suspense>
 }
