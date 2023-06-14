@@ -33,7 +33,7 @@ export function useLoadingHelper<T>(load: () => Promise<T>, deps: DependencyList
         }
         doStartLoading()
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [...deps, load])
+    }, deps)
 
     return [loading, error, content]
 }
