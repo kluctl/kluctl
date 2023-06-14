@@ -395,8 +395,7 @@ func (s *KluctlDeploymentStatus) GetLastValidateResult() (*result.ValidateResult
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="DryRun",type="boolean",JSONPath=".spec.dryRun",description=""
-//+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.command.endTime",description=""
-//+kubebuilder:printcolumn:name="Pruned",type="date",JSONPath=".status.lastPruneResult.command.endTime",description=""
+//+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.commandInfo.endTime",description=""
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
