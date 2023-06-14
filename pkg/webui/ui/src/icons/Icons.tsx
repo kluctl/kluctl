@@ -10,6 +10,7 @@ import { ReactComponent as CpuIconSvg } from './cpu.svg';
 import { ReactComponent as FingerScanIconSvg } from './finger-scan.svg';
 import { ReactComponent as TreeViewIconSvg } from './tree-view.svg';
 import { ReactComponent as CloseIconSvg } from './close.svg';
+import { ReactComponent as CloseLightIconSvg } from './close-light.svg';
 import { ReactComponent as DeployIconSvg } from './deploy.svg';
 import { ReactComponent as PruneIconSvg } from './prune.svg';
 import { ReactComponent as DiffIconSvg } from './diff.svg';
@@ -27,6 +28,8 @@ import { ReactComponent as WarningSignIconSvg } from './warning-sign.svg';
 import { ReactComponent as ChangesIconSvg } from './changes.svg';
 import { ReactComponent as StarIconSvg } from './star.svg';
 import { ReactComponent as TriangleDownIconSvg } from './triangle-down.svg';
+import { ReactComponent as TriangleLeftLightIconSvg } from './triangle-left-light.svg';
+import { ReactComponent as TriangleRightLightIconSvg } from './triangle-right-light.svg';
 import { ReactComponent as TriangleRightIconSvg } from './triangle-right.svg';
 import { ReactComponent as BracketsCurlyIconSvg } from './brackets-curly.svg';
 import { ReactComponent as BracketsSquareIconSvg } from './brackets-square.svg';
@@ -103,6 +106,10 @@ export const CloseIcon = () => {
     return <CloseIconSvg width="24px" height="24px" />
 }
 
+export const CloseLightIcon = () => {
+    return <CloseLightIconSvg width="24px" height="24px" />
+}
+
 export const WarningIcon = () => {
     return <WarningIconSvg width="24px" height="24px" />
 }
@@ -159,10 +166,17 @@ export const TriangleDownIcon = () => {
     return <TriangleDownIconSvg width="50px" height="50px" />
 }
 
+export const TriangleLeftLightIcon = () => {
+    return <TriangleLeftLightIconSvg width="50px" height="50px" />
+}
+
+export const TriangleRightLightIcon = () => {
+    return <TriangleRightLightIconSvg width="50px" height="50px" />
+}
+
 export const TriangleRightIcon = () => {
     return <TriangleRightIconSvg width="50px" height="50px" />
 }
-
 export const BracketsCurlyIcon = () => {
     return <BracketsCurlyIconSvg width="22px" height="18px" />
 }
