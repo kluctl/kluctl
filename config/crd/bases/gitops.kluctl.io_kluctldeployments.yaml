@@ -18,11 +18,8 @@ spec:
     - jsonPath: .spec.dryRun
       name: DryRun
       type: boolean
-    - jsonPath: .status.lastDeployResult.command.endTime
+    - jsonPath: .status.lastDeployResult.commandInfo.endTime
       name: Deployed
-      type: date
-    - jsonPath: .status.lastPruneResult.command.endTime
-      name: Pruned
       type: date
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
