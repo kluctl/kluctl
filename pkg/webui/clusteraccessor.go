@@ -5,10 +5,14 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sync"
 	"time"
 )
@@ -19,12 +23,14 @@ type clusterAccessorManager struct {
 }
 
 type clusterAccessor struct {
-	ctx       context.Context
-	config    *rest.Config
-	client    client.Client
-	k         *k8s2.K8sCluster
-	clusterId string
-	mutex     sync.Mutex
+	ctx        context.Context
+	config     *rest.Config
+	httpClient *http.Client
+	scheme     *runtime.Scheme
+	discovery  discovery.DiscoveryInterface
+	mapper     meta.RESTMapper
+	clusterId  string
+	mutex      sync.Mutex
 }
 
 func (cam *clusterAccessorManager) add(config *rest.Config) {
@@ -64,6 +70,9 @@ func (ca *clusterAccessor) initClient() {
 }
 
 func (ca *clusterAccessor) tryInitClient() error {
+	ca.mutex.Lock()
+	defer ca.mutex.Unlock()
+
 	scheme := runtime.NewScheme()
 	err := clientgoscheme.AddToScheme(scheme)
 	if err != nil {
@@ -73,33 +82,37 @@ func (ca *clusterAccessor) tryInitClient() error {
 	if err != nil {
 		return err
 	}
+	ca.scheme = scheme
 
-	c, err := client.New(ca.config, client.Options{
-		Scheme: scheme,
-	})
+	httpClient, err := rest.HTTPClientFor(ca.config)
 	if err != nil {
 		return err
 	}
+	ca.httpClient = httpClient
+
+	dc, err := k8s2.CreateDiscoveryClient(context.Background(), ca.config)
+	if err != nil {
+		return err
+	}
+	ca.discovery = dc
+
+	mapper, err := apiutil.NewDynamicRESTMapper(ca.config, ca.httpClient)
+	if err != nil {
+		return err
+	}
+	ca.mapper = mapper
+
+	c, err := ca.getClientLocked("", nil)
+	if err != nil {
+		return err
+	}
+
 	var ns corev1.Namespace
 	err = c.Get(context.Background(), client.ObjectKey{Name: "kube-system"}, &ns)
 	if err != nil {
 		return err
 	}
 
-	cf, err := k8s2.NewClientFactory(context.Background(), ca.config)
-	if err != nil {
-		return err
-	}
-
-	k, err := k8s2.NewK8sCluster(context.Background(), cf, true)
-	if err != nil {
-		return err
-	}
-
-	ca.mutex.Lock()
-	defer ca.mutex.Unlock()
-	ca.client = c
-	ca.k = k
 	ca.clusterId = string(ns.UID)
 
 	return nil
@@ -111,14 +124,40 @@ func (ca *clusterAccessor) getClusterId() string {
 	return ca.clusterId
 }
 
-func (ca *clusterAccessor) getClient() client.Client {
+func (ca *clusterAccessor) getClient(asUser string, asGroups []string) (client.Client, error) {
 	ca.mutex.Lock()
 	defer ca.mutex.Unlock()
-	return ca.client
+	return ca.getClientLocked(asUser, asGroups)
 }
 
-func (ca *clusterAccessor) getK() *k8s2.K8sCluster {
+func (ca *clusterAccessor) getClientLocked(asUser string, asGroups []string) (client.Client, error) {
+	config := rest.CopyConfig(ca.config)
+	config.Impersonate.UserName = asUser
+	config.Impersonate.Groups = asGroups
+
+	c, err := client.New(config, client.Options{
+		HTTPClient: ca.httpClient,
+		Scheme:     ca.scheme,
+		Mapper:     ca.mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (ca *clusterAccessor) getK(ctx context.Context, asUser string, asGroups []string) (*k8s2.K8sCluster, error) {
 	ca.mutex.Lock()
 	defer ca.mutex.Unlock()
-	return ca.k
+
+	config := rest.CopyConfig(ca.config)
+	config.Impersonate.UserName = asUser
+	config.Impersonate.Groups = asGroups
+
+	cf, err := k8s2.NewClientFactory(ctx, config, ca.httpClient, ca.discovery, ca.mapper)
+	if err != nil {
+		return nil, err
+	}
+
+	return k8s2.NewK8sCluster(ctx, cf, false)
 }

@@ -27,8 +27,9 @@ type validationWatch struct {
 type validatorManager struct {
 	ctx context.Context
 
-	store results.ResultStore
-	cam   *clusterAccessorManager
+	store     results.ResultStore
+	cam       *clusterAccessorManager
+	adminUser string
 
 	validators map[ProjectTargetKey]*validatorEntry
 	watches    []*validationWatch
@@ -49,11 +50,12 @@ type validatorEntry struct {
 	mutex          sync.Mutex
 }
 
-func newValidatorManager(ctx context.Context, store results.ResultStore, cam *clusterAccessorManager) *validatorManager {
+func newValidatorManager(ctx context.Context, store results.ResultStore, cam *clusterAccessorManager, adminUser string) *validatorManager {
 	return &validatorManager{
 		ctx:        ctx,
 		store:      store,
 		cam:        cam,
+		adminUser:  adminUser,
 		validators: map[ProjectTargetKey]*validatorEntry{},
 	}
 }
@@ -244,7 +246,11 @@ func (v *validatorEntry) runOnce(summaries []result.CommandResultSummary) bool {
 		s.FailedWithMessage("No cluster accessor for %v", v.key)
 		return false
 	}
-	k := ca.getK()
+	k, err := ca.getK(context.Background(), v.vm.adminUser, nil)
+	if err != nil {
+		s.FailedWithMessage("Failed to create K8sCluster: %v", err)
+		return false
+	}
 	if k == nil {
 		return false
 	}

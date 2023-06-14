@@ -760,7 +760,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	if err != nil {
 		return nil, err
 	}
-	clientFactory, err := k8s2.NewClientFactory(ctx, restConfig)
+	clientFactory, err := k8s2.NewClientFactoryFromConfig(ctx, restConfig)
 	if err != nil {
 		return nil, err
 	}
