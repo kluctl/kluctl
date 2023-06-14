@@ -6,7 +6,6 @@ import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
-import { CommandResultDetailsDrawer } from "./CommandResultDetailsDrawer";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
 import { Card, CardCol, cardGap, cardHeight, CardRow, cardWidth, projectCardHeight } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";

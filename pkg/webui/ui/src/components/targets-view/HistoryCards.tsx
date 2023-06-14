@@ -1,23 +1,23 @@
-import React, { Suspense, useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { Box, Tab, useTheme } from "@mui/material";
 import { CommandResultSummary } from "../../models";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardPaper, cardHeight, cardWidth } from "./Card";
 import { CommandResultItemHeader } from "./CommandResultItem";
-import { Loading } from "../Loading";
-import { NodeData } from "../result-view/nodes/NodeData";
-import { api, usePromise } from "../../api";
+import { Loading, useLoadingHelper } from "../Loading";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import { SidePanelProvider, useSidePanelTabs } from "../result-view/SidePanel";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
+import { Api } from "../../api";
+import { ApiContext } from "../App";
 
-async function doGetRootNode(rs: CommandResultSummary) {
-    const shortNames = api.getShortNames()
-    const r = api.getResult(rs.id)
+async function doGetRootNode(api: Api, rs: CommandResultSummary) {
+    const shortNames = await api.getShortNames()
+    const r = await api.getResult(rs.id)
     const builder = new NodeBuilder({
-        shortNames: await shortNames,
+        shortNames: shortNames,
         summary: rs,
-        commandResult: await r,
+        commandResult: r,
     })
     const [node] = builder.buildRoot()
     return node
@@ -69,23 +69,15 @@ function CardContent(props: { provider: SidePanelProvider }) {
 }
 
 export const HistoryCards = React.memo((props: HistoryCardsProps) => {
+    const api = useContext(ApiContext)
     const theme = useTheme();
     const containerElem = useRef<HTMLElement>();
     const [cardRect, setCardRect] = useState<Rect | undefined>();
     const [transitionStatus, setTransitionStatus] = useState<TransitionStatus>('not-started');
-    const [promise, setPromise] = useState<Promise<NodeData>>(new Promise(() => undefined));
 
-    const Content = () => {
-        const node = usePromise(promise)
-        return <CardContent provider={node} />;
-    }
-
-    useEffect(() => {
-        if (props.rs === undefined) {
-            return
-        }
-        setPromise(doGetRootNode(props.rs));
-    }, [props.rs]);
+    const [loading, loadingError, node] = useLoadingHelper(() => {
+        return doGetRootNode(api, props.rs)
+    }, [api, props.rs])
 
     useEffect(() => {
         const rect = containerElem.current?.getBoundingClientRect();
@@ -133,6 +125,10 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
         }, 10);
     }, [cardRect, theme.transitions.duration.enteringScreen]);
 
+    if (loadingError) {
+        return <>Error</>
+    }
+
     return <Box
         width='100%'
         height='100%'
@@ -161,9 +157,7 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
                 <CommandResultItemHeader rs={props.rs} />
                 <Box width='100%' flex='1 1 auto' overflow='hidden'>
                     {transitionStatus === 'finished' &&
-                        <Suspense fallback={<Loading />}>
-                            <Content />
-                        </Suspense>
+                        (loading ? <Loading/> : <CardContent provider={node!} />)
                     }
                 </Box>
             </Box>
