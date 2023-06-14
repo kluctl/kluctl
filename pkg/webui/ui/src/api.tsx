@@ -50,11 +50,11 @@ export async function checkStaticBuild() {
 }
 
 export class RealApi implements Api {
-    getToken: (() => string) | undefined;
-    onUnauthorized: () => void;
-    onTokenRefresh: (newToken: string) => void;
+    getToken?: (() => string);
+    onUnauthorized?: () => void;
+    onTokenRefresh?: (newToken: string) => void;
 
-    constructor(getToken: (() => string) | undefined, onUnauthorized: () => void, onTokenRefresh: (newToken: string) => void) {
+    constructor(getToken?: (() => string), onUnauthorized?: () => void, onTokenRefresh?: (newToken: string) => void) {
         this.getToken = getToken
         this.onUnauthorized = onUnauthorized
         this.onTokenRefresh = onTokenRefresh
@@ -77,23 +77,29 @@ export class RealApi implements Api {
             headers: headers,
         })
         if (resp.status === 401) {
-            this.onUnauthorized()
+            if (this.onUnauthorized) {
+                this.onUnauthorized()
+            }
             throw Error(resp.statusText)
         }
         const j = await resp.json()
-        this.onTokenRefresh(j.token)
+        if (this.onTokenRefresh) {
+            this.onTokenRefresh(j.token)
+        }
     }
 
     async handleErrors(response: Response, retry?: () => Promise<Response>): Promise<Response> {
         if (!response.ok) {
             if (response.status === 401) {
-                if (retry) {
+                if (this.getToken && retry) {
                     console.log("retrying with token refresh")
                     await this.refreshToken()
                     const newResp = await retry()
                     return await this.handleErrors(newResp)
                 } else {
-                    this.onUnauthorized()
+                    if (this.onUnauthorized) {
+                        this.onUnauthorized()
+                    }
                 }
             }
             throw Error(response.statusText)

@@ -173,7 +173,7 @@ const App = () => {
                 setApi(new StaticApi())
             } else {
                 // check if we don't need auth (running locally?)
-                const noAuthApi = new RealApi(undefined, onUnauthorized, onTokenRefresh)
+                const noAuthApi = new RealApi(undefined, undefined, undefined)
                 try {
                     await noAuthApi.getShortNames()
                     setToken(undefined)
