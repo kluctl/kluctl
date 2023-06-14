@@ -23,32 +23,52 @@ import (
 const webuiManager = "kluctl-webui"
 
 type CommandResultsServer struct {
-	ctx       context.Context
-	collector *results.ResultsCollector
-	cam       *clusterAccessorManager
-	vam       *validatorManager
+	ctx   context.Context
+	store results.ResultStore
+	cam   *clusterAccessorManager
+	vam   *validatorManager
+
+	// this is the client for the k8s cluster where the server runs on
+	serverClient client.Client
+
+	auth *authHandler
 }
 
-func NewCommandResultsServer(ctx context.Context, collector *results.ResultsCollector, configs []*rest.Config) *CommandResultsServer {
+func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool) *CommandResultsServer {
 	ret := &CommandResultsServer{
-		ctx:       ctx,
-		collector: collector,
+		ctx:   ctx,
+		store: store,
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
+		serverClient: serverClient,
+	}
+
+	adminEnabled := false
+	if serverClient != nil {
+		adminEnabled = true
+	}
+
+	if authEnabled {
+		ret.auth = &authHandler{
+			ctx:             ctx,
+			adminEnabled:    adminEnabled,
+			serverClient:    serverClient,
+			webuiSecretName: "admin-secret",
+		}
 	}
 
 	for _, config := range configs {
 		ret.cam.add(config)
 	}
 
-	ret.vam = newValidatorManager(ctx, collector, ret.cam)
+	ret.vam = newValidatorManager(ctx, store, ret.cam)
 
 	return ret
 }
 
 func (s *CommandResultsServer) Run(port int) error {
-	l, ch, cancel, err := s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	l, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
@@ -76,6 +96,48 @@ func (s *CommandResultsServer) Run(port int) error {
 
 	router := gin.Default()
 
+	if s.auth != nil {
+		err = s.auth.setupAuth(router)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = s.setupStaticRoutes(router)
+	if err != nil {
+		return err
+	}
+
+	api := router.Group("/api")
+	api.GET("/getShortNames", s.auth.authHandler, s.getShortNames)
+	api.GET("/getResult", s.auth.authHandler, s.getResult)
+	api.GET("/getResultSummary", s.auth.authHandler, s.getResultSummary)
+	api.GET("/getResultObject", s.auth.authHandler, s.getResultObject)
+	api.POST("/validateNow", s.auth.authHandler, s.validateNow)
+	api.POST("/reconcileNow", s.auth.authHandler, s.reconcileNow)
+	api.POST("/deployNow", s.auth.authHandler, s.deployNow)
+
+	// handles authentication via the first message
+	api.Any("/ws", s.ws)
+
+	address := fmt.Sprintf(":%d", port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+
+	httpServer := http.Server{
+		Addr: address,
+		BaseContext: func(listener net.Listener) context.Context {
+			return s.ctx
+		},
+		Handler: router.Handler(),
+	}
+
+	return httpServer.Serve(listener)
+}
+
+func (s *CommandResultsServer) setupStaticRoutes(router gin.IRouter) error {
 	dis, err := fs.ReadDir(uiFS, ".")
 	if err != nil {
 		return err
@@ -100,32 +162,7 @@ func (s *CommandResultsServer) Run(port int) error {
 		}
 		c.Data(http.StatusOK, "text/html; charset=utf-8", b)
 	})
-
-	api := router.Group("/api")
-	api.GET("/getShortNames", s.getShortNames)
-	api.GET("/getResult", s.getResult)
-	api.GET("/getResultSummary", s.getResultSummary)
-	api.GET("/getResultObject", s.getResultObject)
-	api.POST("/validateNow", s.validateNow)
-	api.POST("/reconcileNow", s.reconcileNow)
-	api.POST("/deployNow", s.deployNow)
-	api.Any("/ws", s.ws)
-
-	address := fmt.Sprintf(":%d", port)
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		return err
-	}
-
-	httpServer := http.Server{
-		Addr: address,
-		BaseContext: func(listener net.Listener) context.Context {
-			return s.ctx
-		},
-		Handler: router.Handler(),
-	}
-
-	return httpServer.Serve(listener)
+	return nil
 }
 
 func (s *CommandResultsServer) getShortNames(c *gin.Context) {
@@ -165,7 +202,7 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResult(results.GetCommandResultOptions{
+	sr, err := s.store.GetCommandResult(results.GetCommandResultOptions{
 		Id:      params.ResultId,
 		Reduced: true,
 	})
@@ -190,7 +227,7 @@ func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResultSummary(params.ResultId)
+	sr, err := s.store.GetCommandResultSummary(params.ResultId)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -224,7 +261,7 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResult(results.GetCommandResultOptions{
+	sr, err := s.store.GetCommandResult(results.GetCommandResultOptions{
 		Id:      params.ResultId,
 		Reduced: false,
 	})

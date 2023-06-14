@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/webui"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type webuiCmd struct {
@@ -15,6 +17,9 @@ type webuiCmd struct {
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
 	StaticPath  string   `group:"misc" help:"Build static webui."`
+
+	InCluster        bool   `group:"misc" help:"This enables in-cluster functionality."`
+	InClusterContext string `group:"misc" help:"The context to use fo in-cluster functionality."`
 }
 
 func (cmd *webuiCmd) Help() string {
@@ -22,6 +27,22 @@ func (cmd *webuiCmd) Help() string {
 }
 
 func (cmd *webuiCmd) Run(ctx context.Context) error {
+	var inClusterClient client.Client
+	if cmd.InCluster {
+		configOverrides := &clientcmd.ConfigOverrides{
+			CurrentContext: cmd.InClusterContext,
+		}
+		config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			clientcmd.NewDefaultClientConfigLoadingRules(),
+			configOverrides).ClientConfig()
+		if err != nil {
+			return err
+		}
+		inClusterClient, err = client.NewWithWatch(config, client.Options{})
+		if err != nil {
+			return err
+		}
+	}
 
 	stores, configs, err := cmd.createResultStores(ctx)
 	if err != nil {
@@ -32,11 +53,17 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 	collector.Start()
 
 	if cmd.StaticPath != "" {
-		collector.WaitForInitialSync()
+		st := status.Start(ctx, "Collecting results")
+		defer st.Failed()
+		err = collector.WaitForResults(time.Second, time.Second*30)
+		if err != nil {
+			return err
+		}
+		st.Success()
 		sbw := webui.NewStaticWebuiBuilder(collector)
 		return sbw.Build(cmd.StaticPath)
 	} else {
-		server := webui.NewCommandResultsServer(ctx, collector, configs)
+		server := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, inClusterClient != nil)
 		return server.Run(cmd.Port)
 	}
 }

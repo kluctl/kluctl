@@ -43,6 +43,13 @@ func (s *CommandResultsServer) ws(c *gin.Context) {
 	}
 	defer conn.Close(websocket.StatusInternalError, "the sky is falling")
 
+	// don't try anything else before we get the auth message
+	user, err := s.wsHandleAuth(conn)
+	if err != nil {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
 	repoKey, err := types.ParseGitRepoKey(args.FilterProject)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
@@ -57,7 +64,7 @@ func (s *CommandResultsServer) ws(c *gin.Context) {
 		}
 	}
 
-	err = s.wsHandle(conn, filter)
+	err = s.wsHandle(conn, user, filter)
 	if err != nil {
 		cs := websocket.CloseStatus(err)
 		if cs == websocket.StatusNormalClosure || cs == websocket.StatusGoingAway {
@@ -67,8 +74,59 @@ func (s *CommandResultsServer) ws(c *gin.Context) {
 	}
 }
 
-func (s *CommandResultsServer) wsHandle(c *websocket.Conn, filter *result.ProjectKey) error {
-	initial, ch, cancel, err := s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{ProjectFilter: filter})
+func (s *CommandResultsServer) wsHandleAuth(c *websocket.Conn) (*User, error) {
+	if s.auth == nil {
+		return nil, nil
+	}
+
+	t, msg, err := c.Read(s.ctx)
+	if err != nil {
+		return nil, err
+	}
+	if t != websocket.MessageText {
+		return nil, fmt.Errorf("unexpected message type")
+	}
+
+	type authMsg struct {
+		Type  string `json:"type"`
+		Token string `json:"token"`
+	}
+	type authResult struct {
+		Type    string `json:"type"`
+		Success bool   `json:"success"`
+	}
+	var am authMsg
+	err = yaml.ReadYamlString(string(msg), &am)
+	if err != nil {
+		return nil, err
+	}
+	if am.Type != "auth" {
+		return nil, fmt.Errorf("unexpected message type")
+	}
+
+	user := s.auth.getUserFromToken(am.Token)
+	if user == nil {
+		msg, _ := yaml.WriteJsonString(authResult{
+			Type:    "auth_result",
+			Success: false,
+		})
+		_ = c.Write(s.ctx, websocket.MessageText, []byte(msg))
+		return nil, fmt.Errorf("invalid token")
+	} else {
+		msg, _ := yaml.WriteJsonString(authResult{
+			Type:    "auth_result",
+			Success: true,
+		})
+		err = c.Write(s.ctx, websocket.MessageText, []byte(msg))
+		if err != nil {
+			return nil, err
+		}
+		return user, nil
+	}
+}
+
+func (s *CommandResultsServer) wsHandle(c *websocket.Conn, user *User, filter *result.ProjectKey) error {
+	initial, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{ProjectFilter: filter})
 	if err != nil {
 		return err
 	}

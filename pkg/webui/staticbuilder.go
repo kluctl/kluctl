@@ -27,7 +27,7 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 	if err != nil {
 		return err
 	}
-	//defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir)
 
 	summaries, err := swb.store.ListCommandResultSummaries(results.ListCommandResultSummariesOptions{})
 	if err != nil {

@@ -1,4 +1,13 @@
-import React, { createContext, Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+    createContext,
+    Dispatch,
+    SetStateAction,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from 'react';
 
 import '../index.css';
 import { Box, ThemeProvider } from "@mui/material";
@@ -7,8 +16,10 @@ import LeftDrawer from "./LeftDrawer";
 import { light } from './theme';
 import { ActiveFilters } from './result-view/NodeStatusFilter';
 import { CommandResultSummary, ProjectTargetKey, ValidateResult } from "../models";
-import { api } from "../api";
+import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
 import { buildProjectSummaries, ProjectSummary } from "../project-summaries";
+import Login from "./Login";
+import { Loading } from "./Loading";
 
 export interface AppOutletContext {
     filters?: ActiveFilters
@@ -29,13 +40,18 @@ export const AppContext = createContext<AppContextProps>({
     validateResults: new Map(),
 });
 
-const App = () => {
+export const ApiContext = createContext<Api>(new StaticApi())
+
+const LoggedInApp = (props: {onUnauthorized: () => void}) => {
+    const api = useContext(ApiContext)
     const [filters, setFilters] = useState<ActiveFilters>()
 
     const summariesRef = useRef<Map<string, CommandResultSummary>>(new Map())
     const validateResultsRef = useRef<Map<string, ValidateResult>>(new Map())
     const [summaries, setSummaries] = useState(summariesRef.current)
     const [validateResults, setValidateResults] = useState(validateResultsRef.current)
+
+    const onUnauthorized = props.onUnauthorized
 
     useEffect(() => {
         const updateSummary = (rs: CommandResultSummary) => {
@@ -57,7 +73,8 @@ const App = () => {
         }
 
         console.log("starting listenResults")
-        const cancel = api.listenUpdates(undefined, undefined, msg => {
+        let cancel: Promise<() => void>
+        cancel = api.listenUpdates(undefined, undefined, msg => {
             switch(msg.type) {
                 case "update_summary":
                     updateSummary(msg.summary)
@@ -68,13 +85,18 @@ const App = () => {
                 case "validate_result":
                     updateValidateResult(msg.key, msg.result)
                     break
+                case "auth_result":
+                    if (!msg.success) {
+                        cancel.then(c => c())
+                        onUnauthorized()
+                    }
             }
         })
         return () => {
             console.log("cancel listenResults")
             cancel.then(c => c())
         }
-    }, [])
+    }, [api, onUnauthorized])
 
     const projects = useMemo(() => {
         return buildProjectSummaries(summaries, validateResults)
@@ -101,5 +123,86 @@ const App = () => {
         </AppContext.Provider>
     );
 };
+
+const App = () => {
+    const [api, setApi] = useState<Api>()
+    const [needToken, setNeedToken] = useState(false)
+
+    const storage = localStorage
+
+    const getToken = () => {
+        const token = storage.getItem("token")
+        if (!token) {
+            return ""
+        }
+        return JSON.parse(token)
+    }
+    const setToken = (token?: string) => {
+        if (!token) {
+            storage.removeItem("token")
+        } else {
+            storage.setItem("token", JSON.stringify(token))
+        }
+    }
+
+    const onUnauthorized = () => {
+        console.log("handle onUnauthorized")
+        setToken(undefined)
+        setApi(undefined)
+        setNeedToken(true)
+    }
+    const onTokenRefresh = (newToken: string) => {
+        console.log("handle onTokenRefresh")
+        setToken(newToken)
+    }
+
+    const handleLoginSucceeded = (token: string) => {
+        console.log("handle saveToken")
+        setToken(token);
+        setApi(new RealApi(getToken, onUnauthorized, onTokenRefresh))
+    };
+
+    useEffect(() => {
+        if (api) {
+            return
+        }
+
+        const doInit = async () => {
+            const isStatic = await checkStaticBuild()
+            if (isStatic) {
+                setApi(new StaticApi())
+            } else {
+                // check if we don't need auth (running locally?)
+                const noAuthApi = new RealApi(undefined, undefined, undefined)
+                try {
+                    await noAuthApi.getShortNames()
+                    setToken(undefined)
+                    setNeedToken(false)
+                    setApi(noAuthApi)
+                } catch (error) {
+                    if (!getToken()) {
+                        setNeedToken(true)
+                    } else {
+                        setApi(new RealApi(getToken, onUnauthorized, onTokenRefresh))
+                    }
+                }
+            }
+        }
+        doInit()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    if (needToken && !getToken()) {
+        return <Login setToken={handleLoginSucceeded} />
+    }
+
+    if (!api) {
+        return <Loading/>
+    }
+
+    return <ApiContext.Provider value={api}>
+        <LoggedInApp onUnauthorized={onUnauthorized}/>
+    </ApiContext.Provider>
+}
 
 export default App;

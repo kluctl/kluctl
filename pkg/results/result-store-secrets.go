@@ -251,6 +251,35 @@ func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary,
 	return true
 }
 
+func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchCommandResultSummaryEvent {
+	if event.Object == nil {
+		return nil
+	}
+	x2, ok := event.Object.(client.Object)
+	if !ok {
+		return nil
+	}
+	summary, err := s.parseSummary(x2.GetAnnotations())
+	if err != nil {
+		return nil
+	}
+	if !s.filterSummary(summary, filter) {
+		return nil
+	}
+	switch event.Type {
+	case watch.Deleted:
+		return &WatchCommandResultSummaryEvent{
+			Delete:  true,
+			Summary: summary,
+		}
+	case watch.Added, watch.Modified:
+		return &WatchCommandResultSummaryEvent{
+			Summary: summary,
+		}
+	}
+	return nil
+}
+
 func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
@@ -275,31 +304,11 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 
 	go func() {
 		for x := range w.ResultChan() {
-			if x.Object == nil {
+			we := s.convertWatchEvent(x, options.ProjectFilter)
+			if we == nil {
 				continue
 			}
-			x2, ok := x.Object.(client.Object)
-			if !ok {
-				continue
-			}
-			summary, err := s.parseSummary(x2.GetAnnotations())
-			if err != nil {
-				continue
-			}
-			if !s.filterSummary(summary, options.ProjectFilter) {
-				continue
-			}
-			switch x.Type {
-			case watch.Deleted:
-				ch <- WatchCommandResultSummaryEvent{
-					Delete:  true,
-					Summary: summary,
-				}
-			case watch.Added, watch.Modified:
-				ch <- WatchCommandResultSummaryEvent{
-					Summary: summary,
-				}
-			}
+			ch <- *we
 		}
 		close(ch)
 	}()

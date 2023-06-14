@@ -2,7 +2,7 @@ import { createHashRouter, useRouteError } from "react-router-dom";
 import React from "react";
 import App from "./App";
 import { TargetsView } from "./targets-view/TargetsView";
-import { commandResultLoader, CommandResultView } from "./result-view/CommandResultView";
+import { CommandResultView } from "./result-view/CommandResultView";
 
 function ErrorPage() {
     const error = useRouteError() as any;
@@ -32,7 +32,6 @@ export const Router = createHashRouter([
             {
                 path: "results/:id",
                 element: <CommandResultView/>,
-                loader: commandResultLoader,
                 errorElement: <ErrorPage/>,
             },
         ],

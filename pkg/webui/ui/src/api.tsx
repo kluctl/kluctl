@@ -15,13 +15,17 @@ import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
 import { sleep } from "./utils/misc";
 
-const apiUrl = "/api"
 const staticPath = "./staticdata"
 
 export enum ObjectType {
     Rendered = "rendered",
     Remote = "remote",
     Applied = "applied",
+}
+
+export interface User {
+    username: string
+    isAdmin: boolean
 }
 
 export interface Api {
@@ -35,64 +39,115 @@ export interface Api {
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
 }
 
-class RealOrStaticApi implements Api {
-    api: Promise<Api>
-
-    constructor() {
-        this.api = this.buildApi()
-    }
-
-    async buildApi(): Promise<Api> {
-        const p = loadScript(staticPath + "/summaries.js")
-        try {
-            await p
-            return new StaticApi()
-        } catch (error) {
-            return new RealApi()
-        }
-    }
-
-    async deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return (await this.api).deployNow(cluster, name, namespace)
-    }
-
-    async getResult(resultId: string): Promise<CommandResult> {
-        return (await this.api).getResult(resultId)
-    }
-
-    async getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
-        return (await this.api).getResultObject(resultId, ref, objectType)
-    }
-
-    async getResultSummary(resultId: string): Promise<CommandResultSummary> {
-        return (await this.api).getResultSummary(resultId)
-    }
-
-    async getShortNames(): Promise<ShortName[]> {
-        return (await this.api).getShortNames()
-    }
-
-    async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
-        return (await this.api).listenUpdates(filterProject, filterSubDir, handle)
-    }
-
-    async reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return (await this.api).reconcileNow(cluster, name, namespace)
-    }
-
-    async validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {
-        return (await this.api).validateNow(project, target)
+export async function checkStaticBuild() {
+    const p = loadScript(staticPath + "/summaries.js")
+    try {
+        await p
+        return true
+    } catch (error) {
+        return false
     }
 }
 
-export const api = new RealOrStaticApi()
+export class RealApi implements Api {
+    getToken?: (() => string);
+    onUnauthorized?: () => void;
+    onTokenRefresh?: (newToken: string) => void;
 
-class RealApi implements Api {
+    constructor(getToken?: (() => string), onUnauthorized?: () => void, onTokenRefresh?: (newToken: string) => void) {
+        this.getToken = getToken
+        this.onUnauthorized = onUnauthorized
+        this.onTokenRefresh = onTokenRefresh
+    }
+
+    setAuthorizationHeader(headers: any) {
+        if (!this.getToken) {
+            return
+        }
+        headers['Authorization'] = "Bearer " + this.getToken()
+    }
+
+    async refreshToken() {
+        const headers = {
+            'Accept': 'application/json',
+        }
+        this.setAuthorizationHeader(headers)
+        const resp = await fetch("/auth/refresh", {
+            method: "POST",
+            headers: headers,
+        })
+        if (resp.status === 401) {
+            if (this.onUnauthorized) {
+                this.onUnauthorized()
+            }
+            throw Error(resp.statusText)
+        }
+        const j = await resp.json()
+        if (this.onTokenRefresh) {
+            this.onTokenRefresh(j.token)
+        }
+    }
+
+    async handleErrors(response: Response, retry?: () => Promise<Response>): Promise<Response> {
+        if (!response.ok) {
+            if (response.status === 401) {
+                if (this.getToken && retry) {
+                    console.log("retrying with token refresh")
+                    await this.refreshToken()
+                    const newResp = await retry()
+                    return await this.handleErrors(newResp)
+                } else {
+                    if (this.onUnauthorized) {
+                        this.onUnauthorized()
+                    }
+                }
+            }
+            throw Error(response.statusText)
+        }
+        return response
+    }
+
+    async doGet(path: string, params?: URLSearchParams) {
+        let url = path
+        if (params) {
+            url += "?" + params.toString()
+        }
+        const doFetch = () => {
+            const headers = {
+                'Accept': 'application/json',
+            }
+            this.setAuthorizationHeader(headers)
+            return fetch(url, {
+                method: "GET",
+                headers: headers,
+            })
+        }
+        let resp = await doFetch()
+        resp = await this.handleErrors(resp, doFetch)
+        return resp.json()
+    }
+
+    async doPost(path: string, body: any) {
+        let url = path
+        const doFetch = () => {
+            const headers = {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+            this.setAuthorizationHeader(headers)
+            return fetch(url, {
+                method: "POST",
+                body: JSON.stringify(body),
+                headers: headers,
+            })
+        }
+        let resp = await doFetch()
+        resp = await this.handleErrors(resp, doFetch)
+        return resp
+    }
+
     async getShortNames(): Promise<ShortName[]> {
-        let url = `${apiUrl}/getShortNames`
-        return fetch(url)
-            .then(handleErrors)
-            .then((response) => response.json());
+        return this.doGet("/api/getShortNames")
     }
 
     async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
@@ -100,7 +155,7 @@ class RealApi implements Api {
         if (process.env.NODE_ENV === 'development') {
             host = "localhost:9090"
         }
-        let url = `ws://${host}${apiUrl}/ws`
+        let url = `ws://${host}/api/ws`
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
@@ -110,10 +165,11 @@ class RealApi implements Api {
         }
         url += "?" + params.toString()
 
+        const getToken = this.getToken
         let ws: WebSocket | undefined;
         let cancelled = false
 
-        const connect = () => {
+        const connect = async () => {
             if (cancelled) {
                 return
             }
@@ -122,6 +178,9 @@ class RealApi implements Api {
             ws = new WebSocket(url);
             ws.onopen = function () {
                 console.log("ws connected")
+                if (getToken) {
+                    ws!.send(JSON.stringify({ "type": "auth", "token": getToken() }))
+                }
             }
             ws.onclose = function (event) {
                 console.log("ws close")
@@ -141,7 +200,7 @@ class RealApi implements Api {
             }
         }
 
-        connect()
+        await connect()
 
         return () => {
             console.log("ws cancel")
@@ -153,53 +212,36 @@ class RealApi implements Api {
     }
 
     async getResult(resultId: string) {
-        let url = `${apiUrl}/getResult?resultId=${resultId}`
-        return fetch(url)
-            .then(handleErrors)
-            .then(response => response.text())
-            .then(json => {
-                return new CommandResult(json)
-            });
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        const json = await this.doGet("/api/getResult", params)
+        return new CommandResult(json)
     }
 
     async getResultSummary(resultId: string) {
-        let url = `${apiUrl}/getResultSummary?resultId=${resultId}`
-        return fetch(url)
-            .then(handleErrors)
-            .then(response => response.text())
-            .then(json => {
-                return new CommandResultSummary(json)
-            });
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        const json = await this.doGet("/api/getResultSummary", params)
+        return new CommandResultSummary(json)
     }
 
     async getResultObject(resultId: string, ref: ObjectRef, objectType: string) {
-        let url = `${apiUrl}/getResultObject?resultId=${resultId}&${buildRefParams(ref)}&objectType=${objectType}`
-        return fetch(url)
-            .then(handleErrors)
-            .then(response => response.json());
-    }
-
-    async doPost(f: string, body: any) {
-        let url = `${apiUrl}/${f}`
-        return fetch(url, {
-            method: "POST",
-            body: JSON.stringify(body),
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-        }).then(handleErrors);
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        params.set("objectType", objectType)
+        buildRefParams(ref, params)
+        return await this.doGet("/api/getResultObject", params)
     }
 
     async validateNow(project: ProjectKey, target: TargetKey) {
-        return this.doPost("validateNow", {
+        return this.doPost("/api/validateNow", {
             "project": project,
             "target": target,
         })
     }
 
     async deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return this.doPost("deployNow", {
+        return this.doPost("/api/deployNow", {
             "cluster": cluster,
             "name": name,
             "namespace": namespace,
@@ -207,7 +249,7 @@ class RealApi implements Api {
     }
 
     async reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return this.doPost("reconcileNow", {
+        return this.doPost("/api/reconcileNow", {
             "cluster": cluster,
             "name": name,
             "namespace": namespace,
@@ -215,7 +257,7 @@ class RealApi implements Api {
     }
 }
 
-class StaticApi implements Api {
+export class StaticApi implements Api {
     async getShortNames(): Promise<ShortName[]> {
         await loadScript(staticPath + "/shortnames.js")
         return staticShortNames
@@ -244,12 +286,14 @@ class StaticApi implements Api {
         await loadScript(staticPath + `/result-${resultId}.js`)
         return staticResults.get(resultId)
     }
+
     async getResultSummary(resultId: string): Promise<CommandResultSummary> {
         await loadScript(staticPath + "/summaries.js")
         return staticSummaries.filter(s => {
             return s.id === resultId
         }).at(0)
     }
+
     async getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
         const result = await this.getResult(resultId)
         const object = result.objects?.find(x => _.isEqual(x.ref, ref))
@@ -267,26 +311,21 @@ class StaticApi implements Api {
                 throw new Error("unknown object type " + objectType)
         }
     }
+
     validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {
         throw new Error("not implemented")
     }
+
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
+
     deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
 }
 
-function handleErrors(response: Response) {
-    if (!response.ok) {
-        throw Error(response.statusText)
-    }
-    return response
-}
-
-function buildRefParams(ref: ObjectRef): string {
-    const params = new URLSearchParams()
+function buildRefParams(ref: ObjectRef, params: URLSearchParams) {
     params.set("kind", ref.kind)
     params.set("name", ref.name)
     if (ref.group) {
@@ -298,7 +337,6 @@ function buildRefParams(ref: ObjectRef): string {
     if (ref.namespace) {
         params.set("namespace", ref.namespace)
     }
-    return params.toString()
 }
 
 export function buildRefString(ref: ObjectRef): string {
@@ -346,32 +384,4 @@ export function findObjectByRef(l: ResultObject[] | undefined, ref: ObjectRef, f
         }
         return _.isEqual(x.ref, ref)
     })
-}
-
-export function usePromise<T>(p?: Promise<T>): T  {
-    if (p === undefined) {
-        throw new Promise<T>(() => undefined)
-    }
-
-    const promise = p as any
-    if (promise.status === 'fulfilled') {
-        return promise.value;
-    } else if (promise.status === 'rejected') {
-        throw promise.reason;
-    } else if (promise.status === 'pending') {
-        throw promise;
-    } else {
-        promise.status = 'pending';
-        p.then(
-            result => {
-                promise.status = 'fulfilled';
-                promise.value = result;
-            },
-            reason => {
-                promise.status = 'rejected';
-                promise.reason = reason;
-            },
-        );
-        throw promise;
-    }
 }
