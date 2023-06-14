@@ -1,0 +1,9 @@
+discriminator: kluctl.io-webui
+
+args:
+  - name: kluctl_version
+    default: v2.20.4
+  - name: webui_args
+    default: []
+  - name: webui_envs
+    default: []
