@@ -32,7 +32,13 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 	collector.Start()
 
 	if cmd.StaticPath != "" {
-		collector.WaitForInitialSync()
+		st := status.Start(ctx, "Collecting results")
+		defer st.Failed()
+		err = collector.WaitForResults(time.Second, time.Second*30)
+		if err != nil {
+			return err
+		}
+		st.Success()
 		sbw := webui.NewStaticWebuiBuilder(collector)
 		return sbw.Build(cmd.StaticPath)
 	} else {

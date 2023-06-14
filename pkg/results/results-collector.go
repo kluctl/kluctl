@@ -17,8 +17,7 @@ type ResultsCollector struct {
 	resultSummaries map[string]summaryEntry
 	watches         []*watchEntry
 
-	initialWG sync.WaitGroup
-	mutex     sync.Mutex
+	mutex sync.Mutex
 }
 
 type summaryEntry struct {
@@ -40,8 +39,6 @@ func NewResultsCollector(ctx context.Context, stores []ResultStore) *ResultsColl
 		resultSummaries: map[string]summaryEntry{},
 	}
 
-	ret.initialWG.Add(len(stores))
-
 	return ret
 }
 
@@ -49,8 +46,25 @@ func (rc *ResultsCollector) Start() {
 	rc.startWatchResults()
 }
 
-func (rc *ResultsCollector) WaitForInitialSync() {
-	rc.initialWG.Wait()
+func (rc *ResultsCollector) WaitForResults(idleTimeout time.Duration, totalTimeout time.Duration) error {
+	_, ch, cancel, err := rc.WatchCommandResultSummaries(ListCommandResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	totalCh := time.After(totalTimeout)
+	for {
+		idleCh := time.After(idleTimeout)
+		select {
+		case <-ch:
+			continue
+		case <-idleCh:
+			return nil
+		case <-totalCh:
+			return fmt.Errorf("result collector kept receiving results even after the total timeout")
+		}
+	}
 }
 
 func (rc *ResultsCollector) startWatchResults() {
@@ -60,17 +74,11 @@ func (rc *ResultsCollector) startWatchResults() {
 }
 
 func (rc *ResultsCollector) runWatchResults(store ResultStore) {
-	initial := true
 	for {
 		l, ch, _, err := store.WatchCommandResultSummaries(ListCommandResultSummariesOptions{})
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
-		}
-
-		if initial {
-			rc.initialWG.Done()
-			initial = false
 		}
 
 		for _, rs := range l {
