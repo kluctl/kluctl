@@ -60,9 +60,12 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=kluctl-controller-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(KUSTOMIZE) build config/crd > install/controller/controller/crd.yaml
-	$(KUSTOMIZE) build config/rbac > install/controller/controller/rbac.yaml
-	$(KUSTOMIZE) build config/manager > install/controller/controller/manager.yaml
+	@echo "# Warning, this file is generated via \"make manifests\", don't edit it directly but instead change the files in config/crd" > install/controller/controller/crd.yaml
+	$(KUSTOMIZE) build config/crd >> install/controller/controller/crd.yaml
+	@echo "# Warning, this file is generated via \"make manifests\", don't edit it directly but instead change the files in config/rbac" > install/controller/controller/rbac.yaml
+	$(KUSTOMIZE) build config/rbac >> install/controller/controller/rbac.yaml
+	@echo "# Warning, this file is generated via \"make manifests\", don't edit it directly but instead change the files in config/manager" > install/controller/controller/manager.yaml
+	$(KUSTOMIZE) build config/manager >> install/controller/controller/manager.yaml
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
