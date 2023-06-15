@@ -73,5 +73,7 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: kluctl-controller
       terminationGracePeriodSeconds: 10
