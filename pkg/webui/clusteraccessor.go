@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sync"
@@ -23,14 +22,13 @@ type clusterAccessorManager struct {
 }
 
 type clusterAccessor struct {
-	ctx        context.Context
-	config     *rest.Config
-	httpClient *http.Client
-	scheme     *runtime.Scheme
-	discovery  discovery.DiscoveryInterface
-	mapper     meta.RESTMapper
-	clusterId  string
-	mutex      sync.Mutex
+	ctx       context.Context
+	config    *rest.Config
+	scheme    *runtime.Scheme
+	discovery discovery.DiscoveryInterface
+	mapper    meta.RESTMapper
+	clusterId string
+	mutex     sync.Mutex
 }
 
 func (cam *clusterAccessorManager) add(config *rest.Config) {
@@ -88,7 +86,6 @@ func (ca *clusterAccessor) tryInitClient() error {
 	if err != nil {
 		return err
 	}
-	ca.httpClient = httpClient
 
 	dc, err := k8s2.CreateDiscoveryClient(context.Background(), ca.config)
 	if err != nil {
@@ -96,7 +93,7 @@ func (ca *clusterAccessor) tryInitClient() error {
 	}
 	ca.discovery = dc
 
-	mapper, err := apiutil.NewDynamicRESTMapper(ca.config, ca.httpClient)
+	mapper, err := apiutil.NewDynamicRESTMapper(ca.config, httpClient)
 	if err != nil {
 		return err
 	}
@@ -135,10 +132,9 @@ func (ca *clusterAccessor) getClientLocked(asUser string, asGroups []string) (cl
 	config.Impersonate.UserName = asUser
 	config.Impersonate.Groups = asGroups
 
-	c, err := client.New(config, client.Options{
-		HTTPClient: ca.httpClient,
-		Scheme:     ca.scheme,
-		Mapper:     ca.mapper,
+	c, err := client.NewWithWatch(config, client.Options{
+		Scheme: ca.scheme,
+		Mapper: ca.mapper,
 	})
 	if err != nil {
 		return nil, err
@@ -154,7 +150,12 @@ func (ca *clusterAccessor) getK(ctx context.Context, asUser string, asGroups []s
 	config.Impersonate.UserName = asUser
 	config.Impersonate.Groups = asGroups
 
-	cf, err := k8s2.NewClientFactory(ctx, config, ca.httpClient, ca.discovery, ca.mapper)
+	httpClient, err := rest.HTTPClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	cf, err := k8s2.NewClientFactory(ctx, config, httpClient, ca.discovery, ca.mapper)
 	if err != nil {
 		return nil, err
 	}
