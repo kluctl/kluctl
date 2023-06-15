@@ -5,10 +5,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/component: kluctl-webui
-    app.kubernetes.io/instance: kluctl-controller
-    app.kubernetes.io/managed-by: kluctl
+    app.kubernetes.io/component: deployment
+    app.kubernetes.io/instance: kluctl-webui
     app.kubernetes.io/name: kluctl-webui
+    app.kubernetes.io/managed-by: kluctl
     control-plane: kluctl-webui
   name: kluctl-webui
   namespace: kluctl-system
@@ -16,11 +16,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      control-plane: kluctl-controller
+      app.kubernetes.io/component: deployment
+      app.kubernetes.io/instance: kluctl-webui
+      app.kubernetes.io/name: kluctl-webui
   template:
     metadata:
       labels:
-        control-plane: kluctl-controller
+        app.kubernetes.io/component: deployment
+        app.kubernetes.io/instance: kluctl-webui
+        app.kubernetes.io/name: kluctl-webui
     spec:
       containers:
       - name: webui
@@ -39,7 +43,7 @@ spec:
           httpGet:
             path: /
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 5
           periodSeconds: 20
         readinessProbe:
           httpGet:

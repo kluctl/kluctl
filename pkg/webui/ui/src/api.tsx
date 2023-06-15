@@ -152,10 +152,14 @@ export class RealApi implements Api {
 
     async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
         let host = window.location.host
+        let proto = "wss"
         if (process.env.NODE_ENV === 'development') {
             host = "localhost:9090"
         }
-        let url = `ws://${host}/api/ws`
+        if (window.location.protocol !== "https:") {
+            proto = "ws"
+        }
+        let url = `${proto}://${host}/api/ws`
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
