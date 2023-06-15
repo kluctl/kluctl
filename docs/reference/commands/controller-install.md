@@ -28,10 +28,10 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --context string              Override the context to use.
-      --controller-version string   Specify the controller version to install.
-      --dry-run                     Performs all kubernetes API calls in dry-run mode.
-  -y, --yes                         Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+      --context string          Override the context to use.
+      --dry-run                 Performs all kubernetes API calls in dry-run mode.
+      --kluctl-version string   Specify the controller version to install.
+  -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
 
 ```
 <!-- END SECTION -->
