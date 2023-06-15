@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"mime"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -37,8 +43,22 @@ func main() {
 
 	hashRegex := regexp.MustCompile(`([a-z-0-9-_]*)(\.[a-f0-9]*)(\.chunk)?\.(js|css)(\.map)?`)
 
+	var sortedByLen []string
+	for p1 := range manifest.Files {
+		sortedByLen = append(sortedByLen, p1)
+	}
+	sort.Slice(sortedByLen, func(i, j int) bool {
+		l1 := len(sortedByLen[i])
+		l2 := len(sortedByLen[j])
+		if l1 != l2 {
+			return l2 < l1
+		}
+		return sortedByLen[i] < sortedByLen[j]
+	})
+
 	newEntries := map[string]string{}
-	for p1, p2 := range manifest.Files {
+	for _, p1 := range sortedByLen {
+		p2 := manifest.Files[p1]
 		oldName := path.Base(p2)
 		newName := path.Base(p1)
 		oldPath := path.Join(path.Dir(p2), oldName)
@@ -59,10 +79,11 @@ func main() {
 		}
 
 		// we assume that .map files are implicitly replaced by the non-.map versions
-		if !strings.HasSuffix(oldName, ".map") {
-			err = replaceInFiles(".", oldName, newName+"?f="+oldName)
-			doError(err)
-		}
+		//if !strings.HasSuffix(oldName, ".map") {
+		contentHash := calcContentHash(oldPath)
+		err = replaceInFiles(".", oldName, newName+"?h="+contentHash)
+		doError(err)
+		//}
 
 		err = os.Rename(oldPath, newPath)
 		doError(err)
@@ -81,6 +102,38 @@ func main() {
 	doError(err)
 	err = os.WriteFile("asset-manifest.json", s, 0o600)
 	doError(err)
+}
+
+func calcContentHash(p string) string {
+	b, err := os.ReadFile(p)
+	if err != nil {
+		panic(err)
+	}
+
+	if isText(p) {
+		// replace CR LF \r\n (windows) with LF \n (unix)
+		b = bytes.ReplaceAll(b, []byte{13, 10}, []byte{10})
+		// replace CF \r (mac) with LF \n (unix)
+		b = bytes.ReplaceAll(b, []byte{13}, []byte{10})
+	}
+
+	s := sha256.Sum256(b)
+	ret := hex.EncodeToString(s[:])
+
+	os.Stderr.WriteString(fmt.Sprintf("%s: %s\n", p, ret))
+
+	return ret
+}
+
+func isText(p string) bool {
+	mt := mime.TypeByExtension(path.Ext(p))
+	if strings.HasPrefix(mt, "text/") {
+		return true
+	}
+	if strings.Index(mt, "+xml") != -1 {
+		return true
+	}
+	return false
 }
 
 func replaceInFiles(dir string, s string, r string) error {
