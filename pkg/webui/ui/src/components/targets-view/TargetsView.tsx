@@ -1,16 +1,18 @@
-import { CommandResultSummary } from "../../models";
+import { TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
 import { AppContext } from "../App";
 import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
-import { Card, CardCol, cardGap, cardHeight, CardRow, cardWidth, projectCardHeight } from "./Card";
+import { Card, CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth, projectCardHeight } from "./Card";
 import { TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { HistoryCards } from "./HistoryCards";
+import { useNavigate, useParams } from "react-router-dom";
+import { sha256 } from "js-sha256";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -122,34 +124,55 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
     </svg>
 });
 
+function mkTargetHash(tk: TargetKey): string {
+    return sha256(JSON.stringify(tk));
+}
+
 export const TargetsView = () => {
     const theme = useTheme();
-    const [selectedCommandResult, setSelectedCommandResult] = useState<{ rs: CommandResultSummary, ts: TargetSummary } | undefined>();
     const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
-    const [selectedCardRect, setSelectedCardRect] = useState<DOMRect | undefined>();
 
-    const appContext = useContext(AppContext)
-    const projects = appContext.projects
+    const navigate = useNavigate();
+    const { targetKeyHash } = useParams();
+    const appContext = useContext(AppContext);
+    const projects = appContext.projects;
+
+    const targetsHashes = useMemo(() => {
+        const dict = new Map<string, TargetSummary>();
+        projects.forEach(ps =>
+            ps.targets.forEach(ts =>
+                dict.set(mkTargetHash(ts.target), ts)
+            )
+        );
+        return dict;
+    }, [projects]);
+
+    const historyCardsTarget = useMemo(() => {
+        return targetKeyHash ? targetsHashes.get(targetKeyHash) : undefined;
+    }, [targetKeyHash, targetsHashes]);
 
     const onTargetDetailsDrawerClose = useCallback(() => {
         setSelectedTargetSummary(undefined);
     }, []);
 
-    const onSelectCommandResult = useCallback((o?: { rs: CommandResultSummary, ts: TargetSummary }) => {
+    const onSelectHistoryCardsTarget = useCallback((ts: TargetSummary) => {
         onTargetDetailsDrawerClose();
-        setSelectedCommandResult(o);
-    }, [onTargetDetailsDrawerClose]);
+        navigate(`/targets/${mkTargetHash(ts.target)}`);
+    }, [navigate, onTargetDetailsDrawerClose]);
 
     const onHistoryCardsClose = useCallback(() => {
-        setSelectedCommandResult(undefined);
-        setSelectedCardRect(undefined);
-    }, []);
+        navigate(`/targets/`);
+    }, [navigate]);
 
-    if (selectedCommandResult && selectedCardRect) {
+    const cardRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
+ 
+    if (historyCardsTarget) {
+        const cardElem = cardRefs.current.get(historyCardsTarget);
+        const cardRect = cardElem?.getBoundingClientRect();
+
         return <HistoryCards
-            rs={selectedCommandResult.rs}
-            ts={selectedCommandResult.ts}
-            initialCardRect={selectedCardRect}
+            targetSummary={historyCardsTarget}
+            initialCardRect={cardRect}
             onClose={onHistoryCardsClose}
         />;
     }
@@ -240,21 +263,25 @@ export const TargetsView = () => {
                                     return <Card
                                         key={rs.id}
                                         sx={{
-                                            translate: i === 0 ? 'none' : `-${i * (cardWidth + cardGap / 2)}px`,
+                                            translate: `${-i * (cardWidth + cardGap / 2)}px`,
                                             zIndex: -i,
                                             display: i < 4 ? 'flex' : 'none'
                                         }}
-                                        onClick={(e) => {
-                                            const rect = e.currentTarget.getBoundingClientRect();
-                                            setSelectedCardRect(rect);
+                                        ref={(r: HTMLElement) => {
+                                            if (i === 0) {
+                                                cardRefs.current.set(ts, r);
+                                            }
                                         }}
                                     >
-                                        <CommandResultItem
-                                            ps={ps}
-                                            ts={ts}
-                                            rs={rs}
-                                            onSelectCommandResult={(rs) => onSelectCommandResult({ rs, ts })}
-                                        />
+                                        {i === 0
+                                            ? <CommandResultItem
+                                                ps={ps}
+                                                ts={ts}
+                                                rs={rs}
+                                                onSelectCommandResult={() => onSelectHistoryCardsTarget(ts)}
+                                            />
+                                            : <CardPaper />
+                                        }
                                     </Card>
                                 })}
                             </CardRow>

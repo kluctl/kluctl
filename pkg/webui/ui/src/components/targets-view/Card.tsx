@@ -1,3 +1,4 @@
+import React from "react";
 import { Box, BoxProps, Paper, PaperProps } from "@mui/material"
 
 export const cardWidth = 247;
@@ -21,9 +22,9 @@ export function CardPaper(props: PaperProps) {
     />
 }
 
-export function Card(props: BoxProps) {
-    return <Box display='flex' flexShrink={0} width={cardWidth} height={cardHeight} {...props} />
-}
+export const Card = React.forwardRef((props: BoxProps, ref) => {
+    return <Box display='flex' flexShrink={0} width={cardWidth} height={cardHeight} {...props} ref={ref} />
+});
 
 export function CardCol(props: BoxProps) {
     return <Box display='flex' flexDirection='column' gap={`${cardGap}px`} {...props} />
