@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kluctl-webui
+  namespace: kluctl-system
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/component: deployment
+    app.kubernetes.io/instance: kluctl-webui
+    app.kubernetes.io/name: kluctl-webui
