@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Box, Divider, IconButton, SxProps, Tab, Tooltip, useTheme } from "@mui/material";
 import { CommandResultSummary } from "../../models";
 import { TargetSummary } from "../../project-summaries";
@@ -26,9 +26,8 @@ async function doGetRootNode(api: Api, rs: CommandResultSummary) {
 }
 
 export interface HistoryCardsProps {
-    rs: CommandResultSummary,
-    ts: TargetSummary,
-    initialCardRect: DOMRect,
+    targetSummary: TargetSummary,
+    initialCardRect?: DOMRect,
     onClose: () => void
 }
 
@@ -38,8 +37,6 @@ interface Rect {
     width: number | string,
     height: number | string
 }
-
-type TransitionStatus = 'not-started' | 'running' | 'finished'
 
 const CardContent = React.memo((props: { provider: SidePanelProvider }) => {
     const { tabs, selectedTab, handleTabChange } = useSidePanelTabs(props.provider)
@@ -177,17 +174,34 @@ const HistoryCard = React.memo((props: {
     </CardPaper>
 });
 
+type TransitionState =
+    {
+        type: 'initial'
+    } | {
+        type: 'started',
+        cardRect: Rect
+    } | {
+        type: 'running',
+        cardRect: Rect
+    } | {
+        type: 'finished'
+    }
+
 export const HistoryCards = React.memo((props: HistoryCardsProps) => {
     const theme = useTheme();
     const containerElem = useRef<HTMLElement>();
-    const [cardRect, setCardRect] = useState<Rect | undefined>();
-    const [transitionStatus, setTransitionStatus] = useState<TransitionStatus>('not-started');
-    const [currentRS, setCurrentRS] = useState(props.rs);
+    const [transitionState, setTransitionState] = useState<TransitionState>({ type: 'initial' });
+    const [currentRSIndex, setCurrentRSIndex] = useState(0);
 
     useEffect(() => {
         const rect = containerElem.current?.getBoundingClientRect();
         if (!rect) {
-            setCardRect(undefined);
+            setTransitionState({ type: 'initial' });
+            return;
+        }
+
+        if (!props.initialCardRect) {
+            setTransitionState({ type: 'finished' });
             return;
         }
 
@@ -198,11 +212,14 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
             height: cardHeight
         };
 
-        setCardRect(initialRect);
-    }, [props.initialCardRect]);
+        setTransitionState({
+            type: 'started',
+            cardRect: initialRect
+        });
+    }, [props.initialCardRect, theme.transitions.duration.enteringScreen]);
 
     useEffect(() => {
-        if (!cardRect) {
+        if (transitionState.type !== 'started') {
             return;
         }
 
@@ -213,39 +230,28 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
             height: '100%'
         };
 
-        if (cardRect.left === targetRect.left
-            && cardRect.top === targetRect.top
-            && cardRect.width === targetRect.width
-            && cardRect.height === targetRect.height
-        ) {
-            return;
-        }
-
         setTimeout(() => {
-            setCardRect(targetRect);
-            setTransitionStatus('running');
+            setTransitionState({
+                type: 'running',
+                cardRect: targetRect
+            });
             setTimeout(() => {
-                setTransitionStatus('finished');
+                setTransitionState({ type: 'finished' });
             }, theme.transitions.duration.enteringScreen);
         }, 10);
-    }, [cardRect, theme.transitions.duration.enteringScreen]);
-
-    const currentRSIndex = useMemo(
-        () => props.ts.commandResults.indexOf(currentRS),
-        [currentRS, props.ts.commandResults]
-    )
+    }, [transitionState, theme.transitions.duration.enteringScreen]);
 
     const onLeftArrowClick = useCallback(() => {
         if (currentRSIndex > 0) {
-            setCurrentRS(props.ts.commandResults[currentRSIndex - 1]);
+            setCurrentRSIndex(i => i - 1);
         }
-    }, [currentRSIndex, props.ts.commandResults]);
+    }, [currentRSIndex]);
 
     const onRightArrowClick = useCallback(() => {
-        if (currentRSIndex < props.ts.commandResults.length - 1) {
-            setCurrentRS(props.ts.commandResults[currentRSIndex + 1]);
+        if (currentRSIndex < props.targetSummary.commandResults.length - 1) {
+            setCurrentRSIndex(i => i + 1);
         }
-    }, [currentRSIndex, props.ts.commandResults]);
+    }, [currentRSIndex, props.targetSummary.commandResults.length]);
 
     const paddingX = 40;
     const gap = 2 * (paddingX + arrowButtonWidth);
@@ -261,7 +267,7 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
         <ArrowButton
             direction='left'
             onClick={onLeftArrowClick}
-            hidden={currentRSIndex === 0 || transitionStatus !== 'finished'}
+            hidden={currentRSIndex === 0 || transitionState.type !== 'finished'}
         />
         <Box
             flex='0 0 auto'
@@ -269,22 +275,22 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
             display='flex'
             ref={containerElem}
         >
-            {transitionStatus !== 'finished' && cardRect && <HistoryCard
+            {(transitionState.type === 'started' || transitionState.type === 'running') && <HistoryCard
                 sx={{
-                    width: cardRect.width,
-                    height: cardRect.height,
+                    width: transitionState.cardRect.width,
+                    height: transitionState.cardRect.height,
                     flex: '0 0 auto',
-                    translate: `${cardRect.left}px ${cardRect.top}px`,
+                    translate: `${transitionState.cardRect.left}px ${transitionState.cardRect.top}px`,
                     transition: theme.transitions.create(['translate', 'width', 'height'], {
                         easing: theme.transitions.easing.sharp,
                         duration: theme.transitions.duration.enteringScreen,
                     }),
                     padding: '20px 0'
                 }}
-                rs={currentRS}
+                rs={props.targetSummary.commandResults[currentRSIndex]}
                 onClose={props.onClose}
             />}
-            {transitionStatus === 'finished' &&
+            {transitionState.type === 'finished' &&
                 <Box
                     flex='1 1 auto'
                     width='100%'
@@ -299,7 +305,7 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
                         })
                     }}
                 >
-                    {props.ts.commandResults.map((rs) =>
+                    {props.targetSummary.commandResults.map((rs) =>
                         <HistoryCard
                             sx={{
                                 width: '100%',
@@ -309,7 +315,7 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
                             }}
                             rs={rs}
                             key={rs.id}
-                            transitionFinished={transitionStatus === 'finished'}
+                            transitionFinished={transitionState.type === 'finished'}
                             onClose={props.onClose}
                         />
                     )}
@@ -319,7 +325,10 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
         <ArrowButton
             direction='right'
             onClick={onRightArrowClick}
-            hidden={currentRSIndex === props.ts.commandResults.length - 1 || transitionStatus !== 'finished'}
+            hidden={
+                currentRSIndex === props.targetSummary.commandResults.length - 1
+                || transitionState.type !== 'finished'
+            }
         />
     </Box>;
 });
