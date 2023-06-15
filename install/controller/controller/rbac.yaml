@@ -1,3 +1,4 @@
+# Warning, this file is generated via "make manifests", don't edit it directly but instead change the files in config/rbac
 apiVersion: v1
 kind: ServiceAccount
 metadata:
