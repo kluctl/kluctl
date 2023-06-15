@@ -70,6 +70,8 @@ const CardContent = React.memo((props: { provider: SidePanelProvider }) => {
     </TabContext>
 });
 
+const arrowButtonWidth = 80;
+
 const ArrowButton = React.memo((props: {
     direction: 'left' | 'right',
     onClick: () => void,
@@ -80,7 +82,16 @@ const ArrowButton = React.memo((props: {
         right: TriangleRightLightIcon
     }[props.direction];
 
-    return <Box flex='0 0 auto' height='100%' width='80px' display='flex' justifyContent='center' alignItems='center'>
+    return <Box
+        flex='0 0 auto'
+        height='100%'
+        width={`${arrowButtonWidth}px`}
+        display='flex'
+        justifyContent='center'
+        alignItems='center'
+        position='relative'
+        {...{ [props.direction]: 0 }}
+    >
         {!props.hidden &&
             <IconButton onClick={props.onClick}>
                 <Icon />
@@ -236,11 +247,16 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
         }
     }, [currentRSIndex, props.ts.commandResults]);
 
+    const paddingX = 40;
+    const gap = 2 * (paddingX + arrowButtonWidth);
+
     return <Box
         width='100%'
         height='100%'
-        p='25px 40px'
+        p={`25px ${paddingX}px`}
         display='flex'
+        position='relative'
+        overflow='hidden'
     >
         <ArrowButton
             direction='left'
@@ -248,10 +264,10 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
             hidden={currentRSIndex === 0 || transitionStatus !== 'finished'}
         />
         <Box
-            flex='1 1 auto'
+            flex='0 0 auto'
+            width={`calc(100% - ${arrowButtonWidth}px * 2)`}
             display='flex'
             ref={containerElem}
-            overflow={transitionStatus === 'finished' ? 'hidden' : 'unset'}
         >
             {transitionStatus !== 'finished' && cardRect && <HistoryCard
                 sx={{
@@ -274,9 +290,9 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
                     width='100%'
                     height='100%'
                     display='flex'
-                    gap='20px'
+                    gap={`${gap}px`}
                     sx={{
-                        translate: `calc((-100% - 20px) * ${currentRSIndex})`,
+                        translate: `calc((-100% - ${gap}px) * ${currentRSIndex})`,
                         transition: theme.transitions.create(['translate'], {
                             easing: theme.transitions.easing.sharp,
                             duration: theme.transitions.duration.enteringScreen,
