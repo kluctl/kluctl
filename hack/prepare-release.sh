@@ -28,6 +28,7 @@ FILES=""
 FILES="$FILES install/controller/.kluctl.yaml"
 FILES="$FILES install/controller/controller/kustomization.yaml"
 FILES="$FILES install/webui/.kluctl.yaml"
+FILES="$FILES install/webui/webui/deployment.yaml"
 FILES="$FILES docs/installation.md"
 
 for f in $FILES; do
