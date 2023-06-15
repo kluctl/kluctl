@@ -39,7 +39,7 @@ func TestWriteResult(t *testing.T) {
 		name:      "cm",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
+	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
 	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, "kluctl-results", 0)
@@ -67,7 +67,7 @@ func TestWriteResult(t *testing.T) {
 		_ = o.SetNestedField("v2", "data", "d1")
 		return nil
 	}, "")
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
+	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
@@ -84,7 +84,7 @@ func TestWriteResult(t *testing.T) {
 		_ = o.RemoveNestedField("deployments", 1)
 		return nil
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
+	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
@@ -95,7 +95,7 @@ func TestWriteResult(t *testing.T) {
 		OrphanObjects:  1,
 	}, summaries[0])
 
-	p.KluctlMust("prune", "--yes", "-t", "test", "--write-command-result")
+	p.KluctlMust("prune", "--yes", "-t", "test")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
