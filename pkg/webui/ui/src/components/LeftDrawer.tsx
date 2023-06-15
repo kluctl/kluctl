@@ -170,7 +170,7 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
                             lineHeight: '20px',
                             fontSize: '18px'
                         }}
-                        placeholder='Search'
+                        placeholder='Search (not impl. yet)'
                     />
                     <IconButton sx={{ padding: 0, height: 40, width: 40 }}>
                         <SearchIcon />

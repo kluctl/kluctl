@@ -121,11 +121,10 @@ export const CommandResultDetailsDrawer = React.memo((props: {
                     ts={ts}
                     rs={rs}
                     onSelectCommandResult={setSelectedCommandResult}
-                    selected={rs === selectedCommandResult}
                 />
             </Card>
         })
-    }, [ps, ts, cardsCoords, zIndex, theme.transitions, selectedCommandResult])
+    }, [ps, ts, cardsCoords, zIndex, theme.transitions])
 
     if (loadingError) {
         return <>Error</>

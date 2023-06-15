@@ -16,6 +16,7 @@
     "static/media/checkbox-checked.svg": "static/media/checkbox-checked.svg",
     "static/media/checkbox-disabled.svg": "static/media/checkbox-disabled.svg",
     "static/media/checkbox.svg": "static/media/checkbox.svg",
+    "static/media/close-light.svg": "static/media/close-light.svg",
     "static/media/close.svg": "static/media/close.svg",
     "static/media/cpu.svg": "static/media/cpu.svg",
     "static/media/deploy.svg": "static/media/deploy.svg",
@@ -44,6 +45,8 @@
     "static/media/trash.svg": "static/media/trash.svg",
     "static/media/tree-view.svg": "static/media/tree-view.svg",
     "static/media/triangle-down.svg": "static/media/triangle-down.svg",
+    "static/media/triangle-left-light.svg": "static/media/triangle-left-light.svg",
+    "static/media/triangle-right-light.svg": "static/media/triangle-right-light.svg",
     "static/media/triangle-right.svg": "static/media/triangle-right.svg",
     "static/media/warning-sign.svg": "static/media/warning-sign.svg",
     "static/media/warning.svg": "static/media/warning.svg"

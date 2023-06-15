@@ -6,11 +6,11 @@ import { ProjectItem } from "./Projects";
 import { TargetItem } from "./Targets";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
-import { CommandResultDetailsDrawer } from "./CommandResultDetailsDrawer";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
 import { Card, CardCol, cardGap, cardHeight, CardRow, cardWidth, projectCardHeight } from "./Card";
-import { ProjectSummary, TargetSummary } from "../../project-summaries";
+import { TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
+import { HistoryCards } from "./HistoryCards";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -124,7 +124,7 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
 
 export const TargetsView = () => {
     const theme = useTheme();
-    const [selectedCommandResult, setSelectedCommandResult] = useState<{rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary} | undefined>();
+    const [selectedCommandResult, setSelectedCommandResult] = useState<{ rs: CommandResultSummary, ts: TargetSummary } | undefined>();
     const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
     const [selectedCardRect, setSelectedCardRect] = useState<DOMRect | undefined>();
 
@@ -135,29 +135,26 @@ export const TargetsView = () => {
         setSelectedTargetSummary(undefined);
     }, []);
 
-    const onCommandResultDetailsDrawerClose = useCallback(() => {
+    const onSelectCommandResult = useCallback((o?: { rs: CommandResultSummary, ts: TargetSummary }) => {
+        onTargetDetailsDrawerClose();
+        setSelectedCommandResult(o);
+    }, [onTargetDetailsDrawerClose]);
+
+    const onHistoryCardsClose = useCallback(() => {
         setSelectedCommandResult(undefined);
         setSelectedCardRect(undefined);
     }, []);
 
-    const doSetSelectedCommandResult = useCallback((o?: {rs: CommandResultSummary, ts: TargetSummary, ps: ProjectSummary}) => {
-        onTargetDetailsDrawerClose();
-        setSelectedCommandResult(o);
-    }, [onTargetDetailsDrawerClose]);
-    
-    const doSetSelectedTargetSummary = useCallback((ts?: TargetSummary) => {
-        onCommandResultDetailsDrawerClose();
-        setSelectedTargetSummary(ts);
-    }, [onCommandResultDetailsDrawerClose]);
+    if (selectedCommandResult && selectedCardRect) {
+        return <HistoryCards
+            rs={selectedCommandResult.rs}
+            ts={selectedCommandResult.ts}
+            initialCardRect={selectedCardRect}
+            onClose={onHistoryCardsClose}
+        />;
+    }
 
     return <Box minWidth={colWidth * 3} p='0 40px'>
-        <CommandResultDetailsDrawer
-            rs={selectedCommandResult?.rs}
-            ts={selectedCommandResult?.ts}
-            ps={selectedCommandResult?.ps}
-            onClose={onCommandResultDetailsDrawerClose}
-            selectedCardRect={selectedCardRect}
-        />
         <TargetDetailsDrawer
             ts={selectedTargetSummary}
             onClose={onTargetDetailsDrawerClose}
@@ -191,7 +188,7 @@ export const TargetsView = () => {
                             return <Box key={buildListKey(ts.target)} display='flex'>
                                 <Card>
                                     <TargetItem ps={ps} ts={ts}
-                                        onSelectTarget={(ts) => doSetSelectedTargetSummary(ts)} />
+                                        onSelectTarget={setSelectedTargetSummary} />
                                 </Card>
                                 <Box flexGrow={1} display='flex' justifyContent='center' alignItems='center' px='9px'>
                                     <svg
@@ -256,7 +253,7 @@ export const TargetsView = () => {
                                             ps={ps}
                                             ts={ts}
                                             rs={rs}
-                                            onSelectCommandResult={(rs) => doSetSelectedCommandResult({rs, ts, ps})}
+                                            onSelectCommandResult={(rs) => onSelectCommandResult({ rs, ts })}
                                         />
                                     </Card>
                                 })}

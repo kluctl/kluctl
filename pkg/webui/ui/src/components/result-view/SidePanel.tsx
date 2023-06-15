@@ -1,5 +1,5 @@
 import { Box, Divider, IconButton, Paper, Tab, ThemeProvider, Typography, useTheme } from "@mui/material";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
 import { CloseIcon } from "../../icons/Icons";
 import { light } from "../theme";
@@ -19,37 +19,41 @@ export interface SidePanelProps {
     onClose?: () => void;
 }
 
-export const SidePanel = (props: SidePanelProps) => {
+export function useSidePanelTabs(provider?: SidePanelProvider) {
     const [selectedTab, setSelectedTab] = useState<string>();
-    const theme = useTheme();
 
-    function handleTabChange(_e: React.SyntheticEvent, value: string) {
+    const handleTabChange = useCallback((_e: React.SyntheticEvent, value: string) => {
         setSelectedTab(value);
-    }
+    }, []);
 
-    let tabs = props.provider?.buildSidePanelTabs()
-    if (!tabs) {
-        tabs = []
-    }
+    const tabs = useMemo(
+        () => provider?.buildSidePanelTabs() || [],
+        [provider]
+    );
 
     useEffect(() => {
         if (!tabs?.length) {
-            setSelectedTab("")
+            setSelectedTab("");
             return
         }
 
         if (!selectedTab) {
-            setSelectedTab(tabs[0].label)
+            setSelectedTab(tabs[0].label);
             return
         }
 
         if (!tabs.find(x => x.label === selectedTab)) {
             // reset it after the type of selected item has changed
-            setSelectedTab(tabs[0].label)
+            setSelectedTab(tabs[0].label);
         }
-        // ignore that it wants us to add selectedTab to the deps (it would cause and endless loop)
-        // eslint-disable-next-line
-    }, [props.provider])
+    }, [selectedTab, tabs]);
+
+    return { tabs, selectedTab, handleTabChange }
+}
+
+export const SidePanel = (props: SidePanelProps) => {
+    const theme = useTheme();
+    const { tabs, selectedTab, handleTabChange } = useSidePanelTabs(props.provider)
 
     if (!selectedTab || !tabs.find(x => x.label === selectedTab)) {
         return <></>
