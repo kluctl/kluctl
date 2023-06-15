@@ -84,6 +84,9 @@ func (cmd *webuiCmd) createResultStores(ctx context.Context) ([]results.ResultSt
 		for name, _ := range kcfg.Contexts {
 			contexts = append(contexts, name)
 		}
+	} else if cmd.InCluster {
+		// placeholder for current context
+		contexts = append(contexts, "")
 	} else {
 		if len(cmd.Context) == 0 {
 			// placeholder for current context

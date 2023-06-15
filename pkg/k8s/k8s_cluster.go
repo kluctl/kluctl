@@ -78,26 +78,6 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 	return &k2
 }
 
-func (k *K8sCluster) GetCA() []byte {
-	return k.clientFactory.GetCA()
-}
-
-func (k *K8sCluster) buildLabelSelector(labels map[string]string) string {
-	ret := ""
-
-	for k, v := range labels {
-		if len(ret) != 0 {
-			ret += ","
-		}
-		if v == "" {
-			ret += k
-		} else {
-			ret += fmt.Sprintf("%s=%s", k, v)
-		}
-	}
-	return ret
-}
-
 func (k *K8sCluster) doList(l client.ObjectList, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	apiWarnings, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
 		return c.List(k.ctx, l, client.InNamespace(namespace), client.MatchingLabels(labels))

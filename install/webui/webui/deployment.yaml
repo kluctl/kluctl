@@ -1,0 +1,65 @@
+{% set kluctl_version = get_var("args.kluctl_version", "v2.20.4") %}
+{% set pull_policy = "Always" if "-devel" in kluctl_version or "-snapshot" in kluctl_version else "IfNotPresent" %}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: kluctl-webui
+    app.kubernetes.io/instance: kluctl-controller
+    app.kubernetes.io/managed-by: kluctl
+    app.kubernetes.io/name: kluctl-webui
+    control-plane: kluctl-webui
+  name: kluctl-webui
+  namespace: kluctl-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: kluctl-controller
+  template:
+    metadata:
+      labels:
+        control-plane: kluctl-controller
+    spec:
+      containers:
+      - name: webui
+        image: ghcr.io/kluctl/kluctl:{{ kluctl_version }}
+        imagePullPolicy: {{ pull_policy }}
+        command:
+          - kluctl
+          - webui
+          - --in-cluster
+        args: {{ get_var(["args.webui_args", "webui_args"], []) | to_json }}
+        env: {{ get_var(["args.webui_envs", "webui_envs"], []) | to_json }}
+        ports:
+          - containerPort: 8080
+            name: http
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 512Mi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kluctl-webui
+      terminationGracePeriodSeconds: 10

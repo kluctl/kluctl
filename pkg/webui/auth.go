@@ -29,11 +29,13 @@ type authHandler struct {
 
 	serverClient    client.Client
 	webuiSecretName string
+	adminRbacUser   string
 }
 
 type User struct {
 	Username string `json:"username"`
 	IsAdmin  bool   `json:"isAdmin"`
+	RbacUser string `json:"RbacUser"`
 }
 
 func (s *authHandler) setupAuth(r gin.IRouter) error {
@@ -223,6 +225,7 @@ func (s *authHandler) getAdminUserFromClaims(claims jwt.MapClaims) *User {
 	return &User{
 		Username: id,
 		IsAdmin:  true,
+		RbacUser: s.adminRbacUser,
 	}
 }
 

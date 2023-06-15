@@ -24,7 +24,11 @@ fi
 
 echo VERSION=$VERSION
 
-FILES="install/controller/.kluctl.yaml install/controller/controller/kustomization.yaml docs/installation.md"
+FILES=""
+FILES="$FILES install/controller/.kluctl.yaml"
+FILES="$FILES install/controller/controller/kustomization.yaml"
+FILES="$FILES install/webui/.kluctl.yaml"
+FILES="$FILES docs/installation.md"
 
 for f in $FILES; do
   cat $f | sed "s/$VERSION_REGEX_SED/$VERSION/g" > $f.tmp

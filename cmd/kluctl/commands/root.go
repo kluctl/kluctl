@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 	"time"
 
@@ -110,7 +111,7 @@ func redirectLogsAndStderr(ctxGetter func() context.Context) {
 	klog.LogToStderr(false)
 	klog.SetOutput(lr1)
 	log.SetOutput(lr2)
-	//ctrl.SetLogger(klog.NewKlogr())
+	ctrl.SetLogger(klog.NewKlogr())
 
 	pr, pw, err := os.Pipe()
 	if err != nil {

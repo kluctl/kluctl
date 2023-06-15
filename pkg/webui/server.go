@@ -44,6 +44,8 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 		serverClient: serverClient,
 	}
 
+	adminUser := "kluctl-webui-admin"
+
 	adminEnabled := false
 	if serverClient != nil {
 		adminEnabled = true
@@ -55,6 +57,7 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 			adminEnabled:    adminEnabled,
 			serverClient:    serverClient,
 			webuiSecretName: "admin-secret",
+			adminRbacUser:   adminUser,
 		}
 	}
 
@@ -62,7 +65,7 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 		ret.cam.add(config)
 	}
 
-	ret.vam = newValidatorManager(ctx, store, ret.cam)
+	ret.vam = newValidatorManager(ctx, store, ret.cam, adminUser)
 
 	return ret
 }
@@ -340,9 +343,17 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 		return
 	}
 
+	user := s.auth.getUser(c)
+
 	ca := s.cam.getForClusterId(params.Cluster)
 	if ca == nil {
 		_ = c.AbortWithError(http.StatusNotFound, err)
+		return
+	}
+
+	kc, err := ca.getClient(user.RbacUser, nil)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -350,7 +361,7 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	defer cancel()
 
 	var kd kluctlv1.KluctlDeployment
-	err = ca.getClient().Get(ctx, client.ObjectKey{Name: params.Name, Namespace: params.Namespace}, &kd)
+	err = kc.Get(ctx, client.ObjectKey{Name: params.Name, Namespace: params.Namespace}, &kd)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			_ = c.AbortWithError(http.StatusNotFound, err)
@@ -362,7 +373,7 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 
 	patch := client.MergeFrom(kd.DeepCopy())
 	metav1.SetMetaDataAnnotation(&kd.ObjectMeta, aname, avalue)
-	err = ca.getClient().Patch(ctx, &kd, patch, client.FieldOwner(webuiManager))
+	err = kc.Patch(ctx, &kd, patch, client.FieldOwner(webuiManager))
 	if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return

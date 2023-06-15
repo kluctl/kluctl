@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"time"
 )
 
@@ -38,7 +39,7 @@ type realClientFactory struct {
 	httpClient *http.Client
 
 	discoveryClient discovery.DiscoveryInterface
-	mapper          meta.ResettableRESTMapper
+	mapper          meta.RESTMapper
 }
 
 func (r *realClientFactory) RESTConfig() *rest.Config {
@@ -91,12 +92,12 @@ func (r *realClientFactory) CloseIdleConnections() {
 	r.httpClient.CloseIdleConnections()
 }
 
-func initDiscoveryClient(ctx context.Context, config *rest.Config) (discovery.CachedDiscoveryInterface, error) {
+func CreateDiscoveryClient(ctx context.Context, config *rest.Config) (discovery.CachedDiscoveryInterface, error) {
 	apiHost, err := url.Parse(config.Host)
 	if err != nil {
 		return nil, err
 	}
-	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kube-cache/discovery", apiHost.Hostname())
+	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kube-cache/discovery", strings.ReplaceAll(apiHost.Host, ":", "-"))
 	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), discoveryCacheDir, "", time.Hour*24)
 	if err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func initDiscoveryClient(ctx context.Context, config *rest.Config) (discovery.Ca
 	return discovery2, nil
 }
 
-func NewClientFactory(ctx context.Context, configIn *rest.Config) (ClientFactory, error) {
+func NewClientFactoryFromConfig(ctx context.Context, configIn *rest.Config) (ClientFactory, error) {
 	restConfig := rest.CopyConfig(configIn)
 	restConfig.QPS = 10
 	restConfig.Burst = 20
@@ -114,7 +115,7 @@ func NewClientFactory(ctx context.Context, configIn *rest.Config) (ClientFactory
 		return nil, err
 	}
 
-	dc, err := initDiscoveryClient(ctx, restConfig)
+	dc, err := CreateDiscoveryClient(ctx, restConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -143,5 +144,15 @@ func NewClientFactoryFromDefaultConfig(ctx context.Context, context *string) (Cl
 		return nil, err
 	}
 
-	return NewClientFactory(ctx, config)
+	return NewClientFactoryFromConfig(ctx, config)
+}
+
+func NewClientFactory(ctx context.Context, config *rest.Config, httpClient *http.Client, dc discovery.DiscoveryInterface, mapper meta.RESTMapper) (ClientFactory, error) {
+	return &realClientFactory{
+		ctx:             ctx,
+		config:          config,
+		httpClient:      httpClient,
+		discoveryClient: dc,
+		mapper:          mapper,
+	}, nil
 }
