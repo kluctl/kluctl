@@ -1,4 +1,4 @@
-name: preview-build-binary
+name: preview-run
 
 on:
   pull_request:
@@ -37,7 +37,7 @@ jobs:
 #          name: ipfs-config
 #          path: ~/.ipfs
 
-  preview-env:
+  preview-run:
     if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
@@ -64,10 +64,7 @@ jobs:
           echo ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCtWJls6XlpszR5zMjiK7cdUnSBI/p7tWaEHykJZrlwHRepNIckPk4ftOsOfiLb+2K/TntPGa0NMWM0uccRNXJ1/hgT5uiA8MpR8d1SGV5QtVwzJkDTXN8iwcTu1zcIUoL2FvQUm/P4hHI4BdcS9GyokOnqh296RRtajnzWZlGtBHRMPt9S7eil9kl5sOuHQIsZHjYkqLb7PSyVWeeMzEEeI28L2ZDrfBBgBNiE4ibVBlRbUeArRO5coV2Vn9uafzOIXT13apo0bhacv5FEmmsEcDGelZWKVInoUQHDnsr7UQPDHS2OsdtZRCluvRYH5ZC4SvrDeuZe4AKjc8iDeNuZLlzn7cgwGZDNHJ1PwAWwEz4/yF0vshA7mfrXLhjJ4+vN4enlQqDYqvudJ3x4uKO67panc+Gmaq76mxh81bJHNnlothEs9K9WfGcXAlBBjuk/0kmIf6I1ICA/dxCKa0sAMbolZHoBuoVUszQdlVrDkwPmzNCenBX/MPDJl08FJFc= ablock@Alexanders-MacBook-Pro.local >> ~/.ssh/authorized_keys
           sudo systemctl enable ssh
           sudo systemctl start ssh
-          echo "my random bla bla" > /tmp/bla.txt
-          ipfs add /tmp/bla.txt
           ipfs p2p listen /x/ssh /ip4/127.0.0.1/tcp/22
-          ps aux
       - uses: actions/cache@v3
         with:
           path: |
@@ -83,16 +80,6 @@ jobs:
       - name: Setup Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
-      # BUILD
-      - name: Build binary
-        run: |
-          go build -o bin/kluctl cmd/main.go
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: false
-          tags: kluctl:preview
       # SETUP KIND
       - run: |
           cat <<EOF > kind-config.yaml
@@ -122,11 +109,30 @@ jobs:
       - name: Kind info
         run: |
           kubectl cluster-info
-          kubectl get pods -n kube-system
-          kubectl config view --flatten --minify
-      - name: Install ingress-nginx
+      # WRITE INFO
+      - name: Write info
         run: |
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+          mkdir -p preview-run-info
+          cd preview-run-info
+          echo "${{ github.event.number }}" > pr_number
+          echo "$IPFS_ID" > ipfs_id
+          echo "$(kubectl config view --flatten --minify)" > kubeconfig
+      - name: Store preview info as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: preview-run-info
+          path: preview-run-info
+      # BUILD
+      - name: Build binary
+        run: |
+          go build -o bin/kluctl cmd/main.go
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          load: true
+          tags: kluctl:preview
       - name: Load kluctl image into kind
         run: |
           sleep 10000
@@ -134,64 +140,18 @@ jobs:
       - name: Install Kluctl Controller
         run: |
           cd install/controller
-          ./bin/kluctl deploy --yes -a kluctl_image=kluctl -akluctl_version=preview
+          ../../bin/kluctl deploy --yes -a kluctl_image=kluctl -a kluctl_version=preview
       - name: Install Kluctl Webui
         run: |
           cd install/webui
-          ./bin/kluctl deploy --yes -a kluctl_image=kluctl -akluctl_version=preview
+          ../../bin/kluctl deploy --yes -a kluctl_image=kluctl -a kluctl_version=preview
+      - name: Run kubectl port-forward
+        run: |
+          kubectl -n kluctl-system port-forward svc/kluctl-webui 9090:8080
       - name: Listen ipfs/p2p
         run: |
-          ipfs p2p listen /x/k /ip4/172.0.0.1/tcp/6443
-          ipfs p2p listen /x/http /ip4/172.0.0.1/tcp/80
-          ipfs p2p listen /x/https /ip4/172.0.0.1/tcp/443
+          ipfs p2p listen /x/k /ip4/127.0.0.1/tcp/6443
+          ipfs p2p listen /x/kluctl-webui /ip4/127.0.0.1/tcp/9090
       - name: Sleep
         run: |
-          sleep 10000
-
-#  push-preview-docker:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v3
-#        with:
-#          fetch-depth: 0
-#      - uses: actions/cache@v3
-#        with:
-#          path: |
-#            ~/go/pkg/mod
-#            ~/.cache/go-build
-#          key: ${{ runner.os }}-push-preview-docker-${{ hashFiles('**/go.sum') }}
-#          restore-keys: |
-#            ${{ runner.os }}-push-preview-docker-
-#      - name: Set up Go
-#        uses: actions/setup-go@v4
-#        with:
-#          go-version: 1.19
-#      - name: Setup Docker Buildx
-#        id: buildx
-#        uses: docker/setup-buildx-action@v2
-#      - name: Print metadata
-#        run: |
-#          echo "tags=${{ steps.meta.outputs.tags }}"
-#          echo
-#          echo "labels=${{ steps.meta.outputs.labels }}"
-#          echo
-#      - name: Build binary
-#        run: |
-#          go build -o bin/kluctl cmd/main.go
-#      - name: Build and push Docker image
-#        uses: docker/build-push-action@v4
-#        with:
-#          context: .
-#          push: true
-#          tags: ${{ steps.meta.outputs.tags }}
-#          labels: ${{ steps.meta.outputs.labels }}
-#          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-#          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-#      - name: Post link
-#        if: ${{ github.event.issue != 0 }}
-#        uses: mshick/add-pr-comment@v2
-#        with:
-#          message: |
-#            **Hello**
-#            🌏Here is the link to your preview environment: https://preview-pr-${{ github.event.issue }}.kluctl-demo.kluctl.io
+          sleep 1800
