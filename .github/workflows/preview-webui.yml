@@ -69,8 +69,8 @@ jobs:
       - name: ipfs init
         run: |
           ipfs config --json Experimental.Libp2pStreamMounting true
-          ipfs init
           ipfs id
+          ipfs init
           ipfs daemon &
           echo "IPFS_ID=$(ipfs id -f "<id>")" >> $GITHUB_ENV
       # BUILD
