@@ -13,7 +13,7 @@ env:
 
 jobs:
   push-preview-docker:
-    if: ${{ github.event.label.name == 'bug' }}
+    if: ${{ github.event.label.name == 'preview' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
