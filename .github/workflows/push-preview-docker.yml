@@ -2,7 +2,9 @@ name: push-preview-docker
 
 on:
   pull_request:
-    types: [ labeled ]
+    types: [labeled, synchronize]
+    branches:
+      - main
 
 permissions:
   packages: write
@@ -13,7 +15,7 @@ env:
 
 jobs:
   push-preview-docker:
-    if: ${{ github.event.label.name == 'preview' }}
+    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
