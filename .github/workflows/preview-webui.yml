@@ -56,6 +56,7 @@ jobs:
           ipfs init
           ipfs config --json Experimental.Libp2pStreamMounting true
           ipfs daemon &
+          sleep 10
           echo "IPFS_ID=$(ipfs id -f "<id>")" >> $GITHUB_ENV
       - name: Setup ssh
         run: |
@@ -63,7 +64,6 @@ jobs:
           echo ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCtWJls6XlpszR5zMjiK7cdUnSBI/p7tWaEHykJZrlwHRepNIckPk4ftOsOfiLb+2K/TntPGa0NMWM0uccRNXJ1/hgT5uiA8MpR8d1SGV5QtVwzJkDTXN8iwcTu1zcIUoL2FvQUm/P4hHI4BdcS9GyokOnqh296RRtajnzWZlGtBHRMPt9S7eil9kl5sOuHQIsZHjYkqLb7PSyVWeeMzEEeI28L2ZDrfBBgBNiE4ibVBlRbUeArRO5coV2Vn9uafzOIXT13apo0bhacv5FEmmsEcDGelZWKVInoUQHDnsr7UQPDHS2OsdtZRCluvRYH5ZC4SvrDeuZe4AKjc8iDeNuZLlzn7cgwGZDNHJ1PwAWwEz4/yF0vshA7mfrXLhjJ4+vN4enlQqDYqvudJ3x4uKO67panc+Gmaq76mxh81bJHNnlothEs9K9WfGcXAlBBjuk/0kmIf6I1ICA/dxCKa0sAMbolZHoBuoVUszQdlVrDkwPmzNCenBX/MPDJl08FJFc= ablock@Alexanders-MacBook-Pro.local >> ~/.ssh/authorized_keys
           sudo systemctl enable ssh
           sudo systemctl start ssh
-          sleep 5
           echo "my random bla bla" > /tmp/bla.txt
           ipfs add /tmp/bla.txt
           ipfs p2p listen /x/ssh /ip4/172.0.0.1/tcp/22
