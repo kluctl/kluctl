@@ -194,12 +194,12 @@ export const TargetsView = () => {
                                     <svg
                                         xmlns='http://www.w3.org/2000/svg'
                                         fill='none'
-                                        style={{
-                                            height: `${2 * circleRadius + strokeWidth}`,
-                                            width: '100%'
-                                        }}
+                                        height={`${2 * circleRadius + strokeWidth}px`}
+                                        width='100%'
                                     >
                                         <svg
+                                            height='100%'
+                                            width='100%'
                                             viewBox={`0 0 100 ${2 * circleRadius + strokeWidth}`}
                                             fill='none'
                                             preserveAspectRatio='none'
@@ -214,18 +214,18 @@ export const TargetsView = () => {
                                             />
                                         </svg>
                                         <svg
-                                            viewBox={`0 0 ${2 * circleRadius + strokeWidth} ${2 * circleRadius + strokeWidth}`}
                                             fill='none'
-                                            x={`calc(-50% + ${circleRadius + strokeWidth / 2}px)`}
+                                            height='100%'
+                                            width='100%'
                                         >
-                                            <Circle cx='50%' cy='50%' />
+                                            <Circle cx={circleRadius + strokeWidth / 2} cy='50%' />
                                         </svg>
                                         <svg
-                                            viewBox={`0 0 ${2 * circleRadius + strokeWidth} ${2 * circleRadius + strokeWidth}`}
                                             fill='none'
-                                            x={`calc(50% - ${circleRadius + strokeWidth / 2}px)`}
+                                            height='100%'
+                                            width='100%'
                                         >
-                                            <Circle cx={circleRadius + strokeWidth / 2} cy={circleRadius + strokeWidth / 2} />
+                                            <Circle cx={`calc(100% - ${circleRadius + strokeWidth / 2}px)`} cy='50%' />
                                         </svg>
                                     </svg>
                                 </Box>
