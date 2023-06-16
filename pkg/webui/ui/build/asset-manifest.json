@@ -28,6 +28,7 @@
     "static/media/include.svg": "static/media/include.svg",
     "static/media/kluctl-logo.svg": "static/media/kluctl-logo.svg",
     "static/media/kluctl-text.svg": "static/media/kluctl-text.svg",
+    "static/media/logout.svg": "static/media/logout.svg",
     "static/media/nunito-cyrillic-ext-wght-normal.woff2": "static/media/nunito-cyrillic-ext-wght-normal.woff2",
     "static/media/nunito-cyrillic-wght-normal.woff2": "static/media/nunito-cyrillic-wght-normal.woff2",
     "static/media/nunito-latin-ext-wght-normal.woff2": "static/media/nunito-latin-ext-wght-normal.woff2",

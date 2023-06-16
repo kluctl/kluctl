@@ -42,7 +42,7 @@ export const AppContext = createContext<AppContextProps>({
 
 export const ApiContext = createContext<Api>(new StaticApi())
 
-const LoggedInApp = (props: {onUnauthorized: () => void}) => {
+const LoggedInApp = (props: { onUnauthorized: () => void }) => {
     const api = useContext(ApiContext)
     const [filters, setFilters] = useState<ActiveFilters>()
 
@@ -75,7 +75,7 @@ const LoggedInApp = (props: {onUnauthorized: () => void}) => {
         console.log("starting listenResults")
         let cancel: Promise<() => void>
         cancel = api.listenUpdates(undefined, undefined, msg => {
-            switch(msg.type) {
+            switch (msg.type) {
                 case "update_summary":
                     updateSummary(msg.summary)
                     break
@@ -117,7 +117,11 @@ const LoggedInApp = (props: {onUnauthorized: () => void}) => {
         <AppContext.Provider value={appContext}>
             <ThemeProvider theme={light}>
                 <Box width={"100%"} height={"100%"}>
-                    <LeftDrawer content={<Outlet context={outletContext}/>} context={outletContext}/>
+                    <LeftDrawer
+                        content={<Outlet context={outletContext} />}
+                        context={outletContext}
+                        logout={onUnauthorized}
+                    />
                 </Box>
             </ThemeProvider>
         </AppContext.Provider>
@@ -193,15 +197,17 @@ const App = () => {
     }, [])
 
     if (needToken && !getToken()) {
-        return <Login setToken={handleLoginSucceeded} />
+        return <ThemeProvider theme={light}>
+            <Login setToken={handleLoginSucceeded} />
+        </ThemeProvider>
     }
 
     if (!api) {
-        return <Loading/>
+        return <Loading />
     }
 
     return <ApiContext.Provider value={api}>
-        <LoggedInApp onUnauthorized={onUnauthorized}/>
+        <LoggedInApp onUnauthorized={onUnauthorized} />
     </ApiContext.Provider>
 }
 

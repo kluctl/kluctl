@@ -13,7 +13,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AppOutletContext } from "./App";
-import { ArrowLeftIcon, KluctlLogo, KluctlText, SearchIcon, TargetsIcon } from '../icons/Icons';
+import { ArrowLeftIcon, KluctlLogo, KluctlText, LogoutIcon, SearchIcon, TargetsIcon } from '../icons/Icons';
 import { dark } from './theme';
 import { Typography } from '@mui/material';
 
@@ -96,8 +96,9 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
     }),
 );
 
-function Item(props: { text: string, open: boolean, icon: React.ReactNode, to: string }) {
-    return <ListItem component={Link} to={props.to} key={props.text} disablePadding sx={{ display: 'block', margin: '14px 0' }}>
+function Item(props: { text: string, open: boolean, icon: React.ReactNode, to?: string, selected?: boolean, onClick?: () => void }) {
+    const linkProps = props.to ? { component: Link, to: props.to } : undefined;
+    return <ListItem disablePadding sx={{ display: 'block', margin: '14px 0' }} onClick={props.onClick} {...linkProps}>
         <ListItemButton
             sx={{
                 height: '60px',
@@ -110,6 +111,8 @@ function Item(props: { text: string, open: boolean, icon: React.ReactNode, to: s
             <ListItemIcon
                 sx={{
                     minWidth: 0,
+                    width: '48px',
+                    height: '48px',
                     flex: '0 0 auto',
                     justifyContent: 'center',
                     alignItems: 'center',
@@ -125,13 +128,18 @@ function Item(props: { text: string, open: boolean, icon: React.ReactNode, to: s
                     fontSize: '24px',
                     lineHeight: '33px',
                     letterSpacing: '1px',
+                    color: props.selected ? undefined : '#8A8E91'
                 }}
             />
         </ListItemButton>
     </ListItem>
 }
 
-export default function LeftDrawer(props: { content: React.ReactNode, context: AppOutletContext }) {
+export default function LeftDrawer(props: {
+    content: React.ReactNode,
+    context: AppOutletContext,
+    logout: () => void
+}) {
     const [open, setOpen] = useState(true);
     const location = useLocation()
     const navigate = useNavigate();
@@ -213,9 +221,18 @@ export default function LeftDrawer(props: { content: React.ReactNode, context: A
                         </IconButton>
                     </DrawerHeader>
                     <Divider />
-                    <List sx={{ padding: '10px 0 0 0' }}>
-                        <Item text={"Targets"} open={open} icon={<TargetsIcon />} to={"targets"} />
-                    </List>
+                    <Box display='flex' flexDirection='column' flex='1 1 auto' pt='10px'>
+                        <Box flex='1 1 auto'>
+                            <List sx={{ padding: 0 }}>
+                                <Item text={"Targets"} open={open} icon={<TargetsIcon />} to={"targets"} selected />
+                            </List>
+                        </Box>
+                        <Box flex='0 0 auto'>
+                            <List sx={{ padding: 0 }}>
+                                <Item text={"Log Out"} open={open} icon={<LogoutIcon />} onClick={props.logout} />
+                            </List>
+                        </Box>
+                    </Box>
                 </Drawer>
             </ThemeProvider>
             <Box component="main" sx={{ flexGrow: 1, height: '100%', overflow: 'hidden' }} minWidth={0}>
