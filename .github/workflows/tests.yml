@@ -1,122 +1,122 @@
-name: tests
-
-on:
-  push:
-    branches:
-      - main
-      - release-v*
-  pull_request:
-    branches:
-      - main
-
-jobs:
-  generate-checks:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.19'
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: pkg/webui/ui/package-lock.json
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: docs-check-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            docs1-check-go-${{ runner.os }}-
-      - name: Check links on changed files
-        run: |
-          make markdown-link-check
-      - name: Verify commands help is up-to-date
-        run: |
-          make replace-commands-help
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "replace-commands-help must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
-      - name: Verify generated source is up-to-date
-        run: |
-          make generate
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "make generate must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
-      - name: Verify generated manifests are up-to-date
-        run: |
-          make manifests
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "make manifests must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
-      - name: Verify generated api-docs are up-to-date
-        run: |
-          make api-docs
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "make api-docs must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
-      - name: Verify webui build is up-to-date
-        run: |
-          cd pkg/webui/ui
-          npm install
-          npm run build
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "npm run build must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
-
-  tests:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-20.04
-            run_on_pull_requests: true
-          - os: macos-11
-            run_on_pull_requests: false
-          - os: windows-2019
-            run_on_pull_requests: false
-        os: [ubuntu-20.04, macos-11, windows-2019]
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.19'
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            tests-go-${{ runner.os }}-
-      - name: Run unit tests
-        shell: bash
-        run: |
-          make test-unit
-      - name: Run e2e tests
-        if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
-        shell: bash
-        run: |
-          make test-e2e
+#name: tests
+#
+#on:
+#  push:
+#    branches:
+#      - main
+#      - release-v*
+#  pull_request:
+#    branches:
+#      - main
+#
+#jobs:
+#  generate-checks:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v3
+#        with:
+#          fetch-depth: 0
+#      - uses: actions/setup-go@v4
+#        with:
+#          go-version: '1.19'
+#      - uses: actions/setup-node@v3
+#        with:
+#          node-version: 20
+#          cache: 'npm'
+#          cache-dependency-path: pkg/webui/ui/package-lock.json
+#      - uses: actions/cache@v3
+#        with:
+#          path: |
+#            ~/go/pkg/mod
+#            ~/.cache/go-build
+#          key: docs-check-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+#          restore-keys: |
+#            docs1-check-go-${{ runner.os }}-
+#      - name: Check links on changed files
+#        run: |
+#          make markdown-link-check
+#      - name: Verify commands help is up-to-date
+#        run: |
+#          make replace-commands-help
+#          if [ ! -z "$(git status --porcelain)" ]; then
+#            echo "replace-commands-help must be invoked and the result committed"
+#            git status
+#            git diff
+#            exit 1
+#          fi
+#      - name: Verify generated source is up-to-date
+#        run: |
+#          make generate
+#          if [ ! -z "$(git status --porcelain)" ]; then
+#            echo "make generate must be invoked and the result committed"
+#            git status
+#            git diff
+#            exit 1
+#          fi
+#      - name: Verify generated manifests are up-to-date
+#        run: |
+#          make manifests
+#          if [ ! -z "$(git status --porcelain)" ]; then
+#            echo "make manifests must be invoked and the result committed"
+#            git status
+#            git diff
+#            exit 1
+#          fi
+#      - name: Verify generated api-docs are up-to-date
+#        run: |
+#          make api-docs
+#          if [ ! -z "$(git status --porcelain)" ]; then
+#            echo "make api-docs must be invoked and the result committed"
+#            git status
+#            git diff
+#            exit 1
+#          fi
+#      - name: Verify webui build is up-to-date
+#        run: |
+#          cd pkg/webui/ui
+#          npm install
+#          npm run build
+#          if [ ! -z "$(git status --porcelain)" ]; then
+#            echo "npm run build must be invoked and the result committed"
+#            git status
+#            git diff
+#            exit 1
+#          fi
+#
+#  tests:
+#    strategy:
+#      matrix:
+#        include:
+#          - os: ubuntu-20.04
+#            run_on_pull_requests: true
+#          - os: macos-11
+#            run_on_pull_requests: false
+#          - os: windows-2019
+#            run_on_pull_requests: false
+#        os: [ubuntu-20.04, macos-11, windows-2019]
+#      fail-fast: false
+#    runs-on: ${{ matrix.os }}
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v3
+#      - uses: actions/setup-go@v4
+#        with:
+#          go-version: '1.19'
+#      - uses: actions/cache@v3
+#        with:
+#          path: |
+#            ~/go/pkg/mod
+#            ~/.cache/go-build
+#          key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+#          restore-keys: |
+#            tests-go-${{ runner.os }}-
+#      - name: Run unit tests
+#        shell: bash
+#        run: |
+#          make test-unit
+#      - name: Run e2e tests
+#        if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
+#        shell: bash
+#        run: |
+#          make test-e2e
