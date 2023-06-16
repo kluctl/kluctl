@@ -63,14 +63,14 @@ jobs:
       # IPFS
       - name: Install ipfs
         run: |
-          wget https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+          wget -q https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
           tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
           ./kubo/install.sh
       - name: ipfs init
         run: |
+          ipfs init
           ipfs config --json Experimental.Libp2pStreamMounting true
           ipfs id
-          ipfs init
           ipfs daemon &
           echo "IPFS_ID=$(ipfs id -f "<id>")" >> $GITHUB_ENV
       # BUILD
