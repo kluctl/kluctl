@@ -107,16 +107,13 @@ jobs:
                   hostPort: 443
                   protocol: TCP
           EOF
-      - uses: engineerd/setup-kind@v0.5.0
-        with:
-          config: kind-config.yaml
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          kind create cluster --config kind-config.yaml
       - name: Kind info
         run: |
           kubectl cluster-info
           kubectl get pods -n kube-system
-          echo "current-context:" $(kubectl config current-context)
-          echo "environment-kubeconfig:" ${KUBECONFIG}
-          cat ${KUBECONFIG}
+          kubectl config view --flatten --minify
       - name: Install ingress-nginx
         run: |
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
