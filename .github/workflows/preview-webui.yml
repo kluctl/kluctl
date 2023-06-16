@@ -70,7 +70,6 @@ jobs:
         run: |
           ipfs init
           ipfs config --json Experimental.Libp2pStreamMounting true
-          ipfs id
           ipfs daemon &
           echo "IPFS_ID=$(ipfs id -f "<id>")" >> $GITHUB_ENV
       # BUILD
@@ -119,7 +118,7 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
       - name: Load kluctl image into kind
         run: |
-          kind load docker-image kluctl:local
+          kind load docker-image kluctl:preview
       - name: Install Kluctl Controller
         run: |
           cd install/controller
