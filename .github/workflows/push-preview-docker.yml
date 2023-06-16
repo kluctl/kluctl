@@ -56,7 +56,7 @@ jobs:
           echo
       - name: Build binary
         run: |
-          go build -o bin/kluctl$(EXE) cmd/main.go
+          go build -o bin/kluctl cmd/main.go
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
