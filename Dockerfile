@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
 
-ARG BIN_PATH=kluctl
+ARG BIN_PATH=bin/kluctl
 COPY $BIN_PATH /usr/bin/
 
 USER 65532:65532

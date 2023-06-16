@@ -3,7 +3,7 @@ before:
     - go mod tidy
 builds:
   - <<: &build_defaults
-      binary: kluctl
+      binary: bin/kluctl
       env:
         - CGO_ENABLED=0
       main: ./cmd
