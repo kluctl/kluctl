@@ -36,6 +36,7 @@ import { ReactComponent as BracketsSquareIconSvg } from './brackets-square.svg';
 import { ReactComponent as FileIconSvg } from './file.svg';
 import { ReactComponent as ResultIconSvg } from './result.svg';
 import { ReactComponent as IncludeIconSvg } from './include.svg';
+import { ReactComponent as LogoutIconSvg } from './logout.svg';
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -195,4 +196,8 @@ export const ResultIcon = () => {
 
 export const IncludeIcon = () => {
     return <IncludeIconSvg width="30px" height="30px" />
+}
+
+export const LogoutIcon = () => {
+    return <LogoutIconSvg width="40px" height="40px" />
 }

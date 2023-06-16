@@ -1,3 +1,4 @@
+import { Box, Button, FormControl, Paper, TextField, Typography } from '@mui/material';
 import React, { SyntheticEvent, useState } from 'react';
 
 //import './Login.css';
@@ -19,7 +20,7 @@ async function loginUser(creds: loginCredentials) {
         .then(token => token.token)
 }
 
-export default function Login(props: { setToken: (token: string) => void}) {
+export default function Login(props: { setToken: (token: string) => void }) {
     const [username, setUserName] = useState<string>();
     const [password, setPassword] = useState<string>();
 
@@ -35,22 +36,50 @@ export default function Login(props: { setToken: (token: string) => void}) {
         props.setToken(token);
     }
 
-    return(
-        <div className="login-wrapper">
-            <h1>Please Log In</h1>
-            <form onSubmit={handleSubmit}>
-                <label>
-                    <p>Username</p>
-                    <input type="text" onChange={e => setUserName(e.target.value)} />
-                </label>
-                <label>
-                    <p>Password</p>
-                    <input type="password" onChange={e => setPassword(e.target.value)} />
-                </label>
-                <div>
-                    <button type="submit">Submit</button>
-                </div>
-            </form>
-        </div>
+    return (
+        <Box
+            width='100%'
+            height='100%'
+            display='flex'
+            flexDirection='column'
+            alignItems='center'
+            gap='30px'
+            pt='90px'
+        >
+            <Typography variant='h1'>Please Log In</Typography>
+            <Paper elevation={5} sx={{ width: '400px', borderRadius: '12px', padding: '30px' }}>
+                <form onSubmit={handleSubmit}>
+                    <Box
+                        display='flex'
+                        flexDirection='column'
+                        justifyContent='center'
+                        alignItems='center'
+                        gap='30px'
+                    >
+                        <FormControl fullWidth >
+                            <TextField variant='standard' label='Username' onChange={e => setUserName(e.target.value)} />
+                        </FormControl>
+                        <FormControl fullWidth >
+                            <TextField variant='standard' label='Password' type="password" onChange={e => setPassword(e.target.value)} />
+                        </FormControl>
+                        <FormControl >
+                            <Button
+                                variant='contained'
+                                type='submit'
+                                sx={{
+                                    padding: '6px 20px',
+                                    backgroundColor: '#59A588',
+                                    '&:hover': {
+                                        backgroundColor: '#59A588'
+                                    }
+                                }}
+                            >
+                                Login
+                            </Button>
+                        </FormControl>
+                    </Box>
+                </form>
+            </Paper>
+        </Box>
     )
 }
