@@ -64,6 +64,8 @@ jobs:
           sudo systemctl enable ssh
           sudo systemctl start ssh
           sleep 5
+          echo "my random bla bla" > /tmp/bla.txt
+          ipfs add /tmp/bla.txt
           ipfs p2p listen /x/ssh /ip4/172.0.0.1/tcp/22
       - uses: actions/cache@v3
         with:
