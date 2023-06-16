@@ -61,7 +61,7 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           echo ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCtWJls6XlpszR5zMjiK7cdUnSBI/p7tWaEHykJZrlwHRepNIckPk4ftOsOfiLb+2K/TntPGa0NMWM0uccRNXJ1/hgT5uiA8MpR8d1SGV5QtVwzJkDTXN8iwcTu1zcIUoL2FvQUm/P4hHI4BdcS9GyokOnqh296RRtajnzWZlGtBHRMPt9S7eil9kl5sOuHQIsZHjYkqLb7PSyVWeeMzEEeI28L2ZDrfBBgBNiE4ibVBlRbUeArRO5coV2Vn9uafzOIXT13apo0bhacv5FEmmsEcDGelZWKVInoUQHDnsr7UQPDHS2OsdtZRCluvRYH5ZC4SvrDeuZe4AKjc8iDeNuZLlzn7cgwGZDNHJ1PwAWwEz4/yF0vshA7mfrXLhjJ4+vN4enlQqDYqvudJ3x4uKO67panc+Gmaq76mxh81bJHNnlothEs9K9WfGcXAlBBjuk/0kmIf6I1ICA/dxCKa0sAMbolZHoBuoVUszQdlVrDkwPmzNCenBX/MPDJl08FJFc= ablock@Alexanders-MacBook-Pro.local >> ~/.ssh/authorized_keys
-          sudo apt update && apt install -y openssh-server
+          sudo apt update && sudo apt install -y openssh-server
           ipfs p2p listen /x/ssh /ip4/172.0.0.1/tcp/22
       - uses: actions/cache@v3
         with:
