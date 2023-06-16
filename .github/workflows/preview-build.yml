@@ -5,10 +5,13 @@ on:
     types: [labeled, synchronize]
     branches:
       - main
+  push:
+    branches:
+      - main
 
 jobs:
   preview-build:
-    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+    #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

@@ -1,62 +1,62 @@
-name: goreleaser-nightly
-
-on:
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: write
-  packages: write
-
-concurrency: goreleaser-nightly
-
-jobs:
-  goreleaser:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: Fetch all tags
-        run: git fetch --force --tags
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.19
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v2
-      - name: Setup Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Setup Syft
-        uses: anchore/sbom-action/download-syft@v0
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: kluctlbot
-          password: ${{ secrets.GHCR_TOKEN }}
-      - uses: actions/cache@v3
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-goreleaser-nightly-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-goreleaser-nightly-
-      - name: Set .goreleaser.yaml's release.draft=false
-        shell: bash
-        run: |
-          cat .goreleaser.yaml | sed 's/draft: true/draft: false/g' > .goreleaser.yaml.tmp && mv .goreleaser.yaml.tmp .goreleaser.yaml
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          distribution: goreleaser-pro
-          version: latest
-          args: release --nightly --clean
-        env:
-          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+#name: goreleaser-nightly
+#
+#on:
+#  push:
+#    branches:
+#      - main
+#
+#permissions:
+#  contents: write
+#  packages: write
+#
+#concurrency: goreleaser-nightly
+#
+#jobs:
+#  goreleaser:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v3
+#        with:
+#          fetch-depth: 0
+#      - name: Fetch all tags
+#        run: git fetch --force --tags
+#      - name: Set up Go
+#        uses: actions/setup-go@v4
+#        with:
+#          go-version: 1.19
+#      - name: Setup QEMU
+#        uses: docker/setup-qemu-action@v2
+#      - name: Setup Docker Buildx
+#        id: buildx
+#        uses: docker/setup-buildx-action@v2
+#      - name: Setup Syft
+#        uses: anchore/sbom-action/download-syft@v0
+#      - name: Login to GitHub Container Registry
+#        uses: docker/login-action@v2
+#        with:
+#          registry: ghcr.io
+#          username: kluctlbot
+#          password: ${{ secrets.GHCR_TOKEN }}
+#      - uses: actions/cache@v3
+#        with:
+#          path: |
+#            ~/go/pkg/mod
+#            ~/.cache/go-build
+#          key: ${{ runner.os }}-goreleaser-nightly-${{ hashFiles('**/go.sum') }}
+#          restore-keys: |
+#            ${{ runner.os }}-goreleaser-nightly-
+#      - name: Set .goreleaser.yaml's release.draft=false
+#        shell: bash
+#        run: |
+#          cat .goreleaser.yaml | sed 's/draft: true/draft: false/g' > .goreleaser.yaml.tmp && mv .goreleaser.yaml.tmp .goreleaser.yaml
+#      - name: Run GoReleaser
+#        uses: goreleaser/goreleaser-action@v4
+#        with:
+#          distribution: goreleaser-pro
+#          version: latest
+#          args: release --nightly --clean
+#        env:
+#          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
