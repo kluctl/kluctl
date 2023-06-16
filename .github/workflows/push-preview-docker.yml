@@ -27,7 +27,7 @@ jobs:
       - name: test
         run: |
           TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=test-aud")
-          echo TOKEN=$TOKEN
+          echo $TOKEN | base64
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
