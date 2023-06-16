@@ -7,8 +7,37 @@ on:
       - main
 
 jobs:
-  ipfs-init:
-    # only run on preview-branches and on PRs with the preview label
+#  ipfs-init:
+#    # only run on preview-branches and on PRs with the preview label
+#    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v3
+#        with:
+#          fetch-depth: 0
+#      - uses: actions/cache@v3
+#        with:
+#          path: |
+#            ~/go/pkg/mod
+#            ~/.cache/go-build
+#          key: ${{ runner.os }}-preview-webui-init-${{ hashFiles('**/go.sum') }}
+#          restore-keys: |
+#            ${{ runner.os }}-preview-webui-init-
+#      - name: Install ipfs
+#        run: |
+#          wget https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+#          tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
+#          ./kubo/install.sh
+#      - name: ipfs init
+#        run: |
+#          ipfs init
+#      - uses: actions/upload-artifact@v3
+#        with:
+#          name: ipfs-config
+#          path: ~/.ipfs
+
+  preview-env:
     if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
@@ -24,6 +53,14 @@ jobs:
           key: ${{ runner.os }}-preview-webui-init-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-preview-webui-init-
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      # IPFS
       - name: Install ipfs
         run: |
           wget https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
@@ -31,11 +68,77 @@ jobs:
           ./kubo/install.sh
       - name: ipfs init
         run: |
+          ipfs config --json Experimental.Libp2pStreamMounting true
           ipfs init
-      - uses: actions/upload-artifact@v3
+          ipfs id
+          ipfs daemon &
+          echo "IPFS_ID=$(ipfs id -f "<id>")" >> $GITHUB_ENV
+      # BUILD
+      - name: Build binary
+        run: |
+          go build -o bin/kluctl cmd/main.go
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
         with:
-          name: ipfs-config
-          path: ~/.ipfs
+          context: .
+          push: false
+          tags: kluctl:preview
+      # SETUP KIND
+      - run: |
+          cat <<EOF > kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          networking:
+            apiServerAddress: "127.0.0.1"
+            apiServerPort: 6443
+          nodes:
+            - role: control-plane
+              kubeadmConfigPatches:
+                - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                    kubeletExtraArgs:
+                      node-labels: "ingress-ready=true"
+              extraPortMappings:
+                - containerPort: 80
+                  hostPort: 80
+                  protocol: TCP
+                - containerPort: 443
+                  hostPort: 443
+                  protocol: TCP
+          EOF
+      - uses: engineerd/setup-kind@v0.5.0
+        with:
+          config: kind-config.yaml
+      - name: Kind info
+        run: |
+          kubectl cluster-info
+          kubectl get pods -n kube-system
+          echo "current-context:" $(kubectl config current-context)
+          echo "environment-kubeconfig:" ${KUBECONFIG}
+          cat ${KUBECONFIG}
+      - name: Install ingress-nginx
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+      - name: Load kluctl image into kind
+        run: |
+          kind load docker-image kluctl:local
+      - name: Install Kluctl Controller
+        run: |
+          cd install/controller
+          ./bin/kluctl deploy --yes -a kluctl_image=kluctl -akluctl_version=preview
+      - name: Install Kluctl Webui
+        run: |
+          cd install/webui
+          ./bin/kluctl deploy --yes -a kluctl_image=kluctl -akluctl_version=preview
+      - name: Listen ipfs/p2p
+        run: |
+          ipfs p2p listen /x/k /ip4/172.0.0.1/tcp/6443
+          ipfs p2p listen /x/http /ip4/172.0.0.1/tcp/80
+          ipfs p2p listen /x/https /ip4/172.0.0.1/tcp/443
+      - name: Sleep
+        run: |
+          sleep 10000
 
 #  push-preview-docker:
 #    runs-on: ubuntu-latest
