@@ -135,7 +135,6 @@ jobs:
           tags: kluctl:preview
       - name: Load kluctl image into kind
         run: |
-          sleep 10000
           kind load docker-image kluctl:preview
       - name: Install Kluctl Controller
         run: |
