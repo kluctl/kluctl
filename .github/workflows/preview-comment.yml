@@ -28,7 +28,7 @@ jobs:
                  run_id: context.payload.workflow_run.id,
               });
               matchArtifact = allArtifacts.data.artifacts.find((artifact) => {
-                return artifact.name == "preview-run-info"
+                return artifact.name == "ipfs-config"
               });
               if (matchArtifact) {
                 console.log("found artifact " + matchArtifact.id)
@@ -44,14 +44,16 @@ jobs:
                archive_format: 'zip',
             });
             let fs = require('fs');
-            fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/preview-run-info.zip`, Buffer.from(download.data));
+            fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/ipfs-config.zip`, Buffer.from(download.data));
       - name: 'Unzip artifact'
-        run: unzip preview-run-info.zip
+        run: unzip ipfs-config.zip
       - run: |
           ls -lah
           find
       - name: Build comment text
         run: |
+          ipfs_id=$(cat ~/.ipfs/config | jq '.Identity.PeerID' -r)
+
           cat <<EOF > comment.md
           # 🤖 Preview Environment is starting up and will be reachable soon.
           ipfs-id: `$(cat ipfs_id)`
@@ -60,12 +62,7 @@ jobs:
           http: `ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
           ssh: `ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
           k8s: `ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
-          
-          # kubeconfig
-          ```
-          $(cat kubeconfig)
-          ```
-          EOF
+
       - uses: mshick/add-pr-comment@v2
         with:
           message-id: preview-run-info
