@@ -45,7 +45,7 @@ jobs:
   preview-run:
     #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
-    needs: init-ipfs
+    needs: ipfs-init
     steps:
       # DOWNLOAD IPFS CONFIG
       - name: Download ipfs-config
