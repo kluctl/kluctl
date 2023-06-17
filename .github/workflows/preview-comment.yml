@@ -1,0 +1,33 @@
+name: preview-comment
+
+on:
+  workflow_run:
+    workflows:
+      - preview-build
+    types:
+      - completed
+
+jobs:
+  preview-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan logs for IPFS ID
+        run: |
+          exit 1
+      # COMMENT
+      - name: Build comment text
+        run: |
+          cat <<EOF > comment.md
+          # 🤖 Preview Environment is starting up and will be reachable soon.
+          ipfs-id: `$IPFS_ID`
+          
+          # ipfs forward commands
+          http: `ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
+          ssh: `ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
+          k8s: `ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
+      - uses: mshick/add-pr-comment@v2
+        with:
+          message-id: preview-run-info
+          message-path: |
+            comment.md
+

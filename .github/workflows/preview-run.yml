@@ -1,11 +1,13 @@
-name: preview-comment
+name: preview-run
 
 on:
-  workflow_run:
-    workflows:
-      - preview-build
-    types:
-      - completed
+  pull_request:
+    types: [labeled, synchronize]
+    branches:
+      - main
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -13,9 +15,10 @@ permissions:
 
 jobs:
   preview-run:
+    #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
-      # IPFS
+      # SETUP IPFS
       - name: Install ipfs
         run: |
           wget -q https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
@@ -65,56 +68,41 @@ jobs:
       - name: Kind info
         run: |
           kubectl cluster-info
-      # COMMENT
-      - name: Build comment text
+      # BUILD
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-preview-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-preview-build-
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Build binary
         run: |
-          cat <<EOF > comment.md
-          # 🤖 Preview Environment is starting up and will be reachable soon.
-          ipfs-id: `$IPFS_ID`
-          
-          # ipfs forward commands
-          http: `ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
-          ssh: `ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
-          k8s: `ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
-      - uses: mshick/add-pr-comment@v2
+          go build -o bin/kluctl cmd/main.go
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
         with:
-          message-id: preview-run-info
-          message-path: |
-            comment.md
+          context: .
+          push: false
+          load: true
+          tags: kluctl:preview
       # LOAD IMAGE
-      - name: Download image
-        uses: actions/github-script@v6
-        with:
-          script: |
-            let matchArtifact = undefined
-            console.log("do listWorkflowRunArtifacts")
-            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               run_id: context.payload.workflow_run.id,
-            });
-            matchArtifact = allArtifacts.data.artifacts.find((artifact) => {
-              return artifact.name == "kluctl-preview-image"
-            });
-            if (matchArtifact) {
-              console.log("found artifact " + matchArtifact.id)
-              break
-            }
-            console.log("artifact not found, retrying")
-            await new Promise(r => setTimeout(r, 5000));
-          
-            let download = await github.rest.actions.downloadArtifact({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               artifact_id: matchArtifact.id,
-               archive_format: 'zip',
-            });
-            let fs = require('fs');
-            fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/kluctl-preview-image.zip`, Buffer.from(download.data));
       - name: Load image to Kind
         run: |
           unzip kluctl-preview-image.zip
-          kind load image-archive kluctl-preview-image.tar
+          kind load docker-archive kluctl:preview
       # INSTALL
       - name: Install Kluctl Controller
         run: |
