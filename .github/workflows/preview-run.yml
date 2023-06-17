@@ -31,7 +31,7 @@ jobs:
       - name: compress and encrypt ipfs folder
         run: |
           tar czf ipfs.tar.gz ~/.ipfs
-          gpg --batch --passphrase $GITHUB_TOKEN -c ipfs.tar.gz
+          gpg --batch --passphrase $(echo $GITHUB_TOKEN | base64) -c ipfs.tar.gz
           ipfs id -f "<id>" > ./ipfs_id
       - uses: actions/upload-artifact@v3
         with:
@@ -54,7 +54,7 @@ jobs:
           name: ipfs-config
       - name: Decrypt and extract ipfs-config
         run: |
-          gpg --batch --passphrase $GITHUB_TOKEN -d ipfs.tar.gz.gpg -o ipfs.tar.gz
+          gpg --batch --passphrase $(echo $GITHUB_TOKEN | base64) -d ipfs.tar.gz.gpg -o ipfs.tar.gz
           tar xzf -C $HOME ipfs.tar.gz
           ls -lah ~
           ls -lah ~/.ipfs
