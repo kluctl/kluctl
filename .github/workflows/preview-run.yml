@@ -16,7 +16,7 @@ permissions:
 jobs:
   ipfs-init:
     # only run on preview-branches and on PRs with the preview label
-    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+    #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
       - name: Install ipfs
