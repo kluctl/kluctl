@@ -14,10 +14,22 @@ permissions:
   pull-requests: write
 
 jobs:
-  preview-run:
+  blub:
     #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
+      - name: blub
+        run: |
+          echo $GITHUB_TOKEN | sha256sum
+
+  preview-run:
+    #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+    runs-on: ubuntu-latest
+    needs: blub
+    steps:
+      - name: blub
+        run: |
+          echo $GITHUB_TOKEN | sha256sum
       # SETUP IPFS
       - name: Install ipfs
         run: |
