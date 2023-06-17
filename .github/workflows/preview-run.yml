@@ -102,7 +102,7 @@ jobs:
       - name: Load image to Kind
         run: |
           unzip kluctl-preview-image.zip
-          kind load docker-archive kluctl:preview
+          kind load docker-image kluctl:preview
       # INSTALL
       - name: Install Kluctl Controller
         run: |
