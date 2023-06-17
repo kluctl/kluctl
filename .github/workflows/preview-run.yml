@@ -14,22 +14,50 @@ permissions:
   pull-requests: write
 
 jobs:
-  blub:
-    #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+  ipfs-init:
+    # only run on preview-branches and on PRs with the preview label
+    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
-      - name: blub
+      - name: Install ipfs
         run: |
-          echo $GITHUB_TOKEN | sha256sum
+          wget https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+          tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
+          ./kubo/install.sh
+      - name: ipfs init
+        run: |
+          ipfs init
+          ipfs config --json Experimental.Libp2pStreamMounting true
+      - name: compress and encrypt ipfs folder
+        run: |
+          tar czf ipfs.tar.gz ~/.ipfs
+          gpg --batch --passphrase $GITHUB_TOKEN -c ipfs.tar.gz
+          ipfs id -f "<id>" > ./ipfs_id
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ipfs-config
+          path: ipfs.tar.gz.gpg
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ipfs-id
+          path: ipfs_id
 
   preview-run:
     #if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
-    needs: blub
+    needs: init-ipfs
     steps:
-      - name: blub
+      # DOWNLOAD IPFS CONFIG
+      - name: Download ipfs-config
+        uses: actions/download-artifact@v3
+        with:
+          name: ipfs-config
+      - name: Decrypt and extract ipfs-config
         run: |
-          echo $GITHUB_TOKEN | sha256sum
+          gpg --batch --passphrase $GITHUB_TOKEN -d ipfs.tar.gz.gpg -o ipfs.tar.gz
+          tar xzf -C $HOME ipfs.tar.gz
+          ls -lah ~
+          ls -lah ~/.ipfs
       # SETUP IPFS
       - name: Install ipfs
         run: |
@@ -38,8 +66,6 @@ jobs:
           ./kubo/install.sh
       - name: Setup ipfs
         run: |
-          ipfs init
-          ipfs config --json Experimental.Libp2pStreamMounting true
           ipfs daemon &
           sleep 5
           echo "IPFS_ID=$(ipfs id -f "<id>")" >> $GITHUB_ENV

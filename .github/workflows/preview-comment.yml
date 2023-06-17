@@ -11,20 +11,55 @@ jobs:
   preview-comment:
     runs-on: ubuntu-latest
     steps:
-      - name: Scan logs for IPFS ID
-        run: |
-          exit 1
-      # COMMENT
+      - name: 'Download artifact'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let matchArtifact = undefined
+            while (true) {
+              console.log("do listWorkflowRunArtifacts")
+              let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 run_id: context.payload.workflow_run.id,
+              });
+              matchArtifact = allArtifacts.data.artifacts.find((artifact) => {
+                return artifact.name == "ipfs-id"
+              });
+              if (matchArtifact) {
+                console.log("found artifact " + matchArtifact.id)
+                break
+              }
+              console.log("artifact not found, retrying")
+              await new Promise(r => setTimeout(r, 5000));
+            }
+            let download = await github.rest.actions.downloadArtifact({
+               owner: context.repo.owner,
+               repo: context.repo.repo,
+               artifact_id: matchArtifact.id,
+               archive_format: 'zip',
+            });
+            let fs = require('fs');
+            fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/ipfs-id.zip`, Buffer.from(download.data));
+      - name: 'Unzip artifact'
+        run: unzip ipfs-id.zip
+      - run: |
+          ls -lah
+          find
+          cat ipfs_id
       - name: Build comment text
         run: |
+          ipfs_id=$(cat ipfs_id)
+
           cat <<EOF > comment.md
           # 🤖 Preview Environment is starting up and will be reachable soon.
-          ipfs-id: `$IPFS_ID`
+          ipfs-id: `$(cat ipfs_id)`
           
           # ipfs forward commands
-          http: `ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
-          ssh: `ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
-          k8s: `ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/9090 /p2p/$IPFS_ID`
+          http: `ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
+          ssh: `ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
+          k8s: `ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
+
       - uses: mshick/add-pr-comment@v2
         with:
           message-id: preview-run-info
