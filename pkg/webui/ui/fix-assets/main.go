@@ -78,12 +78,9 @@ func main() {
 			manifest.Files[p1] = newPath
 		}
 
-		// we assume that .map files are implicitly replaced by the non-.map versions
-		//if !strings.HasSuffix(oldName, ".map") {
 		contentHash := calcContentHash(oldPath)
 		err = replaceInFiles(".", oldName, newName+"?h="+contentHash)
 		doError(err)
-		//}
 
 		err = os.Rename(oldPath, newPath)
 		doError(err)

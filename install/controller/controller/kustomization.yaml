@@ -1,3 +1,4 @@
+{% set kluctl_image = get_var("args.kluctl_image", "ghcr.io/kluctl/kluctl") %}
 # TODO remove controller_version
 {% set kluctl_version = get_var(["args.kluctl_version", "args.controller_version"], "v2.20.4") %}
 {% set pull_policy = "Always" if ("-devel" in kluctl_version or "-snapshot" in kluctl_version) else "IfNotPresent" %}
@@ -14,7 +15,7 @@ patches:
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
-        value: ghcr.io/kluctl/kluctl:{{ kluctl_version }}
+        value: {{ kluctl_image }}:{{ kluctl_version }}
   - target:
       kind: Deployment
       name: kluctl-controller
