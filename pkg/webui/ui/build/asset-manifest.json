@@ -1,12 +1,12 @@
 {
   "files": {
-    "787.chunk.js": "static/js/787.chunk.js",
     "787.chunk.js.map": "static/js/787.chunk.js.map",
     "index.html": "index.html",
     "main.css": "static/css/main.css",
     "main.css.map": "static/css/main.css.map",
     "main.js": "static/js/main.js",
     "main.js.map": "static/js/main.js.map",
+    "static/js/787.chunk.js": "static/js/787.chunk.js",
     "static/media/added.svg": "static/media/added.svg",
     "static/media/arrow-left.svg": "static/media/arrow-left.svg",
     "static/media/brackets-curly.svg": "static/media/brackets-curly.svg",

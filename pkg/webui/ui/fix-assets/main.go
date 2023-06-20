@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -41,8 +40,6 @@ func main() {
 	err = json.Unmarshal(s, &manifest)
 	doError(err)
 
-	hashRegex := regexp.MustCompile(`([a-z-0-9-_]*)(\.[a-f0-9]*)(\.chunk)?\.(js|css)(\.map)?`)
-
 	var sortedByLen []string
 	for p1 := range manifest.Files {
 		sortedByLen = append(sortedByLen, p1)
@@ -56,29 +53,31 @@ func main() {
 		return sortedByLen[i] < sortedByLen[j]
 	})
 
+	hashes := map[string]string{}
+	for _, p1 := range sortedByLen {
+		p2 := manifest.Files[p1]
+		h := calcContentHash(p2)
+		hashes[p1] = h
+	}
+
 	newEntries := map[string]string{}
 	for _, p1 := range sortedByLen {
 		p2 := manifest.Files[p1]
 		oldName := path.Base(p2)
 		newName := path.Base(p1)
+		newName = strings.ReplaceAll(newName, ".dummy.", ".")
 		oldPath := path.Join(path.Dir(p2), oldName)
 		newPath := path.Join(path.Dir(p2), newName)
 
-		m := hashRegex.FindSubmatch([]byte(newName))
-		if m != nil {
-			s := strings.Split(newName, ".")
-			// get rid of hash
-			s = append(s[0:1], s[2:]...)
-			newName = strings.Join(s, ".")
-			newPath = path.Join(path.Dir(p2), newName)
-
+		if strings.Contains(p1, ".dummy.") {
 			delete(manifest.Files, p1)
-			newEntries[newName] = newPath
+			newP1 := strings.ReplaceAll(p1, ".dummy.", ".")
+			newEntries[newP1] = newPath
 		} else {
 			manifest.Files[p1] = newPath
 		}
 
-		contentHash := calcContentHash(oldPath)
+		contentHash := hashes[p1]
 		err = replaceInFiles(".", oldName, newName+"?h="+contentHash)
 		doError(err)
 

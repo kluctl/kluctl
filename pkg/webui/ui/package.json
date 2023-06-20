@@ -36,10 +36,10 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "node build && npm run fix-assets",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build && npm run fix-assets",
+    "test": "react-app-rewired test",
+    "eject": "react-app-rewired eject",
     "fix-assets": "go run ./fix-assets"
   },
   "eslintConfig": {
@@ -64,6 +64,6 @@
     "@types/js-yaml": "^4.0.5",
     "@types/lodash": "^4.14.195",
     "@types/react-syntax-highlighter": "^15.5.7",
-    "rewire": "^6.0.0"
+    "react-app-rewired": "^2.2.1"
   }
 }
