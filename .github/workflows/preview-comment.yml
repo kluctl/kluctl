@@ -1,73 +1,129 @@
 name: preview-comment
 
 on:
-  workflow_run:
-    workflows:
-      - preview-run
-    types:
-      - requested
+  pull_request_target:
+    types: [labeled, synchronize]
+    branches:
+      - main
 
 permissions:
   contents: read
+  issues: write
   pull-requests: write
+
+concurrency: preview-comment
 
 jobs:
   preview-comment:
+    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
-      - name: 'Download artifact'
-        uses: actions/github-script@v6
+      - name: Reset PR comment
+        uses: mshick/add-pr-comment@v2
         with:
-          script: |
-            let matchArtifact = undefined
-            while (true) {
-              console.log("do listWorkflowRunArtifacts")
-              let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
-                 owner: context.repo.owner,
-                 repo: context.repo.repo,
-                 run_id: context.payload.workflow_run.id,
-              });
-              matchArtifact = allArtifacts.data.artifacts.find((artifact) => {
-                return artifact.name == "preview-run-info"
-              });
-              if (matchArtifact) {
-                console.log("found artifact " + matchArtifact.id)
-                break
-              }
-              console.log("artifact not found, retrying")
-              await new Promise(r => setTimeout(r, 5000));
-            }
-            let download = await github.rest.actions.downloadArtifact({
-               owner: context.repo.owner,
-               repo: context.repo.repo,
-               artifact_id: matchArtifact.id,
-               archive_format: 'zip',
-            });
-            let fs = require('fs');
-            fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/preview-run-info.zip`, Buffer.from(download.data));
-      - name: 'Unzip artifact'
-        run: unzip preview-run-info.zip
-      - run: |
-          ls -lah
-          find
+          issue: ${{ github.pull_request.number }}
+          message-id: preview-run-info
+          message: |
+            # 🤖 Preview Environment
+            The preview environment is starting up and will be available soon.
+      - uses: actions/checkout@v2
+        with:
+          # Warning, do not try to checkout the base branch here as it would introduce enormous security risks!
+          # Also don't introduce a cache in this workflow!
+          ref: main
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.19
+      - name: Install some tools
+        run: |
+          sudo apt update
+          sudo apt install -y ncat
+          wget https://github.com/FiloSottile/age/releases/download/v1.1.1/age-v1.1.1-linux-amd64.tar.gz
+          tar xzf age-v1.1.1-linux-amd64.tar.gz
+          sudo mv age/age* /usr/bin/
+      - name: Install ipfs
+        run: |
+          wget -q https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+          tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
+          ./kubo/install.sh
+      - name: ipfs init
+        run: |
+          ipfs init
+          ipfs config --json Experimental.Libp2pStreamMounting true
+          ipfs config --json Ipns.UsePubsub true
+          ipfs daemon &
+          sleep 1
+          while ! ipfs id &> /dev/null; do
+            echo "waiting for the daemon"
+            sleep 1
+          done
+      - name: Import ipfs key
+        run: |
+          echo "${{ secrets.KLUCTL_PREVIEW_IPNS_KEY }}" | base64 -d > kluctl-preview-comment.pem
+          ipfs key import kluctl-preview-comment kluctl-preview-comment.pem -f pem-pkcs8-cleartext
+      - name: Build ipfs-exchange-info
+        run: |
+          (cd ./hack/ipfs-exchange-info && go build ./)
+      - name: Publish own ID
+        run: |
+          ./hack/ipfs-exchange-info/ipfs-exchange-info -mode publish-ipns --ipns-key kluctl-preview-comment -pr-number ${{ github.event.pull_request.number }}
+      - name: Receive info
+        id: info
+        run: |
+          echo "${{ secrets.KLUCTL_PREVIEW_AGE_KEY }}" > age.key
+          while ! ./hack/ipfs-exchange-info/ipfs-exchange-info -mode receive-info \
+            --age-key-file age.key --repo-name "${{ github.repository }}" -pr-number ${{ github.event.pull_request.number }} > info.json; do
+            sleep 1
+          done
+
+          cat info.json | jq ".ipfsId" -r > ipfs_id
+          cat info.json | jq ".staticIpnsName" -r > static_ipns_name
+
+          echo "ipfs_id=$(cat ipfs_id)"
+          echo "static_ipns_name=$(cat static_ipns_name)"
       - name: Build comment text
         run: |
           cat <<EOF > comment.md
-          # 🤖 Preview Environment is starting up and will be reachable soon.
-          ipfs-id: `$(cat ipfs_id)`
+          # 🤖 Preview Environment
+          The preview environment is running.
           
-          # ipfs forward commands
-          http: `ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
-          ssh: `ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
-          k8s: `ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)`
+          # Accessing the static preview UI
+          This version of the UI is static but updated regularly. The updates will lag quite a lot, as IPFS needs
+          some time to propagate changes. You'd also need to refresh the page to get an update. This version of the UI
+          is not able to interact with the cluster, due to missing WebSockets support in IPFS. Use IPFS p2p forwarding
+          if you need this.
           
-          # kubeconfig
-          ```
-          $(cat kubeconfig)
-          ```
+          The public gateway url is: https://ipfs.io/ipns/$(cat static_ipns_name)/index.html
+          
+          For much better perforamance and update-speed, install and start [IPFS Kubo](https://github.com/ipfs/kubo/)
+          locally and use this URL: http://$(cat static_ipns_name).ipns.localhost:8080/index.html
+          
+          If you configured a different gateway port then the default (8080), fix the url accordingly.
+          
+          # Accessing the dynamic preview UI
+          First, install and start [IPFS Kubo](https://github.com/ipfs/kubo/) locally.
+          Then run the \`http\` forward command from below.
+          After that, the UI will be accessible through http://localhost:9090.
+          
+          IPFS forward commands:
+          http: \`ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)\`
+          ssh: \`ipfs p2p forward /x/ssh /ip4/127.0.0.1/tcp/2222 /p2p/$(cat ipfs_id)\`
+          k8s: \`ipfs p2p forward /x/k /ip4/127.0.0.1/tcp/6443 /p2p/$(cat ipfs_id)\`
+          
+          When asked for credentials, use admin:admin.
+          
+          # Shutting it down
+          Either cancel the pipeline in the PR or simply wait for 30 minutes until it auto-terminates.
           EOF
       - uses: mshick/add-pr-comment@v2
         with:
+          issue: ${{ github.pull_request.number }}
           message-id: preview-run-info
           message-path: |
             comment.md
+      - name: Sleep a bit
+        run: |
+          # Sleep a few seconds to give IPFS p2p streams enough time to flush
+          sleep 10
