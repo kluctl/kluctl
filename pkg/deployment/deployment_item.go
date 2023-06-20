@@ -52,6 +52,7 @@ type DeploymentItemProjectVars struct { // info about the deployment.yml project
 	Parent  *DeploymentItemProjectVars `json:"parent,omitempty"`            // parrent project
 	DirName string                     `json:"dirName" validate:"required"` // dirname of project
 	RelPath string                     `json:"relPath" validate:"required"` // relative directory to current deployment item
+	TopPath string                     `json:"topPath" validate:"required"` // path of the top level project/parentProject
 	//RelRoot string                   `json:"relRoot" validate:"required"` // relative path to the project root directory, ie: ../../..
 	AllTags *utils.OrderedMap `json:"allTags,omitempty"` // all tags, including the ones merged from the parents
 }
@@ -118,9 +119,13 @@ func (di *DeploymentItem) getDeploymentItemProjectVars(project *DeploymentProjec
 	}
 	dip := &DeploymentItemProjectVars{
 		Parent:  di.getDeploymentItemProjectVars(project.parentProject),
+		TopPath: project.absDir,
 		RelPath: project.relDir,
 		DirName: filepath.Base(project.source.dir),
 		AllTags: &utils.OrderedMap{},
+	}
+	if project.parentProject != nil {
+		dip.TopPath = dip.Parent.TopPath
 	}
 	dip.AllTags.Merge(project.getTags())
 	return dip
@@ -141,8 +146,8 @@ func (di *DeploymentItem) getDeploymentItemVars() *DeploymentItemVars {
 	}
 	div.DirPath = *di.dir
 	div.DirName = filepath.Base(*di.dir)
-	div.RelPath = di.RelToSourceItemDir
-	div.RelRoot = strings.Repeat("../", len(strings.Split(di.RelToSourceItemDir, "/")))
+	div.RelPath, _ = filepath.Rel(div.Project.TopPath, *di.dir)
+	div.RelRoot = strings.Repeat("../", len(strings.Split(div.RelPath, "/")))
 	return div
 }
 
