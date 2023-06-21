@@ -11,7 +11,9 @@ permissions:
   issues: write
   pull-requests: write
 
-concurrency: preview-comment
+concurrency:
+  group: preview-comment
+  cancel-in-progress: true
 
 jobs:
   preview-comment:
@@ -66,17 +68,11 @@ jobs:
       - name: Build ipfs-exchange-info
         run: |
           (cd ./hack/ipfs-exchange-info && go build ./)
-      - name: Publish own ID
-        run: |
-          ./hack/ipfs-exchange-info/ipfs-exchange-info -mode publish-ipns --ipns-key kluctl-preview-comment -pr-number ${{ github.event.pull_request.number }}
       - name: Receive info
         id: info
         run: |
           echo "${{ secrets.KLUCTL_PREVIEW_AGE_KEY }}" > age.key
-          while ! ./hack/ipfs-exchange-info/ipfs-exchange-info -mode receive-info \
-            --age-key-file age.key --repo-name "${{ github.repository }}" -pr-number ${{ github.event.pull_request.number }} > info.json; do
-            sleep 1
-          done
+          ./hack/ipfs-exchange-info/ipfs-exchange-info -mode subscribe -topic kluctl-preview-${{ github.event.pull_request.number }} -pr-number ${{ github.event.pull_request.number }} -repo-name "${{ github.repository }}" -age-key-file age.key -out-file info.json
 
           cat info.json | jq ".ipfsId" -r > ipfs_id
           cat info.json | jq ".staticIpnsName" -r > static_ipns_name

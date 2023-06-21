@@ -60,6 +60,7 @@ jobs:
           done
           # kick of ipns resolving in the background to warm it up
           ipfs name resolve k51qzi5uqu5diql7mejg4dfn35igqqf22202vgv3sepjrsobtya2xihqqtshbe &
+      # SETUP SSH
       - name: Setup ssh
         run: |
           mkdir -p ~/.ssh
@@ -143,20 +144,12 @@ jobs:
       - name: send info
         run: |
           static_ipns_name=$(ipfs key gen static-webui)
-          while true; do
-            if ! ./hack/ipfs-exchange-info/ipfs-exchange-info -mode resolve-ipns -pr-number ${{ github.event.pull_request.number }} -ipns-name k51qzi5uqu5diql7mejg4dfn35igqqf22202vgv3sepjrsobtya2xihqqtshbe > ipfs_id; then
-              echo "Resolving IPNS failed...retrying..."
-              sleep 1
-              continue
-            fi
-            echo "ipfs_id=$(cat ipfs_id)"
-            if ! ./hack/ipfs-exchange-info/ipfs-exchange-info -mode send-info -pr-number ${{ github.event.pull_request.number }} -age-pub-key age1dhueesr5qj8e8uy298k7z8x3ntv620rde89phumg0kvjx2t32elsm759z7 --ipfs-id $(cat ipfs_id) --static-ipns-name $static_ipns_name; then
-              echo "Resolving info failed...retrying..."
-              sleep 1
-              continue
-            fi
-            break
-          done
+          ./hack/ipfs-exchange-info/ipfs-exchange-info -mode publish \
+            -topic kluctl-preview-${{ github.event.pull_request.number }} \
+            -ipfs-id $(ipfs id -f "<id>") \
+            -static-ipns-name $static_ipns_name \
+            -pr-number ${{ github.event.pull_request.number }} \
+            -age-pub-key age1dhueesr5qj8e8uy298k7z8x3ntv620rde89phumg0kvjx2t32elsm759z7
         env:
           # we send the GITHUB_TOKEN to the preview-comment workflow. This token is then verified to be from a workflow
           # that runs inside this repo, which can only be a workflow that got manually approved. The token is encrypted
