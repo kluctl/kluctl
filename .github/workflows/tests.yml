@@ -72,17 +72,20 @@ jobs:
             git diff
             exit 1
           fi
-      - name: Verify webui build is up-to-date
+
+  check-npm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: pkg/webui/ui/package-lock.json
+      - name: Verify webui build works
         run: |
-          cd pkg/webui/ui
-          npm install
-          npm run build
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "npm run build must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
+          make build-webui
 
   tests:
     strategy:

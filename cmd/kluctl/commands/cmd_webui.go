@@ -27,6 +27,10 @@ func (cmd *webuiCmd) Help() string {
 }
 
 func (cmd *webuiCmd) Run(ctx context.Context) error {
+	if !webui.IsWebUiBuildIncluded() {
+		return fmt.Errorf("this build of Kluctl does not have the webui embedded")
+	}
+
 	var inClusterClient client.Client
 	if cmd.InCluster {
 		configOverrides := &clientcmd.ConfigOverrides{

@@ -109,13 +109,19 @@ markdown-link-check: ## Check markdown files for dead links
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/kluctl$(EXE) cmd/main.go
+build: manifests generate fmt vet build-webui build-bin ## Build manager binary.
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+.PHONY: build-bin
+build-bin:
+	go build -o bin/kluctl$(EXE) cmd/main.go
+
+.PHONY: build-webui
+build-webui:
+	cd pkg/webui/ui && npm ci && npm run build
 
 ##@ Deployment
 
