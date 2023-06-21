@@ -61,9 +61,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		}
 		for pth, s := range gitStatus {
 			if strings.HasPrefix(pth, ".helm-charts/") {
+				status.Trace(ctx, "gitStatus=%s", gitStatus.String())
 				return fmt.Errorf("--commit can only be used when .helm-chart directory is clean")
 			}
 			if (s.Staging != git.Untracked && s.Staging != git.Unmodified) || (s.Worktree != git.Untracked && s.Worktree != git.Unmodified) {
+				status.Trace(ctx, "gitStatus=%s", gitStatus.String())
 				return fmt.Errorf("--commit can only be used when the git worktree is unmodified")
 			}
 		}
