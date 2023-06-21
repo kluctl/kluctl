@@ -1,6 +1,6 @@
 before:
   hooks:
-    - go mod tidy
+    - make build-webui
 builds:
   - <<: &build_defaults
       binary: bin/kluctl
@@ -87,6 +87,7 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--build-arg=ARCH=linux-amd64"
+      - "--build-arg=BIN_PATH=kluctl"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -101,6 +102,7 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--build-arg=ARCH=linux-arm64"
+      - "--build-arg=BIN_PATH=kluctl"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
