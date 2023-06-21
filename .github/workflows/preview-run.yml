@@ -15,6 +15,8 @@ jobs:
     if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -24,8 +26,6 @@ jobs:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: pkg/webui/ui/package-lock.json
-      - name: Checkout
-        uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: |
