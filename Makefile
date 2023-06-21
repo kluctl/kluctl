@@ -116,6 +116,9 @@ build: manifests generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+.PHONY: build-webui
+build-webui:
+	cd pkg/webui/ui && npm ci && npm run build
 
 ##@ Deployment
 
