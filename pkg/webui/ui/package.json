@@ -37,10 +37,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "node build && npm run fix-assets",
+    "build": "react-scripts build && touch ./build/.gitkeep",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "fix-assets": "go run ./fix-assets"
+    "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
@@ -63,7 +62,6 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.5",
     "@types/lodash": "^4.14.195",
-    "@types/react-syntax-highlighter": "^15.5.7",
-    "rewire": "^6.0.0"
+    "@types/react-syntax-highlighter": "^15.5.7"
   }
 }

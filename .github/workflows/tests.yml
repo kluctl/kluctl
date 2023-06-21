@@ -72,17 +72,6 @@ jobs:
             git diff
             exit 1
           fi
-      - name: Verify webui build is up-to-date
-        run: |
-          cd pkg/webui/ui
-          npm install
-          npm run build
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "npm run build must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
 
   tests:
     strategy:
