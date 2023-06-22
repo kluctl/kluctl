@@ -15,7 +15,19 @@ import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
 import { sleep } from "./utils/misc";
 
-const staticPath = "./staticdata"
+console.log(window.location)
+
+let rootPath = window.location.pathname
+if (rootPath.endsWith("/")) {
+    rootPath = rootPath.substring(0, rootPath.length-1)
+}
+if (rootPath.endsWith("index.html")) {
+    rootPath = rootPath.substring(0, rootPath.length-"index.html".length-1)
+}
+const staticPath = rootPath + "/staticdata"
+
+console.log("rootPath=" + rootPath)
+console.log("staticPath=" + staticPath)
 
 export enum ObjectType {
     Rendered = "rendered",
@@ -108,7 +120,7 @@ export class RealApi implements Api {
     }
 
     async doGet(path: string, params?: URLSearchParams) {
-        let url = path
+        let url = rootPath + path
         if (params) {
             url += "?" + params.toString()
         }
@@ -128,7 +140,7 @@ export class RealApi implements Api {
     }
 
     async doPost(path: string, body: any) {
-        let url = path
+        let url = rootPath + path
         const doFetch = () => {
             const headers = {
                 'Accept': 'application/json',
@@ -159,7 +171,7 @@ export class RealApi implements Api {
         if (window.location.protocol !== "https:") {
             proto = "ws"
         }
-        let url = `${proto}://${host}/api/ws`
+        let url = `${proto}://${host}${rootPath}/api/ws`
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
