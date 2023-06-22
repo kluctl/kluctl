@@ -12,7 +12,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: preview-comment
+  group: preview-comment-${{ github.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
