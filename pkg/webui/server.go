@@ -32,9 +32,11 @@ type CommandResultsServer struct {
 	serverClient client.Client
 
 	auth *authHandler
+
+	onlyApi bool
 }
 
-func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool) *CommandResultsServer {
+func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool, onlyApi bool) *CommandResultsServer {
 	ret := &CommandResultsServer{
 		ctx:   ctx,
 		store: store,
@@ -42,6 +44,7 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 			ctx: ctx,
 		},
 		serverClient: serverClient,
+		onlyApi:      onlyApi,
 	}
 
 	adminUser := "kluctl-webui-admin"
@@ -106,9 +109,11 @@ func (s *CommandResultsServer) Run(port int) error {
 		}
 	}
 
-	err = s.setupStaticRoutes(router)
-	if err != nil {
-		return err
+	if !s.onlyApi {
+		err = s.setupStaticRoutes(router)
+		if err != nil {
+			return err
+		}
 	}
 
 	api := router.Group("/api")

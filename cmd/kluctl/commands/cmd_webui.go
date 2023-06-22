@@ -20,6 +20,8 @@ type webuiCmd struct {
 
 	InCluster        bool   `group:"misc" help:"This enables in-cluster functionality."`
 	InClusterContext string `group:"misc" help:"The context to use fo in-cluster functionality."`
+
+	OnlyApi bool `group:"misc" help:"Only serve API without the actual UI."`
 }
 
 func (cmd *webuiCmd) Help() string {
@@ -27,8 +29,11 @@ func (cmd *webuiCmd) Help() string {
 }
 
 func (cmd *webuiCmd) Run(ctx context.Context) error {
-	if !webui.IsWebUiBuildIncluded() {
+	if !cmd.OnlyApi && !webui.IsWebUiBuildIncluded() {
 		return fmt.Errorf("this build of Kluctl does not have the webui embedded")
+	}
+	if cmd.OnlyApi && cmd.StaticPath != "" {
+		return fmt.Errorf("--static-path can not be combined with --only-api")
 	}
 
 	var inClusterClient client.Client
@@ -67,7 +72,7 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 		sbw := webui.NewStaticWebuiBuilder(collector)
 		return sbw.Build(cmd.StaticPath)
 	} else {
-		server := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, inClusterClient != nil)
+		server := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, inClusterClient != nil, cmd.OnlyApi)
 		return server.Run(cmd.Port)
 	}
 }
