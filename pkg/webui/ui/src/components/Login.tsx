@@ -1,5 +1,6 @@
 import { Box, Button, FormControl, Paper, TextField, Typography } from '@mui/material';
 import React, { SyntheticEvent, useState } from 'react';
+import { rootPath } from "../api";
 
 //import './Login.css';
 
@@ -9,7 +10,7 @@ interface loginCredentials {
 }
 
 async function loginUser(creds: loginCredentials) {
-    const url = `/auth/login`
+    const url = rootPath + `/auth/login`
     return fetch(url, {
         method: 'POST',
         headers: {

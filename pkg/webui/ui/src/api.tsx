@@ -16,7 +16,7 @@ import { loadScript } from "./loadscript";
 
 console.log(window.location)
 
-let rootPath = window.location.pathname
+export let rootPath = window.location.pathname
 if (rootPath.endsWith("/")) {
     rootPath = rootPath.substring(0, rootPath.length-1)
 }
