@@ -174,7 +174,8 @@ func (s *authHandler) getBearerToken(c *gin.Context) string {
 
 func (s *authHandler) getUser(c *gin.Context) *User {
 	if s == nil {
-		return nil
+		// auth is disabled, so all requests are done as admin
+		return s.getAdminUser("admin")
 	}
 	token := s.getBearerToken(c)
 	if token == "" {
@@ -184,14 +185,14 @@ func (s *authHandler) getUser(c *gin.Context) *User {
 }
 
 func (s *authHandler) getUserFromToken(token string) *User {
-	user := s.getAdminUser(token)
+	user := s.getAdminUserFromToken(token)
 	if user != nil {
 		return user
 	}
 	return nil
 }
 
-func (s *authHandler) getAdminUser(token string) *User {
+func (s *authHandler) getAdminUserFromToken(token string) *User {
 	as, err := s.getAdminSecrets()
 	if err != nil {
 		return nil
@@ -222,6 +223,10 @@ func (s *authHandler) getAdminUserFromClaims(claims jwt.MapClaims) *User {
 		return nil
 	}
 
+	return s.getAdminUser(id)
+}
+
+func (s *authHandler) getAdminUser(id string) *User {
 	return &User{
 		Username: id,
 		IsAdmin:  true,
