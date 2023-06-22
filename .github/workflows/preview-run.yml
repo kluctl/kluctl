@@ -7,7 +7,7 @@ on:
       - main
 
 concurrency:
-  group: preview-run
+  group: preview-run-${{ github.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
