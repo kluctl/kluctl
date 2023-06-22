@@ -9,7 +9,9 @@ permissions:
   contents: write
   packages: write
 
-concurrency: goreleaser-nightly
+concurrency:
+  group: goreleaser-nightly
+  cancel-in-progress: true
 
 jobs:
   goreleaser:
