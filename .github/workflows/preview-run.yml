@@ -137,6 +137,7 @@ jobs:
         run: |
           ipfs p2p listen /x/k /ip4/127.0.0.1/tcp/6443
           ipfs p2p listen /x/kluctl-webui /ip4/127.0.0.1/tcp/9090
+          ipfs p2p listen --allow-custom-protocol /http /ip4/127.0.0.1/tcp/9090
       # SEND INFO
       - name: Build ipfs-exchange-info
         run: |
