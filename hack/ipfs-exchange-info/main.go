@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/gob"
@@ -8,66 +9,94 @@ import (
 	"filippo.io/age"
 	"flag"
 	"fmt"
-	"github.com/ipfs/boxo/coreiface/options"
-	"github.com/ipfs/boxo/files"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	log "github.com/sirupsen/logrus"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/ipfs/kubo/client/rpc"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
 var modeFlag string
-var ipnsKey string
-var ipnsName string
+var topicFlag string
 var ipfsId string
 var staticIpnsName string
 var prNumber int
 var ageKeyFile string
 var agePubKey string
 var repoName string
+var outFile string
 
 func ParseFlags() error {
 	flag.StringVar(&modeFlag, "mode", "", "Mode")
-	flag.StringVar(&ipnsKey, "ipns-key", "", "IPNS key name")
-	flag.StringVar(&ipnsName, "ipns-name", "", "IPNS name")
+	flag.StringVar(&topicFlag, "topic", "", "pubsub topic")
+	flag.StringVar(&ipfsId, "ipfs-id", "", "IPFS ID")
 	flag.StringVar(&staticIpnsName, "static-ipns-name", "", "Static Webui IPNS name")
 	flag.IntVar(&prNumber, "pr-number", 0, "PR number")
-	flag.StringVar(&ipfsId, "ipfs-id", "", "IPFS id")
 	flag.StringVar(&ageKeyFile, "age-key-file", "", "AGE key file")
 	flag.StringVar(&agePubKey, "age-pub-key", "", "AGE pubkey")
 	flag.StringVar(&repoName, "repo-name", "", "Repo name")
+	flag.StringVar(&outFile, "out-file", "", "Output file")
 	flag.Parse()
 
 	return nil
 }
 
 func main() {
+	//logging.SetLogLevel("*", "INFO")
+
 	err := ParseFlags()
 	if err != nil {
 		panic(err)
 	}
 
-	// "Connect" to local node
-	node, err := rpc.NewLocalApi()
-	if err != nil {
-		log.Error(err)
-		os.Exit(1)
+	if topicFlag == "test" {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Enter num: ")
+		text, _ := reader.ReadString('\n')
+		topicFlag = "my-test-topic-" + strings.TrimSpace(text)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	var h host.Host
+	h, err = libp2p.New(
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
+		libp2p.EnableRelay(),
+		libp2p.EnableNATService(),
+		libp2p.NATPortMap(),
+		libp2p.ForceReachabilityPrivate(),
+		libp2p.EnableAutoRelayWithPeerSource(findRelayPeers(func() host.Host {
+			return h
+		})))
+	if err != nil {
+		panic(err)
+	}
+
+	log.Infof("own ID: %s", h.ID().String())
+
+	kademliaDHT, err := initDHT(ctx, h)
+	if err != nil {
+		log.Error(err)
+		log.Exit(1)
+	}
+	discovery := drouting.NewRoutingDiscovery(kademliaDHT)
+
 	switch modeFlag {
-	case "publish-ipns":
-		err = doPublishIpns(node)
-	case "resolve-ipns":
-		err = doResolve(node)
-	case "send-info":
-		err = doSend(node)
-	case "receive-info":
-		err = doReceive(node)
+	case "publish":
+		err = doPublish(ctx, h, discovery)
+	case "subscribe":
+		err = doSubscribe(ctx, h, discovery)
 	default:
 		err = fmt.Errorf("unknown mode %s", modeFlag)
 	}
@@ -80,9 +109,73 @@ func main() {
 	}
 }
 
-type ipnsInfo struct {
-	PrNumber int    `json:"prNumber"`
-	IpfsId   string `json:"ipfsId"`
+func initDHT(ctx context.Context, h host.Host) (*dht.IpfsDHT, error) {
+	// Start a DHT, for use in peer discovery. We can't just make a new DHT
+	// client because we want each peer to maintain its own local copy of the
+	// DHT, so that the bootstrapping node of the DHT can go down without
+	// inhibiting future peer discovery.
+	kademliaDHT, err := dht.New(ctx, h)
+	if err != nil {
+		return nil, err
+	}
+	if err = kademliaDHT.Bootstrap(ctx); err != nil {
+		return nil, err
+	}
+	var wg sync.WaitGroup
+	for _, peerAddr := range dht.DefaultBootstrapPeers {
+		peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := h.Connect(ctx, *peerinfo); err != nil {
+				log.Info("Bootstrap warning:", err)
+			} else {
+				log.Infof("Connected to bootstrap peer: %s", peerinfo.String())
+			}
+		}()
+	}
+	wg.Wait()
+
+	return kademliaDHT, nil
+}
+
+func findRelayPeers(h func() host.Host) func(ctx context.Context, num int) <-chan peer.AddrInfo {
+	return func(ctx context.Context, num int) <-chan peer.AddrInfo {
+		ch := make(chan peer.AddrInfo)
+		go func() {
+			sent := 0
+		outer:
+			for {
+				for _, id := range h().Peerstore().PeersWithAddrs() {
+					if sent >= num {
+						break
+					}
+					protos, err := h().Peerstore().GetProtocols(id)
+					if err != nil {
+						continue
+					}
+					for _, proto := range protos {
+						if strings.HasPrefix(string(proto), "/libp2p/circuit/relay/") {
+							ch <- peer.AddrInfo{
+								ID:    id,
+								Addrs: h().Peerstore().Addrs(id),
+							}
+							sent++
+							break
+						}
+					}
+				}
+				select {
+				case <-time.After(time.Second):
+					continue
+				case <-ctx.Done():
+					break outer
+				}
+			}
+			close(ch)
+		}()
+		return ch
+	}
 }
 
 type workflowInfo struct {
@@ -92,105 +185,11 @@ type workflowInfo struct {
 	GithubToken    string `json:"githubToken"`
 }
 
-func doPublishIpns(node *rpc.HttpApi) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-
-	selfKey, err := node.Key().Self(ctx)
-	if err != nil {
-		return err
-	}
-
-	info := ipnsInfo{
-		PrNumber: prNumber,
-		IpfsId:   selfKey.ID().String(),
-	}
-	b, err := json.Marshal(&info)
-	if err != nil {
-		return err
-	}
-	log.Info("publishing: ", string(b))
-
-	f := files.NewBytesFile(b)
-
-	pth, err := node.Unixfs().Add(ctx, f)
-	if err != nil {
-		return err
-	}
-
-	log.Info("path: ", pth.String())
-
-	ipnsEntry, err := node.Name().Publish(ctx, pth, options.Name.Key(ipnsKey), options.Name.TTL(10*time.Second))
-	if err != nil {
-		return err
-	}
-
-	log.Info("published as ", ipnsEntry.Name())
-
-	return nil
-}
-
-func doResolve(node *rpc.HttpApi) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	log.Info("Resolving: ", ipnsName)
-
-	resolved, err := node.Name().Resolve(ctx, ipnsName, options.Name.Cache(false))
-	if err != nil {
-		return err
-	}
-
-	log.Info("Resolved to: ", resolved.String())
-
-	nd, err := node.Unixfs().Get(ctx, resolved)
-	if err != nil {
-		return err
-	}
-	defer nd.Close()
-
-	f, ok := nd.(files.File)
-	if !ok {
-		return fmt.Errorf("%s is not a file", resolved.String())
-	}
-
-	b, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-
-	var info ipnsInfo
-	err = json.Unmarshal(b, &info)
-	if err != nil {
-		return err
-	}
-
-	log.Info("IPNS Info: ", string(b))
-
-	if info.PrNumber != prNumber {
-		return fmt.Errorf("IPNS entry not up-to-date")
-	}
-
-	_, err = os.Stdout.WriteString(info.IpfsId + "\n")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func doSend(node *rpc.HttpApi) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	selfKey, err := node.Key().Self(ctx)
-	if err != nil {
-		return err
-	}
-
+func doPublish(ctx context.Context, h host.Host, discovery *drouting.RoutingDiscovery) error {
 	info := workflowInfo{
 		PrNumber:       prNumber,
 		GithubToken:    os.Getenv("GITHUB_TOKEN"),
-		IpfsId:         selfKey.ID().String(),
+		IpfsId:         ipfsId,
 		StaticIpnsName: staticIpnsName,
 	}
 
@@ -221,30 +220,89 @@ func doSend(node *rpc.HttpApi) error {
 
 	log.Info("Sending info...")
 
-	err = p2pSendFile(ctx, node, ipfsId, b)
-	if err != nil {
-		return err
+	for {
+		peersCh, err := discovery.FindPeers(ctx, topicFlag)
+		if err != nil {
+			return err
+		}
+		didSend := false
+		for peer := range peersCh {
+			if peer.ID == h.ID() {
+				continue // No self connection
+			}
+
+			log.Infof("Trying %s with addrs %v", peer.ID, peer.Addrs)
+
+			err = h.Connect(ctx, peer)
+			if err != nil {
+				log.Info(err)
+				continue
+			}
+
+			err = sendFile(ctx, h, peer.ID, b)
+			if err != nil {
+				log.Warn(err)
+				continue
+			}
+			didSend = true
+		}
+		if didSend {
+			break
+		}
 	}
 
 	log.Info("Done sending info.")
 
 	return nil
-
 }
 
-func doReceive(node *rpc.HttpApi) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
-	defer cancel()
+func doSubscribe(ctx context.Context, h host.Host, discovery *drouting.RoutingDiscovery) error {
+	doneCh := make(chan bool)
+	h.SetStreamHandler("/x/kluctl-preview-info", func(s network.Stream) {
+		defer s.Close()
 
-	log.Info("Receiving info...")
+		enc := gob.NewEncoder(s)
+		dec := gob.NewDecoder(s)
 
-	b, err := p2pReceiveFile(ctx, node)
-	if err != nil {
-		return err
-	}
+		var b []byte
+		err := dec.Decode(&b)
+		if err != nil {
+			log.Infof("Receive failed: %v", err)
+			return
+		}
 
-	log.Info("Done receiving info.")
+		err = handleInfo(ctx, b)
+		isDone := err == nil
+		if err != nil {
+			log.Infof("handle failed: %v", err)
+			_ = enc.Encode("not ok")
+		} else {
+			err = enc.Encode("ok")
+			if err != nil {
+				log.Infof("Sending ok failed: %v", err)
+				return
+			}
+		}
 
+		var closeMsg string
+		err = dec.Decode(&closeMsg)
+		if err != nil {
+			log.Infof("Receiving close msg failed: %v", err)
+		}
+
+		if isDone {
+			doneCh <- true
+		}
+	})
+
+	dutil.Advertise(ctx, discovery, topicFlag)
+	<-doneCh
+	h.RemoveStreamHandler("/x/kluctl-preview-info")
+
+	return nil
+}
+
+func handleInfo(ctx context.Context, data []byte) error {
 	idsBytes, err := os.ReadFile(ageKeyFile)
 	if err != nil {
 		return err
@@ -253,7 +311,7 @@ func doReceive(node *rpc.HttpApi) error {
 	if err != nil {
 		return err
 	}
-	d, err := age.Decrypt(bytes.NewReader(b), ageIds...)
+	d, err := age.Decrypt(bytes.NewReader(data), ageIds...)
 	if err != nil {
 		return err
 	}
@@ -263,10 +321,10 @@ func doReceive(node *rpc.HttpApi) error {
 	if err != nil {
 		return err
 	}
-	b = w.Bytes()
+	data = w.Bytes()
 
 	var info workflowInfo
-	err = json.Unmarshal(b, &info)
+	err = json.Unmarshal(data, &info)
 	if err != nil {
 		return err
 	}
@@ -286,17 +344,19 @@ func doReceive(node *rpc.HttpApi) error {
 
 	info.GithubToken = ""
 
-	b, err = json.Marshal(&info)
+	data, err = json.Marshal(&info)
 	if err != nil {
 		return err
 	}
-	_, _ = os.Stdout.WriteString(string(b) + "\n")
-
+	err = os.WriteFile(outFile, data, 0o600)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func doGithubRequest(ctx context.Context, method string, url string, body string, token string) ([]byte, error) {
-	log.Info("request: ", method, url)
+	log.Infof("request: %s %s", method, url)
 
 	req, err := http.NewRequest(method, url, strings.NewReader(body))
 	if err != nil {
@@ -380,86 +440,30 @@ func checkGithubToken(ctx context.Context, token string) error {
 	return nil
 }
 
-func p2pSendFile(ctx context.Context, node *rpc.HttpApi, ipfsId string, data []byte) error {
-	// close the old one
-	_, _ = node.Request("p2p/close").
-		Option("protocol", "/x/kluctl-preview-info").
-		Option("listen-address", "/ip4/127.0.0.1/tcp/10001").
-		Send(ctx)
-
-	_, err := node.Request("p2p/forward", "/x/kluctl-preview-info", "/ip4/127.0.0.1/tcp/10001", fmt.Sprintf("/p2p/%s", ipfsId)).
-		Send(ctx)
+func sendFile(ctx context.Context, h host.Host, ipfsId peer.ID, data []byte) error {
+	s, err := h.NewStream(ctx, ipfsId, "/x/kluctl-preview-info")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to %s: %w", ipfsId.String(), err)
 	}
+	defer s.Close()
 
-	c, err := net.Dial("tcp", "127.0.0.1:10001")
+	enc := gob.NewEncoder(s)
+	dec := gob.NewDecoder(s)
+
+	err = enc.Encode(data)
 	if err != nil {
-		return err
-	}
-	defer c.Close()
-
-	e := gob.NewEncoder(c)
-	d := gob.NewDecoder(c)
-
-	err = e.Encode(data)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to send msg: %w", err)
 	}
 
 	var ok string
-	err = d.Decode(&ok)
+	err = dec.Decode(&ok)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read ok: %w", err)
 	}
+	_ = enc.Encode("close")
 	if ok != "ok" {
-		return fmt.Errorf("did not receive ok")
+		return fmt.Errorf("received '%s' instead of ok", ok)
 	}
 
 	return nil
-}
-
-func p2pReceiveFile(ctx context.Context, node *rpc.HttpApi) ([]byte, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:10002")
-	if err != nil {
-		return nil, err
-	}
-	defer l.Close()
-	addr := l.Addr().(*net.TCPAddr)
-
-	targetAddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", addr.Port)
-
-	// close the old one
-	_, _ = node.Request("p2p/close").
-		Option("protocol", "/x/kluctl-preview-info").
-		Option("target-address", targetAddr).
-		Send(ctx)
-	_, err = node.Request("p2p/listen", "/x/kluctl-preview-info", targetAddr).
-		Send(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := l.Accept()
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
-
-	d := gob.NewDecoder(c)
-	e := gob.NewEncoder(c)
-
-	var data []byte
-	err = d.Decode(&data)
-	if err != nil {
-		return nil, err
-	}
-
-	ok := "ok"
-	err = e.Encode(&ok)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
