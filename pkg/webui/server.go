@@ -76,7 +76,7 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 	return ret
 }
 
-func (s *CommandResultsServer) Run(port int) error {
+func (s *CommandResultsServer) Run(host string, port int) error {
 	l, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (s *CommandResultsServer) Run(port int) error {
 	}
 	api.GET("/events", s.auth.authHandler, s.events.handler)
 
-	address := fmt.Sprintf(":%d", port)
+	address := fmt.Sprintf("%s:%d", host, port)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return err

@@ -219,7 +219,7 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		h.mutex.Lock()
 		defer h.mutex.Unlock()
 		var events []string
-		var nextSeq int64
+		nextSeq := args.Seq
 		for e := h.events.Front(); e != nil; e = e.Next() {
 			e2 := e.Value.(*eventEntry)
 			if e2.seq < args.Seq {
