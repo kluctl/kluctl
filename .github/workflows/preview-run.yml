@@ -141,11 +141,11 @@ jobs:
       # SEND INFO
       - name: Build ipfs-exchange-info
         run: |
-          (cd ./hack/ipfs-exchange-info && go build ./)
+          (cd ./internal/ipfs-exchange-info && go install .)
       - name: send info
         run: |
           static_ipns_name=$(ipfs key gen static-webui)
-          ./hack/ipfs-exchange-info/ipfs-exchange-info -mode publish \
+          ipfs-exchange-info -mode publish \
             -topic kluctl-preview-${{ github.event.pull_request.number }} \
             -ipfs-id $(ipfs id -f "<id>") \
             -static-ipns-name $static_ipns_name \

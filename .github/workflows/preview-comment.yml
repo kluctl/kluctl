@@ -67,12 +67,12 @@ jobs:
           ipfs key import kluctl-preview-comment kluctl-preview-comment.pem -f pem-pkcs8-cleartext
       - name: Build ipfs-exchange-info
         run: |
-          (cd ./hack/ipfs-exchange-info && go build ./)
+          (cd ./internal/ipfs-exchange-info && go install .)
       - name: Receive info
         id: info
         run: |
           echo "${{ secrets.KLUCTL_PREVIEW_AGE_KEY }}" > age.key
-          ./hack/ipfs-exchange-info/ipfs-exchange-info -mode subscribe -topic kluctl-preview-${{ github.event.pull_request.number }} -pr-number ${{ github.event.pull_request.number }} -repo-name "${{ github.repository }}" -age-key-file age.key -out-file info.json
+          ipfs-exchange-info -mode subscribe -topic kluctl-preview-${{ github.event.pull_request.number }} -pr-number ${{ github.event.pull_request.number }} -repo-name "${{ github.repository }}" -age-key-file age.key -out-file info.json
 
           cat info.json | jq ".ipfsId" -r > ipfs_id
           cat info.json | jq ".staticIpnsName" -r > static_ipns_name
