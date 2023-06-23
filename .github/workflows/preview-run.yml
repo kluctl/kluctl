@@ -58,8 +58,6 @@ jobs:
             echo "waiting for the daemon"
             sleep 1
           done
-          # kick of ipns resolving in the background to warm it up
-          ipfs name resolve k51qzi5uqu5diql7mejg4dfn35igqqf22202vgv3sepjrsobtya2xihqqtshbe &
       # SETUP SSH
       - name: Setup ssh
         run: |
@@ -144,11 +142,9 @@ jobs:
           (cd ./internal/ipfs-exchange-info && go install .)
       - name: send info
         run: |
-          static_ipns_name=$(ipfs key gen static-webui)
           ipfs-exchange-info -mode publish \
             -topic kluctl-preview-${{ github.event.pull_request.number }} \
             -ipfs-id $(ipfs id -f "<id>") \
-            -static-ipns-name $static_ipns_name \
             -pr-number ${{ github.event.pull_request.number }} \
             -age-pub-key age1dhueesr5qj8e8uy298k7z8x3ntv620rde89phumg0kvjx2t32elsm759z7
         env:
@@ -156,25 +152,8 @@ jobs:
           # that runs inside this repo, which can only be a workflow that got manually approved. The token is encrypted
           # via age
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # GENERATE STATIC WEBUI
-      - name: Publish static webui and sleep
+      # SLEEP
+      - name: Sleep
         run: |
-          (
-            old_cid=""
-            while true; do
-              rm -rf kluctl-webui-static
-              if ./bin/kluctl webui --static-path=kluctl-webui-static; then
-                cid=$(ipfs add -r -Q kluctl-webui-static)
-                if [ "$cid" != "$old_cid" ]; then
-                  echo "Publishing $cid..."
-                  ipfs name publish --key static-webui /ipfs/$cid || true
-                  old_cid="$cid"
-                fi
-              else
-                echo "Building static webui failed"
-              fi
-              sleep 1
-            done
-          ) &
           echo "Sleeping..."
           sleep 1800
