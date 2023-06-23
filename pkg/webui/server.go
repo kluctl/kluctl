@@ -31,10 +31,13 @@ type CommandResultsServer struct {
 	// this is the client for the k8s cluster where the server runs on
 	serverClient client.Client
 
-	auth *authHandler
+	auth   *authHandler
+	events *eventsHandler
+
+	onlyApi bool
 }
 
-func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool) *CommandResultsServer {
+func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool, onlyApi bool) *CommandResultsServer {
 	ret := &CommandResultsServer{
 		ctx:   ctx,
 		store: store,
@@ -42,7 +45,10 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 			ctx: ctx,
 		},
 		serverClient: serverClient,
+		onlyApi:      onlyApi,
 	}
+
+	ret.events = newEventsHandler(ret)
 
 	adminUser := "kluctl-webui-admin"
 
@@ -106,9 +112,11 @@ func (s *CommandResultsServer) Run(port int) error {
 		}
 	}
 
-	err = s.setupStaticRoutes(router)
-	if err != nil {
-		return err
+	if !s.onlyApi {
+		err = s.setupStaticRoutes(router)
+		if err != nil {
+			return err
+		}
 	}
 
 	api := router.Group("/api")
@@ -120,8 +128,11 @@ func (s *CommandResultsServer) Run(port int) error {
 	api.POST("/reconcileNow", s.auth.authHandler, s.reconcileNow)
 	api.POST("/deployNow", s.auth.authHandler, s.deployNow)
 
-	// handles authentication via the first message
-	api.Any("/ws", s.ws)
+	err = s.events.startEventsWatcher()
+	if err != nil {
+		return err
+	}
+	api.GET("/events", s.auth.authHandler, s.events.handler)
 
 	address := fmt.Sprintf(":%d", port)
 	listener, err := net.Listen("tcp", address)

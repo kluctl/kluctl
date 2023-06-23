@@ -13,9 +13,20 @@ import { Box, Typography } from "@mui/material";
 import Tooltip from "@mui/material/Tooltip";
 import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
-import { sleep } from "./utils/misc";
 
-const staticPath = "./staticdata"
+console.log(window.location)
+
+export let rootPath = window.location.pathname
+if (rootPath.endsWith("/")) {
+    rootPath = rootPath.substring(0, rootPath.length-1)
+}
+if (rootPath.endsWith("index.html")) {
+    rootPath = rootPath.substring(0, rootPath.length-"index.html".length-1)
+}
+const staticPath = rootPath + "/staticdata"
+
+console.log("rootPath=" + rootPath)
+console.log("staticPath=" + staticPath)
 
 export enum ObjectType {
     Rendered = "rendered",
@@ -107,8 +118,8 @@ export class RealApi implements Api {
         return response
     }
 
-    async doGet(path: string, params?: URLSearchParams) {
-        let url = path
+    async doGet(path: string, params?: URLSearchParams, abort?: AbortSignal) {
+        let url = rootPath + path
         if (params) {
             url += "?" + params.toString()
         }
@@ -120,6 +131,7 @@ export class RealApi implements Api {
             return fetch(url, {
                 method: "GET",
                 headers: headers,
+                signal: abort ? abort : null,
             })
         }
         let resp = await doFetch()
@@ -128,7 +140,7 @@ export class RealApi implements Api {
     }
 
     async doPost(path: string, body: any) {
-        let url = path
+        let url = rootPath + path
         const doFetch = () => {
             const headers = {
                 'Accept': 'application/json',
@@ -151,15 +163,6 @@ export class RealApi implements Api {
     }
 
     async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
-        let host = window.location.host
-        let proto = "wss"
-        if (process.env.NODE_ENV === 'development') {
-            host = "localhost:9090"
-        }
-        if (window.location.protocol !== "https:") {
-            proto = "ws"
-        }
-        let url = `${proto}://${host}/api/ws`
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
@@ -167,51 +170,42 @@ export class RealApi implements Api {
         if (filterSubDir) {
             params.set("filterSubDir", filterSubDir)
         }
-        url += "?" + params.toString()
 
-        const getToken = this.getToken
-        let ws: WebSocket | undefined;
-        let cancelled = false
+        let seq = 0
+        const abort = new AbortController()
 
-        const connect = async () => {
-            if (cancelled) {
+        const doGetEvents = async () => {
+            if (abort.signal.aborted) {
                 return
             }
 
-            console.log("ws connect: " + url)
-            ws = new WebSocket(url);
-            ws.onopen = function () {
-                console.log("ws connected")
-                if (getToken) {
-                    ws!.send(JSON.stringify({ "type": "auth", "token": getToken() }))
-                }
+            params.set("seq", seq + "")
+            let resp: any
+            try {
+                resp = await this.doGet("/api/events", params, abort.signal)
+            } catch (error) {
+                console.log("events error", error)
+                seq = 0
+                await new Promise(r => setTimeout(r, 5000));
+                doGetEvents()
+                return
             }
-            ws.onclose = function (event) {
-                console.log("ws close")
-                if (!cancelled) {
-                    sleep(5000).then(connect)
-                }
-            }
-            ws.onerror = function (event) {
-                console.log("ws error", event)
-            }
-            ws.onmessage = function (event: MessageEvent) {
-                if (cancelled) {
-                    return
-                }
-                const msg = JSON.parse(event.data)
-                handle(msg)
-            }
+
+            seq = resp.nextSeq
+            const events = resp.events
+
+            events.forEach((e: any) => {
+                handle(e)
+            })
+
+            doGetEvents()
         }
 
-        await connect()
+        doGetEvents()
 
         return () => {
-            console.log("ws cancel")
-            cancelled = true
-            if (ws) {
-                ws.close()
-            }
+            console.log("events cancel")
+            abort.abort()
         }
     }
 

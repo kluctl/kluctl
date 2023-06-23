@@ -206,7 +206,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 		if err != nil {
 			continue
 		}
-		if !s.filterSummary(summary, options.ProjectFilter) {
+		if !FilterSummary(summary, options.ProjectFilter) {
 			continue
 		}
 
@@ -238,19 +238,6 @@ func (s *ResultStoreSecrets) parseSummary(a map[string]string) (*result.CommandR
 	return &summary, nil
 }
 
-func (s *ResultStoreSecrets) filterSummary(summary *result.CommandResultSummary, project *result.ProjectKey) bool {
-	if project != nil {
-		if project.GitRepoKey.String() != "" && summary.ProjectKey.GitRepoKey != project.GitRepoKey {
-			return false
-		}
-		if project.SubDir != "" && summary.ProjectKey.SubDir != project.SubDir {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchCommandResultSummaryEvent {
 	if event.Object == nil {
 		return nil
@@ -263,7 +250,7 @@ func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result
 	if err != nil {
 		return nil
 	}
-	if !s.filterSummary(summary, filter) {
+	if !FilterSummary(summary, filter) {
 		return nil
 	}
 	switch event.Type {
@@ -294,7 +281,7 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 		if err != nil {
 			continue
 		}
-		if !s.filterSummary(summary, options.ProjectFilter) {
+		if !FilterSummary(summary, options.ProjectFilter) {
 			continue
 		}
 		initialListRet = append(initialListRet, summary)

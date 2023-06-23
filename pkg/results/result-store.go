@@ -37,17 +37,20 @@ type ResultStore interface {
 	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
 }
 
-func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bool {
-	if filter == nil {
-		return true
-	}
-	if x.ProjectKey.GitRepoKey != filter.GitRepoKey {
-		return false
-	}
-	if x.ProjectKey.SubDir != filter.SubDir {
-		return false
+func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {
+	if filter != nil {
+		if filter.GitRepoKey.String() != "" && x.GitRepoKey != filter.GitRepoKey {
+			return false
+		}
+		if filter.SubDir != "" && x.SubDir != filter.SubDir {
+			return false
+		}
 	}
 	return true
+}
+
+func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bool {
+	return FilterProject(x.ProjectKey, filter)
 }
 
 func lessSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
