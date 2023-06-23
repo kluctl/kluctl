@@ -96,7 +96,10 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 		return err
 	}
 
-	err = utils.FsCopyDir(uiFS, ".", tmpDir)
+	err = cp.Copy(".", tmpDir, cp.Options{
+		FS:            uiFS,
+		AddPermission: 0o666,
+	})
 	if err != nil {
 		return err
 	}
