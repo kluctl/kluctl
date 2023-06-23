@@ -8,12 +8,14 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/webui"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"net/netip"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
 type webuiCmd struct {
-	Port        int      `group:"misc" help:"Port to serve the api and webui." default:"8080"`
+	Host        string   `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to localhost."`
+	Port        int      `group:"misc" help:"Port to bind to." default:"8080"`
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
 	StaticPath  string   `group:"misc" help:"Build static webui."`
@@ -34,6 +36,24 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 	}
 	if cmd.OnlyApi && cmd.StaticPath != "" {
 		return fmt.Errorf("--static-path can not be combined with --only-api")
+	}
+
+	if !cmd.InCluster { // no authentication?
+		if cmd.Host == "" {
+			// we only use "localhost" as default if not running inside a cluster
+			cmd.Host = "localhost"
+		}
+		if cmd.Host != "localhost" {
+			isNonLocal := cmd.Host == ""
+			if a, err := netip.ParseAddr(cmd.Host); err == nil { // on error, we assume it's a hostname
+				if !a.IsLoopback() {
+					isNonLocal = true
+				}
+			}
+			if isNonLocal {
+				status.Warning(ctx, "When running the webui without authentication enabled, it is extremely dangerous to expose it to non-localhost addresses, as the webui is running with admin privileges.")
+			}
+		}
 	}
 
 	var inClusterClient client.Client
@@ -73,7 +93,7 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 		return sbw.Build(cmd.StaticPath)
 	} else {
 		server := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, inClusterClient != nil, cmd.OnlyApi)
-		return server.Run(cmd.Port)
+		return server.Run(cmd.Host, cmd.Port)
 	}
 }
 
