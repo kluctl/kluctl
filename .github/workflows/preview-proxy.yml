@@ -140,7 +140,7 @@ jobs:
           token="${{ secrets.CLOUDFLARE_DNS_API_TOKEN }}"
           zone_id=$(curl -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones" | jq '.result[] | select(.name == "kluctl.com").id' -r)
           echo zone_id=$zone_id
-          record_id=$(curl -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" | jq '.result[] | select(.zone_name == "kluctl-preview-${{ github.event.pull_request.number }}.kluctl.com").id' -r)
+          record_id=$(curl -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" | jq '.result[] | select(.name == "kluctl-preview-${{ github.event.pull_request.number }}.kluctl.com").id' -r)
           echo record_id=$record_id
           curl -X DELETE -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$record_id"
       - uses: mshick/add-pr-comment@v2
