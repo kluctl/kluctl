@@ -29,7 +29,6 @@ import (
 var modeFlag string
 var topicFlag string
 var ipfsId string
-var staticIpnsName string
 var prNumber int
 var ageKeyFile string
 var agePubKey string
@@ -40,7 +39,6 @@ func ParseFlags() error {
 	flag.StringVar(&modeFlag, "mode", "", "Mode")
 	flag.StringVar(&topicFlag, "topic", "", "pubsub topic")
 	flag.StringVar(&ipfsId, "ipfs-id", "", "IPFS ID")
-	flag.StringVar(&staticIpnsName, "static-ipns-name", "", "Static Webui IPNS name")
 	flag.IntVar(&prNumber, "pr-number", 0, "PR number")
 	flag.StringVar(&ageKeyFile, "age-key-file", "", "AGE key file")
 	flag.StringVar(&agePubKey, "age-pub-key", "", "AGE pubkey")
@@ -179,18 +177,16 @@ func findRelayPeers(h func() host.Host) func(ctx context.Context, num int) <-cha
 }
 
 type workflowInfo struct {
-	PrNumber       int    `json:"prNumber"`
-	IpfsId         string `json:"ipfsId"`
-	StaticIpnsName string `json:"staticIpnsName"`
-	GithubToken    string `json:"githubToken"`
+	PrNumber    int    `json:"prNumber"`
+	IpfsId      string `json:"ipfsId"`
+	GithubToken string `json:"githubToken"`
 }
 
 func doPublish(ctx context.Context, h host.Host, discovery *drouting.RoutingDiscovery) error {
 	info := workflowInfo{
-		PrNumber:       prNumber,
-		GithubToken:    os.Getenv("GITHUB_TOKEN"),
-		IpfsId:         ipfsId,
-		StaticIpnsName: staticIpnsName,
+		PrNumber:    prNumber,
+		GithubToken: os.Getenv("GITHUB_TOKEN"),
+		IpfsId:      ipfsId,
 	}
 
 	b, err := json.Marshal(&info)
