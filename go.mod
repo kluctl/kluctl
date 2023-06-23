@@ -69,7 +69,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.4
 	github.com/huandu/xstrings v1.4.0
 	github.com/onsi/gomega v1.27.8
-	github.com/otiai10/copy v1.11.0
+	github.com/otiai10/copy v1.12.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/sergi/go-diff v1.3.1
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
