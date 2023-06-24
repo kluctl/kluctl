@@ -414,6 +414,14 @@ func (p *TestProject) GetGitRepo() *git.Repository {
 	return p.gitServer.GetGitRepo(p.gitRepoName)
 }
 
+func (p *TestProject) GetGitWorktree() *git.Worktree {
+	wt, err := p.GetGitRepo().Worktree()
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	return wt
+}
+
 func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
