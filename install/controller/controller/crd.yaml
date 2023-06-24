@@ -304,6 +304,9 @@ spec:
                       branch:
                         description: Branch to use.
                         type: string
+                      commit:
+                        description: Commit SHA to use.
+                        type: string
                       tag:
                         description: Tag to use.
                         type: string

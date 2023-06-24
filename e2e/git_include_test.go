@@ -66,7 +66,7 @@ func TestGitInclude(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
 }
 
-func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName string, tagName string, tagMessage string, update func()) {
+func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName string, tagName string, tagMessage string, update func()) string {
 	err := p.GetGitWorktree().Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName("master"),
 	})
@@ -79,10 +79,10 @@ func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName stri
 
 	update()
 
-	if tagName != "" {
-		h, err := p.GetGitRepo().ResolveRevision(plumbing.Revision(branchName))
-		assert.NoError(t, err)
+	h, err := p.GetGitRepo().ResolveRevision(plumbing.Revision(branchName))
+	assert.NoError(t, err)
 
+	if tagName != "" {
 		var to *git.CreateTagOptions
 		if tagMessage != "" {
 			to = &git.CreateTagOptions{
@@ -97,6 +97,8 @@ func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName stri
 		Branch: plumbing.NewBranchReferenceName("master"),
 	})
 	assert.NoError(t, err)
+
+	return h.String()
 }
 
 func TestGitIncludeRef(t *testing.T) {
@@ -143,6 +145,13 @@ func TestGitIncludeRef(t *testing.T) {
 	createBranchAndTag(t, ip1, "branch5", "tag5", "tag5", func() {
 		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag5"}, resourceOpts{
 			name:      "tag5",
+			namespace: p.TestSlug(),
+		})
+	})
+
+	commit6 := createBranchAndTag(t, ip1, "branch6", "tag6", "", func() {
+		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag5"}, resourceOpts{
+			name:      "commit6",
 			namespace: p.TestSlug(),
 		})
 	})
@@ -197,6 +206,14 @@ func TestGitIncludeRef(t *testing.T) {
 			},
 		},
 	}))
+	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
+		"git": map[string]any{
+			"url": ip1.GitUrl(),
+			"ref": map[string]any{
+				"commit": commit6,
+			},
+		},
+	}))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "parent")
@@ -206,6 +223,7 @@ func TestGitIncludeRef(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "branch3")
 	assertConfigMapExists(t, k, p.TestSlug(), "tag4")
 	assertConfigMapExists(t, k, p.TestSlug(), "tag5")
+	assertConfigMapExists(t, k, p.TestSlug(), "commit6")
 }
 
 func TestLocalGitOverride(t *testing.T) {

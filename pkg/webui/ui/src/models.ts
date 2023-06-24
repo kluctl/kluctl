@@ -430,11 +430,13 @@ export class ClusterInfo {
 export class GitRef {
     branch?: string;
     tag?: string;
+    commit?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.branch = source["branch"];
         this.tag = source["tag"];
+        this.commit = source["commit"];
     }
 }
 export class GitInfo {

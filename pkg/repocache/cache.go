@@ -311,9 +311,15 @@ func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, 
 		ref = &e.defaultRef
 	}
 
-	ref2, commit, err := e.findCommit(ref.String())
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
+	var ref2, commit string
+	if ref != nil && ref.Commit != "" {
+		ref2 = ref.Commit
+		commit = ref.Commit
+	} else {
+		ref2, commit, err = e.findCommit(ref.String())
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
 	}
 
 	err = e.mr.CloneProjectByCommit(commit, p)

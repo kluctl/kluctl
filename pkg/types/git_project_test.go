@@ -38,5 +38,5 @@ func TestMarshalGitRefErrors(t *testing.T) {
 	assert.EqualError(t, err, "only one of the ref fields can be set")
 
 	err = json.Unmarshal([]byte(`{}`), &GitRef{})
-	assert.EqualError(t, err, "either branch or tag must be set")
+	assert.EqualError(t, err, "either branch, tag or commit must be set")
 }

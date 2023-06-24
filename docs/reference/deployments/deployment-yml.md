@@ -111,7 +111,7 @@ deployments:
 The url specifies the Git url to be cloned and checked out.
 
 `ref` is optional and specifies the branch or tag to be used. To specify a branch, set the sub-field `branch` as seen
-in the above example. To pass a tag, set the `tag` field instead.
+in the above example. To pass a tag, set the `tag` field instead. To pass a commit, set the `commit` field instead.
 
 If `ref` is omitted, the default branch will be checked out.
 

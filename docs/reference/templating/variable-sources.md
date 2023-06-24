@@ -96,6 +96,8 @@ vars:
       path: path/to/vars.yaml
 ```
 
+The ref field has the same format at found in [Git includes](../deployments/deployment-yml.md#git-includes)
+
 Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
 [sops integration](../deployments/sops.md) integration for more details.
 

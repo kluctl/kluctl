@@ -41,10 +41,9 @@ type GitRef struct {
 	// You are not allowed to use it directly
 	Ref string `json:"-"`
 
-	// TODO
-	// Commit SHA to check out, takes precedence over all reference fields.
+	// Commit SHA to use.
 	// +optional
-	// Commit string `json:"commit,omitempty"`
+	Commit string `json:"commit,omitempty"`
 }
 
 func (ref *GitRef) UnmarshalJSON(b []byte) error {
@@ -66,8 +65,11 @@ func (ref *GitRef) UnmarshalJSON(b []byte) error {
 	if ref.Branch != "" {
 		cnt++
 	}
+	if ref.Commit != "" {
+		cnt++
+	}
 	if cnt == 0 {
-		return fmt.Errorf("either branch or tag must be set")
+		return fmt.Errorf("either branch, tag or commit must be set")
 	}
 	if cnt != 1 {
 		return fmt.Errorf("only one of the ref fields can be set")
