@@ -97,7 +97,7 @@ type CommandInfo struct {
 
 type GitInfo struct {
 	Url    *types.GitUrl `json:"url"`
-	Ref    string        `json:"ref"`
+	Ref    *types.GitRef `json:"ref"`
 	SubDir string        `json:"subDir"`
 	Commit string        `json:"commit"`
 	Dirty  bool          `json:"dirty"`

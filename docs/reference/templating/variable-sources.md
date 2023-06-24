@@ -91,7 +91,8 @@ This loads variables from a git repository. Example:
 vars:
   - git:
       url: ssh://git@github.com/example/repo.git
-      ref: my-branch
+      ref:
+        branch: my-branch
       path: path/to/vars.yaml
 ```
 

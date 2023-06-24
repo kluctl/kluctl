@@ -38,10 +38,10 @@ type CacheEntry struct {
 	rp         *GitRepoCache
 	url        types.GitUrl
 	mr         *git.MirroredGitRepo
-	defaultRef string
+	defaultRef types.GitRef
 	refs       map[string]string
 
-	clonedDirs   map[string]clonedDir
+	clonedDirs   map[types.GitRef]clonedDir
 	updateMutex  sync.Mutex
 	overridePath string
 }
@@ -49,7 +49,7 @@ type CacheEntry struct {
 type RepoInfo struct {
 	Url        types.GitUrl      `json:"url"`
 	RemoteRefs map[string]string `json:"remoteRefs"`
-	DefaultRef string            `json:"defaultRef"`
+	DefaultRef types.GitRef      `json:"defaultRef"`
 }
 
 type RepoOverride struct {
@@ -128,7 +128,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 			rp:           rp,
 			url:          url,
 			mr:           nil, // mark as overridden
-			clonedDirs:   map[string]clonedDir{},
+			clonedDirs:   map[types.GitRef]clonedDir{},
 			overridePath: overridePath,
 		}
 		rp.repos[repoKey] = e
@@ -145,7 +145,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 			rp:         rp,
 			url:        url,
 			mr:         mr,
-			clonedDirs: map[string]clonedDir{},
+			clonedDirs: map[types.GitRef]clonedDir{},
 		}
 		rp.repos[repoKey] = e
 	}
@@ -191,10 +191,16 @@ func (e *CacheEntry) Update() error {
 		return err
 	}
 
-	e.defaultRef, err = e.mr.DefaultRef()
+	defaultRefStr, err := e.mr.DefaultRef()
 	if err != nil {
 		return err
 	}
+
+	defaultRef, err := types.ParseGitRef(defaultRefStr)
+	if err != nil {
+		return err
+	}
+	e.defaultRef = defaultRef
 
 	return nil
 }
@@ -221,6 +227,7 @@ func (e *CacheEntry) findCommit(ref string) (string, string, error) {
 		}
 		return ref, c, nil
 	default:
+		// TODO remove this compatibility code
 		ref2 := "refs/heads/" + ref
 		c, ok := e.refs[ref2]
 		if ok {
@@ -235,7 +242,7 @@ func (e *CacheEntry) findCommit(ref string) (string, string, error) {
 	}
 }
 
-func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) {
+func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -247,10 +254,10 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 
 	url := e.url
 	repoName := path.Base(url.Normalize().Path) + "-"
-	if ref == "" {
+	if ref == nil {
 		repoName += "HEAD-"
 	} else {
-		repoName += ref + "-"
+		repoName += ref.String() + "-"
 	}
 	repoName = strings.ReplaceAll(repoName, "/", "-")
 
@@ -277,11 +284,11 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	}
 	defer e.mr.Unlock()
 
-	if ref == "" {
-		ref = e.defaultRef
+	if ref == nil {
+		ref = &e.defaultRef
 	}
 
-	ref2, commit, err := e.findCommit(ref)
+	ref2, commit, err := e.findCommit(ref.String())
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
@@ -298,7 +305,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 
 	repoInfo.CheckedOutRef = ref2
 
-	e.clonedDirs[ref] = clonedDir{
+	e.clonedDirs[*ref] = clonedDir{
 		dir:  p,
 		info: repoInfo,
 	}

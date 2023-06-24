@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -13,9 +14,9 @@ import (
 var gitDirPatternNeg = regexp.MustCompile(`[\\\/:\*?"<>|[:cntrl:]\0^]`)
 
 type GitProject struct {
-	Url    GitUrl `json:"url" validate:"required"`
-	Ref    string `json:"ref,omitempty"`
-	SubDir string `json:"subDir,omitempty"`
+	Url    GitUrl  `json:"url" validate:"required"`
+	Ref    *GitRef `json:"ref,omitempty"`
+	SubDir string  `json:"subDir,omitempty"`
 }
 
 func (gp *GitProject) UnmarshalJSON(b []byte) error {
@@ -28,13 +29,17 @@ func (gp *GitProject) UnmarshalJSON(b []byte) error {
 }
 
 type GitRef struct {
-	// Branch to filter for. Can also be a regex.
+	// Branch to use.
 	// +optional
 	Branch string `json:"branch,omitempty"`
 
-	// Branch to filter for. Can also be a regex.
+	// Tag to use.
 	// +optional
 	Tag string `json:"tag,omitempty"`
+
+	// Ref is only used to keep compatibility to the old string based ref field in GitProject
+	// You are not allowed to use it directly
+	Ref string `json:"-"`
 
 	// TODO
 	// Commit SHA to check out, takes precedence over all reference fields.
@@ -42,16 +47,65 @@ type GitRef struct {
 	// Commit string `json:"commit,omitempty"`
 }
 
-func (r *GitRef) String() string {
-	if r == nil {
+func (ref *GitRef) UnmarshalJSON(b []byte) error {
+	if err := yaml.ReadYamlBytes(b, &ref.Ref); err == nil {
+		// it's a simple string
+		return nil
+	}
+	ref.Ref = ""
+	type raw GitRef
+	err := yaml.ReadYamlBytes(b, (*raw)(ref))
+	if err != nil {
+		return err
+	}
+
+	cnt := 0
+	if ref.Tag != "" {
+		cnt++
+	}
+	if ref.Branch != "" {
+		cnt++
+	}
+	if cnt == 0 {
+		return fmt.Errorf("either branch or tag must be set")
+	}
+	if cnt != 1 {
+		return fmt.Errorf("only one of the ref fields can be set")
+	}
+	return nil
+}
+
+func (ref GitRef) MarshalJSON() ([]byte, error) {
+	if ref.Ref != "" {
+		return json.Marshal(ref.Ref)
+	}
+
+	type raw GitRef
+	return json.Marshal((*raw)(&ref))
+}
+
+func (ref *GitRef) String() string {
+	if ref == nil {
 		return ""
 	}
-	if r.Tag != "" {
-		return fmt.Sprintf("refs/tags/%s", r.Tag)
-	} else if r.Branch != "" {
-		return fmt.Sprintf("refs/heads/%s", r.Branch)
+	if ref.Tag != "" {
+		return fmt.Sprintf("refs/tags/%s", ref.Tag)
+	} else if ref.Branch != "" {
+		return fmt.Sprintf("refs/heads/%s", ref.Branch)
+	} else if ref.Ref != "" {
+		return ref.Ref
 	} else {
 		return ""
+	}
+}
+
+func ParseGitRef(s string) (GitRef, error) {
+	if strings.HasPrefix(s, "refs/heads/") {
+		return GitRef{Branch: strings.SplitN(s, "/", 3)[2]}, nil
+	} else if strings.HasPrefix(s, "refs/tags/") {
+		return GitRef{Tag: strings.SplitN(s, "/", 3)[2]}, nil
+	} else {
+		return GitRef{}, fmt.Errorf("can't parse %s as GitRef", s)
 	}
 }
 

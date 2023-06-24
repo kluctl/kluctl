@@ -73,7 +73,7 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 }
 
 func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*types.VarsSource) error {
-	return p.ctx.VarsLoader.LoadVarsList(varsCtx, varsList, p.getRenderSearchDirs(), "")
+	return p.ctx.VarsLoader.LoadVarsList(p.ctx.Ctx, varsCtx, varsList, p.getRenderSearchDirs(), "")
 }
 
 func (p *DeploymentProject) loadConfig() error {
@@ -200,6 +200,11 @@ func (p *DeploymentProject) loadIncludes() error {
 			ge, err := p.ctx.RP.GetEntry(inc.Git.Url)
 			if err != nil {
 				return err
+			}
+			if inc.Git.Ref != nil && inc.Git.Ref.Ref != "" {
+				status.Deprecation(p.ctx.Ctx, "git-include-string-ref", "Passing 'ref' as string into git includes is "+
+					"deprecated and support for this will be removed in a future version of Kluctl. Please refer to the "+
+					"documentation for details: https://kluctl.io/docs/kluctl/reference/deployments/deployment-yml/#git-includes")
 			}
 			cloneDir, _, err := ge.GetClonedDir(inc.Git.Ref)
 			if err != nil {
