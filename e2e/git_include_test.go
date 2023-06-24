@@ -66,7 +66,7 @@ func TestGitInclude(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
 }
 
-func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName string, tagName string, update func()) {
+func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName string, tagName string, tagMessage string, update func()) {
 	err := p.GetGitWorktree().Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName("master"),
 	})
@@ -82,7 +82,14 @@ func createBranchAndTag(t *testing.T, p *test_utils.TestProject, branchName stri
 	if tagName != "" {
 		h, err := p.GetGitRepo().ResolveRevision(plumbing.Revision(branchName))
 		assert.NoError(t, err)
-		_, err = p.GetGitRepo().CreateTag(tagName, *h, nil)
+
+		var to *git.CreateTagOptions
+		if tagMessage != "" {
+			to = &git.CreateTagOptions{
+				Message: tagMessage,
+			}
+		}
+		_, err = p.GetGitRepo().CreateTag(tagName, *h, to)
 		assert.NoError(t, err)
 	}
 
@@ -105,30 +112,37 @@ func TestGitIncludeRef(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	createBranchAndTag(t, ip1, "branch1", "tag1", func() {
+	createBranchAndTag(t, ip1, "branch1", "tag1", "", func() {
 		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "branch1"}, resourceOpts{
 			name:      "branch1",
 			namespace: p.TestSlug(),
 		})
 	})
 
-	createBranchAndTag(t, ip1, "branch2", "tag2", func() {
+	createBranchAndTag(t, ip1, "branch2", "tag2", "", func() {
 		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag2"}, resourceOpts{
 			name:      "tag2",
 			namespace: p.TestSlug(),
 		})
 	})
 
-	createBranchAndTag(t, ip1, "branch3", "tag3", func() {
+	createBranchAndTag(t, ip1, "branch3", "tag3", "", func() {
 		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "branch3"}, resourceOpts{
 			name:      "branch3",
 			namespace: p.TestSlug(),
 		})
 	})
 
-	createBranchAndTag(t, ip1, "branch4", "tag4", func() {
+	createBranchAndTag(t, ip1, "branch4", "tag4", "", func() {
 		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag4"}, resourceOpts{
 			name:      "tag4",
+			namespace: p.TestSlug(),
+		})
+	})
+
+	createBranchAndTag(t, ip1, "branch5", "tag5", "tag5", func() {
+		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag5"}, resourceOpts{
+			name:      "tag5",
 			namespace: p.TestSlug(),
 		})
 	})
@@ -175,6 +189,14 @@ func TestGitIncludeRef(t *testing.T) {
 			"ref": "tag4",
 		},
 	}))
+	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
+		"git": map[string]any{
+			"url": ip1.GitUrl(),
+			"ref": map[string]any{
+				"tag": "tag5",
+			},
+		},
+	}))
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "parent")
@@ -183,6 +205,7 @@ func TestGitIncludeRef(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "tag2")
 	assertConfigMapExists(t, k, p.TestSlug(), "branch3")
 	assertConfigMapExists(t, k, p.TestSlug(), "tag4")
+	assertConfigMapExists(t, k, p.TestSlug(), "tag5")
 }
 
 func TestLocalGitOverride(t *testing.T) {

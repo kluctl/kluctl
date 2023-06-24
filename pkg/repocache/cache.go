@@ -3,6 +3,8 @@ package repocache
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
 	"path"
@@ -219,6 +221,27 @@ func (e *CacheEntry) GetRepoInfo() RepoInfo {
 }
 
 func (e *CacheEntry) findCommit(ref string) (string, string, error) {
+	ref, objectHash, err := e.findRef(ref)
+	if err != nil {
+		return "", "", err
+	}
+
+	o, err := e.mr.GetObjectByHash(objectHash)
+	if err != nil {
+		return "", "", err
+	}
+
+	if o.Type() == plumbing.CommitObject {
+		return ref, objectHash, nil
+	} else if o.Type() == plumbing.TagObject {
+		o2 := o.(*object.Tag)
+		return ref, o2.Target.String(), nil
+	} else {
+		return "", "", fmt.Errorf("unsupported object type %s", o.Type().String())
+	}
+}
+
+func (e *CacheEntry) findRef(ref string) (string, string, error) {
 	switch {
 	case strings.HasPrefix(ref, "refs/heads"), strings.HasPrefix(ref, "refs/tags"):
 		c, ok := e.refs[ref]
