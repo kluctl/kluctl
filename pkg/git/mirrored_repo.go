@@ -411,7 +411,7 @@ func buildMirrorRepoName(u types.GitUrl) string {
 	r := filepath.Base(u.Path)
 	r = strings.ReplaceAll(r, "/", "-")
 	r = strings.ReplaceAll(r, "\\", "-")
-	if strings.HasSuffix(r, ".git") {
+	if r != ".git" && strings.HasSuffix(r, ".git") {
 		r = r[:len(r)-len(".git")]
 	}
 	r += "-" + h2[:6]
