@@ -13,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
 )
@@ -168,6 +169,10 @@ func (p *LoadedKluctlProject) loadK8sConfig(target *types.Target, offlineK8s boo
 	var restConfig *api.Config
 	clientConfig, restConfig, err = p.LoadArgs.ClientConfigGetter(contextName)
 	if err != nil {
+		if contextName == nil && clientcmd.IsEmptyConfig(err) {
+			status.Warning(p.ctx, "No valid KUBECONFIG provided, which means the Kubernetes client is not available. Depending on your deployment project, this might cause follow-up errors.")
+			return nil, "", nil
+		}
 		return nil, "", err
 	}
 	if contextName == nil {
