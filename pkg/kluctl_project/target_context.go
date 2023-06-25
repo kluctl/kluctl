@@ -231,7 +231,7 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 		if err != nil {
 			return err
 		}
-		err = varsLoader.LoadVarsList(varsCtx, secretEntry.Vars, searchDirs, "secrets")
+		err = varsLoader.LoadVarsList(p.ctx, varsCtx, secretEntry.Vars, searchDirs, "secrets")
 		if err != nil {
 			return err
 		}

@@ -200,10 +200,10 @@ data:
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})
 	suite.Run("non existing git branch", func() {
-		var backup *kluctlv1.GitRef
+		var backup *types.GitRef
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			backup = kd.Spec.Source.Ref
-			kd.Spec.Source.Ref = &kluctlv1.GitRef{
+			kd.Spec.Source.Ref = &types.GitRef{
 				Branch: "invalid",
 			}
 		})

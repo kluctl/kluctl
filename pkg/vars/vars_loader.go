@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -51,9 +52,9 @@ func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops *decryptor.Decry
 	}
 }
 
-func (v *VarsLoader) LoadVarsList(varsCtx *VarsCtx, varsList []*types.VarsSource, searchDirs []string, rootKey string) error {
+func (v *VarsLoader) LoadVarsList(ctx context.Context, varsCtx *VarsCtx, varsList []*types.VarsSource, searchDirs []string, rootKey string) error {
 	for _, source := range varsList {
-		err := v.LoadVars(varsCtx, source, searchDirs, rootKey)
+		err := v.LoadVars(ctx, varsCtx, source, searchDirs, rootKey)
 		if err != nil {
 			return err
 		}
@@ -61,7 +62,7 @@ func (v *VarsLoader) LoadVarsList(varsCtx *VarsCtx, varsList []*types.VarsSource
 	return nil
 }
 
-func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, searchDirs []string, rootKey string) error {
+func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *types.VarsSource, searchDirs []string, rootKey string) error {
 	if sourceIn.RenderedVars != nil && len(sourceIn.RenderedVars.Object) != 0 {
 		return fmt.Errorf("renderedVars is not allowed here")
 	}
@@ -106,7 +107,7 @@ func (v *VarsLoader) LoadVars(varsCtx *VarsCtx, sourceIn *types.VarsSource, sear
 	} else if source.File != nil {
 		newVars, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
 	} else if source.Git != nil {
-		newVars, err = v.loadGit(varsCtx, source.Git, ignoreMissing)
+		newVars, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
 		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
@@ -260,10 +261,16 @@ func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignor
 	return v.loadFromString(varsCtx, *secret)
 }
 
-func (v *VarsLoader) loadGit(varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, error) {
 	ge, err := v.rp.GetEntry(gitFile.Url)
 	if err != nil {
 		return nil, err
+	}
+
+	if gitFile.Ref != nil && gitFile.Ref.Ref != "" {
+		status.Deprecation(ctx, "git-vars-string-ref", "Passing 'ref' as string into git vars source is "+
+			"deprecated and support for this will be removed in a future version of Kluctl. Please refer to the "+
+			"documentation for details: https://kluctl.io/docs/kluctl/reference/templating/variable-sources/#git")
 	}
 
 	clonedDir, _, err := ge.GetClonedDir(gitFile.Ref)

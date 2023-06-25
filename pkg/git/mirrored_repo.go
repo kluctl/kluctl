@@ -389,6 +389,20 @@ func (g *MirroredGitRepo) GetGitTreeByCommit(commitHash string) (*object.Tree, e
 	return tree, nil
 }
 
+func (g *MirroredGitRepo) GetObjectByHash(hash string) (object.Object, error) {
+	if !g.IsLocked() || !g.hasUpdated {
+		panic("tried to read a file from a project that is not locked/updated")
+	}
+
+	r, err := git.PlainOpen(g.mirrorDir)
+	if err != nil {
+		return nil, err
+	}
+
+	h := plumbing.NewHash(hash)
+	return object.GetObject(r.Storer, h)
+}
+
 func buildMirrorRepoName(u types.GitUrl) string {
 	h := sha256.New()
 	h.Write([]byte(u.String()))
@@ -397,7 +411,7 @@ func buildMirrorRepoName(u types.GitUrl) string {
 	r := filepath.Base(u.Path)
 	r = strings.ReplaceAll(r, "/", "-")
 	r = strings.ReplaceAll(r, "\\", "-")
-	if strings.HasSuffix(r, ".git") {
+	if r != ".git" && strings.HasSuffix(r, ".git") {
 		r = r[:len(r)-len(".git")]
 	}
 	r += "-" + h2[:6]

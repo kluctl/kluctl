@@ -3,6 +3,8 @@ package repocache
 import (
 	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
 	"path"
@@ -38,10 +40,10 @@ type CacheEntry struct {
 	rp         *GitRepoCache
 	url        types.GitUrl
 	mr         *git.MirroredGitRepo
-	defaultRef string
+	defaultRef types.GitRef
 	refs       map[string]string
 
-	clonedDirs   map[string]clonedDir
+	clonedDirs   map[types.GitRef]clonedDir
 	updateMutex  sync.Mutex
 	overridePath string
 }
@@ -49,7 +51,7 @@ type CacheEntry struct {
 type RepoInfo struct {
 	Url        types.GitUrl      `json:"url"`
 	RemoteRefs map[string]string `json:"remoteRefs"`
-	DefaultRef string            `json:"defaultRef"`
+	DefaultRef types.GitRef      `json:"defaultRef"`
 }
 
 type RepoOverride struct {
@@ -128,7 +130,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 			rp:           rp,
 			url:          url,
 			mr:           nil, // mark as overridden
-			clonedDirs:   map[string]clonedDir{},
+			clonedDirs:   map[types.GitRef]clonedDir{},
 			overridePath: overridePath,
 		}
 		rp.repos[repoKey] = e
@@ -145,7 +147,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 			rp:         rp,
 			url:        url,
 			mr:         mr,
-			clonedDirs: map[string]clonedDir{},
+			clonedDirs: map[types.GitRef]clonedDir{},
 		}
 		rp.repos[repoKey] = e
 	}
@@ -191,10 +193,16 @@ func (e *CacheEntry) Update() error {
 		return err
 	}
 
-	e.defaultRef, err = e.mr.DefaultRef()
+	defaultRefStr, err := e.mr.DefaultRef()
 	if err != nil {
 		return err
 	}
+
+	defaultRef, err := types.ParseGitRef(defaultRefStr)
+	if err != nil {
+		return err
+	}
+	e.defaultRef = defaultRef
 
 	return nil
 }
@@ -213,6 +221,27 @@ func (e *CacheEntry) GetRepoInfo() RepoInfo {
 }
 
 func (e *CacheEntry) findCommit(ref string) (string, string, error) {
+	ref, objectHash, err := e.findRef(ref)
+	if err != nil {
+		return "", "", err
+	}
+
+	o, err := e.mr.GetObjectByHash(objectHash)
+	if err != nil {
+		return "", "", err
+	}
+
+	if o.Type() == plumbing.CommitObject {
+		return ref, objectHash, nil
+	} else if o.Type() == plumbing.TagObject {
+		o2 := o.(*object.Tag)
+		return ref, o2.Target.String(), nil
+	} else {
+		return "", "", fmt.Errorf("unsupported object type %s", o.Type().String())
+	}
+}
+
+func (e *CacheEntry) findRef(ref string) (string, string, error) {
 	switch {
 	case strings.HasPrefix(ref, "refs/heads"), strings.HasPrefix(ref, "refs/tags"):
 		c, ok := e.refs[ref]
@@ -221,6 +250,7 @@ func (e *CacheEntry) findCommit(ref string) (string, string, error) {
 		}
 		return ref, c, nil
 	default:
+		// TODO remove this compatibility code
 		ref2 := "refs/heads/" + ref
 		c, ok := e.refs[ref2]
 		if ok {
@@ -235,7 +265,7 @@ func (e *CacheEntry) findCommit(ref string) (string, string, error) {
 	}
 }
 
-func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) {
+func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -247,10 +277,10 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 
 	url := e.url
 	repoName := path.Base(url.Normalize().Path) + "-"
-	if ref == "" {
+	if ref == nil {
 		repoName += "HEAD-"
 	} else {
-		repoName += ref + "-"
+		repoName += ref.String() + "-"
 	}
 	repoName = strings.ReplaceAll(repoName, "/", "-")
 
@@ -277,13 +307,19 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 	}
 	defer e.mr.Unlock()
 
-	if ref == "" {
-		ref = e.defaultRef
+	if ref == nil {
+		ref = &e.defaultRef
 	}
 
-	ref2, commit, err := e.findCommit(ref)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
+	var ref2, commit string
+	if ref != nil && ref.Commit != "" {
+		ref2 = ref.Commit
+		commit = ref.Commit
+	} else {
+		ref2, commit, err = e.findCommit(ref.String())
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
 	}
 
 	err = e.mr.CloneProjectByCommit(commit, p)
@@ -298,7 +334,7 @@ func (e *CacheEntry) GetClonedDir(ref string) (string, git.CheckoutInfo, error) 
 
 	repoInfo.CheckedOutRef = ref2
 
-	e.clonedDirs[ref] = clonedDir{
+	e.clonedDirs[*ref] = clonedDir{
 		dir:  p,
 		info: repoInfo,
 	}

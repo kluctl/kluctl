@@ -69,50 +69,6 @@ by signing a token in an IRSA compliant way.</p>
 </table>
 </div>
 </div>
-<h3 id="gitops.kluctl.io/v1beta1.GitRef">GitRef
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>branch</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Branch to filter for. Can also be a regex.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>tag</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Branch to filter for. Can also be a regex.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials
 </h3>
 <p>
@@ -1313,9 +1269,7 @@ github.com/kluctl/kluctl/v2/pkg/types.GitUrl
 <td>
 <code>ref</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.GitRef">
-GitRef
-</a>
+github.com/kluctl/kluctl/v2/pkg/types.GitRef
 </em>
 </td>
 <td>

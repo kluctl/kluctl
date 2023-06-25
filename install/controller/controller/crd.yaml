@@ -302,10 +302,13 @@ spec:
                       be used. If omitted, the default branch of the repo is used.
                     properties:
                       branch:
-                        description: Branch to filter for. Can also be a regex.
+                        description: Branch to use.
+                        type: string
+                      commit:
+                        description: Commit SHA to use.
                         type: string
                       tag:
-                        description: Branch to filter for. Can also be a regex.
+                        description: Tag to use.
                         type: string
                     type: object
                   secretRef:

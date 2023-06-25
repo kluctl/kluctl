@@ -58,7 +58,7 @@ func testVarsLoader(t *testing.T, test func(vl *VarsLoader, vc *VarsCtx, aws *aw
 
 func TestVarsLoader_Values(t *testing.T) {
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Values: uo.FromStringMust(`{"test1": {"test2": 42}}`),
 		}, nil, "")
 		assert.NoError(t, err)
@@ -70,13 +70,13 @@ func TestVarsLoader_Values(t *testing.T) {
 
 func TestVarsLoader_ValuesNoOverrides(t *testing.T) {
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Values: uo.FromStringMust(`{"test1": {"test2": 42}}`),
 		}, nil, "")
 		assert.NoError(t, err)
 
 		b := true
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Values:     uo.FromStringMust(`{"test1": {"test2": 43}}`),
 			NoOverride: &b,
 		}, nil, "")
@@ -89,11 +89,11 @@ func TestVarsLoader_ValuesNoOverrides(t *testing.T) {
 
 func TestVarsLoader_When(t *testing.T) {
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Values: uo.FromStringMust(`{"test1": "a"}`),
 		}, nil, "")
 		assert.NoError(t, err)
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Values: uo.FromStringMust(`{"test1": "b"}`),
 			When:   `test1 == "b"`,
 		}, nil, "")
@@ -101,7 +101,7 @@ func TestVarsLoader_When(t *testing.T) {
 		v, _, _ := vc.Vars.GetNestedString("test1")
 		assert.Equal(t, "a", v)
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Values: uo.FromStringMust(`{"test1": "b"}`),
 			When:   `test1 == "a"`,
 		}, nil, "")
@@ -116,7 +116,7 @@ func TestVarsLoader_File(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
 		}, []string{d}, "")
 		assert.NoError(t, err)
@@ -127,7 +127,7 @@ func TestVarsLoader_File(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			File:          utils.StrPtr("test.yaml"),
 		}, []string{d}, "")
@@ -139,7 +139,7 @@ func TestVarsLoader_File(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			File:          utils.StrPtr("test-missing.yaml"),
 		}, []string{d}, "")
@@ -156,7 +156,7 @@ func TestVarsLoader_SopsFile(t *testing.T) {
 	t.Setenv(age.SopsAgeKeyEnv, string(key))
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
 		}, []string{d}, "")
 		assert.NoError(t, err)
@@ -172,7 +172,7 @@ func TestVarsLoader_FileWithLoad(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(d, "test2.txt"), []byte(`42`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
 		}, []string{d}, "")
 		assert.NoError(t, err)
@@ -189,7 +189,7 @@ func TestVarsLoader_FileWithLoadSubDir(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(d, "subdir/test2.txt"), []byte(`42`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
 		}, []string{d, filepath.Join(d, "subdir")}, "")
 		assert.NoError(t, err)
@@ -204,7 +204,7 @@ func TestVarsLoader_FileWithLoadNotExists(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": {{load_template("test3.txt")}}}}`), 0o600)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			File: utils.StrPtr("test.yaml"),
 		}, []string{d}, "")
 		assert.EqualError(t, err, "failed to render vars file test.yaml: template test3.txt not found")
@@ -223,7 +223,7 @@ func TestVarsLoader_Git(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
 				Path: "test.yaml",
@@ -238,7 +238,7 @@ func TestVarsLoader_Git(t *testing.T) {
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			Git: &types.VarsSourceGit{
 				Url:  *url,
@@ -274,11 +274,11 @@ func TestVarsLoader_GitBranch(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
 				Path: "test.yaml",
-				Ref:  "testbranch",
+				Ref:  &types.GitRef{Branch: "testbranch"},
 			},
 		}, nil, "")
 		assert.NoError(t, err)
@@ -298,7 +298,7 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 	}
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "cm",
 				Namespace: "ns",
@@ -312,7 +312,7 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 	}, &cm)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "cm1",
 				Namespace: "ns",
@@ -321,7 +321,7 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 		}, nil, "")
 		assert.EqualError(t, err, "configmaps \"cm1\" not found")
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "cm",
 				Namespace: "ns",
@@ -333,7 +333,7 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "cm-missing",
@@ -345,7 +345,7 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 	}, &cm)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "cm",
 				Namespace: "ns",
@@ -356,7 +356,7 @@ func TestVarsLoader_ClusterConfigMap(t *testing.T) {
 	}, &cm)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:       "cm",
 				Namespace:  "ns",
@@ -380,7 +380,7 @@ func TestVarsLoader_ClusterSecret(t *testing.T) {
 	}
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "s",
 				Namespace: "ns",
@@ -394,7 +394,7 @@ func TestVarsLoader_ClusterSecret(t *testing.T) {
 	}, &secret)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "s1",
 				Namespace: "ns",
@@ -403,7 +403,7 @@ func TestVarsLoader_ClusterSecret(t *testing.T) {
 		}, nil, "")
 		assert.EqualError(t, err, "secrets \"s1\" not found")
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "s",
 				Namespace: "ns",
@@ -415,7 +415,7 @@ func TestVarsLoader_ClusterSecret(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "s-missing",
@@ -442,7 +442,7 @@ func TestVarsLoader_K8sObjectLabels(t *testing.T) {
 	}
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Labels:    map[string]string{"label1": "value1"},
 				Namespace: "ns",
@@ -456,7 +456,7 @@ func TestVarsLoader_K8sObjectLabels(t *testing.T) {
 	}, &cm1, &cm2)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Labels:    map[string]string{"label2": "value2"},
 				Namespace: "ns",
@@ -471,7 +471,7 @@ func TestVarsLoader_K8sObjectLabels(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Labels:    map[string]string{"label2": "value-missing"},
@@ -489,7 +489,7 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 	t.Setenv("TEST4", "44")
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			SystemEnvVars: uo.FromMap(map[string]interface{}{
 				"test1": "TEST1",
 				"test2": "TEST2",
@@ -527,7 +527,7 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 	})
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			SystemEnvVars: uo.FromMap(map[string]interface{}{
 				"test5": "TEST5",
 			}),
@@ -537,7 +537,7 @@ func TestVarsLoader_SystemEnv(t *testing.T) {
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			SystemEnvVars: uo.FromMap(map[string]interface{}{
 				"test1": "TEST-MISSING",
@@ -566,7 +566,7 @@ func TestVarsLoader_Http_GET(t *testing.T) {
 		u, _ := url.Parse(ts.URL)
 		u.Path += "/ok"
 
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url: types.YamlUrl{URL: *u},
 			},
@@ -581,7 +581,7 @@ func TestVarsLoader_Http_GET(t *testing.T) {
 		b := true
 		u, _ := url.Parse(ts.URL)
 		u.Path += "/missing"
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			Http: &types.VarsSourceHttp{
 				Url: types.YamlUrl{URL: *u},
@@ -594,7 +594,7 @@ func TestVarsLoader_Http_GET(t *testing.T) {
 		b := true
 		u, _ := url.Parse(ts.URL)
 		u.Path += "/error"
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			Http: &types.VarsSourceHttp{
 				Url: types.YamlUrl{URL: *u},
@@ -627,14 +627,14 @@ func TestVarsLoader_Http_POST(t *testing.T) {
 	u, _ := url.Parse(ts.URL)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url: types.YamlUrl{URL: *u},
 			},
 		}, nil, "")
 		assert.ErrorContains(t, err, "failed with status code 542")
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:    types.YamlUrl{URL: *u},
 				Method: utils.StrPtr("POST"),
@@ -642,7 +642,7 @@ func TestVarsLoader_Http_POST(t *testing.T) {
 		}, nil, "")
 		assert.ErrorContains(t, err, "failed with status code 543")
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:    types.YamlUrl{URL: *u},
 				Method: utils.StrPtr("POST"),
@@ -651,7 +651,7 @@ func TestVarsLoader_Http_POST(t *testing.T) {
 		}, nil, "")
 		assert.ErrorContains(t, err, "failed with status code 544")
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:     types.YamlUrl{URL: *u},
 				Method:  utils.StrPtr("POST"),
@@ -674,7 +674,7 @@ func TestVarsLoader_Http_JsonPath(t *testing.T) {
 	u, _ := url.Parse(ts.URL)
 
 	testVarsLoader(t, func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory) {
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:      types.YamlUrl{URL: *u},
 				JsonPath: utils.StrPtr("test1"),
@@ -693,14 +693,14 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 			"secret": `{"test1": {"test2": 42}}`,
 		}
 
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "secret",
 			},
 		}, nil, "")
 		assert.EqualError(t, err, "when omitting the AWS region, the secret name must be a valid ARN")
 
-		err = vl.LoadVars(vc, &types.VarsSource{
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "secret",
 				Region:     utils.StrPtr("eu-central1"),
@@ -717,7 +717,7 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 			"secret": `{"test1": {"test2": 42}}`,
 		}
 
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "arn:aws:secretsmanager:eu-central-1:12345:secret:secret",
 			},
@@ -734,7 +734,7 @@ func TestVarsLoader_AwsSecretsManager(t *testing.T) {
 		}
 
 		b := true
-		err := vl.LoadVars(vc, &types.VarsSource{
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "missing",

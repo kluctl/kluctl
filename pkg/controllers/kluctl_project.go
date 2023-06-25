@@ -96,7 +96,7 @@ func prepareProject(ctx context.Context,
 			return nil, fmt.Errorf("failed clone source: %w", err)
 		}
 
-		clonedDir, gi, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref.String())
+		clonedDir, gi, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
 		if err != nil {
 			return nil, err
 		}
@@ -652,7 +652,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 
 	cmdResult.GitInfo.Url = &pt.pp.obj.Spec.Source.URL
-	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
+	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref
 	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.RepoKey()
 
 	var err error

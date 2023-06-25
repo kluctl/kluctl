@@ -8,9 +8,9 @@ import (
 )
 
 type VarsSourceGit struct {
-	Url  GitUrl `json:"url" validate:"required"`
-	Ref  string `json:"ref,omitempty"`
-	Path string `json:"path" validate:"required"`
+	Url  GitUrl  `json:"url" validate:"required"`
+	Ref  *GitRef `json:"ref,omitempty"`
+	Path string  `json:"path" validate:"required"`
 }
 
 type VarsSourceClusterConfigMapOrSecret struct {

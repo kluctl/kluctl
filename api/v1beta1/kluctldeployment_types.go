@@ -225,7 +225,7 @@ type ProjectSource struct {
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// +optional
-	Ref *GitRef `json:"ref,omitempty"`
+	Ref *types.GitRef `json:"ref,omitempty"`
 
 	// Path specifies the sub-directory to be used as project directory
 	// +optional

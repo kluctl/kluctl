@@ -10,6 +10,7 @@ import { CommandResultProps } from "../CommandResultView";
 
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
+import { buildGitRefString } from "../../../api";
 
 interface VarsSourceHandler {
     type: string
@@ -80,11 +81,7 @@ export class VarsSourceNodeData extends NodeData {
                     const sourceProps = []
                     sourceProps.push({name: "Url", value: this.varsSource.git!.url})
                     sourceProps.push({name: "Path", value: this.varsSource.git!.path})
-                    let ref = "HEAD"
-                    if (this.varsSource.git!.ref) {
-                        ref = this.varsSource.git!.ref!
-                    }
-                    sourceProps.push({name: "Ref", value: ref})
+                    sourceProps.push({name: "Ref", value: buildGitRefString(this.varsSource.git?.ref)})
                     return sourceProps
                 }
             }

@@ -1,6 +1,6 @@
 import {
     CommandResult,
-    CommandResultSummary,
+    CommandResultSummary, GitRef,
     ObjectRef,
     ProjectKey,
     ResultObject,
@@ -373,6 +373,19 @@ export function buildObjectRefFromObject(obj: any): ObjectRef {
     ref.namespace = obj.metadata.namespace
     ref.name = obj.metadata.name
     return ref
+}
+
+export function buildGitRefString(ref?: GitRef) {
+    if (!ref) {
+        return "HEAD"
+    }
+    if (ref.branch) {
+        return ref.branch
+    } else if (ref.tag) {
+        return ref.tag
+    } else {
+        return "<unknown>"
+    }
 }
 
 export function findObjectByRef(l: ResultObject[] | undefined, ref: ObjectRef, filter?: (o: ResultObject) => boolean): ResultObject | undefined {

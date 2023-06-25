@@ -133,10 +133,18 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 
 	r.GitInfo = result.GitInfo{
 		Url:    originUrl,
-		Ref:    head.Name().String(),
 		SubDir: subDir,
 		Commit: head.Hash().String(),
 		Dirty:  !s.IsClean(),
+	}
+	if head.Name().IsBranch() {
+		r.GitInfo.Ref = &types.GitRef{
+			Branch: head.Name().Short(),
+		}
+	} else if head.Name().IsTag() {
+		r.GitInfo.Ref = &types.GitRef{
+			Tag: head.Name().Short(),
+		}
 	}
 	r.ProjectKey.GitRepoKey = repoKey
 	r.ProjectKey.SubDir = subDir

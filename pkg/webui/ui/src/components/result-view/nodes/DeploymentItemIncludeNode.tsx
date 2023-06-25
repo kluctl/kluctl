@@ -7,6 +7,7 @@ import { CommandResultProps } from "../CommandResultView";
 import { PropertiesTable } from "../../PropertiesTable";
 import { buildDeploymentItemSummaryProps } from "./DeploymentItemNode";
 import { SidePanelTab } from "../SidePanel";
+import { buildGitRefString } from "../../../api";
 
 
 export class DeploymentItemIncludeNodeData extends NodeData {
@@ -59,11 +60,7 @@ export class DeploymentItemIncludeNodeData extends NodeData {
             props.push({name: "Type", value: "GitInclude"})
             props.push({name: "Url", value: this.deploymentItem.git.url})
             props.push({name: "SubDir", value: this.deploymentItem.git.subDir})
-            let ref = "HEAD"
-            if (this.deploymentItem.git.ref) {
-                ref = this.deploymentItem.git.ref!
-            }
-            props.push({name: "Ref", value: ref})
+            props.push({name: "Ref", value: buildGitRefString(this.deploymentItem.git.ref)})
         } else {
             props.push({name: "Type", value: "Unknown"})
         }
