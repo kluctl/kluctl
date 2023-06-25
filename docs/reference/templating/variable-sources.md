@@ -35,7 +35,10 @@ vars:
   when: some.var == "value"
 ```
 
-`vars2.yaml` can now use variables that are defined in `vars1.yaml`. At all times, variables defined by
+`vars2.yaml` can now use variables that are defined in `vars1.yaml`. A special case is the use of previously defined
+variables inside [values](#values) vars sources. Please see the documentation of [values](#values) for details.
+
+At all times, variables defined by
 parents of the current sub-deployment project can be used in the current vars file.
 
 Each variable source can have the optional field `ignoreMissing` set to `true`, causing Kluctl to ignore if the source
@@ -83,6 +86,38 @@ vars:
 ```
 
 These variables can then be used in all deployments and sub-deployments.
+
+In case you need to use variables defined in previous vars sources, the `values` var source needs some special handling
+in regard to templating. It's important to understand that the deployment project is rendered BEFORE any vars source
+processing is performed, which means that it will fail to render when you use previously defined variables in a `values`
+vars source. To still use previously defined variables, surround the `values` vars source with `{% raw %}` and `{% endraw %}`.
+In addition, the template expressions must be wrapped with `"`, as otherwise the loading of the deployment project
+will fail shortly after rendering due to YAML parsing errors.
+
+```yaml
+vars:
+  - values:
+      a: 1
+      b: c
+{% raw %}
+  - values:
+      c: "{{ a }}"
+{% endraw %}
+```
+
+An alternative syntax is to use a template expression that itself outputs a template expression:
+
+```yaml
+vars:
+  - values:
+      a: 1
+      b: c
+  - values:
+      c: {{ '{{ a }}' }}
+```
+
+The advantage of the second method is that the type (number) of `a` is preserved, while the first method would convert
+it into a string.
 
 ### git
 This loads variables from a git repository. Example:
