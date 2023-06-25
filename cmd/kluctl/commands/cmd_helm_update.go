@@ -47,15 +47,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	if cmd.Commit {
-		g, err := git.PlainOpen(gitRootPath)
-		if err != nil {
-			return err
-		}
-		wt, err := g.Worktree()
-		if err != nil {
-			return err
-		}
-		gitStatus, err := wt.Status()
+		gitStatus, err := git2.GetWorktreeStatus(ctx, gitRootPath)
 		if err != nil {
 			return err
 		}
