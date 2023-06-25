@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	git2 "github.com/go-git/go-git/v5"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -96,12 +97,7 @@ func addGitInfo(targetCtx *kluctl_project.TargetContext, r *result.CommandResult
 		return err
 	}
 
-	w, err := g.Worktree()
-	if err != nil {
-		return err
-	}
-
-	s, err := w.Status()
+	s, err := git.GetWorktreeStatus(targetCtx.SharedContext.Ctx, targetCtx.KluctlProject.LoadArgs.RepoRoot)
 	if err != nil {
 		return err
 	}
