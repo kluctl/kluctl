@@ -10,7 +10,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"net/url"
 	"os"
 	"os/exec"
@@ -82,7 +81,7 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 
 	if !p.bare {
 		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
-			_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name or 'no-name' }}", rand.String(16)), "discriminator")
+			_ = o.SetNestedField(fmt.Sprintf("%s-{{ target.name or 'no-name' }}", p.TestSlug()), "discriminator")
 			return nil
 		})
 		p.UpdateDeploymentYaml(".", func(c *uo.UnstructuredObject) error {
@@ -101,6 +100,13 @@ func (p *TestProject) TestSlug() string {
 	n = xstrings.ToKebabCase(n)
 	n = strings.ReplaceAll(n, "/", "-")
 	return n
+}
+
+func (p TestProject) Discriminator(targetName string) string {
+	if targetName == "" {
+		targetName = "no-name"
+	}
+	return fmt.Sprintf("%s-%s", p.TestSlug(), targetName)
 }
 
 func (p *TestProject) AddExtraEnv(e string) {
