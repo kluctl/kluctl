@@ -1,6 +1,3 @@
-before:
-  hooks:
-    - make build-webui
 builds:
   - <<: &build_defaults
       binary: bin/kluctl
