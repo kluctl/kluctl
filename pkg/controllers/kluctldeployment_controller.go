@@ -49,6 +49,7 @@ type KluctlDeploymentReconciler struct {
 
 // KluctlDeploymentReconcilerOpts contains options for the BaseReconciler.
 type KluctlDeploymentReconcilerOpts struct {
+	Concurrency int
 }
 
 // +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete
