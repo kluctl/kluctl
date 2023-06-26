@@ -8,13 +8,17 @@ import reportWebVitals from './reportWebVitals';
 import '@fontsource-variable/nunito';
 
 import { Router } from "./components/Router";
+import { ThemeProvider } from '@mui/material';
+import { light } from './components/theme';
 
 const root = ReactDOM.createRoot(
     document.getElementById('root') as HTMLElement
 );
 root.render(
     <React.StrictMode>
-        <RouterProvider router={Router}/>
+        <ThemeProvider theme={light}>
+            <RouterProvider router={Router} />
+        </ThemeProvider>
     </React.StrictMode>
 );
 

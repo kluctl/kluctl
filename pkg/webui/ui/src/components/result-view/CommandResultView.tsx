@@ -21,6 +21,8 @@ import { ChangesIcon, CheckboxCheckedIcon, CheckboxIcon, StarIcon, WarningSignIc
 import { dark } from '../theme';
 import { Api } from "../../api";
 import { Loading, useLoadingHelper } from "../Loading";
+import { CardPaper } from '../targets-view/Card';
+import { ErrorMessage } from '../ErrorMessage';
 
 export interface CommandResultProps {
     shortNames: ShortName[]
@@ -29,9 +31,11 @@ export interface CommandResultProps {
 }
 
 async function doLoadCommandResult(api: Api, resultId: string): Promise<CommandResultProps> {
-    const shortNames = await api.getShortNames()
-    const rs = await api.getResultSummary(resultId)
-    const result = await api.getResult(resultId)
+    const [shortNames, rs, result] = await Promise.all([
+        api.getShortNames(),
+        api.getResultSummary(resultId),
+        api.getResult(resultId)
+    ]);
 
     return {
         shortNames: shortNames,
@@ -121,7 +125,7 @@ export const CommandResultView = () => {
     const api = useContext(ApiContext)
     const [sidePanelNode, setSidePanelNode] = useState<NodeData | undefined>();
 
-    const {id} = useParams()
+    const { id } = useParams()
     const [loading, loadingError, commandResultProps] = useLoadingHelper<CommandResultProps | undefined>(() => {
         if (!id) {
             return Promise.resolve(undefined)
@@ -145,9 +149,15 @@ export const CommandResultView = () => {
     }
 
     if (loading) {
-        return <Loading/>
+        return <Loading />
     } else if (loadingError) {
-        return <>Error</>
+        return <Box p='25px 40px' height='100%' overflow='hidden'>
+            <CardPaper>
+                <ErrorMessage>
+                    {loadingError.message}
+                </ErrorMessage>
+            </CardPaper>
+        </Box>
     }
 
     return <Box
@@ -157,7 +167,7 @@ export const CommandResultView = () => {
         flexDirection='column'
         overflow='hidden'
     >
-        <DetailsDrawer 
+        <DetailsDrawer
             nodeData={sidePanelNode}
             onClose={() => setSidePanelNode(undefined)}
         />

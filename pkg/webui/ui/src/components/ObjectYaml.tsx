@@ -7,8 +7,10 @@ import { CodeViewer } from "./CodeViewer";
 import { Loading, useLoadingHelper } from "./Loading";
 import { ApiContext } from "./App";
 import * as yaml from 'js-yaml';
+import { ErrorMessage } from "./ErrorMessage";
+import { Box } from "@mui/material";
 
-export const ObjectYaml = (props: {treeProps: CommandResultProps, objectRef: ObjectRef, objectType: ObjectType}) => {
+export const ObjectYaml = (props: { treeProps: CommandResultProps, objectRef: ObjectRef, objectType: ObjectType }) => {
     const api = useContext(ApiContext)
     const [loading, error, content] = useLoadingHelper<string>(async () => {
         const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
@@ -16,10 +18,14 @@ export const ObjectYaml = (props: {treeProps: CommandResultProps, objectRef: Obj
     }, [props.treeProps.summary.id, props.objectRef, props.objectType])
 
     if (loading) {
-        return <Loading/>
+        return <Box my='30px'>
+            <Loading />
+        </Box>
     } else if (error) {
-        return <>Error</>
+        return <ErrorMessage>
+            {error.message}
+        </ErrorMessage>
     } else {
-        return <CodeViewer code={content!} language={"yaml"}/>
+        return <CodeViewer code={content!} language={"yaml"} />
     }
 }
