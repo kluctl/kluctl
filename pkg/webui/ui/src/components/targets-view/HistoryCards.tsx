@@ -12,17 +12,20 @@ import { Api } from "../../api";
 import { ApiContext } from "../App";
 import { useNavigate } from "react-router";
 import { CloseLightIcon, TreeViewIcon, TriangleLeftLightIcon, TriangleRightLightIcon } from "../../icons/Icons";
+import { ErrorMessage } from "../ErrorMessage";
 
 async function doGetRootNode(api: Api, rs: CommandResultSummary) {
-    const shortNames = await api.getShortNames()
-    const r = await api.getResult(rs.id)
+    const [shortNames, r] = await Promise.all([
+        api.getShortNames(),
+        api.getResult(rs.id)
+    ]);
     const builder = new NodeBuilder({
         shortNames: shortNames,
         summary: rs,
         commandResult: r,
-    })
-    const [node] = builder.buildRoot()
-    return node
+    });
+    const [node] = builder.buildRoot();
+    return node;
 }
 
 export interface HistoryCardsProps {
@@ -109,8 +112,17 @@ const HistoryCard = React.memo((props: {
         return doGetRootNode(api, props.rs)
     }, [api, props.rs]);
 
-    if (loadingError) {
-        return <>Error</>
+    let content: JSX.Element | null = null;
+    if (loading) {
+        content = <Loading />;
+    } else if (props.transitionFinished) {
+        if (loadingError) {
+            content = <ErrorMessage>
+                {loadingError.message}
+            </ErrorMessage>;
+        } else {
+            content = <CardContent provider={node!} />;
+        }
     }
 
     return <CardPaper
@@ -140,11 +152,7 @@ const HistoryCard = React.memo((props: {
                 <CommandResultItemHeader rs={props.rs} />
             </Box>
             <Box width='100%' flex='1 1 auto' overflow='hidden' display='flex' flexDirection='column'>
-                {props.transitionFinished && (
-                    loading
-                        ? <Loading />
-                        : <CardContent provider={node!} />
-                )}
+                {content}
             </Box>
             <Box
                 flex='0 0 auto'
@@ -216,7 +224,7 @@ export const HistoryCards = React.memo((props: HistoryCardsProps) => {
             type: 'started',
             cardRect: initialRect
         });
-    }, [props.initialCardRect, theme.transitions.duration.enteringScreen]);
+    }, [props.initialCardRect]);
 
     useEffect(() => {
         if (transitionState.type !== 'started') {

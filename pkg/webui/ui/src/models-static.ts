@@ -5,11 +5,15 @@ export class GitRef {
 
     ref?: string
 
-    constructor(source: any = {}) {
+    constructor(source?: any) {
         if ('string' === typeof source) {
             // this is needed to parse legacy string refs
             this.ref = source
             return
+        }
+
+        if (source === null || source === undefined) {
+            return;
         }
 
         this.branch = source["branch"];
