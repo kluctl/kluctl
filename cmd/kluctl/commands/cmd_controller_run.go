@@ -142,9 +142,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		r.ResultStore = resultStore
 	}
 
-	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{
-		HTTPRetry: 9,
-	}); err != nil {
+	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctlv1.KluctlDeploymentKind)
 		os.Exit(1)
 	}
