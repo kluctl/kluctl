@@ -1,6 +1,6 @@
 import {
     CommandResult,
-    CommandResultSummary, GitRef,
+    CommandResultSummary,
     ObjectRef,
     ProjectKey,
     ResultObject,
@@ -13,6 +13,7 @@ import { Box, Typography } from "@mui/material";
 import Tooltip from "@mui/material/Tooltip";
 import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
+import { GitRef } from "./models-static";
 
 console.log(window.location)
 

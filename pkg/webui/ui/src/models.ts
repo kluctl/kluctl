@@ -1,5 +1,6 @@
 /* Do not change, this code is generated from Golang structs */
 
+import { GitRef } from './models-static'
 
 export class DeploymentError {
     ref: ObjectRef;
@@ -157,27 +158,9 @@ export class GitProject {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.url = source["url"];
-        this.ref = this.convertValues(source["ref"], GitRef);
+        this.ref = new GitRef(source["ref"]);
         this.subDir = source["subDir"];
     }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (a.slice) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
 }
 export class DeploymentItemConfig {
     path?: string;
@@ -305,27 +288,9 @@ export class VarsSourceGit {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.url = source["url"];
-        this.ref = this.convertValues(source["ref"], GitRef);
+        this.ref = new GitRef(source["ref"]);
         this.path = source["path"];
     }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (a.slice) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
 }
 export class VarsSource {
     ignoreMissing?: boolean;
@@ -427,18 +392,6 @@ export class ClusterInfo {
         this.clusterId = source["clusterId"];
     }
 }
-export class GitRef {
-    branch?: string;
-    tag?: string;
-    commit?: string;
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.branch = source["branch"];
-        this.tag = source["tag"];
-        this.commit = source["commit"];
-    }
-}
 export class GitInfo {
     url?: string;
     ref?: GitRef;
@@ -449,29 +402,11 @@ export class GitInfo {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.url = source["url"];
-        this.ref = this.convertValues(source["ref"], GitRef);
+        this.ref = new GitRef(source["ref"]);
         this.subDir = source["subDir"];
         this.commit = source["commit"];
         this.dirty = source["dirty"];
     }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (a.slice) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
 }
 export class KluctlDeploymentInfo {
     name: string;

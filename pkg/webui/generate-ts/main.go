@@ -20,11 +20,14 @@ func main() {
 		Add(uo.UnstructuredObject{}).
 		Add(webui.ProjectTargetKey{}).
 		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(types.GitRef{}, typescriptify.TypeOptions{TSType: "GitRef", TSTransform: "new GitRef(__VALUE__)"}).
 		ManageType(types.GitRepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.YamlUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(uo.UnstructuredObject{}, typescriptify.TypeOptions{TSType: "any"}).
 		ManageType(metav1.Time{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(apiextensionsv1.JSON{}, typescriptify.TypeOptions{TSType: "any"})
+
+	converter.AddImport("import { GitRef } from './models-static'")
 
 	err := converter.ConvertToFile("ui/src/models.ts")
 	if err != nil {
