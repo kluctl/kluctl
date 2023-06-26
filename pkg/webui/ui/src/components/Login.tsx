@@ -1,6 +1,7 @@
-import { Box, Button, FormControl, Paper, TextField, Typography } from '@mui/material';
+import { Box, Button, FormControl, Paper, TextField, Typography, useTheme } from '@mui/material';
 import React, { SyntheticEvent, useState } from 'react';
 import { rootPath } from "../api";
+import { ErrorMessageCard } from './ErrorMessage';
 
 //import './Login.css';
 
@@ -9,7 +10,17 @@ interface loginCredentials {
     password: string
 }
 
-async function loginUser(creds: loginCredentials) {
+type LoginResult = {
+    type: 'success',
+    token: string
+} | {
+    type: 'unauthorized'
+} | {
+    type: 'other-error',
+    statusText: string
+}
+
+async function loginUser(creds: loginCredentials): Promise<LoginResult> {
     const url = rootPath + `/auth/login`
     return fetch(url, {
         method: 'POST',
@@ -17,24 +28,57 @@ async function loginUser(creds: loginCredentials) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify(creds)
-    }).then(data => data.json())
-        .then(token => token.token)
+    }).then(response => {
+        if (response.status === 200) {
+            return response.json().then(json => ({
+                type: 'success',
+                token: json.token
+            }));
+        } else if (response.status === 401) {
+            return { type: 'unauthorized' }
+        } else {
+            return {
+                type: 'other-error',
+                statusText: response.statusText
+            }
+        }
+    });
 }
 
 export default function Login(props: { setToken: (token: string) => void }) {
+    const theme = useTheme();
     const [username, setUserName] = useState<string>();
     const [password, setPassword] = useState<string>();
+    const [error, setError] = useState<Exclude<LoginResult, { type: 'success' }>>();
 
     const handleSubmit = async (e: SyntheticEvent) => {
         e.preventDefault();
         if (!username || !password) {
             return
         }
-        const token = await loginUser({
+
+        const result = await loginUser({
             username: username,
             password: password,
         });
-        props.setToken(token);
+
+        switch (result.type) {
+            case 'success':
+                props.setToken(result.token);
+                break;
+            case 'unauthorized':
+                setError(result);
+                break;
+            case 'other-error':
+                setError(result)
+                break;
+        }
+    }
+
+    if (error?.type === 'other-error') {
+        return <ErrorMessageCard>
+            {error.statusText}
+        </ErrorMessageCard>
     }
 
     return (
@@ -63,6 +107,11 @@ export default function Login(props: { setToken: (token: string) => void }) {
                         <FormControl fullWidth >
                             <TextField variant='standard' label='Password' type="password" onChange={e => setPassword(e.target.value)} />
                         </FormControl>
+                        {error?.type === 'unauthorized' && (
+                            <Box color={theme.palette.error.main}>
+                                Invalid username or password
+                            </Box>
+                        )}
                         <FormControl >
                             <Button
                                 variant='contained'

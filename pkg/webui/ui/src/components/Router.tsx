@@ -1,28 +1,17 @@
 import { createHashRouter, useRouteError } from "react-router-dom";
-import React from "react";
 import App from "./App";
 import { TargetsView } from "./targets-view/TargetsView";
 import { CommandResultView } from "./result-view/CommandResultView";
-import { ErrorMessage } from "./ErrorMessage";
-import { CardPaper } from "./targets-view/Card";
+import { ErrorMessageCard } from "./ErrorMessage";
 import { Box } from "@mui/material";
 
 function ErrorPage() {
     const error = useRouteError() as any;
 
-    return <Box
-        width='100%'
-        height='100%'
-        overflow='hidden'
-        p='40px'
-    >
-        <CardPaper>
-            <ErrorMessage>
-                <Box>{error.statusText}</Box>
-                <Box>{error.data}</Box>
-            </ErrorMessage>
-        </CardPaper>
-    </Box>
+    return <ErrorMessageCard>
+        <Box>{error.statusText}</Box>
+        <Box>{error.data}</Box>
+    </ErrorMessageCard>
 }
 
 export const Router = createHashRouter([

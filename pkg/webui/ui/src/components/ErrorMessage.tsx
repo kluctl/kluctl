@@ -1,4 +1,5 @@
 import { Box, Typography, useTheme } from "@mui/material";
+import { CardPaper } from "./targets-view/Card";
 
 export interface ErrorMessageProps {
     children?: React.ReactNode;
@@ -25,4 +26,19 @@ export const ErrorMessage = (props: ErrorMessageProps) => {
         </Typography>
         {props.children}
     </Box>;
+}
+
+export const ErrorMessageCard = (props: ErrorMessageProps) => {
+    return <Box
+        width='100%'
+        height='100%'
+        overflow='hidden'
+        p='40px'
+    >
+        <CardPaper>
+            <ErrorMessage>
+                {props.children}
+            </ErrorMessage>
+        </CardPaper>
+    </Box>
 }
