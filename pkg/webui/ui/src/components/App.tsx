@@ -1,4 +1,4 @@
-import React, {
+import {
     createContext,
     Dispatch,
     SetStateAction,
@@ -10,10 +10,9 @@ import React, {
 } from 'react';
 
 import '../index.css';
-import { Box, ThemeProvider } from "@mui/material";
+import { Box } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
-import { light } from './theme';
 import { ActiveFilters } from './result-view/NodeStatusFilter';
 import { CommandResultSummary, ProjectTargetKey, ValidateResult } from "../models";
 import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
@@ -115,15 +114,13 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
 
     return (
         <AppContext.Provider value={appContext}>
-            <ThemeProvider theme={light}>
-                <Box width={"100%"} height={"100%"}>
-                    <LeftDrawer
-                        content={<Outlet context={outletContext} />}
-                        context={outletContext}
-                        logout={onUnauthorized}
-                    />
-                </Box>
-            </ThemeProvider>
+            <Box width={"100%"} height={"100%"}>
+                <LeftDrawer
+                    content={<Outlet context={outletContext} />}
+                    context={outletContext}
+                    logout={onUnauthorized}
+                />
+            </Box>
         </AppContext.Provider>
     );
 };
@@ -197,9 +194,7 @@ const App = () => {
     }, [])
 
     if (needToken && !getToken()) {
-        return <ThemeProvider theme={light}>
-            <Login setToken={handleLoginSucceeded} />
-        </ThemeProvider>
+        return <Login setToken={handleLoginSucceeded} />
     }
 
     if (!api) {

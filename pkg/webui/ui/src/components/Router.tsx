@@ -1,21 +1,17 @@
 import { createHashRouter, useRouteError } from "react-router-dom";
-import React from "react";
 import App from "./App";
 import { TargetsView } from "./targets-view/TargetsView";
 import { CommandResultView } from "./result-view/CommandResultView";
+import { ErrorMessageCard } from "./ErrorMessage";
+import { Box } from "@mui/material";
 
 function ErrorPage() {
     const error = useRouteError() as any;
 
-    return (
-        <div id="error-page">
-            <h1>Oops!</h1>
-            <p>Sorry, an unexpected error has occurred.</p>
-            <p>
-                <i>{error.statusText || error.message}</i>
-            </p>
-        </div>
-    );
+    return <ErrorMessageCard>
+        <Box>{error.statusText}</Box>
+        <Box>{error.data}</Box>
+    </ErrorMessageCard>
 }
 
 export const Router = createHashRouter([
@@ -26,13 +22,13 @@ export const Router = createHashRouter([
         children: [
             {
                 path: "targets/:targetKeyHash?",
-                element: <TargetsView/>,
-                errorElement: <ErrorPage/>,
+                element: <TargetsView />,
+                errorElement: <ErrorPage />,
             },
             {
                 path: "results/:id",
-                element: <CommandResultView/>,
-                errorElement: <ErrorPage/>,
+                element: <CommandResultView />,
+                errorElement: <ErrorPage />,
             },
         ],
     },
