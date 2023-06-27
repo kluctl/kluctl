@@ -35,12 +35,14 @@ archives:
     format: tar.gz
     files:
       - none*
+    strip_parent_binary_folder: true
   - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     id: windows
     builds: [windows]
     format: zip
     files:
       - none*
+    strip_parent_binary_folder: true
 source:
   enabled: true
   name_template: '{{ .ProjectName }}_v{{ .Version }}_source_code'
