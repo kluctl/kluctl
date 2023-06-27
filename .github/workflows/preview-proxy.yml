@@ -122,12 +122,20 @@ jobs:
           message-path: |
             comment.md
       - name: Wait for preview-run to exit
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: ${{ github.head_ref }}
-          check-name: 'preview-run'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+        run: |
+          failures=0
+          while true; do
+            if ! ipfs ping $(cat ipfs_id) -n1; then
+              failures=$(($failures+1))
+              if [ "$failures" -ge "5" ]; then
+                break
+              fi
+              sleep 5
+            else
+              sleep 10
+              failures=0
+            fi
+          done
       - name: Cleanup cloudflare tunnel
         if: ${{ always() }}
         run: |

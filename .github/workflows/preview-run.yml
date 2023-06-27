@@ -148,7 +148,7 @@ jobs:
             -pr-number ${{ github.event.pull_request.number }} \
             -age-pub-key age1dhueesr5qj8e8uy298k7z8x3ntv620rde89phumg0kvjx2t32elsm759z7
         env:
-          # we send the GITHUB_TOKEN to the preview-comment workflow. This token is then verified to be from a workflow
+          # we send the GITHUB_TOKEN to the preview-proxy workflow. This token is then verified to be from a workflow
           # that runs inside this repo, which can only be a workflow that got manually approved. The token is encrypted
           # via age
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
