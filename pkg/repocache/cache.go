@@ -311,15 +311,23 @@ func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, 
 		ref = &e.defaultRef
 	}
 
-	var ref2, commit string
-	if ref != nil && ref.Commit != "" {
-		ref2 = ref.Commit
+	var commit string
+	var checkoutInfo git.CheckoutInfo
+	if ref.Commit != "" {
 		commit = ref.Commit
+		checkoutInfo.CheckedOutRef = *ref
+		checkoutInfo.CheckedOutCommit = ref.Commit
 	} else {
+		var ref2 string
 		ref2, commit, err = e.findCommit(ref.String())
 		if err != nil {
 			return "", git.CheckoutInfo{}, err
 		}
+		checkoutInfo.CheckedOutRef, err = types.ParseGitRef(ref2)
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
+		checkoutInfo.CheckedOutCommit = commit
 	}
 
 	err = e.mr.CloneProjectByCommit(commit, p)
@@ -327,16 +335,9 @@ func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, 
 		return "", git.CheckoutInfo{}, err
 	}
 
-	repoInfo, err := git.GetCheckoutInfo(p)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-
-	repoInfo.CheckedOutRef = ref2
-
 	e.clonedDirs[*ref] = clonedDir{
 		dir:  p,
-		info: repoInfo,
+		info: checkoutInfo,
 	}
-	return p, repoInfo, nil
+	return p, checkoutInfo, nil
 }

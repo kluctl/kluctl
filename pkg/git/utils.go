@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,22 +15,8 @@ import (
 )
 
 type CheckoutInfo struct {
-	CheckedOutRef    string `json:"checkedOutRef"`
-	CheckedOutCommit string `json:"checkedOutCommit"`
-}
-
-func GetCheckoutInfo(path string) (ri CheckoutInfo, err error) {
-	r, err := git.PlainOpen(path)
-	if err != nil {
-		return
-	}
-	head, err := r.Head()
-	if err != nil {
-		return
-	}
-	ri.CheckedOutRef = head.Name().String()
-	ri.CheckedOutCommit = head.Hash().String()
-	return
+	CheckedOutRef    types.GitRef `json:"checkedOutRef"`
+	CheckedOutCommit string       `json:"checkedOutCommit"`
 }
 
 func DetectGitRepositoryRoot(path string) (string, error) {
