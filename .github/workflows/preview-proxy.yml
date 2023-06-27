@@ -124,7 +124,7 @@ jobs:
       - name: Wait for preview-run to exit
         uses: lewagon/wait-on-check-action@v1.3.1
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.head_ref }}
           check-name: 'preview-run'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
