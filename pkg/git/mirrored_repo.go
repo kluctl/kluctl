@@ -9,9 +9,12 @@ import (
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
 	_ "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"os"
@@ -20,6 +23,18 @@ import (
 	"sync"
 	"time"
 )
+
+func init() {
+	// see https://github.com/go-git/go-git/pull/613
+	old := transport.UnsupportedCapabilities
+	transport.UnsupportedCapabilities = nil
+	for _, c := range old {
+		if c == capability.MultiACK || c == capability.MultiACKDetailed {
+			continue
+		}
+		transport.UnsupportedCapabilities = append(transport.UnsupportedCapabilities, c)
+	}
+}
 
 var defaultFetch = []config.RefSpec{
 	"+refs/heads/*:refs/heads/*",
@@ -291,7 +306,18 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 	initMarker := filepath.Join(g.mirrorDir, ".cache2.init")
 	st, err := os.Stat(initMarker)
 	if err == nil && st.Mode().IsRegular() {
-		return g.update(g.mirrorDir)
+		err = g.update(g.mirrorDir)
+		if err == nil {
+			return nil
+		} else if strings.Contains(err.Error(), "multi_ack") {
+			// looks like the server tried to do multi_ack/multi_ack_detailed, which is not supported.
+			// in that case, retry a full clone which does hopefully not rely on multi_ack.
+			// See https://github.com/go-git/go-git/pull/613
+			// TODO remove this when https://github.com/go-git/go-git/issues/64 gets fully fixed
+			status.Trace(g.ctx, "Got multi_ack related error from remote. Retrying full clone: %v", err)
+		} else {
+			return err
+		}
 	}
 	err = g.cleanupMirrorDir()
 	if err != nil {
