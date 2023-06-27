@@ -8,7 +8,7 @@ import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
-import { CardPaper } from "./Card";
+import { CardTemplate } from "./Card";
 
 export const CommandResultItemHeader = React.memo((props: { rs: CommandResultSummary }) => {
     const { rs } = props;
@@ -75,22 +75,58 @@ export const CommandResultItemHeader = React.memo((props: { rs: CommandResultSum
     </Box>
 });
 
-export const CommandResultItem = React.memo((props: {
+export const CommandResultItem = React.memo(React.forwardRef((props: {
     ps: ProjectSummary,
     ts: TargetSummary,
     rs: CommandResultSummary,
     onSelectCommandResult: (rs: CommandResultSummary) => void,
-}) => {
+}, ref: React.ForwardedRef<HTMLDivElement>) => {
     const { rs, onSelectCommandResult } = props;
-    const navigate = useNavigate()
+    const navigate = useNavigate();
+    const [ago, setAgo] = useState(calcAgo(rs.commandInfo.startTime))
 
-    return <CardPaper
-        sx={{ padding: '20px 16px 5px 16px' }}
-        onClick={() => onSelectCommandResult(rs)}
-    >
-        <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
-            <CommandResultItemHeader rs={rs} />
-            <Box display='flex' alignItems='center' justifyContent='space-between'>
+    let Icon: () => JSX.Element = DiffIcon
+    switch (rs.commandInfo?.command) {
+        case "delete":
+            Icon = PruneIcon
+            break
+        case "deploy":
+            Icon = DeployIcon
+            break
+        case "diff":
+            Icon = DiffIcon
+            break
+        case "poke-images":
+            Icon = DeployIcon
+            break
+        case "prune":
+            Icon = PruneIcon
+            break
+    }
+
+    const iconTooltip = useMemo(() => {
+        const cmdInfoYaml = yaml.dump(rs.commandInfo);
+        return <CodeViewer code={cmdInfoYaml} language={"yaml"} />
+    }, [rs.commandInfo]);
+
+    useEffect(() => {
+        const interval = setInterval(() => setAgo(calcAgo(rs.commandInfo.startTime)), 5000);
+        return () => clearInterval(interval);
+    }, [rs.commandInfo.startTime]);
+
+    return <CardTemplate
+        ref={ref}
+        paperProps={{
+            sx: { padding: '20px 16px 5px 16px' },
+            onClick: () => onSelectCommandResult(rs)
+        }}
+        icon={<Icon />}
+        iconTooltip={iconTooltip}
+        header={rs.commandInfo?.command}
+        subheader={ago}
+        subheaderTooltip={rs.commandInfo.startTime}
+        footer={
+            <>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <CommandResultStatusLine rs={rs} />
                 </Box>
@@ -111,7 +147,9 @@ export const CommandResultItem = React.memo((props: {
                         </Tooltip>
                     </IconButton>
                 </Box>
-            </Box>
-        </Box>
-    </CardPaper>
-});
+            </>
+        }
+    />;
+}));
+
+CommandResultItem.displayName = 'CommandResultItem';

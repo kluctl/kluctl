@@ -2,12 +2,12 @@ import { TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
 import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
 import { AppContext } from "../App";
-import { ProjectItem } from "./Projects";
-import { TargetItem } from "./Targets";
+import { ProjectItem } from "./ProjectItem";
+import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
 import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
-import { Card, CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth, projectCardHeight } from "./Card";
+import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
 import { TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { HistoryCards } from "./HistoryCards";
@@ -49,6 +49,49 @@ const Circle = React.memo((props: React.SVGProps<SVGCircleElement>) => {
         {...props}
     />
 })
+
+const RelationHorizontalLine = React.memo(() => {
+    const theme = useTheme();
+    return <Box flexGrow={1} display='flex' justifyContent='center' alignItems='center' px='9px'>
+        <svg
+            xmlns='http://www.w3.org/2000/svg'
+            fill='none'
+            height={`${2 * circleRadius + strokeWidth}px`}
+            width='100%'
+        >
+            <svg
+                height='100%'
+                width='100%'
+                viewBox={`0 0 100 ${2 * circleRadius + strokeWidth}`}
+                fill='none'
+                preserveAspectRatio='none'
+            >
+                <path
+                    d={`
+                  M ${circleRadius + strokeWidth / 2} ${circleRadius + strokeWidth / 2}
+                  H ${100 - circleRadius - strokeWidth / 2}
+                `}
+                    stroke={theme.palette.secondary.main}
+                    strokeWidth={strokeWidth}
+                />
+            </svg>
+            <svg
+                fill='none'
+                height='100%'
+                width='100%'
+            >
+                <Circle cx={circleRadius + strokeWidth / 2} cy='50%' />
+            </svg>
+            <svg
+                fill='none'
+                height='100%'
+                width='100%'
+            >
+                <Circle cx={`calc(100% - ${circleRadius + strokeWidth / 2}px)`} cy='50%' />
+            </svg>
+        </svg>
+    </Box>;
+});
 
 const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.Element | null => {
     const theme = useTheme();
@@ -129,7 +172,6 @@ function mkTargetHash(tk: TargetKey): string {
 }
 
 export const TargetsView = () => {
-    const theme = useTheme();
     const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
 
     const navigate = useNavigate();
@@ -165,7 +207,7 @@ export const TargetsView = () => {
     }, [navigate]);
 
     const cardRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
- 
+
     if (historyCardsTarget) {
         const cardElem = cardRefs.current.get(historyCardsTarget);
         const cardRect = cardElem?.getBoundingClientRect();
@@ -192,9 +234,7 @@ export const TargetsView = () => {
             return <Box key={buildListKey(ps.project)}>
                 <Box display={"flex"} alignItems={"center"} margin='40px 0'>
                     <Box display='flex' alignItems='center' width={colWidth} flex='0 0 auto'>
-                        <Card height={projectCardHeight}>
-                            <ProjectItem ps={ps} />
-                        </Card>
+                        <ProjectItem ps={ps} />
                         <Box
                             flexGrow={1}
                             height={ps.targets.length * cardHeight + (ps.targets.length - 1) * cardGap}
@@ -209,49 +249,12 @@ export const TargetsView = () => {
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
                             return <Box key={buildListKey(ts.target)} display='flex'>
-                                <Card>
-                                    <TargetItem ps={ps} ts={ts}
-                                        onSelectTarget={setSelectedTargetSummary} />
-                                </Card>
-                                <Box flexGrow={1} display='flex' justifyContent='center' alignItems='center' px='9px'>
-                                    <svg
-                                        xmlns='http://www.w3.org/2000/svg'
-                                        fill='none'
-                                        height={`${2 * circleRadius + strokeWidth}px`}
-                                        width='100%'
-                                    >
-                                        <svg
-                                            height='100%'
-                                            width='100%'
-                                            viewBox={`0 0 100 ${2 * circleRadius + strokeWidth}`}
-                                            fill='none'
-                                            preserveAspectRatio='none'
-                                        >
-                                            <path
-                                                d={`
-                                                  M ${circleRadius + strokeWidth / 2} ${circleRadius + strokeWidth / 2}
-                                                  H ${100 - circleRadius - strokeWidth / 2}
-                                                `}
-                                                stroke={theme.palette.secondary.main}
-                                                strokeWidth={strokeWidth}
-                                            />
-                                        </svg>
-                                        <svg
-                                            fill='none'
-                                            height='100%'
-                                            width='100%'
-                                        >
-                                            <Circle cx={circleRadius + strokeWidth / 2} cy='50%' />
-                                        </svg>
-                                        <svg
-                                            fill='none'
-                                            height='100%'
-                                            width='100%'
-                                        >
-                                            <Circle cx={`calc(100% - ${circleRadius + strokeWidth / 2}px)`} cy='50%' />
-                                        </svg>
-                                    </svg>
-                                </Box>
+                                <TargetItem
+                                    ps={ps}
+                                    ts={ts}
+                                    onSelectTarget={setSelectedTargetSummary}
+                                />
+                                <RelationHorizontalLine />
                             </Box>
                         })}
                     </CardCol>
@@ -259,30 +262,27 @@ export const TargetsView = () => {
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
                             return <CardRow key={buildListKey(ts.target)} height={cardHeight}>
-                                {ts.commandResults?.map((rs, i) => {
-                                    return <Card
-                                        key={rs.id}
-                                        sx={{
-                                            translate: `${-i * (cardWidth + cardGap / 2)}px`,
-                                            zIndex: -i,
-                                            display: i < 4 ? 'flex' : 'none'
-                                        }}
-                                        ref={(r: HTMLElement) => {
-                                            if (i === 0) {
-                                                cardRefs.current.set(ts, r);
-                                            }
-                                        }}
-                                    >
-                                        {i === 0
-                                            ? <CommandResultItem
-                                                ps={ps}
-                                                ts={ts}
-                                                rs={rs}
-                                                onSelectCommandResult={() => onSelectHistoryCardsTarget(ts)}
-                                            />
-                                            : <CardPaper />
-                                        }
-                                    </Card>
+                                {ts.commandResults?.slice(0, 4).map((rs, i) => {
+                                    return i === 0
+                                        ? <CommandResultItem
+                                            key={rs.id}
+                                            ps={ps}
+                                            ts={ts}
+                                            rs={rs}
+                                            onSelectCommandResult={() => onSelectHistoryCardsTarget(ts)}
+                                            ref={(elem) => {
+                                                if (i === 0 && elem) {
+                                                    cardRefs.current.set(ts, elem);
+                                                }
+                                            }}
+                                        />
+                                        : <CardPaper
+                                            key={rs.id}
+                                            sx={{
+                                                translate: `${-i * (cardWidth + cardGap / 2)}px`,
+                                                zIndex: -i,
+                                            }}
+                                        />
                                 })}
                             </CardRow>
                         })}

@@ -8,7 +8,7 @@ import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
 import { ApiContext } from "../App";
-import { CardPaper } from "./Card";
+import { CardTemplate } from "./Card";
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
@@ -54,7 +54,7 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     </Tooltip>
 }
 
-export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSelectTarget: (ts?: TargetSummary) => void }) => {
+export const TargetItem = React.memo((props: { ps: ProjectSummary, ts: TargetSummary, onSelectTarget: (ts?: TargetSummary) => void }) => {
     const api = useContext(ApiContext)
     const actionMenuItems: ActionMenuItem[] = []
 
@@ -126,42 +126,17 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
         targetName = "<no-name>"
     }
 
-    return <CardPaper
-        sx={{ padding: '20px 16px 12px 16px' }}
-        onClick={e => props.onSelectTarget(props.ts)}
-    >
-        <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
-            <Box display='flex' gap='15px'>
-                <Box flexShrink={0}><TargetIcon /></Box>
-                <Box flexGrow={1}>
-                    <Typography
-                        variant='h6'
-                        textAlign='left'
-                        textOverflow='ellipsis'
-                        overflow='hidden'
-                        flexGrow={1}
-                    >
-                        {targetName}
-                    </Typography>
-                    {allContexts.length ?
-                        <Tooltip title={contextTooltip}>
-                            <Typography
-                                variant='subtitle1'
-                                textAlign='left'
-                                textOverflow='ellipsis'
-                                overflow='hidden'
-                                whiteSpace='nowrap'
-                                fontSize='14px'
-                                fontWeight={500}
-                                lineHeight='19px'
-                            >
-                                {allContexts[0]}
-                            </Typography>
-                        </Tooltip>
-                        : <></>}
-                </Box>
-            </Box>
-            <Box display='flex' alignItems='center' justifyContent='space-between'>
+    return <CardTemplate
+        paperProps={{
+            sx: { padding: '20px 16px 12px 16px' },
+            onClick: e => props.onSelectTarget(props.ts)
+        }}
+        icon={<TargetIcon />}
+        header={targetName}
+        subheader={allContexts.length ? allContexts[0] : ''}
+        subheaderTooltip={allContexts.length ? contextTooltip : undefined}
+        footer={
+            <>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <Tooltip title={"Cluster ID: " + props.ts.target.clusterId}>
                         <Box display='flex'><CpuIcon /></Box>
@@ -174,7 +149,9 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
                     <StatusIcon {...props} />
                     <ActionsMenu menuItems={actionMenuItems} />
                 </Box>
-            </Box>
-        </Box>
-    </CardPaper>
-}
+            </>
+        }
+    />;
+});
+
+TargetItem.displayName = 'TargetItem';
