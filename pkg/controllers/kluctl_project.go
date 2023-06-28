@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
@@ -44,7 +45,7 @@ type preparedProject struct {
 
 	rp *repocache.GitRepoCache
 
-	commit     string
+	co         git.CheckoutInfo
 	tmpDir     string
 	repoDir    string
 	projectDir string
@@ -96,12 +97,12 @@ func prepareProject(ctx context.Context,
 			return nil, fmt.Errorf("failed clone source: %w", err)
 		}
 
-		clonedDir, gi, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
+		clonedDir, co, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
 		if err != nil {
 			return nil, err
 		}
 
-		pp.commit = gi.CheckedOutCommit
+		pp.co = co
 		pp.repoDir = clonedDir
 
 		// check kluctl project path exists
@@ -651,9 +652,8 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		Namespace: pt.pp.obj.Namespace,
 	}
 
-	cmdResult.GitInfo.Url = &pt.pp.obj.Spec.Source.URL
-	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref
-	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.RepoKey()
+	// the ref is not properly set by addGitInfo due to the way the repo cache checks out by commit
+	cmdResult.GitInfo.Ref = &pt.pp.co.CheckedOutRef
 
 	var err error
 	if pt.pp.r.ResultStore != nil {

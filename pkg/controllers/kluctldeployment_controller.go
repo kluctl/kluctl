@@ -219,7 +219,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 	defer pp.cleanup()
 
-	obj.Status.ObservedCommit = pp.commit
+	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
 
 	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
