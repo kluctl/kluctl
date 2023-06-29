@@ -1,6 +1,7 @@
 # We must use a glibc based distro due to embedded python not supporting musl libc for aarch64 (only amd64+musl is supported)
 # see https://github.com/indygreg/python-build-standalone/issues/87
-FROM cgr.dev/chainguard/wolfi-base
+ARG WOLFI_DIGEST
+FROM cgr.dev/chainguard/wolfi-base@$WOLFI_DIGEST
 
 # We need git for kustomize to support overlays from git
 RUN apk add git

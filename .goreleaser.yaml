@@ -88,7 +88,8 @@ dockers:
     goarch: amd64
     build_flag_templates:
       - "--pull"
-      - "--build-arg=ARCH=linux-amd64"
+      # use https://registry-ui.chainguard.app/?image=cgr.dev/chainguard/wolfi-base to find the latest one
+      - "--build-arg=WOLFI_DIGEST=sha256:e8411b9629bd13123a978a2d1a27c3ee64c7751d3032ce80ad6e673e329ef964"
       - "--build-arg=BIN_PATH=kluctl"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
@@ -103,7 +104,8 @@ dockers:
     goarch: arm64
     build_flag_templates:
       - "--pull"
-      - "--build-arg=ARCH=linux-arm64"
+      # use https://registry-ui.chainguard.app/?image=cgr.dev/chainguard/wolfi-base to find the latest one
+      - "--build-arg=WOLFI_DIGEST=sha256:05a4280b4c5b5cafc7eb2a012983bc79e3ddca938f01ddc3deb797ca3fddd399"
       - "--build-arg=BIN_PATH=kluctl"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
