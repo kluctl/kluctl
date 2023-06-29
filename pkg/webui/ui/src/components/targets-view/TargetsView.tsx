@@ -1,17 +1,16 @@
-import { TargetKey } from "../../models";
+import { CommandResultSummary, TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useMemo, useRef } from "react";
 import { AppContext } from "../App";
 import { ProjectItem } from "./ProjectItem";
 import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
-import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
-import { TargetSummary } from "../../project-summaries";
+import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
-import { HistoryCards } from "./HistoryCards";
-import { useNavigate, useParams } from "react-router-dom";
+import { ExpandedCardsView } from "./ExpandedCardsView";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { sha256 } from "js-sha256";
 
 const colWidth = 416;
@@ -172,58 +171,84 @@ function mkTargetHash(tk: TargetKey): string {
 }
 
 export const TargetsView = () => {
-    const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
-
     const navigate = useNavigate();
     const { targetKeyHash } = useParams();
+    const { pathname } = useLocation();
     const appContext = useContext(AppContext);
     const projects = appContext.projects;
 
-    const targetsHashes = useMemo(() => {
-        const dict = new Map<string, TargetSummary>();
+    const { targetsHashes, targetsProjects } = useMemo(() => {
+        const targetsHashes = new Map<string, TargetSummary>();
+        const targetsProjects = new Map<TargetSummary, ProjectSummary>();
         projects.forEach(ps =>
-            ps.targets.forEach(ts =>
-                dict.set(mkTargetHash(ts.target), ts)
-            )
+            ps.targets.forEach(ts => {
+                targetsHashes.set(mkTargetHash(ts.target), ts);
+                targetsProjects.set(ts, ps);
+            })
         );
-        return dict;
+
+        return { targetsHashes, targetsProjects };
     }, [projects]);
 
-    const historyCardsTarget = useMemo(() => {
-        return targetKeyHash ? targetsHashes.get(targetKeyHash) : undefined;
-    }, [targetKeyHash, targetsHashes]);
-
-    const onTargetDetailsDrawerClose = useCallback(() => {
-        setSelectedTargetSummary(undefined);
-    }, []);
-
-    const onSelectHistoryCardsTarget = useCallback((ts: TargetSummary) => {
-        onTargetDetailsDrawerClose();
+    const onSelectTargetItem = useCallback((ts: TargetSummary) => {
         navigate(`/targets/${mkTargetHash(ts.target)}`);
-    }, [navigate, onTargetDetailsDrawerClose]);
+    }, [navigate]);
 
-    const onHistoryCardsClose = useCallback(() => {
+    const onSelectCommandResultItem = useCallback((ts: TargetSummary) => {
+        navigate(`/targets/${mkTargetHash(ts.target)}/history`);
+    }, [navigate]);
+
+    const onCardClose = useCallback(() => {
         navigate(`/targets/`);
     }, [navigate]);
 
-    const cardRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
+    const commandResultItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
+    const targetItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
 
-    if (historyCardsTarget) {
-        const cardElem = cardRefs.current.get(historyCardsTarget);
+    const selectedTarget = targetKeyHash ? targetsHashes.get(targetKeyHash) : undefined;
+    const parentProject = selectedTarget ? targetsProjects.get(selectedTarget) : undefined;
+    const showHistory = pathname.endsWith('history');
+
+    if (selectedTarget && parentProject && !showHistory) {
+        const cardElem = targetItemRefs.current.get(selectedTarget);
         const cardRect = cardElem?.getBoundingClientRect();
 
-        return <HistoryCards
-            targetSummary={historyCardsTarget}
+        return <ExpandedCardsView<TargetSummary>
+            cardsData={[selectedTarget]}
+            renderCard={(cardData, sx, expanded) =>
+                <TargetItem
+                    ps={parentProject}
+                    ts={cardData}
+                    sx={sx}
+                    key={mkTargetHash(cardData.target)}
+                    expanded={expanded}
+                    onClose={onCardClose}
+                />
+            }
             initialCardRect={cardRect}
-            onClose={onHistoryCardsClose}
+        />;
+    }
+
+    if (selectedTarget && showHistory) {
+        const cardElem = commandResultItemRefs.current.get(selectedTarget);
+        const cardRect = cardElem?.getBoundingClientRect();
+
+        return <ExpandedCardsView<CommandResultSummary>
+            cardsData={selectedTarget.commandResults}
+            renderCard={(cardData, sx, expanded) =>
+                <CommandResultItem
+                    rs={cardData}
+                    sx={sx}
+                    key={cardData.id}
+                    expanded={expanded}
+                    onClose={onCardClose}
+                />
+            }
+            initialCardRect={cardRect}
         />;
     }
 
     return <Box minWidth={colWidth * 3} p='0 40px'>
-        <TargetDetailsDrawer
-            ts={selectedTargetSummary}
-            onClose={onTargetDetailsDrawerClose}
-        />
         <Box display={"flex"} alignItems={"center"} height='70px'>
             <ColHeader>Projects</ColHeader>
             <ColHeader>Targets</ColHeader>
@@ -252,7 +277,12 @@ export const TargetsView = () => {
                                 <TargetItem
                                     ps={ps}
                                     ts={ts}
-                                    onSelectTarget={setSelectedTargetSummary}
+                                    onSelectTarget={onSelectTargetItem}
+                                    ref={(elem) => {
+                                        if (i === 0 && elem) {
+                                            targetItemRefs.current.set(ts, elem);
+                                        }
+                                    }}
                                 />
                                 <RelationHorizontalLine />
                             </Box>
@@ -266,19 +296,19 @@ export const TargetsView = () => {
                                     return i === 0
                                         ? <CommandResultItem
                                             key={rs.id}
-                                            ps={ps}
-                                            ts={ts}
                                             rs={rs}
-                                            onSelectCommandResult={() => onSelectHistoryCardsTarget(ts)}
+                                            onSelectCommandResult={() => onSelectCommandResultItem(ts)}
                                             ref={(elem) => {
                                                 if (i === 0 && elem) {
-                                                    cardRefs.current.set(ts, elem);
+                                                    commandResultItemRefs.current.set(ts, elem);
                                                 }
                                             }}
                                         />
                                         : <CardPaper
                                             key={rs.id}
                                             sx={{
+                                                width: cardWidth,
+                                                height: cardHeight,
                                                 translate: `${-i * (cardWidth + cardGap / 2)}px`,
                                                 zIndex: -i,
                                             }}
