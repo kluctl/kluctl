@@ -4,7 +4,6 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
@@ -36,8 +35,6 @@ import (
 type KluctlDeploymentReconciler struct {
 	client.Client
 	RestConfig            *rest.Config
-	httpClient            *retryablehttp.Client
-	requeueDependency     time.Duration
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
 	MetricsRecorder       *metrics.Recorder
@@ -52,7 +49,7 @@ type KluctlDeploymentReconciler struct {
 
 // KluctlDeploymentReconcilerOpts contains options for the BaseReconciler.
 type KluctlDeploymentReconcilerOpts struct {
-	HTTPRetry int
+	Concurrency int
 }
 
 // +kubebuilder:rbac:groups=gitops.kluctl.io,resources=kluctldeployments,verbs=get;list;watch;create;update;patch;delete

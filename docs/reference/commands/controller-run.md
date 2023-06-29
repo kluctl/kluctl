@@ -26,6 +26,8 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
+      --concurrency int                    Configures how many KluctlDeployments can be be reconciled
+                                           concurrently. (default 4)
       --context string                     Override the context to use.
       --default-service-account string     Default service account used for impersonation.
       --dry-run                            Run all deployments in dryRun=true mode.

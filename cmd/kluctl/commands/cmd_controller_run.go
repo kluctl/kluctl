@@ -42,6 +42,7 @@ type controllerRunCmd struct {
 	MetricsBindAddress     string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
 	HealthProbeBindAddress string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
 	LeaderElect            bool   `group:"misc" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	Concurrency            int    `group:"misc" help:"Configures how many KluctlDeployments can be be reconciled concurrently." default:"4"`
 
 	DefaultServiceAccount string `group:"misc" help:"Default service account used for impersonation."`
 	DryRun                bool   `group:"misc" help:"Run all deployments in dryRun=true mode."`
@@ -143,7 +144,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{
-		HTTPRetry: 9,
+		Concurrency: cmd.Concurrency,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctlv1.KluctlDeploymentKind)
 		os.Exit(1)
