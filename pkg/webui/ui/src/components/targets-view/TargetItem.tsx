@@ -1,6 +1,6 @@
 import { KluctlDeploymentInfo } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
-import { Box, Typography, useTheme } from "@mui/material";
+import { Box, SxProps, Theme, Typography, useTheme } from "@mui/material";
 import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material";
@@ -8,7 +8,12 @@ import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
 import { ApiContext } from "../App";
-import { CardPaper } from "./Card";
+import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
+import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
+import { DiffStatus } from "../result-view/nodes/NodeData";
+import { ChangesTable } from "../result-view/ChangesTable";
+import { ErrorsTable } from "../ErrorsTable";
+import { PropertiesTable } from "../PropertiesTable";
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
@@ -54,7 +59,17 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     </Tooltip>
 }
 
-export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSelectTarget: (ts?: TargetSummary) => void }) => {
+export const TargetItem = React.memo(React.forwardRef((
+    props: {
+        ps: ProjectSummary,
+        ts: TargetSummary,
+        onSelectTarget?: (ts: TargetSummary) => void,
+        sx?: SxProps<Theme>,
+        expanded?: boolean,
+        onClose?: () => void
+    },
+    ref: React.ForwardedRef<HTMLDivElement>
+) => {
     const api = useContext(ApiContext)
     const actionMenuItems: ActionMenuItem[] = []
 
@@ -126,42 +141,26 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
         targetName = "<no-name>"
     }
 
-    return <CardPaper
-        sx={{ padding: '20px 16px 12px 16px' }}
-        onClick={e => props.onSelectTarget(props.ts)}
-    >
-        <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
-            <Box display='flex' gap='15px'>
-                <Box flexShrink={0}><TargetIcon /></Box>
-                <Box flexGrow={1}>
-                    <Typography
-                        variant='h6'
-                        textAlign='left'
-                        textOverflow='ellipsis'
-                        overflow='hidden'
-                        flexGrow={1}
-                    >
-                        {targetName}
-                    </Typography>
-                    {allContexts.length ?
-                        <Tooltip title={contextTooltip}>
-                            <Typography
-                                variant='subtitle1'
-                                textAlign='left'
-                                textOverflow='ellipsis'
-                                overflow='hidden'
-                                whiteSpace='nowrap'
-                                fontSize='14px'
-                                fontWeight={500}
-                                lineHeight='19px'
-                            >
-                                {allContexts[0]}
-                            </Typography>
-                        </Tooltip>
-                        : <></>}
-                </Box>
-            </Box>
-            <Box display='flex' alignItems='center' justifyContent='space-between'>
+    return <CardTemplate
+        ref={ref}
+        showCloseButton={props.expanded}
+        onClose={props.onClose}
+        paperProps={{
+            sx: {
+                padding: '20px 16px 12px 16px',
+                width: cardWidth,
+                height: cardHeight,
+                ...props.sx
+            },
+            onClick: e => props.onSelectTarget?.(props.ts)
+        }}
+        icon={<TargetIcon />}
+        header={targetName}
+        subheader={allContexts.length ? allContexts[0] : ''}
+        subheaderTooltip={allContexts.length ? contextTooltip : undefined}
+        body={props.expanded && <CardBody provider={new MyProvider(props.ts)} />}
+        footer={
+            <>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <Tooltip title={"Cluster ID: " + props.ts.target.clusterId}>
                         <Box display='flex'><CpuIcon /></Box>
@@ -174,7 +173,96 @@ export const TargetItem = (props: { ps: ProjectSummary, ts: TargetSummary, onSel
                     <StatusIcon {...props} />
                     <ActionsMenu menuItems={actionMenuItems} />
                 </Box>
-            </Box>
-        </Box>
-    </CardPaper>
+            </>
+        }
+    />;
+}));
+
+TargetItem.displayName = 'TargetItem';
+
+class MyProvider implements SidePanelProvider {
+    private ts?: TargetSummary;
+    private diffStatus: DiffStatus;
+
+    constructor(ts?: TargetSummary) {
+        this.ts = ts
+        this.diffStatus = new DiffStatus()
+
+        this.ts?.lastValidateResult?.drift?.forEach(co => {
+            this.diffStatus.addChangedObject(co)
+        })
+    }
+
+    buildSidePanelTabs(): SidePanelTab[] {
+        if (!this.ts) {
+            return []
+        }
+
+        const tabs = [
+            { label: "Summary", content: this.buildSummaryTab() }
+        ]
+
+        if (this.ts.target)
+
+            if (this.diffStatus.changedObjects.length) {
+                tabs.push({
+                    label: "Drift",
+                    content: <ChangesTable diffStatus={this.diffStatus} />
+                })
+            }
+        if (this.ts.lastValidateResult?.errors?.length) {
+            tabs.push({
+                label: "Errors",
+                content: <ErrorsTable errors={this.ts.lastValidateResult.errors} />
+            })
+        }
+        if (this.ts.lastValidateResult?.warnings?.length) {
+            tabs.push({
+                label: "Warnings",
+                content: <ErrorsTable errors={this.ts.lastValidateResult.warnings} />
+            })
+        }
+
+        return tabs
+    }
+
+    buildSummaryTab(): React.ReactNode {
+        const props = [
+            { name: "Target Name", value: this.getTargetName() },
+            { name: "Discriminator", value: this.ts?.target.discriminator },
+        ]
+
+        if (this.ts?.lastValidateResult) {
+            props.push({ name: "Ready", value: this.ts.lastValidateResult.ready + "" })
+        }
+        if (this.ts?.lastValidateResult?.errors?.length) {
+            props.push({ name: "Errors", value: this.ts.lastValidateResult.errors.length + "" })
+        }
+        if (this.ts?.lastValidateResult?.warnings?.length) {
+            props.push({ name: "Warnings", value: this.ts.lastValidateResult.warnings.length + "" })
+        }
+        if (this.ts?.lastValidateResult?.drift?.length) {
+            props.push({ name: "Drifted Objects", value: this.ts.lastValidateResult.drift.length + "" })
+        }
+
+        return <>
+            <PropertiesTable properties={props} />
+        </>
+    }
+
+    getTargetName() {
+        if (!this.ts) {
+            return ""
+        }
+
+        let name = "<no-name>"
+        if (this.ts.target.targetName) {
+            name = this.ts.target.targetName
+        }
+        return name
+    }
+
+    buildSidePanelTitle(): React.ReactNode {
+        return this.getTargetName()
+    }
 }

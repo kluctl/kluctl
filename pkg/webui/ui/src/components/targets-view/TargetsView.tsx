@@ -1,17 +1,16 @@
-import { TargetKey } from "../../models";
+import { CommandResultSummary, TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useMemo, useRef } from "react";
 import { AppContext } from "../App";
-import { ProjectItem } from "./Projects";
-import { TargetItem } from "./Targets";
+import { ProjectItem } from "./ProjectItem";
+import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
 import { CommandResultItem } from "./CommandResultItem";
-import { TargetDetailsDrawer } from "./TargetDetailsDrawer";
-import { Card, CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth, projectCardHeight } from "./Card";
-import { TargetSummary } from "../../project-summaries";
+import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
+import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
-import { HistoryCards } from "./HistoryCards";
-import { useNavigate, useParams } from "react-router-dom";
+import { ExpandedCardsView } from "./ExpandedCardsView";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { sha256 } from "js-sha256";
 
 const colWidth = 416;
@@ -49,6 +48,49 @@ const Circle = React.memo((props: React.SVGProps<SVGCircleElement>) => {
         {...props}
     />
 })
+
+const RelationHorizontalLine = React.memo(() => {
+    const theme = useTheme();
+    return <Box flexGrow={1} display='flex' justifyContent='center' alignItems='center' px='9px'>
+        <svg
+            xmlns='http://www.w3.org/2000/svg'
+            fill='none'
+            height={`${2 * circleRadius + strokeWidth}px`}
+            width='100%'
+        >
+            <svg
+                height='100%'
+                width='100%'
+                viewBox={`0 0 100 ${2 * circleRadius + strokeWidth}`}
+                fill='none'
+                preserveAspectRatio='none'
+            >
+                <path
+                    d={`
+                  M ${circleRadius + strokeWidth / 2} ${circleRadius + strokeWidth / 2}
+                  H ${100 - circleRadius - strokeWidth / 2}
+                `}
+                    stroke={theme.palette.secondary.main}
+                    strokeWidth={strokeWidth}
+                />
+            </svg>
+            <svg
+                fill='none'
+                height='100%'
+                width='100%'
+            >
+                <Circle cx={circleRadius + strokeWidth / 2} cy='50%' />
+            </svg>
+            <svg
+                fill='none'
+                height='100%'
+                width='100%'
+            >
+                <Circle cx={`calc(100% - ${circleRadius + strokeWidth / 2}px)`} cy='50%' />
+            </svg>
+        </svg>
+    </Box>;
+});
 
 const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.Element | null => {
     const theme = useTheme();
@@ -129,59 +171,84 @@ function mkTargetHash(tk: TargetKey): string {
 }
 
 export const TargetsView = () => {
-    const theme = useTheme();
-    const [selectedTargetSummary, setSelectedTargetSummary] = useState<TargetSummary | undefined>();
-
     const navigate = useNavigate();
     const { targetKeyHash } = useParams();
+    const { pathname } = useLocation();
     const appContext = useContext(AppContext);
     const projects = appContext.projects;
 
-    const targetsHashes = useMemo(() => {
-        const dict = new Map<string, TargetSummary>();
+    const { targetsHashes, targetsProjects } = useMemo(() => {
+        const targetsHashes = new Map<string, TargetSummary>();
+        const targetsProjects = new Map<TargetSummary, ProjectSummary>();
         projects.forEach(ps =>
-            ps.targets.forEach(ts =>
-                dict.set(mkTargetHash(ts.target), ts)
-            )
+            ps.targets.forEach(ts => {
+                targetsHashes.set(mkTargetHash(ts.target), ts);
+                targetsProjects.set(ts, ps);
+            })
         );
-        return dict;
+
+        return { targetsHashes, targetsProjects };
     }, [projects]);
 
-    const historyCardsTarget = useMemo(() => {
-        return targetKeyHash ? targetsHashes.get(targetKeyHash) : undefined;
-    }, [targetKeyHash, targetsHashes]);
-
-    const onTargetDetailsDrawerClose = useCallback(() => {
-        setSelectedTargetSummary(undefined);
-    }, []);
-
-    const onSelectHistoryCardsTarget = useCallback((ts: TargetSummary) => {
-        onTargetDetailsDrawerClose();
+    const onSelectTargetItem = useCallback((ts: TargetSummary) => {
         navigate(`/targets/${mkTargetHash(ts.target)}`);
-    }, [navigate, onTargetDetailsDrawerClose]);
+    }, [navigate]);
 
-    const onHistoryCardsClose = useCallback(() => {
+    const onSelectCommandResultItem = useCallback((ts: TargetSummary) => {
+        navigate(`/targets/${mkTargetHash(ts.target)}/history`);
+    }, [navigate]);
+
+    const onCardClose = useCallback(() => {
         navigate(`/targets/`);
     }, [navigate]);
 
-    const cardRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
- 
-    if (historyCardsTarget) {
-        const cardElem = cardRefs.current.get(historyCardsTarget);
+    const commandResultItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
+    const targetItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
+
+    const selectedTarget = targetKeyHash ? targetsHashes.get(targetKeyHash) : undefined;
+    const parentProject = selectedTarget ? targetsProjects.get(selectedTarget) : undefined;
+    const showHistory = pathname.endsWith('history');
+
+    if (selectedTarget && parentProject && !showHistory) {
+        const cardElem = targetItemRefs.current.get(selectedTarget);
         const cardRect = cardElem?.getBoundingClientRect();
 
-        return <HistoryCards
-            targetSummary={historyCardsTarget}
+        return <ExpandedCardsView<TargetSummary>
+            cardsData={[selectedTarget]}
+            renderCard={(cardData, sx, expanded) =>
+                <TargetItem
+                    ps={parentProject}
+                    ts={cardData}
+                    sx={sx}
+                    key={mkTargetHash(cardData.target)}
+                    expanded={expanded}
+                    onClose={onCardClose}
+                />
+            }
             initialCardRect={cardRect}
-            onClose={onHistoryCardsClose}
+        />;
+    }
+
+    if (selectedTarget && showHistory) {
+        const cardElem = commandResultItemRefs.current.get(selectedTarget);
+        const cardRect = cardElem?.getBoundingClientRect();
+
+        return <ExpandedCardsView<CommandResultSummary>
+            cardsData={selectedTarget.commandResults}
+            renderCard={(cardData, sx, expanded) =>
+                <CommandResultItem
+                    rs={cardData}
+                    sx={sx}
+                    key={cardData.id}
+                    expanded={expanded}
+                    onClose={onCardClose}
+                />
+            }
+            initialCardRect={cardRect}
         />;
     }
 
     return <Box minWidth={colWidth * 3} p='0 40px'>
-        <TargetDetailsDrawer
-            ts={selectedTargetSummary}
-            onClose={onTargetDetailsDrawerClose}
-        />
         <Box display={"flex"} alignItems={"center"} height='70px'>
             <ColHeader>Projects</ColHeader>
             <ColHeader>Targets</ColHeader>
@@ -192,9 +259,7 @@ export const TargetsView = () => {
             return <Box key={buildListKey(ps.project)}>
                 <Box display={"flex"} alignItems={"center"} margin='40px 0'>
                     <Box display='flex' alignItems='center' width={colWidth} flex='0 0 auto'>
-                        <Card height={projectCardHeight}>
-                            <ProjectItem ps={ps} />
-                        </Card>
+                        <ProjectItem ps={ps} />
                         <Box
                             flexGrow={1}
                             height={ps.targets.length * cardHeight + (ps.targets.length - 1) * cardGap}
@@ -209,49 +274,17 @@ export const TargetsView = () => {
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
                             return <Box key={buildListKey(ts.target)} display='flex'>
-                                <Card>
-                                    <TargetItem ps={ps} ts={ts}
-                                        onSelectTarget={setSelectedTargetSummary} />
-                                </Card>
-                                <Box flexGrow={1} display='flex' justifyContent='center' alignItems='center' px='9px'>
-                                    <svg
-                                        xmlns='http://www.w3.org/2000/svg'
-                                        fill='none'
-                                        height={`${2 * circleRadius + strokeWidth}px`}
-                                        width='100%'
-                                    >
-                                        <svg
-                                            height='100%'
-                                            width='100%'
-                                            viewBox={`0 0 100 ${2 * circleRadius + strokeWidth}`}
-                                            fill='none'
-                                            preserveAspectRatio='none'
-                                        >
-                                            <path
-                                                d={`
-                                                  M ${circleRadius + strokeWidth / 2} ${circleRadius + strokeWidth / 2}
-                                                  H ${100 - circleRadius - strokeWidth / 2}
-                                                `}
-                                                stroke={theme.palette.secondary.main}
-                                                strokeWidth={strokeWidth}
-                                            />
-                                        </svg>
-                                        <svg
-                                            fill='none'
-                                            height='100%'
-                                            width='100%'
-                                        >
-                                            <Circle cx={circleRadius + strokeWidth / 2} cy='50%' />
-                                        </svg>
-                                        <svg
-                                            fill='none'
-                                            height='100%'
-                                            width='100%'
-                                        >
-                                            <Circle cx={`calc(100% - ${circleRadius + strokeWidth / 2}px)`} cy='50%' />
-                                        </svg>
-                                    </svg>
-                                </Box>
+                                <TargetItem
+                                    ps={ps}
+                                    ts={ts}
+                                    onSelectTarget={onSelectTargetItem}
+                                    ref={(elem) => {
+                                        if (i === 0 && elem) {
+                                            targetItemRefs.current.set(ts, elem);
+                                        }
+                                    }}
+                                />
+                                <RelationHorizontalLine />
                             </Box>
                         })}
                     </CardCol>
@@ -259,30 +292,27 @@ export const TargetsView = () => {
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
                             return <CardRow key={buildListKey(ts.target)} height={cardHeight}>
-                                {ts.commandResults?.map((rs, i) => {
-                                    return <Card
-                                        key={rs.id}
-                                        sx={{
-                                            translate: `${-i * (cardWidth + cardGap / 2)}px`,
-                                            zIndex: -i,
-                                            display: i < 4 ? 'flex' : 'none'
-                                        }}
-                                        ref={(r: HTMLElement) => {
-                                            if (i === 0) {
-                                                cardRefs.current.set(ts, r);
-                                            }
-                                        }}
-                                    >
-                                        {i === 0
-                                            ? <CommandResultItem
-                                                ps={ps}
-                                                ts={ts}
-                                                rs={rs}
-                                                onSelectCommandResult={() => onSelectHistoryCardsTarget(ts)}
-                                            />
-                                            : <CardPaper />
-                                        }
-                                    </Card>
+                                {ts.commandResults?.slice(0, 4).map((rs, i) => {
+                                    return i === 0
+                                        ? <CommandResultItem
+                                            key={rs.id}
+                                            rs={rs}
+                                            onSelectCommandResult={() => onSelectCommandResultItem(ts)}
+                                            ref={(elem) => {
+                                                if (i === 0 && elem) {
+                                                    commandResultItemRefs.current.set(ts, elem);
+                                                }
+                                            }}
+                                        />
+                                        : <CardPaper
+                                            key={rs.id}
+                                            sx={{
+                                                width: cardWidth,
+                                                height: cardHeight,
+                                                translate: `${-i * (cardWidth + cardGap / 2)}px`,
+                                                zIndex: -i,
+                                            }}
+                                        />
                                 })}
                             </CardRow>
                         })}

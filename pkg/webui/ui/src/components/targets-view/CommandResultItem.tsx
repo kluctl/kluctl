@@ -1,17 +1,76 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import { CommandResultSummary } from "../../models";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
-import { Box, IconButton, Tooltip, Typography } from "@mui/material";
+import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
 import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
-import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
-import { CardPaper } from "./Card";
+import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
+import { ApiContext } from "../App";
+import { Loading, useLoadingHelper } from "../Loading";
+import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
+import { ErrorMessage } from "../ErrorMessage";
+import { Api } from "../../api";
 
-export const CommandResultItemHeader = React.memo((props: { rs: CommandResultSummary }) => {
-    const { rs } = props;
+async function doGetRootNode(api: Api, rs: CommandResultSummary) {
+    const [shortNames, r] = await Promise.all([
+        api.getShortNames(),
+        api.getResult(rs.id)
+    ]);
+    const builder = new NodeBuilder({
+        shortNames: shortNames,
+        summary: rs,
+        commandResult: r,
+    });
+    const [node] = builder.buildRoot();
+    return node;
+}
+
+export const CommandResultItemBody = React.memo((props: {
+    rs: CommandResultSummary
+}) => {
+    const api = useContext(ApiContext);
+    const [loading, loadingError, node] = useLoadingHelper(() => {
+        return doGetRootNode(api, props.rs)
+    }, [api, props.rs]);
+
+    if (loading) {
+        return <Loading />;
+    }
+
+    if (loadingError) {
+        return <ErrorMessage>
+            {loadingError.message}
+        </ErrorMessage>;
+    }
+
+    if (!node) {
+        return null;
+    }
+
+    return <CardBody provider={node} />
+});
+
+export const CommandResultItem = React.memo(React.forwardRef((
+    props: {
+        rs: CommandResultSummary,
+        onSelectCommandResult?: (rs: CommandResultSummary) => void,
+        sx?: SxProps<Theme>,
+        expanded?: boolean,
+        onClose?: () => void
+    },
+    ref: React.ForwardedRef<HTMLDivElement>
+) => {
+    const {
+        rs,
+        onSelectCommandResult,
+        sx,
+        expanded,
+        onClose
+    } = props;
+    const navigate = useNavigate();
     const [ago, setAgo] = useState(calcAgo(rs.commandInfo.startTime))
 
     let Icon: () => JSX.Element = DiffIcon
@@ -43,54 +102,27 @@ export const CommandResultItemHeader = React.memo((props: { rs: CommandResultSum
         return () => clearInterval(interval);
     }, [rs.commandInfo.startTime]);
 
-
-    return <Box display='flex' gap='15px'>
-        <Tooltip title={iconTooltip}>
-            <Box width='45px' height='45px' flex='0 0 auto' justifyContent='center' alignItems='center'>
-                <Icon />
-            </Box>
-        </Tooltip>
-        <Box>
-            <Typography
-                variant='h6'
-                textAlign='left'
-                textOverflow='ellipsis'
-                overflow='hidden'
-            >
-                {rs.commandInfo?.command}
-            </Typography>
-            <Tooltip title={rs.commandInfo.startTime}>
-                <Typography
-                    variant='subtitle1'
-                    textAlign='left'
-                    textOverflow='ellipsis'
-                    overflow='hidden'
-                    whiteSpace='nowrap'
-                    fontSize='14px'
-                    fontWeight={500}
-                    lineHeight='19px'
-                >{ago}</Typography>
-            </Tooltip>
-        </Box>
-    </Box>
-});
-
-export const CommandResultItem = React.memo((props: {
-    ps: ProjectSummary,
-    ts: TargetSummary,
-    rs: CommandResultSummary,
-    onSelectCommandResult: (rs: CommandResultSummary) => void,
-}) => {
-    const { rs, onSelectCommandResult } = props;
-    const navigate = useNavigate()
-
-    return <CardPaper
-        sx={{ padding: '20px 16px 5px 16px' }}
-        onClick={() => onSelectCommandResult(rs)}
-    >
-        <Box display='flex' flexDirection='column' justifyContent='space-between' height='100%'>
-            <CommandResultItemHeader rs={rs} />
-            <Box display='flex' alignItems='center' justifyContent='space-between'>
+    return <CardTemplate
+        ref={ref}
+        showCloseButton={expanded}
+        onClose={onClose}
+        paperProps={{
+            sx: { 
+                padding: '20px 16px 5px 16px', 
+                width: cardWidth,
+                height: cardHeight,
+                ...sx,
+            },
+            onClick: () => onSelectCommandResult?.(rs)
+        }}
+        icon={<Icon />}
+        iconTooltip={iconTooltip}
+        header={rs.commandInfo?.command}
+        subheader={ago}
+        subheaderTooltip={rs.commandInfo.startTime}
+        body={expanded && <CommandResultItemBody rs={rs} />}
+        footer={
+            <>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <CommandResultStatusLine rs={rs} />
                 </Box>
@@ -111,7 +143,9 @@ export const CommandResultItem = React.memo((props: {
                         </Tooltip>
                     </IconButton>
                 </Box>
-            </Box>
-        </Box>
-    </CardPaper>
-});
+            </>
+        }
+    />;
+}));
+
+CommandResultItem.displayName = 'CommandResultItem';
