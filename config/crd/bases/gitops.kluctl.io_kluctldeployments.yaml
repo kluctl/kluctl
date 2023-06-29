@@ -102,7 +102,7 @@ spec:
                 description: DeployInterval specifies the interval at which to deploy
                   the KluctlDeployment, even in cases the rendered result does not
                   change.
-                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)|never$
+                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)
                 type: string
               deployMode:
                 default: full-deploy
@@ -361,7 +361,7 @@ spec:
                   'kluctl validate -t <target>'. Defaults to the same value as specified
                   in Interval. Validate is also performed whenever a deployment is
                   performed, independent of the value of ValidateInterval
-                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)|never$
+                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)
                 type: string
             required:
             - interval

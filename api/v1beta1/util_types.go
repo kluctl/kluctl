@@ -26,7 +26,7 @@ type SecretKeyReference struct {
 }
 
 // +kubebuilder:validation:Type=string
-// +kubebuilder:validation:Pattern="^(([0-9]+(\\.[0-9]+)?(ms|s|m|h))+)|never$"
+// +kubebuilder:validation:Pattern="^(([0-9]+(\\.[0-9]+)?(ms|s|m|h))+)"
 type SafeDuration struct {
 	metav1.Duration
 }
