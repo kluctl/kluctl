@@ -9,3 +9,5 @@ args:
     default: []
   - name: controller_envs
     default: []
+  - name: controller_resources
+    default: {}
