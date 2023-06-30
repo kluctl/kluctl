@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Box, IconButton, SxProps, Theme, useTheme } from "@mui/material";
+import { Box, ClickAwayListener, IconButton, SxProps, Theme, useTheme } from "@mui/material";
 import { cardHeight, cardWidth } from "./Card";
 import { TriangleLeftLightIcon, TriangleRightLightIcon } from "../../icons/Icons";
 
@@ -14,7 +14,8 @@ const arrowButtonWidth = 80;
 
 const ArrowButton = React.memo((props: {
     direction: 'left' | 'right',
-    onClick: () => void,
+    onButtonClick: () => void,
+    onContainerClick: () => void,
     hidden: boolean
 }) => {
     const Icon = {
@@ -31,9 +32,15 @@ const ArrowButton = React.memo((props: {
         alignItems='center'
         position='relative'
         {...{ [props.direction]: 0 }}
+        onClick={props.onContainerClick}
     >
         {!props.hidden &&
-            <IconButton onClick={props.onClick}>
+            <IconButton
+                onClick={(e) => {
+                    e.stopPropagation();
+                    props.onButtonClick()
+                }}
+            >
                 <Icon />
             </IconButton>
         }
@@ -56,7 +63,8 @@ type TransitionState =
 export interface ExpandedCardsViewProps<CardData> {
     initialCardRect?: DOMRect,
     cardsData: CardData[],
-    renderCard: (cardData: CardData, sx: SxProps<Theme>, expanded: boolean) => React.ReactNode
+    renderCard: (cardData: CardData, sx: SxProps<Theme>, expanded: boolean) => React.ReactNode,
+    onClose: () => void
 }
 
 export const ExpandedCardsView = function <CardData>(props: ExpandedCardsViewProps<CardData>) {
@@ -132,71 +140,80 @@ export const ExpandedCardsView = function <CardData>(props: ExpandedCardsViewPro
         width='100%'
         height='100%'
         p={`25px ${paddingX}px`}
-        display='flex'
-        position='relative'
-        overflow='hidden'
     >
-        <ArrowButton
-            direction='left'
-            onClick={onLeftArrowClick}
-            hidden={currentIndex === 0 || transitionState.type !== 'finished'}
-        />
-        <Box
-            flex='0 0 auto'
-            width={`calc(100% - ${arrowButtonWidth}px * 2)`}
-            display='flex'
-            ref={containerElem}
-        >
-            {(transitionState.type === 'started' || transitionState.type === 'running') &&
-                props.renderCard(
-                    props.cardsData[0],
-                    {
-                        width: transitionState.cardRect.width,
-                        height: transitionState.cardRect.height,
-                        translate: `${transitionState.cardRect.left}px ${transitionState.cardRect.top}px`,
-                        transition: theme.transitions.create(['translate', 'width', 'height'], {
-                            easing: theme.transitions.easing.sharp,
-                            duration: theme.transitions.duration.enteringScreen,
-                        }),
-                    },
-                    false
-                )
-            }
-            {transitionState.type === 'finished' &&
+        <ClickAwayListener onClickAway={props.onClose}>
+            <Box
+                width='100%'
+                height='100%'
+                display='flex'
+                position='relative'
+                overflow='hidden'
+            >
+                <ArrowButton
+                    direction='left'
+                    onButtonClick={onLeftArrowClick}
+                    onContainerClick={props.onClose}
+                    hidden={currentIndex === 0 || transitionState.type !== 'finished'}
+                />
                 <Box
-                    flex='1 1 auto'
-                    width='100%'
-                    height='100%'
+                    flex='0 0 auto'
+                    width={`calc(100% - ${arrowButtonWidth}px * 2)`}
                     display='flex'
-                    gap={`${gap}px`}
-                    sx={{
-                        translate: `calc((-100% - ${gap}px) * ${currentIndex})`,
-                        transition: theme.transitions.create(['translate'], {
-                            easing: theme.transitions.easing.sharp,
-                            duration: theme.transitions.duration.enteringScreen,
-                        })
-                    }}
+                    ref={containerElem}
                 >
-                    {props.cardsData.map((cd) =>
+                    {(transitionState.type === 'started' || transitionState.type === 'running') &&
                         props.renderCard(
-                            cd,
+                            props.cardsData[0],
                             {
-                                width: '100%',
-                                height: '100%',
+                                width: transitionState.cardRect.width,
+                                height: transitionState.cardRect.height,
+                                translate: `${transitionState.cardRect.left}px ${transitionState.cardRect.top}px`,
+                                transition: theme.transitions.create(['translate', 'width', 'height'], {
+                                    easing: theme.transitions.easing.sharp,
+                                    duration: theme.transitions.duration.enteringScreen,
+                                }),
                             },
-                            true
+                            false
                         )
-                    )}
+                    }
+                    {transitionState.type === 'finished' &&
+                        <Box
+                            flex='1 1 auto'
+                            width='100%'
+                            height='100%'
+                            display='flex'
+                            gap={`${gap}px`}
+                            sx={{
+                                translate: `calc((-100% - ${gap}px) * ${currentIndex})`,
+                                transition: theme.transitions.create(['translate'], {
+                                    easing: theme.transitions.easing.sharp,
+                                    duration: theme.transitions.duration.enteringScreen,
+                                })
+                            }}
+                        >
+                            {props.cardsData.map((cd) =>
+                                props.renderCard(
+                                    cd,
+                                    {
+                                        width: '100%',
+                                        height: '100%',
+                                    },
+                                    true
+                                )
+                            )}
+                        </Box>
+                    }
                 </Box>
-            }
-        </Box>
-        <ArrowButton
-            direction='right'
-            onClick={onRightArrowClick}
-            hidden={
-                currentIndex === props.cardsData.length - 1
-                || transitionState.type !== 'finished'
-            }
-        />
+                <ArrowButton
+                    direction='right'
+                    onButtonClick={onRightArrowClick}
+                    onContainerClick={props.onClose}
+                    hidden={
+                        currentIndex === props.cardsData.length - 1
+                        || transitionState.type !== 'finished'
+                    }
+                />
+            </Box>
+        </ClickAwayListener>
     </Box>;
 };

@@ -226,6 +226,7 @@ export const TargetsView = () => {
                 />
             }
             initialCardRect={cardRect}
+            onClose={onCardClose}
         />;
     }
 
@@ -245,6 +246,7 @@ export const TargetsView = () => {
                 />
             }
             initialCardRect={cardRect}
+            onClose={onCardClose}
         />;
     }
 

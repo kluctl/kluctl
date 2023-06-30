@@ -1,8 +1,9 @@
 import React from "react";
-import { Box, BoxProps, Divider, IconButton, Paper, PaperProps, Tab, Tooltip, Typography } from "@mui/material"
+import { Box, BoxProps, Divider, IconButton, Paper, PaperProps, Tab, Tooltip } from "@mui/material"
 import { CloseLightIcon } from "../../icons/Icons";
 import { SidePanelProvider, useSidePanelTabs } from "../result-view/SidePanel";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
+import { ScrollingTextLine } from "../ScrollingTextLine";
 
 export const cardWidth = 247;
 export const projectCardMinHeight = 80;
@@ -67,34 +68,28 @@ export const CardTemplate = React.forwardRef((props: {
     );
 
     const header = props.header && (
-        <Tooltip title={props.headerTooltip}>
-            <Typography
+        <Tooltip title={props.headerTooltip} placement='bottom-start'>
+            <ScrollingTextLine
                 variant='h6'
-                textAlign='left'
-                textOverflow='ellipsis'
-                overflow='hidden'
-                flexGrow={1}
+                lineHeight='27px'
+                height='27px'
             >
                 {props.header}
-            </Typography>
+            </ScrollingTextLine>
         </Tooltip>
     );
 
     const subheader = props.subheader && (
-        <Tooltip title={props.subheaderTooltip}>
-            <Typography
+        <Tooltip title={props.subheaderTooltip} placement='bottom-start'>
+            <ScrollingTextLine
                 variant='subtitle1'
-                textAlign='left'
-                textOverflow='ellipsis'
-                overflow='hidden'
-                whiteSpace='nowrap'
                 fontSize='14px'
                 fontWeight={500}
                 lineHeight='19px'
-                width='max-content'
+                height='19px'
             >
                 {props.subheader}
-            </Typography>
+            </ScrollingTextLine>
         </Tooltip>
     );
 
@@ -130,7 +125,13 @@ export const CardTemplate = React.forwardRef((props: {
         >
             <Box flex='0 0 auto' display='flex' gap='15px'>
                 {icon}
-                <Box flex='1 1 auto'>
+                <Box
+                    flex='1 1 auto'
+                    display='flex'
+                    flexDirection='column'
+                    overflow='hidden'
+                    justifyContent='center'
+                >
                     {header}
                     {subheader}
                 </Box>
