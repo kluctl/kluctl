@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { CommandResultSummary } from "../../models";
+import { CommandResultSummary, ShortName } from "../../models";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
@@ -8,19 +8,16 @@ import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { calcAgo } from "../../utils/duration";
 import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
-import { ApiContext } from "../App";
+import { ApiContext, AppContext } from "../App";
 import { Loading, useLoadingHelper } from "../Loading";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import { ErrorMessage } from "../ErrorMessage";
 import { Api } from "../../api";
 
-async function doGetRootNode(api: Api, rs: CommandResultSummary) {
-    const [shortNames, r] = await Promise.all([
-        api.getShortNames(),
-        api.getResult(rs.id)
-    ]);
+async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
+    const r = await api.getResult(rs.id);
     const builder = new NodeBuilder({
-        shortNames: shortNames,
+        shortNames,
         summary: rs,
         commandResult: r,
     });
@@ -32,8 +29,9 @@ export const CommandResultItemBody = React.memo((props: {
     rs: CommandResultSummary
 }) => {
     const api = useContext(ApiContext);
+    const appContext = useContext(AppContext);
     const [loading, loadingError, node] = useLoadingHelper(() => {
-        return doGetRootNode(api, props.rs)
+        return doGetRootNode(api, props.rs, appContext.shortNames);
     }, [api, props.rs]);
 
     if (loading) {
@@ -107,8 +105,8 @@ export const CommandResultItem = React.memo(React.forwardRef((
         showCloseButton={expanded}
         onClose={onClose}
         paperProps={{
-            sx: { 
-                padding: '20px 16px 5px 16px', 
+            sx: {
+                padding: '20px 16px 5px 16px',
                 width: cardWidth,
                 height: cardHeight,
                 ...sx,

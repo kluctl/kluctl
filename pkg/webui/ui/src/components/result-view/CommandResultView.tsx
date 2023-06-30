@@ -16,7 +16,7 @@ import { SidePanel } from "./SidePanel";
 import { ActiveFilters } from "./NodeStatusFilter";
 import CommandResultTree from "./CommandResultTree";
 import { useParams } from "react-router-dom";
-import { ApiContext, useAppOutletContext } from "../App";
+import { ApiContext, AppContext, useAppOutletContext } from "../App";
 import { ChangesIcon, CheckboxCheckedIcon, CheckboxIcon, StarIcon, WarningSignIcon } from '../../icons/Icons';
 import { dark } from '../theme';
 import { Api } from "../../api";
@@ -30,15 +30,14 @@ export interface CommandResultProps {
     commandResult: CommandResult
 }
 
-async function doLoadCommandResult(api: Api, resultId: string): Promise<CommandResultProps> {
-    const [shortNames, rs, result] = await Promise.all([
-        api.getShortNames(),
+async function doLoadCommandResult(api: Api, resultId: string, shortNames: ShortName[]): Promise<CommandResultProps> {
+    const [rs, result] = await Promise.all([
         api.getResultSummary(resultId),
         api.getResult(resultId)
     ]);
 
     return {
-        shortNames: shortNames,
+        shortNames,
         summary: rs,
         commandResult: result,
     }
@@ -122,7 +121,8 @@ const defaultFilters = {
 
 export const CommandResultView = () => {
     const context = useAppOutletContext();
-    const api = useContext(ApiContext)
+    const api = useContext(ApiContext);
+    const appContext = useContext(AppContext);
     const [sidePanelNode, setSidePanelNode] = useState<NodeData | undefined>();
 
     const { id } = useParams()
@@ -130,7 +130,7 @@ export const CommandResultView = () => {
         if (!id) {
             return Promise.resolve(undefined)
         }
-        return doLoadCommandResult(api, id)
+        return doLoadCommandResult(api, id, appContext.shortNames)
     }, [id])
 
     const divider = <Divider
