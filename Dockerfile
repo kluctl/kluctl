@@ -4,7 +4,7 @@ ARG WOLFI_DIGEST=sha256:e8411b9629bd13123a978a2d1a27c3ee64c7751d3032ce80ad6e673e
 FROM cgr.dev/chainguard/wolfi-base@$WOLFI_DIGEST
 
 # We need git for kustomize to support overlays from git
-RUN apk add git
+RUN apk add git tzdata
 
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
