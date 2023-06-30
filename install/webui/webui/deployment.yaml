@@ -52,6 +52,9 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
+        {% if get_var(["args.webui_resources", "webui_resources"], {}) %}
+        resources: {{ get_var(["args.webui_resources", "webui_resources"], {}) | to_json }}
+        {% else %}
         resources:
           limits:
             cpu: 2000m
@@ -59,6 +62,7 @@ spec:
           requests:
             cpu: 500m
             memory: 512Mi
+        {% endif %}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

@@ -33,3 +33,8 @@ patches:
         path: /spec/template/spec/containers/0/env/-
         value: {{ a | to_json }}
 {% endfor %}
+{% if get_var("args.controller_resources", none) %}
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value: {{ get_var("args.controller_resources", none) | to_json }}
+{% endif %}

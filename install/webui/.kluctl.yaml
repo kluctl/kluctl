@@ -9,3 +9,5 @@ args:
     default: []
   - name: webui_envs
     default: []
+  - name: webui_resources
+    default: {}
