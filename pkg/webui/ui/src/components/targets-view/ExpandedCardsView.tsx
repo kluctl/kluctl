@@ -63,7 +63,12 @@ type TransitionState =
 export interface ExpandedCardsViewProps<CardData> {
     initialCardRect?: DOMRect,
     cardsData: CardData[],
-    renderCard: (cardData: CardData, sx: SxProps<Theme>, expanded: boolean) => React.ReactNode,
+    renderCard: (
+        cardData: CardData,
+        sx: SxProps<Theme>,
+        expanded: boolean,
+        current: boolean
+    ) => React.ReactNode,
     onClose: () => void
 }
 
@@ -173,6 +178,7 @@ export const ExpandedCardsView = function <CardData>(props: ExpandedCardsViewPro
                                     duration: theme.transitions.duration.enteringScreen,
                                 }),
                             },
+                            false,
                             false
                         )
                     }
@@ -191,14 +197,15 @@ export const ExpandedCardsView = function <CardData>(props: ExpandedCardsViewPro
                                 })
                             }}
                         >
-                            {props.cardsData.map((cd) =>
+                            {props.cardsData.map((cd, i) =>
                                 props.renderCard(
                                     cd,
                                     {
                                         width: '100%',
                                         height: '100%',
                                     },
-                                    true
+                                    true,
+                                    i === currentIndex
                                 )
                             )}
                         </Box>
