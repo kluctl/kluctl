@@ -236,12 +236,13 @@ export const TargetsView = () => {
 
         return <ExpandedCardsView<CommandResultSummary>
             cardsData={selectedTarget.commandResults}
-            renderCard={(cardData, sx, expanded) =>
+            renderCard={(cardData, sx, expanded, current) =>
                 <CommandResultItem
                     rs={cardData}
                     sx={sx}
                     key={cardData.id}
                     expanded={expanded}
+                    loadData={current}
                     onClose={onCardClose}
                 />
             }

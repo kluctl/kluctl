@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
-import { CommandResultSummary } from "../../models";
+import { CommandResultSummary, ShortName } from "../../models";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
@@ -8,19 +8,17 @@ import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { calcAgo } from "../../utils/duration";
 import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
-import { ApiContext } from "../App";
-import { Loading, useLoadingHelper } from "../Loading";
+import { ApiContext, AppContext } from "../App";
+import { Loading } from "../Loading";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import { ErrorMessage } from "../ErrorMessage";
 import { Api } from "../../api";
+import { CommandResultNodeData } from "../result-view/nodes/CommandResultNode";
 
-async function doGetRootNode(api: Api, rs: CommandResultSummary) {
-    const [shortNames, r] = await Promise.all([
-        api.getShortNames(),
-        api.getResult(rs.id)
-    ]);
+async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
+    const r = await api.getResult(rs.id);
     const builder = new NodeBuilder({
-        shortNames: shortNames,
+        shortNames,
         summary: rs,
         commandResult: r,
     });
@@ -29,20 +27,56 @@ async function doGetRootNode(api: Api, rs: CommandResultSummary) {
 }
 
 export const CommandResultItemBody = React.memo((props: {
-    rs: CommandResultSummary
+    rs: CommandResultSummary,
+    loadData?: boolean
 }) => {
     const api = useContext(ApiContext);
-    const [loading, loadingError, node] = useLoadingHelper(() => {
-        return doGetRootNode(api, props.rs)
-    }, [api, props.rs]);
+    const appContext = useContext(AppContext);
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<any>();
+    const [node, setNode] = useState<CommandResultNodeData>();
+    const [prevRsId, setPrevRsId] = useState<string>();
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!props.loadData) {
+            return;
+        }
+
+        if (prevRsId === props.rs.id) {
+            return;
+        }
+
+        const doStartLoading = async () => {
+            try {
+                setLoading(true);
+                const n = await doGetRootNode(api, props.rs, appContext.shortNames);
+                if (cancelled) {
+                    return;
+                }
+                setNode(n);
+                setPrevRsId(props.rs.id);
+            } catch (error) {
+                setError(error);
+            }
+            setLoading(false);
+        };
+
+        doStartLoading();
+
+        return () => {
+            cancelled = true;
+        }
+    }, [api, appContext.shortNames, prevRsId, props.loadData, props.rs])
 
     if (loading) {
         return <Loading />;
     }
 
-    if (loadingError) {
+    if (error) {
         return <ErrorMessage>
-            {loadingError.message}
+            {error.message}
         </ErrorMessage>;
     }
 
@@ -59,6 +93,7 @@ export const CommandResultItem = React.memo(React.forwardRef((
         onSelectCommandResult?: (rs: CommandResultSummary) => void,
         sx?: SxProps<Theme>,
         expanded?: boolean,
+        loadData?: boolean,
         onClose?: () => void
     },
     ref: React.ForwardedRef<HTMLDivElement>
@@ -68,6 +103,7 @@ export const CommandResultItem = React.memo(React.forwardRef((
         onSelectCommandResult,
         sx,
         expanded,
+        loadData,
         onClose
     } = props;
     const navigate = useNavigate();
@@ -102,13 +138,15 @@ export const CommandResultItem = React.memo(React.forwardRef((
         return () => clearInterval(interval);
     }, [rs.commandInfo.startTime]);
 
+    const body = expanded ? <CommandResultItemBody rs={rs} loadData={loadData} /> : undefined;
+
     return <CardTemplate
         ref={ref}
         showCloseButton={expanded}
         onClose={onClose}
         paperProps={{
-            sx: { 
-                padding: '20px 16px 5px 16px', 
+            sx: {
+                padding: '20px 16px 5px 16px',
                 width: cardWidth,
                 height: cardHeight,
                 ...sx,
@@ -120,7 +158,7 @@ export const CommandResultItem = React.memo(React.forwardRef((
         header={rs.commandInfo?.command}
         subheader={ago}
         subheaderTooltip={rs.commandInfo.startTime}
-        body={expanded && <CommandResultItemBody rs={rs} />}
+        body={body}
         footer={
             <>
                 <Box display='flex' gap='6px' alignItems='center'>

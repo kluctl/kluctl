@@ -14,11 +14,12 @@ import { Box } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
 import { ActiveFilters } from './result-view/NodeStatusFilter';
-import { CommandResultSummary, ProjectTargetKey, ValidateResult } from "../models";
+import { CommandResultSummary, ProjectTargetKey, ShortName, ValidateResult } from "../models";
 import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
 import { buildProjectSummaries, ProjectSummary } from "../project-summaries";
 import Login from "./Login";
-import { Loading } from "./Loading";
+import { Loading, useLoadingHelper } from "./Loading";
+import { ErrorMessageCard } from './ErrorMessage';
 
 export interface AppOutletContext {
     filters?: ActiveFilters
@@ -32,11 +33,13 @@ export interface AppContextProps {
     summaries: Map<string, CommandResultSummary>
     projects: ProjectSummary[]
     validateResults: Map<string, ValidateResult>
+    shortNames: ShortName[]
 }
 export const AppContext = createContext<AppContextProps>({
     summaries: new Map(),
     projects: [],
     validateResults: new Map(),
+    shortNames: []
 });
 
 export const ApiContext = createContext<Api>(new StaticApi())
@@ -101,10 +104,26 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
         return buildProjectSummaries(summaries, validateResults)
     }, [summaries, validateResults])
 
-    const appContext = {
+    const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(
+        () => api.getShortNames(),
+        [api]
+    );
+    
+    if (loading) {
+        return <Loading />;
+    }
+
+    if (loadingError) {
+        return <ErrorMessageCard>
+            {loadingError.message}
+        </ErrorMessageCard>;
+    }
+
+    const appContext: AppContextProps = {
         summaries: summariesRef.current,
-        projects: projects,
-        validateResults: validateResults,
+        projects,
+        validateResults,
+        shortNames: shortNames || []
     }
 
     const outletContext: AppOutletContext = {
