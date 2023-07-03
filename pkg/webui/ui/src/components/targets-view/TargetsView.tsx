@@ -286,6 +286,7 @@ export const TargetsView = () => {
                                             targetItemRefs.current.set(ts, elem);
                                         }
                                     }}
+                                    sx={{ cursor: 'pointer' }}
                                 />
                                 <RelationHorizontalLine />
                             </Box>
@@ -306,6 +307,7 @@ export const TargetsView = () => {
                                                     commandResultItemRefs.current.set(ts, elem);
                                                 }
                                             }}
+                                            sx={{ cursor: 'pointer' }}
                                         />
                                         : <CardPaper
                                             key={rs.id}
