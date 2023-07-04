@@ -5,14 +5,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
-type ListProjectsOptions struct {
-	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
-}
-
-type ListTargetsOptions struct {
-	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
-}
-
 type ListCommandResultSummariesOptions struct {
 	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
 }
