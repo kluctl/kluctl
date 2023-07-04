@@ -119,20 +119,20 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 		}
 	}
 
-	api := router.Group("/api")
-	api.GET("/getShortNames", s.auth.authHandler, s.getShortNames)
-	api.GET("/getResult", s.auth.authHandler, s.getResult)
-	api.GET("/getResultSummary", s.auth.authHandler, s.getResultSummary)
-	api.GET("/getResultObject", s.auth.authHandler, s.getResultObject)
-	api.POST("/validateNow", s.auth.authHandler, s.validateNow)
-	api.POST("/reconcileNow", s.auth.authHandler, s.reconcileNow)
-	api.POST("/deployNow", s.auth.authHandler, s.deployNow)
+	api := router.Group("/api", s.auth.authHandler)
+	api.GET("/getShortNames", s.getShortNames)
+	api.GET("/getResult", s.getResult)
+	api.GET("/getResultSummary", s.getResultSummary)
+	api.GET("/getResultObject", s.getResultObject)
+	api.POST("/validateNow", s.validateNow)
+	api.POST("/reconcileNow", s.reconcileNow)
+	api.POST("/deployNow", s.deployNow)
 
 	err = s.events.startEventsWatcher()
 	if err != nil {
 		return err
 	}
-	api.GET("/events", s.auth.authHandler, s.events.handler)
+	api.GET("/events", s.events.handler)
 
 	address := fmt.Sprintf("%s:%d", host, port)
 	listener, err := net.Listen("tcp", address)
