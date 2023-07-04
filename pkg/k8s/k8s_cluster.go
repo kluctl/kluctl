@@ -41,6 +41,9 @@ type K8sCluster struct {
 	clients *k8sClients
 
 	ServerVersion *version.Info
+
+	crdCache      map[k8s.ObjectRef]any
+	crdCacheMutex *sync.Mutex
 }
 
 func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool) (*K8sCluster, error) {
@@ -51,6 +54,8 @@ func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool
 		DryRun:         dryRun,
 		clientFactory:  clientFactory,
 		discoveryMutex: &sync.Mutex{},
+		crdCache:       map[k8s.ObjectRef]any{},
+		crdCacheMutex:  &sync.Mutex{},
 	}
 
 	k.discovery, err = clientFactory.DiscoveryClient()
@@ -143,6 +148,10 @@ type DeleteOptions struct {
 
 func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions) ([]ApiWarning, error) {
 	dryRun := k.DryRun || options.ForceDryRun
+
+	k.crdCacheMutex.Lock()
+	delete(k.crdCache, ref)
+	k.crdCacheMutex.Unlock()
 
 	var o unstructured.Unstructured
 	o.SetGroupVersionKind(ref.GroupVersionKind())
@@ -287,6 +296,10 @@ type PatchOptions struct {
 func (k *K8sCluster) doPatch(ref k8s.ObjectRef, obj client.Object, patch client.Patch, options PatchOptions) ([]ApiWarning, error) {
 	status.Trace(k.ctx, "patching %s", ref.String())
 
+	k.crdCacheMutex.Lock()
+	delete(k.crdCache, ref)
+	k.crdCacheMutex.Unlock()
+
 	var opts []client.PatchOption
 	if options.ForceApply {
 		opts = append(opts, client.ForceOwnership)
@@ -324,6 +337,10 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	obj := o.Clone().ToUnstructured()
 
 	status.Trace(k.ctx, "updating %s", ref.String())
+
+	k.crdCacheMutex.Lock()
+	delete(k.crdCache, ref)
+	k.crdCacheMutex.Unlock()
 
 	var opts []client.UpdateOption
 	if options.ForceDryRun {
@@ -454,8 +471,23 @@ func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.Unstructu
 
 	ref := k8s.NewObjectRef(apiextensionsv1.GroupName, "v1", "CustomResourceDefinition", fmt.Sprintf("%s.%s", rm.Resource.Resource, gvk.Group), "")
 
-	crd, _, err := k.GetSingleObject(ref)
-	if err != nil {
+	k.crdCacheMutex.Lock()
+	cacheValue, ok := k.crdCache[ref]
+	if !ok {
+		x, _, err := k.GetSingleObject(ref)
+		if err != nil {
+			k.crdCache[ref] = err
+			k.crdCacheMutex.Unlock()
+			return nil, err
+		}
+		k.crdCache[ref] = x
+		cacheValue = x
+	}
+	k.crdCacheMutex.Unlock()
+
+	crd, ok := cacheValue.(*uo.UnstructuredObject)
+	if !ok {
+		err = cacheValue.(error)
 		return nil, err
 	}
 
