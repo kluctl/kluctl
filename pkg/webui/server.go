@@ -22,11 +22,15 @@ import (
 
 const webuiManager = "kluctl-webui"
 
+type ProjectTargetKey struct {
+	Project result.ProjectKey `json:"project"`
+	Target  result.TargetKey  `json:"target"`
+}
+
 type CommandResultsServer struct {
 	ctx   context.Context
 	store results.ResultStore
 	cam   *clusterAccessorManager
-	vam   *validatorManager
 
 	// this is the client for the k8s cluster where the server runs on
 	serverClient client.Client
@@ -71,8 +75,6 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 		ret.cam.add(config)
 	}
 
-	ret.vam = newValidatorManager(ctx, store, ret.cam, adminUser)
-
 	return ret
 }
 
@@ -101,7 +103,6 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	}()
 
 	s.cam.start()
-	s.vam.start()
 
 	router := gin.Default()
 
@@ -332,10 +333,8 @@ func (s *CommandResultsServer) validateNow(c *gin.Context) {
 		Target:  params.Target,
 	}
 
-	if !s.vam.validateNow(key) {
-		_ = c.AbortWithError(http.StatusNotFound, err)
-		return
-	}
+	_ = key
+	// TODO
 
 	c.Status(http.StatusOK)
 }

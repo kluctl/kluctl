@@ -122,8 +122,6 @@ func (h *eventsHandler) startEventsWatcher() error {
 		return err
 	}
 
-	initialValidations, validationsCh, _ := h.server.vam.watch()
-
 	ctx := h.server.ctx
 
 	buildMsg := func(event results.WatchCommandResultSummaryEvent) string {
@@ -141,20 +139,9 @@ func (h *eventsHandler) startEventsWatcher() error {
 			return x
 		}
 	}
-	buildValidationMsg := func(event validationEvent) string {
-		x := yaml.WriteJsonStringMust(map[string]any{
-			"type":   "validate_result",
-			"key":    event.key,
-			"result": event.r,
-		})
-		return x
-	}
 
 	for _, x := range initial {
 		h.updateEvent(x.Id, ProjectTargetKey{Project: x.ProjectKey, Target: x.TargetKey}, buildMsg(results.WatchCommandResultSummaryEvent{Summary: x}), nil)
-	}
-	for _, x := range initialValidations {
-		h.updateEvent(uuid.NewString(), x.key, buildValidationMsg(x), &expireValidations)
 	}
 
 	go func() {
@@ -171,12 +158,6 @@ func (h *eventsHandler) startEventsWatcher() error {
 					expireIn = &expireDeletions
 				}
 				h.updateEvent(event.Summary.Id, ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildMsg(event), expireIn)
-			case event, ok := <-validationsCh:
-				if !ok {
-					status.Error(h.server.ctx, "validations channel closed unexpectedly")
-					return
-				}
-				h.updateEvent(uuid.NewString(), event.key, buildValidationMsg(event), &expireValidations)
 			case <-cleanupTimer:
 				h.cleanupEvents()
 				cleanupTimer = time.After(5 * time.Second)
