@@ -5,7 +5,7 @@ import {
     ProjectKey,
     ResultObject,
     ShortName,
-    TargetKey
+    TargetKey, ValidateResult
 } from "./models";
 import _ from "lodash";
 import React from "react";
@@ -43,9 +43,10 @@ export interface User {
 export interface Api {
     getShortNames(): Promise<ShortName[]>
     listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
-    getResult(resultId: string): Promise<CommandResult>
-    getResultSummary(resultId: string): Promise<CommandResultSummary>
-    getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
+    getCommandResult(resultId: string): Promise<CommandResult>
+    getCommandResultSummary(resultId: string): Promise<CommandResultSummary>
+    getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
+    getValidateResult(resultId: string): Promise<ValidateResult>
     validateNow(project: ProjectKey, target: TargetKey): Promise<Response>
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
@@ -210,26 +211,33 @@ export class RealApi implements Api {
         }
     }
 
-    async getResult(resultId: string) {
+    async getCommandResult(resultId: string) {
         const params = new URLSearchParams()
         params.set("resultId", resultId)
-        const json = await this.doGet("/api/getResult", params)
+        const json = await this.doGet("/api/getCommandResult", params)
         return new CommandResult(json)
     }
 
-    async getResultSummary(resultId: string) {
+    async getCommandResultSummary(resultId: string) {
         const params = new URLSearchParams()
         params.set("resultId", resultId)
-        const json = await this.doGet("/api/getResultSummary", params)
+        const json = await this.doGet("/api/getCommandResultSummary", params)
         return new CommandResultSummary(json)
     }
 
-    async getResultObject(resultId: string, ref: ObjectRef, objectType: string) {
+    async getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string) {
         const params = new URLSearchParams()
         params.set("resultId", resultId)
         params.set("objectType", objectType)
         buildRefParams(ref, params)
-        return await this.doGet("/api/getResultObject", params)
+        return await this.doGet("/api/getCommandResultObject", params)
+    }
+
+    async getValidateResult(resultId: string) {
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        const json = await this.doGet("/api/getValidateResult", params)
+        return new ValidateResult(json)
     }
 
     async validateNow(project: ProjectKey, target: TargetKey) {
@@ -281,20 +289,20 @@ export class StaticApi implements Api {
         }
     }
 
-    async getResult(resultId: string): Promise<CommandResult> {
+    async getCommandResult(resultId: string): Promise<CommandResult> {
         await loadScript(staticPath + `/result-${resultId}.js`)
         return staticResults.get(resultId)
     }
 
-    async getResultSummary(resultId: string): Promise<CommandResultSummary> {
+    async getCommandResultSummary(resultId: string): Promise<CommandResultSummary> {
         await loadScript(staticPath + "/summaries.js")
         return staticSummaries.filter(s => {
             return s.id === resultId
         }).at(0)
     }
 
-    async getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
-        const result = await this.getResult(resultId)
+    async getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
+        const result = await this.getCommandResult(resultId)
         const object = result.objects?.find(x => _.isEqual(x.ref, ref))
         if (!object) {
             throw new Error("object not found")
@@ -309,6 +317,10 @@ export class StaticApi implements Api {
             default:
                 throw new Error("unknown object type " + objectType)
         }
+    }
+
+    async getValidateResult(resultId: string): Promise<ValidateResult> {
+        throw new Error("not implemented")
     }
 
     validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {

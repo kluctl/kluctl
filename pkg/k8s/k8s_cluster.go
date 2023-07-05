@@ -83,6 +83,20 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 	return &k2
 }
 
+func (k *K8sCluster) GetClusterId() (string, error) {
+	kubeSystemNs, _, err := k.GetSingleObject(
+		k8s.NewObjectRef("", "v1", "Namespace", "kube-system", ""))
+	if err != nil {
+		return "", err
+	}
+	// we reuse the kube-system namespace uid as global cluster id
+	clusterId := kubeSystemNs.GetK8sUid()
+	if clusterId == "" {
+		return "", fmt.Errorf("kube-system namespace has no uid")
+	}
+	return clusterId, nil
+}
+
 func (k *K8sCluster) doList(l client.ObjectList, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	apiWarnings, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
 		return c.List(k.ctx, l, client.InNamespace(namespace), client.MatchingLabels(labels))

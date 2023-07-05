@@ -16,6 +16,7 @@ func main() {
 		Add(result.CommandResult{}).
 		Add(result.CommandResultSummary{}).
 		Add(result.ValidateResult{}).
+		Add(result.ValidateResultSummary{}).
 		Add(webui.ShortName{}).
 		Add(uo.UnstructuredObject{}).
 		Add(webui.ProjectTargetKey{}).

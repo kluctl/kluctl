@@ -1,19 +1,24 @@
-import { KluctlDeploymentInfo } from "../../models";
+import {
+    KluctlDeploymentInfo,
+    ValidateResult
+} from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Box, SxProps, Theme, Typography, useTheme } from "@mui/material";
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
-import { ApiContext } from "../App";
+import { ApiContext, AppContext } from "../App";
 import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
 import { DiffStatus } from "../result-view/nodes/NodeData";
 import { ChangesTable } from "../result-view/ChangesTable";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesTable } from "../PropertiesTable";
+import { Loading, useLoadingHelper } from "../Loading";
+import { ErrorMessage } from "../ErrorMessage";
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
@@ -22,10 +27,10 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     if (props.ts.lastValidateResult === undefined) {
         icon = <MessageQuestionIcon color={theme.palette.error.main} />
     } else if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
-        if (props.ts.lastValidateResult.warnings?.length) {
+        if (props.ts.lastValidateResult.warnings) {
             icon = <Favorite color={"warning"} />
-        } else if (props.ts.lastValidateResult.drift?.length) {
-            icon = <Favorite color={"primary"} />
+        /*} else if (props.ts.lastValidateResult.drift?.length) {
+            icon = <Favorite color={"primary"} />*/
         } else {
             icon = <Favorite color={"success"} />
         }
@@ -37,20 +42,20 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     if (props.ts.lastValidateResult === undefined) {
         tooltip.push("No validation result available.")
     } else {
-        if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors?.length) {
+        if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
             tooltip.push("Target is ready.")
         } else {
             tooltip.push("Target is not ready.")
         }
-        if (props.ts.lastValidateResult.errors?.length) {
-            tooltip.push(`Target has ${props.ts.lastValidateResult.errors.length} validation errors.`)
+        if (props.ts.lastValidateResult.errors) {
+            tooltip.push(`Target has ${props.ts.lastValidateResult.errors} validation errors.`)
         }
-        if (props.ts.lastValidateResult.warnings?.length) {
-            tooltip.push(`Target has ${props.ts.lastValidateResult.warnings.length} validation warnings.`)
+        if (props.ts.lastValidateResult.warnings) {
+            tooltip.push(`Target has ${props.ts.lastValidateResult.warnings} validation warnings.`)
         }
-        if (props.ts.lastValidateResult.drift?.length) {
+        /*if (props.ts.lastValidateResult.drift?.length) {
             tooltip.push(`Target has ${props.ts.lastValidateResult.drift.length} drifted objects.`)
-        }
+        }*/
         tooltip.push("Validation performed " + calcAgo(props.ts.lastValidateResult.startTime) + " ago")
     }
 
@@ -58,6 +63,36 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         <Box display='flex'>{icon}</Box>
     </Tooltip>
 }
+
+export const TargetItemBody = React.memo((props: {
+    ts: TargetSummary
+}) => {
+    const api = useContext(ApiContext);
+
+    const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(async () => {
+        if (!props.ts.lastValidateResult) {
+            return undefined
+        }
+        const o = await api.getValidateResult(props.ts.lastValidateResult?.id)
+        return o
+    }, [props.ts.lastValidateResult?.id])
+
+    if (loading) {
+        return <Loading />;
+    }
+
+    if (error) {
+        return <ErrorMessage>
+            {error.message}
+        </ErrorMessage>;
+    }
+
+    if (!vr) {
+        return null;
+    }
+
+    return <CardBody provider={new MyProvider(props.ts, vr)}/>
+});
 
 export const TargetItem = React.memo(React.forwardRef((
     props: {
@@ -141,6 +176,8 @@ export const TargetItem = React.memo(React.forwardRef((
         targetName = "<no-name>"
     }
 
+    const body = props.expanded ? <TargetItemBody ts={props.ts} /> : undefined;
+
     return <CardTemplate
         ref={ref}
         showCloseButton={props.expanded}
@@ -158,7 +195,7 @@ export const TargetItem = React.memo(React.forwardRef((
         header={targetName}
         subheader={allContexts.length ? allContexts[0] : ''}
         subheaderTooltip={allContexts.length ? contextTooltip : undefined}
-        body={props.expanded && <CardBody provider={new MyProvider(props.ts)} />}
+        body={body}
         footer={
             <>
                 <Box display='flex' gap='6px' alignItems='center'>
@@ -182,13 +219,15 @@ TargetItem.displayName = 'TargetItem';
 
 class MyProvider implements SidePanelProvider {
     private ts?: TargetSummary;
+    private lastValidateResult?: ValidateResult
     private diffStatus: DiffStatus;
 
-    constructor(ts?: TargetSummary) {
+    constructor(ts?: TargetSummary, vr?: ValidateResult) {
         this.ts = ts
+        this.lastValidateResult = vr
         this.diffStatus = new DiffStatus()
 
-        this.ts?.lastValidateResult?.drift?.forEach(co => {
+        this.lastValidateResult?.drift?.forEach(co => {
             this.diffStatus.addChangedObject(co)
         })
     }
@@ -210,16 +249,16 @@ class MyProvider implements SidePanelProvider {
                     content: <ChangesTable diffStatus={this.diffStatus} />
                 })
             }
-        if (this.ts.lastValidateResult?.errors?.length) {
+        if (this.lastValidateResult?.errors) {
             tabs.push({
                 label: "Errors",
-                content: <ErrorsTable errors={this.ts.lastValidateResult.errors} />
+                content: <ErrorsTable errors={this.lastValidateResult.errors} />
             })
         }
-        if (this.ts.lastValidateResult?.warnings?.length) {
+        if (this.lastValidateResult?.warnings) {
             tabs.push({
                 label: "Warnings",
-                content: <ErrorsTable errors={this.ts.lastValidateResult.warnings} />
+                content: <ErrorsTable errors={this.lastValidateResult.warnings} />
             })
         }
 
@@ -233,17 +272,17 @@ class MyProvider implements SidePanelProvider {
         ]
 
         if (this.ts?.lastValidateResult) {
-            props.push({ name: "Ready", value: this.ts.lastValidateResult.ready + "" })
+            props.push({ name: "Ready", value: this.ts?.lastValidateResult.ready + "" })
         }
-        if (this.ts?.lastValidateResult?.errors?.length) {
-            props.push({ name: "Errors", value: this.ts.lastValidateResult.errors.length + "" })
+        if (this.ts?.lastValidateResult?.errors) {
+            props.push({ name: "Errors", value: this.ts?.lastValidateResult.errors + "" })
         }
-        if (this.ts?.lastValidateResult?.warnings?.length) {
-            props.push({ name: "Warnings", value: this.ts.lastValidateResult.warnings.length + "" })
+        if (this.ts?.lastValidateResult?.warnings) {
+            props.push({ name: "Warnings", value: this.ts?.lastValidateResult.warnings + "" })
         }
-        if (this.ts?.lastValidateResult?.drift?.length) {
+        /*if (this.ts.lastValidateResult?.drift?.length) {
             props.push({ name: "Drifted Objects", value: this.ts.lastValidateResult.drift.length + "" })
-        }
+        }*/
 
         return <>
             <PropertiesTable properties={props} />

@@ -13,7 +13,7 @@ import { Box } from "@mui/material";
 export const ObjectYaml = (props: { treeProps: CommandResultProps, objectRef: ObjectRef, objectType: ObjectType }) => {
     const api = useContext(ApiContext)
     const [loading, error, content] = useLoadingHelper<string>(async () => {
-        const o = await api.getResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
+        const o = await api.getCommandResultObject(props.treeProps.summary.id, props.objectRef, props.objectType)
         return yaml.dump(o)
     }, [props.treeProps.summary.id, props.objectRef, props.objectType])
 

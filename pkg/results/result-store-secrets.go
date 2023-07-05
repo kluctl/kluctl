@@ -25,18 +25,20 @@ type ResultStoreSecrets struct {
 	ctx    context.Context
 	client client.WithWatch
 
-	writeNamespace   string
-	keepResultsCount int
+	writeNamespace           string
+	keepCommandResultsCount  int
+	keepValidateResultsCount int
 
 	mutex sync.Mutex
 }
 
-func NewResultStoreSecrets(ctx context.Context, client client.WithWatch, writeNamespace string, keepResultsCount int) (*ResultStoreSecrets, error) {
+func NewResultStoreSecrets(ctx context.Context, client client.WithWatch, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
 	s := &ResultStoreSecrets{
-		ctx:              ctx,
-		client:           client,
-		writeNamespace:   writeNamespace,
-		keepResultsCount: keepResultsCount,
+		ctx:                      ctx,
+		client:                   client,
+		writeNamespace:           writeNamespace,
+		keepCommandResultsCount:  keepCommandResultsCount,
+		keepValidateResultsCount: keepValidateResultsCount,
 	}
 
 	return s, nil
@@ -44,27 +46,24 @@ func NewResultStoreSecrets(ctx context.Context, client client.WithWatch, writeNa
 
 var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 
-func (s *ResultStoreSecrets) buildName(cr *result.CommandResult) string {
-	var name string
+func (s *ResultStoreSecrets) buildName(prefix string, id string, projectKey result.ProjectKey) string {
+	name := ""
 
-	if cr.ProjectKey.GitRepoKey.Path != "" {
-		s := path.Base(cr.ProjectKey.GitRepoKey.Path)
-		if s != "" {
-			name = s + "-"
-		}
+	if projectKey.GitRepoKey.Path != "" {
+		name = path.Base(projectKey.GitRepoKey.Path)
 	}
 
 	name = strings.ReplaceAll(name, "_", "-")
 	name = invalidChars.ReplaceAllString(name, "")
 
-	nameWithId := name + cr.Id
-	if len(nameWithId) > 63 {
-		trimmedName := []byte(name[:63-len(cr.Id)])
-		trimmedName[len(trimmedName)-1] = '-'
-		nameWithId = string(trimmedName) + cr.Id
+	maxNameLen := 63
+	maxNameLen -= len(id) + 1     // +1 for '-'
+	maxNameLen -= len(prefix) + 1 // +1 for '-'
+	if len(name) > maxNameLen {
+		name = name[:maxNameLen]
 	}
 
-	return nameWithId
+	return prefix + "-" + name + "-" + id
 }
 
 func (s *ResultStoreSecrets) ensureWriteNamespace() error {
@@ -126,13 +125,13 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.buildName(cr),
+			Name:      s.buildName("cr", cr.Id, cr.ProjectKey),
 			Namespace: s.writeNamespace,
 			Labels: map[string]string{
-				"kluctl.io/result-id": cr.Id,
+				"kluctl.io/command-result-id": cr.Id,
 			},
 			Annotations: map[string]string{
-				"kluctl.io/result-summary": summaryJson,
+				"kluctl.io/command-result-summary": summaryJson,
 			},
 		},
 		Data: map[string][]byte{
@@ -152,7 +151,7 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 		return err
 	}
 
-	err = s.cleanupResults(cr.ProjectKey, cr.TargetKey)
+	err = s.cleanupCommandResults(cr.ProjectKey, cr.TargetKey)
 	if err != nil {
 		return err
 	}
@@ -160,8 +159,68 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 	return nil
 }
 
-func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target result.TargetKey) error {
-	results, err := s.ListCommandResultSummaries(ListCommandResultSummariesOptions{
+func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) error {
+	err := s.ensureWriteNamespace()
+	if err != nil {
+		return err
+	}
+
+	vrJson, err := yaml.WriteJsonString(vr)
+	if err != nil {
+		return err
+	}
+	compressedVr, err := utils.CompressGzip([]byte(vrJson), gzip.BestCompression)
+	if err != nil {
+		return err
+	}
+
+	summary := vr.BuildSummary()
+	summaryJson, err := yaml.WriteJsonString(summary)
+	if err != nil {
+		return err
+	}
+
+	secret := corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      s.buildName("vr", vr.Id, vr.ProjectKey),
+			Namespace: s.writeNamespace,
+			Labels: map[string]string{
+				"kluctl.io/validate-result-id": vr.Id,
+			},
+			Annotations: map[string]string{
+				"kluctl.io/validate-result-summary": summaryJson,
+			},
+		},
+		Data: map[string][]byte{
+			"result": compressedVr,
+		},
+	}
+	if vr.ProjectKey.GitRepoKey.String() != "" {
+		secret.Annotations["kluctl.io/result-project-repo-key"] = vr.ProjectKey.GitRepoKey.String()
+	}
+	if vr.ProjectKey.SubDir != "" {
+		secret.Annotations["kluctl.io/result-project-subdir"] = vr.ProjectKey.SubDir
+	}
+
+	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
+	if err != nil {
+		return err
+	}
+
+	err = s.cleanupValidateResults(vr.ProjectKey, vr.TargetKey)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *ResultStoreSecrets) cleanupCommandResults(project result.ProjectKey, target result.TargetKey) error {
+	results, err := s.ListCommandResultSummaries(ListResultSummariesOptions{
 		ProjectFilter: &project,
 	})
 	if err != nil {
@@ -177,9 +236,9 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 		}
 		cnt++
 
-		if cnt > s.keepResultsCount {
+		if cnt > s.keepCommandResultsCount {
 			err := s.client.DeleteAllOf(s.ctx, &corev1.Secret{}, client.InNamespace(s.writeNamespace), client.MatchingLabels{
-				"kluctl.io/result-id": rs.Id,
+				"kluctl.io/command-result-id": rs.Id,
 			})
 			if err != nil {
 				status.Warning(s.ctx, "Failed to delete old command result %s: %s", rs.Id, err)
@@ -191,10 +250,41 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 	return nil
 }
 
-func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error) {
+func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, target result.TargetKey) error {
+	results, err := s.ListValidateResultSummaries(ListResultSummariesOptions{
+		ProjectFilter: &project,
+	})
+	if err != nil {
+		return err
+	}
+
+	cnt := 0
+	for _, rs := range results {
+		rs := rs
+
+		if rs.TargetKey != target {
+			continue
+		}
+		cnt++
+
+		if cnt > s.keepValidateResultsCount {
+			err := s.client.DeleteAllOf(s.ctx, &corev1.Secret{}, client.InNamespace(s.writeNamespace), client.MatchingLabels{
+				"kluctl.io/validate-result-id": rs.Id,
+			})
+			if err != nil {
+				status.Warning(s.ctx, "Failed to delete old validate result %s: %s", rs.Id, err)
+			} else {
+				status.Info(s.ctx, "Deleted old validate result %s", rs.Id)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.client.List(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
+	err := s.client.List(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +292,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 	ret := make([]result.CommandResultSummary, 0, len(l.Items))
 
 	for _, x := range l.Items {
-		summary, err := s.parseSummary(x.GetAnnotations())
+		summary, err := s.parseCommandSummary(x.GetAnnotations())
 		if err != nil {
 			continue
 		}
@@ -214,17 +304,17 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
-		return lessSummary(&ret[i], &ret[j])
+		return lessCommandSummary(&ret[i], &ret[j])
 	})
 
 	return ret, nil
 }
 
-func (s *ResultStoreSecrets) parseSummary(a map[string]string) (*result.CommandResultSummary, error) {
+func (s *ResultStoreSecrets) parseCommandSummary(a map[string]string) (*result.CommandResultSummary, error) {
 	if len(a) == 0 {
 		return nil, nil
 	}
-	summaryJson := a["kluctl.io/result-summary"]
+	summaryJson := a["kluctl.io/command-result-summary"]
 	if summaryJson == "" {
 		return nil, nil
 	}
@@ -238,7 +328,25 @@ func (s *ResultStoreSecrets) parseSummary(a map[string]string) (*result.CommandR
 	return &summary, nil
 }
 
-func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchCommandResultSummaryEvent {
+func (s *ResultStoreSecrets) parseValidateSummary(a map[string]string) (*result.ValidateResultSummary, error) {
+	if len(a) == 0 {
+		return nil, nil
+	}
+	summaryJson := a["kluctl.io/validate-result-summary"]
+	if summaryJson == "" {
+		return nil, nil
+	}
+
+	var summary result.ValidateResultSummary
+	err := yaml.ReadYamlString(summaryJson, &summary)
+	if err != nil {
+		return nil, err
+	}
+
+	return &summary, nil
+}
+
+func (s *ResultStoreSecrets) convertCommandResultWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchCommandResultSummaryEvent {
 	if event.Object == nil {
 		return nil
 	}
@@ -246,7 +354,7 @@ func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result
 	if !ok {
 		return nil
 	}
-	summary, err := s.parseSummary(x2.GetAnnotations())
+	summary, err := s.parseCommandSummary(x2.GetAnnotations())
 	if err != nil {
 		return nil
 	}
@@ -267,17 +375,46 @@ func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result
 	return nil
 }
 
-func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
+func (s *ResultStoreSecrets) convertValidateResultWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchValidateResultSummaryEvent {
+	if event.Object == nil {
+		return nil
+	}
+	x2, ok := event.Object.(client.Object)
+	if !ok {
+		return nil
+	}
+	summary, err := s.parseValidateSummary(x2.GetAnnotations())
+	if err != nil {
+		return nil
+	}
+	if !FilterProject(summary.ProjectKey, filter) {
+		return nil
+	}
+	switch event.Type {
+	case watch.Deleted:
+		return &WatchValidateResultSummaryEvent{
+			Delete:  true,
+			Summary: summary,
+		}
+	case watch.Added, watch.Modified:
+		return &WatchValidateResultSummaryEvent{
+			Summary: summary,
+		}
+	}
+	return nil
+}
+
+func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	w, err := s.client.Watch(s.ctx, &l, client.HasLabels{"kluctl.io/result-id"})
+	w, err := s.client.Watch(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	var initialListRet []*result.CommandResultSummary
 	for _, x := range l.Items {
-		summary, err := s.parseSummary(x.GetAnnotations())
+		summary, err := s.parseCommandSummary(x.GetAnnotations())
 		if err != nil {
 			continue
 		}
@@ -291,7 +428,7 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 
 	go func() {
 		for x := range w.ResultChan() {
-			we := s.convertWatchEvent(x, options.ProjectFilter)
+			we := s.convertCommandResultWatchEvent(x, options.ProjectFilter)
 			if we == nil {
 				continue
 			}
@@ -309,7 +446,7 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 func (s *ResultStoreSecrets) getCommandResultSecret(id string) (*metav1.PartialObjectMetadata, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.client.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/result-id": id})
+	err := s.client.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/command-result-id": id})
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +469,7 @@ func (s *ResultStoreSecrets) GetCommandResultSummary(id string) (*result.Command
 	if err != nil {
 		return nil, err
 	}
-	return s.parseSummary(secret.GetAnnotations())
+	return s.parseCommandSummary(secret.GetAnnotations())
 }
 
 func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
@@ -346,7 +483,7 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 
 	var l corev1.SecretList
 	err = s.client.List(s.ctx, &l, client.MatchingLabels{
-		"kluctl.io/result-id": options.Id,
+		"kluctl.io/command-result-id": options.Id,
 	})
 	if err != nil {
 		return nil, err
@@ -403,4 +540,104 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 	}
 
 	return &cr, nil
+}
+
+func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error) {
+	var l metav1.PartialObjectMetadataList
+	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
+	err := s.client.List(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]result.ValidateResultSummary, 0, len(l.Items))
+
+	for _, x := range l.Items {
+		summary, err := s.parseValidateSummary(x.GetAnnotations())
+		if err != nil {
+			continue
+		}
+		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
+			continue
+		}
+
+		ret = append(ret, *summary)
+	}
+
+	sort.Slice(ret, func(i, j int) bool {
+		return lessValidateSummary(&ret[i], &ret[j])
+	})
+
+	return ret, nil
+}
+
+func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
+	var l metav1.PartialObjectMetadataList
+	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
+	w, err := s.client.Watch(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var initialListRet []*result.ValidateResultSummary
+	for _, x := range l.Items {
+		summary, err := s.parseValidateSummary(x.GetAnnotations())
+		if err != nil {
+			continue
+		}
+		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
+			continue
+		}
+		initialListRet = append(initialListRet, summary)
+	}
+
+	ch := make(chan WatchValidateResultSummaryEvent)
+
+	go func() {
+		for x := range w.ResultChan() {
+			we := s.convertValidateResultWatchEvent(x, options.ProjectFilter)
+			if we == nil {
+				continue
+			}
+			ch <- *we
+		}
+		close(ch)
+	}()
+
+	cancel := func() {
+		w.Stop()
+	}
+	return nil, ch, cancel, nil
+}
+
+func (s *ResultStoreSecrets) GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error) {
+	var l corev1.SecretList
+	err := s.client.List(s.ctx, &l, client.MatchingLabels{
+		"kluctl.io/validate-result-id": options.Id,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(l.Items) == 0 {
+		return nil, nil
+	}
+
+	secret := l.Items[0]
+
+	j, ok := secret.Data["result"]
+	if !ok {
+		return nil, fmt.Errorf("result field not present for %s", options.Id)
+	}
+	j, err = utils.UncompressGzip(j)
+	if err != nil {
+		return nil, err
+	}
+
+	var vr result.ValidateResult
+	err = yaml.ReadYamlBytes(j, &vr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &vr, nil
 }

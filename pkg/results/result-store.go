@@ -5,7 +5,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
-type ListCommandResultSummariesOptions struct {
+type ListResultSummariesOptions struct {
 	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
 }
 
@@ -14,19 +14,33 @@ type GetCommandResultOptions struct {
 	Reduced bool   `json:"reduced,omitempty"`
 }
 
+type GetValidateResultOptions struct {
+	Id string `json:"id"`
+}
+
 type WatchCommandResultSummaryEvent struct {
 	Summary *result.CommandResultSummary `json:"summary"`
 	Delete  bool                         `json:"delete"`
 }
 
+type WatchValidateResultSummaryEvent struct {
+	Summary *result.ValidateResultSummary `json:"summary"`
+	Delete  bool                          `json:"delete"`
+}
+
 type ResultStore interface {
 	WriteCommandResult(cr *result.CommandResult) error
+	WriteValidateResult(vr *result.ValidateResult) error
 
-	ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error)
-	WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
+	ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error)
+	WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
 	HasCommandResult(id string) (bool, error)
 	GetCommandResultSummary(id string) (*result.CommandResultSummary, error)
 	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
+
+	ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error)
+	WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
+	GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error)
 }
 
 func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {
@@ -41,7 +55,7 @@ func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {
 	return true
 }
 
-func lessSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
+func lessCommandSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
 	if a.Command.StartTime != b.Command.StartTime {
 		return a.Command.StartTime.After(b.Command.StartTime.Time)
 	}
@@ -49,4 +63,14 @@ func lessSummary(a *result.CommandResultSummary, b *result.CommandResultSummary)
 		return a.Command.EndTime.After(b.Command.EndTime.Time)
 	}
 	return a.Command.Command < b.Command.Command
+}
+
+func lessValidateSummary(a *result.ValidateResultSummary, b *result.ValidateResultSummary) bool {
+	if a.StartTime != b.StartTime {
+		return a.StartTime.After(b.StartTime.Time)
+	}
+	if a.EndTime != b.EndTime {
+		return a.EndTime.After(b.EndTime.Time)
+	}
+	return false
 }

@@ -45,7 +45,7 @@ func TestWriteResult(t *testing.T) {
 	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, "kluctl-results", 0)
 	assert.NoError(t, err)
 
-	opts := results.ListCommandResultSummariesOptions{
+	opts := results.ListResultSummariesOptions{
 		ProjectFilter: &result.ProjectKey{
 			GitRepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
 		},

@@ -79,28 +79,10 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 }
 
 func (s *CommandResultsServer) Run(host string, port int) error {
-	l, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	err := s.startUpdateLogs()
 	if err != nil {
 		return err
 	}
-	defer cancel()
-
-	printEvent := func(id string, deleted bool) {
-		if deleted {
-			status.Info(s.ctx, "Deleted result summary for %s", id)
-		} else {
-			status.Info(s.ctx, "Updated result summary for %s", id)
-		}
-	}
-	for _, x := range l {
-		printEvent(x.Id, false)
-	}
-
-	go func() {
-		for event := range ch {
-			printEvent(event.Summary.Id, event.Delete)
-		}
-	}()
 
 	s.cam.start()
 
@@ -122,9 +104,10 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 
 	api := router.Group("/api", s.auth.authHandler)
 	api.GET("/getShortNames", s.getShortNames)
-	api.GET("/getResult", s.getResult)
-	api.GET("/getResultSummary", s.getResultSummary)
-	api.GET("/getResultObject", s.getResultObject)
+	api.GET("/getCommandResult", s.getCommandResult)
+	api.GET("/getCommandResultSummary", s.getCommandResultSummary)
+	api.GET("/getCommandResultObject", s.getCommandResultObject)
+	api.GET("/getValidateResult", s.getValidateResult)
 	api.POST("/validateNow", s.validateNow)
 	api.POST("/reconcileNow", s.reconcileNow)
 	api.POST("/deployNow", s.deployNow)
@@ -150,6 +133,51 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	}
 
 	return httpServer.Serve(listener)
+}
+
+func (s *CommandResultsServer) startUpdateLogs() error {
+	l1, ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+
+	l2, ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		cancel1()
+		return err
+	}
+
+	go func() {
+		defer cancel1()
+		defer cancel2()
+
+		printEvent := func(id string, type_ string, deleted bool) {
+			if deleted {
+				status.Info(s.ctx, "Deleted %s result summary for %s", type_, id)
+			} else {
+				status.Info(s.ctx, "Updated %s result summary for %s", type_, id)
+			}
+		}
+		for _, x := range l1 {
+			printEvent(x.Id, "command", false)
+		}
+		for _, x := range l2 {
+			printEvent(x.Id, "validate", false)
+		}
+
+		for {
+			select {
+			case event := <-ch1:
+				printEvent(event.Summary.Id, "command", event.Delete)
+			case event := <-ch2:
+				printEvent(event.Summary.Id, "validate", event.Delete)
+			case <-s.ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (s *CommandResultsServer) setupStaticRoutes(router gin.IRouter) error {
@@ -208,7 +236,7 @@ func (ref refParam) toK8sRef() k8s.ObjectRef {
 	}
 }
 
-func (s *CommandResultsServer) getResult(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 	var params resultIdParam
 
 	err := c.Bind(&params)
@@ -233,7 +261,7 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 	c.JSON(http.StatusOK, sr)
 }
 
-func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResultSummary(c *gin.Context) {
 	var params resultIdParam
 
 	err := c.Bind(&params)
@@ -255,7 +283,7 @@ func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, sr)
 }
 
-func (s *CommandResultsServer) getResultObject(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResultObject(c *gin.Context) {
 	var params resultIdParam
 	var ref refParam
 	var objectType objectTypeParams
@@ -318,6 +346,30 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, o2)
+}
+
+func (s *CommandResultsServer) getValidateResult(c *gin.Context) {
+	var params resultIdParam
+
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	vr, err := s.store.GetValidateResult(results.GetValidateResultOptions{
+		Id: params.ResultId,
+	})
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if vr == nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	c.JSON(http.StatusOK, vr)
 }
 
 func (s *CommandResultsServer) validateNow(c *gin.Context) {

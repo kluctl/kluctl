@@ -16,7 +16,7 @@ import { Api } from "../../api";
 import { CommandResultNodeData } from "../result-view/nodes/CommandResultNode";
 
 async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
-    const r = await api.getResult(rs.id);
+    const r = await api.getCommandResult(rs.id);
     const builder = new NodeBuilder({
         shortNames,
         summary: rs,

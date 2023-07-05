@@ -14,7 +14,7 @@ import { Box } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
 import { ActiveFilters } from './result-view/NodeStatusFilter';
-import { CommandResultSummary, ProjectTargetKey, ShortName, ValidateResult } from "../models";
+import { CommandResultSummary, ShortName, ValidateResultSummary } from "../models";
 import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
 import { buildProjectSummaries, ProjectSummary } from "../project-summaries";
 import Login from "./Login";
@@ -30,15 +30,15 @@ export function useAppOutletContext(): AppOutletContext {
 }
 
 export interface AppContextProps {
-    summaries: Map<string, CommandResultSummary>
+    commandResultSummaries: Map<string, CommandResultSummary>
     projects: ProjectSummary[]
-    validateResults: Map<string, ValidateResult>
+    validateResultSummaries: Map<string, ValidateResultSummary>
     shortNames: ShortName[]
 }
 export const AppContext = createContext<AppContextProps>({
-    summaries: new Map(),
+    commandResultSummaries: new Map(),
     projects: [],
-    validateResults: new Map(),
+    validateResultSummaries: new Map(),
     shortNames: []
 });
 
@@ -48,61 +48,63 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
     const api = useContext(ApiContext)
     const [filters, setFilters] = useState<ActiveFilters>()
 
-    const summariesRef = useRef<Map<string, CommandResultSummary>>(new Map())
-    const validateResultsRef = useRef<Map<string, ValidateResult>>(new Map())
-    const [summaries, setSummaries] = useState(summariesRef.current)
-    const [validateResults, setValidateResults] = useState(validateResultsRef.current)
-
-    const onUnauthorized = props.onUnauthorized
+    const commandResultSummariesRef = useRef<Map<string, CommandResultSummary>>(new Map())
+    const validateResultSummariesRef = useRef<Map<string, ValidateResultSummary>>(new Map())
+    const [commandResultSummaries, setCommandResultSummaries] = useState(commandResultSummariesRef.current)
+    const [validateResultSummaries, setValidateResultSummaries] = useState(validateResultSummariesRef.current)
 
     useEffect(() => {
-        const updateSummary = (rs: CommandResultSummary) => {
-            console.log("update_summary", rs.id, rs.commandInfo.startTime)
-            summariesRef.current.set(rs.id, rs)
-            setSummaries(new Map(summariesRef.current))
+        const updateCommandResultSummary = (rs: CommandResultSummary) => {
+            console.log("update_command_result_summary", rs.id, rs.commandInfo.startTime)
+            commandResultSummariesRef.current.set(rs.id, rs)
+            setCommandResultSummaries(new Map(commandResultSummariesRef.current))
         }
 
-        const deleteSummary = (id: string) => {
-            console.log("delete_summary", id)
-            summariesRef.current.delete(id)
-            setSummaries(new Map(summariesRef.current))
+        const deleteCommandResultSummary = (id: string) => {
+            console.log("delete_command_result_summary", id)
+            commandResultSummariesRef.current.delete(id)
+            setCommandResultSummaries(new Map(commandResultSummariesRef.current))
         }
 
-        const updateValidateResult = (key: ProjectTargetKey, vr: ValidateResult) => {
-            console.log("validate_result", key)
-            validateResultsRef.current.set(JSON.stringify(key), vr)
-            setValidateResults(new Map(validateResultsRef.current))
+        const updateValidateResultSummary = (vr: ValidateResultSummary) => {
+            console.log("update_validate_result_summary", vr.id)
+            validateResultSummariesRef.current.set(vr.id, vr)
+            setValidateResultSummaries(new Map(validateResultSummariesRef.current))
+        }
+
+        const deleteValidateResultSummary = (id: string) => {
+            console.log("delete_validate_result_summary", id)
+            validateResultSummariesRef.current.delete(id)
+            setValidateResultSummaries(new Map(validateResultSummariesRef.current))
         }
 
         console.log("starting listenResults")
         let cancel: Promise<() => void>
         cancel = api.listenUpdates(undefined, undefined, msg => {
             switch (msg.type) {
-                case "update_summary":
-                    updateSummary(msg.summary)
+                case "update_command_result_summary":
+                    updateCommandResultSummary(msg.summary)
                     break
-                case "delete_summary":
-                    deleteSummary(msg.id)
+                case "delete_command_result_summary":
+                    deleteCommandResultSummary(msg.id)
                     break
-                case "validate_result":
-                    updateValidateResult(msg.key, msg.result)
+                case "update_validate_result_summary":
+                    updateValidateResultSummary(msg.summary)
                     break
-                case "auth_result":
-                    if (!msg.success) {
-                        cancel.then(c => c())
-                        onUnauthorized()
-                    }
+                case "delete_validate_result_summary":
+                    deleteValidateResultSummary(msg.id)
+                    break
             }
         })
         return () => {
             console.log("cancel listenResults")
             cancel.then(c => c())
         }
-    }, [api, onUnauthorized])
+    }, [api])
 
     const projects = useMemo(() => {
-        return buildProjectSummaries(summaries, validateResults)
-    }, [summaries, validateResults])
+        return buildProjectSummaries(commandResultSummaries, validateResultSummaries)
+    }, [commandResultSummaries, validateResultSummaries])
 
     const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(
         () => api.getShortNames(),
@@ -120,9 +122,9 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
     }
 
     const appContext: AppContextProps = {
-        summaries: summariesRef.current,
+        commandResultSummaries: commandResultSummariesRef.current,
         projects,
-        validateResults,
+        validateResultSummaries: validateResultSummaries,
         shortNames: shortNames || []
     }
 
@@ -137,7 +139,7 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
                 <LeftDrawer
                     content={<Outlet context={outletContext} />}
                     context={outletContext}
-                    logout={onUnauthorized}
+                    logout={props.onUnauthorized}
                 />
             </Box>
         </AppContext.Provider>

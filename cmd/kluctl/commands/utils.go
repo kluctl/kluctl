@@ -212,7 +212,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 			return err
 		}
 
-		resultStore, err = results.NewResultStoreSecrets(ctx, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount)
+		resultStore, err = results.NewResultStoreSecrets(ctx, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
 		if err != nil {
 			return err
 		}
