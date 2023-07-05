@@ -206,7 +206,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListCommandResul
 		if err != nil {
 			continue
 		}
-		if !FilterSummary(summary, options.ProjectFilter) {
+		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
 			continue
 		}
 
@@ -250,7 +250,7 @@ func (s *ResultStoreSecrets) convertWatchEvent(event watch.Event, filter *result
 	if err != nil {
 		return nil
 	}
-	if !FilterSummary(summary, filter) {
+	if !FilterProject(summary.ProjectKey, filter) {
 		return nil
 	}
 	switch event.Type {
@@ -281,7 +281,7 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListCommandResu
 		if err != nil {
 			continue
 		}
-		if !FilterSummary(summary, options.ProjectFilter) {
+		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
 			continue
 		}
 		initialListRet = append(initialListRet, summary)

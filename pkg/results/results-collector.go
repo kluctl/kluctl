@@ -118,7 +118,7 @@ func (rc *ResultsCollector) handleUpdate(store ResultStore, event WatchCommandRe
 	}
 
 	for _, w := range rc.watches {
-		if FilterSummary(event.Summary, w.options.ProjectFilter) {
+		if FilterProject(event.Summary.ProjectKey, w.options.ProjectFilter) {
 			w.ch <- event
 		}
 	}
@@ -133,7 +133,7 @@ func (rc *ResultsCollector) ListCommandResultSummaries(options ListCommandResult
 	defer rc.mutex.Unlock()
 	summaries := make([]result.CommandResultSummary, 0, len(rc.resultSummaries))
 	for _, x := range rc.resultSummaries {
-		if !FilterSummary(x.summary, options.ProjectFilter) {
+		if !FilterProject(x.summary.ProjectKey, options.ProjectFilter) {
 			continue
 		}
 		summaries = append(summaries, *x.summary)
@@ -158,7 +158,7 @@ func (rc *ResultsCollector) WatchCommandResultSummaries(options ListCommandResul
 	var initial []*result.CommandResultSummary
 
 	for _, se := range rc.resultSummaries {
-		if FilterSummary(se.summary, options.ProjectFilter) {
+		if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
 			initial = append(initial, se.summary)
 		}
 	}
