@@ -31,8 +31,6 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --command-result existingfile                 Specify a command result to use instead of loading a project.
-                                                    This will also perform drift detection.
       --helm-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
                                                     --helm-insecure-skip-tls-verify=<credentialsId>, where
                                                     <credentialsId> must match the id specified in the helm-chart.yaml.
