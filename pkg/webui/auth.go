@@ -227,11 +227,14 @@ func (s *authHandler) getAdminUserFromClaims(claims jwt.MapClaims) *User {
 }
 
 func (s *authHandler) getAdminUser(id string) *User {
-	return &User{
+	u := &User{
 		Username: id,
 		IsAdmin:  true,
-		RbacUser: s.adminRbacUser,
 	}
+	if s != nil {
+		u.RbacUser = s.adminRbacUser
+	}
+	return u
 }
 
 func (s *authHandler) authHandler(c *gin.Context) {
