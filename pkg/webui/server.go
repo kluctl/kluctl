@@ -22,11 +22,15 @@ import (
 
 const webuiManager = "kluctl-webui"
 
+type ProjectTargetKey struct {
+	Project result.ProjectKey `json:"project"`
+	Target  result.TargetKey  `json:"target"`
+}
+
 type CommandResultsServer struct {
 	ctx   context.Context
 	store results.ResultStore
 	cam   *clusterAccessorManager
-	vam   *validatorManager
 
 	// this is the client for the k8s cluster where the server runs on
 	serverClient client.Client
@@ -71,37 +75,16 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 		ret.cam.add(config)
 	}
 
-	ret.vam = newValidatorManager(ctx, store, ret.cam, adminUser)
-
 	return ret
 }
 
 func (s *CommandResultsServer) Run(host string, port int) error {
-	l, ch, cancel, err := s.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	err := s.startUpdateLogs()
 	if err != nil {
 		return err
 	}
-	defer cancel()
-
-	printEvent := func(id string, deleted bool) {
-		if deleted {
-			status.Info(s.ctx, "Deleted result summary for %s", id)
-		} else {
-			status.Info(s.ctx, "Updated result summary for %s", id)
-		}
-	}
-	for _, x := range l {
-		printEvent(x.Id, false)
-	}
-
-	go func() {
-		for event := range ch {
-			printEvent(event.Summary.Id, event.Delete)
-		}
-	}()
 
 	s.cam.start()
-	s.vam.start()
 
 	router := gin.Default()
 
@@ -119,20 +102,21 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 		}
 	}
 
-	api := router.Group("/api")
-	api.GET("/getShortNames", s.auth.authHandler, s.getShortNames)
-	api.GET("/getResult", s.auth.authHandler, s.getResult)
-	api.GET("/getResultSummary", s.auth.authHandler, s.getResultSummary)
-	api.GET("/getResultObject", s.auth.authHandler, s.getResultObject)
-	api.POST("/validateNow", s.auth.authHandler, s.validateNow)
-	api.POST("/reconcileNow", s.auth.authHandler, s.reconcileNow)
-	api.POST("/deployNow", s.auth.authHandler, s.deployNow)
+	api := router.Group("/api", s.auth.authHandler)
+	api.GET("/getShortNames", s.getShortNames)
+	api.GET("/getCommandResult", s.getCommandResult)
+	api.GET("/getCommandResultSummary", s.getCommandResultSummary)
+	api.GET("/getCommandResultObject", s.getCommandResultObject)
+	api.GET("/getValidateResult", s.getValidateResult)
+	api.POST("/validateNow", s.validateNow)
+	api.POST("/reconcileNow", s.reconcileNow)
+	api.POST("/deployNow", s.deployNow)
 
 	err = s.events.startEventsWatcher()
 	if err != nil {
 		return err
 	}
-	api.GET("/events", s.auth.authHandler, s.events.handler)
+	api.GET("/events", s.events.handler)
 
 	address := fmt.Sprintf("%s:%d", host, port)
 	listener, err := net.Listen("tcp", address)
@@ -149,6 +133,51 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	}
 
 	return httpServer.Serve(listener)
+}
+
+func (s *CommandResultsServer) startUpdateLogs() error {
+	l1, ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+
+	l2, ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		cancel1()
+		return err
+	}
+
+	go func() {
+		defer cancel1()
+		defer cancel2()
+
+		printEvent := func(id string, type_ string, deleted bool) {
+			if deleted {
+				status.Info(s.ctx, "Deleted %s result summary for %s", type_, id)
+			} else {
+				status.Info(s.ctx, "Updated %s result summary for %s", type_, id)
+			}
+		}
+		for _, x := range l1 {
+			printEvent(x.Id, "command", false)
+		}
+		for _, x := range l2 {
+			printEvent(x.Id, "validate", false)
+		}
+
+		for {
+			select {
+			case event := <-ch1:
+				printEvent(event.Summary.Id, "command", event.Delete)
+			case event := <-ch2:
+				printEvent(event.Summary.Id, "validate", event.Delete)
+			case <-s.ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (s *CommandResultsServer) setupStaticRoutes(router gin.IRouter) error {
@@ -207,7 +236,7 @@ func (ref refParam) toK8sRef() k8s.ObjectRef {
 	}
 }
 
-func (s *CommandResultsServer) getResult(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 	var params resultIdParam
 
 	err := c.Bind(&params)
@@ -232,7 +261,7 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 	c.JSON(http.StatusOK, sr)
 }
 
-func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResultSummary(c *gin.Context) {
 	var params resultIdParam
 
 	err := c.Bind(&params)
@@ -254,7 +283,7 @@ func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, sr)
 }
 
-func (s *CommandResultsServer) getResultObject(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResultObject(c *gin.Context) {
 	var params resultIdParam
 	var ref refParam
 	var objectType objectTypeParams
@@ -319,25 +348,28 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 	c.JSON(http.StatusOK, o2)
 }
 
-func (s *CommandResultsServer) validateNow(c *gin.Context) {
-	var params ProjectTargetKey
+func (s *CommandResultsServer) getValidateResult(c *gin.Context) {
+	var params resultIdParam
+
 	err := c.Bind(&params)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	key := ProjectTargetKey{
-		Project: params.Project,
-		Target:  params.Target,
+	vr, err := s.store.GetValidateResult(results.GetValidateResultOptions{
+		Id: params.ResultId,
+	})
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
-
-	if !s.vam.validateNow(key) {
-		_ = c.AbortWithError(http.StatusNotFound, err)
+	if vr == nil {
+		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, vr)
 }
 
 type kluctlDeploymentParam struct {
@@ -391,6 +423,10 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (s *CommandResultsServer) validateNow(c *gin.Context) {
+	s.doSetAnnotation(c, kluctlv1.KluctlRequestValidateAnnotation, time.Now().Format(time.RFC3339Nano))
 }
 
 func (s *CommandResultsServer) reconcileNow(c *gin.Context) {

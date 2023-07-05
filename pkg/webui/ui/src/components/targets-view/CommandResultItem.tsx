@@ -7,7 +7,7 @@ import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine"
 import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { calcAgo } from "../../utils/duration";
-import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
+import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { ApiContext, AppContext } from "../App";
 import { Loading } from "../Loading";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
@@ -16,7 +16,7 @@ import { Api } from "../../api";
 import { CommandResultNodeData } from "../result-view/nodes/CommandResultNode";
 
 async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
-    const r = await api.getResult(rs.id);
+    const r = await api.getCommandResult(rs.id);
     const builder = new NodeBuilder({
         shortNames,
         summary: rs,

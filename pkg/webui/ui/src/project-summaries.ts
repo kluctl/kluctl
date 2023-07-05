@@ -1,9 +1,9 @@
-import { CommandResultSummary, ProjectKey, ProjectTargetKey, TargetKey, ValidateResult, } from "./models";
+import { CommandResultSummary, ProjectKey, ProjectTargetKey, TargetKey, ValidateResultSummary, } from "./models";
 import _ from "lodash";
 
 export interface TargetSummary {
     target: TargetKey;
-    lastValidateResult?: ValidateResult;
+    lastValidateResult?: ValidateResultSummary;
     commandResults: CommandResultSummary[];
 }
 
@@ -12,18 +12,40 @@ export interface ProjectSummary {
     targets: TargetSummary[];
 }
 
-export function compareSummaries(a: CommandResultSummary, b: CommandResultSummary) {
+export function compareCommandResultSummaries(a: CommandResultSummary, b: CommandResultSummary) {
     return b.commandInfo.startTime.localeCompare(a.commandInfo.startTime) ||
         b.commandInfo.endTime.localeCompare(b.commandInfo.endTime) ||
         (b.commandInfo.command || "").localeCompare(a.commandInfo.command || "")
 }
 
-export function buildProjectSummaries(summaries: Map<string, CommandResultSummary>, validateResults: Map<string, ValidateResult>) {
-    const sorted = Array.from(summaries.values())
-    sorted.sort(compareSummaries)
+export function compareValidateResultSummaries(a: ValidateResultSummary, b: ValidateResultSummary) {
+    return b.startTime.localeCompare(a.startTime) ||
+        b.endTime.localeCompare(b.endTime)
+}
+
+export function buildProjectSummaries(commandResultSummaries: Map<string, CommandResultSummary>, validateResultSummaries: Map<string, ValidateResultSummary>) {
+    const sortedCommandResults = Array.from(commandResultSummaries.values())
+    sortedCommandResults.sort(compareCommandResultSummaries)
+
+    const vrByProjectTargetKey = new Map<string, ValidateResultSummary[]>()
+    validateResultSummaries.forEach(vr=> {
+        const key = new ProjectTargetKey()
+        key.project = vr.projectKey
+        key.target = vr.targetKey
+        const keyStr = JSON.stringify(key)
+        let l = vrByProjectTargetKey.get(keyStr)
+        if (!l) {
+            l = []
+            vrByProjectTargetKey.set(keyStr, l)
+        }
+        l.push(vr)
+    })
+    vrByProjectTargetKey.forEach(l => {
+        l.sort(compareValidateResultSummaries)
+    })
 
     const m = new Map<string, ProjectSummary>()
-    sorted.forEach(rs => {
+    sortedCommandResults.forEach(rs => {
         const projectKey = JSON.stringify(rs.projectKey)
 
         let p = m.get(projectKey)
@@ -39,7 +61,8 @@ export function buildProjectSummaries(summaries: Map<string, CommandResultSummar
         ptKey.project = rs.projectKey
         ptKey.target = rs.targetKey
 
-        const vr = validateResults.get(JSON.stringify(ptKey))
+        const vrs = vrByProjectTargetKey.get(JSON.stringify(ptKey))
+        const vr = vrs ? vrs[0] : undefined
 
         let target = p.targets.find(t => _.isEqual(t.target, rs.targetKey))
         if (!target) {

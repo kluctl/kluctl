@@ -42,10 +42,10 @@ func TestWriteResult(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
-	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, "kluctl-results", 0)
+	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, "kluctl-results", 0, 0)
 	assert.NoError(t, err)
 
-	opts := results.ListCommandResultSummariesOptions{
+	opts := results.ListResultSummariesOptions{
 		ProjectFilter: &result.ProjectKey{
 			GitRepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
 		},

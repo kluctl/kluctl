@@ -29,6 +29,7 @@ type DeploymentError struct {
 type KluctlDeploymentInfo struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
+	ClusterId string `json:"clusterId"`
 }
 
 type CommandInitiator string
@@ -175,22 +176,4 @@ func (ccr *CompactedCommandResult) ToNonCompacted() *CommandResult {
 		ret.Objects = ccr.CompactedObjects
 	}
 	return &ret
-}
-
-type ValidateResultEntry struct {
-	Ref        k8s.ObjectRef `json:"ref"`
-	Annotation string        `json:"annotation"`
-	Message    string        `json:"message"`
-}
-
-type ValidateResult struct {
-	Id        string                `json:"id"`
-	StartTime metav1.Time           `json:"startTime"`
-	EndTime   metav1.Time           `json:"endTime"`
-	Ready     bool                  `json:"ready"`
-	Warnings  []DeploymentError     `json:"warnings,omitempty"`
-	Errors    []DeploymentError     `json:"errors,omitempty"`
-	Results   []ValidateResultEntry `json:"results,omitempty"`
-
-	Drift []ChangedObject `json:"drift,omitempty"`
 }

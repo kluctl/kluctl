@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -117,51 +116,60 @@ func (h *eventsHandler) startEventsWatcher() error {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	initial, ch, _, err := h.server.store.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+	initialCommandResults, commandResultsCh, _, err := h.server.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	initialValidateResults, validateResultsCh, _, err := h.server.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
 
-	initialValidations, validationsCh, _ := h.server.vam.watch()
-
 	ctx := h.server.ctx
 
-	buildMsg := func(event results.WatchCommandResultSummaryEvent) string {
+	buildCommandResultMsg := func(event results.WatchCommandResultSummaryEvent) string {
 		if event.Delete {
 			x := yaml.WriteJsonStringMust(map[string]any{
-				"type": "delete_summary",
+				"type": "delete_command_result_summary",
 				"id":   event.Summary.Id,
 			})
 			return x
 		} else {
 			x := yaml.WriteJsonStringMust(map[string]any{
-				"type":    "update_summary",
+				"type":    "update_command_result_summary",
 				"summary": event.Summary,
 			})
 			return x
 		}
 	}
-	buildValidationMsg := func(event validationEvent) string {
-		x := yaml.WriteJsonStringMust(map[string]any{
-			"type":   "validate_result",
-			"key":    event.key,
-			"result": event.r,
-		})
-		return x
+	buildValidateResultMsg := func(event results.WatchValidateResultSummaryEvent) string {
+		if event.Delete {
+			x := yaml.WriteJsonStringMust(map[string]any{
+				"type": "delete_validate_result_summary",
+				"id":   event.Summary.Id,
+			})
+			return x
+		} else {
+			x := yaml.WriteJsonStringMust(map[string]any{
+				"type":    "update_validate_result_summary",
+				"summary": event.Summary,
+			})
+			return x
+		}
 	}
 
-	for _, x := range initial {
-		h.updateEvent(x.Id, ProjectTargetKey{Project: x.ProjectKey, Target: x.TargetKey}, buildMsg(results.WatchCommandResultSummaryEvent{Summary: x}), nil)
+	for _, x := range initialCommandResults {
+		h.updateEvent(x.Id, ProjectTargetKey{Project: x.ProjectKey, Target: x.TargetKey}, buildCommandResultMsg(results.WatchCommandResultSummaryEvent{Summary: x}), nil)
 	}
-	for _, x := range initialValidations {
-		h.updateEvent(uuid.NewString(), x.key, buildValidationMsg(x), &expireValidations)
+	for _, x := range initialValidateResults {
+		h.updateEvent(x.Id, ProjectTargetKey{Project: x.ProjectKey, Target: x.TargetKey}, buildValidateResultMsg(results.WatchValidateResultSummaryEvent{Summary: x}), nil)
 	}
 
 	go func() {
 		cleanupTimer := time.After(5 * time.Second)
 		for {
 			select {
-			case event, ok := <-ch:
+			case event, ok := <-commandResultsCh:
 				if !ok {
 					status.Error(h.server.ctx, "results channel closed unexpectedly")
 					return
@@ -170,13 +178,17 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildMsg(event), expireIn)
-			case event, ok := <-validationsCh:
+				h.updateEvent(event.Summary.Id, ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
+			case event, ok := <-validateResultsCh:
 				if !ok {
-					status.Error(h.server.ctx, "validations channel closed unexpectedly")
+					status.Error(h.server.ctx, "results channel closed unexpectedly")
 					return
 				}
-				h.updateEvent(uuid.NewString(), event.key, buildValidationMsg(event), &expireValidations)
+				var expireIn *time.Duration
+				if event.Delete {
+					expireIn = &expireDeletions
+				}
+				h.updateEvent(event.Summary.Id, ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
 			case <-cleanupTimer:
 				h.cleanupEvents()
 				cleanupTimer = time.After(5 * time.Second)

@@ -152,7 +152,7 @@ func (cmd *webuiCmd) createResultStores(ctx context.Context) ([]results.ResultSt
 			return nil, nil, err
 		}
 
-		store, err := results.NewResultStoreSecrets(ctx, client, "", 0)
+		store, err := results.NewResultStoreSecrets(ctx, client, "", 0, 0)
 		if err != nil {
 			return nil, nil, err
 		}

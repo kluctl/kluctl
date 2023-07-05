@@ -373,8 +373,6 @@ spec:
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
             properties:
-              LastHandledDeployAt:
-                type: string
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
@@ -449,10 +447,14 @@ spec:
                 description: LastDeployResult is the result of the last deploy command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              lastHandledDeployAt:
+                type: string
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can
                   be detected.
+                type: string
+              lastHandledValidateAt:
                 type: string
               lastObjectsHash:
                 type: string

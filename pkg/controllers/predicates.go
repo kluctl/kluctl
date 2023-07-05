@@ -22,5 +22,5 @@ func (ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 		return ok1 != ok2 || v1 != v2
 	}
 
-	return check(kluctlv1.KluctlRequestReconcileAnnotation) || check(kluctlv1.KluctlRequestDeployAnnotation)
+	return check(kluctlv1.KluctlRequestReconcileAnnotation) || check(kluctlv1.KluctlRequestDeployAnnotation) || check(kluctlv1.KluctlRequestValidateAnnotation)
 }

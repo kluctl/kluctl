@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { Box, Typography, TypographyProps, keyframes } from "@mui/material"
+import { Box, keyframes, Typography, TypographyProps } from "@mui/material"
 
 export type ScrollingTextLineProps = Omit<TypographyProps, 'children'> & {
     children: string;

@@ -32,8 +32,8 @@ export interface CommandResultProps {
 
 async function doLoadCommandResult(api: Api, resultId: string, shortNames: ShortName[]): Promise<CommandResultProps> {
     const [rs, result] = await Promise.all([
-        api.getResultSummary(resultId),
-        api.getResult(resultId)
+        api.getCommandResultSummary(resultId),
+        api.getCommandResult(resultId)
     ]);
 
     return {

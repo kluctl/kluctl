@@ -652,10 +652,15 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		Namespace: pt.pp.obj.Namespace,
 	}
 
+	var err error
+	cmdResult.Command.KluctlDeployment.ClusterId, err = pt.pp.r.getClusterId(ctx)
+	if err != nil {
+		return err
+	}
+
 	// the ref is not properly set by addGitInfo due to the way the repo cache checks out by commit
 	cmdResult.GitInfo.Ref = &pt.pp.co.CheckedOutRef
 
-	var err error
 	if pt.pp.r.ResultStore != nil {
 		log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
 		err = pt.pp.r.ResultStore.WriteCommandResult(cmdResult)
@@ -702,6 +707,36 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	return err
 }
 
+func (pt *preparedTarget) handleValidateResult(ctx context.Context, cmdErr error, validateResult *result.ValidateResult) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	if cmdErr != nil {
+		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("validation failed. %s", cmdErr.Error()), nil)
+		return cmdErr
+	}
+
+	validateResult.KluctlDeployment = &result.KluctlDeploymentInfo{
+		Name:      pt.pp.obj.Name,
+		Namespace: pt.pp.obj.Namespace,
+	}
+
+	var err error
+	validateResult.KluctlDeployment.ClusterId, err = pt.pp.r.getClusterId(ctx)
+	if err != nil {
+		return err
+	}
+
+	if pt.pp.r.ResultStore != nil {
+		log.Info(fmt.Sprintf("Writing validate result %s", validateResult.Id))
+		err = pt.pp.r.ResultStore.WriteValidateResult(validateResult)
+		if err != nil {
+			log.Error(err, "Writing validate result failed")
+		}
+	}
+
+	return nil
+}
+
 func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
@@ -734,13 +769,10 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	c := targetContext.DeploymentCollection
-	if cmdResult != nil {
-		c = nil
-	}
-	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, c, cmdResult)
+	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, targetContext, cmdResult)
 
-	validateResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
+	validateResult, err := cmd.Run(ctx)
+	err = pt.handleValidateResult(ctx, err, validateResult)
 	return validateResult, err
 }
 
