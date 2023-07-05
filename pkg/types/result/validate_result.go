@@ -22,8 +22,6 @@ type ValidateResult struct {
 	Warnings         []DeploymentError     `json:"warnings,omitempty"`
 	Errors           []DeploymentError     `json:"errors,omitempty"`
 	Results          []ValidateResultEntry `json:"results,omitempty"`
-
-	Drift []ChangedObject `json:"drift,omitempty"`
 }
 
 type ValidateResultSummary struct {

@@ -10,8 +10,6 @@ import { calcAgo } from "../../utils/duration";
 import { ApiContext } from "../App";
 import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
-import { DiffStatus } from "../result-view/nodes/NodeData";
-import { ChangesTable } from "../result-view/ChangesTable";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesTable } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
@@ -216,16 +214,10 @@ TargetItem.displayName = 'TargetItem';
 class MyProvider implements SidePanelProvider {
     private ts?: TargetSummary;
     private lastValidateResult?: ValidateResult
-    private diffStatus: DiffStatus;
 
     constructor(ts?: TargetSummary, vr?: ValidateResult) {
         this.ts = ts
         this.lastValidateResult = vr
-        this.diffStatus = new DiffStatus()
-
-        this.lastValidateResult?.drift?.forEach(co => {
-            this.diffStatus.addChangedObject(co)
-        })
     }
 
     buildSidePanelTabs(): SidePanelTab[] {
@@ -237,14 +229,6 @@ class MyProvider implements SidePanelProvider {
             { label: "Summary", content: this.buildSummaryTab() }
         ]
 
-        if (this.ts.target)
-
-            if (this.diffStatus.changedObjects.length) {
-                tabs.push({
-                    label: "Drift",
-                    content: <ChangesTable diffStatus={this.diffStatus} />
-                })
-            }
         if (this.lastValidateResult?.errors) {
             tabs.push({
                 label: "Errors",
@@ -276,9 +260,6 @@ class MyProvider implements SidePanelProvider {
         if (this.ts?.lastValidateResult?.warnings) {
             props.push({ name: "Warnings", value: this.ts?.lastValidateResult.warnings + "" })
         }
-        /*if (this.ts.lastValidateResult?.drift?.length) {
-            props.push({ name: "Drifted Objects", value: this.ts.lastValidateResult.drift.length + "" })
-        }*/
 
         return <>
             <PropertiesTable properties={props} />

@@ -103,16 +103,8 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 		ret.Results = append(ret.Results, r.Results...)
 	}
 
-	du := utils2.NewDiffUtil(cmd.dew, cmd.ru, appliedObjects)
-	du.Swapped = true
-	du.DiffObjects(renderedObjects)
-
 	ret.Warnings = append(ret.Warnings, cmd.dew.GetWarningsList()...)
 	ret.Errors = append(ret.Errors, cmd.dew.GetErrorsList()...)
-
-	if len(du.ChangedObjects) != 0 {
-		ret.Drift = du.ChangedObjects
-	}
 
 	err = addValidateCommandInfoToResult(cmd.targetCtx, &ret)
 	if err != nil {

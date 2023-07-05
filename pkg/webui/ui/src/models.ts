@@ -720,34 +720,6 @@ export class CommandResultSummary {
 	    return a;
 	}
 }
-export class ChangedObject {
-    ref: ObjectRef;
-    changes?: Change[];
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.ref = this.convertValues(source["ref"], ObjectRef);
-        this.changes = this.convertValues(source["changes"], Change);
-    }
-
-	convertValues(a: any, classs: any, asMap: boolean = false): any {
-	    if (!a) {
-	        return a;
-	    }
-	    if (a.slice) {
-	        return (a as any[]).map(elem => this.convertValues(elem, classs));
-	    } else if ("object" === typeof a) {
-	        if (asMap) {
-	            for (const key of Object.keys(a)) {
-	                a[key] = new classs(a[key]);
-	            }
-	            return a;
-	        }
-	        return new classs(a);
-	    }
-	    return a;
-	}
-}
 export class ValidateResultEntry {
     ref: ObjectRef;
     annotation: string;
@@ -789,7 +761,6 @@ export class ValidateResult {
     warnings?: DeploymentError[];
     errors?: DeploymentError[];
     results?: ValidateResultEntry[];
-    drift?: ChangedObject[];
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
@@ -803,7 +774,6 @@ export class ValidateResult {
         this.warnings = this.convertValues(source["warnings"], DeploymentError);
         this.errors = this.convertValues(source["errors"], DeploymentError);
         this.results = this.convertValues(source["results"], ValidateResultEntry);
-        this.drift = this.convertValues(source["drift"], ChangedObject);
     }
 
 	convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -846,6 +816,34 @@ export class ValidateResultSummary {
         this.warnings = source["warnings"];
         this.errors = source["errors"];
         this.results = source["results"];
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (a.slice) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
+}
+export class ChangedObject {
+    ref: ObjectRef;
+    changes?: Change[];
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.ref = this.convertValues(source["ref"], ObjectRef);
+        this.changes = this.convertValues(source["changes"], Change);
     }
 
 	convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -62,6 +62,5 @@ export const CommandResultStatusLine = (props: { rs: CommandResultSummary }) => 
 export const ValidateResultStatusLine = (props: { vr?: ValidateResult }) => {
     return <StatusLine errors={props.vr?.errors?.length}
         warnings={props.vr?.warnings?.length}
-        changedObjects={props.vr?.drift?.length}
     />
 }

@@ -10,7 +10,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"path/filepath"
 	"testing"
 )
 
@@ -78,13 +77,10 @@ func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster) *test_utils
 	return p
 }
 
-func assertValidate(t *testing.T, p *test_utils.TestProject, commandResult *string, succeed bool) (string, string) {
+func assertValidate(t *testing.T, p *test_utils.TestProject, succeed bool) (string, string) {
 	args := []string{"validate"}
-	if commandResult != nil {
-		args = append(args, "--command-result", *commandResult)
-	} else {
-		args = append(args, "-t", "test")
-	}
+	args = append(args, "-t", "test")
+
 	stdout, stderr, err := p.Kluctl(args...)
 
 	if succeed {
@@ -110,7 +106,7 @@ func TestValidate(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertObjectExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
 
-	assertValidate(t, p, nil, false)
+	assertValidate(t, p, false)
 
 	readyDeployment := buildDeployment("d1", p.TestSlug(), true)
 
@@ -120,64 +116,5 @@ func TestValidate(t *testing.T) {
 		}, "status")
 	assert.NoError(t, err)
 
-	assertValidate(t, p, nil, true)
-}
-
-func TestValidateCommandResult(t *testing.T) {
-	t.Parallel()
-
-	k := defaultCluster1
-
-	p := prepareValidateTest(t, k)
-
-	resultPath := filepath.Join(t.TempDir(), "result.yaml")
-
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-oyaml="+resultPath)
-	assertObjectExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
-
-	assertValidate(t, p, &resultPath, false)
-
-	readyDeployment := buildDeployment("d1", p.TestSlug(), true)
-
-	_, err := k.DynamicClient.Resource(appsv1.SchemeGroupVersion.WithResource("deployments")).Namespace(p.TestSlug()).
-		Patch(context.Background(), "d1", types.ApplyPatchType, []byte(yaml.WriteJsonStringMust(readyDeployment)), metav1.PatchOptions{
-			FieldManager: "test",
-		}, "status")
-	assert.NoError(t, err)
-
-	assertValidate(t, p, &resultPath, true)
-}
-
-func TestValidateDrift(t *testing.T) {
-	t.Parallel()
-
-	k := defaultCluster1
-
-	p := prepareValidateTest(t, k)
-
-	resultPath := filepath.Join(t.TempDir(), "result.yaml")
-
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-oyaml="+resultPath)
-	assertObjectExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
-
-	stdout, _ := assertValidate(t, p, &resultPath, false)
-	assert.NotContains(t, stdout, "Drift:")
-
-	changedDeployment := buildDeployment("d1", p.TestSlug(), false)
-	changedDeployment.Merge(uo.FromStringMust(`
-spec:
-  replicas: 2
-`))
-
-	b := true
-	_, err := k.DynamicClient.Resource(appsv1.SchemeGroupVersion.WithResource("deployments")).Namespace(p.TestSlug()).
-		Patch(context.Background(), "d1", types.ApplyPatchType, []byte(yaml.WriteJsonStringMust(changedDeployment)), metav1.PatchOptions{
-			FieldManager: "test",
-			Force:        &b,
-		})
-	assert.NoError(t, err)
-
-	stdout, _ = assertValidate(t, p, &resultPath, false)
-	assert.Contains(t, stdout, "Drift:")
-	assert.Contains(t, stdout, "spec.replicas")
+	assertValidate(t, p, true)
 }
