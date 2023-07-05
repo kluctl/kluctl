@@ -48,7 +48,7 @@ export interface Api {
     getCommandResultSummary(resultId: string): Promise<CommandResultSummary>
     getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
     getValidateResult(resultId: string): Promise<ValidateResult>
-    validateNow(project: ProjectKey, target: TargetKey): Promise<Response>
+    validateNow(cluster: string, name: string, namespace: string): Promise<Response>
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
 }
@@ -241,10 +241,11 @@ export class RealApi implements Api {
         return new ValidateResult(json)
     }
 
-    async validateNow(project: ProjectKey, target: TargetKey) {
+    async validateNow(cluster: string, name: string, namespace: string) {
         return this.doPost("/api/validateNow", {
-            "project": project,
-            "target": target,
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
         })
     }
 
@@ -324,7 +325,7 @@ export class StaticApi implements Api {
         throw new Error("not implemented")
     }
 
-    validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {
+    validateNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
 

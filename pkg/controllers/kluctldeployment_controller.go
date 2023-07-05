@@ -206,9 +206,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	oldGeneration := obj.Status.ObservedGeneration
 	oldDeployRequest := obj.Status.LastHandledDeployAt
+	oldValidateRequest := obj.Status.LastHandledValidateAt
 	curDeployRequest, _ := obj.GetAnnotations()[kluctlv1.KluctlRequestDeployAnnotation]
+	curValidateRequest, _ := obj.GetAnnotations()[kluctlv1.KluctlRequestValidateAnnotation]
 	obj.Status.ObservedGeneration = obj.GetGeneration()
 	obj.Status.LastHandledDeployAt = curDeployRequest
+	obj.Status.LastHandledValidateAt = curValidateRequest
 
 	pp, err := prepareProject(ctx, r, obj, true)
 	if err != nil {
@@ -277,6 +280,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	if obj.Spec.Validate {
 		if obj.Status.LastValidateResult == nil || needDeploy {
 			// either never validated before or a deployment requested (which required re-validation)
+			needValidate = true
+		} else if curValidateRequest != "" && oldValidateRequest != curValidateRequest {
+			// explicitly requested a validate
 			needValidate = true
 		} else {
 			nextValidateTime := r.nextValidateTime(obj)

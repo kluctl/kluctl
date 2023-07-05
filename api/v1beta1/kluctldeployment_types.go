@@ -35,6 +35,7 @@ const (
 
 	KluctlRequestReconcileAnnotation = "kluctl.io/request-reconcile"
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
+	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
 )
 
 type KluctlDeploymentSpec struct {
@@ -298,7 +299,10 @@ type KluctlDeploymentStatus struct {
 	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
 
 	// +optional
-	LastHandledDeployAt string `json:"LastHandledDeployAt,omitempty"`
+	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
+
+	// +optional
+	LastHandledValidateAt string `json:"lastHandledValidateAt,omitempty"`
 
 	// ObservedGeneration is the last reconciled generation.
 	// +optional

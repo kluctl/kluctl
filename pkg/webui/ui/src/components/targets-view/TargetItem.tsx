@@ -105,14 +105,6 @@ export const TargetItem = React.memo(React.forwardRef((
     const api = useContext(ApiContext)
     const actionMenuItems: ActionMenuItem[] = []
 
-    actionMenuItems.push({
-        icon: <PublishedWithChanges />,
-        text: "Validate now",
-        handler: () => {
-            api.validateNow(props.ps.project, props.ts.target)
-        }
-    })
-
     let kd: KluctlDeploymentInfo | undefined
     let allKdEqual = true
     props.ts.commandResults?.forEach(rs => {
@@ -128,6 +120,13 @@ export const TargetItem = React.memo(React.forwardRef((
     })
 
     if (kd && allKdEqual) {
+        actionMenuItems.push({
+            icon: <PublishedWithChanges />,
+            text: "Validate",
+            handler: () => {
+                api.validateNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
+            }
+        })
         actionMenuItems.push({
             icon: <PublishedWithChanges />,
             text: "Reconcile",

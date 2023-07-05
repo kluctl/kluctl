@@ -372,25 +372,6 @@ func (s *CommandResultsServer) getValidateResult(c *gin.Context) {
 	c.JSON(http.StatusOK, vr)
 }
 
-func (s *CommandResultsServer) validateNow(c *gin.Context) {
-	var params ProjectTargetKey
-	err := c.Bind(&params)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	key := ProjectTargetKey{
-		Project: params.Project,
-		Target:  params.Target,
-	}
-
-	_ = key
-	// TODO
-
-	c.Status(http.StatusOK)
-}
-
 type kluctlDeploymentParam struct {
 	Cluster   string `json:"cluster"`
 	Name      string `json:"name"`
@@ -442,6 +423,10 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func (s *CommandResultsServer) validateNow(c *gin.Context) {
+	s.doSetAnnotation(c, kluctlv1.KluctlRequestValidateAnnotation, time.Now().Format(time.RFC3339Nano))
 }
 
 func (s *CommandResultsServer) reconcileNow(c *gin.Context) {
