@@ -1,10 +1,4 @@
-import {
-    CommandResultSummary,
-    ProjectKey,
-    ProjectTargetKey,
-    TargetKey,
-    ValidateResultSummary,
-} from "./models";
+import { CommandResultSummary, ProjectKey, ProjectTargetKey, TargetKey, ValidateResultSummary, } from "./models";
 import _ from "lodash";
 
 export interface TargetSummary {

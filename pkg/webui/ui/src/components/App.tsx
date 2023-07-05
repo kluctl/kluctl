@@ -1,13 +1,4 @@
-import {
-    createContext,
-    Dispatch,
-    SetStateAction,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState
-} from 'react';
+import { createContext, Dispatch, SetStateAction, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import '../index.css';
 import { Box } from "@mui/material";

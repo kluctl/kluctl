@@ -1,17 +1,14 @@
-import {
-    KluctlDeploymentInfo,
-    ValidateResult
-} from "../../models";
+import { KluctlDeploymentInfo, ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Box, SxProps, Theme, Typography, useTheme } from "@mui/material";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
 import { ApiContext, AppContext } from "../App";
-import { CardBody, CardTemplate, cardHeight, cardWidth } from "./Card";
+import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
 import { DiffStatus } from "../result-view/nodes/NodeData";
 import { ChangesTable } from "../result-view/ChangesTable";

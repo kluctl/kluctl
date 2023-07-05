@@ -5,7 +5,8 @@ import {
     ProjectKey,
     ResultObject,
     ShortName,
-    TargetKey, ValidateResult
+    TargetKey,
+    ValidateResult
 } from "./models";
 import _ from "lodash";
 import React from "react";
