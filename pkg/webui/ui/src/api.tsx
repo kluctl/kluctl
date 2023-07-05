@@ -2,10 +2,8 @@ import {
     CommandResult,
     CommandResultSummary,
     ObjectRef,
-    ProjectKey,
     ResultObject,
     ShortName,
-    TargetKey,
     ValidateResult
 } from "./models";
 import _ from "lodash";

@@ -7,7 +7,7 @@ import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
-import { ApiContext, AppContext } from "../App";
+import { ApiContext } from "../App";
 import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
 import { DiffStatus } from "../result-view/nodes/NodeData";
