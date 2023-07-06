@@ -366,14 +366,16 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 			if !ok {
 				replicas = 1
 			}
-			updatedReplicas := getStatusFieldInt("updatedReplicas", reactNotReady, true, 0)
-			expectedReplicas := replicas - partition
-			if updatedReplicas != expectedReplicas {
-				addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods have been scheduled", updatedReplicas, expectedReplicas))
-			} else {
-				readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
-				if readyReplicas != replicas {
-					addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods are ready", readyReplicas, replicas))
+			if replicas != 0 {
+				updatedReplicas := getStatusFieldInt("updatedReplicas", reactNotReady, true, 0)
+				expectedReplicas := replicas - partition
+				if updatedReplicas != expectedReplicas {
+					addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods have been scheduled", updatedReplicas, expectedReplicas))
+				} else {
+					readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
+					if readyReplicas != replicas {
+						addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods are ready", readyReplicas, replicas))
+					}
 				}
 			}
 		}
