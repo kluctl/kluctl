@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,6 +88,13 @@ func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, k, &utils2.ApplyUtilOptions{})
 	for _, o := range renderedObjects {
+		if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/delete")) {
+			if cmd.ru.GetRemoteObject(o.GetK8sRef()) != nil {
+				cmd.dew.AddError(o.GetK8sRef(), fmt.Errorf("object is marked for deletion but still exists on the target cluster"))
+			}
+			continue
+		}
+
 		au := ad.NewApplyUtil(ctx, nil)
 		h := utils2.NewHooksUtil(au)
 		hook := h.GetHook(o)
