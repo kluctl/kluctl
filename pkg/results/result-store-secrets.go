@@ -11,10 +11,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/client-go/rest"
+	toolscache "k8s.io/client-go/tools/cache"
 	"path"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sort"
 	"strings"
@@ -22,8 +26,11 @@ import (
 )
 
 type ResultStoreSecrets struct {
-	ctx    context.Context
-	client client.WithWatch
+	ctx context.Context
+
+	client               client.Client
+	commandResultsCache  cache.Cache
+	validateResultsCache cache.Cache
 
 	writeNamespace           string
 	keepCommandResultsCount  int
@@ -32,15 +39,37 @@ type ResultStoreSecrets struct {
 	mutex sync.Mutex
 }
 
-func NewResultStoreSecrets(ctx context.Context, client client.WithWatch, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
+func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client client.Client, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
+	req1, _ := labels.NewRequirement("kluctl.io/command-result-id", selection.Exists, nil)
+	req2, _ := labels.NewRequirement("kluctl.io/validate-result-id", selection.Exists, nil)
+
+	c1, err := cache.New(config, cache.Options{
+		Mapper:               client.RESTMapper(),
+		DefaultLabelSelector: labels.NewSelector().Add(*req1),
+	})
+	if err != nil {
+		return nil, err
+	}
+	c2, err := cache.New(config, cache.Options{
+		Mapper:               client.RESTMapper(),
+		DefaultLabelSelector: labels.NewSelector().Add(*req2),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	go c1.Start(ctx)
+	go c2.Start(ctx)
+
 	s := &ResultStoreSecrets{
 		ctx:                      ctx,
 		client:                   client,
 		writeNamespace:           writeNamespace,
+		commandResultsCache:      c1,
+		validateResultsCache:     c2,
 		keepCommandResultsCount:  keepCommandResultsCount,
 		keepValidateResultsCount: keepValidateResultsCount,
 	}
-
 	return s, nil
 }
 
@@ -284,7 +313,7 @@ func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, t
 func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.client.List(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
+	err := s.commandResultsCache.List(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -346,99 +375,75 @@ func (s *ResultStoreSecrets) parseValidateSummary(a map[string]string) (*result.
 	return &summary, nil
 }
 
-func (s *ResultStoreSecrets) convertCommandResultWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchCommandResultSummaryEvent {
-	if event.Object == nil {
-		return nil
-	}
-	x2, ok := event.Object.(client.Object)
-	if !ok {
-		return nil
-	}
-	summary, err := s.parseCommandSummary(x2.GetAnnotations())
-	if err != nil {
-		return nil
-	}
-	if !FilterProject(summary.ProjectKey, filter) {
-		return nil
-	}
-	switch event.Type {
-	case watch.Deleted:
-		return &WatchCommandResultSummaryEvent{
-			Delete:  true,
-			Summary: summary,
-		}
-	case watch.Added, watch.Modified:
-		return &WatchCommandResultSummaryEvent{
-			Summary: summary,
-		}
-	}
-	return nil
-}
-
-func (s *ResultStoreSecrets) convertValidateResultWatchEvent(event watch.Event, filter *result.ProjectKey) *WatchValidateResultSummaryEvent {
-	if event.Object == nil {
-		return nil
-	}
-	x2, ok := event.Object.(client.Object)
-	if !ok {
-		return nil
-	}
-	summary, err := s.parseValidateSummary(x2.GetAnnotations())
-	if err != nil {
-		return nil
-	}
-	if !FilterProject(summary.ProjectKey, filter) {
-		return nil
-	}
-	switch event.Type {
-	case watch.Deleted:
-		return &WatchValidateResultSummaryEvent{
-			Delete:  true,
-			Summary: summary,
-		}
-	case watch.Added, watch.Modified:
-		return &WatchValidateResultSummaryEvent{
-			Summary: summary,
-		}
-	}
-	return nil
-}
-
 func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
-	var l metav1.PartialObjectMetadataList
-	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	w, err := s.client.Watch(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
+	ch := make(chan WatchCommandResultSummaryEvent)
+
+	buildEvent := func(obj any) *WatchCommandResultSummaryEvent {
+		var o metav1.Object
+		switch o2 := obj.(type) {
+		case metav1.Object:
+			o = o2
+		case toolscache.DeletedFinalStateUnknown:
+			o = o2.Obj.(metav1.Object)
+		}
+		if o == nil {
+			return nil
+		}
+		summary, err := s.parseCommandSummary(o.GetAnnotations())
+		if err != nil {
+			return nil
+		}
+		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
+			return nil
+		}
+		return &WatchCommandResultSummaryEvent{
+			Summary: summary,
+		}
+	}
+
+	doUpdate := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		ch <- *e
+	}
+	doDelete := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		e.Delete = true
+		ch <- *e
+	}
+
+	inf, err := s.commandResultsCache.GetInformer(s.ctx, &metav1.PartialObjectMetadata{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+	})
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	var initialListRet []*result.CommandResultSummary
-	for _, x := range l.Items {
-		summary, err := s.parseCommandSummary(x.GetAnnotations())
-		if err != nil {
-			continue
-		}
-		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
-			continue
-		}
-		initialListRet = append(initialListRet, summary)
+	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			doUpdate(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			doUpdate(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			doDelete(obj)
+		},
+	})
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	ch := make(chan WatchCommandResultSummaryEvent)
-
-	go func() {
-		for x := range w.ResultChan() {
-			we := s.convertCommandResultWatchEvent(x, options.ProjectFilter)
-			if we == nil {
-				continue
-			}
-			ch <- *we
-		}
-		close(ch)
-	}()
-
 	cancel := func() {
-		w.Stop()
+		_ = inf.RemoveEventHandler(handle)
 	}
 	return nil, ch, cancel, nil
 }
@@ -545,7 +550,7 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.client.List(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
+	err := s.validateResultsCache.List(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -572,40 +577,74 @@ func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSumma
 }
 
 func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
-	var l metav1.PartialObjectMetadataList
-	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	w, err := s.client.Watch(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
+	ch := make(chan WatchValidateResultSummaryEvent)
+
+	buildEvent := func(obj any) *WatchValidateResultSummaryEvent {
+		var o metav1.Object
+		switch o2 := obj.(type) {
+		case metav1.Object:
+			o = o2
+		case toolscache.DeletedFinalStateUnknown:
+			o = o2.Obj.(metav1.Object)
+		}
+		if o == nil {
+			return nil
+		}
+		summary, err := s.parseValidateSummary(o.GetAnnotations())
+		if err != nil {
+			return nil
+		}
+		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
+			return nil
+		}
+		return &WatchValidateResultSummaryEvent{
+			Summary: summary,
+		}
+	}
+
+	doUpdate := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		ch <- *e
+	}
+	doDelete := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		e.Delete = true
+		ch <- *e
+	}
+
+	inf, err := s.validateResultsCache.GetInformer(s.ctx, &metav1.PartialObjectMetadata{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+	})
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	var initialListRet []*result.ValidateResultSummary
-	for _, x := range l.Items {
-		summary, err := s.parseValidateSummary(x.GetAnnotations())
-		if err != nil {
-			continue
-		}
-		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
-			continue
-		}
-		initialListRet = append(initialListRet, summary)
+	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			doUpdate(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			doUpdate(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			doDelete(obj)
+		},
+	})
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	ch := make(chan WatchValidateResultSummaryEvent)
-
-	go func() {
-		for x := range w.ResultChan() {
-			we := s.convertValidateResultWatchEvent(x, options.ProjectFilter)
-			if we == nil {
-				continue
-			}
-			ch <- *we
-		}
-		close(ch)
-	}()
-
 	cancel := func() {
-		w.Stop()
+		_ = inf.RemoveEventHandler(handle)
 	}
 	return nil, ch, cancel, nil
 }
