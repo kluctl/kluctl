@@ -42,13 +42,13 @@ spec:
             name: http
         livenessProbe:
           httpGet:
-            path: /
+            path: /healthz
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 20
         readinessProbe:
           httpGet:
-            path: /
+            path: /readyz
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10

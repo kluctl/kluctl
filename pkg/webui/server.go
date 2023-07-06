@@ -86,7 +86,11 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 
 	s.cam.start()
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/healthz", "/readyz"},
+	}))
+	router.Use(gin.Recovery())
 
 	if s.auth != nil {
 		err = s.auth.setupAuth(router)
@@ -101,6 +105,13 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 			return err
 		}
 	}
+
+	router.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	router.GET("/readyz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 
 	api := router.Group("/api", s.auth.authHandler)
 	api.GET("/getShortNames", s.getShortNames)
