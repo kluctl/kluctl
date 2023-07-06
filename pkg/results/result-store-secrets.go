@@ -448,46 +448,9 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSumma
 	return nil, ch, cancel, nil
 }
 
-func (s *ResultStoreSecrets) getCommandResultSecret(id string) (*metav1.PartialObjectMetadata, error) {
-	var l metav1.PartialObjectMetadataList
-	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.client.List(s.ctx, &l, client.MatchingLabels{"kluctl.io/command-result-id": id})
-	if err != nil {
-		return nil, err
-	}
-	if len(l.Items) == 0 {
-		return nil, nil
-	}
-	return &l.Items[0], nil
-}
-
-func (s *ResultStoreSecrets) HasCommandResult(id string) (bool, error) {
-	secret, err := s.getCommandResultSecret(id)
-	if err != nil {
-		return false, err
-	}
-	return secret != nil, nil
-}
-
-func (s *ResultStoreSecrets) GetCommandResultSummary(id string) (*result.CommandResultSummary, error) {
-	secret, err := s.getCommandResultSecret(id)
-	if err != nil {
-		return nil, err
-	}
-	return s.parseCommandSummary(secret.GetAnnotations())
-}
-
 func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
-	has, err := s.HasCommandResult(options.Id)
-	if err != nil {
-		return nil, err
-	}
-	if !has {
-		return nil, nil
-	}
-
 	var l corev1.SecretList
-	err = s.client.List(s.ctx, &l, client.MatchingLabels{
+	err := s.client.List(s.ctx, &l, client.MatchingLabels{
 		"kluctl.io/command-result-id": options.Id,
 	})
 	if err != nil {

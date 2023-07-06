@@ -258,23 +258,6 @@ func (rc *ResultsCollector) WatchCommandResultSummaries(options ListResultSummar
 	return initial, w.ch, cancel, nil
 }
 
-func (rc *ResultsCollector) HasCommandResult(id string) (bool, error) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
-	_, ok := rc.commandResultSummaries[id]
-	return ok, nil
-}
-
-func (rc *ResultsCollector) GetCommandResultSummary(id string) (*result.CommandResultSummary, error) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
-	rs, ok := rc.commandResultSummaries[id]
-	if !ok {
-		return nil, nil
-	}
-	return rs.summary, nil
-}
-
 func (rc *ResultsCollector) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
 	rc.mutex.Lock()
 	se, ok := rc.commandResultSummaries[options.Id]

@@ -1,6 +1,5 @@
 import {
     CommandResult,
-    CommandResultSummary,
     ObjectRef,
     ResultObject,
     ShortName,
@@ -43,7 +42,6 @@ export interface Api {
     getShortNames(): Promise<ShortName[]>
     listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
     getCommandResult(resultId: string): Promise<CommandResult>
-    getCommandResultSummary(resultId: string): Promise<CommandResultSummary>
     getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
     getValidateResult(resultId: string): Promise<ValidateResult>
     validateNow(cluster: string, name: string, namespace: string): Promise<Response>
@@ -217,13 +215,6 @@ export class RealApi implements Api {
         return new CommandResult(json)
     }
 
-    async getCommandResultSummary(resultId: string) {
-        const params = new URLSearchParams()
-        params.set("resultId", resultId)
-        const json = await this.doGet("/api/getCommandResultSummary", params)
-        return new CommandResultSummary(json)
-    }
-
     async getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string) {
         const params = new URLSearchParams()
         params.set("resultId", resultId)
@@ -292,13 +283,6 @@ export class StaticApi implements Api {
     async getCommandResult(resultId: string): Promise<CommandResult> {
         await loadScript(staticPath + `/result-${resultId}.js`)
         return staticResults.get(resultId)
-    }
-
-    async getCommandResultSummary(resultId: string): Promise<CommandResultSummary> {
-        await loadScript(staticPath + "/summaries.js")
-        return staticSummaries.filter(s => {
-            return s.id === resultId
-        }).at(0)
     }
 
     async getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
