@@ -33,11 +33,11 @@ type ResultStore interface {
 	WriteValidateResult(vr *result.ValidateResult) error
 
 	ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error)
-	WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
+	WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
 	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
 
 	ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error)
-	WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
+	WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
 	GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error)
 }
 

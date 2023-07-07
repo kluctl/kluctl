@@ -146,12 +146,12 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 }
 
 func (s *CommandResultsServer) startUpdateLogs() error {
-	l1, ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
 
-	l2, ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
 	if err != nil {
 		cancel1()
 		return err
@@ -167,12 +167,6 @@ func (s *CommandResultsServer) startUpdateLogs() error {
 			} else {
 				status.Infof(s.ctx, "Updated %s result summary for %s", type_, id)
 			}
-		}
-		for _, x := range l1 {
-			printEvent(x.Id, "command", false)
-		}
-		for _, x := range l2 {
-			printEvent(x.Id, "validate", false)
 		}
 
 		for {

@@ -383,7 +383,7 @@ func (s *ResultStoreSecrets) parseValidateSummary(a map[string]string) (*result.
 	return &summary, nil
 }
 
-func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
+func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	ch := make(chan WatchCommandResultSummaryEvent)
 
 	buildEvent := func(obj any) *WatchCommandResultSummaryEvent {
@@ -432,7 +432,7 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSumma
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
@@ -447,13 +447,13 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSumma
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	cancel := func() {
 		_ = inf.RemoveEventHandler(handle)
 	}
-	return nil, ch, cancel, nil
+	return ch, cancel, nil
 }
 
 func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
@@ -547,7 +547,7 @@ func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSumma
 	return ret, nil
 }
 
-func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
+func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
 	ch := make(chan WatchValidateResultSummaryEvent)
 
 	buildEvent := func(obj any) *WatchValidateResultSummaryEvent {
@@ -596,7 +596,7 @@ func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSumm
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
@@ -611,13 +611,13 @@ func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSumm
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	cancel := func() {
 		_ = inf.RemoveEventHandler(handle)
 	}
-	return nil, ch, cancel, nil
+	return ch, cancel, nil
 }
 
 func (s *ResultStoreSecrets) GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error) {

@@ -36,15 +36,11 @@ type validateSummaryEntry struct {
 type commandResultWatchEntry struct {
 	options ListResultSummariesOptions
 	ch      chan WatchCommandResultSummaryEvent
-
-	initialQueue []*result.CommandResultSummary
 }
 
 type validateResultWatchEntry struct {
 	options ListResultSummariesOptions
 	ch      chan WatchValidateResultSummaryEvent
-
-	initialQueue []*result.ValidateResultSummary
 }
 
 func NewResultsCollector(ctx context.Context, stores []ResultStore) *ResultsCollector {
@@ -63,13 +59,13 @@ func (rc *ResultsCollector) Start() {
 }
 
 func (rc *ResultsCollector) WaitForResults(idleTimeout time.Duration, totalTimeout time.Duration) error {
-	_, ch1, cancel1, err := rc.WatchCommandResultSummaries(ListResultSummariesOptions{})
+	ch1, cancel1, err := rc.WatchCommandResultSummaries(ListResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
 	defer cancel1()
 
-	_, ch2, cancel2, err := rc.WatchValidateResultSummaries(ListResultSummariesOptions{})
+	ch2, cancel2, err := rc.WatchValidateResultSummaries(ListResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
@@ -100,24 +96,14 @@ func (rc *ResultsCollector) startWatchResults() {
 
 func (rc *ResultsCollector) runWatchCommandResults(store ResultStore) {
 	for {
-		l, ch, _, err := store.WatchCommandResultSummaries(ListResultSummariesOptions{})
+		ch, _, err := store.WatchCommandResultSummaries(ListResultSummariesOptions{})
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		for _, rs := range l {
-			rc.handleCommandResultUpdate(store, WatchCommandResultSummaryEvent{
-				Summary: rs,
-			})
-		}
-
 		go func() {
-			for {
-				event, ok := <-ch
-				if !ok {
-					break
-				}
+			for event := range ch {
 				rc.handleCommandResultUpdate(store, event)
 			}
 		}()
@@ -128,24 +114,14 @@ func (rc *ResultsCollector) runWatchCommandResults(store ResultStore) {
 
 func (rc *ResultsCollector) runWatchValidateResults(store ResultStore) {
 	for {
-		l, ch, _, err := store.WatchValidateResultSummaries(ListResultSummariesOptions{})
+		ch, _, err := store.WatchValidateResultSummaries(ListResultSummariesOptions{})
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		for _, rs := range l {
-			rc.handleValidateResultUpdate(store, WatchValidateResultSummaryEvent{
-				Summary: rs,
-			})
-		}
-
 		go func() {
-			for {
-				event, ok := <-ch
-				if !ok {
-					break
-				}
+			for event := range ch {
 				rc.handleValidateResultUpdate(store, event)
 			}
 		}()
@@ -224,27 +200,39 @@ func (rc *ResultsCollector) ListCommandResultSummaries(options ListResultSummari
 	return summaries, nil
 }
 
-func (rc *ResultsCollector) WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
+func (rc *ResultsCollector) WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
+
+	isCancelled := false
 
 	w := &commandResultWatchEntry{
 		options: options,
 		ch:      make(chan WatchCommandResultSummaryEvent),
 	}
 
-	rc.commandResultWatches = append(rc.commandResultWatches, w)
+	go func() {
+		rc.mutex.Lock()
+		defer rc.mutex.Unlock()
 
-	var initial []*result.CommandResultSummary
-
-	for _, se := range rc.commandResultSummaries {
-		if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
-			initial = append(initial, se.summary)
+		if isCancelled {
+			return
 		}
-	}
+
+		for _, se := range rc.commandResultSummaries {
+			if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
+				w.ch <- WatchCommandResultSummaryEvent{
+					Summary: se.summary,
+				}
+			}
+		}
+
+		rc.commandResultWatches = append(rc.commandResultWatches, w)
+	}()
 
 	cancel := func() {
 		rc.mutex.Lock()
+		isCancelled = true
 		for i, w2 := range rc.commandResultWatches {
 			if w2 == w {
 				rc.commandResultWatches = append(rc.commandResultWatches[:i], rc.commandResultWatches[i+1:]...)
@@ -255,7 +243,7 @@ func (rc *ResultsCollector) WatchCommandResultSummaries(options ListResultSummar
 		close(w.ch)
 	}
 
-	return initial, w.ch, cancel, nil
+	return w.ch, cancel, nil
 }
 
 func (rc *ResultsCollector) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
@@ -284,27 +272,39 @@ func (rc *ResultsCollector) ListValidateResultSummaries(options ListResultSummar
 	return summaries, nil
 }
 
-func (rc *ResultsCollector) WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
+func (rc *ResultsCollector) WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
+
+	isCancelled := false
 
 	w := &validateResultWatchEntry{
 		options: options,
 		ch:      make(chan WatchValidateResultSummaryEvent),
 	}
 
-	rc.validateResultWatches = append(rc.validateResultWatches, w)
+	go func() {
+		rc.mutex.Lock()
+		defer rc.mutex.Unlock()
 
-	var initial []*result.ValidateResultSummary
-
-	for _, se := range rc.validateResultSummaries {
-		if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
-			initial = append(initial, se.summary)
+		if isCancelled {
+			return
 		}
-	}
+
+		for _, se := range rc.validateResultSummaries {
+			if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
+				w.ch <- WatchValidateResultSummaryEvent{
+					Summary: se.summary,
+				}
+			}
+		}
+
+		rc.validateResultWatches = append(rc.validateResultWatches, w)
+	}()
 
 	cancel := func() {
 		rc.mutex.Lock()
+		isCancelled = true
 		for i, w2 := range rc.validateResultWatches {
 			if w2 == w {
 				rc.validateResultWatches = append(rc.validateResultWatches[:i], rc.validateResultWatches[i+1:]...)
@@ -315,7 +315,7 @@ func (rc *ResultsCollector) WatchValidateResultSummaries(options ListResultSumma
 		close(w.ch)
 	}
 
-	return initial, w.ch, cancel, nil
+	return w.ch, cancel, nil
 }
 
 func (rc *ResultsCollector) GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error) {
