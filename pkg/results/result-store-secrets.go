@@ -92,7 +92,13 @@ func (s *ResultStoreSecrets) buildName(prefix string, id string, projectKey resu
 		name = name[:maxNameLen]
 	}
 
-	return prefix + "-" + name + "-" + id
+	ret := prefix + "-"
+	if name != "" {
+		ret += name + "-"
+	}
+	ret += id
+
+	return ret
 }
 
 func (s *ResultStoreSecrets) ensureWriteNamespace() error {
