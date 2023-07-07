@@ -19,7 +19,6 @@ async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: Sho
     const r = await api.getCommandResult(rs.id);
     const builder = new NodeBuilder({
         shortNames,
-        summary: rs,
         commandResult: r,
     });
     const [node] = builder.buildRoot();

@@ -41,7 +41,10 @@ func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.
 	g.Expect(readinessCondition.Reason).To(Equal(rreason))
 	g.Expect(readinessCondition.Message).To(ContainSubstring(rmessage))
 
-	rs, err := results.NewResultStoreSecrets(context.TODO(), suite.k.Client, "", 0, 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, "", 0, 0)
 	g.Expect(err).To(Succeed())
 
 	lastDeployResult, err := kd.Status.GetLastDeployResult()

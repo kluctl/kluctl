@@ -18,6 +18,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/gops/agent"
 	flag "github.com/spf13/pflag"
 	"io"
 	"log"
@@ -49,7 +50,9 @@ type GlobalFlags struct {
 	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
 	NoColor       bool `group:"global" help:"Disable colored output"`
 
-	CpuProfile string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
+	CpuProfile    string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
+	GopsAgent     bool   `group:"global" help:"Start gops agent in the background"`
+	GopsAgentAddr string `group:"global" help:"Specify the address:port to use for the gops agent" default:"127.0.0.1:0"`
 }
 
 type cli struct {
@@ -124,6 +127,19 @@ func redirectLogsAndStderr(ctxGetter func() context.Context) {
 	}()
 
 	os.Stderr = pw
+}
+
+func setupGops(flags *GlobalFlags) error {
+	if !flags.GopsAgent {
+		return nil
+	}
+
+	if err := agent.Listen(agent.Options{
+		Addr: flags.GopsAgentAddr,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 var cpuProfileFile *os.File
@@ -234,7 +250,11 @@ func Main() {
 	initViper(ctx)
 
 	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags *GlobalFlags) (context.Context, error) {
-		err := copyViperValuesToCobraCmd(cmd)
+		err := setupGops(flags)
+		if err != nil {
+			return ctx, err
+		}
+		err = copyViperValuesToCobraCmd(cmd)
 		if err != nil {
 			return ctx, err
 		}

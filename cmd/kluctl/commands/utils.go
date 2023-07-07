@@ -207,12 +207,17 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	var resultStore results.ResultStore
 	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
+		config, err := targetCtx.SharedContext.K.ToRESTConfig()
+		if err != nil {
+			return err
+		}
+
 		client, err := targetCtx.SharedContext.K.ToClient()
 		if err != nil {
 			return err
 		}
 
-		resultStore, err = results.NewResultStoreSecrets(ctx, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
+		resultStore, err = results.NewResultStoreSecrets(ctx, config, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
 		if err != nil {
 			return err
 		}

@@ -42,7 +42,10 @@ func TestWriteResult(t *testing.T) {
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
-	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, "kluctl-results", 0, 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, k.RESTConfig(), k.Client, "kluctl-results", 0, 0)
 	assert.NoError(t, err)
 
 	opts := results.ListResultSummariesOptions{

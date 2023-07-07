@@ -34,8 +34,6 @@ type ResultStore interface {
 
 	ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error)
 	WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
-	HasCommandResult(id string) (bool, error)
-	GetCommandResultSummary(id string) (*result.CommandResultSummary, error)
 	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
 
 	ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error)

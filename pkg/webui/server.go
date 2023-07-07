@@ -86,7 +86,11 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 
 	s.cam.start()
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/healthz", "/readyz"},
+	}))
+	router.Use(gin.Recovery())
 
 	if s.auth != nil {
 		err = s.auth.setupAuth(router)
@@ -102,10 +106,16 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 		}
 	}
 
+	router.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	router.GET("/readyz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
 	api := router.Group("/api", s.auth.authHandler)
 	api.GET("/getShortNames", s.getShortNames)
 	api.GET("/getCommandResult", s.getCommandResult)
-	api.GET("/getCommandResultSummary", s.getCommandResultSummary)
 	api.GET("/getCommandResultObject", s.getCommandResultObject)
 	api.GET("/getValidateResult", s.getValidateResult)
 	api.POST("/validateNow", s.validateNow)
@@ -249,28 +259,6 @@ func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 		Id:      params.ResultId,
 		Reduced: true,
 	})
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	if sr == nil {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
-	c.JSON(http.StatusOK, sr)
-}
-
-func (s *CommandResultsServer) getCommandResultSummary(c *gin.Context) {
-	var params resultIdParam
-
-	err := c.Bind(&params)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	sr, err := s.store.GetCommandResultSummary(params.ResultId)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return

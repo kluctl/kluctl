@@ -10,7 +10,7 @@ import {
     ThemeProvider,
     Typography
 } from "@mui/material";
-import { CommandResult, CommandResultSummary, ShortName } from "../../models";
+import { CommandResult, ShortName } from "../../models";
 import { NodeData } from "./nodes/NodeData";
 import { SidePanel } from "./SidePanel";
 import { ActiveFilters } from "./NodeStatusFilter";
@@ -26,20 +26,13 @@ import { ErrorMessage } from '../ErrorMessage';
 
 export interface CommandResultProps {
     shortNames: ShortName[]
-    summary: CommandResultSummary
     commandResult: CommandResult
 }
 
 async function doLoadCommandResult(api: Api, resultId: string, shortNames: ShortName[]): Promise<CommandResultProps> {
-    const [rs, result] = await Promise.all([
-        api.getCommandResultSummary(resultId),
-        api.getCommandResult(resultId)
-    ]);
-
     return {
         shortNames,
-        summary: rs,
-        commandResult: result,
+        commandResult: await api.getCommandResult(resultId),
     }
 }
 

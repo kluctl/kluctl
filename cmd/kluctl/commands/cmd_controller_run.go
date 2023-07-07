@@ -136,7 +136,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		resultStore, err := results.NewResultStoreSecrets(ctx, c, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount, cmd.KeepValidateResultsCount)
+		resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount, cmd.KeepValidateResultsCount)
 		if err != nil {
 			return err
 		}
