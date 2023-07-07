@@ -61,6 +61,9 @@ func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client clie
 	go c1.Start(ctx)
 	go c2.Start(ctx)
 
+	c1.WaitForCacheSync(ctx)
+	c2.WaitForCacheSync(ctx)
+
 	s := &ResultStoreSecrets{
 		ctx:                      ctx,
 		client:                   client,
