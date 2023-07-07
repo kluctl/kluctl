@@ -21,10 +21,12 @@ These arguments are available for all commands.
 <!-- BEGIN SECTION "deploy" "Global arguments" true -->
 ```
 Global arguments:
-      --cpu-profile string   Enable CPU profiling and write the result to the given path
-      --debug                Enable debug logging
-      --no-color             Disable colored output
-      --no-update-check      Disable update check on startup
+      --cpu-profile string       Enable CPU profiling and write the result to the given path
+      --debug                    Enable debug logging
+      --gops-agent               Start gops agent in the background
+      --gops-agent-addr string   Specify the address:port to use for the gops agent (default "127.0.0.1:0")
+      --no-color                 Disable colored output
+      --no-update-check          Disable update check on startup
 
 ```
 <!-- END SECTION -->
