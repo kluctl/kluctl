@@ -263,17 +263,12 @@ func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err 
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
-	u, err := types.ParseGitUrl(sp[0])
+	repoKey, err := types.ParseGitRepoKey(sp[0])
 	if err != nil {
-		// we need to prepend a dummy scheme to the repo key so that it is properly parsed
-		dummyUrl := fmt.Sprintf("git://%s", sp[0])
-		u, err = types.ParseGitUrl(dummyUrl)
-		if err != nil {
-			return repocache.RepoOverride{}, fmt.Errorf("%s: %w", s, err)
-		}
+		return repocache.RepoOverride{}, err
 	}
 
-	ret.RepoKey = u.RepoKey()
+	ret.RepoKey = repoKey
 	ret.Override = sp[1]
 	return
 }
