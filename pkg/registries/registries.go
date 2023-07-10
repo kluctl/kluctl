@@ -114,7 +114,7 @@ func (rh *RegistryHelper) AddAuthEntry(e AuthEntry) {
 func (rh *RegistryHelper) isDefaultInsecure() bool {
 	defaultInsecure, err := utils.ParseEnvBool("KLUCTL_REGISTRY_DEFAULT_INSECURE", false)
 	if err != nil {
-		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_INSECURE: %s", err)
+		status.Warningf(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_INSECURE: %s", err)
 		return false
 	}
 	return defaultInsecure
@@ -123,7 +123,7 @@ func (rh *RegistryHelper) isDefaultInsecure() bool {
 func (rh *RegistryHelper) isDefaultSkipTlsVerify() bool {
 	defaultTlsVerify, err := utils.ParseEnvBool("KLUCTL_REGISTRY_DEFAULT_TLSVERIFY", true)
 	if err != nil {
-		status.Warning(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %s", err)
+		status.Warningf(rh.ctx, "Failed to parse KLUCTL_REGISTRY_DEFAULT_TLSVERIFY: %s", err)
 		return false
 	}
 	return !defaultTlsVerify
@@ -327,7 +327,7 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 
 	f, err := lockedfile.OpenFile(cachePath, os.O_RDONLY, 0)
 	if err != nil {
-		status.Warning(rh.ctx, "readCachedResponse failed: %v", err)
+		status.Warningf(rh.ctx, "readCachedResponse failed: %v", err)
 		return nil
 	}
 	b, err := io.ReadAll(f)
@@ -338,7 +338,7 @@ func (rh *RegistryHelper) readCachedResponse(key string) []byte {
 
 	res, err := http.ReadResponse(bufio.NewReader(bytes.NewReader(b)), nil)
 	if err != nil {
-		status.Warning(rh.ctx, "readCachedResponse failed: %v", err)
+		status.Warningf(rh.ctx, "readCachedResponse failed: %v", err)
 		return nil
 	}
 
@@ -361,21 +361,21 @@ func (rh *RegistryHelper) writeCachedResponse(key string, data []byte) {
 	if !utils.Exists(cacheDir) {
 		err := os.MkdirAll(cacheDir, 0o700)
 		if err != nil {
-			status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
+			status.Warningf(rh.ctx, "writeCachedResponse failed: %v", err)
 			return
 		}
 	}
 
 	f, err := lockedfile.OpenFile(cachePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
+		status.Warningf(rh.ctx, "writeCachedResponse failed: %v", err)
 		return
 	}
 	defer f.Close()
 
 	_, err = f.Write(data)
 	if err != nil {
-		status.Warning(rh.ctx, "writeCachedResponse failed: %v", err)
+		status.Warningf(rh.ctx, "writeCachedResponse failed: %v", err)
 		return
 	}
 }

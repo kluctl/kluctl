@@ -314,7 +314,7 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 			// in that case, retry a full clone which does hopefully not rely on multi_ack.
 			// See https://github.com/go-git/go-git/pull/613
 			// TODO remove this when https://github.com/go-git/go-git/issues/64 gets fully fixed
-			status.Trace(g.ctx, "Got multi_ack related error from remote. Retrying full clone: %v", err)
+			status.Tracef(g.ctx, "Got multi_ack related error from remote. Retrying full clone: %v", err)
 		} else {
 			return err
 		}

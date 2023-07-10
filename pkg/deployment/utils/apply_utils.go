@@ -233,7 +233,7 @@ func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 		skipDelete = skipDelete || isSkipDelete(remoteObject)
 	}
 	if skipDelete {
-		status.Warning(a.ctx, "skipped forced replace of %s", ref.String())
+		status.Warningf(a.ctx, "skipped forced replace of %s", ref.String())
 		a.HandleError(ref, applyError)
 		return
 	}
@@ -432,7 +432,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	}
 	timeoutTimer := time.NewTimer(timeout)
 
-	status.Trace(a.ctx, "Waiting for %s to get ready", ref.String())
+	status.Tracef(a.ctx, "Waiting for %s to get ready", ref.String())
 
 	lastLogTime := time.Now()
 	didLog := false
@@ -445,7 +445,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if didLog {
-					status.Warning(a.ctx, "Cancelled waiting for %s as it disappeared while waiting for it (%ds elapsed)", ref.String(), elapsed)
+					status.Warningf(a.ctx, "Cancelled waiting for %s as it disappeared while waiting for it (%ds elapsed)", ref.String(), elapsed)
 				}
 				a.HandleError(ref, fmt.Errorf("%s disappeared while waiting for it to become ready", ref.String()))
 				return false
@@ -456,13 +456,13 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		v := validation.ValidateObject(a.k, o, false, false)
 		if v.Ready {
 			if didLog {
-				a.sctx.InfoFallback("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
+				a.sctx.InfoFallbackf("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
 			}
 			return true
 		}
 		if len(v.Errors) != 0 {
 			if didLog {
-				status.Warning(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
+				status.Warningf(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
 			}
 			for _, e := range v.Errors {
 				a.HandleError(ref, fmt.Errorf(e.Message))
@@ -473,11 +473,11 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		a.sctx.Update(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
 
 		if !didLog {
-			a.sctx.InfoFallback("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
+			a.sctx.InfoFallbackf("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			didLog = true
 			lastLogTime = time.Now()
 		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			a.sctx.InfoFallback("Still waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
+			a.sctx.InfoFallbackf("Still waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			lastLogTime = time.Now()
 		}
 
@@ -486,7 +486,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			continue
 		case <-timeoutTimer.C:
 			err := fmt.Errorf("timed out while waiting for readiness of %s", ref.String())
-			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
+			status.Warningf(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
 			if status.IsTraceEnabled(a.ctx) {
 				y, err := yaml.WriteYamlString(o)
 				if err == nil {
@@ -497,7 +497,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			return false
 		case <-a.ctx.Done():
 			err := fmt.Errorf("context cancelled while waiting for readiness of %s", ref.String())
-			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
+			status.Warningf(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
 			a.HandleError(ref, err)
 			return false
 		}
@@ -564,7 +564,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	a.sctx.SetTotal(total)
 
 	if len(toDelete) != 0 {
-		a.sctx.InfoFallback("Deleting %d objects", len(toDelete))
+		a.sctx.InfoFallbackf("Deleting %d objects", len(toDelete))
 		i := 0
 		for ref := range toDelete {
 			a.sctx.Update(fmt.Sprintf("Deleting object %s (%d of %d)", ref.String(), i+1, len(toDelete)))
@@ -577,7 +577,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	h.RunHooks(preHooks)
 
 	if len(applyObjects) != 0 {
-		a.sctx.InfoFallback("Applying %d objects", len(applyObjects))
+		a.sctx.InfoFallbackf("Applying %d objects", len(applyObjects))
 	}
 	startTime := time.Now()
 	didLog := false
@@ -587,11 +587,11 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		}
 
 		ref := o.GetK8sRef()
-		a.sctx.Update(fmt.Sprintf("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects)))
+		a.sctx.Updatef("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects))
 		a.ApplyObject(o, false, false)
 		a.sctx.Increment()
 		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
-			a.sctx.InfoFallback("...applied %d of %d objects", i+1, len(applyObjects))
+			a.sctx.InfoFallbackf("...applied %d of %d objects", i+1, len(applyObjects))
 			startTime = time.Now()
 			didLog = true
 		}
@@ -754,7 +754,7 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 		a.dew.AddApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsConflict(err) {
-				status.Trace(a.ctx, "Conflict while patching %s. Retrying...", ref.String())
+				status.Tracef(a.ctx, "Conflict while patching %s. Retrying...", ref.String())
 				continue
 			} else {
 				a.HandleError(ref, err)

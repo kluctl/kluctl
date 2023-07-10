@@ -70,7 +70,7 @@ func GetWorktreeStatus(ctx context.Context, path string) (git.Status, error) {
 
 	commandPath, err := exec.LookPath("git")
 	if err != nil {
-		status.Trace(ctx, "Failed to lookup git binary: %v", err)
+		status.Tracef(ctx, "Failed to lookup git binary: %v", err)
 		return nil, err
 	}
 
@@ -79,13 +79,13 @@ func GetWorktreeStatus(ctx context.Context, path string) (git.Status, error) {
 	cmd := &exec.Cmd{Path: commandPath, Dir: path, Env: os.Environ(), Args: []string{"git", "status", "--porcelain"}, Stdout: out, Stderr: out}
 	err = cmd.Run()
 	if err != nil {
-		status.Trace(ctx, "Failed to run git status --porcelain: err=%v, out=%s", err, out.String())
+		status.Tracef(ctx, "Failed to run git status --porcelain: err=%v, out=%s", err, out.String())
 		return gitStatus, nil
 	}
 
 	parsedStatus, err := parsePorcelainStatus(out.String())
 	if err != nil {
-		status.Trace(ctx, "Failed to parse output of git status --porcelain: %v", err)
+		status.Tracef(ctx, "Failed to parse output of git status --porcelain: %v", err)
 		return gitStatus, err
 	}
 

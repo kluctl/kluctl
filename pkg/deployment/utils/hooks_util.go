@@ -82,12 +82,12 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 		for p := range h.deletePolicies {
 			dpStr = append(dpStr, p)
 		}
-		u.a.sctx.UpdateAndInfoFallback("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
+		u.a.sctx.UpdateAndInfoFallbackf("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
 		return u.a.DeleteObject(ref, true)
 	}
 
 	if len(deleteBeforeObjects) != 0 {
-		u.a.sctx.InfoFallback("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
+		u.a.sctx.InfoFallbackf("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
 	}
 	for i, h := range deleteBeforeObjects {
 		doDeleteForPolicy(h, i, len(deleteBeforeObjects))
@@ -95,12 +95,12 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 
 	waitResults := make(map[k8s.ObjectRef]bool)
 	if len(applyObjects) != 0 {
-		u.a.sctx.InfoFallback("Applying %d hooks", len(applyObjects))
+		u.a.sctx.InfoFallbackf("Applying %d hooks", len(applyObjects))
 	}
 	for i, h := range applyObjects {
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
-		u.a.sctx.UpdateAndInfoFallback("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
+		u.a.sctx.UpdateAndInfoFallbackf("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
 		u.a.ApplyObject(h.object, replaced, true)
 		u.a.sctx.Increment()
 
@@ -133,7 +133,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 	}
 
 	if len(deleteAfterObjects) != 0 {
-		u.a.sctx.InfoFallback("Deleting %d hooks after hook execution", len(deleteAfterObjects))
+		u.a.sctx.InfoFallbackf("Deleting %d hooks after hook execution", len(deleteAfterObjects))
 	}
 	for i, h := range deleteAfterObjects {
 		doDeleteForPolicy(h, i, len(deleteAfterObjects))

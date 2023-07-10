@@ -34,8 +34,8 @@ If no '--target' is specified, sealing is performed for all targets.`
 }
 
 func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject, targetName string) error {
-	s := status.Start(ctx, "%s: Sealing for target", targetName)
-	defer s.FailedWithMessage("%s: Sealing failed", targetName)
+	s := status.Startf(ctx, "%s: Sealing for target", targetName)
+	defer s.FailedWithMessagef("%s: Sealing failed", targetName)
 
 	doFail := func(err error) error {
 		s.FailedWithMessage(fmt.Sprintf("Sealing failed: %v", err))
@@ -164,7 +164,7 @@ func (cmd *sealCmd) Run(ctx context.Context) error {
 				continue
 			}
 			if target.SealingConfig == nil {
-				status.Info(ctx, "Target %s has no sealingConfig", target.Name)
+				status.Infof(ctx, "Target %s has no sealingConfig", target.Name)
 				continue
 			}
 			noTargetMatch = false

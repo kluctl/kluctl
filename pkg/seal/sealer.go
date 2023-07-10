@@ -262,10 +262,10 @@ func (s *Sealer) sealSecret(o *uo.UnstructuredObject, existing *sealedSecret) (*
 	resealAll := false
 	if s.forceReseal {
 		resealAll = true
-		status.Info(s.ctx, "Forcing reseal of secrets in %s", secretName)
+		status.Infof(s.ctx, "Forcing reseal of secrets in %s", secretName)
 	} else if existing == nil || existing.certHash != s.certHash {
 		resealAll = true
-		status.Info(s.ctx, "Cert for secret %s has changed, forcing reseal", secretName)
+		status.Infof(s.ctx, "Cert for secret %s has changed, forcing reseal", secretName)
 	}
 
 	for k, v := range secrets {
@@ -278,19 +278,19 @@ func (s *Sealer) sealSecret(o *uo.UnstructuredObject, existing *sealedSecret) (*
 
 		doEncrypt := existing == nil || resealAll
 		if !doEncrypt && hash != existingHash {
-			status.Info(s.ctx, "Secret %s and key %s has changed, resealing", secretName, k)
+			status.Infof(s.ctx, "Secret %s and key %s has changed, resealing", secretName, k)
 			doEncrypt = true
 		}
 
 		if !doEncrypt {
 			e, ok, _ := existing.content.GetNestedString("spec", "encryptedData", k)
 			if ok {
-				status.Trace(s.ctx, "Secret %s and key %s is unchanged", secretName, k)
+				status.Tracef(s.ctx, "Secret %s and key %s is unchanged", secretName, k)
 				result.content.SetNestedField(e, "spec", "encryptedData", k)
 				resultSecretHashes[k] = hash
 				continue
 			} else {
-				status.Info(s.ctx, "Old encrypted secret %s and key %s not found", secretName, k)
+				status.Infof(s.ctx, "Old encrypted secret %s and key %s not found", secretName, k)
 				doEncrypt = true
 			}
 		}
