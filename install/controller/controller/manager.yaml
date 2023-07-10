@@ -47,6 +47,9 @@ spec:
         env: []
         image: ghcr.io/kluctl/kluctl:latest
         imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: metrics
         livenessProbe:
           httpGet:
             path: /healthz
