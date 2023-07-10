@@ -78,7 +78,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 			if _, ok := versionsToPull[de.Name()]; !ok {
 				actions++
 				if !dryRun {
-					status.Info(ctx, "Removing unused Chart with version %s", de.Name())
+					status.Infof(ctx, "Removing unused Chart with version %s", de.Name())
 					err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
 					if err != nil {
 						return actions, err
@@ -100,12 +100,12 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 				continue
 			}
 			g.RunE(func() error {
-				s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
+				s := status.Startf(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
 				defer s.Failed()
 
 				_, err := chart.PullInProject(ctx, baseChartsDir, version)
 				if err != nil {
-					s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
+					s.FailedWithMessagef("%s: %s", statusPrefix, err.Error())
 					return err
 				}
 

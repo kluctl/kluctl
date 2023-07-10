@@ -124,7 +124,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 			return nil, fmt.Errorf("can not override repo %s. %s is not a directory", url.String(), overridePath)
 		}
 
-		status.WarningOnce(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
+		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
 
 		e := &CacheEntry{
 			rp:           rp,
@@ -177,7 +177,7 @@ func (e *CacheEntry) Update() error {
 			e.mr.SetUpdated(true)
 		} else {
 			url := e.mr.Url()
-			s := status.Start(e.rp.ctx, "Updating git cache for %s", url.String())
+			s := status.Startf(e.rp.ctx, "Updating git cache for %s", url.String())
 			defer s.Failed()
 			err := e.mr.Update()
 			if err != nil {

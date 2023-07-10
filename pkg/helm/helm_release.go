@@ -135,7 +135,7 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 				"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
 		}
 
-		s := status.Start(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.Config.ChartVersion)
+		s := status.Startf(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.Config.ChartVersion)
 		defer s.Failed()
 
 		pc, err = hr.Chart.PullCached(ctx, hr.Config.ChartVersion)
@@ -231,7 +231,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	}
 
 	if chartRequested.Metadata.Deprecated {
-		status.Warning(ctx, "Chart %s is deprecated", hr.Config.ChartName)
+		status.Warningf(ctx, "Chart %s is deprecated", hr.Config.ChartName)
 	}
 
 	rel, err := client.Run(chartRequested, vals)

@@ -221,9 +221,9 @@ func (s *ResultStoreSecrets) cleanupResults(project result.ProjectKey, target re
 				"kluctl.io/result-id": rs.Id,
 			})
 			if err != nil {
-				status.Warning(s.ctx, "Failed to delete old command result %s: %s", rs.Id, err)
+				status.Warningf(s.ctx, "Failed to delete old command result %s: %s", rs.Id, err)
 			} else {
-				status.Info(s.ctx, "Deleted old command result %s", rs.Id)
+				status.Infof(s.ctx, "Deleted old command result %s", rs.Id)
 			}
 		}
 	}

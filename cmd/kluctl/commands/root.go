@@ -187,16 +187,16 @@ func checkNewVersion(ctx context.Context) {
 	}
 	latestVersion, err := semver.NewVersion(latestVersionStr)
 	if err != nil {
-		s.FailedWithMessage("Failed to parse latest version: %v", err)
+		s.FailedWithMessagef("Failed to parse latest version: %v", err)
 		return
 	}
 	localVersion, err := semver.NewVersion(version.GetVersion())
 	if err != nil {
-		s.FailedWithMessage("Failed to parse local version: %v", err)
+		s.FailedWithMessagef("Failed to parse local version: %v", err)
 		return
 	}
 	if localVersion.LessThan(latestVersion) {
-		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion.String(), latestVersion.String()))
+		s.Updatef("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion.String(), latestVersion.String())
 	} else {
 		s.Update("Your kluctl version is up-to-date")
 	}
@@ -303,7 +303,7 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	err = rootCmd.Execute()
 	if err != nil {
-		status.Error(ctx, "%s", err.Error())
+		status.Error(ctx, err.Error())
 		return err
 	}
 	return nil

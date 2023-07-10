@@ -25,7 +25,7 @@ func isTerminal(ctx context.Context) bool {
 // before calling askForConfirmation. E.g. fmt.Println("WARNING: Are you sure? (yes/no)")
 func AskForConfirmation(ctx context.Context, prompt string) bool {
 	if !isTerminal(ctx) {
-		Warning(ctx, "Not a terminal, suppressed prompt: %s", prompt)
+		Warningf(ctx, "Not a terminal, suppressed prompt: %s", prompt)
 		return false
 	}
 

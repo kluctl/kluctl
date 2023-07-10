@@ -256,7 +256,7 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 		defer s.Failed()
 		resultStoreErr = ctx.resultStore.WriteCommandResult(cr)
 		if resultStoreErr != nil {
-			s.FailedWithMessage("Failed to write result to result store: %s", resultStoreErr.Error())
+			s.FailedWithMessagef("Failed to write result to result store: %s", resultStoreErr.Error())
 		} else {
 			s.Success()
 		}

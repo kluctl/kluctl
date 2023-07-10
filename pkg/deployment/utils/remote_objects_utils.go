@@ -104,7 +104,7 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	g.Wait()
 	if g.ErrorOrNil() == nil {
 		if errCount != 0 {
-			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
+			s.UpdateAndInfoFallbackf("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
 			if permissionErrCount != 0 {
 				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering objects by discriminator labels. This might result in orphan object detection to not work properly"))
@@ -165,7 +165,7 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 	g.Wait()
 	if g.ErrorOrNil() == nil {
 		if errCount != 0 {
-			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
+			s.UpdateAndInfoFallbackf("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
 			if permissionErrCount != 0 {
 				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering known objects. This might result in orphan object detection and diffs to not work properly"))

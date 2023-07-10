@@ -53,11 +53,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		}
 		for pth, s := range gitStatus {
 			if strings.HasPrefix(pth, ".helm-charts/") {
-				status.Trace(ctx, "gitStatus=%s", gitStatus.String())
+				status.Tracef(ctx, "gitStatus=%s", gitStatus.String())
 				return fmt.Errorf("--commit can only be used when .helm-chart directory is clean")
 			}
 			if (s.Staging != git.Untracked && s.Staging != git.Unmodified) || (s.Worktree != git.Untracked && s.Worktree != git.Unmodified) {
-				status.Trace(ctx, "gitStatus=%s", gitStatus.String())
+				status.Tracef(ctx, "gitStatus=%s", gitStatus.String())
 				return fmt.Errorf("--commit can only be used when the git worktree is unmodified")
 			}
 		}
@@ -85,11 +85,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	for _, chart := range charts {
 		chart := chart
 		g.RunE(func() error {
-			s := status.Start(ctx, "%s: Querying versions", chart.GetChartName())
+			s := status.Startf(ctx, "%s: Querying versions", chart.GetChartName())
 			defer s.Failed()
 			err := chart.QueryVersions(ctx)
 			if err != nil {
-				s.FailedWithMessage("%s: %s", chart.GetChartName(), err.Error())
+				s.FailedWithMessagef("%s: %s", chart.GetChartName(), err.Error())
 				return err
 			}
 			s.Success()
@@ -115,11 +115,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		for version, _ := range versionsToPull {
 			version := version
 			g.RunE(func() error {
-				s := status.Start(ctx, "%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
+				s := status.Startf(ctx, "%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
 				defer s.Failed()
 				_, err := chart.PullCached(ctx, version)
 				if err != nil {
-					s.FailedWithMessage("%s: %s", chart.GetChartName(), err.Error())
+					s.FailedWithMessagef("%s: %s", chart.GetChartName(), err.Error())
 					return err
 				}
 				s.Success()
@@ -154,11 +154,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		}
 
 		if hr.Config.SkipUpdate {
-			status.Info(ctx, "%s: Skipped update to version %s", relDir, latestVersion)
+			status.Infof(ctx, "%s: Skipped update to version %s", relDir, latestVersion)
 			continue
 		}
 
-		status.Info(ctx, "%s: Chart %s has new version %s available", relDir, hr.Chart.GetChartName(), latestVersion)
+		status.Infof(ctx, "%s: Chart %s has new version %s available", relDir, hr.Chart.GetChartName(), latestVersion)
 
 		if !cmd.Upgrade {
 			continue
@@ -177,7 +177,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		status.Info(ctx, "%s: Updated Chart version to %s", relDir, latestVersion)
+		status.Infof(ctx, "%s: Updated Chart version to %s", relDir, latestVersion)
 
 		k := helmUpgradeKey{
 			chartDir:   cd,
@@ -222,11 +222,11 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 	chart := hrs[0].Chart
 	newVersion := hrs[0].Config.ChartVersion
 
-	s := status.Start(ctx, "Upgrading Chart %s from version %s to %s", chart.GetChartName(), oldVersion, newVersion)
+	s := status.Startf(ctx, "Upgrading Chart %s from version %s to %s", chart.GetChartName(), oldVersion, newVersion)
 	defer s.Failed()
 
 	doError := func(err error) error {
-		s.FailedWithMessage("%s", err.Error())
+		s.FailedWithMessage(err.Error())
 		return err
 	}
 
@@ -311,7 +311,7 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 			return doError(fmt.Errorf("failed to commit: %w", err))
 		}
 
-		s.UpdateAndInfoFallback("Committed helm chart %s with version %s", chart.GetChartName(), newVersion)
+		s.UpdateAndInfoFallbackf("Committed helm chart %s with version %s", chart.GetChartName(), newVersion)
 	}
 	s.Success()
 

@@ -64,7 +64,7 @@ func (cmd *renderCmd) Run(ctx context.Context) error {
 			status.Flush(cmdCtx.ctx)
 			return yaml.WriteYamlAllStream(getStdout(ctx), all)
 		} else {
-			status.Info(cmdCtx.ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
+			status.Infof(cmdCtx.ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
 		}
 		return nil
 	})
