@@ -3,7 +3,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git/giturls"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/url"
 	"strings"
@@ -15,16 +15,27 @@ type GitUrl struct {
 }
 
 func ParseGitUrl(u string) (*GitUrl, error) {
-	// we explicitly only test ParseTransport and ParseScp to avoid parsing local Git urls (as done by giturls.Parse)
-	u2, err := giturls.ParseTransport(u)
-	if err == nil {
-		return &GitUrl{*u2}, nil
+	// we re-use go-git's parsing capabilities (especially in regard to SCP urls)
+	ep, err := transport.NewEndpoint(u)
+	if err != nil {
+		return nil, err
 	}
-	u2, err = giturls.ParseScp(u)
-	if err == nil {
-		return &GitUrl{*u2}, nil
+
+	if ep.Protocol == "file" {
+		return nil, fmt.Errorf("file:// protocol is not supported: %s", u)
 	}
-	return nil, fmt.Errorf("failed to parse git url: %s", u)
+
+	u2 := ep.String()
+
+	// and we also rely on the standard lib to treat escaping properly
+	u3, err := url.Parse(u2)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GitUrl{
+		URL: *u3,
+	}, nil
 }
 
 func ParseGitUrlMust(u string) *GitUrl {
