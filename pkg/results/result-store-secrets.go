@@ -273,9 +273,9 @@ func (s *ResultStoreSecrets) cleanupCommandResults(project result.ProjectKey, ta
 				"kluctl.io/command-result-id": rs.Id,
 			})
 			if err != nil {
-				status.Warning(s.ctx, "Failed to delete old command result %s: %s", rs.Id, err)
+				status.Warningf(s.ctx, "Failed to delete old command result %s: %s", rs.Id, err)
 			} else {
-				status.Info(s.ctx, "Deleted old command result %s", rs.Id)
+				status.Infof(s.ctx, "Deleted old command result %s", rs.Id)
 			}
 		}
 	}
@@ -304,9 +304,9 @@ func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, t
 				"kluctl.io/validate-result-id": rs.Id,
 			})
 			if err != nil {
-				status.Warning(s.ctx, "Failed to delete old validate result %s: %s", rs.Id, err)
+				status.Warningf(s.ctx, "Failed to delete old validate result %s: %s", rs.Id, err)
 			} else {
-				status.Info(s.ctx, "Deleted old validate result %s", rs.Id)
+				status.Infof(s.ctx, "Deleted old validate result %s", rs.Id)
 			}
 		}
 	}

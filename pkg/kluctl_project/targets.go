@@ -16,24 +16,24 @@ func (c *LoadedKluctlProject) loadTargets() error {
 
 	for i, configTarget := range c.Config.Targets {
 		if configTarget.Name == "" {
-			status.Error(c.ctx, "Target at index %d has no name", i)
+			status.Errorf(c.ctx, "Target at index %d has no name", i)
 			continue
 		}
 
 		target, err := c.buildTarget(configTarget)
 		if err != nil {
-			status.Warning(c.ctx, "Failed to load target config for project: %v", err)
+			status.Warningf(c.ctx, "Failed to load target config for project: %v", err)
 			continue
 		}
 
 		err = c.renderTarget(target)
 		if err != nil {
-			status.Warning(c.ctx, "Failed to load target %s: %v", target.Name, err)
+			status.Warningf(c.ctx, "Failed to load target %s: %v", target.Name, err)
 			continue
 		}
 
 		if _, ok := targetNames[target.Name]; ok {
-			status.Warning(c.ctx, "Duplicate target %s", target.Name)
+			status.Warningf(c.ctx, "Duplicate target %s", target.Name)
 		} else {
 			targetNames[target.Name] = true
 			c.Targets = append(c.Targets, target)

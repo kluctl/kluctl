@@ -95,10 +95,14 @@ func WithPrefix(prefix string) Option {
 	}
 }
 
-func WithStatus(message string, args ...any) Option {
+func WithStatus(message string) Option {
 	return func(s *StatusContext) {
-		s.startMessage = fmt.Sprintf(message, args...)
+		s.startMessage = message
 	}
+}
+
+func WithStatusf(message string, args ...any) Option {
+	return WithStatusf(fmt.Sprintf(message, args...))
 }
 
 func WithTotal(t int) Option {
@@ -129,22 +133,25 @@ func StartWithOptions(ctx context.Context, opts ...Option) *StatusContext {
 	return s
 }
 
-func Start(ctx context.Context, status string, args ...any) *StatusContext {
+func Startf(ctx context.Context, status string, args ...any) *StatusContext {
+	return Start(ctx, fmt.Sprintf(status, args...))
+}
+
+func Start(ctx context.Context, status string) *StatusContext {
 	return StartWithOptions(ctx,
 		WithTotal(1),
-		WithStatus(status, args...),
+		WithStatus(status),
 	)
 }
 
-func (s *StatusContext) buildMessage(message string, args ...any) string {
+func (s *StatusContext) buildMessage(message string) string {
 	if message == "" {
 		return ""
 	}
-	m := fmt.Sprintf(message, args...)
 	if s.prefix == "" {
-		return m
+		return message
 	}
-	return fmt.Sprintf("%s: %s", s.prefix, m)
+	return fmt.Sprintf("%s: %s", s.prefix, message)
 }
 
 func (s *StatusContext) SetTotal(total int) {
@@ -161,26 +168,38 @@ func (s *StatusContext) Increment() {
 	s.sl.Increment()
 }
 
-func (s *StatusContext) Update(message string, args ...any) {
+func (s *StatusContext) Update(message string) {
 	if s == nil {
 		return
 	}
-	s.sl.Update(s.buildMessage(message, args...))
+	s.sl.Update(s.buildMessage(message))
 }
 
-func (s *StatusContext) InfoFallback(message string, args ...any) {
-	if s == nil {
-		return
-	}
-	InfoFallback(s.ctx, s.buildMessage(message, args...))
+func (s *StatusContext) Updatef(message string, args ...any) {
+	s.Update(fmt.Sprintf(message, args...))
 }
 
-func (s *StatusContext) UpdateAndInfoFallback(message string, args ...any) {
+func (s *StatusContext) InfoFallback(message string) {
 	if s == nil {
 		return
 	}
-	s.Update(message, args...)
-	s.InfoFallback(message, args...)
+	InfoFallback(s.ctx, s.buildMessage(message))
+}
+
+func (s *StatusContext) InfoFallbackf(message string, args ...any) {
+	s.InfoFallback(fmt.Sprintf(message, args...))
+}
+
+func (s *StatusContext) UpdateAndInfoFallback(message string) {
+	if s == nil {
+		return
+	}
+	s.Update(message)
+	s.InfoFallback(message)
+}
+
+func (s *StatusContext) UpdateAndInfoFallbackf(message string, args ...any) {
+	s.UpdateAndInfoFallback(fmt.Sprintf(message, args...))
 }
 
 func (s *StatusContext) Failed() {
@@ -194,15 +213,19 @@ func (s *StatusContext) Failed() {
 	s.failed = true
 }
 
-func (s *StatusContext) FailedWithMessage(msg string, args ...any) {
+func (s *StatusContext) FailedWithMessage(msg string) {
 	if s == nil {
 		return
 	}
 	if s.finished {
 		return
 	}
-	s.UpdateAndInfoFallback(msg, args...)
+	s.UpdateAndInfoFallback(msg)
 	s.Failed()
+}
+
+func (s *StatusContext) FailedWithMessagef(msg string, args ...any) {
+	s.FailedWithMessage(fmt.Sprintf(msg, args...))
 }
 
 func (s *StatusContext) Success() {
@@ -226,31 +249,54 @@ func PlainText(ctx context.Context, text string) {
 	slh.PlainText(text)
 }
 
-func Info(ctx context.Context, status string, args ...any) {
+func Info(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Info(fmt.Sprintf(status, args...))
+	slh.Info(status)
 }
 
-func InfoFallback(ctx context.Context, status string, args ...any) {
-	slh := FromContext(ctx)
-	slh.InfoFallback(fmt.Sprintf(status, args...))
+func Infof(ctx context.Context, status string, args ...any) {
+	Info(ctx, fmt.Sprintf(status, args...))
 }
 
-func Warning(ctx context.Context, status string, args ...any) {
+func InfoFallback(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Warning(fmt.Sprintf(status, args...))
+	slh.InfoFallback(status)
 }
 
-func WarningOnce(ctx context.Context, key string, status string, args ...any) {
+func InfoFallbackf(ctx context.Context, status string, args ...any) {
+	InfoFallback(ctx, fmt.Sprintf(status, args...))
+}
+
+func Warning(ctx context.Context, status string) {
+	slh := FromContext(ctx)
+	slh.Warning(status)
+}
+
+func Warningf(ctx context.Context, status string, args ...any) {
+	Warning(ctx, fmt.Sprintf(status, args...))
+}
+
+func WarningOnce(ctx context.Context, key string, status string) {
 	cv := getContextValue(ctx)
 	cv.deprecationOnce.Do(key, func() {
-		Warning(ctx, status, args...)
+		Warning(ctx, status)
 	})
 }
 
-func Trace(ctx context.Context, status string, args ...any) {
+func WarningOncef(ctx context.Context, key string, status string, args ...any) {
+	cv := getContextValue(ctx)
+	cv.deprecationOnce.Do(key, func() {
+		Warningf(ctx, status, args...)
+	})
+}
+
+func Trace(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Trace(fmt.Sprintf(status, args...))
+	slh.Trace(status)
+}
+
+func Tracef(ctx context.Context, status string, args ...any) {
+	Trace(ctx, fmt.Sprintf(status, args...))
 }
 
 func IsTraceEnabled(ctx context.Context) bool {
@@ -258,14 +304,22 @@ func IsTraceEnabled(ctx context.Context) bool {
 	return slh.IsTraceEnabled()
 }
 
-func Error(ctx context.Context, status string, args ...any) {
+func Error(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Error(fmt.Sprintf(status, args...))
+	slh.Error(status)
 }
 
-func Prompt(ctx context.Context, password bool, message string, args ...any) (string, error) {
+func Errorf(ctx context.Context, status string, args ...any) {
+	Error(ctx, fmt.Sprintf(status, args...))
+}
+
+func Prompt(ctx context.Context, password bool, message string) (string, error) {
 	slh := FromContext(ctx)
-	return slh.Prompt(password, fmt.Sprintf(message, args...))
+	return slh.Prompt(password, message)
+}
+
+func Promptf(ctx context.Context, password bool, message string, args ...any) (string, error) {
+	return Prompt(ctx, password, fmt.Sprintf(message, args...))
 }
 
 func Deprecation(ctx context.Context, key string, message string) {

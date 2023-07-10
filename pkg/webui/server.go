@@ -163,9 +163,9 @@ func (s *CommandResultsServer) startUpdateLogs() error {
 
 		printEvent := func(id string, type_ string, deleted bool) {
 			if deleted {
-				status.Info(s.ctx, "Deleted %s result summary for %s", type_, id)
+				status.Infof(s.ctx, "Deleted %s result summary for %s", type_, id)
 			} else {
-				status.Info(s.ctx, "Updated %s result summary for %s", type_, id)
+				status.Infof(s.ctx, "Updated %s result summary for %s", type_, id)
 			}
 		}
 		for _, x := range l1 {

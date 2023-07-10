@@ -308,7 +308,7 @@ type PatchOptions struct {
 }
 
 func (k *K8sCluster) doPatch(ref k8s.ObjectRef, obj client.Object, patch client.Patch, options PatchOptions) ([]ApiWarning, error) {
-	status.Trace(k.ctx, "patching %s", ref.String())
+	status.Tracef(k.ctx, "patching %s", ref.String())
 
 	k.crdCacheMutex.Lock()
 	delete(k.crdCache, ref)
@@ -350,7 +350,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	ref := o.GetK8sRef()
 	obj := o.Clone().ToUnstructured()
 
-	status.Trace(k.ctx, "updating %s", ref.String())
+	status.Tracef(k.ctx, "updating %s", ref.String())
 
 	k.crdCacheMutex.Lock()
 	delete(k.crdCache, ref)
@@ -386,7 +386,7 @@ func (k *K8sCluster) envtestProxyGet(scheme, namespace, name, port, path string,
 			continue
 		}
 
-		status.Trace(k.ctx, "envtestProxyGet apiHost=%s, ns=%s, name=%s, port=%s, path=%s, envUrl=%s", apiHost, namespace, name, port, path, envUrl)
+		status.Tracef(k.ctx, "envtestProxyGet apiHost=%s, ns=%s, name=%s, port=%s, path=%s, envUrl=%s", apiHost, namespace, name, port, path, envUrl)
 
 		envUrl = fmt.Sprintf("%s%s", envUrl, path)
 		resp, err := http.Get(envUrl)
