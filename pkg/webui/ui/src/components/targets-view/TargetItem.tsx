@@ -19,7 +19,16 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
     const theme = useTheme();
 
-    if (props.ts.lastValidateResult === undefined) {
+    let validateEnabled = false
+    props.ts.kluctlDeployments.forEach(kd => {
+        if (kd.deployment.spec.validate) {
+            validateEnabled = true
+        }
+    })
+
+    if (!validateEnabled) {
+        icon = <Favorite color={"disabled"}/>
+    } else if (props.ts.lastValidateResult === undefined) {
         icon = <MessageQuestionIcon color={theme.palette.error.main} />
     } else if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
         if (props.ts.lastValidateResult.warnings) {
@@ -34,7 +43,9 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     }
 
     const tooltip: string[] = []
-    if (props.ts.lastValidateResult === undefined) {
+    if (!validateEnabled) {
+        tooltip.push("Validation is disabled.")
+    } else if (props.ts.lastValidateResult === undefined) {
         tooltip.push("No validation result available.")
     } else {
         if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
@@ -82,10 +93,6 @@ export const TargetItemBody = React.memo((props: {
         </ErrorMessage>;
     }
 
-    if (!vr) {
-        return null;
-    }
-
     return <CardBody provider={new MyProvider(props.ts, vr)}/>
 });
 
@@ -103,43 +110,29 @@ export const TargetItem = React.memo(React.forwardRef((
     const api = useContext(ApiContext)
     const actionMenuItems: ActionMenuItem[] = []
 
-    let kd: KluctlDeploymentInfo | undefined
-    let allKdEqual = true
-    props.ts.commandResults?.forEach(rs => {
-        if (rs.commandInfo.kluctlDeployment) {
-            if (!kd) {
-                kd = rs.commandInfo.kluctlDeployment
-            } else {
-                if (kd.name !== rs.commandInfo.kluctlDeployment.name || kd.namespace !== rs.commandInfo.kluctlDeployment.namespace) {
-                    allKdEqual = false
-                }
+    props.ts.kluctlDeployments.forEach(kd => {
+        actionMenuItems.push({
+            icon: <PublishedWithChanges />,
+            text: <Typography>Validate <b>{kd.deployment.metadata.name}</b></Typography>,
+            handler: () => {
+                api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
-        }
+        })
+        actionMenuItems.push({
+            icon: <PublishedWithChanges />,
+            text: <Typography>Reconcile <b>{kd.deployment.metadata.name}</b></Typography>,
+            handler: () => {
+                api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+            }
+        })
+        actionMenuItems.push({
+            icon: <PublishedWithChanges />,
+            text: <Typography>Deploy <b>{kd.deployment.metadata.name}</b></Typography>,
+            handler: () => {
+                api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+            }
+        })
     })
-
-    if (kd && allKdEqual) {
-        actionMenuItems.push({
-            icon: <PublishedWithChanges />,
-            text: "Validate",
-            handler: () => {
-                api.validateNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
-            }
-        })
-        actionMenuItems.push({
-            icon: <PublishedWithChanges />,
-            text: "Reconcile",
-            handler: () => {
-                api.reconcileNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
-            }
-        })
-        actionMenuItems.push({
-            icon: <PublishedWithChanges />,
-            text: "Deploy",
-            handler: () => {
-                api.deployNow(props.ts.target.clusterId, kd!.name, kd!.namespace)
-            }
-        })
-    }
 
     const allContexts: string[] = []
 

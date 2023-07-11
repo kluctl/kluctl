@@ -4,6 +4,8 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -32,6 +34,7 @@ type ResultStoreSecrets struct {
 	client               client.Client
 	cache                cache.Cache
 	validateResultsCache cache.Cache
+	clusterId            string
 
 	writeNamespace           string
 	keepCommandResultsCount  int
@@ -41,6 +44,11 @@ type ResultStoreSecrets struct {
 }
 
 func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ client.Client, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
+	clusterId, err := k8s.GetClusterId(ctx, client_)
+	if err != nil {
+		return nil, err
+	}
+
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = kluctlv1.AddToScheme(scheme)
@@ -67,9 +75,11 @@ func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ cli
 		client:                   client_,
 		writeNamespace:           writeNamespace,
 		cache:                    c1,
+		clusterId:                clusterId,
 		keepCommandResultsCount:  keepCommandResultsCount,
 		keepValidateResultsCount: keepValidateResultsCount,
 	}
+
 	return s, nil
 }
 
@@ -650,4 +660,84 @@ func (s *ResultStoreSecrets) GetValidateResult(options GetValidateResultOptions)
 	}
 
 	return &vr, nil
+}
+
+func (s *ResultStoreSecrets) ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error) {
+	var l kluctlv1.KluctlDeploymentList
+	err := s.cache.List(s.ctx, &l)
+	if err != nil {
+		return nil, err
+	}
+	return l.Items, nil
+}
+
+func (s *ResultStoreSecrets) WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error) {
+	ch := make(chan WatchKluctlDeploymentEvent)
+
+	buildEvent := func(obj any) *WatchKluctlDeploymentEvent {
+		var o *kluctlv1.KluctlDeployment
+		switch o2 := obj.(type) {
+		case *kluctlv1.KluctlDeployment:
+			o = o2
+		case toolscache.DeletedFinalStateUnknown:
+			o = o2.Obj.(*kluctlv1.KluctlDeployment)
+		}
+		if o == nil {
+			return nil
+		}
+		return &WatchKluctlDeploymentEvent{
+			Deployment: o,
+			ClusterId:  s.clusterId,
+		}
+	}
+
+	doUpdate := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		ch <- *e
+	}
+	doDelete := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		e.Delete = true
+		ch <- *e
+	}
+
+	inf, err := s.cache.GetInformer(s.ctx, &kluctlv1.KluctlDeployment{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			doUpdate(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			doUpdate(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			doDelete(obj)
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cancel := func() {
+		_ = inf.RemoveEventHandler(handle)
+	}
+	return ch, cancel, nil
+}
+
+func (s *ResultStoreSecrets) GetKluctlDeployment(name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
+	var k kluctlv1.KluctlDeployment
+	err := s.cache.Get(s.ctx, client.ObjectKey{Name: name, Namespace: namespace}, &k)
+	if err != nil {
+		return nil, err
+	}
+	return &k, nil
 }
