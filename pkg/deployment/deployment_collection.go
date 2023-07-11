@@ -5,12 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"path/filepath"
 	"sync"
 )
@@ -199,9 +202,13 @@ func (c *DeploymentCollection) buildKustomizeObjects() error {
 	}
 	s.Success()
 
-	s = status.Start(c.ctx.Ctx, "Postprocessing objects")
+	return nil
+}
 
-	g = utils.NewGoHelper(c.ctx.Ctx, 16)
+func (c *DeploymentCollection) postprocessObjects() error {
+	s := status.Start(c.ctx.Ctx, "Postprocessing objects")
+
+	g := utils.NewGoHelper(c.ctx.Ctx, 16)
 	for _, d_ := range c.Deployments {
 		d := d_
 
@@ -222,6 +229,81 @@ func (c *DeploymentCollection) buildKustomizeObjects() error {
 	}
 
 	return g.ErrorOrNil()
+}
+
+func (c *DeploymentCollection) writeRenderedYamls() error {
+	s := status.Start(c.ctx.Ctx, "Writing rendered objects")
+
+	g := utils.NewGoHelper(c.ctx.Ctx, 16)
+	for _, d_ := range c.Deployments {
+		d := d_
+
+		g.RunE(func() error {
+			err := d.writeRenderedYaml()
+			if err != nil {
+				return fmt.Errorf("writing objects for %s failed: %w", *d.dir, err)
+			}
+			return nil
+		})
+	}
+	g.Wait()
+
+	if g.ErrorOrNil() == nil {
+		s.Success()
+	} else {
+		s.Failed()
+	}
+
+	return g.ErrorOrNil()
+}
+
+func (c *DeploymentCollection) fixNamespaces() error {
+	if c.ctx.K == nil {
+		return nil
+	}
+	namespacedFromCRDs := c.buildNamespacedFromCRDs()
+	for _, d := range c.Deployments {
+		for _, o := range d.Objects {
+			def := "default"
+			helmNs := o.GetK8sAnnotation(helm.InstallNamespaceAnnotation)
+			if helmNs != nil {
+				def = *helmNs
+				o.RemoveK8sAnnotation(helm.InstallNamespaceAnnotation)
+			}
+
+			namespaced := namespacedFromCRDs[o.GetK8sRef().GroupKind()]
+			if namespaced == nil {
+				namespaced = c.ctx.K.IsNamespaced(o.GetK8sRef().GroupVersionKind())
+			}
+
+			if namespaced != nil {
+				k8s.FixNamespace(o, *namespaced, def)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *DeploymentCollection) buildNamespacedFromCRDs() map[schema.GroupKind]*bool {
+	namespacedFromCRDs := map[schema.GroupKind]*bool{}
+	for _, d := range c.Deployments {
+		for _, o := range d.Objects {
+			if o.GetK8sRef().GroupKind().String() == "CustomResourceDefinition.apiextensions.k8s.io" {
+				scope, _, _ := o.GetNestedString("spec", "scope")
+				group, _, _ := o.GetNestedString("spec", "group")
+				kind, _, _ := o.GetNestedString("spec", "names", "kind")
+				if scope != "" && group != "" && kind != "" {
+					b := scope == "Namespaced"
+					gk := schema.GroupKind{
+						Group: group,
+						Kind:  kind,
+					}
+					namespacedFromCRDs[gk] = &b
+				}
+			}
+		}
+	}
+	return namespacedFromCRDs
 }
 
 func (c *DeploymentCollection) LocalObjects() []*uo.UnstructuredObject {
@@ -264,6 +346,18 @@ func (c *DeploymentCollection) Prepare() error {
 		return err
 	}
 	err = c.buildKustomizeObjects()
+	if err != nil {
+		return err
+	}
+	err = c.postprocessObjects()
+	if err != nil {
+		return err
+	}
+	err = c.writeRenderedYamls()
+	if err != nil {
+		return err
+	}
+	err = c.fixNamespaces()
 	if err != nil {
 		return err
 	}
