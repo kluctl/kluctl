@@ -1,9 +1,13 @@
 package k8s
 
 import (
+	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func UnwrapListItems(o *uo.UnstructuredObject, withListCallback bool, cb func(o *uo.UnstructuredObject) error) error {
@@ -47,4 +51,18 @@ func FixNamespaceInRef(ref k8s.ObjectRef, namespaced bool, def string) k8s.Objec
 		ref.Namespace = def
 	}
 	return ref
+}
+
+func GetClusterId(ctx context.Context, c client.Client) (string, error) {
+	// we reuse the kube-system namespace uid as global cluster id
+	var ns corev1.Namespace
+	err := c.Get(ctx, client.ObjectKey{Name: "kube-system"}, &ns)
+	if err != nil {
+		return "", err
+	}
+	clusterId := ns.UID
+	if clusterId == "" {
+		return "", fmt.Errorf("kube-system namespace has no uid")
+	}
+	return string(clusterId), nil
 }
