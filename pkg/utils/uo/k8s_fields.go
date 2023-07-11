@@ -184,6 +184,13 @@ func (uo *UnstructuredObject) SetK8sAnnotation(name string, value string) {
 	}
 }
 
+func (uo *UnstructuredObject) RemoveK8sAnnotation(name string) {
+	err := uo.RemoveNestedField("metadata", "annotations", name)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[string]string {
 	p := uo.getRegexp(r)
 

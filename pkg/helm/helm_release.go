@@ -28,6 +28,8 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 )
 
+const InstallNamespaceAnnotation = "kluctl.io/helm-install-namespace"
+
 type Release struct {
 	ConfigFile string
 	Config     *types.HelmChartConfig
@@ -257,22 +259,16 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 		}
 	}
 
-	var fixed []interface{}
+	parsedI := make([]any, 0, len(parsed))
 	for _, o := range parsed {
-		// "helm install" will deploy resources to the given namespace automatically, but "helm template" does not
-		// add the necessary namespace in the rendered resources
-		if k != nil {
-			err = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-				k.FixNamespace(o, namespace)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
+		if hr.Config.Namespace != nil {
+			// mark it for later namespace fixing
+			o.SetK8sAnnotation(InstallNamespaceAnnotation, *hr.Config.Namespace)
 		}
-		fixed = append(fixed, o)
+		parsedI = append(parsedI, o)
 	}
-	rendered, err := yaml.WriteYamlAllBytes(fixed)
+
+	rendered, err := yaml.WriteYamlAllBytes(parsedI)
 	if err != nil {
 		return err
 	}

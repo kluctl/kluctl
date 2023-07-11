@@ -554,18 +554,12 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 		return nil
 	}
 
-	var objects []interface{}
-
 	var errs *multierror.Error
 	for _, o := range di.Objects {
 		commonLabels := di.getCommonLabels()
 		commonAnnotations := di.getCommonAnnotations()
 
 		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-			if di.ctx.K != nil {
-				di.ctx.K.FixNamespace(o, "default")
-			}
-
 			// Set common labels/annotations
 			for n, v := range commonLabels {
 				o.SetK8sLabel(n, v)
@@ -581,12 +575,19 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 			}
 			return nil
 		})
-
-		objects = append(objects, o.Object)
 	}
 
-	if errs.ErrorOrNil() != nil {
-		return errs.ErrorOrNil()
+	return errs.ErrorOrNil()
+}
+
+func (di *DeploymentItem) writeRenderedYaml() error {
+	if di.dir == nil {
+		return nil
+	}
+
+	var objects []interface{}
+	for _, o := range di.Objects {
+		objects = append(objects, o.Object)
 	}
 
 	// Need to write it back to disk in case it is needed externally
@@ -594,6 +595,5 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }

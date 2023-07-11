@@ -405,6 +405,8 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 }
 
 func (a *ApplyUtil) handleObservedCRD(r *uo.UnstructuredObject) {
+	status.Tracef(a.ctx, "observed CRD %s", r.GetK8sName())
+
 	y, err := yaml.WriteYamlBytes(r)
 	if err == nil {
 		var crd *apiextensionsv1.CustomResourceDefinition
