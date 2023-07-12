@@ -59,13 +59,13 @@ Project arguments:
                                                of a single repository. All repositories that have the given prefix
                                                will be overridden with the given local path and the repository
                                                suffix appended. For example,
-                                               'gitlab.com:some-org/sub-org=/local/path/to/my-forks' will override
-                                               all repositories below 'gitlab.com:some-org/sub-org/' with the
+                                               'gitlab.com/some-org/sub-org=/local/path/to/my-forks' will override
+                                               all repositories below 'gitlab.com/some-org/sub-org/' with the
                                                repositories found in '/local/path/to/my-forks'. It will however
                                                only perform an override if the given repository actually exists
                                                locally and otherwise revert to the actual (non-overridden) repository.
       --local-git-override stringArray         Specify a single repository local git override in the form of
-                                               'github.com:my-org/my-repo=/local/path/to/override'. This will
+                                               'github.com/my-org/my-repo=/local/path/to/override'. This will
                                                cause kluctl to not use git to clone for the specified repository
                                                but instead use the local directory. This is useful in case you
                                                need to test out changes in external git repositories without
