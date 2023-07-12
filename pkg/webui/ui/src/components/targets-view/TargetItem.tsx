@@ -1,4 +1,4 @@
-import { KluctlDeploymentInfo, ValidateResult } from "../../models";
+import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Box, SxProps, Theme, Typography, useTheme } from "@mui/material";
 import React, { useContext } from "react";

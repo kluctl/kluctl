@@ -1,13 +1,7 @@
-import {
-    CommandResultSummary,
-    KluctlDeploymentInfo,
-    ProjectKey,
-    ProjectTargetKey,
-    TargetKey,
-    ValidateResultSummary,
-} from "./models";
+import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey, ValidateResultSummary, } from "./models";
 import _ from "lodash";
 import { KluctlDeploymentWithClusterId } from "./components/App";
+import { ActiveFilters, DoFilterSwitches, DoFilterText } from "./components/FilterBar";
 
 export interface TargetSummary {
     target: TargetKey;
@@ -35,36 +29,48 @@ export function compareValidateResultSummaries(a: ValidateResultSummary, b: Vali
 export function buildProjectSummaries(commandResultSummaries: Map<string, CommandResultSummary>,
                                       validateResultSummaries: Map<string, ValidateResultSummary>,
                                       kluctlDeployments: Map<string, KluctlDeploymentWithClusterId>,
-                                      includeWithoutKluctlDeployments: boolean) {
-    const filter = (projectKey: ProjectKey, targetKey: TargetKey) => {
-        return true
+                                      filters?: ActiveFilters) {
+    const filterTarget = (kd1: KluctlDeploymentWithClusterId | undefined, kd2: KluctlDeploymentInfo | undefined, projectKey: ProjectKey, targetKey: TargetKey) => {
+        if (kd1 && DoFilterText([
+            kd1.clusterId,
+            kd1.deployment.metadata.name,
+            kd1.deployment.metadata.namespace,
+        ], filters)) {
+            return true
+        }
+       if (kd2 && DoFilterText([
+           kd2.clusterId,
+           kd2.name,
+           kd2.namespace,
+       ], filters)) {
+           return true
+       }
+        if (DoFilterText([
+            projectKey.gitRepoKey,
+            projectKey.subDir,
+            targetKey.targetName,
+            targetKey.clusterId,
+            targetKey.discriminator
+        ], filters)) {
+            return true
+        }
+        return false
     }
 
+    const filterTargetByStatus = (ts: TargetSummary) => {
+        let hasErrors = !!ts.lastValidateResult?.errors
+        let hasWarnings = !!ts.lastValidateResult?.warnings
+        let hasChanges = false
+        if (ts.commandResults.length) {
+            hasErrors = hasErrors || !!ts.commandResults[0].errors?.length
+            hasWarnings = hasWarnings || !!ts.commandResults[0].warnings?.length
+            hasChanges = hasChanges || !!ts.commandResults[0].changedObjects
+        }
+        return DoFilterSwitches(hasChanges, hasErrors, hasWarnings, filters)
+    }
 
     const sortedCommandResults = Array.from(commandResultSummaries.values())
     sortedCommandResults.sort(compareCommandResultSummaries)
-
-    const vrByProjectTargetKey = new Map<string, ValidateResultSummary[]>()
-    validateResultSummaries.forEach(vr=> {
-        if (!filter(vr.projectKey, vr.targetKey)) return
-
-        console.log(vr)
-
-        const key = new ProjectTargetKey()
-        key.project = vr.projectKey
-        key.target = vr.targetKey
-
-        const keyStr = JSON.stringify(key)
-        let l = vrByProjectTargetKey.get(keyStr)
-        if (!l) {
-            l = []
-            vrByProjectTargetKey.set(keyStr, l)
-        }
-        l.push(vr)
-    })
-    vrByProjectTargetKey.forEach(l => {
-        l.sort(compareValidateResultSummaries)
-    })
 
     const buildKdKey = (clusterId: string, name: string, namespace: string) => {
         return clusterId + "-" + name + "-" + namespace
@@ -106,24 +112,35 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         return t
     }
 
+    const kluctlDeploymentsByKdKey = new Map<string, KluctlDeploymentWithClusterId>()
     kluctlDeployments.forEach(kd => {
         if (!kd.deployment.status || !kd.deployment.status.projectKey) {
             return
         }
-        if (!filter(kd.deployment.status.projectKey, kd.deployment.status.targetKey)) return
+        if (!filterTarget(kd, undefined, kd.deployment.status.projectKey, kd.deployment.status.targetKey)) {
+            return
+        }
 
-        console.log("kd", kd)
+        kluctlDeploymentsByKdKey.set(buildKdKey(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace), kd)
 
         const target = getOrCreateTarget(kd.deployment.status.projectKey, kd.deployment.status.targetKey, true, true)
         target!.kluctlDeployments.set(buildKdKey(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace), kd)
     })
 
     sortedCommandResults.forEach(rs => {
-        if (!filter(rs.projectKey, rs.targetKey)) return
+        if (rs.commandInfo.kluctlDeployment) {
+            // filter out command results from KluctlDeployments for which the KluctlDeployment itself vanished
+            const key = buildKdKey(rs.commandInfo.kluctlDeployment.clusterId, rs.commandInfo.kluctlDeployment.name, rs.commandInfo.kluctlDeployment.namespace)
+            if (!kluctlDeploymentsByKdKey.has(key)) {
+                return
+            }
+        }
 
-        console.log(rs)
+        if (!filterTarget(undefined, rs.commandInfo.kluctlDeployment, rs.projectKey, rs.targetKey)) {
+            return
+        }
 
-        const target = getOrCreateTarget(rs.projectKey, rs.targetKey, includeWithoutKluctlDeployments, includeWithoutKluctlDeployments)
+        const target = getOrCreateTarget(rs.projectKey, rs.targetKey, true, true)
         if (!target) {
             return
         }
@@ -132,8 +149,6 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     })
 
     validateResultSummaries.forEach(vr => {
-        if (!filter(vr.projectKey, vr.targetKey)) return
-
         const target = getOrCreateTarget(vr.projectKey, vr.targetKey, false, false)
         if (!target) {
             return
@@ -141,6 +156,18 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
 
         if (!target.lastValidateResult) {
             target.lastValidateResult = vr
+        }
+    })
+
+    m.forEach((ps, key) => {
+        ps.targets = ps.targets.filter(ts => {
+            if (!filterTargetByStatus(ts)) {
+                return false
+            }
+            return true
+        })
+        if (!ps.targets.length) {
+            m.delete(key)
         }
     })
 

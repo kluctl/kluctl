@@ -4,7 +4,7 @@ import '../index.css';
 import { Box } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
-import { ActiveFilters } from './result-view/NodeStatusFilter';
+import { ActiveFilters } from './FilterBar';
 import { CommandResultSummary, ShortName, ValidateResultSummary } from "../models";
 import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
 import { buildProjectSummaries, ProjectSummary } from "../project-summaries";
@@ -122,8 +122,8 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
     }, [api])
 
     const projects = useMemo(() => {
-        return buildProjectSummaries(commandResultSummaries, validateResultSummaries, kluctlDeployments, false)
-    }, [commandResultSummaries, validateResultSummaries, kluctlDeployments])
+        return buildProjectSummaries(commandResultSummaries, validateResultSummaries, kluctlDeployments, filters)
+    }, [commandResultSummaries, validateResultSummaries, kluctlDeployments, filters])
 
     const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(
         () => api.getShortNames(),
