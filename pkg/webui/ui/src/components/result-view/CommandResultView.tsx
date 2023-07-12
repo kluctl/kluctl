@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useContext, useState } from 'react';
-import { Box, Divider, Drawer, ThemeProvider } from "@mui/material";
+import { Box, Drawer, ThemeProvider } from "@mui/material";
 import { CommandResult, ShortName } from "../../models";
 import { NodeData } from "./nodes/NodeData";
 import { SidePanel } from "./SidePanel";
@@ -54,14 +54,6 @@ export const CommandResultView = () => {
         }
         return doLoadCommandResult(api, id, appContext.shortNames)
     }, [id])
-
-    const divider = <Divider
-        orientation='vertical'
-        sx={{
-            height: '40px',
-            margin: '0 20px 0 30px'
-        }}
-    />;
 
     if (loading) {
         return <Loading />

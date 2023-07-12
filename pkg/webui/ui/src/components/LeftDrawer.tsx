@@ -11,7 +11,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { AppOutletContext } from "./App";
 import { KluctlLogo, KluctlText, LogoutIcon, TargetsIcon } from '../icons/Icons';
 import { dark } from './theme';
@@ -143,7 +143,6 @@ export default function LeftDrawer(props: {
 }) {
     const [open, setOpen] = useState(true);
     const location = useLocation()
-    const navigate = useNavigate();
     const theme = useTheme();
 
     const toggleDrawer = () => {
