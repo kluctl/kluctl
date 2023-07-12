@@ -61,14 +61,14 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	var repoOverrides []repocache.RepoOverride
 	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(x, false)
+		ro, err := parseRepoOverride(ctx, x, false)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-override: %w", err)
 		}
 		repoOverrides = append(repoOverrides, ro)
 	}
 	for _, x := range projectFlags.LocalGitGroupOverride {
-		ro, err := parseRepoOverride(x, true)
+		ro, err := parseRepoOverride(ctx, x, true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-group-override: %w", err)
 		}
@@ -260,9 +260,7 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 	}
 }
 
-func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err error) {
-	ret.IsGroup = isGroup
-
+func parseRepoOverride(ctx context.Context, s string, isGroup bool) (repocache.RepoOverride, error) {
 	sp := strings.SplitN(s, "=", 2)
 	if len(sp) != 2 {
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
@@ -270,10 +268,30 @@ func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err 
 
 	repoKey, err := types.ParseGitRepoKey(sp[0])
 	if err != nil {
-		return repocache.RepoOverride{}, err
+		// try as legacy repo key
+		u, err2 := types.ParseGitUrl(sp[0])
+		if err2 != nil {
+			// return original error
+			return repocache.RepoOverride{}, err
+		}
+
+		x := u.Host
+		if !strings.HasPrefix(u.Path, "/") {
+			x += "/"
+		}
+		x += u.Path
+		repoKey, err2 = types.ParseGitRepoKey(x)
+		if err2 != nil {
+			// return original error
+			return repocache.RepoOverride{}, err
+		}
+
+		status.Deprecation(ctx, "old-repo-override", "Passing --local-git-override/--local-git-override-group in the example.com:path form is deprecated and will not be supported in future versions of Kluctl. Please use the example.com/path form.")
 	}
 
-	ret.RepoKey = repoKey
-	ret.Override = sp[1]
-	return
+	return repocache.RepoOverride{
+		RepoKey:  repoKey,
+		IsGroup:  isGroup,
+		Override: sp[1],
+	}, nil
 }
