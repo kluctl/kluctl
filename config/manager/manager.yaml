@@ -71,6 +71,9 @@ spec:
         args:
         - --leader-elect
         env: []
+        ports:
+        - containerPort: 8080
+          name: metrics
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
