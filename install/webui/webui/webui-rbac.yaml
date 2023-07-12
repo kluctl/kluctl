@@ -22,6 +22,9 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: ["gitops.kluctl.io"]
+    resources: ["kluctldeployments"]
+    verbs: ["get", "list", "watch"]
     # allow to impersonate other users, groups and serviceaccounts
   - apiGroups: [""]
     resources: ["users", "groups", "serviceaccounts"]
