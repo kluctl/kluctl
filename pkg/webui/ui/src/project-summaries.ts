@@ -154,7 +154,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
             return
         }
 
-        if (!target.lastValidateResult) {
+        if (!target.lastValidateResult || vr.startTime > target.lastValidateResult.startTime) {
             target.lastValidateResult = vr
         }
     })
