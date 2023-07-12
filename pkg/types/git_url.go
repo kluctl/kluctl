@@ -6,6 +6,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -145,6 +147,8 @@ type GitRepoKey struct {
 	Path string `json:"-"`
 }
 
+var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)
+
 func ParseGitRepoKey(s string) (GitRepoKey, error) {
 	if s == "" {
 		return GitRepoKey{}, nil
@@ -154,6 +158,26 @@ func ParseGitRepoKey(s string) (GitRepoKey, error) {
 	if len(s2) != 2 {
 		return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
 	}
+
+	var host, port string
+	if strings.Contains(s2[0], ":") {
+		s3 := strings.SplitN(s2[0], ":", 2)
+		host = s3[0]
+		port = s3[1]
+	} else {
+		host = s2[0]
+	}
+
+	if !hostNameRegex.MatchString(host) {
+		return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
+	}
+
+	if port != "" {
+		if _, err := strconv.ParseInt(port, 10, 32); err != nil {
+			return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
+		}
+	}
+
 	return GitRepoKey{
 		Host: s2[0],
 		Path: s2[1],
