@@ -146,41 +146,45 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 }
 
 func (s *CommandResultsServer) startUpdateLogs() error {
-	l1, ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
 
-	l2, ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
 	if err != nil {
 		cancel1()
+		return err
+	}
+
+	ch3, cancel3, err := s.store.WatchKluctlDeployments()
+	if err != nil {
+		cancel1()
+		cancel2()
 		return err
 	}
 
 	go func() {
 		defer cancel1()
 		defer cancel2()
+		defer cancel3()
 
 		printEvent := func(id string, type_ string, deleted bool) {
 			if deleted {
-				status.Infof(s.ctx, "Deleted %s result summary for %s", type_, id)
+				status.Infof(s.ctx, "Deleted %s for %s", type_, id)
 			} else {
-				status.Infof(s.ctx, "Updated %s result summary for %s", type_, id)
+				status.Infof(s.ctx, "Updated %s for %s", type_, id)
 			}
-		}
-		for _, x := range l1 {
-			printEvent(x.Id, "command", false)
-		}
-		for _, x := range l2 {
-			printEvent(x.Id, "validate", false)
 		}
 
 		for {
 			select {
 			case event := <-ch1:
-				printEvent(event.Summary.Id, "command", event.Delete)
+				printEvent(event.Summary.Id, "command result summary", event.Delete)
 			case event := <-ch2:
-				printEvent(event.Summary.Id, "validate", event.Delete)
+				printEvent(event.Summary.Id, "validate result summary", event.Delete)
+			case event := <-ch3:
+				printEvent(event.Deployment.Name, "KluctlDeployment", event.Delete)
 			case <-s.ctx.Done():
 				return
 			}

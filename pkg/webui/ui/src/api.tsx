@@ -1,10 +1,4 @@
-import {
-    CommandResult,
-    ObjectRef,
-    ResultObject,
-    ShortName,
-    ValidateResult
-} from "./models";
+import { CommandResult, ObjectRef, ResultObject, ShortName, ValidateResult } from "./models";
 import _ from "lodash";
 import React from "react";
 import { Box, Typography } from "@mui/material";

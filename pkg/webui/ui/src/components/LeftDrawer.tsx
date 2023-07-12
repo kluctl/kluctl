@@ -11,11 +11,12 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { AppOutletContext } from "./App";
-import { ArrowLeftIcon, KluctlLogo, KluctlText, LogoutIcon, SearchIcon, TargetsIcon } from '../icons/Icons';
+import { KluctlLogo, KluctlText, LogoutIcon, TargetsIcon } from '../icons/Icons';
 import { dark } from './theme';
 import { Typography } from '@mui/material';
+import { FilterBar } from "./FilterBar";
 
 const openedMixin = (theme: Theme): CSSObject => ({
     width: theme.consts.leftDrawerWidthOpen,
@@ -142,7 +143,6 @@ export default function LeftDrawer(props: {
 }) {
     const [open, setOpen] = useState(true);
     const location = useLocation()
-    const navigate = useNavigate();
     const theme = useTheme();
 
     const toggleDrawer = () => {
@@ -155,51 +155,19 @@ export default function LeftDrawer(props: {
         case 'targets':
             header = <>
                 <Typography variant='h1'>
-                    Dashboard
+                    Targets
                 </Typography>
-                <Box
-                    height='40px'
-                    maxWidth='314px'
-                    flexGrow={1}
-                    borderRadius='10px'
-                    display='flex'
-                    justifyContent='space-between'
-                    alignItems='center'
-                    padding='0 9px 0 15px'
-                    sx={{ background: theme.palette.background.default }}
-                >
-                    <input
-                        type='text'
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            outline: 'none',
-                            height: '20px',
-                            lineHeight: '20px',
-                            fontSize: '18px'
-                        }}
-                        placeholder='Search (not impl. yet)'
-                    />
-                    <IconButton sx={{ padding: 0, height: 40, width: 40 }}>
-                        <SearchIcon />
-                    </IconButton>
-                </Box>
+                <FilterBar onFilterChange={props.context.setFilters}/>
             </>
             break;
         case 'results':
-            header = <Box
-                display='flex'
-                alignItems='center'
-                justifyContent='start'
-                gap='12px'
+            header = <
             >
-                <IconButton sx={{ padding: 0 }} onClick={() => navigate('/targets')}>
-                    <ArrowLeftIcon />
-                </IconButton>
                 <Typography variant='h1'>
                     Result Tree
                 </Typography>
-            </Box>
+                <FilterBar onFilterChange={props.context.setFilters}/>
+            </>
             break;
     }
 

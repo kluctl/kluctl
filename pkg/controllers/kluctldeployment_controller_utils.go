@@ -4,12 +4,10 @@ import (
 	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
-	corev1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.KluctlDeployment, warning bool, msg string, metadata map[string]string) {
@@ -71,13 +69,4 @@ func (r *KluctlDeploymentReconciler) recordSuspension(ctx context.Context, obj *
 	} else {
 		r.MetricsRecorder.RecordSuspend(*objRef, obj.Spec.Suspend)
 	}
-}
-
-func (r *KluctlDeploymentReconciler) getClusterId(ctx context.Context) (string, error) {
-	var kubeSystemNs corev1.Namespace
-	err := r.Get(ctx, client.ObjectKey{Name: "kube-system"}, &kubeSystemNs)
-	if err != nil {
-		return "", err
-	}
-	return string(kubeSystemNs.UID), nil
 }

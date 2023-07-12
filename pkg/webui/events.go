@@ -31,7 +31,7 @@ type eventEntry struct {
 	id            string
 	expire        *time.Time
 	seq           int64
-	projectTarget ProjectTargetKey
+	projectTarget *ProjectTargetKey
 	payload       string
 }
 
@@ -45,7 +45,7 @@ func newEventsHandler(server *CommandResultsServer) *eventsHandler {
 	return h
 }
 
-func (h *eventsHandler) updateEvent(id string, ptKey ProjectTargetKey, payload string, expireIn *time.Duration) {
+func (h *eventsHandler) updateEvent(id string, ptKey *ProjectTargetKey, payload string, expireIn *time.Duration) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -116,11 +116,15 @@ func (h *eventsHandler) startEventsWatcher() error {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	initialCommandResults, commandResultsCh, _, err := h.server.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	commandResultsCh, _, err := h.server.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
 	if err != nil {
 		return err
 	}
-	initialValidateResults, validateResultsCh, _, err := h.server.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	validateResultsCh, _, err := h.server.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	kluctlDeploymentsCh, _, err := h.server.store.WatchKluctlDeployments()
 	if err != nil {
 		return err
 	}
@@ -157,12 +161,22 @@ func (h *eventsHandler) startEventsWatcher() error {
 			return x
 		}
 	}
-
-	for _, x := range initialCommandResults {
-		h.updateEvent(x.Id, ProjectTargetKey{Project: x.ProjectKey, Target: x.TargetKey}, buildCommandResultMsg(results.WatchCommandResultSummaryEvent{Summary: x}), nil)
-	}
-	for _, x := range initialValidateResults {
-		h.updateEvent(x.Id, ProjectTargetKey{Project: x.ProjectKey, Target: x.TargetKey}, buildValidateResultMsg(results.WatchValidateResultSummaryEvent{Summary: x}), nil)
+	buildKluctlDeploymentMsg := func(event results.WatchKluctlDeploymentEvent) string {
+		if event.Delete {
+			x := yaml.WriteJsonStringMust(map[string]any{
+				"type":      "delete_kluctl_deployment",
+				"id":        string(event.Deployment.UID),
+				"clusterId": event.ClusterId,
+			})
+			return x
+		} else {
+			x := yaml.WriteJsonStringMust(map[string]any{
+				"type":       "update_kluctl_deployment",
+				"deployment": event.Deployment,
+				"clusterId":  event.ClusterId,
+			})
+			return x
+		}
 	}
 
 	go func() {
@@ -178,7 +192,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
+				h.updateEvent(event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
 			case event, ok := <-validateResultsCh:
 				if !ok {
 					status.Error(h.server.ctx, "results channel closed unexpectedly")
@@ -188,7 +202,17 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
+				h.updateEvent(event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
+			case event, ok := <-kluctlDeploymentsCh:
+				if !ok {
+					status.Error(h.server.ctx, "results channel closed unexpectedly")
+					return
+				}
+				var expireIn *time.Duration
+				if event.Delete {
+					expireIn = &expireDeletions
+				}
+				h.updateEvent(string(event.Deployment.UID), nil, buildKluctlDeploymentMsg(event), expireIn)
 			case <-cleanupTimer:
 				h.cleanupEvents()
 				cleanupTimer = time.After(5 * time.Second)
@@ -238,7 +262,7 @@ func (h *eventsHandler) handler(c *gin.Context) {
 				continue
 			}
 			nextSeq = e2.seq + 1
-			if !results.FilterProject(e2.projectTarget.Project, filter) {
+			if e2.projectTarget != nil && !results.FilterProject(e2.projectTarget.Project, filter) {
 				continue
 			}
 			events = append(events, e2.payload)

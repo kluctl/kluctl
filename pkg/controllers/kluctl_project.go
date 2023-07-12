@@ -653,7 +653,7 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	}
 
 	var err error
-	cmdResult.Command.KluctlDeployment.ClusterId, err = pt.pp.r.getClusterId(ctx)
+	cmdResult.Command.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
 	if err != nil {
 		return err
 	}
@@ -721,7 +721,7 @@ func (pt *preparedTarget) handleValidateResult(ctx context.Context, cmdErr error
 	}
 
 	var err error
-	validateResult.KluctlDeployment.ClusterId, err = pt.pp.r.getClusterId(ctx)
+	validateResult.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
 	if err != nil {
 		return err
 	}

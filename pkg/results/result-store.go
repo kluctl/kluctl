@@ -2,6 +2,7 @@ package results
 
 import (
 	"context"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
@@ -28,17 +29,27 @@ type WatchValidateResultSummaryEvent struct {
 	Delete  bool                          `json:"delete"`
 }
 
+type WatchKluctlDeploymentEvent struct {
+	ClusterId  string                     `json:"clusterId"`
+	Deployment *kluctlv1.KluctlDeployment `json:"deployment"`
+	Delete     bool                       `json:"delete"`
+}
+
 type ResultStore interface {
 	WriteCommandResult(cr *result.CommandResult) error
 	WriteValidateResult(vr *result.ValidateResult) error
 
 	ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error)
-	WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
+	WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
 	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
 
 	ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error)
-	WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
+	WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
 	GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error)
+
+	ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error)
+	WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error)
+	GetKluctlDeployment(name string, namespace string) (*kluctlv1.KluctlDeployment, error)
 }
 
 func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {

@@ -4,7 +4,7 @@ import TreeView from '@mui/lab/TreeView';
 import { TreeItem } from "@mui/lab";
 import { NodeBuilder } from "./nodes/NodeBuilder";
 import { NodeData } from "./nodes/NodeData";
-import { ActiveFilters, FilterNode } from "./NodeStatusFilter";
+import { ActiveFilters, DoFilterSwitches } from "../FilterBar";
 import { CommandResultProps } from "./CommandResultView";
 import { Loading } from "../Loading";
 import { Box, Divider, Paper, useTheme } from '@mui/material';
@@ -49,7 +49,7 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
     }
 
     const renderTree = (nodes: NodeData) => {
-        if (!FilterNode(nodes, props.activeFilters)) {
+        if (!DoFilterSwitches(!!nodes.diffStatus?.hasDiffs(), !!nodes.healthStatus?.errors.length, !!nodes.healthStatus?.warnings.length, props.activeFilters)) {
             return null
         }
         return <TreeItem

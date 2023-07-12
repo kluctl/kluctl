@@ -4,6 +4,8 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -12,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/rest"
@@ -29,8 +32,9 @@ type ResultStoreSecrets struct {
 	ctx context.Context
 
 	client               client.Client
-	commandResultsCache  cache.Cache
+	cache                cache.Cache
 	validateResultsCache cache.Cache
+	clusterId            string
 
 	writeNamespace           string
 	keepCommandResultsCount  int
@@ -39,40 +43,43 @@ type ResultStoreSecrets struct {
 	mutex sync.Mutex
 }
 
-func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client client.Client, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
-	req1, _ := labels.NewRequirement("kluctl.io/command-result-id", selection.Exists, nil)
-	req2, _ := labels.NewRequirement("kluctl.io/validate-result-id", selection.Exists, nil)
-
-	c1, err := cache.New(config, cache.Options{
-		Mapper:               client.RESTMapper(),
-		DefaultLabelSelector: labels.NewSelector().Add(*req1),
-	})
+func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ client.Client, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
+	clusterId, err := k8s.GetClusterId(ctx, client_)
 	if err != nil {
 		return nil, err
 	}
-	c2, err := cache.New(config, cache.Options{
-		Mapper:               client.RESTMapper(),
-		DefaultLabelSelector: labels.NewSelector().Add(*req2),
+
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+	_ = kluctlv1.AddToScheme(scheme)
+
+	req1, _ := labels.NewRequirement("kluctl.io/result", selection.Exists, nil)
+	c1, err := cache.New(config, cache.Options{
+		Mapper: client_.RESTMapper(),
+		Scheme: scheme,
+		ByObject: map[client.Object]cache.ByObject{
+			&corev1.Secret{}: {
+				Label: labels.NewSelector().Add(*req1),
+			},
+		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	go c1.Start(ctx)
-	go c2.Start(ctx)
-
 	c1.WaitForCacheSync(ctx)
-	c2.WaitForCacheSync(ctx)
 
 	s := &ResultStoreSecrets{
 		ctx:                      ctx,
-		client:                   client,
+		client:                   client_,
 		writeNamespace:           writeNamespace,
-		commandResultsCache:      c1,
-		validateResultsCache:     c2,
+		cache:                    c1,
+		clusterId:                clusterId,
 		keepCommandResultsCount:  keepCommandResultsCount,
 		keepValidateResultsCount: keepValidateResultsCount,
 	}
+
 	return s, nil
 }
 
@@ -95,7 +102,13 @@ func (s *ResultStoreSecrets) buildName(prefix string, id string, projectKey resu
 		name = name[:maxNameLen]
 	}
 
-	return prefix + "-" + name + "-" + id
+	ret := prefix + "-"
+	if name != "" {
+		ret += name + "-"
+	}
+	ret += id
+
+	return ret
 }
 
 func (s *ResultStoreSecrets) ensureWriteNamespace() error {
@@ -160,6 +173,7 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 			Name:      s.buildName("cr", cr.Id, cr.ProjectKey),
 			Namespace: s.writeNamespace,
 			Labels: map[string]string{
+				"kluctl.io/result":            "true",
 				"kluctl.io/command-result-id": cr.Id,
 			},
 			Annotations: map[string]string{
@@ -221,6 +235,7 @@ func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) erro
 			Name:      s.buildName("vr", vr.Id, vr.ProjectKey),
 			Namespace: s.writeNamespace,
 			Labels: map[string]string{
+				"kluctl.io/result":             "true",
 				"kluctl.io/validate-result-id": vr.Id,
 			},
 			Annotations: map[string]string{
@@ -316,7 +331,7 @@ func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, t
 func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.commandResultsCache.List(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
+	err := s.cache.List(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +393,7 @@ func (s *ResultStoreSecrets) parseValidateSummary(a map[string]string) (*result.
 	return &summary, nil
 }
 
-func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
+func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	ch := make(chan WatchCommandResultSummaryEvent)
 
 	buildEvent := func(obj any) *WatchCommandResultSummaryEvent {
@@ -393,7 +408,7 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSumma
 			return nil
 		}
 		summary, err := s.parseCommandSummary(o.GetAnnotations())
-		if err != nil {
+		if err != nil || summary == nil {
 			return nil
 		}
 		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
@@ -420,14 +435,14 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSumma
 		ch <- *e
 	}
 
-	inf, err := s.commandResultsCache.GetInformer(s.ctx, &metav1.PartialObjectMetadata{
+	inf, err := s.cache.GetInformer(s.ctx, &metav1.PartialObjectMetadata{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
@@ -442,13 +457,13 @@ func (s *ResultStoreSecrets) WatchCommandResultSummaries(options ListResultSumma
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	cancel := func() {
 		_ = inf.RemoveEventHandler(handle)
 	}
-	return nil, ch, cancel, nil
+	return ch, cancel, nil
 }
 
 func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
@@ -516,7 +531,7 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
-	err := s.validateResultsCache.List(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
+	err := s.cache.List(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +557,7 @@ func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSumma
 	return ret, nil
 }
 
-func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSummariesOptions) ([]*result.ValidateResultSummary, <-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
+func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
 	ch := make(chan WatchValidateResultSummaryEvent)
 
 	buildEvent := func(obj any) *WatchValidateResultSummaryEvent {
@@ -557,7 +572,7 @@ func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSumm
 			return nil
 		}
 		summary, err := s.parseValidateSummary(o.GetAnnotations())
-		if err != nil {
+		if err != nil || summary == nil {
 			return nil
 		}
 		if !FilterProject(summary.ProjectKey, options.ProjectFilter) {
@@ -584,14 +599,14 @@ func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSumm
 		ch <- *e
 	}
 
-	inf, err := s.validateResultsCache.GetInformer(s.ctx, &metav1.PartialObjectMetadata{
+	inf, err := s.cache.GetInformer(s.ctx, &metav1.PartialObjectMetadata{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
@@ -606,13 +621,13 @@ func (s *ResultStoreSecrets) WatchValidateResultSummaries(options ListResultSumm
 		},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	cancel := func() {
 		_ = inf.RemoveEventHandler(handle)
 	}
-	return nil, ch, cancel, nil
+	return ch, cancel, nil
 }
 
 func (s *ResultStoreSecrets) GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error) {
@@ -645,4 +660,84 @@ func (s *ResultStoreSecrets) GetValidateResult(options GetValidateResultOptions)
 	}
 
 	return &vr, nil
+}
+
+func (s *ResultStoreSecrets) ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error) {
+	var l kluctlv1.KluctlDeploymentList
+	err := s.cache.List(s.ctx, &l)
+	if err != nil {
+		return nil, err
+	}
+	return l.Items, nil
+}
+
+func (s *ResultStoreSecrets) WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error) {
+	ch := make(chan WatchKluctlDeploymentEvent)
+
+	buildEvent := func(obj any) *WatchKluctlDeploymentEvent {
+		var o *kluctlv1.KluctlDeployment
+		switch o2 := obj.(type) {
+		case *kluctlv1.KluctlDeployment:
+			o = o2
+		case toolscache.DeletedFinalStateUnknown:
+			o = o2.Obj.(*kluctlv1.KluctlDeployment)
+		}
+		if o == nil {
+			return nil
+		}
+		return &WatchKluctlDeploymentEvent{
+			Deployment: o,
+			ClusterId:  s.clusterId,
+		}
+	}
+
+	doUpdate := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		ch <- *e
+	}
+	doDelete := func(obj any) {
+		e := buildEvent(obj)
+		if e == nil {
+			return
+		}
+		e.Delete = true
+		ch <- *e
+	}
+
+	inf, err := s.cache.GetInformer(s.ctx, &kluctlv1.KluctlDeployment{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	handle, err := inf.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			doUpdate(obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			doUpdate(newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			doDelete(obj)
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cancel := func() {
+		_ = inf.RemoveEventHandler(handle)
+	}
+	return ch, cancel, nil
+}
+
+func (s *ResultStoreSecrets) GetKluctlDeployment(name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
+	var k kluctlv1.KluctlDeployment
+	err := s.cache.Get(s.ctx, client.ObjectKey{Name: name, Namespace: namespace}, &k)
+	if err != nil {
+		return nil, err
+	}
+	return &k, nil
 }

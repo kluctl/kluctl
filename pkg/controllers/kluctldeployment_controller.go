@@ -243,9 +243,14 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
 		SubDir:     path.Clean(obj.Spec.Source.Path),
 	}
+	clusterId, err := targetContext.SharedContext.K.GetClusterId()
+	if err != nil {
+		return doFailPrepare(err)
+	}
 	obj.Status.TargetKey = &result.TargetKey{
 		TargetName:    targetContext.Target.Name,
 		Discriminator: targetContext.Target.Discriminator,
+		ClusterId:     clusterId,
 	}
 
 	if obj.Status.ProjectKey.SubDir == "." {

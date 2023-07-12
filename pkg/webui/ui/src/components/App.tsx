@@ -4,7 +4,7 @@ import '../index.css';
 import { Box } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
-import { ActiveFilters } from './result-view/NodeStatusFilter';
+import { ActiveFilters } from './FilterBar';
 import { CommandResultSummary, ShortName, ValidateResultSummary } from "../models";
 import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
 import { buildProjectSummaries, ProjectSummary } from "../project-summaries";
@@ -35,14 +35,21 @@ export const AppContext = createContext<AppContextProps>({
 
 export const ApiContext = createContext<Api>(new StaticApi())
 
+export interface KluctlDeploymentWithClusterId {
+    deployment: any
+    clusterId: string
+}
+
 const LoggedInApp = (props: { onUnauthorized: () => void }) => {
     const api = useContext(ApiContext)
     const [filters, setFilters] = useState<ActiveFilters>()
 
     const commandResultSummariesRef = useRef<Map<string, CommandResultSummary>>(new Map())
     const validateResultSummariesRef = useRef<Map<string, ValidateResultSummary>>(new Map())
+    const kluctlDeploymentsRef = useRef<Map<string, KluctlDeploymentWithClusterId>>(new Map())
     const [commandResultSummaries, setCommandResultSummaries] = useState(commandResultSummariesRef.current)
     const [validateResultSummaries, setValidateResultSummaries] = useState(validateResultSummariesRef.current)
+    const [kluctlDeployments, setKluctlDeployments] = useState(kluctlDeploymentsRef.current)
 
     useEffect(() => {
         const updateCommandResultSummary = (rs: CommandResultSummary) => {
@@ -69,6 +76,21 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
             setValidateResultSummaries(new Map(validateResultSummariesRef.current))
         }
 
+        const updateKluctlDeployment = (kd: any, clusterId: string) => {
+            console.log("update_kluctl_deployment", kd.metadata.uid, kd.metadata.name)
+            kluctlDeploymentsRef.current.set(kd.metadata.uid, {
+                deployment: kd,
+                clusterId: clusterId,
+            })
+            setKluctlDeployments(new Map(kluctlDeploymentsRef.current))
+        }
+
+        const deleteKluctlDeployment = (id: string) => {
+            console.log("delete_kluctl_deployment", id)
+            kluctlDeploymentsRef.current.delete(id)
+            setKluctlDeployments(new Map(kluctlDeploymentsRef.current))
+        }
+
         console.log("starting listenResults")
         let cancel: Promise<() => void>
         cancel = api.listenUpdates(undefined, undefined, msg => {
@@ -85,6 +107,12 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
                 case "delete_validate_result_summary":
                     deleteValidateResultSummary(msg.id)
                     break
+                case "update_kluctl_deployment":
+                    updateKluctlDeployment(msg.deployment, msg.clusterId)
+                    break
+                case "delete_kluctl_deployment":
+                    deleteKluctlDeployment(msg.id)
+                    break
             }
         })
         return () => {
@@ -94,8 +122,8 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
     }, [api])
 
     const projects = useMemo(() => {
-        return buildProjectSummaries(commandResultSummaries, validateResultSummaries)
-    }, [commandResultSummaries, validateResultSummaries])
+        return buildProjectSummaries(commandResultSummaries, validateResultSummaries, kluctlDeployments, filters)
+    }, [commandResultSummaries, validateResultSummaries, kluctlDeployments, filters])
 
     const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(
         () => api.getShortNames(),

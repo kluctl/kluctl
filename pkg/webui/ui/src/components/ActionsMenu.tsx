@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 export interface ActionMenuItem {
     icon: React.ReactNode
-    text: string
+    text: React.ReactNode
     handler?: () => void
     to?: string
 }
