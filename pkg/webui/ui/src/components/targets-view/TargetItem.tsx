@@ -151,17 +151,31 @@ export const TargetItem = React.memo(React.forwardRef((
         handleContext(rs.target.context)
     })
 
-    const contextTooltip = <Box textAlign={"center"}>
-        <Typography variant="subtitle2">All known contexts:</Typography>
-        {allContexts.map(context => (
-            <Typography key={context} variant="subtitle2">{context}</Typography>
-        ))}
-    </Box>
-
-    let targetName = props.ts.target.targetName
-    if (!targetName) {
-        targetName = "<no-name>"
+    let header = "<command-line>"
+    if (props.ts.kluctlDeployments.length) {
+        header = props.ts.kluctlDeployments[0].deployment.metadata.name
     }
+
+    let subheader = "<no-name>"
+    if (props.ts.target.targetName) {
+        subheader = props.ts.target.targetName
+    }
+
+    const iconTooltipChildren: React.ReactNode[] = []
+    if (props.ts.kluctlDeployments.length) {
+        iconTooltipChildren.push(<Typography variant={"subtitle2"}><b>KluctlDeployments</b></Typography>)
+        props.ts.kluctlDeployments.forEach(kd => {
+            iconTooltipChildren.push(<Typography variant={"subtitle2"}>{kd.deployment.metadata.name}</Typography>)
+        })
+        iconTooltipChildren.push(<br/>)
+    }
+    if (allContexts.length) {
+        iconTooltipChildren.push(<Typography variant="subtitle2"><b>Contexts</b></Typography>)
+        allContexts.forEach(context => {
+            iconTooltipChildren.push(<Typography key={context} variant="subtitle2">{context}</Typography>)
+        })
+    }
+    const iconTooltip = <Box textAlign={"center"}>{iconTooltipChildren}</Box>
 
     const body = props.expanded ? <TargetItemBody ts={props.ts} /> : undefined;
 
@@ -179,9 +193,9 @@ export const TargetItem = React.memo(React.forwardRef((
             onClick: e => props.onSelectTarget?.(props.ts)
         }}
         icon={<TargetIcon />}
-        header={targetName}
-        subheader={allContexts.length ? allContexts[0] : ''}
-        subheaderTooltip={allContexts.length ? contextTooltip : undefined}
+        iconTooltip={iconTooltip}
+        header={header}
+        subheader={subheader}
         body={body}
         footer={
             <>

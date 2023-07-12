@@ -5,7 +5,7 @@ import { ActiveFilters, DoFilterSwitches, DoFilterText } from "./components/Filt
 
 export interface TargetSummary {
     target: TargetKey;
-    kluctlDeployments: Map<string, KluctlDeploymentWithClusterId>;
+    kluctlDeployments: KluctlDeploymentWithClusterId[];
     lastValidateResult?: ValidateResultSummary;
     commandResults: CommandResultSummary[];
 }
@@ -104,7 +104,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         if (!t && allowCreateTarget) {
             t = {
                 target: targetKey,
-                kluctlDeployments: new Map<string, KluctlDeploymentWithClusterId>(),
+                kluctlDeployments: [],
                 commandResults: []
             }
             p.targets.push(t)
@@ -124,7 +124,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         kluctlDeploymentsByKdKey.set(buildKdKey(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace), kd)
 
         const target = getOrCreateTarget(kd.deployment.status.projectKey, kd.deployment.status.targetKey, true, true)
-        target!.kluctlDeployments.set(buildKdKey(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace), kd)
+        target!.kluctlDeployments.push(kd)
     })
 
     sortedCommandResults.forEach(rs => {
