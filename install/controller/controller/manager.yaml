@@ -54,6 +54,9 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 20
         name: controller
+        ports:
+        - containerPort: 8080
+          name: metrics
         readinessProbe:
           httpGet:
             path: /readyz
