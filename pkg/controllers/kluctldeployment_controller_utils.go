@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"time"
 )
 
 func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.KluctlDeployment, warning bool, msg string, metadata map[string]string) {
@@ -69,4 +70,19 @@ func (r *KluctlDeploymentReconciler) recordSuspension(ctx context.Context, obj *
 	} else {
 		r.MetricsRecorder.RecordSuspend(*objRef, obj.Spec.Suspend)
 	}
+}
+
+func (r *KluctlDeploymentReconciler) recordDuration(ctx context.Context, obj *kluctlv1.KluctlDeployment, startTime time.Time) {
+	if r.MetricsRecorder == nil {
+		return
+	}
+	log := ctrl.LoggerFrom(ctx)
+
+	objRef, err := reference.GetReference(r.Scheme, obj)
+	if err != nil {
+		log.Error(err, "unable to record duration metric")
+		return
+	}
+
+	r.MetricsRecorder.RecordDuration(*objRef, startTime)
 }

@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
-	"k8s.io/client-go/tools/reference"
 	"path"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,8 +78,11 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	retryInterval := obj.Spec.GetRetryInterval()
 	interval := obj.Spec.Interval.Duration
 
-	// Record suspended status metric
-	defer r.recordSuspension(ctx, obj)
+	defer func() {
+		r.recordSuspension(ctx, obj)
+		r.recordReadiness(ctx, obj)
+		r.recordDuration(ctx, obj, reconcileStart)
+	}()
 
 	// Add our finalizer if it does not exist
 	if !controllerutil.ContainsFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer) {
@@ -104,23 +106,12 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	// record reconciliation duration
-	if r.MetricsRecorder != nil {
-		objRef, err := reference.GetReference(r.Scheme, obj)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		defer r.MetricsRecorder.RecordDuration(*objRef, reconcileStart)
-	}
-
 	patch := client.MergeFrom(obj.DeepCopy())
 	// reconcile kluctlDeployment by applying the latest revision
 	ctrlResult, reconcileErr := r.doReconcile(ctx, obj)
 	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
-
-	r.recordReadiness(ctx, obj)
 
 	if ctrlResult == nil {
 		if reconcileErr != nil {
