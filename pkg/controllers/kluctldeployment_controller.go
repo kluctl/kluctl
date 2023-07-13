@@ -90,6 +90,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			log.Error(err, "unable to register finalizer")
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Examine if the object is under deletion
