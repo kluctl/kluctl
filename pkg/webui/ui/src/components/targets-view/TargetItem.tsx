@@ -1,9 +1,9 @@
 import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
-import { Box, SxProps, Theme, Typography, useTheme } from "@mui/material";
+import { Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
 import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
-import { Favorite, HeartBroken, PublishedWithChanges } from "@mui/icons-material";
+import { Done, Error, Favorite, HeartBroken, PublishedWithChanges, SyncProblem } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { calcAgo } from "../../utils/duration";
@@ -14,6 +14,74 @@ import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesTable } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
+
+const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
+    const theme = useTheme();
+
+    if (!props.ts.kluctlDeployments.length) {
+        return <></>
+    }
+
+    const buildStateTime = (c: any) => {
+        return "In this state since " + calcAgo(c.lastTransitionTime)
+    }
+
+    const kd = props.ts.kluctlDeployments[0]
+
+    let icon: React.ReactElement | undefined = undefined
+    const tooltip: string[] = []
+
+    if (!kd.deployment.status) {
+        icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
+        tooltip.push("Status not available")
+    } else {
+        const conditions: any[] | undefined = kd.deployment.status.conditions
+        const readyCondition = conditions?.find(c => c.type === "Ready")
+        const reconcilingCondition = conditions?.find(c => c.type === "Reconciling")
+
+        if (reconcilingCondition) {
+            icon = <CircularProgress color={"info"} size={24}/>
+            tooltip.push(reconcilingCondition.message)
+            tooltip.push(buildStateTime(reconcilingCondition))
+        } else {
+            if (readyCondition) {
+                if (readyCondition.status === "True") {
+                    icon = <Done color={"success"}/>
+                    tooltip.push(readyCondition.message)
+                } else {
+                    if (readyCondition.reason === "PrepareFailed") {
+                        icon = <SyncProblem color={"error"}/>
+                        tooltip.push(readyCondition.message)
+                    } else if (readyCondition.reason === "ValidateFailed") {
+                        icon = <Done color={"success"}/>
+                        tooltip.push(readyCondition.message)
+                    } else {
+                        icon = <Error color={"warning"}/>
+                        tooltip.push(readyCondition.message)
+                    }
+                }
+                tooltip.push(buildStateTime(readyCondition))
+            } else {
+                icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
+                tooltip.push("Ready condition is missing")
+            }
+        }
+    }
+
+    if (!icon) {
+        icon = <MessageQuestionIcon color={theme.palette.warning.main} />
+        tooltip.push("Unexpected state")
+    }
+
+    return <Tooltip title={
+        <>
+            <Typography><b>Reconciliation State</b></Typography>
+            {tooltip.map(t => <Typography key={t}>{t}</Typography>)}
+        </>
+    }>
+        <Box display='flex'>{icon}</Box>
+    </Tooltip>
+}
 
 const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
@@ -65,7 +133,12 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         tooltip.push("Validation performed " + calcAgo(props.ts.lastValidateResult.startTime) + " ago")
     }
 
-    return <Tooltip title={tooltip.map(t => <Typography key={t}>{t}</Typography>)}>
+    return <Tooltip title={
+        <>
+            <Typography><b>Validation State</b></Typography>
+            {tooltip.map(t => <Typography key={t}>{t}</Typography>)}
+        </>
+    }>
         <Box display='flex'>{icon}</Box>
     </Tooltip>
 }
@@ -208,6 +281,7 @@ export const TargetItem = React.memo(React.forwardRef((
                     </Tooltip>
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center'>
+                    <ReconcilingIcon {...props} />
                     <StatusIcon {...props} />
                     <ActionsMenu menuItems={actionMenuItems} />
                 </Box>
