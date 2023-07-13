@@ -4,6 +4,7 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
@@ -16,7 +17,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
-	meta2 "k8s.io/apimachinery/pkg/api/meta"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
 	"path"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -106,9 +108,19 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	patch := client.MergeFrom(obj.DeepCopy())
+	patchObj := obj.DeepCopy()
+	patch := client.MergeFrom(patchObj)
+
 	// reconcile kluctlDeployment by applying the latest revision
 	ctrlResult, reconcileErr := r.doReconcile(ctx, obj)
+
+	// make sure conditions were not touched in the obj. changing conditions is only allowed via patchCondition,
+	// which directly patches the object in-cluster and does not touch the local obj
+	if !reflect.DeepEqual(patchObj.GetConditions(), obj.GetConditions()) {
+		panic("conditions were modified in doReconcile")
+	}
+
+	// now patch all the other changes to the status
 	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -147,17 +159,46 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj *kluctlv1.KluctlDeployment) (*ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
+	key := client.ObjectKeyFromObject(obj)
 
 	r.exportDeploymentObjectToProm(obj)
 
 	doFail := func(reason string, err error) (*ctrl.Result, error) {
-		setReadiness(obj, metav1.ConditionFalse, reason, err.Error())
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
+		patchErr := r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
+			setReadinessCondition(c, metav1.ConditionFalse, reason, err.Error(), obj.Generation)
+			apimeta.RemoveStatusCondition(c, meta.ReconcilingCondition)
+			return nil
+		})
+		if patchErr != nil {
+			err = multierror.Append(err, patchErr)
+		}
 		return nil, err
 	}
 
 	doFailPrepare := func(err error) (*ctrl.Result, error) {
 		return doFail(kluctlv1.PrepareFailedReason, err)
+	}
+
+	doProgressingCondition := func(message string) error {
+		return r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
+			setReadinessCondition(c, metav1.ConditionUnknown, meta.ProgressingReason, "Reconciliation in progress", obj.Generation)
+			setReconcilingCondition(c, metav1.ConditionTrue, meta.ProgressingReason, message, obj.Generation)
+			return nil
+		})
+	}
+
+	doReadyCondition := func(status metav1.ConditionStatus, reason, message string) error {
+		return r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
+			setReadinessCondition(c, status, reason, message, obj.Generation)
+			apimeta.RemoveStatusCondition(c, meta.ReconcilingCondition)
+			return nil
+		})
+	}
+
+	patchErr := doProgressingCondition("Initializing")
+	if patchErr != nil {
+		return nil, patchErr
 	}
 
 	// record the value of the reconciliation request, if any
@@ -170,30 +211,28 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, err
 	}
 	if legacyKd {
-		c := meta2.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
+		c := apimeta.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
 		if c != nil && c.Reason == kluctlv1.WaitingForLegacyMigrationReason {
 			log.Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. ")
 			return &ctrl.Result{RequeueAfter: 5 * time.Second}, err
 		}
 		log.Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. " +
 			"Please ensure that you have upgraded to the latest version of the legacy flux-kluctl-controller and that is is still running.")
-		setReadiness(obj, metav1.ConditionFalse, kluctlv1.WaitingForLegacyMigrationReason, "waiting for the legacy controller to set readyForMigration=true")
-		r.recordReadiness(ctx, obj)
+		patchErr = doReadyCondition(metav1.ConditionFalse, kluctlv1.WaitingForLegacyMigrationReason, "waiting for the legacy controller to set readyForMigration=true")
+		if patchErr != nil {
+			return nil, patchErr
+		}
 		return &ctrl.Result{Requeue: true}, nil
 	} else {
-		c := meta2.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
+		c := apimeta.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
 		if c != nil && c.Reason == kluctlv1.WaitingForLegacyMigrationReason {
 			log.Info("legacy KluctlDeployment has the readyForMigration status set now")
-			setReadiness(obj, metav1.ConditionFalse, meta.ProgressingReason, "migration is finished")
-			r.recordReadiness(ctx, obj)
+			patchErr = doReadyCondition(metav1.ConditionFalse, meta.ProgressingReason, "migration is finished")
+			if patchErr != nil {
+				return nil, patchErr
+			}
 			return &ctrl.Result{Requeue: true}, nil
 		}
-	}
-
-	// set the reconciliation status to progressing
-	if obj.Status.ObservedGeneration == 0 {
-		setReadiness(obj, metav1.ConditionUnknown, meta.ProgressingReason, "reconciliation in progress")
-		r.recordReadiness(ctx, obj)
 	}
 
 	oldGeneration := obj.Status.ObservedGeneration
@@ -205,11 +244,21 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj.Status.LastHandledDeployAt = curDeployRequest
 	obj.Status.LastHandledValidateAt = curValidateRequest
 
+	patchErr = doProgressingCondition("Preparing project")
+	if patchErr != nil {
+		return nil, patchErr
+	}
+
 	pp, err := prepareProject(ctx, r, obj, true)
 	if err != nil {
 		return doFailPrepare(err)
 	}
 	defer pp.cleanup()
+
+	patchErr = doProgressingCondition("Loading project and target")
+	if patchErr != nil {
+		return nil, patchErr
+	}
 
 	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
 
@@ -298,8 +347,16 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	if needDeploy {
 		// deploy the kluctl project
 		if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
+			patchErr = doProgressingCondition("Performing kluctl deploy")
+			if patchErr != nil {
+				return nil, patchErr
+			}
 			deployResult, err = pt.kluctlDeploy(ctx, targetContext)
 		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
+			patchErr = doProgressingCondition("Performing kluctl poke-images")
+			if patchErr != nil {
+				return nil, patchErr
+			}
 			deployResult, err = pt.kluctlPokeImages(ctx, targetContext)
 		} else {
 			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
@@ -311,6 +368,10 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	if needValidate {
+		patchErr = doProgressingCondition("Performing kluctl validate")
+		if patchErr != nil {
+			return nil, patchErr
+		}
 		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult)
 		err = obj.Status.SetLastValidateResult(validateResult, err)
 		if err != nil {
@@ -327,12 +388,20 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	finalStatus, reason := r.buildFinalStatus(ctx, obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
-		setReadiness(obj, metav1.ConditionFalse, reason, finalStatus)
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
-		return &ctrlResult, fmt.Errorf(finalStatus)
+		err = fmt.Errorf(finalStatus)
+		patchErr = doReadyCondition(metav1.ConditionFalse, reason, finalStatus)
+		if patchErr != nil {
+			err = multierror.Append(err, patchErr)
+			return nil, err
+		}
+		return &ctrlResult, err
 	}
-	setReadiness(obj, metav1.ConditionTrue, reason, finalStatus)
 	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(1.0)
+	patchErr = doReadyCondition(metav1.ConditionTrue, reason, finalStatus)
+	if patchErr != nil {
+		return nil, patchErr
+	}
 	return &ctrlResult, nil
 }
 
@@ -476,9 +545,6 @@ func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeploy
 func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) (ctrl.Result, error) {
 	r.doFinalize(ctx, obj)
 
-	// Record deleted status
-	r.recordReadiness(ctx, obj)
-
 	// Remove our finalizer from the list and update it
 	patch := client.MergeFrom(obj.DeepCopy())
 	controllerutil.RemoveFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer)
@@ -532,7 +598,7 @@ func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Con
 		if errors2.Unwrap(err) != nil {
 			err = errors2.Unwrap(err)
 		}
-		if meta2.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) {
+		if apimeta.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) {
 			// legacy object not present, we're safe to continue
 			return false, nil
 		}
