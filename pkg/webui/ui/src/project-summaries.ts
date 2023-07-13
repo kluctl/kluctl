@@ -61,6 +61,13 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         let hasErrors = !!ts.lastValidateResult?.errors
         let hasWarnings = !!ts.lastValidateResult?.warnings
         let hasChanges = false
+        ts.kluctlDeployments.forEach(kd => {
+            const conditions: any[] | undefined = kd.deployment.status?.conditions
+            const readyCondition = conditions?.find(c => c.type === "Ready")
+            if (readyCondition && readyCondition.status === "False") {
+                hasErrors = true
+            }
+        })
         if (ts.commandResults.length) {
             hasErrors = hasErrors || !!ts.commandResults[0].errors?.length
             hasWarnings = hasWarnings || !!ts.commandResults[0].warnings?.length
