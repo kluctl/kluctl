@@ -163,6 +163,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	r.exportDeploymentObjectToProm(obj)
 
+	// keep old status until we're doing real work (deploying, validating, ...)
+	oldReadyCondition := apimeta.FindStatusCondition(obj.GetConditions(), meta.ReadyCondition)
+
 	doFail := func(reason string, err error) (*ctrl.Result, error) {
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
 		patchErr := r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
@@ -181,9 +184,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return doFail(kluctlv1.PrepareFailedReason, err)
 	}
 
-	doProgressingCondition := func(message string) error {
+	doProgressingCondition := func(message string, keepOldReadyStatus bool) error {
 		return r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
-			setReadinessCondition(c, metav1.ConditionUnknown, meta.ProgressingReason, "Reconciliation in progress", obj.Generation)
+			if keepOldReadyStatus && oldReadyCondition != nil {
+				setReadinessCondition(c, oldReadyCondition.Status, oldReadyCondition.Reason, oldReadyCondition.Message, obj.Generation)
+			} else {
+				setReadinessCondition(c, metav1.ConditionUnknown, meta.ProgressingReason, "Reconciliation in progress", obj.Generation)
+			}
 			setReconcilingCondition(c, metav1.ConditionTrue, meta.ProgressingReason, message, obj.Generation)
 			return nil
 		})
@@ -231,7 +238,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		}
 	}
 
-	patchErr := doProgressingCondition("Initializing")
+	patchErr := doProgressingCondition("Initializing", true)
 	if patchErr != nil {
 		return nil, patchErr
 	}
@@ -245,7 +252,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj.Status.LastHandledDeployAt = curDeployRequest
 	obj.Status.LastHandledValidateAt = curValidateRequest
 
-	patchErr = doProgressingCondition("Preparing project")
+	patchErr = doProgressingCondition("Preparing project", true)
 	if patchErr != nil {
 		return nil, patchErr
 	}
@@ -258,7 +265,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 	defer pp.cleanup()
 
-	patchErr = doProgressingCondition("Loading project and target")
+	patchErr = doProgressingCondition("Loading project and target", true)
 	if patchErr != nil {
 		return nil, patchErr
 	}
@@ -350,13 +357,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	if needDeploy {
 		// deploy the kluctl project
 		if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
-			patchErr = doProgressingCondition("Performing kluctl deploy")
+			patchErr = doProgressingCondition("Performing kluctl deploy", false)
 			if patchErr != nil {
 				return nil, patchErr
 			}
 			deployResult, err = pt.kluctlDeploy(ctx, targetContext)
 		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
-			patchErr = doProgressingCondition("Performing kluctl poke-images")
+			patchErr = doProgressingCondition("Performing kluctl poke-images", false)
 			if patchErr != nil {
 				return nil, patchErr
 			}
@@ -371,7 +378,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	if needValidate {
-		patchErr = doProgressingCondition("Performing kluctl validate")
+		patchErr = doProgressingCondition("Performing kluctl validate", false)
 		if patchErr != nil {
 			return nil, patchErr
 		}
