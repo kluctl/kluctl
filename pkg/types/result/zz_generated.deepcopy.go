@@ -480,6 +480,11 @@ func (in *ValidateResultSummary) DeepCopyInto(out *ValidateResultSummary) {
 	*out = *in
 	out.ProjectKey = in.ProjectKey
 	out.TargetKey = in.TargetKey
+	if in.KluctlDeployment != nil {
+		in, out := &in.KluctlDeployment, &out.KluctlDeployment
+		*out = new(KluctlDeploymentInfo)
+		**out = **in
+	}
 	in.StartTime.DeepCopyInto(&out.StartTime)
 	in.EndTime.DeepCopyInto(&out.EndTime)
 }

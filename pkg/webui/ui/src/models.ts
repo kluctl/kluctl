@@ -798,6 +798,7 @@ export class ValidateResultSummary {
     id: string;
     projectKey: ProjectKey;
     targetKey: TargetKey;
+    kluctlDeployment?: KluctlDeploymentInfo;
     startTime: string;
     endTime: string;
     ready: boolean;
@@ -810,6 +811,7 @@ export class ValidateResultSummary {
         this.id = source["id"];
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
+        this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
         this.startTime = source["startTime"];
         this.endTime = source["endTime"];
         this.ready = source["ready"];
