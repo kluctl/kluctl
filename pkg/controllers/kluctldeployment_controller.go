@@ -197,11 +197,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		})
 	}
 
-	patchErr := doProgressingCondition("Initializing")
-	if patchErr != nil {
-		return nil, patchErr
-	}
-
 	// record the value of the reconciliation request, if any
 	if v, ok := obj.GetAnnotations()[kluctlv1.KluctlRequestReconcileAnnotation]; ok {
 		obj.Status.LastHandledReconcileAt = v
@@ -219,7 +214,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		}
 		log.Info("legacy KluctlDeployment does not have the readyForMigration status set. Skipping reconciliation. " +
 			"Please ensure that you have upgraded to the latest version of the legacy flux-kluctl-controller and that is is still running.")
-		patchErr = doReadyCondition(metav1.ConditionFalse, kluctlv1.WaitingForLegacyMigrationReason, "waiting for the legacy controller to set readyForMigration=true")
+		patchErr := doReadyCondition(metav1.ConditionFalse, kluctlv1.WaitingForLegacyMigrationReason, "waiting for the legacy controller to set readyForMigration=true")
 		if patchErr != nil {
 			return nil, patchErr
 		}
@@ -228,12 +223,17 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		c := apimeta.FindStatusCondition(obj.Status.Conditions, meta.ReadyCondition)
 		if c != nil && c.Reason == kluctlv1.WaitingForLegacyMigrationReason {
 			log.Info("legacy KluctlDeployment has the readyForMigration status set now")
-			patchErr = doReadyCondition(metav1.ConditionFalse, meta.ProgressingReason, "migration is finished")
+			patchErr := doReadyCondition(metav1.ConditionFalse, meta.ProgressingReason, "migration is finished")
 			if patchErr != nil {
 				return nil, patchErr
 			}
 			return &ctrl.Result{Requeue: true}, nil
 		}
+	}
+
+	patchErr := doProgressingCondition("Initializing")
+	if patchErr != nil {
+		return nil, patchErr
 	}
 
 	oldGeneration := obj.Status.ObservedGeneration
