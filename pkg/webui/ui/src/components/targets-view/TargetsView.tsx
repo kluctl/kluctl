@@ -1,4 +1,4 @@
-import { CommandResultSummary, TargetKey } from "../../models";
+import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
 import React, { useCallback, useContext, useMemo, useRef } from "react";
 import { AppContext } from "../App";
@@ -11,7 +11,7 @@ import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { ExpandedCardsView } from "./ExpandedCardsView";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { sha256 } from "js-sha256";
+import _ from "lodash";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -166,36 +166,40 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
     </svg>
 });
 
-function mkTargetHash(tk: TargetKey): string {
-    return sha256(JSON.stringify(tk));
+interface TargetPath {
+    project: ProjectKey
+    target: TargetKey
+    kluctlDeployment?: KluctlDeploymentInfo
+}
+
+function buildTargetPath(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo): string {
+    return btoa(JSON.stringify({
+        "project": project,
+        "target": target,
+        "kluctlDeployment": kluctlDeployment,
+    }))
+}
+
+function parseTargetPath(s?: string): TargetPath | undefined {
+    if (!s) {
+        return
+    }
+    return JSON.parse(atob(s))
 }
 
 export const TargetsView = () => {
     const navigate = useNavigate();
-    const { targetKeyHash } = useParams();
+    const { targetPath} = useParams();
     const { pathname } = useLocation();
     const appContext = useContext(AppContext);
     const projects = appContext.projects;
 
-    const { targetsHashes, targetsProjects } = useMemo(() => {
-        const targetsHashes = new Map<string, TargetSummary>();
-        const targetsProjects = new Map<TargetSummary, ProjectSummary>();
-        projects.forEach(ps =>
-            ps.targets.forEach(ts => {
-                targetsHashes.set(mkTargetHash(ts.target), ts);
-                targetsProjects.set(ts, ps);
-            })
-        );
-
-        return { targetsHashes, targetsProjects };
-    }, [projects]);
-
-    const onSelectTargetItem = useCallback((ts: TargetSummary) => {
-        navigate(`/targets/${mkTargetHash(ts.target)}`);
+    const onSelectTargetItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
+        navigate(`/targets/${buildTargetPath(ps.project, ts.target, ts.kdInfo)}`);
     }, [navigate]);
 
-    const onSelectCommandResultItem = useCallback((ts: TargetSummary) => {
-        navigate(`/targets/${mkTargetHash(ts.target)}/history`);
+    const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
+        navigate(`/targets/${buildTargetPath(ps.project, ts.target, ts.kdInfo)}/history`);
     }, [navigate]);
 
     const onCardClose = useCallback(() => {
@@ -205,8 +209,19 @@ export const TargetsView = () => {
     const commandResultItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
     const targetItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
 
-    const selectedTarget = targetKeyHash ? targetsHashes.get(targetKeyHash) : undefined;
-    const parentProject = selectedTarget ? targetsProjects.get(selectedTarget) : undefined;
+    const [parentProject, selectedTarget] = useMemo(() => {
+        const tp = parseTargetPath(targetPath)
+        if (!tp) {
+            return [undefined, undefined]
+        }
+
+        const project = projects.find(ps => _.isEqual(_.toPlainObject(ps.project), tp.project))
+        const target = project?.targets.find(ts => _.isEqual(_.toPlainObject(ts.target), tp.target) && (ts.kdInfo === tp.kluctlDeployment || _.isEqual(_.toPlainObject(ts.kdInfo), tp.kluctlDeployment)))
+        return [project, target]
+    }, [projects, targetPath])
+
+    console.log("project", parentProject, "target", selectedTarget)
+
     const showHistory = pathname.endsWith('history');
 
     if (selectedTarget && parentProject && !showHistory) {
@@ -220,7 +235,7 @@ export const TargetsView = () => {
                     ps={parentProject}
                     ts={cardData}
                     sx={sx}
-                    key={mkTargetHash(cardData.target)}
+                    key={targetPath}
                     expanded={expanded}
                     onClose={onCardClose}
                 />
@@ -280,7 +295,7 @@ export const TargetsView = () => {
                                 <TargetItem
                                     ps={ps}
                                     ts={ts}
-                                    onSelectTarget={onSelectTargetItem}
+                                    onSelectTarget={() => onSelectTargetItem(ps, ts)}
                                     ref={(elem) => {
                                         if (i === 0 && elem) {
                                             targetItemRefs.current.set(ts, elem);
@@ -301,7 +316,7 @@ export const TargetsView = () => {
                                         ? <CommandResultItem
                                             key={rs.id}
                                             rs={rs}
-                                            onSelectCommandResult={() => onSelectCommandResultItem(ts)}
+                                            onSelectCommandResult={() => onSelectCommandResultItem(ps, ts)}
                                             ref={(elem) => {
                                                 if (i === 0 && elem) {
                                                     commandResultItemRefs.current.set(ts, elem);

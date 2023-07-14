@@ -191,7 +191,7 @@ export const TargetItem = React.memo(React.forwardRef((
     props: {
         ps: ProjectSummary,
         ts: TargetSummary,
-        onSelectTarget?: (ts: TargetSummary) => void,
+        onSelectTarget?: () => void,
         sx?: SxProps<Theme>,
         expanded?: boolean,
         onClose?: () => void
@@ -297,7 +297,7 @@ export const TargetItem = React.memo(React.forwardRef((
                 height: cardHeight,
                 ...props.sx
             },
-            onClick: e => props.onSelectTarget?.(props.ts)
+            onClick: e => props.onSelectTarget?.()
         }}
         icon={<TargetIcon/>}
         iconTooltip={iconTooltip}

@@ -21,7 +21,7 @@ export const Router = createHashRouter([
         errorElement: <ErrorPage />,
         children: [
             {
-                path: "targets/:targetKeyHash?/history?",
+                path: "targets/:targetPath?/history?",
                 element: <TargetsView />,
                 errorElement: <ErrorPage />,
             },
