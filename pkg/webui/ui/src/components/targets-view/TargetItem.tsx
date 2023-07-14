@@ -6,7 +6,6 @@ import Tooltip from "@mui/material/Tooltip";
 import { Done, Error, Favorite, HeartBroken, PublishedWithChanges, SyncProblem } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-import { calcAgo } from "../../utils/duration";
 import { ApiContext } from "../App";
 import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
@@ -14,6 +13,7 @@ import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesTable } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
+import { Since } from "../Since";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -23,13 +23,13 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     }
 
     const buildStateTime = (c: any) => {
-        return "In this state since " + calcAgo(c.lastTransitionTime)
+        return <>In this state since <Since startTime={c.lastTransitionTime}/></>
     }
 
     const kd = props.ts.kluctlDeployments[0]
 
     let icon: React.ReactElement | undefined = undefined
-    const tooltip: string[] = []
+    const tooltip: React.ReactNode[] = []
 
     if (!kd.deployment.status) {
         icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
@@ -76,7 +76,7 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     return <Tooltip title={
         <>
             <Typography><b>Reconciliation State</b></Typography>
-            {tooltip.map(t => <Typography key={t}>{t}</Typography>)}
+            {tooltip.map(t => <Typography>{t}</Typography>)}
         </>
     }>
         <Box display='flex'>{icon}</Box>
@@ -110,7 +110,7 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         icon = <HeartBroken color={"error"} />
     }
 
-    const tooltip: string[] = []
+    const tooltip: React.ReactNode[] = []
     if (!validateEnabled) {
         tooltip.push("Validation is disabled.")
     } else if (props.ts.lastValidateResult === undefined) {
@@ -130,13 +130,13 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         /*if (props.ts.lastValidateResult.drift?.length) {
             tooltip.push(`Target has ${props.ts.lastValidateResult.drift.length} drifted objects.`)
         }*/
-        tooltip.push("Validation performed " + calcAgo(props.ts.lastValidateResult.startTime) + " ago")
+        tooltip.push(<>Validation performed <Since startTime={new Date(props.ts.lastValidateResult.startTime)}/> ago</>)
     }
 
     return <Tooltip title={
         <>
             <Typography><b>Validation State</b></Typography>
-            {tooltip.map(t => <Typography key={t}>{t}</Typography>)}
+            {tooltip.map(t => <Typography>{t}</Typography>)}
         </>
     }>
         <Box display='flex'>{icon}</Box>

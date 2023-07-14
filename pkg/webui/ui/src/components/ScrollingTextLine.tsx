@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { Box, keyframes, Typography, TypographyProps } from "@mui/material"
 
 export type ScrollingTextLineProps = Omit<TypographyProps, 'children'> & {
-    children: string;
+    children: React.ReactNode;
     scrollPadding?: number;
     scrollSpeed?: number; 
 }
@@ -14,7 +14,7 @@ export const ScrollingTextLine = React.forwardRef((
     const {
         children,
         scrollPadding = 10,
-        scrollSpeed = 10,
+        scrollSpeed = 200,
         ...rest 
     } = props;
     const containerElem = useRef<HTMLElement | null>();
@@ -45,7 +45,7 @@ export const ScrollingTextLine = React.forwardRef((
             `
         : undefined;
 
-    const duration = children.length / scrollSpeed;
+    const duration = (scrollingElemWidth || 0) / scrollSpeed;
 
     return <Typography
         textAlign='left'

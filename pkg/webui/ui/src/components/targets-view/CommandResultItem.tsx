@@ -6,7 +6,6 @@ import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
 import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
-import { calcAgo } from "../../utils/duration";
 import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { ApiContext, AppContext } from "../App";
 import { Loading } from "../Loading";
@@ -14,6 +13,7 @@ import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
 import { ErrorMessage } from "../ErrorMessage";
 import { Api } from "../../api";
 import { CommandResultNodeData } from "../result-view/nodes/CommandResultNode";
+import { Since } from "../Since";
 
 async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
     const r = await api.getCommandResult(rs.id);
@@ -106,7 +106,6 @@ export const CommandResultItem = React.memo(React.forwardRef((
         onClose
     } = props;
     const navigate = useNavigate();
-    const [ago, setAgo] = useState(calcAgo(rs.commandInfo.startTime))
 
     let Icon: () => JSX.Element = DiffIcon
     switch (rs.commandInfo?.command) {
@@ -132,11 +131,6 @@ export const CommandResultItem = React.memo(React.forwardRef((
         return <CodeViewer code={cmdInfoYaml} language={"yaml"} />
     }, [rs.commandInfo]);
 
-    useEffect(() => {
-        const interval = setInterval(() => setAgo(calcAgo(rs.commandInfo.startTime)), 5000);
-        return () => clearInterval(interval);
-    }, [rs.commandInfo.startTime]);
-
     const body = expanded ? <CommandResultItemBody rs={rs} loadData={loadData} /> : undefined;
 
     return <CardTemplate
@@ -155,7 +149,7 @@ export const CommandResultItem = React.memo(React.forwardRef((
         icon={<Icon />}
         iconTooltip={iconTooltip}
         header={rs.commandInfo?.command}
-        subheader={ago}
+        subheader={<Since startTime={new Date(rs.commandInfo.startTime)}/>}
         subheaderTooltip={rs.commandInfo.startTime}
         body={body}
         footer={
