@@ -8,7 +8,7 @@ import {
     Error,
     Favorite,
     HeartBroken,
-    Hotel,
+    Hotel, HourglassTop,
     Pause, PlayArrow,
     PublishedWithChanges, RocketLaunch,
     SyncProblem, Troubleshoot
@@ -41,6 +41,11 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement | undefined = undefined
     const tooltip: React.ReactNode[] = []
 
+    const annotations: any = kd.deployment.metadata?.annotations || {}
+    const requestReconcile = annotations["kluctl.io/request-reconcile"]
+    const requestValidate = annotations["kluctl.io/request-validate"]
+    const requestDeploy = annotations["kluctl.io/request-deploy"]
+
     if (kd.deployment.spec.suspend) {
         icon = <Hotel color={"primary"}/>
         tooltip.push("Deployment is suspended")
@@ -57,7 +62,16 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
             tooltip.push(reconcilingCondition.message)
             tooltip.push(buildStateTime(reconcilingCondition))
         } else {
-            if (readyCondition) {
+            if (requestReconcile && requestReconcile !== kd.deployment.status.lastHandledReconcileAt) {
+                icon = <HourglassTop color={"primary"}/>
+                tooltip.push("Reconcile requested: " + requestReconcile)
+            } else if (requestValidate && requestValidate !== kd.deployment.status.lastHandledValidateAt) {
+                icon = <HourglassTop color={"primary"}/>
+                tooltip.push("Validate requested: " + requestValidate)
+            } else if (requestDeploy && requestDeploy !== kd.deployment.status.lastHandledDeployAt) {
+                icon = <HourglassTop color={"primary"}/>
+                tooltip.push("Deploy requested: " + requestReconcile)
+            } else if (readyCondition) {
                 if (readyCondition.status === "True") {
                     icon = <Done color={"success"}/>
                     tooltip.push(readyCondition.message)
