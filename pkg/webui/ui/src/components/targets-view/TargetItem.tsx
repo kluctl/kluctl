@@ -28,7 +28,7 @@ import { ValidateResultsTable } from "../ValidateResultsTable";
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
 
-    if (!props.ts.kluctlDeployments.length) {
+    if (!props.ts.kd) {
         return <></>
     }
 
@@ -36,24 +36,22 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
         return <>In this state since <Since startTime={c.lastTransitionTime}/></>
     }
 
-    const kd = props.ts.kluctlDeployments[0]
-
     let icon: React.ReactElement | undefined = undefined
     const tooltip: React.ReactNode[] = []
 
-    const annotations: any = kd.deployment.metadata?.annotations || {}
+    const annotations: any = props.ts.kd.deployment.metadata?.annotations || {}
     const requestReconcile = annotations["kluctl.io/request-reconcile"]
     const requestValidate = annotations["kluctl.io/request-validate"]
     const requestDeploy = annotations["kluctl.io/request-deploy"]
 
-    if (kd.deployment.spec.suspend) {
+    if (props.ts.kd.deployment.spec.suspend) {
         icon = <Hotel color={"primary"}/>
         tooltip.push("Deployment is suspended")
-    } else if (!kd.deployment.status) {
+    } else if (!props.ts.kd.deployment.status) {
         icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
         tooltip.push("Status not available")
     } else {
-        const conditions: any[] | undefined = kd.deployment.status.conditions
+        const conditions: any[] | undefined = props.ts.kd.deployment.status.conditions
         const readyCondition = conditions?.find(c => c.type === "Ready")
         const reconcilingCondition = conditions?.find(c => c.type === "Reconciling")
 
@@ -62,13 +60,13 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
             tooltip.push(reconcilingCondition.message)
             tooltip.push(buildStateTime(reconcilingCondition))
         } else {
-            if (requestReconcile && requestReconcile !== kd.deployment.status.lastHandledReconcileAt) {
+            if (requestReconcile && requestReconcile !== props.ts.kd.deployment.status.lastHandledReconcileAt) {
                 icon = <HourglassTop color={"primary"}/>
                 tooltip.push("Reconcile requested: " + requestReconcile)
-            } else if (requestValidate && requestValidate !== kd.deployment.status.lastHandledValidateAt) {
+            } else if (requestValidate && requestValidate !== props.ts.kd.deployment.status.lastHandledValidateAt) {
                 icon = <HourglassTop color={"primary"}/>
                 tooltip.push("Validate requested: " + requestValidate)
-            } else if (requestDeploy && requestDeploy !== kd.deployment.status.lastHandledDeployAt) {
+            } else if (requestDeploy && requestDeploy !== props.ts.kd.deployment.status.lastHandledDeployAt) {
                 icon = <HourglassTop color={"primary"}/>
                 tooltip.push("Deploy requested: " + requestReconcile)
             } else if (readyCondition) {
@@ -114,14 +112,7 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement
     const theme = useTheme();
 
-    let validateEnabled = false
-    props.ts.kluctlDeployments.forEach(kd => {
-        if (kd.deployment.spec.validate) {
-            validateEnabled = true
-        }
-    })
-
-    if (!validateEnabled) {
+    if (!props.ts.kd?.deployment.spec.validate) {
         icon = <Favorite color={"disabled"}/>
     } else if (props.ts.lastValidateResult === undefined) {
         icon = <MessageQuestionIcon color={theme.palette.error.main}/>
@@ -138,7 +129,7 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     }
 
     const tooltip: React.ReactNode[] = []
-    if (!validateEnabled) {
+    if (!props.ts.kd?.deployment.spec.validate) {
         tooltip.push("Validation is disabled.")
     } else if (props.ts.lastValidateResult === undefined) {
         tooltip.push("No validation result available.")
@@ -209,25 +200,26 @@ export const TargetItem = React.memo(React.forwardRef((
 ) => {
     const api = useContext(ApiContext)
     const actionMenuItems: ActionMenuItem[] = []
+    const kd = props.ts.kd
 
-    props.ts.kluctlDeployments.forEach(kd => {
+    if (kd) {
         actionMenuItems.push({
             icon: <Troubleshoot/>,
-            text: <Typography>Validate <b>{kd.deployment.metadata.name}</b></Typography>,
+            text: <Typography>Validate</Typography>,
             handler: () => {
                 api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({
             icon: <PublishedWithChanges/>,
-            text: <Typography>Reconcile <b>{kd.deployment.metadata.name}</b></Typography>,
+            text: <Typography>Reconcile</Typography>,
             handler: () => {
                 api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({
             icon: <RocketLaunch/>,
-            text: <Typography>Deploy <b>{kd.deployment.metadata.name}</b></Typography>,
+            text: <Typography>Deploy</Typography>,
             handler: () => {
                 api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
@@ -235,7 +227,7 @@ export const TargetItem = React.memo(React.forwardRef((
         if (!kd.deployment.spec.suspend) {
             actionMenuItems.push({
                 icon: <Pause/>,
-                text: <Typography>Suspend <b>{kd.deployment.metadata.name}</b></Typography>,
+                text: <Typography>Suspend</Typography>,
                 handler: () => {
                     api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, true)
                 }
@@ -243,13 +235,13 @@ export const TargetItem = React.memo(React.forwardRef((
         } else {
             actionMenuItems.push({
                 icon: <PlayArrow/>,
-                text: <Typography>Resume <b>{kd.deployment.metadata.name}</b></Typography>,
+                text: <Typography>Resume</Typography>,
                 handler: () => {
                     api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, false)
                 }
             })
         }
-    })
+    }
 
     const allContexts: string[] = []
 
@@ -269,8 +261,8 @@ export const TargetItem = React.memo(React.forwardRef((
     })
 
     let header = "<command-line>"
-    if (props.ts.kluctlDeployments.length) {
-        header = props.ts.kluctlDeployments[0].deployment.metadata.name
+    if (kd) {
+        header = kd.deployment.metadata.name
     }
 
     let subheader = "<no-name>"
@@ -279,11 +271,9 @@ export const TargetItem = React.memo(React.forwardRef((
     }
 
     const iconTooltipChildren: React.ReactNode[] = []
-    if (props.ts.kluctlDeployments.length) {
+    if (kd) {
         iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant={"subtitle2"}><b>KluctlDeployments</b></Typography>)
-        props.ts.kluctlDeployments.forEach(kd => {
-            iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant={"subtitle2"}>{kd.deployment.metadata.name}</Typography>)
-        })
+        iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant={"subtitle2"}>{kd.deployment.metadata.name}</Typography>)
         iconTooltipChildren.push(<br key={iconTooltipChildren.length}/>)
     }
     if (allContexts.length) {
@@ -393,13 +383,12 @@ class TargetItemCardProvider implements SidePanelProvider {
         }
 
         let errorHeader
-        if (this.ts?.kluctlDeployments.length) {
-            const kd = this.ts.kluctlDeployments[0]
-            if (kd.deployment.status && kd.deployment.status.lastPrepareError) {
+        if (this.ts?.kd?.deployment.status) {
+            if (this.ts.kd.deployment.status.lastPrepareError) {
                 errorHeader = <Alert severity="error">
                     The prepare step failed for this deployment. This usually means that your deployment is severely
                     broken and can't even be loaded.<br/>
-                    The error message is: <b>{kd.deployment.status.lastPrepareError}</b>
+                    The error message is: <b>{this.ts.kd.deployment.status.lastPrepareError}</b>
                 </Alert>
             }
         }

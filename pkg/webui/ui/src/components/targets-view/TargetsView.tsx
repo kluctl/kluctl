@@ -276,7 +276,7 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
-                            return <Box key={buildListKey(ts.target)} display='flex'>
+                            return <Box key={buildListKey([ts.target, ts.kdInfo])} display='flex'>
                                 <TargetItem
                                     ps={ps}
                                     ts={ts}
@@ -295,7 +295,7 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
-                            return <CardRow key={buildListKey(ts.target)} height={cardHeight}>
+                            return <CardRow key={buildListKey([ts.target, ts.kdInfo])} height={cardHeight}>
                                 {ts.commandResults?.slice(0, 4).map((rs, i) => {
                                     return i === 0
                                         ? <CommandResultItem
