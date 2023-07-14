@@ -1126,6 +1126,17 @@ string
 </tr>
 <tr>
 <td>
+<code>lastPrepareError</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>lastDeployError</code><br>
 <em>
 string

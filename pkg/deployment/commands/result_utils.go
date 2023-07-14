@@ -13,10 +13,10 @@ import (
 	"time"
 )
 
-func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, r *result.CommandResult, command string) error {
+func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.CommandResult, command string) error {
 	r.Target = targetCtx.Target
 	r.Command = result.CommandInfo{
-		StartTime: metav1.NewTime(targetCtx.KluctlProject.LoadTime),
+		StartTime: metav1.NewTime(startTime),
 		EndTime:   metav1.Now(),
 		Command:   command,
 		Args:      targetCtx.KluctlProject.LoadArgs.ExternalArgs,
@@ -50,8 +50,8 @@ func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, r *resu
 	return nil
 }
 
-func addValidateCommandInfoToResult(targetCtx *kluctl_project.TargetContext, r *result.ValidateResult) error {
-	r.StartTime = metav1.NewTime(targetCtx.KluctlProject.LoadTime)
+func addValidateCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.ValidateResult) error {
+	r.StartTime = metav1.NewTime(startTime)
 	r.EndTime = metav1.Now()
 	var err error
 	_, r.ProjectKey, err = buildGitInfo(targetCtx)

@@ -106,7 +106,7 @@ func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
 		Warnings:   dew.GetWarningsList(),
 		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
 	}
-	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "deploy")
+	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "deploy")
 	if err != nil {
 		return r, err
 	}

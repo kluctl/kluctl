@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
+	"time"
 )
 
 type ValidateCommand struct {
@@ -37,6 +38,11 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 	ret := result.ValidateResult{
 		Id:    uuid.New().String(),
 		Ready: true,
+	}
+
+	startTime := time.Now()
+	if cmd.r == nil {
+		startTime = cmd.targetCtx.KluctlProject.LoadTime
 	}
 
 	cmd.dew.Init()
@@ -115,7 +121,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 	ret.Warnings = append(ret.Warnings, cmd.dew.GetWarningsList()...)
 	ret.Errors = append(ret.Errors, cmd.dew.GetErrorsList()...)
 
-	err = addValidateCommandInfoToResult(cmd.targetCtx, &ret)
+	err = addValidateCommandInfoToResult(cmd.targetCtx, startTime, &ret)
 	if err != nil {
 		return nil, err
 	}

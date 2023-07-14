@@ -25,12 +25,13 @@ type ValidateResult struct {
 }
 
 type ValidateResultSummary struct {
-	Id         string      `json:"id"`
-	ProjectKey ProjectKey  `json:"projectKey"`
-	TargetKey  TargetKey   `json:"targetKey"`
-	StartTime  metav1.Time `json:"startTime"`
-	EndTime    metav1.Time `json:"endTime"`
-	Ready      bool        `json:"ready"`
+	Id               string                `json:"id"`
+	ProjectKey       ProjectKey            `json:"projectKey"`
+	TargetKey        TargetKey             `json:"targetKey"`
+	KluctlDeployment *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
+	StartTime        metav1.Time           `json:"startTime"`
+	EndTime          metav1.Time           `json:"endTime"`
+	Ready            bool                  `json:"ready"`
 
 	Warnings int `json:"warnings"`
 	Errors   int `json:"errors"`
@@ -39,14 +40,15 @@ type ValidateResultSummary struct {
 
 func (vr *ValidateResult) BuildSummary() ValidateResultSummary {
 	return ValidateResultSummary{
-		Id:         vr.Id,
-		ProjectKey: vr.ProjectKey,
-		TargetKey:  vr.TargetKey,
-		StartTime:  vr.StartTime,
-		EndTime:    vr.EndTime,
-		Ready:      vr.Ready,
-		Warnings:   len(vr.Warnings),
-		Errors:     len(vr.Errors),
-		Results:    len(vr.Results),
+		Id:               vr.Id,
+		ProjectKey:       vr.ProjectKey,
+		TargetKey:        vr.TargetKey,
+		KluctlDeployment: vr.KluctlDeployment,
+		StartTime:        vr.StartTime,
+		EndTime:          vr.EndTime,
+		Ready:            vr.Ready,
+		Warnings:         len(vr.Warnings),
+		Errors:           len(vr.Errors),
+		Results:          len(vr.Results),
 	}
 }

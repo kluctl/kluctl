@@ -127,7 +127,7 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
 	r.Command.AbortOnError = cmd.AbortOnError
 	r.Command.NoWait = cmd.NoWait
-	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "deploy")
+	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "deploy")
 	if err != nil {
 		return r, err
 	}

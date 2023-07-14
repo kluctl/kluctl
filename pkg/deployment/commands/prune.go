@@ -61,7 +61,7 @@ func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*resu
 		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, nil, deleted),
 		Warnings: dew.GetWarningsList(),
 	}
-	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "prune")
+	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "prune")
 	if err != nil {
 		return r, err
 	}

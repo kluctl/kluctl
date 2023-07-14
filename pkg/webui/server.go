@@ -121,6 +121,7 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	api.POST("/validateNow", s.validateNow)
 	api.POST("/reconcileNow", s.reconcileNow)
 	api.POST("/deployNow", s.deployNow)
+	api.POST("/setSuspended", s.setSuspended)
 
 	err = s.events.startEventsWatcher()
 	if err != nil {
@@ -364,25 +365,12 @@ func (s *CommandResultsServer) getValidateResult(c *gin.Context) {
 	c.JSON(http.StatusOK, vr)
 }
 
-type kluctlDeploymentParam struct {
-	Cluster   string `json:"cluster"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
-
-func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {
-	var params kluctlDeploymentParam
-	err := c.Bind(&params)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
+func (s *CommandResultsServer) doModifyKluctlDeployment(c *gin.Context, clusterId string, name string, namespace string, update func(obj *kluctlv1.KluctlDeployment) error) {
 	user := s.auth.getUser(c)
 
-	ca := s.cam.getForClusterId(params.Cluster)
+	ca := s.cam.getForClusterId(clusterId)
 	if ca == nil {
-		_ = c.AbortWithError(http.StatusNotFound, err)
+		_ = c.AbortWithError(http.StatusNotFound, fmt.Errorf("cluster %s not found", clusterId))
 		return
 	}
 
@@ -396,7 +384,7 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	defer cancel()
 
 	var kd kluctlv1.KluctlDeployment
-	err = kc.Get(ctx, client.ObjectKey{Name: params.Name, Namespace: params.Namespace}, &kd)
+	err = kc.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &kd)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			_ = c.AbortWithError(http.StatusNotFound, err)
@@ -407,7 +395,13 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	}
 
 	patch := client.MergeFrom(kd.DeepCopy())
-	metav1.SetMetaDataAnnotation(&kd.ObjectMeta, aname, avalue)
+
+	err = update(&kd)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
 	err = kc.Patch(ctx, &kd, patch, client.FieldOwner(webuiManager))
 	if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
@@ -415,6 +409,25 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	}
 
 	c.Status(http.StatusOK)
+}
+
+type KluctlDeploymentParam struct {
+	Cluster   string `json:"cluster"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {
+	var params KluctlDeploymentParam
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
+		metav1.SetMetaDataAnnotation(&obj.ObjectMeta, aname, avalue)
+		return nil
+	})
 }
 
 func (s *CommandResultsServer) validateNow(c *gin.Context) {
@@ -427,4 +440,21 @@ func (s *CommandResultsServer) reconcileNow(c *gin.Context) {
 
 func (s *CommandResultsServer) deployNow(c *gin.Context) {
 	s.doSetAnnotation(c, kluctlv1.KluctlRequestDeployAnnotation, time.Now().Format(time.RFC3339Nano))
+}
+
+func (s *CommandResultsServer) setSuspended(c *gin.Context) {
+	var params struct {
+		KluctlDeploymentParam
+		Suspend bool `json:"suspend"`
+	}
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
+		obj.Spec.Suspend = params.Suspend
+		return nil
+	})
 }

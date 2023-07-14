@@ -5,7 +5,8 @@ import { ActiveFilters, DoFilterSwitches, DoFilterText } from "./components/Filt
 
 export interface TargetSummary {
     target: TargetKey;
-    kluctlDeployments: Map<string, KluctlDeploymentWithClusterId>;
+    kdInfo?: KluctlDeploymentInfo
+    kd?: KluctlDeploymentWithClusterId;
     lastValidateResult?: ValidateResultSummary;
     commandResults: CommandResultSummary[];
 }
@@ -61,6 +62,13 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         let hasErrors = !!ts.lastValidateResult?.errors
         let hasWarnings = !!ts.lastValidateResult?.warnings
         let hasChanges = false
+
+        const conditions: any[] | undefined = ts.kd?.deployment.status?.conditions
+        const readyCondition = conditions?.find(c => c.type === "Ready")
+        if (readyCondition && readyCondition.status === "False") {
+            hasErrors = true
+        }
+
         if (ts.commandResults.length) {
             hasErrors = hasErrors || !!ts.commandResults[0].errors?.length
             hasWarnings = hasWarnings || !!ts.commandResults[0].warnings?.length
@@ -95,16 +103,16 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         }
         return p
     }
-    const getOrCreateTarget = (project: ProjectKey, targetKey: TargetKey, allowCreateProject: boolean, allowCreateTarget: boolean) => {
+    const getOrCreateTarget = (project: ProjectKey, targetKey: TargetKey, kdInfo: KluctlDeploymentInfo | undefined, allowCreateProject: boolean, allowCreateTarget: boolean) => {
         const p = getOrCreateProject(project, allowCreateProject)
         if (!p) {
             return undefined
         }
-        let t = p.targets.find(t => _.isEqual(t.target, targetKey))
+        let t = p.targets.find(t => _.isEqual(t.target, targetKey) && _.isEqual(t.kdInfo, kdInfo))
         if (!t && allowCreateTarget) {
             t = {
                 target: targetKey,
-                kluctlDeployments: new Map<string, KluctlDeploymentWithClusterId>(),
+                kdInfo: kdInfo,
                 commandResults: []
             }
             p.targets.push(t)
@@ -121,10 +129,15 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
             return
         }
 
+        const kdInfo = {
+            "clusterId": kd.clusterId,
+            "name": kd.deployment.metadata.name,
+            "namespace": kd.deployment.metadata.namespace,
+        }
         kluctlDeploymentsByKdKey.set(buildKdKey(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace), kd)
 
-        const target = getOrCreateTarget(kd.deployment.status.projectKey, kd.deployment.status.targetKey, true, true)
-        target!.kluctlDeployments.set(buildKdKey(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace), kd)
+        const target = getOrCreateTarget(kd.deployment.status.projectKey, kd.deployment.status.targetKey, kdInfo,true, true)
+        target!.kd = kd
     })
 
     sortedCommandResults.forEach(rs => {
@@ -140,7 +153,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
             return
         }
 
-        const target = getOrCreateTarget(rs.projectKey, rs.targetKey, true, true)
+        const target = getOrCreateTarget(rs.projectKey, rs.targetKey, rs.commandInfo.kluctlDeployment, true, true)
         if (!target) {
             return
         }
@@ -149,12 +162,12 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     })
 
     validateResultSummaries.forEach(vr => {
-        const target = getOrCreateTarget(vr.projectKey, vr.targetKey, false, false)
+        const target = getOrCreateTarget(vr.projectKey, vr.targetKey, vr.kluctlDeployment, false, false)
         if (!target) {
             return
         }
 
-        if (!target.lastValidateResult) {
+        if (!target.lastValidateResult || vr.startTime > target.lastValidateResult.startTime) {
             target.lastValidateResult = vr
         }
     })

@@ -324,6 +324,8 @@ type KluctlDeploymentStatus struct {
 	LastObjectsHash string `json:"lastObjectsHash,omitempty"`
 
 	// +optional
+	LastPrepareError string `json:"lastPrepareError,omitempty"`
+	// +optional
 	LastDeployError string `json:"lastDeployError,omitempty"`
 	// +optional
 	LastValidateError string `json:"lastValidateError,omitempty"`
