@@ -49,6 +49,8 @@ func (k *K8sCluster) doGetApiGroupResources() ([]*restmapper.APIGroupResources, 
 
 func (k *K8sCluster) doGetFilteredGVKs(ret *[]schema.GroupVersionKind, g v1.APIGroup, v string, vrs []v1.APIResource, filter func(ar *v1.APIResource) bool) {
 	for _, vr := range vrs {
+		vr.Group = g.Name
+		vr.Version = v
 		if strings.Index(vr.Name, "/") != -1 {
 			// skip sub-resources
 			continue
