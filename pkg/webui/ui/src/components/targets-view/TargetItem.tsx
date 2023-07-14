@@ -3,7 +3,16 @@ import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
 import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
-import { Done, Error, Favorite, HeartBroken, PublishedWithChanges, SyncProblem } from "@mui/icons-material";
+import {
+    Done,
+    Error,
+    Favorite,
+    HeartBroken,
+    Hotel,
+    Pause, PlayArrow,
+    PublishedWithChanges, RocketLaunch,
+    SyncProblem, Troubleshoot
+} from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { ApiContext } from "../App";
@@ -32,7 +41,10 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     let icon: React.ReactElement | undefined = undefined
     const tooltip: React.ReactNode[] = []
 
-    if (!kd.deployment.status) {
+    if (kd.deployment.spec.suspend) {
+        icon = <Hotel color={"primary"}/>
+        tooltip.push("Deployment is suspended")
+    } else if (!kd.deployment.status) {
         icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
         tooltip.push("Status not available")
     } else {
@@ -186,7 +198,7 @@ export const TargetItem = React.memo(React.forwardRef((
 
     props.ts.kluctlDeployments.forEach(kd => {
         actionMenuItems.push({
-            icon: <PublishedWithChanges/>,
+            icon: <Troubleshoot/>,
             text: <Typography>Validate <b>{kd.deployment.metadata.name}</b></Typography>,
             handler: () => {
                 api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
@@ -200,12 +212,29 @@ export const TargetItem = React.memo(React.forwardRef((
             }
         })
         actionMenuItems.push({
-            icon: <PublishedWithChanges/>,
+            icon: <RocketLaunch/>,
             text: <Typography>Deploy <b>{kd.deployment.metadata.name}</b></Typography>,
             handler: () => {
                 api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
+        if (!kd.deployment.spec.suspend) {
+            actionMenuItems.push({
+                icon: <Pause/>,
+                text: <Typography>Suspend <b>{kd.deployment.metadata.name}</b></Typography>,
+                handler: () => {
+                    api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, true)
+                }
+            })
+        } else {
+            actionMenuItems.push({
+                icon: <PlayArrow/>,
+                text: <Typography>Resume <b>{kd.deployment.metadata.name}</b></Typography>,
+                handler: () => {
+                    api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, false)
+                }
+            })
+        }
     })
 
     const allContexts: string[] = []

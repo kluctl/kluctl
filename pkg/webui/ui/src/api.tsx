@@ -41,6 +41,7 @@ export interface Api {
     validateNow(cluster: string, name: string, namespace: string): Promise<Response>
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
+    setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response>
 }
 
 export async function checkStaticBuild() {
@@ -247,6 +248,15 @@ export class RealApi implements Api {
             "namespace": namespace,
         })
     }
+
+    async setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response> {
+        return this.doPost("/api/setSuspended", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+            "suspend": suspend,
+        })
+    }
 }
 
 export class StaticApi implements Api {
@@ -310,6 +320,10 @@ export class StaticApi implements Api {
     }
 
     deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        throw new Error("not implemented")
+    }
+
+    setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response> {
         throw new Error("not implemented")
     }
 }
