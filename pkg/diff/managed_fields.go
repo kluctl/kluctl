@@ -21,6 +21,7 @@ var forceApplyFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/force-apply-
 var ignoreConflictsFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-conflicts-field(-\d*)?$`)
 var overwriteAllowedManagers = []*regexp.Regexp{
 	regexp.MustCompile("^kluctl$"),
+	regexp.MustCompile("^kluctl-.*$"),
 	regexp.MustCompile("^kubectl$"),
 	regexp.MustCompile("^kubectl-.*$"),
 	regexp.MustCompile("^rancher$"),
