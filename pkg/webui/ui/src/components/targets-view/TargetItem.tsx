@@ -1,6 +1,6 @@
 import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
-import { Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
+import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
 import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import { Done, Error, Favorite, HeartBroken, PublishedWithChanges, SyncProblem } from "@mui/icons-material";
@@ -14,6 +14,7 @@ import { PropertiesTable } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { Since } from "../Since";
+import { ValidateResultsTable } from "../ValidateResultsTable";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -69,14 +70,14 @@ const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     }
 
     if (!icon) {
-        icon = <MessageQuestionIcon color={theme.palette.warning.main} />
+        icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
         tooltip.push("Unexpected state")
     }
 
     return <Tooltip title={
         <>
-            <Typography><b>Reconciliation State</b></Typography>
-            {tooltip.map(t => <Typography>{t}</Typography>)}
+            <Typography key={"title"}><b>Reconciliation State</b></Typography>
+            {tooltip.map((t, i) => <Typography key={i}>{t}</Typography>)}
         </>
     }>
         <Box display='flex'>{icon}</Box>
@@ -97,17 +98,17 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     if (!validateEnabled) {
         icon = <Favorite color={"disabled"}/>
     } else if (props.ts.lastValidateResult === undefined) {
-        icon = <MessageQuestionIcon color={theme.palette.error.main} />
+        icon = <MessageQuestionIcon color={theme.palette.error.main}/>
     } else if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
         if (props.ts.lastValidateResult.warnings) {
-            icon = <Favorite color={"warning"} />
-        /*} else if (props.ts.lastValidateResult.drift?.length) {
-            icon = <Favorite color={"primary"} />*/
+            icon = <Favorite color={"warning"}/>
+            /*} else if (props.ts.lastValidateResult.drift?.length) {
+                icon = <Favorite color={"primary"} />*/
         } else {
-            icon = <Favorite color={"success"} />
+            icon = <Favorite color={"success"}/>
         }
     } else {
-        icon = <HeartBroken color={"error"} />
+        icon = <HeartBroken color={"error"}/>
     }
 
     const tooltip: React.ReactNode[] = []
@@ -135,8 +136,8 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
 
     return <Tooltip title={
         <>
-            <Typography><b>Validation State</b></Typography>
-            {tooltip.map(t => <Typography>{t}</Typography>)}
+            <Typography key={"title"}><b>Validation State</b></Typography>
+            {tooltip.map((t, i) => <Typography key={i}>{t}</Typography>)}
         </>
     }>
         <Box display='flex'>{icon}</Box>
@@ -157,7 +158,7 @@ export const TargetItemBody = React.memo((props: {
     }, [props.ts.lastValidateResult?.id])
 
     if (loading) {
-        return <Loading />;
+        return <Loading/>;
     }
 
     if (error) {
@@ -166,7 +167,7 @@ export const TargetItemBody = React.memo((props: {
         </ErrorMessage>;
     }
 
-    return <CardBody provider={new MyProvider(props.ts, vr)}/>
+    return <CardBody provider={new TargetItemCardProvider(props.ts, vr)}/>
 });
 
 export const TargetItem = React.memo(React.forwardRef((
@@ -185,21 +186,21 @@ export const TargetItem = React.memo(React.forwardRef((
 
     props.ts.kluctlDeployments.forEach(kd => {
         actionMenuItems.push({
-            icon: <PublishedWithChanges />,
+            icon: <PublishedWithChanges/>,
             text: <Typography>Validate <b>{kd.deployment.metadata.name}</b></Typography>,
             handler: () => {
                 api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({
-            icon: <PublishedWithChanges />,
+            icon: <PublishedWithChanges/>,
             text: <Typography>Reconcile <b>{kd.deployment.metadata.name}</b></Typography>,
             handler: () => {
                 api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({
-            icon: <PublishedWithChanges />,
+            icon: <PublishedWithChanges/>,
             text: <Typography>Deploy <b>{kd.deployment.metadata.name}</b></Typography>,
             handler: () => {
                 api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
@@ -236,21 +237,21 @@ export const TargetItem = React.memo(React.forwardRef((
 
     const iconTooltipChildren: React.ReactNode[] = []
     if (props.ts.kluctlDeployments.length) {
-        iconTooltipChildren.push(<Typography variant={"subtitle2"}><b>KluctlDeployments</b></Typography>)
+        iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant={"subtitle2"}><b>KluctlDeployments</b></Typography>)
         props.ts.kluctlDeployments.forEach(kd => {
-            iconTooltipChildren.push(<Typography variant={"subtitle2"}>{kd.deployment.metadata.name}</Typography>)
+            iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant={"subtitle2"}>{kd.deployment.metadata.name}</Typography>)
         })
-        iconTooltipChildren.push(<br/>)
+        iconTooltipChildren.push(<br key={iconTooltipChildren.length}/>)
     }
     if (allContexts.length) {
-        iconTooltipChildren.push(<Typography variant="subtitle2"><b>Contexts</b></Typography>)
+        iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant="subtitle2"><b>Contexts</b></Typography>)
         allContexts.forEach(context => {
-            iconTooltipChildren.push(<Typography key={context} variant="subtitle2">{context}</Typography>)
+            iconTooltipChildren.push(<Typography key={iconTooltipChildren.length} variant="subtitle2">{context}</Typography>)
         })
     }
     const iconTooltip = <Box textAlign={"center"}>{iconTooltipChildren}</Box>
 
-    const body = props.expanded ? <TargetItemBody ts={props.ts} /> : undefined;
+    const body = props.expanded ? <TargetItemBody ts={props.ts}/> : undefined;
 
     return <CardTemplate
         ref={ref}
@@ -265,7 +266,7 @@ export const TargetItem = React.memo(React.forwardRef((
             },
             onClick: e => props.onSelectTarget?.(props.ts)
         }}
-        icon={<TargetIcon />}
+        icon={<TargetIcon/>}
         iconTooltip={iconTooltip}
         header={header}
         subheader={subheader}
@@ -274,16 +275,16 @@ export const TargetItem = React.memo(React.forwardRef((
             <>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <Tooltip title={"Cluster ID: " + props.ts.target.clusterId}>
-                        <Box display='flex'><CpuIcon /></Box>
+                        <Box display='flex'><CpuIcon/></Box>
                     </Tooltip>
                     <Tooltip title={"Discriminator: " + props.ts.target.discriminator}>
-                        <Box display='flex'><FingerScanIcon /></Box>
+                        <Box display='flex'><FingerScanIcon/></Box>
                     </Tooltip>
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <ReconcilingIcon {...props} />
                     <StatusIcon {...props} />
-                    <ActionsMenu menuItems={actionMenuItems} />
+                    <ActionsMenu menuItems={actionMenuItems}/>
                 </Box>
             </>
         }
@@ -292,7 +293,7 @@ export const TargetItem = React.memo(React.forwardRef((
 
 TargetItem.displayName = 'TargetItem';
 
-class MyProvider implements SidePanelProvider {
+class TargetItemCardProvider implements SidePanelProvider {
     private ts?: TargetSummary;
     private lastValidateResult?: ValidateResult
 
@@ -310,16 +311,22 @@ class MyProvider implements SidePanelProvider {
             { label: "Summary", content: this.buildSummaryTab() }
         ]
 
+        if (this.lastValidateResult?.results) {
+            tabs.push({
+                label: "Validation Results",
+                content: <ValidateResultsTable results={this.lastValidateResult.results}/>
+            })
+        }
         if (this.lastValidateResult?.errors) {
             tabs.push({
-                label: "Errors",
-                content: <ErrorsTable errors={this.lastValidateResult.errors} />
+                label: "Validation Errors",
+                content: <ErrorsTable errors={this.lastValidateResult.errors}/>
             })
         }
         if (this.lastValidateResult?.warnings) {
             tabs.push({
-                label: "Warnings",
-                content: <ErrorsTable errors={this.lastValidateResult.warnings} />
+                label: "Validation Warnings",
+                content: <ErrorsTable errors={this.lastValidateResult.warnings}/>
             })
         }
 
@@ -342,8 +349,21 @@ class MyProvider implements SidePanelProvider {
             props.push({ name: "Warnings", value: this.ts?.lastValidateResult.warnings + "" })
         }
 
+        let errorHeader
+        if (this.ts?.kluctlDeployments.length) {
+            const kd = this.ts.kluctlDeployments[0]
+            if (kd.deployment.status && kd.deployment.status.lastPrepareError) {
+                errorHeader = <Alert severity="error">
+                    The prepare step failed for this deployment. This usually means that your deployment is severely
+                    broken and can't even be loaded.<br/>
+                    The error message is: <b>{kd.deployment.status.lastPrepareError}</b>
+                </Alert>
+            }
+        }
+
         return <>
-            <PropertiesTable properties={props} />
+            {errorHeader}
+            <PropertiesTable properties={props}/>
         </>
     }
 
