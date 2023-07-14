@@ -177,6 +177,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	doFailPrepare := func(err error) (*ctrl.Result, error) {
+		obj.Status.LastPrepareError = err.Error()
 		return doFail(kluctlv1.PrepareFailedReason, err)
 	}
 
@@ -248,6 +249,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	if patchErr != nil {
 		return nil, patchErr
 	}
+
+	obj.Status.LastPrepareError = ""
 
 	pp, err := prepareProject(ctx, r, obj, true)
 	if err != nil {
