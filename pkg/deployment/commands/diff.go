@@ -72,7 +72,7 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 	r.Command.ForceApply = cmd.ForceApply
 	r.Command.ReplaceOnError = cmd.ReplaceOnError
 	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
-	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "diff")
+	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "diff")
 	if err != nil {
 		return r, err
 	}

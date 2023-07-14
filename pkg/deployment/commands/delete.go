@@ -80,7 +80,7 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 		Warnings: dew.GetWarningsList(),
 	}
 	if cmd.targetCtx != nil {
-		err = addBaseCommandInfoToResult(cmd.targetCtx, r, "delete")
+		err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "delete")
 		if err != nil {
 			return r, err
 		}
