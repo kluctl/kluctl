@@ -15,7 +15,7 @@ import {
 } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-import { ApiContext } from "../App";
+import { ApiContext, UserContext } from "../App";
 import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
@@ -199,10 +199,11 @@ export const TargetItem = React.memo(React.forwardRef((
     ref: React.ForwardedRef<HTMLDivElement>
 ) => {
     const api = useContext(ApiContext)
+    const user = useContext(UserContext)
     const actionMenuItems: ActionMenuItem[] = []
     const kd = props.ts.kd
 
-    if (kd) {
+    if (kd && user && user.isAdmin) {
         actionMenuItems.push({
             icon: <Troubleshoot/>,
             text: <Typography>Validate</Typography>,

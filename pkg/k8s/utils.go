@@ -66,3 +66,18 @@ func GetClusterId(ctx context.Context, c client.Client) (string, error) {
 	}
 	return string(clusterId), nil
 }
+
+func GetSingleSecret(ctx context.Context, c client.Client, name string, namespace string, key string) (string, error) {
+	var secret corev1.Secret
+	err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &secret)
+	if err != nil {
+		return "", err
+	}
+
+	x, ok := secret.Data[key]
+	if !ok {
+		return "", fmt.Errorf("secret %s has no '%s' key", name, key)
+	}
+
+	return string(x), nil
+}

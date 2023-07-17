@@ -21,6 +21,7 @@ func main() {
 		Add(webui.ShortName{}).
 		Add(uo.UnstructuredObject{}).
 		Add(webui.ProjectTargetKey{}).
+		Add(webui.AuthInfo{}).
 		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.GitRef{}, typescriptify.TypeOptions{TSType: "GitRef", TSTransform: "new GitRef(__VALUE__)"}).
 		ManageType(types.GitRepoKey{}, typescriptify.TypeOptions{TSType: "string"}).

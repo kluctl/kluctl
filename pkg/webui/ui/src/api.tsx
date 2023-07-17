@@ -1,4 +1,4 @@
-import { CommandResult, ObjectRef, ResultObject, ShortName, ValidateResult } from "./models";
+import { AuthInfo, CommandResult, ObjectRef, ResultObject, ShortName, ValidateResult } from "./models";
 import _ from "lodash";
 import React from "react";
 import { Box, Typography } from "@mui/material";
@@ -33,6 +33,8 @@ export interface User {
 }
 
 export interface Api {
+    getAuthInfo(): Promise<AuthInfo>
+    getUser(): Promise<User>
     getShortNames(): Promise<ShortName[]>
     listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
     getCommandResult(resultId: string): Promise<CommandResult>
@@ -55,61 +57,21 @@ export async function checkStaticBuild() {
 }
 
 export class RealApi implements Api {
-    getToken?: (() => string);
     onUnauthorized?: () => void;
-    onTokenRefresh?: (newToken: string) => void;
 
-    constructor(getToken?: (() => string), onUnauthorized?: () => void, onTokenRefresh?: (newToken: string) => void) {
-        this.getToken = getToken
+    constructor(onUnauthorized?: () => void) {
         this.onUnauthorized = onUnauthorized
-        this.onTokenRefresh = onTokenRefresh
     }
 
-    setAuthorizationHeader(headers: any) {
-        if (!this.getToken) {
-            return
-        }
-        headers['Authorization'] = "Bearer " + this.getToken()
-    }
-
-    async refreshToken() {
-        const headers = {
-            'Accept': 'application/json',
-        }
-        this.setAuthorizationHeader(headers)
-        const resp = await fetch("/auth/refresh", {
-            method: "POST",
-            headers: headers,
-        })
-        if (resp.status === 401) {
-            if (this.onUnauthorized) {
-                this.onUnauthorized()
-            }
-            throw Error(resp.statusText)
-        }
-        const j = await resp.json()
-        if (this.onTokenRefresh) {
-            this.onTokenRefresh(j.token)
-        }
-    }
-
-    async handleErrors(response: Response, retry?: () => Promise<Response>): Promise<Response> {
+    handleErrors(response: Response) {
         if (!response.ok) {
             if (response.status === 401) {
-                if (this.getToken && retry) {
-                    console.log("retrying with token refresh")
-                    await this.refreshToken()
-                    const newResp = await retry()
-                    return await this.handleErrors(newResp)
-                } else {
-                    if (this.onUnauthorized) {
-                        this.onUnauthorized()
-                    }
+                if (this.onUnauthorized) {
+                    this.onUnauthorized()
                 }
             }
             throw Error(response.statusText)
         }
-        return response
     }
 
     async doGet(path: string, params?: URLSearchParams, abort?: AbortSignal) {
@@ -117,39 +79,35 @@ export class RealApi implements Api {
         if (params) {
             url += "?" + params.toString()
         }
-        const doFetch = () => {
-            const headers = {
-                'Accept': 'application/json',
-            }
-            this.setAuthorizationHeader(headers)
-            return fetch(url, {
-                method: "GET",
-                headers: headers,
-                signal: abort ? abort : null,
-            })
-        }
-        let resp = await doFetch()
-        resp = await this.handleErrors(resp, doFetch)
+        const resp = await fetch(url, {
+            method: "GET",
+            signal: abort ? abort : null,
+        })
+        this.handleErrors(resp)
         return resp.json()
     }
 
     async doPost(path: string, body: any) {
         let url = rootPath + path
-        const doFetch = () => {
-            const headers = {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-            this.setAuthorizationHeader(headers)
-            return fetch(url, {
-                method: "POST",
-                body: JSON.stringify(body),
-                headers: headers,
-            })
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
         }
-        let resp = await doFetch()
-        resp = await this.handleErrors(resp, doFetch)
+        const resp = await fetch(url, {
+            method: "POST",
+            body: JSON.stringify(body),
+            headers: headers,
+        })
+        this.handleErrors(resp)
         return resp
+    }
+
+    async getAuthInfo(): Promise<AuthInfo> {
+        return this.doGet("/auth/info")
+    }
+
+    async getUser(): Promise<User> {
+        return this.doGet("/auth/user")
     }
 
     async getShortNames(): Promise<ShortName[]> {
@@ -260,6 +218,20 @@ export class RealApi implements Api {
 }
 
 export class StaticApi implements Api {
+    async getAuthInfo(): Promise<AuthInfo> {
+        const info = new AuthInfo()
+        info.authEnabled = false
+        info.adminEnabled = false
+        return info
+    }
+
+    async getUser(): Promise<User> {
+        return {
+            "username": "no-user",
+            "isAdmin": true,
+        }
+    }
+
     async getShortNames(): Promise<ShortName[]> {
         await loadScript(staticPath + "/shortnames.js")
         return staticShortNames

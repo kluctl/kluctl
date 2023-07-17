@@ -220,8 +220,6 @@ export const TargetsView = () => {
         return [project, target]
     }, [projects, targetPath])
 
-    console.log("project", parentProject, "target", selectedTarget)
-
     const showHistory = pathname.endsWith('history');
 
     if (selectedTarget && parentProject && !showHistory) {

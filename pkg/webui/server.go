@@ -41,7 +41,13 @@ type CommandResultsServer struct {
 	onlyApi bool
 }
 
-func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollector, configs []*rest.Config, serverClient client.Client, authEnabled bool, onlyApi bool) *CommandResultsServer {
+func NewCommandResultsServer(
+	ctx context.Context,
+	store *results.ResultsCollector,
+	configs []*rest.Config,
+	serverClient client.Client,
+	authConfig AuthConfig,
+	onlyApi bool) (*CommandResultsServer, error) {
 	ret := &CommandResultsServer{
 		ctx:   ctx,
 		store: store,
@@ -54,28 +60,17 @@ func NewCommandResultsServer(ctx context.Context, store *results.ResultsCollecto
 
 	ret.events = newEventsHandler(ret)
 
-	adminUser := "kluctl-webui-admin"
-
-	adminEnabled := false
-	if serverClient != nil {
-		adminEnabled = true
-	}
-
-	if authEnabled {
-		ret.auth = &authHandler{
-			ctx:             ctx,
-			adminEnabled:    adminEnabled,
-			serverClient:    serverClient,
-			webuiSecretName: "admin-secret",
-			adminRbacUser:   adminUser,
-		}
+	var err error
+	ret.auth, err = newAuthHandler(ctx, serverClient, authConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, config := range configs {
 		ret.cam.add(config)
 	}
 
-	return ret
+	return ret, nil
 }
 
 func (s *CommandResultsServer) Run(host string, port int) error {
@@ -92,11 +87,9 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	}))
 	router.Use(gin.Recovery())
 
-	if s.auth != nil {
-		err = s.auth.setupAuth(router)
-		if err != nil {
-			return err
-		}
+	err = s.auth.setupRoutes(router)
+	if err != nil {
+		return err
 	}
 
 	if !s.onlyApi {

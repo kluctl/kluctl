@@ -20,14 +20,69 @@ type webuiCmd struct {
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
 	StaticPath  string   `group:"misc" help:"Build static webui."`
 
-	InCluster        bool   `group:"misc" help:"This enables in-cluster functionality."`
+	InCluster        bool   `group:"misc" help:"This enables in-cluster functionality. This also enforces authentication."`
 	InClusterContext string `group:"misc" help:"The context to use fo in-cluster functionality."`
 
 	OnlyApi bool `group:"misc" help:"Only serve API without the actual UI."`
+
+	AuthSecretName string `group:"auth" help:"Specify the secret name for the secret used for internal encryption of tokens and cookies." default:"webui-secret"`
+	AuthSecretKey  string `group:"auth" help:"Specify the secret key for the secret used for internal encryption of tokens and cookies." default:"auth-secret"`
+
+	AuthAdminEnabled    bool   `group:"auth" help:"Enable the admin user." default:"true"`
+	AuthAdminSecretName string `group:"auth" help:"Specify the secret name for the admin password." default:"webui-secret"`
+	AuthAdminSecretKey  string `group:"auth" help:"Specify the secret key for the admin password." default:"admin-password"`
+
+	AuthAdminRbacUser  string `group:"auth" help:"Specify the RBAC user to use for admin access." default:"kluctl-webui-admin"`
+	AuthViewerRbacUser string `group:"auth" help:"Specify the RBAC user to use for viewer access." default:"kluctl-webui-viewer"`
+
+	AuthOidcIssuerUrl        string   `group:"auth" help:"Specify the OIDC provider's issuer URL."`
+	AuthOidcDisplayName      string   `group:"auth" help:"Specify the name of the OIDC provider to be displayed on the login page." default:"OpenID Connect"`
+	AuthOidcClientID         string   `group:"auth" help:"Specify the ClientID."`
+	AuthOidcClientSecretName string   `group:"auth" help:"Specify the secret name for the ClientSecret." default:"webui-secret"`
+	AuthOidcClientSecretKey  string   `group:"auth" help:"Specify the secret name for the ClientSecret." default:"oidc-client-secret"`
+	AuthOidcRedirectURL      string   `group:"auth" help:"Specify the redirect URL."`
+	AuthOidcScope            []string `group:"auth" help:"Specify the scopes."`
+	AuthOidcParam            []string `group:"auth" help:"Specify additional parameters to be passed to the authorize endpoint."`
+	AuthOidcUserClaim        string   `group:"auth" help:"Specify claim for the username.'" default:"email"`
+	AuthOidcGroupClaim       string   `group:"auth" help:"Specify claim for the groups.'" default:"groups"`
+	AuthOidcAdminsGroup      []string `group:"auth" help:"Specify admins group names.'"`
+	AuthOidcViewersGroup     []string `group:"auth" help:"Specify viewers group names.'"`
 }
 
 func (cmd *webuiCmd) Help() string {
 	return `TODO`
+}
+
+func (cmd *webuiCmd) buildAuthConfig(ctx context.Context, c client.Client) (webui.AuthConfig, error) {
+	var authConfig webui.AuthConfig
+	authConfig.AuthEnabled = cmd.InCluster
+
+	authConfig.AuthSecretName = cmd.AuthSecretName
+	authConfig.AuthSecretKey = cmd.AuthSecretKey
+
+	authConfig.AdminEnabled = cmd.AuthAdminEnabled
+	authConfig.AdminSecretName = cmd.AuthAdminSecretName
+	authConfig.AdminSecretKey = cmd.AuthAdminSecretKey
+
+	authConfig.AdminRbacUser = cmd.AuthAdminRbacUser
+	authConfig.ViewerRbacUser = cmd.AuthViewerRbacUser
+
+	authConfig.OidcIssuerUrl = cmd.AuthOidcIssuerUrl
+	authConfig.OidcDisplayName = cmd.AuthOidcDisplayName
+	if cmd.AuthOidcIssuerUrl != "" {
+		authConfig.OidcClientId = cmd.AuthOidcClientID
+		authConfig.OidcClientSecretName = cmd.AuthOidcClientSecretName
+		authConfig.OidcClientSecretKey = cmd.AuthOidcClientSecretKey
+		authConfig.OidcRedirectUrl = cmd.AuthOidcRedirectURL
+		authConfig.OidcScopes = cmd.AuthOidcScope
+		authConfig.OidcParams = cmd.AuthOidcParam
+		authConfig.OidcUserClaim = cmd.AuthOidcUserClaim
+		authConfig.OidcGroupClaim = cmd.AuthOidcGroupClaim
+		authConfig.OidcAdminsGroups = cmd.AuthOidcAdminsGroup
+		authConfig.OidcViewersGroups = cmd.AuthOidcViewersGroup
+	}
+
+	return authConfig, nil
 }
 
 func (cmd *webuiCmd) Run(ctx context.Context) error {
@@ -56,6 +111,8 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 		}
 	}
 
+	var authConfig webui.AuthConfig
+
 	var inClusterClient client.Client
 	if cmd.InCluster {
 		configOverrides := &clientcmd.ConfigOverrides{
@@ -68,6 +125,11 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 			return err
 		}
 		inClusterClient, err = client.NewWithWatch(config, client.Options{})
+		if err != nil {
+			return err
+		}
+
+		authConfig, err = cmd.buildAuthConfig(ctx, inClusterClient)
 		if err != nil {
 			return err
 		}
@@ -92,7 +154,10 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 		sbw := webui.NewStaticWebuiBuilder(collector)
 		return sbw.Build(cmd.StaticPath)
 	} else {
-		server := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, inClusterClient != nil, cmd.OnlyApi)
+		server, err := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, authConfig, cmd.OnlyApi)
+		if err != nil {
+			return err
+		}
 		return server.Run(cmd.Host, cmd.Port)
 	}
 }
