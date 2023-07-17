@@ -2,8 +2,7 @@ import { Box, Button, FormControl, Paper, TextField, Typography, useTheme } from
 import React, { SyntheticEvent, useState } from 'react';
 import { rootPath } from "../api";
 import { ErrorMessageCard } from './ErrorMessage';
-
-//import './Login.css';
+import { AuthInfo } from "../models";
 
 interface loginCredentials {
     username: string
@@ -12,7 +11,6 @@ interface loginCredentials {
 
 type LoginResult = {
     type: 'success',
-    token: string
 } | {
     type: 'unauthorized'
 } | {
@@ -20,8 +18,8 @@ type LoginResult = {
     statusText: string
 }
 
-async function loginUser(creds: loginCredentials): Promise<LoginResult> {
-    const url = rootPath + `/auth/login`
+async function loginAdminUser(creds: loginCredentials): Promise<LoginResult> {
+    const url = rootPath + `/auth/adminLogin`
     return fetch(url, {
         method: 'POST',
         headers: {
@@ -30,10 +28,7 @@ async function loginUser(creds: loginCredentials): Promise<LoginResult> {
         body: JSON.stringify(creds)
     }).then(response => {
         if (response.status === 200) {
-            return response.json().then(json => ({
-                type: 'success',
-                token: json.token
-            }));
+            return { type: "success" }
         } else if (response.status === 401) {
             return { type: 'unauthorized' }
         } else {
@@ -45,7 +40,7 @@ async function loginUser(creds: loginCredentials): Promise<LoginResult> {
     });
 }
 
-export default function Login(props: { setToken: (token: string) => void }) {
+export default function Login(props: { authInfo: AuthInfo }) {
     const theme = useTheme();
     const [username, setUserName] = useState<string>();
     const [password, setPassword] = useState<string>();
@@ -57,14 +52,14 @@ export default function Login(props: { setToken: (token: string) => void }) {
             return
         }
 
-        const result = await loginUser({
+        const result = await loginAdminUser({
             username: username,
             password: password,
         });
 
         switch (result.type) {
             case 'success':
-                props.setToken(result.token);
+                window.location.href='/'
                 break;
             case 'unauthorized':
                 setError(result);
@@ -81,6 +76,68 @@ export default function Login(props: { setToken: (token: string) => void }) {
         </ErrorMessageCard>
     }
 
+    const adminLogin = <form onSubmit={handleSubmit}>
+        <Box
+            display='flex'
+            flexDirection='column'
+            justifyContent='center'
+            alignItems='center'
+            gap='30px'
+        >
+            <FormControl fullWidth >
+                <TextField variant='standard' label='Username' onChange={e => setUserName(e.target.value)} />
+            </FormControl>
+            <FormControl fullWidth >
+                <TextField variant='standard' label='Password' type="password" onChange={e => setPassword(e.target.value)} />
+            </FormControl>
+            {error?.type === 'unauthorized' && (
+                <Box color={theme.palette.error.main}>
+                    Invalid username or password
+                </Box>
+            )}
+            <FormControl >
+                <Button
+                    variant='contained'
+                    type='submit'
+                    sx={{
+                        padding: '6px 20px',
+                        backgroundColor: '#59A588',
+                        '&:hover': {
+                            backgroundColor: '#59A588'
+                        }
+                    }}
+                >
+                    Login
+                </Button>
+            </FormControl>
+        </Box>
+    </form>
+
+    const oidcLogin = <Box
+        display='flex'
+        flexDirection='column'
+        justifyContent='center'
+        alignItems='center'
+        gap='30px'
+    >
+        <Button
+            variant='contained'
+            type='submit'
+            sx={{
+                padding: '6px 20px',
+                backgroundColor: '#59A588',
+                '&:hover': {
+                    backgroundColor: '#59A588'
+                }
+            }}
+            onClick={() => {
+                window.location.href='/auth/login'
+            }}
+        >
+            Login with {props.authInfo.oidcName}
+        </Button>
+    </Box>
+
     return (
         <Box
             width='100%'
@@ -93,42 +150,8 @@ export default function Login(props: { setToken: (token: string) => void }) {
         >
             <Typography variant='h1'>Please Log In</Typography>
             <Paper elevation={5} sx={{ width: '400px', borderRadius: '12px', padding: '30px' }}>
-                <form onSubmit={handleSubmit}>
-                    <Box
-                        display='flex'
-                        flexDirection='column'
-                        justifyContent='center'
-                        alignItems='center'
-                        gap='30px'
-                    >
-                        <FormControl fullWidth >
-                            <TextField variant='standard' label='Username' onChange={e => setUserName(e.target.value)} />
-                        </FormControl>
-                        <FormControl fullWidth >
-                            <TextField variant='standard' label='Password' type="password" onChange={e => setPassword(e.target.value)} />
-                        </FormControl>
-                        {error?.type === 'unauthorized' && (
-                            <Box color={theme.palette.error.main}>
-                                Invalid username or password
-                            </Box>
-                        )}
-                        <FormControl >
-                            <Button
-                                variant='contained'
-                                type='submit'
-                                sx={{
-                                    padding: '6px 20px',
-                                    backgroundColor: '#59A588',
-                                    '&:hover': {
-                                        backgroundColor: '#59A588'
-                                    }
-                                }}
-                            >
-                                Login
-                            </Button>
-                        </FormControl>
-                    </Box>
-                </form>
+                {props.authInfo.adminEnabled && adminLogin}
+                {props.authInfo.oidcEnabled && oidcLogin}
             </Paper>
         </Box>
     )

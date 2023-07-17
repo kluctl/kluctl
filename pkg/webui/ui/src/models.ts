@@ -914,3 +914,17 @@ export class ProjectTargetKey {
 	    return a;
 	}
 }
+export class AuthInfo {
+    authEnabled: boolean;
+    adminEnabled: boolean;
+    oidcEnabled: boolean;
+    oidcName?: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.authEnabled = source["authEnabled"];
+        this.adminEnabled = source["adminEnabled"];
+        this.oidcEnabled = source["oidcEnabled"];
+        this.oidcName = source["oidcName"];
+    }
+}

@@ -5,8 +5,8 @@ import { Box } from "@mui/material";
 import { Outlet, useOutletContext } from "react-router-dom";
 import LeftDrawer from "./LeftDrawer";
 import { ActiveFilters } from './FilterBar';
-import { CommandResultSummary, ShortName, ValidateResultSummary } from "../models";
-import { Api, checkStaticBuild, RealApi, StaticApi } from "../api";
+import { AuthInfo, CommandResultSummary, ShortName, ValidateResultSummary } from "../models";
+import { Api, checkStaticBuild, RealApi, StaticApi, User } from "../api";
 import { buildProjectSummaries, ProjectSummary } from "../project-summaries";
 import Login from "./Login";
 import { Loading, useLoadingHelper } from "./Loading";
@@ -34,13 +34,14 @@ export const AppContext = createContext<AppContextProps>({
 });
 
 export const ApiContext = createContext<Api>(new StaticApi())
+export const UserContext = createContext<User | undefined>(undefined)
 
 export interface KluctlDeploymentWithClusterId {
     deployment: any
     clusterId: string
 }
 
-const LoggedInApp = (props: { onUnauthorized: () => void }) => {
+const LoggedInApp = (props: { onLogout: () => void }) => {
     const api = useContext(ApiContext)
     const [filters, setFilters] = useState<ActiveFilters>()
 
@@ -158,7 +159,7 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
                 <LeftDrawer
                     content={<Outlet context={outletContext} />}
                     context={outletContext}
-                    logout={props.onUnauthorized}
+                    logout={props.onLogout}
                 />
             </Box>
         </AppContext.Provider>
@@ -167,41 +168,18 @@ const LoggedInApp = (props: { onUnauthorized: () => void }) => {
 
 const App = () => {
     const [api, setApi] = useState<Api>()
-    const [needToken, setNeedToken] = useState(false)
+    const [authInfo, setAuthInfo] = useState<AuthInfo>()
+    const [user, setUser] = useState<User>()
 
-    const storage = localStorage
-
-    const getToken = () => {
-        const token = storage.getItem("token")
-        if (!token) {
-            return ""
-        }
-        return JSON.parse(token)
+    const onLogout = () => {
+        console.log("handle onLogout")
+        setUser(undefined)
+        window.location.href='/auth/logout'
     }
-    const setToken = (token?: string) => {
-        if (!token) {
-            storage.removeItem("token")
-        } else {
-            storage.setItem("token", JSON.stringify(token))
-        }
-    }
-
     const onUnauthorized = () => {
         console.log("handle onUnauthorized")
-        setToken(undefined)
-        setApi(undefined)
-        setNeedToken(true)
+        setUser(undefined)
     }
-    const onTokenRefresh = (newToken: string) => {
-        console.log("handle onTokenRefresh")
-        setToken(newToken)
-    }
-
-    const handleLoginSucceeded = (token: string) => {
-        console.log("handle saveToken")
-        setToken(token);
-        setApi(new RealApi(getToken, onUnauthorized, onTokenRefresh))
-    };
 
     useEffect(() => {
         if (api) {
@@ -213,36 +191,47 @@ const App = () => {
             if (isStatic) {
                 setApi(new StaticApi())
             } else {
-                // check if we don't need auth (running locally?)
-                const noAuthApi = new RealApi(undefined, undefined, undefined)
-                try {
-                    await noAuthApi.getShortNames()
-                    setToken(undefined)
-                    setNeedToken(false)
-                    setApi(noAuthApi)
-                } catch (error) {
-                    if (!getToken()) {
-                        setNeedToken(true)
-                    } else {
-                        setApi(new RealApi(getToken, onUnauthorized, onTokenRefresh))
-                    }
-                }
+                const api = new RealApi(onUnauthorized)
+                const authInfo = await api.getAuthInfo()
+                setApi(api)
+                setAuthInfo(authInfo)
             }
         }
         doInit()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
-    if (needToken && !getToken()) {
-        return <Login setToken={handleLoginSucceeded} />
-    }
+    useEffect(() => {
+        if (user || !api) {
+            return
+        }
+        const doGetUser = async () => {
+            if (!api) {
+                return
+            }
+            try {
+                const user = await api.getUser()
+                console.log("user", user)
+                setUser(user)
+            } catch (error) {
+                console.log("error", error)
+            }
+        }
+        doGetUser()
+    }, [user, api])
 
-    if (!api) {
+    if (!api || !authInfo) {
         return <Loading />
     }
 
+    if (!user) {
+        return <Login authInfo={authInfo} />
+    }
+
     return <ApiContext.Provider value={api}>
-        <LoggedInApp onUnauthorized={onUnauthorized} />
+        <UserContext.Provider value={user}>
+            <LoggedInApp onLogout={onLogout}/>
+        </UserContext.Provider>
     </ApiContext.Provider>
 }
 

@@ -24,6 +24,10 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
 
     const icon = props.icon || <MoreVert />
 
+    if (!props.menuItems.length) {
+        return <></>
+    }
+
     return <React.Fragment>
         <IconButton
             onClick={handleMenuClick}

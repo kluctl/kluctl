@@ -2,20 +2,43 @@ package webui
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
+	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"golang.org/x/oauth2"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 	"time"
 )
 
-const (
-	tokenValidTime      = 1 * time.Hour
-	tokenMaxRefreshTime = 2 * time.Hour
-)
+type AuthConfig struct {
+	AuthEnabled    bool
+	AuthSecretName string
+	AuthSecretKey  string
+
+	AdminEnabled    bool
+	AdminSecretName string
+	AdminSecretKey  string
+	AdminRbacUser   string
+	ViewerRbacUser  string
+
+	OidcIssuerUrl        string
+	OidcDisplayName      string
+	OidcClientId         string
+	OidcClientSecretName string
+	OidcClientSecretKey  string
+	OidcRedirectUrl      string
+	OidcScopes           []string
+	OidcParams           []string
+	OidcUserClaim        string
+	OidcGroupClaim       string
+	OidcAdminsGroups     []string
+	OidcViewersGroups    []string
+}
 
 type login struct {
 	Username string `form:"username" json:"username" binding:"required"`
@@ -25,11 +48,15 @@ type login struct {
 type authHandler struct {
 	ctx context.Context
 
-	adminEnabled bool
+	serverClient client.Client
 
-	serverClient    client.Client
-	webuiSecretName string
-	adminRbacUser   string
+	authConfig AuthConfig
+
+	authSecret    []byte
+	adminPassword string
+
+	oidcProvider *oidc.Provider
+	oauth2Config *oauth2.Config
 }
 
 type User struct {
@@ -38,207 +65,111 @@ type User struct {
 	RbacUser string `json:"RbacUser"`
 }
 
-func (s *authHandler) setupAuth(r gin.IRouter) error {
-	r.POST("/auth/login", s.loginHandler)
-	r.POST("/auth/refresh", s.refreshTokenHandler)
-	r.GET("/auth/user", s.authHandler, s.userHandler)
+func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig AuthConfig) (*authHandler, error) {
+	ret := &authHandler{
+		ctx:          ctx,
+		authConfig:   authConfig,
+		serverClient: serverClient,
+	}
+
+	x, err := ret.getSecret(authConfig.AuthSecretName, authConfig.AuthSecretKey)
+	if err != nil {
+		return nil, err
+	}
+	ret.authSecret = []byte(x)
+
+	if authConfig.AdminEnabled {
+		x, err = ret.getSecret(authConfig.AdminSecretName, authConfig.AdminSecretKey)
+		if err != nil {
+			return nil, err
+		}
+		ret.adminPassword = x
+	}
+
+	err = ret.setupOidcProvider(ctx, authConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+func (s *authHandler) setupRoutes(router gin.IRouter) error {
+	gob.Register(map[string]interface{}{})
+	gob.Register(time.Time{})
+
+	store := cookie.NewStore(s.authSecret)
+	router.Use(sessions.Sessions("auth-session", store))
+
+	router.GET("/auth/info", s.authInfoHandler)
+
+	if s.authConfig.AdminEnabled {
+		router.POST("/auth/adminLogin", s.adminLoginHandler)
+	}
+
+	if s.oidcProvider != nil {
+		router.GET("/auth/login", s.oidcLoginHandler)
+		router.GET("/auth/callback", s.oidcCallbackHandler)
+	}
+
+	router.GET("/auth/user", s.authHandler, s.userHandler)
+	router.GET("/auth/logout", s.logoutHandler)
 
 	return nil
 }
 
-func (s *authHandler) loginHandler(c *gin.Context) {
-	if !s.adminEnabled {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
+type AuthInfo struct {
+	AuthEnabled  bool `json:"authEnabled"`
+	AdminEnabled bool `json:"adminEnabled"`
 
-	var loginVals login
-	if err := c.ShouldBind(&loginVals); err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	userID := loginVals.Username
-	password := loginVals.Password
-
-	as, err := s.getAdminSecrets()
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	if userID != "admin" || password != as.adminPassword {
-		// we only support the admin account at the moment
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	token, err := s.createAdminToken(userID, as)
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	c.JSON(http.StatusOK, map[string]any{
-		"token": token,
-	})
+	OidcEnabled     bool   `json:"oidcEnabled"`
+	OidcDisplayName string `json:"oidcName,omitempty"`
 }
 
-func (s *authHandler) refreshTokenHandler(c *gin.Context) {
-	if !s.adminEnabled {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
+func (s *authHandler) authInfoHandler(c *gin.Context) {
+	info := AuthInfo{
+		AuthEnabled:     s.authConfig.AuthEnabled,
+		AdminEnabled:    s.authConfig.AdminEnabled,
+		OidcEnabled:     s.authConfig.OidcIssuerUrl != "",
+		OidcDisplayName: s.authConfig.OidcDisplayName,
 	}
-
-	oldToken := s.getBearerToken(c)
-	if oldToken == "" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	as, err := s.getAdminSecrets()
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	claims, err := s.checkIfAdminTokenExpired(oldToken, as)
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-	user := s.getAdminUserFromClaims(claims)
-
-	newToken, err := s.createAdminToken(user.Username, as)
-	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return
-	}
-
-	c.JSON(http.StatusOK, map[string]any{
-		"token": newToken,
-	})
+	c.JSON(http.StatusOK, info)
 }
 
-func (s *authHandler) createAdminToken(username string, as adminSecrets) (string, error) {
-	// Create the token
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["id"] = username
-
-	expire := time.Now().Add(tokenValidTime)
-	claims["exp"] = expire.Unix()
-	claims["orig_iat"] = time.Now().Unix()
-	tokenString, err := token.SignedString(as.secret)
-	if err != nil {
-		return "", err
+func (s *authHandler) logoutHandler(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Clear()
+	if err := session.Save(); err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
-	return tokenString, nil
-}
-
-func (s *authHandler) checkIfAdminTokenExpired(token string, as adminSecrets) (jwt.MapClaims, error) {
-	jt, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		return as.secret, nil
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
-	if err != nil {
-		validationErr, ok := err.(*jwt.ValidationError)
-		if !ok || validationErr.Errors != jwt.ValidationErrorExpired {
-			return nil, err
-		}
-	}
-
-	claims := jt.Claims.(jwt.MapClaims)
-
-	origIat := int64(claims["orig_iat"].(float64))
-
-	if origIat < time.Now().Add(-tokenMaxRefreshTime).Unix() {
-		return nil, fmt.Errorf("token expired")
-	}
-
-	return claims, nil
-}
-
-func (s *authHandler) getBearerToken(c *gin.Context) string {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		return ""
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		return ""
-	}
-
-	return parts[1]
+	c.Redirect(http.StatusTemporaryRedirect, "/")
 }
 
 func (s *authHandler) getUser(c *gin.Context) *User {
-	if s == nil {
+	if !s.authConfig.AuthEnabled {
 		// auth is disabled, so all requests are done as admin
 		return s.getAdminUser("admin")
 	}
-	token := s.getBearerToken(c)
-	if token == "" {
-		return nil
-	}
-	return s.getUserFromToken(token)
-}
 
-func (s *authHandler) getUserFromToken(token string) *User {
-	user := s.getAdminUserFromToken(token)
+	user := s.getAdminUserFromSession(c)
 	if user != nil {
 		return user
 	}
+
+	user, err := s.getUserFromOidcProfile(c)
+	if err != nil {
+		return nil
+	}
+	if user != nil {
+		return user
+	}
+
 	return nil
 }
 
-func (s *authHandler) getAdminUserFromToken(token string) *User {
-	as, err := s.getAdminSecrets()
-	if err != nil {
-		return nil
-	}
-
-	jt, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
-		return as.secret, nil
-	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
-	if err != nil {
-		return nil
-	}
-
-	claims, ok := jt.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil
-	}
-
-	return s.getAdminUserFromClaims(claims)
-}
-
-func (s *authHandler) getAdminUserFromClaims(claims jwt.MapClaims) *User {
-	x, ok := claims["id"]
-	if !ok {
-		return nil
-	}
-	id, ok := x.(string)
-	if !ok {
-		return nil
-	}
-
-	return s.getAdminUser(id)
-}
-
-func (s *authHandler) getAdminUser(id string) *User {
-	u := &User{
-		Username: id,
-		IsAdmin:  true,
-	}
-	if s != nil {
-		u.RbacUser = s.adminRbacUser
-	}
-	return u
-}
-
 func (s *authHandler) authHandler(c *gin.Context) {
-	if s == nil {
+	if !s.authConfig.AuthEnabled {
 		return
 	}
 	if s.getUser(c) == nil {
@@ -251,35 +182,9 @@ func (s *authHandler) userHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-type adminSecrets struct {
-	secret        []byte
-	adminPassword string
-}
-
-func (s *authHandler) getAdminSecrets() (adminSecrets, error) {
+func (s *authHandler) getSecret(secretName string, secretKey string) (string, error) {
 	if s.serverClient == nil {
-		return adminSecrets{}, fmt.Errorf("no serverClient set")
+		return "", fmt.Errorf("no serverClient set")
 	}
-
-	var secret corev1.Secret
-	err := s.serverClient.Get(s.ctx, client.ObjectKey{Name: s.webuiSecretName, Namespace: "kluctl-system"}, &secret)
-	if err != nil {
-		return adminSecrets{}, err
-	}
-
-	var ret adminSecrets
-
-	x, ok := secret.Data["secret"]
-	if !ok {
-		return adminSecrets{}, fmt.Errorf("admin secret %s has no 'secret' key", s.webuiSecretName)
-	}
-	ret.secret = x
-
-	x, ok = secret.Data["adminPassword"]
-	if !ok {
-		return adminSecrets{}, fmt.Errorf("admin secret %s has no adminPassword", s.webuiSecretName)
-	}
-	ret.adminPassword = string(x)
-
-	return ret, nil
+	return k8s.GetSingleSecret(s.ctx, s.serverClient, secretName, "kluctl-system", secretKey)
 }

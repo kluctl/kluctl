@@ -83,6 +83,7 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
+	{group: "auth", title: "Auth arguments:", description: "Configure authentication."},
 }
 
 var origStderr = os.Stderr
