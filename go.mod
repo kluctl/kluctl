@@ -57,7 +57,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.19.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.28
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.27
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.10
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.11
 	github.com/aws/aws-sdk-go-v2/service/sts v1.19.3
 	github.com/aws/smithy-go v1.13.5
 	github.com/coreos/go-oidc/v3 v3.6.0
