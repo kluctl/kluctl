@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
@@ -43,12 +42,7 @@ func (s *authHandler) setupOidcProvider(ctx context.Context, authConfig AuthConf
 }
 
 // verifyIDToken verifies that an *oauth2.Token is a valid *oidc.IDToken.
-func (s *authHandler) verifyIDToken(ctx context.Context, token *oauth2.Token) (*oidc.IDToken, error) {
-	rawIDToken, ok := token.Extra("id_token").(string)
-	if !ok {
-		return nil, errors.New("no id_token field in oauth2 token")
-	}
-
+func (s *authHandler) verifyIDToken(ctx context.Context, rawIDToken string) (*oidc.IDToken, error) {
 	oidcConfig := &oidc.Config{
 		ClientID: s.oauth2Config.ClientID,
 	}
@@ -84,6 +78,18 @@ func (s *authHandler) oidcLoginHandler(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, s.oauth2Config.AuthCodeURL(state, opts...))
 }
 
+func (s *authHandler) storeToken(session sessions.Session, token *oauth2.Token) error {
+	rawIDToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return fmt.Errorf("no id_token field in oauth2 token.")
+	}
+
+	session.Set("token", token)
+	session.Set("id_token", rawIDToken)
+
+	return nil
+}
+
 func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
 	session := sessions.Default(c)
 	if c.Query("state") != session.Get("state") {
@@ -98,20 +104,12 @@ func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
 		return
 	}
 
-	idToken, err := s.verifyIDToken(c.Request.Context(), token)
+	err = s.storeToken(session, token)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to verify ID Token.")
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
-	var profile map[string]interface{}
-	if err := idToken.Claims(&profile); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	session.Set("access_token", token.AccessToken)
-	session.Set("profile", profile)
 	if err := session.Save(); err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -135,13 +133,37 @@ func (s *authHandler) generateRandomState() (string, error) {
 
 func (s *authHandler) getUserFromOidcProfile(c *gin.Context) (*User, error) {
 	session := sessions.Default(c)
-	profileI := session.Get("profile")
-	if profileI == nil {
+
+	tokenI := session.Get("token")
+	if tokenI == nil {
 		return nil, nil
 	}
-	profile := profileI.(map[string]interface{})
-	if profile == nil {
+	token, ok := tokenI.(oauth2.Token)
+	if !ok {
 		return nil, nil
+	}
+
+	rawIdTokenI := session.Get("id_token")
+	if rawIdTokenI == nil {
+		return nil, nil
+	}
+	rawIdToken, ok := rawIdTokenI.(string)
+	if !ok {
+		return nil, nil
+	}
+
+	if !token.Valid() {
+		return nil, nil
+	}
+
+	idToken, err := s.verifyIDToken(c.Request.Context(), rawIdToken)
+	if err != nil {
+		return nil, err
+	}
+
+	var profile map[string]interface{}
+	if err := idToken.Claims(&profile); err != nil {
+		return nil, err
 	}
 
 	usernameClaim, ok := profile[s.authConfig.OidcUserClaim]
