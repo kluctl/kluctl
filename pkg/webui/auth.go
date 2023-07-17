@@ -96,6 +96,7 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig 
 
 func (s *authHandler) setupRoutes(router gin.IRouter) error {
 	gob.Register(map[string]interface{}{})
+	gob.Register(oauth2.Token{})
 	gob.Register(time.Time{})
 
 	store := cookie.NewStore(s.authSecret)
