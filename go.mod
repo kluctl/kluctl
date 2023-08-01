@@ -54,12 +54,12 @@ require (
 	filippo.io/age v1.1.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0
-	github.com/aws/aws-sdk-go-v2 v1.19.0
+	github.com/aws/aws-sdk-go-v2 v1.20.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.28
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.27
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.19.10
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.20.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.19.3
-	github.com/aws/smithy-go v1.13.5
+	github.com/aws/smithy-go v1.14.0
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/gin-contrib/sessions v0.0.5
@@ -104,8 +104,8 @@ require (
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.5 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.35 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.29 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.37 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.31 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.36 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.29 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.17.5 // indirect
