@@ -121,3 +121,18 @@ func collectObjects(c *deployment.DeploymentCollection, ru *utils.RemoteObjectUt
 	})
 	return ret
 }
+
+func filterDeletedOrphans(orphans []k8s.ObjectRef, deleted []k8s.ObjectRef) []k8s.ObjectRef {
+	deletedMap := map[k8s.ObjectRef]bool{}
+	for _, x := range deleted {
+		deletedMap[x] = true
+	}
+	var tmp []k8s.ObjectRef
+	for _, x := range orphans {
+		_, isDeleted := deletedMap[x]
+		if !isDeleted {
+			tmp = append(tmp, x)
+		}
+	}
+	return tmp
+}

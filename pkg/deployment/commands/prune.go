@@ -42,23 +42,24 @@ func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*resu
 		return nil, err
 	}
 
-	deleteRefs, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
+	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
 		return nil, err
 	}
 
 	if confirmCb != nil {
-		err = confirmCb(deleteRefs)
+		err = confirmCb(orphanObjects)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	deleted := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, deleteRefs, dew, cmd.wait)
+	deleted := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, orphanObjects, dew, cmd.wait)
+	orphanObjects = filterDeletedOrphans(orphanObjects, deleted)
 
 	r := &result.CommandResult{
 		Id:       uuid.New().String(),
-		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, nil, deleted),
+		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, orphanObjects, deleted),
 		Warnings: dew.GetWarningsList(),
 	}
 	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "prune")
