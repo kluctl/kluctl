@@ -124,13 +124,18 @@ func collectObjects(c *deployment.DeploymentCollection, ru *utils.RemoteObjectUt
 
 func filterDeletedOrphans(orphans []k8s.ObjectRef, deleted []k8s.ObjectRef) []k8s.ObjectRef {
 	deletedMap := map[k8s.ObjectRef]bool{}
+	deletedNamespacesMap := map[string]bool{}
 	for _, x := range deleted {
 		deletedMap[x] = true
+		if x.Group == "" && x.Kind == "Namespace" {
+			deletedNamespacesMap[x.Name] = true
+		}
 	}
 	var tmp []k8s.ObjectRef
 	for _, x := range orphans {
 		_, isDeleted := deletedMap[x]
-		if !isDeleted {
+		_, isDeletedNs := deletedNamespacesMap[x.Namespace]
+		if !isDeleted && !isDeletedNs {
 			tmp = append(tmp, x)
 		}
 	}
