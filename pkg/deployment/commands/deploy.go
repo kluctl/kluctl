@@ -102,17 +102,7 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 		deleted = utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, orphanObjects, dew, cmd.WaitPrune)
 
 		// now clean up the list of orphan objects (remove the ones that got deleted)
-		ds := map[k8s2.ObjectRef]bool{}
-		for _, x := range deleted {
-			ds[x] = true
-		}
-		var tmp []k8s2.ObjectRef
-		for _, x := range orphanObjects {
-			if _, ok := ds[x]; !ok {
-				tmp = append(tmp, x)
-			}
-		}
-		orphanObjects = tmp
+		orphanObjects = filterDeletedOrphans(orphanObjects, deleted)
 	}
 
 	r := &result.CommandResult{
