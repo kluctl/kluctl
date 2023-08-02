@@ -137,6 +137,34 @@ namespace: %s
 	})
 }
 
+func TestKustomizeBase(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_utils.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+
+	addConfigMapDeployment(p, "base", map[string]string{}, resourceOpts{
+		name:      "base-cm",
+		namespace: p.TestSlug(),
+	})
+	p.UpdateDeploymentItems("", func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
+		_ = items[0].SetNestedField(true, "onlyRender")
+		return items
+	})
+
+	p.AddKustomizeDeployment("k1", []test_utils.KustomizeResource{{
+		Name: "../base",
+	}}, nil)
+
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+	assertConfigMapExists(t, k, p.TestSlug(), "base-cm")
+}
+
 func TestTemplateIgnore(t *testing.T) {
 	t.Parallel()
 

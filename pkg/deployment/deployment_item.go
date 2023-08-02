@@ -253,7 +253,7 @@ func (di *DeploymentItem) ListSealedSecrets(subdir string) ([]string, error) {
 	renderedDir := filepath.Join(di.RenderedDir, subdir)
 
 	// ensure we're not leaving the project
-	err := utils.CheckSubInDir(di.Project.source.dir, subdir)
+	err := utils.CheckSubInDir(di.Project.source.dir, filepath.Join(di.RelRenderedDir, subdir))
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (di *DeploymentItem) ListSealedSecrets(subdir string) ([]string, error) {
 		relPath = filepath.Clean(relPath)
 
 		// ensure we're not leaving the project
-		err = utils.CheckSubInDir(di.Project.source.dir, relPath)
+		err = utils.CheckSubInDir(di.Project.source.dir, filepath.Join(di.RelRenderedDir, relPath))
 		if err != nil {
 			return nil, err
 		}
