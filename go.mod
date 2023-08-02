@@ -22,7 +22,7 @@ require (
 	github.com/kluctl/go-jinja2 v0.0.0-20230625212202-e9c395af7587
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.19
-	github.com/mattn/go-runewidth v0.0.14
+	github.com/mattn/go-runewidth v0.0.15
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.19.1
 	github.com/pkg/errors v0.9.1
