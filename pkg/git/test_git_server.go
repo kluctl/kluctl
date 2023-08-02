@@ -26,12 +26,41 @@ type TestGitServer struct {
 	gitServer     *http_server.Server
 	gitHttpServer *http.Server
 	gitServerPort int
+
+	authUsername string
+	authPassword string
+	failWhenAuth bool
 }
 
-func NewTestGitServer(t *testing.T) *TestGitServer {
+type repoInfo struct {
+	repoName string
+	username string
+	password string
+}
+
+type TestGitServerOpt func(*TestGitServer)
+
+func WithTestGitServerAuth(username string, password string) TestGitServerOpt {
+	return func(server *TestGitServer) {
+		server.authUsername = username
+		server.authPassword = password
+	}
+}
+
+func WithTestGitServerFailWhenAuth(fail bool) TestGitServerOpt {
+	return func(server *TestGitServer) {
+		server.failWhenAuth = fail
+	}
+}
+
+func NewTestGitServer(t *testing.T, opts ...TestGitServerOpt) *TestGitServer {
 	p := &TestGitServer{
 		t:       t,
 		baseDir: t.TempDir(),
+	}
+
+	for _, o := range opts {
+		o(p)
 	}
 
 	p.initGitServer()
@@ -46,9 +75,25 @@ func NewTestGitServer(t *testing.T) *TestGitServer {
 func (p *TestGitServer) initGitServer() {
 	p.gitServer = http_server.New(p.baseDir)
 
+	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		username, password, ok := request.BasicAuth()
+		if p.failWhenAuth {
+			if ok {
+				writer.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		} else if p.authUsername != "" {
+			if p.authUsername != username || p.authPassword != password {
+				writer.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
+		p.gitServer.ServeHTTP(writer, request)
+	})
+
 	p.gitHttpServer = &http.Server{
 		Addr:    "127.0.0.1:0",
-		Handler: p.gitServer,
+		Handler: handler,
 	}
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -235,6 +280,10 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 		return
 	}
 	p.CommitYaml(repo, pth, message, o)
+}
+
+func (p *TestGitServer) GitHost() string {
+	return fmt.Sprintf("localhost:%d", p.gitServerPort)
 }
 
 func (p *TestGitServer) GitUrl() string {

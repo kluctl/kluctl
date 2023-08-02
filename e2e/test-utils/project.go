@@ -404,6 +404,10 @@ func (p *TestProject) DeleteKustomizeDeployment(dir string) {
 	})
 }
 
+func (p *TestProject) GitRepoName() string {
+	return p.gitRepoName
+}
+
 func (p *TestProject) GitUrl() string {
 	return p.gitServer.GitRepoUrl(p.gitRepoName)
 }

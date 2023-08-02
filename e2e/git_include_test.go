@@ -28,12 +28,10 @@ func prepareIncludeProject(t *testing.T, prefix string, subDir string, gitServer
 	return p
 }
 
-func prepareGitIncludeTest(t *testing.T, gitServer *git2.TestGitServer) (*test_utils.TestProject, *test_utils.TestProject, *test_utils.TestProject) {
-	k := defaultCluster1
-
-	p := test_utils.NewTestProject(t, test_utils.WithGitServer(gitServer))
-	ip1 := prepareIncludeProject(t, "include1", "", gitServer)
-	ip2 := prepareIncludeProject(t, "include2", "subDir", gitServer)
+func prepareGitIncludeTest(t *testing.T, k *test_utils.EnvTestCluster, mainGs *git2.TestGitServer, gs1 *git2.TestGitServer, gs2 *git2.TestGitServer) (*test_utils.TestProject, *test_utils.TestProject, *test_utils.TestProject) {
+	p := test_utils.NewTestProject(t, test_utils.WithGitServer(mainGs))
+	ip1 := prepareIncludeProject(t, "include1", "", gs1)
+	ip2 := prepareIncludeProject(t, "include2", "subDir", gs2)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -59,7 +57,7 @@ func TestGitInclude(t *testing.T) {
 
 	k := defaultCluster1
 
-	p, _, _ := prepareGitIncludeTest(t, nil)
+	p, _, _ := prepareGitIncludeTest(t, k, nil, nil, nil)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
@@ -230,7 +228,7 @@ func TestLocalGitOverride(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	p, ip1, ip2 := prepareGitIncludeTest(t, nil)
+	p, ip1, ip2 := prepareGitIncludeTest(t, k, nil, nil, nil)
 
 	override1 := t.TempDir()
 	err := cp.Copy(ip1.LocalRepoDir(), override1)
@@ -269,7 +267,8 @@ func TestLocalGitGroupOverride(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	p, ip1, ip2 := prepareGitIncludeTest(t, git2.NewTestGitServer(t))
+	gs := git2.NewTestGitServer(t)
+	p, ip1, ip2 := prepareGitIncludeTest(t, k, gs, gs, gs)
 
 	overrideGroupDir := t.TempDir()
 

@@ -58,8 +58,11 @@ spec:
   source:
     url: https://github.com/kluctl/kluctl-examples.git
     path: path/to/project
-    secretRef:
-      name: git-credentials
+    credentials:
+      - host: github.com
+        pathPrefix: kluctl/
+        secretRef:
+          name: git-credentials
     ref:
       branch: my-branch
   ...
@@ -72,7 +75,7 @@ The `path` specifies the sub-directory where the Kluctl project is located.
 
 The `ref` provides the Git reference to be used. It can either be a branch or a tag.
 
-See [Git authentication](#git-authentication) for details on authentication.
+See [Git authentication](#git-authentication) for details on authentication and the `credentials` field.
 
 ### interval
 See [Reconciliation](#reconciliation).
@@ -299,8 +302,24 @@ spec:
 
 ## Git authentication
 
-The `spec.source` can optionally specify a `spec.source.secretRef` (see [here](#source)) which must point to an existing
-secret (in the same namespace) containing Git credentials.
+The `spec.source` can optionally specify `spec.source.credentials` (see [here](#source)), which lists multiple
+sets of credentials for different git hosts.
+
+Each time the controller needs to access a git repository, it will iterate through this list and pick the first one
+matching.
+
+Each `credentials` entry has the following fields:
+
+`host` is required and specifies the hostname to apply this set of credentials. It can also be set to `*`, meaning that
+it will match all git hosts. `*` will however be ignored for https based urls to avoid leaking credentials.
+
+`pathPrefix` is optional and allows to filter for different path prefixed on the same host. This is for example useful
+when public Git providers are used, for example github.com. For these, you can for example use `my-org/` as prefix to
+tell the controller that it should use this set of credentials only for projects below the `my-org` GitHub organisation.
+
+`secretRef` is required and specifies the name of the secret that contains the actual credentials.
+
+The following authentication types are supported through the referenced secret.
 
 ### Basic access authentication
 

@@ -69,6 +69,71 @@ by signing a token in an IRSA compliant way.</p>
 </table>
 </div>
 </div>
+<h3 id="gitops.kluctl.io/v1beta1.GitCredentials">GitCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>host</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Host specifies the hostname that this git secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
+applies to all hosts.
+Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+You must always set a proper hostname in that case.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pathPrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PathPrefix specified the path prefix to be used to filter git urls. Only urls that have this prefix will use
+this set of credentials.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretRef specifies the Secret containing authentication credentials for
+the git repository.
+For HTTPS repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
+fields.
+For SSH repositories the Secret must contain &lsquo;identity&rsquo;
+and &lsquo;known_hosts&rsquo; fields.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials
 </h3>
 <p>
@@ -1232,6 +1297,7 @@ the KluctlDeployment.</p>
 <p>
 (<em>Appears on:</em>
 <a href="#gitops.kluctl.io/v1beta1.Decryption">Decryption</a>, 
+<a href="#gitops.kluctl.io/v1beta1.GitCredentials">GitCredentials</a>, 
 <a href="#gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
 </p>
@@ -1321,13 +1387,26 @@ LocalObjectReference
 </em>
 </td>
 <td>
-<em>(Optional)</em>
 <p>SecretRef specifies the Secret containing authentication credentials for
-the git repository.
-For HTTPS repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
-fields.
-For SSH repositories the Secret must contain &lsquo;identity&rsquo;
-and &lsquo;known_hosts&rsquo; fields.</p>
+See GitCredentials.SecretRef for details
+DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
+instead.
+WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+Use Credentials with a proper Host field instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>credentials</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.GitCredentials">
+[]GitCredentials
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Credentials specifies a list of secrets with credentials</p>
 </td>
 </tr>
 </tbody>
