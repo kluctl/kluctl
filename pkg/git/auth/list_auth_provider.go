@@ -16,6 +16,8 @@ type ListAuthProvider struct {
 }
 
 type AuthEntry struct {
+	AllowWildcardHostForHttp bool
+
 	Host       string
 	PathPrefix string
 	Username   string
@@ -31,13 +33,21 @@ func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 	a.entries = append(a.entries, e)
 }
 
-func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
+func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl) AuthMethodAndCA {
+	gitUrl := gitUrlIn.Normalize()
+
 	a.MessageCallbacks.Trace("ListAuthProvider: BuildAuth for %s", gitUrl.String())
 	a.MessageCallbacks.Trace("ListAuthProvider: path=%s, username=%s, scheme=%s", gitUrl.Path, gitUrl.User.Username(), gitUrl.Scheme)
+
 	for _, e := range a.entries {
 		a.MessageCallbacks.Trace("ListAuthProvider: try host=%s, pathPrefix=%s, username=%s", e.Host, e.PathPrefix, e.Username)
 
-		if e.Host != "*" && e.Host != gitUrl.Hostname() {
+		if !e.AllowWildcardHostForHttp && e.Host == "*" && !gitUrl.IsSsh() {
+			a.MessageCallbacks.Trace("ListAuthProvider: wildcard hosts are not allowed for http urls")
+			continue
+		}
+
+		if e.Host != "*" && e.Host != gitUrl.Host {
 			continue
 		}
 		urlPath := gitUrl.Path

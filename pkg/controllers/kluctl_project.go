@@ -81,12 +81,12 @@ func prepareProject(ctx context.Context,
 
 	pp.tmpDir = tmpDir
 
-	gitSecret, err := r.getGitSecret(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
+	gitSecrets, err := r.getGitSecrets(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
 
-	pp.rp, err = r.buildRepoCache(ctx, gitSecret)
+	pp.rp, err = r.buildRepoCache(ctx, gitSecrets)
 	if err != nil {
 		return nil, err
 	}

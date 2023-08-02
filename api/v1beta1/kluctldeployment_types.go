@@ -233,13 +233,39 @@ type ProjectSource struct {
 	Path string `json:"path,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
+	// See GitCredentials.SecretRef for details
+	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
+	// instead.
+	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+	// Use Credentials with a proper Host field instead.
+	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+
+	// Credentials specifies a list of secrets with credentials
+	// +optional
+	Credentials []GitCredentials `json:"credentials,omitempty"`
+}
+
+type GitCredentials struct {
+	// Host specifies the hostname that this git secret applies to. If set to '*', this set of credentials
+	// applies to all hosts.
+	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+	// You must always set a proper hostname in that case.
+	// +required
+	Host string `json:"host,omitempty"`
+
+	// PathPrefix specified the path prefix to be used to filter git urls. Only urls that have this prefix will use
+	// this set of credentials.
+	// +optional
+	PathPrefix string `json:"pathPrefix,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
 	// the git repository.
 	// For HTTPS repositories the Secret must contain 'username' and 'password'
 	// fields.
 	// For SSH repositories the Secret must contain 'identity'
 	// and 'known_hosts' fields.
-	// +optional
-	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.
