@@ -77,7 +77,7 @@ require (
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
 	golang.org/x/oauth2 v0.10.0
-	sigs.k8s.io/cli-utils v0.34.0
+	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/kustomize/api v0.13.4
 	sigs.k8s.io/yaml v1.3.0
