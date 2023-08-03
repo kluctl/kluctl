@@ -191,6 +191,10 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 	if cr.ProjectKey.SubDir != "" {
 		secret.Annotations["kluctl.io/result-project-subdir"] = cr.ProjectKey.SubDir
 	}
+	if cr.Command.KluctlDeployment != nil {
+		secret.Labels["kluctl.io/result-deployment-name"] = cr.Command.KluctlDeployment.Name
+		secret.Labels["kluctl.io/result-deployment-namespace"] = cr.Command.KluctlDeployment.Namespace
+	}
 
 	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
 	if err != nil {
@@ -251,6 +255,10 @@ func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) erro
 	}
 	if vr.ProjectKey.SubDir != "" {
 		secret.Annotations["kluctl.io/result-project-subdir"] = vr.ProjectKey.SubDir
+	}
+	if vr.KluctlDeployment != nil {
+		secret.Labels["kluctl.io/result-deployment-name"] = vr.KluctlDeployment.Name
+		secret.Labels["kluctl.io/result-deployment-namespace"] = vr.KluctlDeployment.Namespace
 	}
 
 	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
