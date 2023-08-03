@@ -141,6 +141,11 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 			return err
 		}
 		r.ResultStore = resultStore
+
+		err = resultStore.StartCleanupOrphans()
+		if err != nil {
+			return err
+		}
 	}
 
 	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{
