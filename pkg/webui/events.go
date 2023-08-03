@@ -1,8 +1,9 @@
 package webui
 
 import (
+	"bytes"
 	"container/list"
-	"fmt"
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -10,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/http"
+	"nhooyr.io/websocket"
 	"strings"
 	"sync"
 	"time"
@@ -229,7 +231,6 @@ func (h *eventsHandler) handler(c *gin.Context) {
 	args := struct {
 		FilterProject string `form:"filterProject"`
 		FilterSubDir  string `form:"filterSubDir"`
-		Seq           int64  `form:"seq"`
 	}{}
 	err := c.BindQuery(&args)
 	if err != nil {
@@ -251,14 +252,44 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		}
 	}
 
-	getNewEvents := func() ([]string, int64) {
+	acceptOptions := &websocket.AcceptOptions{
+		InsecureSkipVerify: true,
+	}
+
+	userAgentLower := strings.ToLower(c.GetHeader("User-Agent"))
+	isSafari := strings.Contains(userAgentLower, "safari") && !strings.Contains(userAgentLower, "chrome") && !strings.Contains(userAgentLower, "android")
+
+	if isSafari {
+		acceptOptions.CompressionMode = websocket.CompressionDisabled
+	}
+
+	conn, err := websocket.Accept(c.Writer, c.Request, acceptOptions)
+	if err != nil {
+		return
+	}
+	defer conn.Close(websocket.StatusInternalError, "the sky is falling")
+
+	err = h.wsHandle(conn, filter)
+	if err != nil {
+		cs := websocket.CloseStatus(err)
+		if cs == websocket.StatusNormalClosure || cs == websocket.StatusGoingAway {
+			return
+		}
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
+	}
+}
+
+func (h *eventsHandler) wsHandle(c *websocket.Conn, filter *result.ProjectKey) error {
+	ctx := c.CloseRead(h.server.ctx)
+
+	getNewEvents := func(seq int64) ([]string, int64) {
 		h.mutex.Lock()
 		defer h.mutex.Unlock()
 		var events []string
-		nextSeq := args.Seq
+		nextSeq := seq
 		for e := h.events.Front(); e != nil; e = e.Next() {
 			e2 := e.Value.(*eventEntry)
-			if e2.seq < args.Seq {
+			if e2.seq < seq {
 				continue
 			}
 			nextSeq = e2.seq + 1
@@ -271,24 +302,43 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		return events, nextSeq
 	}
 
-	events, nextSeq := getNewEvents()
-	timeout := time.After(30 * time.Second)
-outer:
-	for len(events) == 0 {
-		select {
-		case <-h.server.ctx.Done():
-			_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("context cancelled"))
-			return
-		case <-timeout:
-			break outer
-		case <-time.After(100 * time.Millisecond):
+	var seq int64
+	for {
+		events, nextSeq := getNewEvents(seq)
+		if len(events) != 0 {
+			buf := bytes.NewBuffer(nil)
+			buf.Write([]byte("["))
+			for i, e := range events {
+				if i != 0 {
+					buf.Write([]byte(","))
+				}
+				buf.Write([]byte(e))
+			}
+			buf.Write([]byte("]"))
+
+			err := h.wsSendMessage(ctx, c, time.Second*5, buf.String())
+			if err != nil {
+				return err
+			}
 		}
 
-		events, nextSeq = getNewEvents()
-	}
+		seq = nextSeq
 
-	j := fmt.Sprintf(`{"nextSeq": %d, "events": [%s]}`, nextSeq, strings.Join(events, ","))
-	c.Writer.Header().Set("Content-Type", "application/json")
-	c.Status(http.StatusOK)
-	_, _ = c.Writer.WriteString(j)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(1000 * time.Millisecond):
+		}
+	}
+}
+
+func (s *eventsHandler) wsSendMessage(ctx context.Context, c *websocket.Conn, timeout time.Duration, msg string) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	err := c.Write(ctx, websocket.MessageText, []byte(msg))
+	if err != nil {
+		return err
+	}
+	return err
 }
