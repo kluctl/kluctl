@@ -6,6 +6,7 @@ import Tooltip from "@mui/material/Tooltip";
 import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
 import { GitRef } from "./models-static";
+import { sleep } from "./utils/misc";
 
 console.log(window.location)
 
@@ -36,7 +37,7 @@ export interface Api {
     getAuthInfo(): Promise<AuthInfo>
     getUser(): Promise<User>
     getShortNames(): Promise<ShortName[]>
-    listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
+    listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
     getCommandResult(resultId: string): Promise<CommandResult>
     getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
     getValidateResult(resultId: string): Promise<ValidateResult>
@@ -114,7 +115,17 @@ export class RealApi implements Api {
         return this.doGet("/api/getShortNames")
     }
 
-    async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
+    async listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
+        let host = window.location.host
+        let proto = "wss"
+        if (process.env.NODE_ENV === 'development') {
+            host = "localhost:9090"
+        }
+        if (window.location.protocol !== "https:") {
+            proto = "ws"
+        }
+        let url = `${proto}://${host}${rootPath}/api/events`
+
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
@@ -122,42 +133,47 @@ export class RealApi implements Api {
         if (filterSubDir) {
             params.set("filterSubDir", filterSubDir)
         }
+        url += "?" + params.toString()
 
-        let seq = 0
-        const abort = new AbortController()
+        let ws: WebSocket | undefined;
+        let cancelled = false
 
-        const doGetEvents = async () => {
-            if (abort.signal.aborted) {
+        const connect = async () => {
+            if (cancelled) {
                 return
             }
 
-            params.set("seq", seq + "")
-            let resp: any
-            try {
-                resp = await this.doGet("/api/events", params, abort.signal)
-            } catch (error) {
-                console.log("events error", error)
-                seq = 0
-                await new Promise(r => setTimeout(r, 5000));
-                doGetEvents()
-                return
+            console.log("ws connect: " + url)
+            ws = new WebSocket(url);
+            ws.onopen = function () {
+                console.log("ws connected")
             }
-
-            seq = resp.nextSeq
-            const events = resp.events
-
-            events.forEach((e: any) => {
-                handle(e)
-            })
-
-            doGetEvents()
+            ws.onclose = function (event) {
+                console.log("ws close")
+                if (!cancelled) {
+                    sleep(5000).then(connect)
+                }
+            }
+            ws.onerror = function (event) {
+                console.log("ws error", event)
+            }
+            ws.onmessage = function (event: MessageEvent) {
+                if (cancelled) {
+                    return
+                }
+                const msg: any[] = JSON.parse(event.data)
+                msg.forEach(handle)
+            }
         }
 
-        doGetEvents()
+        await connect()
 
         return () => {
-            console.log("events cancel")
-            abort.abort()
+            console.log("ws cancel")
+            cancelled = true
+            if (ws) {
+                ws.close()
+            }
         }
     }
 
@@ -237,7 +253,7 @@ export class StaticApi implements Api {
         return staticShortNames
     }
 
-    async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
+    async listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
         await loadScript(staticPath + "/summaries.js")
 
         staticSummaries.forEach(rs => {

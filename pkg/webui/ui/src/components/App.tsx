@@ -94,7 +94,7 @@ const LoggedInApp = (props: { onLogout: () => void }) => {
 
         console.log("starting listenResults")
         let cancel: Promise<() => void>
-        cancel = api.listenUpdates(undefined, undefined, msg => {
+        cancel = api.listenEvents(undefined, undefined, msg => {
             switch (msg.type) {
                 case "update_command_result_summary":
                     updateCommandResultSummary(msg.summary)

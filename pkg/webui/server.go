@@ -120,7 +120,7 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	if err != nil {
 		return err
 	}
-	api.GET("/events", s.events.handler)
+	api.Any("/events", s.events.handler)
 
 	address := fmt.Sprintf("%s:%d", host, port)
 	listener, err := net.Listen("tcp", address)

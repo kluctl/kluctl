@@ -39,8 +39,8 @@ type validateSummaryEntry struct {
 }
 
 type kluctlDeploymentEntry struct {
-	store      ResultStore
-	deployment *kluctlv1.KluctlDeployment
+	store ResultStore
+	event WatchKluctlDeploymentEvent
 }
 
 type commandResultWatchEntry struct {
@@ -229,8 +229,8 @@ func (rc *ResultsCollector) handleKluctlDeploymentUpdate(store ResultStore, even
 		}
 	} else {
 		rc.kluctlDeployments[event.Deployment.UID] = kluctlDeploymentEntry{
-			store:      store,
-			deployment: event.Deployment,
+			store: store,
+			event: event,
 		}
 	}
 
@@ -396,7 +396,7 @@ func (rc *ResultsCollector) ListKluctlDeployments() ([]kluctlv1.KluctlDeployment
 	defer rc.mutex.Unlock()
 	ret := make([]kluctlv1.KluctlDeployment, 0, len(rc.commandResultSummaries))
 	for _, x := range rc.kluctlDeployments {
-		ret = append(ret, *x.deployment)
+		ret = append(ret, *x.event.Deployment)
 	}
 	return ret, nil
 }
@@ -420,9 +420,7 @@ func (rc *ResultsCollector) WatchKluctlDeployments() (<-chan WatchKluctlDeployme
 		}
 
 		for _, e := range rc.kluctlDeployments {
-			w.ch <- WatchKluctlDeploymentEvent{
-				Deployment: e.deployment,
-			}
+			w.ch <- e.event
 		}
 
 		rc.kluctlDeploymentWatches = append(rc.kluctlDeploymentWatches, w)
@@ -444,13 +442,13 @@ func (rc *ResultsCollector) WatchKluctlDeployments() (<-chan WatchKluctlDeployme
 	return w.ch, cancel, nil
 }
 
-func (rc *ResultsCollector) GetKluctlDeployment(name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
+func (rc *ResultsCollector) GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
 	for _, kd := range rc.kluctlDeployments {
-		if kd.deployment.Name == name && kd.deployment.Namespace == namespace {
-			return kd.deployment, nil
+		if kd.event.ClusterId == clusterId && kd.event.Deployment.Name == name && kd.event.Deployment.Namespace == namespace {
+			return kd.event.Deployment, nil
 		}
 	}
 	return nil, nil
