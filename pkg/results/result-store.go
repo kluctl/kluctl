@@ -49,7 +49,7 @@ type ResultStore interface {
 
 	ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error)
 	WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error)
-	GetKluctlDeployment(name string, namespace string) (*kluctlv1.KluctlDeployment, error)
+	GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error)
 }
 
 func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {

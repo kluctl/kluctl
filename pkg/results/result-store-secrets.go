@@ -733,7 +733,11 @@ func (s *ResultStoreSecrets) WatchKluctlDeployments() (<-chan WatchKluctlDeploym
 	return ch, cancel, nil
 }
 
-func (s *ResultStoreSecrets) GetKluctlDeployment(name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
+func (s *ResultStoreSecrets) GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
+	if s.clusterId != clusterId {
+		return nil, fmt.Errorf("clusterId does not match")
+	}
+
 	var k kluctlv1.KluctlDeployment
 	err := s.cache.Get(s.ctx, client.ObjectKey{Name: name, Namespace: namespace}, &k)
 	if err != nil {
