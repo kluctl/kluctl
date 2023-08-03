@@ -201,7 +201,7 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 		return err
 	}
 
-	err = s.cleanupCommandResults(cr.ProjectKey, cr.TargetKey)
+	err = s.cleanupOldCommandResults(cr.ProjectKey, cr.TargetKey)
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) erro
 	return nil
 }
 
-func (s *ResultStoreSecrets) cleanupCommandResults(project result.ProjectKey, target result.TargetKey) error {
+func (s *ResultStoreSecrets) cleanupOldCommandResults(project result.ProjectKey, target result.TargetKey) error {
 	results, err := s.ListCommandResultSummaries(ListResultSummariesOptions{
 		ProjectFilter: &project,
 	})
@@ -284,8 +284,6 @@ func (s *ResultStoreSecrets) cleanupCommandResults(project result.ProjectKey, ta
 
 	cnt := 0
 	for _, rs := range results {
-		rs := rs
-
 		if rs.TargetKey != target {
 			continue
 		}
@@ -302,6 +300,79 @@ func (s *ResultStoreSecrets) cleanupCommandResults(project result.ProjectKey, ta
 			}
 		}
 	}
+	return nil
+}
+
+func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
+	commandResults, err := s.doListCommandResultSummaries(ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	validateResults, err := s.doListValidateResultSummaries(ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+
+	deployments, err := s.ListKluctlDeployments()
+	if err != nil {
+		return err
+	}
+
+	deploymentsMap := map[result.KluctlDeploymentInfo]bool{}
+	for _, d := range deployments {
+		deploymentsMap[result.KluctlDeploymentInfo{Name: d.Name, Namespace: d.Namespace, ClusterId: s.clusterId}] = true
+	}
+
+	tryDeleteResult := func(secretKey client.ObjectKey, deployment *result.KluctlDeploymentInfo, id string, t string) {
+		if _, ok := deploymentsMap[*deployment]; ok {
+			return
+		}
+		secret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretKey.Name,
+				Namespace: secretKey.Namespace,
+			},
+		}
+		err := s.client.Delete(s.ctx, &secret)
+		if err != nil {
+			status.Warningf(s.ctx, "Failed to delete orphaned %s %s for KluctlDeployment %s: %s", t, id, deployment.Name, err)
+		} else {
+			status.Infof(s.ctx, "Deleted orphaned %s %s for KluctlDeployment %s", t, id, deployment.Name)
+		}
+	}
+
+	for _, e := range commandResults {
+		if e.summary.Command.KluctlDeployment == nil {
+			continue
+		}
+		tryDeleteResult(e.name, e.summary.Command.KluctlDeployment, e.summary.Id, "command result")
+	}
+	for _, e := range validateResults {
+		if e.summary.KluctlDeployment == nil {
+			continue
+		}
+		tryDeleteResult(e.name, e.summary.KluctlDeployment, e.summary.Id, "validate result")
+	}
+	return nil
+}
+
+func (s *ResultStoreSecrets) StartCleanupOrphans() error {
+	ch, _, err := s.WatchKluctlDeployments()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		// perform initial cleanup so that we catch all deployments that got deleted since last run
+		_ = s.cleanupOrphanedResults()
+
+		for d := range ch {
+			if d.Delete {
+				_ = s.cleanupOrphanedResults()
+			}
+		}
+	}()
+
 	return nil
 }
 
@@ -336,7 +407,12 @@ func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, t
 	return nil
 }
 
-func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
+type commandResultSummaryAndName struct {
+	name    client.ObjectKey
+	summary result.CommandResultSummary
+}
+
+func (s *ResultStoreSecrets) doListCommandResultSummaries(options ListResultSummariesOptions) ([]commandResultSummaryAndName, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
 	err := s.cache.List(s.ctx, &l, client.HasLabels{"kluctl.io/command-result-id"})
@@ -344,7 +420,7 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummar
 		return nil, err
 	}
 
-	ret := make([]result.CommandResultSummary, 0, len(l.Items))
+	ret := make([]commandResultSummaryAndName, 0, len(l.Items))
 
 	for _, x := range l.Items {
 		summary, err := s.parseCommandSummary(x.GetAnnotations())
@@ -355,12 +431,29 @@ func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummar
 			continue
 		}
 
-		ret = append(ret, *summary)
+		ret = append(ret, commandResultSummaryAndName{
+			name:    client.ObjectKeyFromObject(&x),
+			summary: *summary,
+		})
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
-		return lessCommandSummary(&ret[i], &ret[j])
+		return lessCommandSummary(&ret[i].summary, &ret[j].summary)
 	})
+
+	return ret, nil
+}
+
+func (s *ResultStoreSecrets) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
+	summaries, err := s.doListCommandResultSummaries(options)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]result.CommandResultSummary, 0, len(summaries))
+	for _, sn := range summaries {
+		ret = append(ret, sn.summary)
+	}
 
 	return ret, nil
 }
@@ -536,7 +629,12 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 	return &cr, nil
 }
 
-func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error) {
+type validateResultSummaryAndName struct {
+	name    client.ObjectKey
+	summary result.ValidateResultSummary
+}
+
+func (s *ResultStoreSecrets) doListValidateResultSummaries(options ListResultSummariesOptions) ([]validateResultSummaryAndName, error) {
 	var l metav1.PartialObjectMetadataList
 	l.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "SecretList"})
 	err := s.cache.List(s.ctx, &l, client.HasLabels{"kluctl.io/validate-result-id"})
@@ -544,7 +642,7 @@ func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSumma
 		return nil, err
 	}
 
-	ret := make([]result.ValidateResultSummary, 0, len(l.Items))
+	ret := make([]validateResultSummaryAndName, 0, len(l.Items))
 
 	for _, x := range l.Items {
 		summary, err := s.parseValidateSummary(x.GetAnnotations())
@@ -555,12 +653,29 @@ func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSumma
 			continue
 		}
 
-		ret = append(ret, *summary)
+		ret = append(ret, validateResultSummaryAndName{
+			name:    client.ObjectKeyFromObject(&x),
+			summary: *summary,
+		})
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
-		return lessValidateSummary(&ret[i], &ret[j])
+		return lessValidateSummary(&ret[i].summary, &ret[j].summary)
 	})
+
+	return ret, nil
+}
+
+func (s *ResultStoreSecrets) ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error) {
+	summaries, err := s.doListValidateResultSummaries(options)
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]result.ValidateResultSummary, 0, len(summaries))
+	for _, sn := range summaries {
+		ret = append(ret, sn.summary)
+	}
 
 	return ret, nil
 }
