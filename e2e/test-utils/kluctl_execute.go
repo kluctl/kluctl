@@ -42,5 +42,8 @@ func KluctlExecute(t *testing.T, ctx context.Context, args ...string) (string, s
 	sh.Stop()
 	sh = nil
 	_ = stdout.Close()
+
+	m.Lock()
+	defer m.Unlock()
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
