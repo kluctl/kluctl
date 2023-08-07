@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 )
 
 type pokeImagesCmd struct {
@@ -42,7 +42,7 @@ func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", cmdCtx.targetCtx.ClusterContext)) {
+			if !prompts.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", cmdCtx.targetCtx.ClusterContext)) {
 				return fmt.Errorf("aborted")
 			}
 		}

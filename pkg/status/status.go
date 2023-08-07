@@ -14,10 +14,10 @@ type StatusContext struct {
 	finished bool
 	failed   bool
 
+	level        Level
 	prefix       string
 	startMessage string
 	startTotal   int
-	disableLogs  bool
 }
 
 type EndResult int
@@ -34,6 +34,7 @@ const (
 	LevelInfo
 	LevelWarning
 	LevelError
+	LevelProgress
 	LevelPrompt
 )
 
@@ -46,18 +47,14 @@ type StatusLine interface {
 }
 
 type StatusHandler interface {
-	IsTerminal() bool
 	IsTraceEnabled() bool
 
-	SetTrace(trace bool)
 	Stop()
 	Flush()
-	StartStatus(total int, message string) StatusLine
+	StartStatus(level Level, total int, message string) StatusLine
 
 	Message(level Level, message string)
 	MessageFallback(level Level, message string)
-
-	Prompt(password bool, message string) (string, error)
 }
 
 type contextKey struct{}
@@ -93,6 +90,12 @@ func FromContext(ctx context.Context) StatusHandler {
 
 type Option func(s *StatusContext)
 
+func WithLevel(level Level) Option {
+	return func(s *StatusContext) {
+		s.level = level
+	}
+}
+
 func WithPrefix(prefix string) Option {
 	return func(s *StatusContext) {
 		s.prefix = prefix
@@ -115,24 +118,19 @@ func WithTotal(t int) Option {
 	}
 }
 
-func WithDisableLogs() Option {
-	return func(s *StatusContext) {
-		s.disableLogs = true
-	}
-}
-
 func StartWithOptions(ctx context.Context, opts ...Option) *StatusContext {
 	sh := FromContext(ctx)
 	s := &StatusContext{
-		ctx: ctx,
-		sh:  sh,
+		ctx:   ctx,
+		sh:    sh,
+		level: LevelProgress,
 	}
 
 	for _, o := range opts {
 		o(s)
 	}
 
-	s.sl = sh.StartStatus(s.startTotal, s.buildMessage(s.startMessage))
+	s.sl = sh.StartStatus(s.level, s.startTotal, s.buildMessage(s.startMessage))
 
 	return s
 }
@@ -268,7 +266,7 @@ func InfoFallbackf(ctx context.Context, status string, args ...any) {
 
 func Warning(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.MessageFallback(LevelWarning, status)
+	slh.Message(LevelWarning, status)
 }
 
 func Warningf(ctx context.Context, status string, args ...any) {
@@ -310,15 +308,6 @@ func Error(ctx context.Context, status string) {
 
 func Errorf(ctx context.Context, status string, args ...any) {
 	Error(ctx, fmt.Sprintf(status, args...))
-}
-
-func Prompt(ctx context.Context, password bool, message string) (string, error) {
-	slh := FromContext(ctx)
-	return slh.Prompt(password, message)
-}
-
-func Promptf(ctx context.Context, password bool, message string, args ...any) (string, error) {
-	return Prompt(ctx, password, fmt.Sprintf(message, args...))
 }
 
 func Deprecation(ctx context.Context, key string, message string) {

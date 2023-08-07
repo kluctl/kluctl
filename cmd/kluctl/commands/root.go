@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/gops/agent"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	flag "github.com/spf13/pflag"
 	"io"
 	"log"
@@ -88,19 +89,23 @@ var flagGroups = []groupInfo{
 
 var origStderr = os.Stderr
 
-func initStatusHandler(ctx context.Context, debug bool, noColor bool) context.Context {
+func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) context.Context {
 	// we must determine isTerminal before we override os.Stderr
 	isTerminal := isatty.IsTerminal(origStderr.Fd())
 	var sh status.StatusHandler
-	if !debug && isatty.IsTerminal(origStderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(ctx, origStderr, isTerminal, !noColor, false)
+	var pp prompts.PromptProvider
+	if !debug && isTerminal {
+		sh = status.NewMultiLineStatusHandler(ctx, origStderr, isTerminal && !noColor, false)
+		pp = &prompts.StatusAndStdinPromptProvider{}
 	} else {
 		sh = status.NewSimpleStatusHandler(func(level status.Level, message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
-		}, isTerminal, false)
+		}, isTerminal, debug)
+		pp = &prompts.SimplePromptProvider{Out: origStderr}
 	}
-	sh.SetTrace(debug)
 	ctx = status.NewContext(ctx, sh)
+	ctx = prompts.NewContext(ctx, pp)
+
 	return ctx
 }
 
@@ -242,7 +247,7 @@ func Main() {
 	colorable.EnableColorsStdout(nil)
 	ctx := context.Background()
 
-	ctx = initStatusHandler(ctx, false, true)
+	ctx = initStatusHandlerAndPrompts(ctx, false, true)
 	redirectLogsAndStderr(func() context.Context {
 		// ctx might be replaced later in preRun() of Execute()
 		return ctx
@@ -267,7 +272,7 @@ func Main() {
 		if oldSh != nil {
 			oldSh.Stop()
 		}
-		ctx = initStatusHandler(ctxIn, flags.Debug, flags.NoColor)
+		ctx = initStatusHandlerAndPrompts(ctxIn, flags.Debug, flags.NoColor)
 		if !flags.NoUpdateCheck {
 			if len(os.Args) < 2 || (os.Args[1] != "completion" && os.Args[1] != "__complete") {
 				checkNewVersion(ctx)

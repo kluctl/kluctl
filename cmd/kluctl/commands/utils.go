@@ -11,6 +11,7 @@ import (
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -78,8 +79,8 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	messageCallbacks := &messages.MessageCallbacks{
 		WarningFn:            func(s string) { status.Warning(ctx, s) },
 		TraceFn:              func(s string) { status.Trace(ctx, s) },
-		AskForPasswordFn:     func(s string) (string, error) { return status.AskForPassword(ctx, s) },
-		AskForConfirmationFn: func(s string) bool { return status.AskForConfirmation(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 
