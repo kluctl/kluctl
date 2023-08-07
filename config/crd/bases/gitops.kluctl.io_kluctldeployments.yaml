@@ -191,6 +191,8 @@ spec:
                       type: string
                     image:
                       type: string
+                    imageRegex:
+                      type: string
                     namespace:
                       type: string
                     object:
@@ -212,7 +214,6 @@ spec:
                     resultImage:
                       type: string
                   required:
-                  - image
                   - resultImage
                   type: object
                 type: array
