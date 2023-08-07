@@ -43,7 +43,7 @@ func buildFixedImageEntryFromArg(arg string) (*types.FixedImage, error) {
 
 	s = strings.Split(image, ":")
 	e := types.FixedImage{
-		Image:       s[0],
+		Image:       &s[0],
 		ResultImage: result,
 	}
 

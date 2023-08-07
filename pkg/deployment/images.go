@@ -12,6 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -61,7 +62,15 @@ func (images *Images) SeenImages(simple bool) []types.FixedImage {
 		}
 	}
 	sort.Slice(ret, func(i, j int) bool {
-		return ret[i].Image < ret[j].Image
+		ii := ret[i].Image
+		ij := ret[j].Image
+		if ii == nil {
+			ii = ret[i].ImageRegex
+		}
+		if ij == nil {
+			ij = ret[j].ImageRegex
+		}
+		return *ii < *ij
 	})
 	return ret
 }
@@ -84,11 +93,20 @@ func (images *Images) parseFixedImagesFromVars(vars *uo.UnstructuredObject) ([]t
 }
 
 func (images *Images) getFixedImage(image string, namespace string, deployment string, container string, vars *uo.UnstructuredObject) (*string, error) {
-	cmpList := func(fis []types.FixedImage) *string {
+	cmpList := func(fis []types.FixedImage) (*string, error) {
 		for i := len(fis) - 1; i >= 0; i-- {
 			fi := fis[i]
-			if fi.Image != image {
+			if fi.Image != nil && image != *fi.Image {
 				continue
+			}
+			if fi.ImageRegex != nil {
+				r, err := regexp.Compile(*fi.ImageRegex)
+				if err != nil {
+					return nil, err
+				}
+				if !r.MatchString(image) {
+					continue
+				}
 			}
 			if fi.Namespace != nil && namespace != *fi.Namespace {
 				continue
@@ -100,9 +118,9 @@ func (images *Images) getFixedImage(image string, namespace string, deployment s
 				continue
 			}
 
-			return &fi.ResultImage
+			return &fi.ResultImage, nil
 		}
-		return nil
+		return nil, nil
 	}
 
 	fisFromVars, err := images.parseFixedImagesFromVars(vars)
@@ -110,11 +128,17 @@ func (images *Images) getFixedImage(image string, namespace string, deployment s
 		return nil, err
 	}
 
-	fi := cmpList(images.fixedImages)
+	fi, err := cmpList(images.fixedImages)
+	if err != nil {
+		return nil, err
+	}
 	if fi != nil {
 		return fi, nil
 	}
-	fi = cmpList(fisFromVars)
+	fi, err = cmpList(fisFromVars)
+	if err != nil {
+		return nil, err
+	}
 	if fi != nil {
 		return fi, nil
 	}
@@ -272,7 +296,7 @@ func (images *Images) resolveImage(ctx context.Context, ph placeHolder, ref k8s2
 	}
 
 	si := types.FixedImage{
-		Image:         ph.Image,
+		Image:         &ph.Image,
 		DeployedImage: deployed,
 		Namespace:     &ref.Namespace,
 		Object:        &ref,
