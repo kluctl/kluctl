@@ -54,12 +54,12 @@ require (
 	filippo.io/age v1.1.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0
-	github.com/aws/aws-sdk-go-v2 v1.20.0
+	github.com/aws/aws-sdk-go-v2 v1.20.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.32
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.31
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.20.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.21.1
-	github.com/aws/smithy-go v1.14.0
+	github.com/aws/smithy-go v1.14.1
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/gin-contrib/sessions v0.0.5
