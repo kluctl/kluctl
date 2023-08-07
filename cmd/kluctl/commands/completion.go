@@ -183,7 +183,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 						mutex.Lock()
 						defer mutex.Unlock()
 						for _, si := range cmdCtx.images.SeenImages(false) {
-							str := si.Image
+							str := *si.Image
 							if si.Namespace != nil {
 								str += ":" + *si.Namespace
 							}

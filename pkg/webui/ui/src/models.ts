@@ -501,7 +501,8 @@ export class ObjectRef {
     }
 }
 export class FixedImage {
-    image: string;
+    image?: string;
+    imageRegex?: string;
     resultImage: string;
     deployedImage?: string;
     namespace?: string;
@@ -514,6 +515,7 @@ export class FixedImage {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.image = source["image"];
+        this.imageRegex = source["imageRegex"];
         this.resultImage = source["resultImage"];
         this.deployedImage = source["deployedImage"];
         this.namespace = source["namespace"];
