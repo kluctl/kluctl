@@ -89,8 +89,20 @@ images:
     container: <name>
 ```
 
-`image` and `resultImage` are required. All the other fields are optional and allow to specify in detail for which
+`image` (or `imageRegex`) and `resultImage` are required. All the other fields are optional and allow to specify in detail for which
 object the fixed is specified.
+
+You can also specify a regex for the image name:
+
+```yaml
+images:
+  - imageRegex: registry\.gitlab\.com/my-group/.*
+    resultImage: <result_image>
+    # optional fields
+    namespace: <namespace>
+    deployment: <kind>/<name>
+    container: <name>
+```
 
 ## Target definition
 
