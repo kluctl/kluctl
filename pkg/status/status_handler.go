@@ -114,33 +114,30 @@ func (s *MultiLineStatusHandler) printLine(message string, barOverride string, d
 	}
 }
 
-func (s *MultiLineStatusHandler) Info(message string) {
-	o := s.withColor("green", "ⓘ")
-	s.printLine(message, o, true)
-}
-
-func (s *MultiLineStatusHandler) InfoFallback(message string) {
-	// no fallback needed
-}
-
-func (s *MultiLineStatusHandler) Warning(message string) {
-	o := s.withColor("yellow", "⚠")
-	s.printLine(message, o, true)
-}
-
-func (s *MultiLineStatusHandler) Error(message string) {
-	o := s.withColor("red", "✗")
-	s.printLine(message, o, true)
-}
-
-func (s *MultiLineStatusHandler) Trace(message string) {
-	if s.trace {
-		s.Info(message)
+func (s *MultiLineStatusHandler) Message(level Level, message string) {
+	var o string
+	switch level {
+	case LevelTrace:
+		if !s.trace {
+			return
+		}
+		fallthrough
+	case LevelInfo:
+		o = s.withColor("green", "ⓘ")
+	case LevelWarning:
+		o = s.withColor("yellow", "⚠")
+	case LevelError:
+		o = s.withColor("red", "✗")
+	case LevelPrompt:
+		o = s.withColor("red", "?")
+	default:
+		o = s.withColor("yellow", "¿")
 	}
+	s.printLine(message, o, true)
 }
 
-func (s *MultiLineStatusHandler) PlainText(text string) {
-	s.Info(text)
+func (s *MultiLineStatusHandler) MessageFallback(level Level, message string) {
+	// no fallback needed
 }
 
 func (s *MultiLineStatusHandler) Prompt(password bool, message string) (string, error) {

@@ -21,11 +21,20 @@ type StatusContext struct {
 }
 
 type EndResult int
+type Level int
 
 const (
 	EndSuccess EndResult = iota
 	EndWarning
 	EndError
+)
+
+const (
+	LevelTrace = iota
+	LevelInfo
+	LevelWarning
+	LevelError
+	LevelPrompt
 )
 
 type StatusLine interface {
@@ -45,13 +54,8 @@ type StatusHandler interface {
 	Flush()
 	StartStatus(total int, message string) StatusLine
 
-	Info(message string)
-	Warning(message string)
-	Error(message string)
-	Trace(message string)
-
-	PlainText(text string)
-	InfoFallback(message string)
+	Message(level Level, message string)
+	MessageFallback(level Level, message string)
 
 	Prompt(password bool, message string) (string, error)
 }
@@ -244,14 +248,9 @@ func (s *StatusContext) Warning() {
 	s.finished = true
 }
 
-func PlainText(ctx context.Context, text string) {
-	slh := FromContext(ctx)
-	slh.PlainText(text)
-}
-
 func Info(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Info(status)
+	slh.Message(LevelInfo, status)
 }
 
 func Infof(ctx context.Context, status string, args ...any) {
@@ -260,7 +259,7 @@ func Infof(ctx context.Context, status string, args ...any) {
 
 func InfoFallback(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.InfoFallback(status)
+	slh.MessageFallback(LevelInfo, status)
 }
 
 func InfoFallbackf(ctx context.Context, status string, args ...any) {
@@ -269,7 +268,7 @@ func InfoFallbackf(ctx context.Context, status string, args ...any) {
 
 func Warning(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Warning(status)
+	slh.MessageFallback(LevelWarning, status)
 }
 
 func Warningf(ctx context.Context, status string, args ...any) {
@@ -292,7 +291,7 @@ func WarningOncef(ctx context.Context, key string, status string, args ...any) {
 
 func Trace(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Trace(status)
+	slh.Message(LevelTrace, status)
 }
 
 func Tracef(ctx context.Context, status string, args ...any) {
@@ -306,7 +305,7 @@ func IsTraceEnabled(ctx context.Context) bool {
 
 func Error(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Error(status)
+	slh.Message(LevelError, status)
 }
 
 func Errorf(ctx context.Context, status string, args ...any) {
@@ -325,7 +324,7 @@ func Promptf(ctx context.Context, password bool, message string, args ...any) (s
 func Deprecation(ctx context.Context, key string, message string) {
 	cv := getContextValue(ctx)
 	cv.deprecationOnce.Do(key, func() {
-		cv.slh.Warning(message)
+		cv.slh.Message(LevelWarning, message)
 	})
 }
 

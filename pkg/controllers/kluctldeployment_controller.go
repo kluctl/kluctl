@@ -64,7 +64,7 @@ type KluctlDeploymentReconcilerOpts struct {
 func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconcileStart := time.Now()
 
-	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(message string) {
+	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(level status.Level, message string) {
 		log.Info(message)
 	}, false, false))
 

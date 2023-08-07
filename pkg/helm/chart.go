@@ -216,7 +216,7 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 		out, err = a.Run(c.chartName)
 	}
 	if out != "" {
-		status.PlainText(ctx, out)
+		status.Infof(ctx, "Message from Helm:\n%s", out)
 	}
 	if err != nil {
 		return nil, err

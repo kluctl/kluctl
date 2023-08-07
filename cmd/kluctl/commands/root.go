@@ -95,7 +95,7 @@ func initStatusHandler(ctx context.Context, debug bool, noColor bool) context.Co
 	if !debug && isatty.IsTerminal(origStderr.Fd()) {
 		sh = status.NewMultiLineStatusHandler(ctx, origStderr, isTerminal, !noColor, false)
 	} else {
-		sh = status.NewSimpleStatusHandler(func(message string) {
+		sh = status.NewSimpleStatusHandler(func(level status.Level, message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
 		}, isTerminal, false)
 	}

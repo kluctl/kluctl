@@ -8,7 +8,7 @@ import (
 )
 
 type simpleStatusHandler struct {
-	cb         func(message string)
+	cb         func(level Level, message string)
 	isTerminal bool
 	trace      bool
 }
@@ -16,7 +16,7 @@ type simpleStatusHandler struct {
 type simpleStatusLine struct {
 }
 
-func NewSimpleStatusHandler(cb func(message string), isTerminal bool, trace bool) StatusHandler {
+func NewSimpleStatusHandler(cb func(level Level, message string), isTerminal bool, trace bool) StatusHandler {
 	return &simpleStatusHandler{
 		cb:         cb,
 		isTerminal: isTerminal,
@@ -44,39 +44,21 @@ func (s *simpleStatusHandler) Flush() {
 
 func (s *simpleStatusHandler) StartStatus(total int, message string) StatusLine {
 	if message != "" {
-		s.Info(message)
+		s.Message(LevelInfo, message)
 	}
 	return &simpleStatusLine{}
 }
 
-func (s *simpleStatusHandler) Info(message string) {
-	s.cb(message)
+func (s *simpleStatusHandler) Message(level Level, message string) {
+	s.cb(level, message)
 }
 
-func (s *simpleStatusHandler) Warning(message string) {
-	s.InfoFallback(message)
-}
-
-func (s *simpleStatusHandler) Error(message string) {
-	s.InfoFallback(message)
-}
-
-func (s *simpleStatusHandler) Trace(message string) {
-	if s.trace {
-		s.Info(message)
-	}
-}
-
-func (s *simpleStatusHandler) PlainText(text string) {
-	s.Info(text)
-}
-
-func (s *simpleStatusHandler) InfoFallback(message string) {
-	s.Info(message)
+func (s *simpleStatusHandler) MessageFallback(level Level, message string) {
+	s.Message(level, message)
 }
 
 func (s *simpleStatusHandler) Prompt(password bool, message string) (string, error) {
-	s.cb(message)
+	s.cb(LevelPrompt, message)
 
 	if password {
 		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
