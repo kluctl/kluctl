@@ -79,7 +79,7 @@ require (
 	golang.org/x/oauth2 v0.10.0
 	nhooyr.io/websocket v1.8.7
 	sigs.k8s.io/cli-utils v0.35.0
-	sigs.k8s.io/controller-runtime v0.15.0
+	sigs.k8s.io/controller-runtime v0.15.1
 	sigs.k8s.io/kustomize/api v0.13.4
 	sigs.k8s.io/yaml v1.3.0
 )
