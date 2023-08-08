@@ -35,7 +35,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/ssh-agent v0.3.3
 	golang.org/x/crypto v0.12.0
-	golang.org/x/net v0.13.0
+	golang.org/x/net v0.14.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.11.0
 	golang.org/x/term v0.11.0
@@ -76,7 +76,7 @@ require (
 	github.com/sergi/go-diff v1.3.1
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
 	go.mozilla.org/sops/v3 v3.7.4-0.20220901181616-9124783930b1
-	golang.org/x/oauth2 v0.10.0
+	golang.org/x/oauth2 v0.11.0
 	nhooyr.io/websocket v1.8.7
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.15.1
