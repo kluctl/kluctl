@@ -88,8 +88,8 @@ vet: ## Run go vet against code.
 test: manifests generate test-unit test-e2e fmt vet ## Run all tests.
 
 .PHONY: test-unit
-test-unit: ## Run unit tests.
-	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
+test-unit: envtest ## Run unit tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
 
 .PHONY: test-e2e
 test-e2e: envtest ## Run e2e tests.
