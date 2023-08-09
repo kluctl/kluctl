@@ -100,7 +100,7 @@ func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) 
 	} else {
 		sh = status.NewSimpleStatusHandler(func(level status.Level, message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
-		}, isTerminal, debug)
+		}, debug)
 		pp = &prompts.SimplePromptProvider{Out: origStderr}
 	}
 	ctx = status.NewContext(ctx, sh)

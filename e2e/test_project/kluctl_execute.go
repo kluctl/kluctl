@@ -31,7 +31,7 @@ func KluctlExecute(t *testing.T, ctx context.Context, args ...string) (string, s
 		defer m.Unlock()
 		t.Log(message)
 		stderrBuf.WriteString(message + "\n")
-	}, false, true)
+	}, true)
 	defer func() {
 		if sh != nil {
 			sh.Stop()

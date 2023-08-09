@@ -67,7 +67,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(level status.Level, message string) {
 		log.Info(message)
-	}, false, false))
+	}, false))
 
 	obj := &kluctlv1.KluctlDeployment{}
 	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {

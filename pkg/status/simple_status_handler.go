@@ -1,24 +1,18 @@
 package status
 
 type simpleStatusHandler struct {
-	cb         func(level Level, message string)
-	isTerminal bool
-	trace      bool
+	cb    func(level Level, message string)
+	trace bool
 }
 
 type simpleStatusLine struct {
 }
 
-func NewSimpleStatusHandler(cb func(level Level, message string), isTerminal bool, trace bool) StatusHandler {
+func NewSimpleStatusHandler(cb func(level Level, message string), trace bool) StatusHandler {
 	return &simpleStatusHandler{
-		cb:         cb,
-		isTerminal: isTerminal,
-		trace:      trace,
+		cb:    cb,
+		trace: trace,
 	}
-}
-
-func (s *simpleStatusHandler) IsTerminal() bool {
-	return s.isTerminal
 }
 
 func (s *simpleStatusHandler) IsTraceEnabled() bool {
