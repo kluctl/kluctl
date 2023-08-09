@@ -109,9 +109,9 @@ func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) 
 	return ctx
 }
 
-func redirectLogsAndStderr(ctxGetter func() context.Context) {
+func redirectLogsAndStderr(ctx context.Context) {
 	f := func(line string) {
-		status.Info(ctxGetter(), line)
+		status.Info(ctx, line)
 	}
 
 	lr1 := status.NewLineRedirector(f)
@@ -237,7 +237,7 @@ func initViper(ctx context.Context) {
 	viper.AddConfigPath("$HOME/.kluctl")
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			status.Error(ctx, err.Error())
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 			os.Exit(1)
 		}
 	}
@@ -246,12 +246,6 @@ func initViper(ctx context.Context) {
 func Main() {
 	colorable.EnableColorsStdout(nil)
 	ctx := context.Background()
-
-	ctx = initStatusHandlerAndPrompts(ctx, false, true)
-	redirectLogsAndStderr(func() context.Context {
-		// ctx might be replaced later in preRun() of Execute()
-		return ctx
-	})
 
 	initViper(ctx)
 
@@ -268,11 +262,13 @@ func Main() {
 		if err != nil {
 			return ctx, err
 		}
-		oldSh := status.FromContext(ctxIn)
-		if oldSh != nil {
-			oldSh.Stop()
+
+		ctx = initStatusHandlerAndPrompts(ctx, flags.Debug, flags.NoColor)
+
+		if cmd.Name() != "run" && cmd.Parent().Name() != "controller" {
+			redirectLogsAndStderr(ctx)
 		}
-		ctx = initStatusHandlerAndPrompts(ctxIn, flags.Debug, flags.NoColor)
+
 		if !flags.NoUpdateCheck {
 			if len(os.Args) < 2 || (os.Args[1] != "completion" && os.Args[1] != "__complete") {
 				checkNewVersion(ctx)
@@ -288,7 +284,9 @@ func Main() {
 	}
 
 	sh := status.FromContext(ctx)
-	sh.Stop()
+	if sh != nil {
+		sh.Stop()
+	}
 
 	if err != nil {
 		os.Exit(1)
@@ -330,7 +328,11 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 
 	err = rootCmd.Execute()
 	if err != nil {
-		status.Error(ctx, err.Error())
+		if status.FromContext(ctx) != nil {
+			status.Error(ctx, err.Error())
+		} else {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		}
 		return err
 	}
 	return nil
