@@ -39,3 +39,18 @@ patches:
         path: /spec/template/spec/containers/0/resources
         value: {{ get_var("args.webui_resources", none) | to_json }}
 {% endif %}
+{% if get_var("args.webui_node_selectors", none) %}
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value: {{ get_var("args.webui_node_selectors", none) | to_json }}
+{% endif %}
+{% if get_var("args.webui_tolerations", none) %}
+      - op: add
+        path: /spec/template/spec/tolerations
+        value: {{ get_var("args.webui_tolerations", none) | to_json }}
+{% endif %}
+{% if get_var("args.webui_priority_class_name", none) %}
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: {{ get_var("args.webui_priority_class_name", none) | to_json }}
+{% endif %}

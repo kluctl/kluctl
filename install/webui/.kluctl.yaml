@@ -11,3 +11,9 @@ args:
     default: []
   - name: webui_resources
     default: {}
+  - name: webui_node_selectors
+    default: {}
+  - name: webui_tolerations
+    default: []
+  - name: webui_priority_class
+    default: {}
