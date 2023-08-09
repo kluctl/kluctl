@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +11,7 @@ import (
 	"testing"
 )
 
-func setSopsKey(p *test_utils.TestProject) {
+func setSopsKey(p *test_project.TestProject) {
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
 	p.AddExtraEnv(fmt.Sprintf("%s=%s", age.SopsAgeKeyEnv, string(key)))
 }
@@ -20,7 +21,7 @@ func TestSopsVars(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
@@ -60,7 +61,7 @@ func TestSopsResources(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
@@ -71,7 +72,7 @@ func TestSopsResources(t *testing.T) {
 		return nil
 	})
 
-	p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("cm", []test_project.KustomizeResource{
 		{Name: "encrypted-cm.yaml"},
 	}, nil)
 
@@ -93,7 +94,7 @@ func TestSopsHelmValues(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())

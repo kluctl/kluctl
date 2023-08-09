@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"

@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
@@ -14,7 +14,7 @@ func TestKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -42,7 +42,7 @@ func TestGeneratedKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -89,7 +89,7 @@ func TestOnlyRender(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -142,7 +142,7 @@ func TestKustomizeBase(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -157,7 +157,7 @@ func TestKustomizeBase(t *testing.T) {
 		return items
 	})
 
-	p.AddKustomizeDeployment("k1", []test_utils.KustomizeResource{{
+	p.AddKustomizeDeployment("k1", []test_project.KustomizeResource{{
 		Name: "../base",
 	}}, nil)
 
@@ -170,7 +170,7 @@ func TestTemplateIgnore(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -225,7 +225,7 @@ func testLocalIncludes(t *testing.T, projectDir string) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithBareProject())
+	p := test_project.NewTestProject(t, test_project.WithBareProject())
 
 	createNamespace(t, k, p.TestSlug())
 

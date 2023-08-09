@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -11,7 +12,7 @@ import (
 	"testing"
 )
 
-func addGetImageDeployment(p *test_utils.TestProject, name string, containerName string, gi string) {
+func addGetImageDeployment(p *test_project.TestProject, name string, containerName string, gi string) {
 	y := fmt.Sprintf(`
 apiVersion: apps/v1
 kind: Deployment
@@ -35,12 +36,12 @@ spec:
         image: '%s'
 `, name, p.TestSlug(), name, name, name, containerName, gi)
 
-	p.AddKustomizeDeployment(name, []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment(name, []test_project.KustomizeResource{
 		{Name: name, Content: uo.FromStringMust(y)},
 	}, nil)
 }
 
-func assertImage(t *testing.T, k *test_utils.EnvTestCluster, p *test_utils.TestProject, deploymentName string, containerName string, expectedImage string) {
+func assertImage(t *testing.T, k *test_utils.EnvTestCluster, p *test_project.TestProject, deploymentName string, containerName string, expectedImage string) {
 	d := assertObjectExists(t, k, schema.GroupVersionResource{
 		Group:    "apps",
 		Version:  "v1",
@@ -66,7 +67,7 @@ func TestGetImageNotFound(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -85,7 +86,7 @@ func TestGetImageArg(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -98,7 +99,7 @@ func TestGetImageArg(t *testing.T) {
 	assertImage(t, k, p, "d1", "c1", "i1:arg")
 }
 
-func setImagesVars(p *test_utils.TestProject, fis []types.FixedImage) {
+func setImagesVars(p *test_project.TestProject, fis []types.FixedImage) {
 	vars := []types.VarsSource{
 		{
 			Values: uo.FromMap(map[string]interface{}{
@@ -118,7 +119,7 @@ func TestGetImageVars(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
 		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars"},
@@ -140,7 +141,7 @@ func TestGetImageMixed(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
 		{Image: utils.StrPtr("i2"), ResultImage: "i2:vars"},
@@ -164,7 +165,7 @@ func TestGetImageByDeployment(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
 		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars1", Deployment: utils.StrPtr("Deployment/d1")},
@@ -189,7 +190,7 @@ func TestGetImageByContainer(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
 		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars1", Container: utils.StrPtr("c1")},
@@ -214,7 +215,7 @@ func TestGetImageRegex(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
 		{ImageRegex: utils.StrPtr("i.*"), ResultImage: "i1:x"},

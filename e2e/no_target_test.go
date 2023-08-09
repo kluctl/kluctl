@@ -1,15 +1,15 @@
 package e2e
 
 import (
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t)
+func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_project.TestProject {
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())
 	createNamespace(t, defaultCluster2, p.TestSlug())
@@ -23,9 +23,9 @@ func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_utils.Test
 	})
 
 	if withDeploymentYaml {
-		p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
+		p.AddKustomizeDeployment("cm", []test_project.KustomizeResource{{Name: "cm.yaml", Content: cm}}, nil)
 	} else {
-		p.AddKustomizeResources("", []test_utils.KustomizeResource{{Name: "cm.yaml", Content: cm}})
+		p.AddKustomizeResources("", []test_project.KustomizeResource{{Name: "cm.yaml", Content: cm}})
 		err := os.Remove(filepath.Join(p.LocalProjectDir(), "deployment.yml"))
 		assert.NoError(t, err)
 	}

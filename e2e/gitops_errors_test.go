@@ -3,7 +3,7 @@ package e2e
 import (
 	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"

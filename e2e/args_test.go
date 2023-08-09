@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"testing"
@@ -13,7 +13,7 @@ func TestArgs(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -121,7 +121,7 @@ d:
 func TestArgsFromEnv(t *testing.T) {
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	p.AddExtraEnv("KLUCTL_ARG=a=a")
 	p.AddExtraEnv("KLUCTL_ARG_1=b=b")
 	p.AddExtraEnv(`KLUCTL_ARG_2=c={"nested":{"nested2":"c"}}`)
@@ -156,7 +156,7 @@ func TestArgsFromEnv(t *testing.T) {
 func TestArgsFromEnvAndCli(t *testing.T) {
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	p.AddExtraEnv("KLUCTL_ARG_1=a=a")
 	p.AddExtraEnv("KLUCTL_ARG_2=c=c")
 

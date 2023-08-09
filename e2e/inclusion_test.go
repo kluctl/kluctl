@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	corev1 "k8s.io/api/core/v1"
 	"path/filepath"
@@ -9,9 +10,9 @@ import (
 	"testing"
 )
 
-func prepareInclusionTestProject(t *testing.T, withIncludes bool) (*test_utils.TestProject, *test_utils.EnvTestCluster) {
+func prepareInclusionTestProject(t *testing.T, withIncludes bool) (*test_project.TestProject, *test_utils.EnvTestCluster) {
 	k := defaultCluster1
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -41,7 +42,7 @@ func prepareInclusionTestProject(t *testing.T, withIncludes bool) (*test_utils.T
 	return p, k
 }
 
-func assertExistsHelper(t *testing.T, p *test_utils.TestProject, k *test_utils.EnvTestCluster, shouldExists map[string]bool, add []string, remove []string) {
+func assertExistsHelper(t *testing.T, p *test_project.TestProject, k *test_utils.EnvTestCluster, shouldExists map[string]bool, add []string, remove []string) {
 	for _, x := range add {
 		shouldExists[x] = true
 	}
