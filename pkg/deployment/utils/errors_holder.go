@@ -29,6 +29,21 @@ func (dew *DeploymentErrorsAndWarnings) Init() {
 	dew.errors = map[k8s.ObjectRef]map[result.DeploymentError]bool{}
 }
 
+func (dew *DeploymentErrorsAndWarnings) Clone() *DeploymentErrorsAndWarnings {
+	dew.mutex.Lock()
+	defer dew.mutex.Unlock()
+
+	c := NewDeploymentErrorsAndWarnings()
+	for k, v := range dew.errors {
+		c.errors[k] = v
+	}
+	for k, v := range dew.warnings {
+		c.warnings[k] = v
+	}
+
+	return c
+}
+
 func (dew *DeploymentErrorsAndWarnings) AddWarning(ref k8s.ObjectRef, warning error) {
 	de := result.DeploymentError{
 		Ref:     ref,

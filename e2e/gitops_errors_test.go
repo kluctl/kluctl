@@ -231,7 +231,9 @@ data:
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
 			{Message: "pruning without a discriminator is not supported"},
-		}, nil)
+		}, []result.DeploymentError{
+			{Message: "no discriminator configured. Orphan object detection will not work"},
+		})
 		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
 			_ = o.SetNestedField(backup, "discriminator")
 			return nil
