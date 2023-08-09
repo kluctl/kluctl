@@ -16,7 +16,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
@@ -64,6 +64,11 @@ type KluctlDeploymentReconcilerOpts struct {
 
 func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconcileStart := time.Now()
+
+	// we reuse the reconcileID as command result id
+	reconcileID := string(controller.ReconcileIDFromContext(ctx))
+
+	log := ctrl.LoggerFrom(ctx)
 
 	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(level status.Level, message string) {
 		log.Info(message)
@@ -113,7 +118,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	patch := client.MergeFrom(patchObj)
 
 	// reconcile kluctlDeployment by applying the latest revision
-	ctrlResult, reconcileErr := r.doReconcile(ctx, obj)
+	ctrlResult, reconcileErr := r.doReconcile(ctx, obj, reconcileID)
 
 	// make sure conditions were not touched in the obj. changing conditions is only allowed via patchCondition,
 	// which directly patches the object in-cluster and does not touch the local obj
@@ -157,7 +162,8 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 func (r *KluctlDeploymentReconciler) doReconcile(
 	ctx context.Context,
-	obj *kluctlv1.KluctlDeployment) (*ctrl.Result, error) {
+	obj *kluctlv1.KluctlDeployment,
+	reconcileId string) (*ctrl.Result, error) {
 
 	log := ctrl.LoggerFrom(ctx)
 	key := client.ObjectKeyFromObject(obj)
@@ -354,8 +360,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	obj.Status.LastObjectsHash = objectsHash
 
-	commandResultId := uuid.NewString()
-
 	var deployResult *result.CommandResult
 	if needDeploy {
 		// deploy the kluctl project
@@ -364,13 +368,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlDeploy(ctx, targetContext, commandResultId)
+			deployResult, err = pt.kluctlDeploy(ctx, targetContext, reconcileId)
 		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
 			patchErr = doProgressingCondition("Performing kluctl poke-images", false)
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, commandResultId)
+			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, reconcileId)
 		} else {
 			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
 		}
@@ -385,7 +389,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if patchErr != nil {
 			return nil, patchErr
 		}
-		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult, commandResultId)
+		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult, reconcileId)
 		err = obj.Status.SetLastValidateResult(validateResult, err)
 		if err != nil {
 			log.Error(err, "Failed to write validate result")
