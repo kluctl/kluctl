@@ -72,9 +72,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	metricsRecorder := metrics.NewRecorder()
 	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
-	opts := zap.Options{
-		Development: true,
-	}
+	opts := zap.Options{}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	restConfig, err := cmd.loadConfig(cmd.Kubeconfig, cmd.Context)
