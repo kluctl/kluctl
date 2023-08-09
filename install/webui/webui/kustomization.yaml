@@ -1,0 +1,41 @@
+{% set kluctl_image = get_var("args.kluctl_image", "ghcr.io/kluctl/kluctl") %}
+{% set kluctl_version = get_var("args.kluctl_version", "v2.20.8") %}
+{% set pull_policy = "Always" if ("-devel" in kluctl_version or "-snapshot" in kluctl_version) else "IfNotPresent" %}
+
+resources:
+- admin-rbac.yaml
+- webui-rbac.yaml
+- viewer-rbac.yaml
+- deployment.yaml
+- service.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: kluctl-webui
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/image
+        value: {{ kluctl_image }}:{{ kluctl_version }}
+  - target:
+      kind: Deployment
+      name: kluctl-webui
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: {{ pull_policy }}
+{% for a in get_var("args.webui_args", []) %}
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: "{{ a }}"
+{% endfor %}
+{% for a in get_var("args.webui_envs", []) %}
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value: {{ a | to_json }}
+{% endfor %}
+{% if get_var("args.webui_resources", none) %}
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value: {{ get_var("args.webui_resources", none) | to_json }}
+{% endif %}

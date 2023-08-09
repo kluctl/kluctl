@@ -1,7 +1,3 @@
-{% set kluctl_image = get_var("args.kluctl_image", "ghcr.io/kluctl/kluctl") %}
-{% set kluctl_version = get_var("args.kluctl_version", "v2.20.8") %}
-{% set pull_policy = "Always" if ("-devel" in kluctl_version or "-snapshot" in kluctl_version) else "IfNotPresent" %}
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,14 +25,12 @@ spec:
     spec:
       containers:
       - name: webui
-        image: {{ kluctl_image }}:{{ kluctl_version }}
-        imagePullPolicy: {{ pull_policy }}
+        image: ghcr.io/kluctl/kluctl:latest
+        imagePullPolicy: IfNotPresent
         command:
           - kluctl
           - webui
           - --in-cluster
-        args: {{ get_var(["args.webui_args", "webui_args"], []) | to_json }}
-        env: {{ get_var(["args.webui_envs", "webui_envs"], []) | to_json }}
         ports:
           - containerPort: 8080
             name: http
@@ -52,9 +46,6 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
-        {% if get_var(["args.webui_resources", "webui_resources"], {}) %}
-        resources: {{ get_var(["args.webui_resources", "webui_resources"], {}) | to_json }}
-        {% else %}
         resources:
           limits:
             cpu: 2000m
@@ -62,7 +53,6 @@ spec:
           requests:
             cpu: 500m
             memory: 512Mi
-        {% endif %}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
