@@ -31,6 +31,7 @@ spec:
           - kluctl
           - webui
           - --in-cluster
+        env: []
         ports:
           - containerPort: 8080
             name: http
