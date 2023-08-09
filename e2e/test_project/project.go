@@ -342,6 +342,13 @@ func (p *TestProject) convertInterfaceToList(x interface{}) []interface{} {
 	if l, ok := x.([]interface{}); ok {
 		return l
 	}
+	if s, ok := x.(string); ok {
+		l, err := yaml.ReadYamlAllString(s)
+		if err != nil {
+			p.t.Fatal(err)
+		}
+		return l
+	}
 	if l, ok := x.([]*uo.UnstructuredObject); ok {
 		for _, y := range l {
 			ret = append(ret, y)

@@ -132,6 +132,10 @@ func (c *EnvTestCluster) Stop() {
 	}
 }
 
+func (c *EnvTestCluster) AddUser(user envtest.User, baseConfig *rest.Config) (*envtest.AuthenticatedUser, error) {
+	return c.env.AddUser(user, baseConfig)
+}
+
 // RESTConfig returns K8s client config to pass to clientset objects
 func (c *EnvTestCluster) RESTConfig() *rest.Config {
 	return c.config
