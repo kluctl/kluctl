@@ -13,7 +13,6 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 	defer status.Trace(ctx, "leave LoadKluctlProject")
 
 	p := &LoadedKluctlProject{
-		ctx:           ctx,
 		LoadArgs:      args,
 		LoadTime:      time.Now(),
 		TmpDir:        tmpDir,
@@ -27,11 +26,11 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 		p.SopsDecrypter.AddLocalKeyService()
 	}
 
-	err := p.loadKluctlProject()
+	err := p.loadKluctlProject(ctx)
 	if err != nil {
 		return nil, err
 	}
-	err = p.loadTargets()
+	err = p.loadTargets(ctx)
 	if err != nil {
 		return nil, err
 	}

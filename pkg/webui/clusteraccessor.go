@@ -11,7 +11,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sync"
 	"time"
 )
@@ -82,22 +81,10 @@ func (ca *clusterAccessor) tryInitClient() error {
 	}
 	ca.scheme = scheme
 
-	httpClient, err := rest.HTTPClientFor(ca.config)
+	ca.discovery, ca.mapper, err = k8s2.CreateDiscoveryAndMapper(context.Background(), ca.config)
 	if err != nil {
 		return err
 	}
-
-	dc, err := k8s2.CreateDiscoveryClient(context.Background(), ca.config)
-	if err != nil {
-		return err
-	}
-	ca.discovery = dc
-
-	mapper, err := apiutil.NewDynamicRESTMapper(ca.config, httpClient)
-	if err != nil {
-		return err
-	}
-	ca.mapper = mapper
 
 	c, err := ca.getClientLocked("", nil)
 	if err != nil {
@@ -150,15 +137,5 @@ func (ca *clusterAccessor) getK(ctx context.Context, asUser string, asGroups []s
 	config.Impersonate.UserName = asUser
 	config.Impersonate.Groups = asGroups
 
-	httpClient, err := rest.HTTPClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cf, err := k8s2.NewClientFactory(ctx, config, httpClient, ca.discovery, ca.mapper)
-	if err != nil {
-		return nil, err
-	}
-
-	return k8s2.NewK8sCluster(ctx, cf, false)
+	return k8s2.NewK8sCluster(ctx, config, ca.discovery, ca.mapper, false)
 }

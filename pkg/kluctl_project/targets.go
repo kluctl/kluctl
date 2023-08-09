@@ -1,39 +1,40 @@
 package kluctl_project
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"sort"
 )
 
-func (c *LoadedKluctlProject) loadTargets() error {
-	status.Trace(c.ctx, "Loading targets")
-	defer status.Trace(c.ctx, "Done loading targets")
+func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
+	status.Trace(ctx, "Loading targets")
+	defer status.Trace(ctx, "Done loading targets")
 
 	targetNames := make(map[string]bool)
 	c.Targets = nil
 
 	for i, configTarget := range c.Config.Targets {
 		if configTarget.Name == "" {
-			status.Errorf(c.ctx, "Target at index %d has no name", i)
+			status.Errorf(ctx, "Target at index %d has no name", i)
 			continue
 		}
 
 		target, err := c.buildTarget(configTarget)
 		if err != nil {
-			status.Warningf(c.ctx, "Failed to load target config for project: %v", err)
+			status.Warningf(ctx, "Failed to load target config for project: %v", err)
 			continue
 		}
 
 		err = c.renderTarget(target)
 		if err != nil {
-			status.Warningf(c.ctx, "Failed to load target %s: %v", target.Name, err)
+			status.Warningf(ctx, "Failed to load target %s: %v", target.Name, err)
 			continue
 		}
 
 		if _, ok := targetNames[target.Name]; ok {
-			status.Warningf(c.ctx, "Duplicate target %s", target.Name)
+			status.Warningf(ctx, "Duplicate target %s", target.Name)
 		} else {
 			targetNames[target.Name] = true
 			c.Targets = append(c.Targets, target)

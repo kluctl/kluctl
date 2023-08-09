@@ -6,6 +6,7 @@ import (
 	"io"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -33,9 +34,9 @@ type K8sCluster struct {
 
 	DryRun bool
 
-	clientFactory ClientFactory
-
+	config         *rest.Config
 	discovery      discovery.DiscoveryInterface
+	mapper         meta.RESTMapper
 	discoveryMutex *sync.Mutex
 
 	clients *k8sClients
@@ -46,24 +47,25 @@ type K8sCluster struct {
 	crdCacheMutex *sync.Mutex
 }
 
-func NewK8sCluster(ctx context.Context, clientFactory ClientFactory, dryRun bool) (*K8sCluster, error) {
+func NewK8sCluster(ctx context.Context,
+	config *rest.Config,
+	discovery discovery.DiscoveryInterface,
+	mapper meta.RESTMapper,
+	dryRun bool) (*K8sCluster, error) {
 	var err error
 
 	k := &K8sCluster{
 		ctx:            ctx,
 		DryRun:         dryRun,
-		clientFactory:  clientFactory,
+		config:         config,
+		discovery:      discovery,
+		mapper:         mapper,
 		discoveryMutex: &sync.Mutex{},
 		crdCache:       map[k8s.ObjectRef]any{},
 		crdCacheMutex:  &sync.Mutex{},
 	}
 
-	k.discovery, err = clientFactory.DiscoveryClient()
-	if err != nil {
-		return nil, err
-	}
-
-	k.clients, err = newK8sClients(ctx, clientFactory, 16)
+	k.clients, err = newK8sClients(k, 16)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +87,7 @@ func (k *K8sCluster) ReadWrite() *K8sCluster {
 
 func (k *K8sCluster) GetClusterId() (string, error) {
 	var clusterId string
-	_, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+	_, err := k.clients.withCClientFromPool(k.ctx, true, func(c client.Client) error {
 		var err error
 		clusterId, err = GetClusterId(k.ctx, c)
 		return err
@@ -97,7 +99,7 @@ func (k *K8sCluster) GetClusterId() (string, error) {
 }
 
 func (k *K8sCluster) doList(l client.ObjectList, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
-	apiWarnings, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, true, func(c client.Client) error {
 		return c.List(k.ctx, l, client.InNamespace(namespace), client.MatchingLabels(labels))
 	})
 	if err != nil {
@@ -140,7 +142,7 @@ func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject,
 	var o unstructured.Unstructured
 	o.SetGroupVersionKind(ref.GroupVersionKind())
 
-	apiWarnings, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, true, func(c client.Client) error {
 		return c.Get(k.ctx, client.ObjectKey{
 			Name:      ref.Name,
 			Namespace: ref.Namespace,
@@ -171,7 +173,7 @@ func (k *K8sCluster) DeleteSingleObject(ref k8s.ObjectRef, options DeleteOptions
 	o.SetName(ref.Name)
 	o.SetNamespace(ref.Namespace)
 
-	apiWarnings, err := k.clients.withCClientFromPool(dryRun, func(c client.Client) error {
+	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, dryRun, func(c client.Client) error {
 		return c.Delete(k.ctx, &o, client.PropagationPolicy(v1.DeletePropagationBackground))
 	})
 
@@ -322,7 +324,7 @@ func (k *K8sCluster) doPatch(ref k8s.ObjectRef, obj client.Object, patch client.
 	}
 	opts = append(opts, client.FieldOwner("kluctl"))
 
-	apiWarnings, err := k.clients.withCClientFromPool(k.DryRun, func(c client.Client) error {
+	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, k.DryRun, func(c client.Client) error {
 		err := c.Patch(k.ctx, obj, patch, opts...)
 		if err != nil {
 			return fmt.Errorf("failed to patch %s: %w", ref.String(), err)
@@ -361,7 +363,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 	}
 	opts = append(opts, client.FieldOwner("kluctl"))
 
-	apiWarnings, err := k.clients.withCClientFromPool(k.DryRun, func(c client.Client) error {
+	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, k.DryRun, func(c client.Client) error {
 		return c.Update(k.ctx, obj, opts...)
 	})
 	if err != nil {
@@ -379,7 +381,7 @@ func (k *K8sCluster) envtestProxyGet(scheme, namespace, name, port, path string,
 		envPort := m["SERVICE_PORT"]
 		envUrl := m["LOCAL_URL"]
 
-		apiHost := strings.TrimSuffix(k.clientFactory.RESTConfig().Host, "/")
+		apiHost := strings.TrimSuffix(k.config.Host, "/")
 
 		if envApiHost != apiHost || envNamespace != namespace || envName != name || port != envPort {
 			continue
@@ -410,8 +412,12 @@ func (k *K8sCluster) ProxyGet(scheme, namespace, name, port, path string, params
 	}
 
 	var ret rest.ResponseWrapper
-	_, err = k.clients.withClientFromPool(func(p *parallelClientEntry) error {
-		ret = p.corev1.Services(namespace).ProxyGet(scheme, name, port, path, params)
+	_, err = k.clients.withClientFromPool(k.ctx, func(p *parallelClientEntry) error {
+		c, err := corev1.NewForConfigAndClient(p.config, p.httpClient)
+		if err != nil {
+			return err
+		}
+		ret = c.Services(namespace).ProxyGet(scheme, name, port, path, params)
 		return nil
 	})
 	if err != nil {
@@ -425,7 +431,7 @@ func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) *bool {
 	obj.SetGroupVersionKind(gvk)
 
 	ret := false
-	_, err := k.clients.withCClientFromPool(true, func(c client.Client) error {
+	_, err := k.clients.withCClientFromPool(k.ctx, true, func(c client.Client) error {
 		x, err := c.IsObjectNamespaced(&obj)
 		if err != nil {
 			return err
@@ -453,7 +459,7 @@ func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
 }
 
 func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
-	rms, err := k.clientFactory.Mapper().RESTMappings(gvk.GroupKind(), gvk.Version)
+	rms, err := k.mapper.RESTMappings(gvk.GroupKind(), gvk.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -517,17 +523,13 @@ func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.Unstructu
 }
 
 func (k *K8sCluster) ResetMapper() {
-	if m, ok := k.clientFactory.Mapper().(meta.ResettableRESTMapper); ok {
+	if m, ok := k.mapper.(meta.ResettableRESTMapper); ok {
 		m.Reset()
 	}
 }
 
-func (k *K8sCluster) ToClient() (client.WithWatch, error) {
-	return k.clientFactory.Client(nil)
-}
-
 func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {
-	return k.clientFactory.RESTConfig(), nil
+	return k.config, nil
 }
 
 func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
@@ -539,5 +541,5 @@ func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, er
 }
 
 func (k *K8sCluster) ToRESTMapper() (meta.RESTMapper, error) {
-	return k.clientFactory.Mapper(), nil
+	return k.mapper, nil
 }

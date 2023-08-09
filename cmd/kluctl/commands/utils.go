@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -194,7 +196,42 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		RenderOutputDir:    renderOutputDir,
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, targetParams)
+	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams)
+	if err != nil {
+		return err
+	}
+
+	var k *k8s.K8sCluster
+	if clientConfig != nil {
+		discovery, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, clientConfig)
+		if err != nil {
+			return err
+		}
+
+		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
+		k, err = k8s.NewK8sCluster(ctx, clientConfig, discovery, mapper, targetParams.DryRun)
+		if err != nil {
+			s.Failed()
+			return err
+		}
+		s.Success()
+	}
+
+	var resultStore results.ResultStore
+	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
+		client, err := client2.New(clientConfig, client2.Options{
+			Mapper: mapper,
+		})
+		if err != nil {
+			return err
+		}
+
+		resultStore, err = results.NewResultStoreSecrets(ctx, clientConfig, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
+		if err != nil {
+			return err
+		}
+	}
+	targetCtx, err := p.NewTargetContext(ctx, contextName, k, targetParams)
 	if err != nil {
 		return err
 	}
@@ -205,25 +242,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 			return err
 		}
 	}
-
-	var resultStore results.ResultStore
-	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
-		config, err := targetCtx.SharedContext.K.ToRESTConfig()
-		if err != nil {
-			return err
-		}
-
-		client, err := targetCtx.SharedContext.K.ToClient()
-		if err != nil {
-			return err
-		}
-
-		resultStore, err = results.NewResultStoreSecrets(ctx, config, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
-		if err != nil {
-			return err
-		}
-	}
-
 	cmdCtx := &commandCtx{
 		ctx:         ctx,
 		targetCtx:   targetCtx,

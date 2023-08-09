@@ -1,6 +1,7 @@
 package kluctl_project
 
 import (
+	"context"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -35,7 +36,7 @@ func (c *LoadedKluctlProject) getConfigPath() string {
 	return configPath
 }
 
-func (c *LoadedKluctlProject) loadKluctlProject() error {
+func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
 	var err error
 
 	if c.LoadArgs.RepoRoot != "" {
@@ -54,7 +55,7 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 		}
 	}
 
-	s := status.Start(c.ctx, "Loading kluctl project")
+	s := status.Start(ctx, "Loading kluctl project")
 	defer s.Failed()
 
 	c.sealedSecretsDir = filepath.Join(c.LoadArgs.ProjectDir, ".sealed-secrets")
@@ -69,7 +70,7 @@ func (c *LoadedKluctlProject) loadKluctlProject() error {
 		}
 	}
 	if sealedSecretsUsed {
-		status.Deprecation(c.ctx, "sealed-secrets", "The SealedSecrets integration is deprecated and will be completely removed in an upcoming version. Please switch to using the SOPS integration instead.")
+		status.Deprecation(ctx, "sealed-secrets", "The SealedSecrets integration is deprecated and will be completely removed in an upcoming version. Please switch to using the SOPS integration instead.")
 	}
 
 	s.Success()

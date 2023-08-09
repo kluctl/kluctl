@@ -1,7 +1,6 @@
 package kluctl_project
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
@@ -11,8 +10,6 @@ import (
 )
 
 type LoadedKluctlProject struct {
-	ctx context.Context
-
 	LoadArgs LoadKluctlProjectArgs
 	LoadTime time.Time
 

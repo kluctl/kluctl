@@ -627,7 +627,23 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	if pt.pp.obj.Spec.Context != nil {
 		props.ContextOverride = *pt.pp.obj.Spec.Context
 	}
-	targetContext, err := p.NewTargetContext(ctx, props)
+
+	restConfig, contextName, err := p.LoadK8sConfig(ctx, props)
+	if err != nil {
+		return nil, err
+	}
+
+	discovery, mapper, err := k8s2.CreateDiscoveryAndMapper(ctx, restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	k, err := k8s2.NewK8sCluster(ctx, restConfig, discovery, mapper, props.DryRun)
+	if err != nil {
+		return nil, err
+	}
+
+	targetContext, err := p.NewTargetContext(ctx, contextName, k, props)
 	if err != nil {
 		return nil, err
 	}
@@ -792,11 +808,13 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	if err != nil {
 		return nil, err
 	}
-	clientFactory, err := k8s2.NewClientFactoryFromConfig(ctx, restConfig)
+
+	discovery, mapper, err := k8s2.CreateDiscoveryAndMapper(ctx, restConfig)
 	if err != nil {
 		return nil, err
 	}
-	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun)
+
+	k, err := k8s2.NewK8sCluster(ctx, restConfig, discovery, mapper, pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun)
 	if err != nil {
 		return nil, err
 	}
