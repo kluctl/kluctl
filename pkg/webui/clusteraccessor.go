@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -114,15 +115,34 @@ func (ca *clusterAccessor) getClient(asUser string, asGroups []string) (client.C
 	return ca.getClientLocked(asUser, asGroups)
 }
 
-func (ca *clusterAccessor) getClientLocked(asUser string, asGroups []string) (client.Client, error) {
+func (ca *clusterAccessor) getCoreV1Client(asUser string, asGroups []string) (*v1.CoreV1Client, error) {
+	ca.mutex.Lock()
+	defer ca.mutex.Unlock()
+	return ca.getCoreV1ClientLocked(asUser, asGroups)
+}
+
+func (ca *clusterAccessor) getImpersonatedConfig(asUser string, asGroups []string) *rest.Config {
 	config := rest.CopyConfig(ca.config)
 	config.Impersonate.UserName = asUser
 	config.Impersonate.Groups = asGroups
+	return config
+}
 
+func (ca *clusterAccessor) getClientLocked(asUser string, asGroups []string) (client.Client, error) {
+	config := ca.getImpersonatedConfig(asUser, asGroups)
 	c, err := client.NewWithWatch(config, client.Options{
 		Scheme: ca.scheme,
 		Mapper: ca.mapper,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (ca *clusterAccessor) getCoreV1ClientLocked(asUser string, asGroups []string) (*v1.CoreV1Client, error) {
+	config := ca.getImpersonatedConfig(asUser, asGroups)
+	c, err := v1.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}

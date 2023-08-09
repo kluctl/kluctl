@@ -25,6 +25,9 @@ rules:
   - apiGroups: ["gitops.kluctl.io"]
     resources: ["kluctldeployments"]
     verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
     # allow to impersonate other users, groups and serviceaccounts
   - apiGroups: [""]
     resources: ["users", "groups", "serviceaccounts"]

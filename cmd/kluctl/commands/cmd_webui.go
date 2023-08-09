@@ -113,18 +113,20 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 
 	var authConfig webui.AuthConfig
 
+	var inClusterConfig *rest.Config
 	var inClusterClient client.Client
 	if cmd.InCluster {
 		configOverrides := &clientcmd.ConfigOverrides{
 			CurrentContext: cmd.InClusterContext,
 		}
-		config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		var err error
+		inClusterConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 			clientcmd.NewDefaultClientConfigLoadingRules(),
 			configOverrides).ClientConfig()
 		if err != nil {
 			return err
 		}
-		inClusterClient, err = client.NewWithWatch(config, client.Options{})
+		inClusterClient, err = client.NewWithWatch(inClusterConfig, client.Options{})
 		if err != nil {
 			return err
 		}
@@ -154,7 +156,7 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 		sbw := webui.NewStaticWebuiBuilder(collector)
 		return sbw.Build(cmd.StaticPath)
 	} else {
-		server, err := webui.NewCommandResultsServer(ctx, collector, configs, inClusterClient, authConfig, cmd.OnlyApi)
+		server, err := webui.NewCommandResultsServer(ctx, collector, configs, inClusterConfig, inClusterClient, authConfig, cmd.OnlyApi)
 		if err != nil {
 			return err
 		}
