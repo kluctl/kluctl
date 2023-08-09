@@ -1,55 +1,56 @@
 {% set kluctl_image = get_var("args.kluctl_image", "ghcr.io/kluctl/kluctl") %}
-# TODO remove controller_version
-{% set kluctl_version = get_var(["args.kluctl_version", "args.controller_version"], "v2.20.8") %}
+{% set kluctl_version = get_var("args.kluctl_version", "v2.20.8") %}
 {% set pull_policy = "Always" if ("-devel" in kluctl_version or "-snapshot" in kluctl_version) else "IfNotPresent" %}
 
 resources:
-  - crd.yaml
-  - manager.yaml
-  - rbac.yaml
+- admin-rbac.yaml
+- webui-rbac.yaml
+- viewer-rbac.yaml
+- deployment.yaml
+- service.yaml
 
 patches:
   - target:
       kind: Deployment
-      name: kluctl-controller
+      name: kluctl-webui
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/image
         value: {{ kluctl_image }}:{{ kluctl_version }}
   - target:
       kind: Deployment
-      name: kluctl-controller
+      name: kluctl-webui
     patch: |-
       - op: add
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: {{ pull_policy }}
-{% for a in get_var("args.controller_args", []) %}
+{% for a in get_var("args.webui_args", []) %}
       - op: add
         path: /spec/template/spec/containers/0/args/-
         value: "{{ a }}"
 {% endfor %}
-{% for a in get_var("args.controller_envs", []) %}
+{% for a in get_var("args.webui_envs", []) %}
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value: {{ a | to_json }}
 {% endfor %}
-{% if get_var("args.controller_resources", none) %}
+{% if get_var("args.webui_resources", none) %}
       - op: replace
         path: /spec/template/spec/containers/0/resources
-        value: {{ get_var("args.controller_resources", none) | to_json }}
+        value: {{ get_var("args.webui_resources", none) | to_json }}
 {% endif %}
-{% if get_var("args.controller_node_selectors", none) %}
+{% if get_var("args.webui_node_selectors", none) %}
       - op: add
         path: /spec/template/spec/nodeSelector
-        value: {{ get_var("args.controller_node_selectors", none) | to_json }}
+        value: {{ get_var("args.webui_node_selectors", none) | to_json }}
 {% endif %}
-{% if get_var("args.controller_tolerations", none) %}
+{% if get_var("args.webui_tolerations", none) %}
       - op: add
         path: /spec/template/spec/tolerations
-        value: {{ get_var("args.controller_tolerations", none) | to_json }}
+        value: {{ get_var("args.webui_tolerations", none) | to_json }}
 {% endif %}
-{% if get_var("args.controller_priority_class_name", none) %}
+{% if get_var("args.webui_priority_class_name", none) %}
       - op: add
         path: /spec/template/spec/priorityClassName
-        value: {{ get_var("args.controller_priority_class_name", none) | to_json }}
+        value: {{ get_var("args.webui_priority_class_name", none) | to_json }}
 {% endif %}
