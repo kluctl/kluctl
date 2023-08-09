@@ -11,3 +11,9 @@ args:
     default: []
   - name: controller_resources
     default: {}
+  - name: controller_node_selectors
+    default: {}
+  - name: controller_tolerations
+    default: []
+  - name: controller_priority_class
+    default: {}
