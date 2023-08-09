@@ -20,6 +20,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -207,6 +208,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	var k *k8s.K8sCluster
+	var resultStore results.ResultStore
 	if clientConfig != nil {
 		discovery, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, clientConfig)
 		if err != nil {
@@ -220,22 +222,13 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 			return err
 		}
 		s.Success()
-	}
 
-	var resultStore results.ResultStore
-	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
-		client, err := client2.New(clientConfig, client2.Options{
-			Mapper: mapper,
-		})
-		if err != nil {
-			return err
-		}
-
-		resultStore, err = results.NewResultStoreSecrets(ctx, clientConfig, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
+		resultStore, err = initStores(ctx, clientConfig, mapper, args.commandResultFlags)
 		if err != nil {
 			return err
 		}
 	}
+
 	targetCtx, err := p.NewTargetContext(ctx, contextName, k, targetParams)
 	if err != nil {
 		return err
@@ -256,6 +249,26 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	return cb(cmdCtx)
+}
+
+func initStores(ctx context.Context, clientConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags) (results.ResultStore, error) {
+	if flags == nil || !flags.WriteCommandResult {
+		return nil, nil
+	}
+
+	client, err := client2.New(clientConfig, client2.Options{
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, clientConfig, client, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultStore, nil
 }
 
 func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
