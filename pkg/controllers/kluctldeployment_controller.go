@@ -4,6 +4,7 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
@@ -353,6 +354,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	obj.Status.LastObjectsHash = objectsHash
 
+	commandResultId := uuid.NewString()
+
 	var deployResult *result.CommandResult
 	if needDeploy {
 		// deploy the kluctl project
@@ -361,13 +364,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlDeploy(ctx, targetContext)
+			deployResult, err = pt.kluctlDeploy(ctx, targetContext, commandResultId)
 		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
 			patchErr = doProgressingCondition("Performing kluctl poke-images", false)
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlPokeImages(ctx, targetContext)
+			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, commandResultId)
 		} else {
 			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
 		}
@@ -382,7 +385,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if patchErr != nil {
 			return nil, patchErr
 		}
-		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult)
+		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult, commandResultId)
 		err = obj.Status.SetLastValidateResult(validateResult, err)
 		if err != nil {
 			log.Error(err, "Failed to write validate result")
@@ -588,7 +591,9 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 
 	pt := pp.newTarget()
 
-	_, _ = pt.kluctlDelete(ctx, obj.Status.TargetKey.Discriminator)
+	commandResultId := uuid.NewString()
+
+	_, _ = pt.kluctlDelete(ctx, obj.Status.TargetKey.Discriminator, commandResultId)
 }
 
 // checkLegacyKluctlDeployment checks if a legacy KluctlDeployment from the old flux.kluctl.io group is present. If yes

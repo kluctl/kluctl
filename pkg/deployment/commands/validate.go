@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -36,7 +35,6 @@ func NewValidateCommand(ctx context.Context, discriminator string, targetCtx *kl
 
 func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, error) {
 	ret := result.ValidateResult{
-		Id:    uuid.New().String(),
 		Ready: true,
 	}
 

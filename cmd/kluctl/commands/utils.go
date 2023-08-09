@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/git"
@@ -144,9 +145,11 @@ type projectTargetCommandArgs struct {
 }
 
 type commandCtx struct {
-	ctx         context.Context
-	targetCtx   *kluctl_project.TargetContext
-	images      *deployment.Images
+	ctx       context.Context
+	targetCtx *kluctl_project.TargetContext
+	images    *deployment.Images
+
+	resultId    string
 	resultStore results.ResultStore
 }
 
@@ -195,6 +198,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		HelmCredentials:    &args.helmCredentials,
 		RenderOutputDir:    renderOutputDir,
 	}
+
+	commandResultId := uuid.NewString()
 
 	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams)
 	if err != nil {
@@ -246,6 +251,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		ctx:         ctx,
 		targetCtx:   targetCtx,
 		images:      images,
+		resultId:    commandResultId,
 		resultStore: resultStore,
 	}
 

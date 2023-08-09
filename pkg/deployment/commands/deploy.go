@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -64,7 +63,6 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 
 		orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 		diffResult := &result.CommandResult{
-			Id:         uuid.New().String(),
 			Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 			Errors:     dew.GetErrorsList(),
 			Warnings:   dew.GetWarningsList(),
@@ -106,7 +104,6 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	}
 
 	r := &result.CommandResult{
-		Id:         uuid.New().String(),
 		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, deleted),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),

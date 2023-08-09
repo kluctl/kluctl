@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -58,7 +57,6 @@ func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*resu
 	orphanObjects = filterDeletedOrphans(orphanObjects, deleted)
 
 	r := &result.CommandResult{
-		Id:       uuid.New().String(),
 		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, orphanObjects, deleted),
 		Warnings: dew.GetWarningsList(),
 	}
