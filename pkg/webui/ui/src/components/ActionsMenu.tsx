@@ -45,6 +45,7 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
             open={menuOpen}
             onClose={handleMenuClose}
             onClick={e => { e.stopPropagation(); handleMenuClose() }}
+            sx={{zIndex: 20000}}
             PaperProps={{
                 elevation: 0,
                 sx: {

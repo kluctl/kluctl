@@ -8,15 +8,19 @@ import {
     Error,
     Favorite,
     HeartBroken,
-    Hotel, HourglassTop,
-    Pause, PlayArrow,
-    PublishedWithChanges, RocketLaunch,
-    SyncProblem, Troubleshoot
+    Hotel,
+    HourglassTop,
+    Pause,
+    PlayArrow,
+    PublishedWithChanges,
+    RocketLaunch,
+    SyncProblem,
+    Troubleshoot
 } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { ApiContext, UserContext } from "../App";
-import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
+import { CardBody, CardTemplate } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesTable } from "../PropertiesTable";
@@ -24,6 +28,7 @@ import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { Since } from "../Since";
 import { ValidateResultsTable } from "../ValidateResultsTable";
+import { LogsViewer } from "../LogsViewer";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -294,8 +299,6 @@ export const TargetItem = React.memo(React.forwardRef((
         paperProps={{
             sx: {
                 padding: '20px 16px 12px 16px',
-                width: cardWidth,
-                height: cardHeight,
                 ...props.sx
             },
             onClick: e => props.onSelectTarget?.()
@@ -363,6 +366,12 @@ class TargetItemCardProvider implements SidePanelProvider {
                 content: <ErrorsTable errors={this.lastValidateResult.warnings}/>
             })
         }
+
+        tabs.push({label: "Logs", content: <LogsViewer
+                cluster={this.ts.kdInfo?.clusterId}
+                name={this.ts.kdInfo?.name}
+                namespace={this.ts.kdInfo?.namespace}
+            />})
 
         return tabs
     }
