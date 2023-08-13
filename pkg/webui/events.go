@@ -193,7 +193,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
+				h.updateEvent("cr-"+event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
 			case event, ok := <-validateResultsCh:
 				if !ok {
 					status.Error(h.server.ctx, "results channel closed unexpectedly")
@@ -203,7 +203,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
+				h.updateEvent("vr-"+event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
 			case event, ok := <-kluctlDeploymentsCh:
 				if !ok {
 					status.Error(h.server.ctx, "results channel closed unexpectedly")
@@ -213,7 +213,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(string(event.Deployment.UID), nil, buildKluctlDeploymentMsg(event), expireIn)
+				h.updateEvent("kd-"+string(event.Deployment.UID), nil, buildKluctlDeploymentMsg(event), expireIn)
 			case <-cleanupTimer:
 				h.cleanupEvents()
 				cleanupTimer = time.After(5 * time.Second)
