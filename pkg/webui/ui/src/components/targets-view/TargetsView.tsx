@@ -11,7 +11,6 @@ import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { ExpandableCard } from "./ExpandableCard";
 import { useLocation, useNavigate } from "react-router-dom";
-import _ from "lodash";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -166,25 +165,13 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
     </svg>
 });
 
-interface TargetPath {
-    project: ProjectKey
-    target: TargetKey
-    kluctlDeployment?: KluctlDeploymentInfo
-}
-
-function buildTargetPath(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo): string {
-    return btoa(JSON.stringify({
+function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo) {
+    const j = {
         "project": project,
         "target": target,
         "kluctlDeployment": kluctlDeployment,
-    }))
-}
-
-function parseTargetPath(s?: string): TargetPath | undefined {
-    if (!s) {
-        return
     }
-    return JSON.parse(atob(s))
+    return buildListKey(j)
 }
 
 export const TargetsView = () => {
@@ -194,11 +181,11 @@ export const TargetsView = () => {
     const projects = appContext.projects;
 
     const onSelectTargetItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
-        navigate(`/targets/${buildTargetPath(ps.project, ts.target, ts.kdInfo)}`);
+        navigate(`/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`);
     }, [navigate]);
 
     const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary, rs?: CommandResultSummary) => {
-        let p = `/targets/${buildTargetPath(ps.project, ts.target, ts.kdInfo)}/results`
+        let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}/results`
         if (rs) {
             p += "/" + rs.id
         }
@@ -209,25 +196,28 @@ export const TargetsView = () => {
         navigate(`/targets/`);
     }, [navigate]);
 
+    const targetsByKey = useMemo(() => {
+        const m = new Map<string, TargetSummary>()
+        projects.forEach(ps => {
+            ps.targets.forEach(ts => {
+                const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
+                m.set(key, ts)
+            })
+        })
+        return m
+    }, [projects])
+
     const pathnameS = loc.pathname.split("/")
-    const targetPath = pathnameS[2]
+    let selectedTargetKey = pathnameS[2]
+    const selectedTarget = targetsByKey.get(selectedTargetKey)
 
-    const [parentProject, selectedTarget] = useMemo(() => {
-        const tp = parseTargetPath(targetPath)
-        if (!tp) {
-            return [undefined, undefined]
-        }
+    if (!selectedTarget) {
+        selectedTargetKey = ""
+    }
 
-        const project = projects.find(ps => _.isEqual(_.toPlainObject(ps.project), tp.project))
-        const target = project?.targets.find(ts => _.isEqual(_.toPlainObject(ts.target), tp.target) && (ts.kdInfo === tp.kluctlDeployment || _.isEqual(_.toPlainObject(ts.kdInfo), tp.kluctlDeployment)))
-        return [project, target]
-    }, [projects, targetPath])
-
-    let expandedTargetKey = ""
     let expandedResults = false
     let expandedResultId = ""
     if (selectedTarget) {
-        expandedTargetKey = buildListKey([selectedTarget.target, selectedTarget.kdInfo])
         if (pathnameS[3] === "results") {
             expandedResults = true
             const resultId = pathnameS[4]
@@ -236,8 +226,6 @@ export const TargetsView = () => {
                     expandedResultId = resultId
                 }
             }
-        } else {
-            expandedTargetKey = buildListKey([selectedTarget.target, selectedTarget.kdInfo])
         }
     }
 
@@ -266,12 +254,12 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
-                            const key = buildListKey([ts.target, ts.kdInfo])
+                            const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
                             return <Box key={key} display='flex'>
                                 <ExpandableCard
                                     cardWidth={cardWidth}
                                     cardHeight={cardHeight}
-                                    expand={!expandedResults && expandedTargetKey === key}
+                                    expand={!expandedResults && selectedTargetKey === key}
                                     onExpand={() => onSelectTargetItem(ps, ts)}
                                     onClose={() => {
                                         onCardClose()
@@ -280,7 +268,7 @@ export const TargetsView = () => {
                                     }}
                                     cardsData={[ts]}
                                     getKey={cd => buildListKey([cd.target, cd.kdInfo])}
-                                    selected={expandedTargetKey}
+                                    selected={selectedTargetKey}
                                     renderCard={(cardData, expanded, current) => {
                                         return <TargetItem
                                             ps={ps}
@@ -298,14 +286,14 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
-                            const tsKey = buildListKey([ts.target, ts.kdInfo])
+                            const tsKey = buildTargetKey(ps.project, ts.target, ts.kdInfo)
                             return <CardRow key={tsKey} height={cardHeight}>
                                 {ts.commandResults?.slice(0, 4).map((rs, i) => {
                                     return i === 0 ? <ExpandableCard
                                             key={rs.id}
                                             cardWidth={cardWidth}
                                             cardHeight={cardHeight}
-                                            expand={expandedResults && expandedTargetKey === tsKey}
+                                            expand={expandedResults && selectedTargetKey === tsKey}
                                             onExpand={() => onSelectCommandResultItem(ps, ts)}
                                             onClose={() => {
                                                 onCardClose()
