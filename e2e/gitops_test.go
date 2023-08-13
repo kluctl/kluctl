@@ -6,6 +6,7 @@ import (
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/onsi/gomega"
@@ -104,7 +105,7 @@ func (suite *GitopsTestSuite) startController() {
 	}
 	done := make(chan struct{})
 	go func() {
-		_, _, err := test_utils.KluctlExecute(suite.T(), ctx, args...)
+		_, _, err := test_project.KluctlExecute(suite.T(), ctx, args...)
 		if err != nil {
 			suite.T().Error(err)
 		}
@@ -157,7 +158,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 	}, timeout, time.Second).Should(BeTrue())
 }
 
-func (suite *GitopsTestSuite) createKluctlDeployment(p *test_utils.TestProject, target string, args map[string]any) client.ObjectKey {
+func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
 	gitopsNs := p.TestSlug() + "-gitops"
 	createNamespace(suite.T(), suite.k, gitopsNs)
 
@@ -226,11 +227,11 @@ func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
 func (suite *GitopsTestSuite) TestGitOpsFieldManager() {
 	g := NewWithT(suite.T())
 
-	p := test_utils.NewTestProject(suite.T())
+	p := test_project.NewTestProject(suite.T())
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
 	p.UpdateTarget("target1", nil)
-	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("d1", []test_project.KustomizeResource{
 		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -344,7 +345,7 @@ data:
 func (suite *GitopsTestSuite) TestKluctlDeploymentReconciler_Helm() {
 	g := NewWithT(suite.T())
 
-	p := test_utils.NewTestProject(suite.T())
+	p := test_project.NewTestProject(suite.T())
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
 	p.UpdateTarget("target1", nil)
@@ -508,12 +509,12 @@ func (suite *GitopsTestSuite) TestKluctlDeploymentReconciler_Helm() {
 func (suite *GitopsTestSuite) TestKluctlDeploymentReconciler_Prune() {
 	g := NewWithT(suite.T())
 
-	p := test_utils.NewTestProject(suite.T())
+	p := test_project.NewTestProject(suite.T())
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
 	p.UpdateTarget("target1", nil)
 
-	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("d1", []test_project.KustomizeResource{
 		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -523,7 +524,7 @@ data:
   k1: v1
 `)},
 	}, nil)
-	p.AddKustomizeDeployment("d2", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("d2", []test_project.KustomizeResource{
 		{Name: "cm2.yaml", Content: uo.FromStringMust(`apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -607,12 +608,12 @@ data:
 func (suite *GitopsTestSuite) doTestDelete(delete bool) {
 	g := NewWithT(suite.T())
 
-	p := test_utils.NewTestProject(suite.T())
+	p := test_project.NewTestProject(suite.T())
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
 	p.UpdateTarget("target1", nil)
 
-	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("d1", []test_project.KustomizeResource{
 		{Name: "cm1.yaml", Content: uo.FromStringMust(`apiVersion: v1
 kind: ConfigMap
 metadata:

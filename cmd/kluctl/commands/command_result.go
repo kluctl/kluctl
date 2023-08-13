@@ -224,6 +224,7 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
 	status.Flush(ctx.ctx)
 
+	cr.Id = ctx.resultId
 	cr.Command.Initiator = result.CommandInititiator_CommandLine
 
 	if !flags.NoObfuscate {
@@ -255,10 +256,12 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 	return err
 }
 
-func outputValidateResult(ctx context.Context, output []string, vr *result.ValidateResult) error {
-	status.Flush(ctx)
+func outputValidateResult(ctx *commandCtx, output []string, vr *result.ValidateResult) error {
+	status.Flush(ctx.ctx)
 
-	return outputHelper(ctx, output, func(format string) (string, error) {
+	vr.Id = ctx.resultId
+
+	return outputHelper(ctx.ctx, output, func(format string) (string, error) {
 		return formatValidateResult(vr, format)
 	})
 }

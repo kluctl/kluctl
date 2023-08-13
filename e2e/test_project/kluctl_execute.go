@@ -1,4 +1,4 @@
-package test_utils
+package test_project
 
 import (
 	"bytes"
@@ -26,12 +26,12 @@ func KluctlExecute(t *testing.T, ctx context.Context, args ...string) (string, s
 
 	ctx = utils.WithTmpBaseDir(ctx, t.TempDir())
 	ctx = commands.WithStdStreams(ctx, stdout, stderrBuf)
-	sh := status.NewSimpleStatusHandler(func(message string) {
+	sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
 		m.Lock()
 		defer m.Unlock()
 		t.Log(message)
 		stderrBuf.WriteString(message + "\n")
-	}, false, true)
+	}, true)
 	defer func() {
 		if sh != nil {
 			sh.Stop()

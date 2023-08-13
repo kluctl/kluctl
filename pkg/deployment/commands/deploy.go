@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -56,18 +55,18 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	}
 
 	if diffResultCb != nil {
-		au := utils2.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, dew, ru, cmd.targetCtx.SharedContext.K, o)
+		diffDew := dew.Clone()
+		au := utils2.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, diffDew, ru, cmd.targetCtx.SharedContext.K, o)
 		au.ApplyDeployments(cmd.targetCtx.DeploymentCollection.Deployments)
 
-		du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
+		du := utils2.NewDiffUtil(diffDew, ru, au.GetAppliedObjectsMap())
 		du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
 		orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 		diffResult := &result.CommandResult{
-			Id:         uuid.New().String(),
 			Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
-			Errors:     dew.GetErrorsList(),
-			Warnings:   dew.GetWarningsList(),
+			Errors:     diffDew.GetErrorsList(),
+			Warnings:   diffDew.GetWarningsList(),
 			SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
 		}
 
@@ -76,9 +75,6 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 			return nil, err
 		}
 	}
-
-	// clear errors and warnings
-	dew.Init()
 
 	// modify options to become a deploy
 	o.DryRun = cmd.targetCtx.SharedContext.K.DryRun
@@ -106,7 +102,6 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	}
 
 	r := &result.CommandResult{
-		Id:         uuid.New().String(),
 		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, deleted),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),

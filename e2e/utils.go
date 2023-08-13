@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace strin
 	}
 }
 
-func getHeadRevision(t *testing.T, p *test_utils.TestProject) string {
+func getHeadRevision(t *testing.T, p *test_project.TestProject) string {
 	r := p.GetGitRepo()
 	h, err := r.Head()
 	if err != nil {

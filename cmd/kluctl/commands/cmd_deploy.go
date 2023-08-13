@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
@@ -104,11 +105,11 @@ func (cmd *deployCmd) diffResultCb(ctx *commandCtx, diffResult *result.CommandRe
 		return nil
 	}
 	if len(diffResult.Errors) != 0 {
-		if !status.AskForConfirmation(ctx.ctx, "The diff resulted in errors, do you still want to proceed?") {
+		if !prompts.AskForConfirmation(ctx.ctx, "The diff resulted in errors, do you still want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	} else {
-		if !status.AskForConfirmation(ctx.ctx, "The diff succeeded, do you want to proceed?") {
+		if !prompts.AskForConfirmation(ctx.ctx, "The diff succeeded, do you want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	}

@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -100,7 +99,6 @@ func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
 	}
 
 	r := &result.CommandResult{
-		Id:         uuid.New().String(),
 		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
 		Errors:     dew.GetErrorsList(),
 		Warnings:   dew.GetWarningsList(),

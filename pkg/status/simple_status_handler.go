@@ -1,31 +1,18 @@
 package status
 
-import (
-	"fmt"
-	"golang.org/x/term"
-	"os"
-	"syscall"
-)
-
 type simpleStatusHandler struct {
-	cb         func(message string)
-	isTerminal bool
-	trace      bool
+	cb    func(level Level, message string)
+	trace bool
 }
 
 type simpleStatusLine struct {
 }
 
-func NewSimpleStatusHandler(cb func(message string), isTerminal bool, trace bool) StatusHandler {
+func NewSimpleStatusHandler(cb func(level Level, message string), trace bool) StatusHandler {
 	return &simpleStatusHandler{
-		cb:         cb,
-		isTerminal: isTerminal,
-		trace:      trace,
+		cb:    cb,
+		trace: trace,
 	}
-}
-
-func (s *simpleStatusHandler) IsTerminal() bool {
-	return s.isTerminal
 }
 
 func (s *simpleStatusHandler) IsTraceEnabled() bool {
@@ -42,57 +29,22 @@ func (s *simpleStatusHandler) Stop() {
 func (s *simpleStatusHandler) Flush() {
 }
 
-func (s *simpleStatusHandler) StartStatus(total int, message string) StatusLine {
+func (s *simpleStatusHandler) StartStatus(level Level, total int, message string) StatusLine {
 	if message != "" {
-		s.Info(message)
+		s.Message(level, message)
 	}
 	return &simpleStatusLine{}
 }
 
-func (s *simpleStatusHandler) Info(message string) {
-	s.cb(message)
-}
-
-func (s *simpleStatusHandler) Warning(message string) {
-	s.InfoFallback(message)
-}
-
-func (s *simpleStatusHandler) Error(message string) {
-	s.InfoFallback(message)
-}
-
-func (s *simpleStatusHandler) Trace(message string) {
-	if s.trace {
-		s.Info(message)
+func (s *simpleStatusHandler) Message(level Level, message string) {
+	if level == LevelTrace && !s.trace {
+		return
 	}
+	s.cb(level, message)
 }
 
-func (s *simpleStatusHandler) PlainText(text string) {
-	s.Info(text)
-}
-
-func (s *simpleStatusHandler) InfoFallback(message string) {
-	s.Info(message)
-}
-
-func (s *simpleStatusHandler) Prompt(password bool, message string) (string, error) {
-	s.cb(message)
-
-	if password {
-		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-		_, _ = fmt.Fprintf(os.Stderr, "\n")
-		if err != nil {
-			return "", err
-		}
-		return string(bytePassword), nil
-	} else {
-		var response string
-		_, err := fmt.Scanln(&response)
-		if err != nil {
-			return "", err
-		}
-		return response, nil
-	}
+func (s *simpleStatusHandler) MessageFallback(level Level, message string) {
+	s.Message(level, message)
 }
 
 func (sl *simpleStatusLine) SetTotal(total int) {

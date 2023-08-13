@@ -12,7 +12,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/http"
 	"nhooyr.io/websocket"
-	"strings"
 	"sync"
 	"time"
 )
@@ -194,7 +193,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
+				h.updateEvent("cr-"+event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildCommandResultMsg(event), expireIn)
 			case event, ok := <-validateResultsCh:
 				if !ok {
 					status.Error(h.server.ctx, "results channel closed unexpectedly")
@@ -204,7 +203,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
+				h.updateEvent("vr-"+event.Summary.Id, &ProjectTargetKey{Project: event.Summary.ProjectKey, Target: event.Summary.TargetKey}, buildValidateResultMsg(event), expireIn)
 			case event, ok := <-kluctlDeploymentsCh:
 				if !ok {
 					status.Error(h.server.ctx, "results channel closed unexpectedly")
@@ -214,7 +213,7 @@ func (h *eventsHandler) startEventsWatcher() error {
 				if event.Delete {
 					expireIn = &expireDeletions
 				}
-				h.updateEvent(string(event.Deployment.UID), nil, buildKluctlDeploymentMsg(event), expireIn)
+				h.updateEvent("kd-"+string(event.Deployment.UID), nil, buildKluctlDeploymentMsg(event), expireIn)
 			case <-cleanupTimer:
 				h.cleanupEvents()
 				cleanupTimer = time.After(5 * time.Second)
@@ -252,18 +251,7 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		}
 	}
 
-	acceptOptions := &websocket.AcceptOptions{
-		InsecureSkipVerify: true,
-	}
-
-	userAgentLower := strings.ToLower(c.GetHeader("User-Agent"))
-	isSafari := strings.Contains(userAgentLower, "safari") && !strings.Contains(userAgentLower, "chrome") && !strings.Contains(userAgentLower, "android")
-
-	if isSafari {
-		acceptOptions.CompressionMode = websocket.CompressionDisabled
-	}
-
-	conn, err := websocket.Accept(c.Writer, c.Request, acceptOptions)
+	conn, err := acceptWebsocket(c)
 	if err != nil {
 		return
 	}

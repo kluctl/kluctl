@@ -164,9 +164,14 @@ export const CardBody = React.memo((props: { provider: SidePanelProvider }) => {
                 </TabList>
             </Box>
             <Divider sx={{ margin: 0 }} />
-            <Box overflow='auto' p='10px 0'>
+            <Box overflow='auto' p='10px 0' display={"flex"} flex={"1 1 auto"}>
                 {tabs.map(tab => {
-                    return <TabPanel key={tab.label} value={tab.label} sx={{ padding: 0 }}>
+                    const sx: any = { padding: 0, flex: "1 1 auto" }
+                    if (selectedTab === tab.label) {
+                        // only the active tab should be a flex box, as otherwise the hidden ones go crazy
+                        sx.display = "flex"
+                    }
+                    return <TabPanel key={tab.label} value={tab.label} sx={sx} >
                         {tab.content}
                     </TabPanel>
                 })}

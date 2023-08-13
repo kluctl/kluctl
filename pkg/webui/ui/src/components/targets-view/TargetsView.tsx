@@ -1,6 +1,6 @@
 import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useContext, useMemo, useRef } from "react";
+import React, { useCallback, useContext, useMemo } from "react";
 import { AppContext } from "../App";
 import { ProjectItem } from "./ProjectItem";
 import { TargetItem } from "./TargetItem";
@@ -9,9 +9,8 @@ import { CommandResultItem } from "./CommandResultItem";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
-import { ExpandedCardsView } from "./ExpandedCardsView";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import _ from "lodash";
+import { ExpandableCard } from "./ExpandableCard";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -166,109 +165,75 @@ const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.
     </svg>
 });
 
-interface TargetPath {
-    project: ProjectKey
-    target: TargetKey
-    kluctlDeployment?: KluctlDeploymentInfo
-}
-
-function buildTargetPath(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo): string {
-    return btoa(JSON.stringify({
+function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo) {
+    const j = {
         "project": project,
         "target": target,
         "kluctlDeployment": kluctlDeployment,
-    }))
-}
-
-function parseTargetPath(s?: string): TargetPath | undefined {
-    if (!s) {
-        return
     }
-    return JSON.parse(atob(s))
+    return buildListKey(j)
 }
 
 export const TargetsView = () => {
     const navigate = useNavigate();
-    const { targetPath} = useParams();
-    const { pathname } = useLocation();
+    const loc = useLocation();
     const appContext = useContext(AppContext);
     const projects = appContext.projects;
 
     const onSelectTargetItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
-        navigate(`/targets/${buildTargetPath(ps.project, ts.target, ts.kdInfo)}`);
+        navigate(`/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`);
     }, [navigate]);
 
-    const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
-        navigate(`/targets/${buildTargetPath(ps.project, ts.target, ts.kdInfo)}/history`);
+    const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary, rs?: CommandResultSummary) => {
+        let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}/results`
+        if (rs) {
+            p += "/" + rs.id
+        }
+        navigate(p);
     }, [navigate]);
 
     const onCardClose = useCallback(() => {
         navigate(`/targets/`);
     }, [navigate]);
 
-    const commandResultItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
-    const targetItemRefs = useRef<Map<TargetSummary, HTMLElement>>(new Map());
+    const targetsByKey = useMemo(() => {
+        const m = new Map<string, TargetSummary>()
+        projects.forEach(ps => {
+            ps.targets.forEach(ts => {
+                const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
+                m.set(key, ts)
+            })
+        })
+        return m
+    }, [projects])
 
-    const [parentProject, selectedTarget] = useMemo(() => {
-        const tp = parseTargetPath(targetPath)
-        if (!tp) {
-            return [undefined, undefined]
+    const pathnameS = loc.pathname.split("/")
+    let selectedTargetKey = pathnameS[2]
+    const selectedTarget = targetsByKey.get(selectedTargetKey)
+
+    if (!selectedTarget) {
+        selectedTargetKey = ""
+    }
+
+    let expandedResults = false
+    let expandedResultId = ""
+    if (selectedTarget) {
+        if (pathnameS[3] === "results") {
+            expandedResults = true
+            const resultId = pathnameS[4]
+            if (resultId) {
+                if (appContext.commandResultSummaries.has(resultId)) {
+                    expandedResultId = resultId
+                }
+            }
         }
-
-        const project = projects.find(ps => _.isEqual(_.toPlainObject(ps.project), tp.project))
-        const target = project?.targets.find(ts => _.isEqual(_.toPlainObject(ts.target), tp.target) && (ts.kdInfo === tp.kluctlDeployment || _.isEqual(_.toPlainObject(ts.kdInfo), tp.kluctlDeployment)))
-        return [project, target]
-    }, [projects, targetPath])
-
-    const showHistory = pathname.endsWith('history');
-
-    if (selectedTarget && parentProject && !showHistory) {
-        const cardElem = targetItemRefs.current.get(selectedTarget);
-        const cardRect = cardElem?.getBoundingClientRect();
-
-        return <ExpandedCardsView<TargetSummary>
-            cardsData={[selectedTarget]}
-            renderCard={(cardData, sx, expanded) =>
-                <TargetItem
-                    ps={parentProject}
-                    ts={cardData}
-                    sx={sx}
-                    key={targetPath}
-                    expanded={expanded}
-                    onClose={onCardClose}
-                />
-            }
-            initialCardRect={cardRect}
-            onClose={onCardClose}
-        />;
     }
 
-    if (selectedTarget && showHistory) {
-        const cardElem = commandResultItemRefs.current.get(selectedTarget);
-        const cardRect = cardElem?.getBoundingClientRect();
-
-        return <ExpandedCardsView<CommandResultSummary>
-            cardsData={selectedTarget.commandResults}
-            renderCard={(cardData, sx, expanded, current) =>
-                <CommandResultItem
-                    rs={cardData}
-                    sx={sx}
-                    key={cardData.id}
-                    expanded={expanded}
-                    loadData={current}
-                    onClose={onCardClose}
-                />
-            }
-            initialCardRect={cardRect}
-            onClose={onCardClose}
-        />;
-    }
-
-    return <Box minWidth={colWidth * 3} p='0 40px'>
+    return <Box minWidth={colWidth * 3} height={"100%"} p='0 40px'>
         <Box display={"flex"} alignItems={"center"} height='70px'>
             <ColHeader>Projects</ColHeader>
             <ColHeader>Targets</ColHeader>
-            <ColHeader>History</ColHeader>
+            <ColHeader>Command Results</ColHeader>
         </Box>
         <Divider />
         {projects.map((ps, i) => {
@@ -289,39 +254,66 @@ export const TargetsView = () => {
 
                     <CardCol width={colWidth} flex='0 0 auto'>
                         {ps.targets.map((ts, i) => {
-                            return <Box key={buildListKey([ts.target, ts.kdInfo])} display='flex'>
-                                <TargetItem
-                                    ps={ps}
-                                    ts={ts}
-                                    onSelectTarget={() => onSelectTargetItem(ps, ts)}
-                                    ref={(elem) => {
-                                        if (i === 0 && elem) {
-                                            targetItemRefs.current.set(ts, elem);
-                                        }
+                            const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
+                            return <Box key={key} display='flex'>
+                                <ExpandableCard
+                                    cardWidth={cardWidth}
+                                    cardHeight={cardHeight}
+                                    expand={!expandedResults && selectedTargetKey === key}
+                                    onExpand={() => onSelectTargetItem(ps, ts)}
+                                    onClose={() => {
+                                        onCardClose()
                                     }}
-                                    sx={{ cursor: 'pointer' }}
-                                />
-                                <RelationHorizontalLine />
+                                    onSelect={cd => {
+                                    }}
+                                    cardsData={[ts]}
+                                    getKey={cd => buildListKey([cd.target, cd.kdInfo])}
+                                    selected={selectedTargetKey}
+                                    renderCard={(cardData, expanded, current) => {
+                                        return <TargetItem
+                                            ps={ps}
+                                            ts={ts}
+                                            expanded={expanded}
+                                            onClose={() => {
+                                                onCardClose()
+                                            }}
+                                        />
+                                    }}/>
+                                <RelationHorizontalLine/>
                             </Box>
                         })}
                     </CardCol>
 
                     <CardCol width={colWidth}>
                         {ps.targets.map((ts, i) => {
-                            return <CardRow key={buildListKey([ts.target, ts.kdInfo])} height={cardHeight}>
+                            const tsKey = buildTargetKey(ps.project, ts.target, ts.kdInfo)
+                            return <CardRow key={tsKey} height={cardHeight}>
                                 {ts.commandResults?.slice(0, 4).map((rs, i) => {
-                                    return i === 0
-                                        ? <CommandResultItem
+                                    return i === 0 ? <ExpandableCard
                                             key={rs.id}
-                                            rs={rs}
-                                            onSelectCommandResult={() => onSelectCommandResultItem(ps, ts)}
-                                            ref={(elem) => {
-                                                if (i === 0 && elem) {
-                                                    commandResultItemRefs.current.set(ts, elem);
-                                                }
+                                            cardWidth={cardWidth}
+                                            cardHeight={cardHeight}
+                                            expand={expandedResults && selectedTargetKey === tsKey}
+                                            onExpand={() => onSelectCommandResultItem(ps, ts)}
+                                            onClose={() => {
+                                                onCardClose()
                                             }}
-                                            sx={{ cursor: 'pointer' }}
-                                        />
+                                            onSelect={cd => {
+                                                onSelectCommandResultItem(ps, ts, cd)
+                                            }}
+                                            selected={expandedResultId}
+                                            cardsData={ts.commandResults}
+                                            getKey={cd => cd.id}
+                                            renderCard={(cardData, expanded, current) => {
+                                                return <CommandResultItem
+                                                    rs={cardData}
+                                                    expanded={expanded}
+                                                    loadData={current}
+                                                    onClose={() => {
+                                                        onCardClose()
+                                                    }}
+                                                />
+                                            }}/>
                                         : <CardPaper
                                             key={rs.id}
                                             sx={{

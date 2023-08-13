@@ -1,4 +1,4 @@
-package test_utils
+package test_project
 
 import (
 	"context"
@@ -340,6 +340,13 @@ func (p *TestProject) AddHelmDeployment(dir string, repoUrl string, chartName, v
 func (p *TestProject) convertInterfaceToList(x interface{}) []interface{} {
 	var ret []interface{}
 	if l, ok := x.([]interface{}); ok {
+		return l
+	}
+	if s, ok := x.(string); ok {
+		l, err := yaml.ReadYamlAllString(s)
+		if err != nil {
+			p.t.Fatal(err)
+		}
 		return l
 	}
 	if l, ok := x.([]*uo.UnstructuredObject); ok {

@@ -45,6 +45,7 @@ export interface Api {
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
     setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response>
+    watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void
 }
 
 export async function checkStaticBuild() {
@@ -103,6 +104,23 @@ export class RealApi implements Api {
         return resp
     }
 
+    doWebsocket(path: string, params: URLSearchParams) {
+        let host = window.location.host
+        let proto = "wss"
+        if (process.env.NODE_ENV === 'development') {
+            host = "localhost:9090"
+        }
+        if (window.location.protocol !== "https:") {
+            proto = "ws"
+        }
+        let url = `${proto}://${host}${rootPath}${path}`
+        url += "?" + params.toString()
+
+        console.log("ws connect: " + url)
+        const ws = new WebSocket(url)
+        return ws
+    }
+
     async getAuthInfo(): Promise<AuthInfo> {
         return this.doGet("/auth/info")
     }
@@ -116,16 +134,6 @@ export class RealApi implements Api {
     }
 
     async listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
-        let host = window.location.host
-        let proto = "wss"
-        if (process.env.NODE_ENV === 'development') {
-            host = "localhost:9090"
-        }
-        if (window.location.protocol !== "https:") {
-            proto = "ws"
-        }
-        let url = `${proto}://${host}${rootPath}/api/events`
-
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
@@ -133,7 +141,6 @@ export class RealApi implements Api {
         if (filterSubDir) {
             params.set("filterSubDir", filterSubDir)
         }
-        url += "?" + params.toString()
 
         let ws: WebSocket | undefined;
         let cancelled = false
@@ -143,8 +150,7 @@ export class RealApi implements Api {
                 return
             }
 
-            console.log("ws connect: " + url)
-            ws = new WebSocket(url);
+            ws = this.doWebsocket("/api/events", params)
             ws.onopen = function () {
                 console.log("ws connected")
             }
@@ -231,6 +237,34 @@ export class RealApi implements Api {
             "suspend": suspend,
         })
     }
+
+    watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void {
+        const params = new URLSearchParams()
+        if (cluster) params.set("cluster", cluster)
+        if (name) params.set("name", name)
+        if (namespace) params.set("namespace", namespace)
+        if (reconcileId) params.set("reconcileId", reconcileId)
+
+        const ws = this.doWebsocket("/api/logs", params)
+        let cancelled = false
+
+        ws.onmessage = function (event: MessageEvent) {
+            if (cancelled) {
+                return
+            }
+            try {
+                const line: any = JSON.parse(event.data)
+                handle([line])
+            } catch (e) {
+            }
+        }
+
+        return () => {
+            console.log("cancel logs", params.toString())
+            cancelled = true
+            ws.close()
+        }
+    }
 }
 
 export class StaticApi implements Api {
@@ -313,6 +347,10 @@ export class StaticApi implements Api {
 
     setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response> {
         throw new Error("not implemented")
+    }
+
+    watchLogs(cluster: string, name: string, namespace: string, reconcileId: string, handle: (lines: any[]) => void): () => void {
+        return () => {}
     }
 }
 

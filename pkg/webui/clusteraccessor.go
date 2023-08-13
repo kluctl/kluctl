@@ -9,9 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sync"
 	"time"
 )
@@ -82,22 +82,10 @@ func (ca *clusterAccessor) tryInitClient() error {
 	}
 	ca.scheme = scheme
 
-	httpClient, err := rest.HTTPClientFor(ca.config)
+	ca.discovery, ca.mapper, err = k8s2.CreateDiscoveryAndMapper(context.Background(), ca.config)
 	if err != nil {
 		return err
 	}
-
-	dc, err := k8s2.CreateDiscoveryClient(context.Background(), ca.config)
-	if err != nil {
-		return err
-	}
-	ca.discovery = dc
-
-	mapper, err := apiutil.NewDynamicRESTMapper(ca.config, httpClient)
-	if err != nil {
-		return err
-	}
-	ca.mapper = mapper
 
 	c, err := ca.getClientLocked("", nil)
 	if err != nil {
@@ -127,15 +115,34 @@ func (ca *clusterAccessor) getClient(asUser string, asGroups []string) (client.C
 	return ca.getClientLocked(asUser, asGroups)
 }
 
-func (ca *clusterAccessor) getClientLocked(asUser string, asGroups []string) (client.Client, error) {
+func (ca *clusterAccessor) getCoreV1Client(asUser string, asGroups []string) (*v1.CoreV1Client, error) {
+	ca.mutex.Lock()
+	defer ca.mutex.Unlock()
+	return ca.getCoreV1ClientLocked(asUser, asGroups)
+}
+
+func (ca *clusterAccessor) getImpersonatedConfig(asUser string, asGroups []string) *rest.Config {
 	config := rest.CopyConfig(ca.config)
 	config.Impersonate.UserName = asUser
 	config.Impersonate.Groups = asGroups
+	return config
+}
 
+func (ca *clusterAccessor) getClientLocked(asUser string, asGroups []string) (client.Client, error) {
+	config := ca.getImpersonatedConfig(asUser, asGroups)
 	c, err := client.NewWithWatch(config, client.Options{
 		Scheme: ca.scheme,
 		Mapper: ca.mapper,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (ca *clusterAccessor) getCoreV1ClientLocked(asUser string, asGroups []string) (*v1.CoreV1Client, error) {
+	config := ca.getImpersonatedConfig(asUser, asGroups)
+	c, err := v1.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -150,15 +157,5 @@ func (ca *clusterAccessor) getK(ctx context.Context, asUser string, asGroups []s
 	config.Impersonate.UserName = asUser
 	config.Impersonate.Groups = asGroups
 
-	httpClient, err := rest.HTTPClientFor(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cf, err := k8s2.NewClientFactory(ctx, config, httpClient, ca.discovery, ca.mapper)
-	if err != nil {
-		return nil, err
-	}
-
-	return k8s2.NewK8sCluster(ctx, cf, false)
+	return k8s2.NewK8sCluster(ctx, config, ca.discovery, ca.mapper, false)
 }

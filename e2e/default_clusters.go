@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	"runtime"
 	"sync"
@@ -85,21 +86,35 @@ func mergeKubeconfig(path string, kubeconfig []byte) {
 	}
 }
 
-func setMergedKubeconfigContext(t *testing.T, newContext string) {
+func setKubeconfigString(t *testing.T, content []byte) {
 	tmpKubeconfig, err := os.CreateTemp(t.TempDir(), "kubeconfig-")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = tmpKubeconfig.Close()
+	defer tmpKubeconfig.Close()
 
+	_, err = tmpKubeconfig.Write(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("set KUBECONFIG=%s\n", tmpKubeconfig.Name())
+	t.Setenv("KUBECONFIG", tmpKubeconfig.Name())
+}
+
+func setKubeconfig(t *testing.T, config api.Config) {
+	content, err := clientcmd.Write(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	setKubeconfigString(t, content)
+}
+
+func setMergedKubeconfigContext(t *testing.T, newContext string) {
 	kcfg, err := clientcmd.LoadFromFile(mergedKubeconfig)
 	if err != nil {
 		t.Fatal(err)
 	}
 	kcfg.CurrentContext = newContext
-	err = clientcmd.WriteToFile(*kcfg, tmpKubeconfig.Name())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("KUBECONFIG", tmpKubeconfig.Name())
+	setKubeconfig(t, *kcfg)
 }

@@ -8,6 +8,7 @@ import { CommandResultProps } from "../CommandResultView";
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
 import { DeployIcon } from '../../../icons/Icons';
+import { LogsViewer } from "../../LogsViewer";
 
 export class CommandResultNodeData extends NodeData {
     dumpedTargetYaml?: string
@@ -39,6 +40,11 @@ export class CommandResultNodeData extends NodeData {
         }
 
         this.buildDiffAndHealthPages(tabs)
+
+        tabs.push({label: "Logs", content: <LogsViewer
+                cluster={this.props.commandResult.clusterInfo.clusterId}
+                reconcileId={this.props.commandResult.id}/>
+        })
 
         return tabs
     }

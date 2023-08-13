@@ -3,24 +3,29 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -78,8 +83,8 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	messageCallbacks := &messages.MessageCallbacks{
 		WarningFn:            func(s string) { status.Warning(ctx, s) },
 		TraceFn:              func(s string) { status.Trace(ctx, s) },
-		AskForPasswordFn:     func(s string) (string, error) { return status.AskForPassword(ctx, s) },
-		AskForConfirmationFn: func(s string) bool { return status.AskForConfirmation(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 
@@ -141,9 +146,11 @@ type projectTargetCommandArgs struct {
 }
 
 type commandCtx struct {
-	ctx         context.Context
-	targetCtx   *kluctl_project.TargetContext
-	images      *deployment.Images
+	ctx       context.Context
+	targetCtx *kluctl_project.TargetContext
+	images    *deployment.Images
+
+	resultId    string
 	resultStore results.ResultStore
 }
 
@@ -193,7 +200,36 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		RenderOutputDir:    renderOutputDir,
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, targetParams)
+	commandResultId := uuid.NewString()
+
+	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams)
+	if err != nil {
+		return err
+	}
+
+	var k *k8s.K8sCluster
+	var resultStore results.ResultStore
+	if clientConfig != nil {
+		discovery, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, clientConfig)
+		if err != nil {
+			return err
+		}
+
+		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
+		k, err = k8s.NewK8sCluster(ctx, clientConfig, discovery, mapper, targetParams.DryRun)
+		if err != nil {
+			s.Failed()
+			return err
+		}
+		s.Success()
+
+		resultStore, err = initStores(ctx, clientConfig, mapper, args.commandResultFlags)
+		if err != nil {
+			return err
+		}
+	}
+
+	targetCtx, err := p.NewTargetContext(ctx, contextName, k, targetParams)
 	if err != nil {
 		return err
 	}
@@ -204,33 +240,35 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 			return err
 		}
 	}
-
-	var resultStore results.ResultStore
-	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
-		config, err := targetCtx.SharedContext.K.ToRESTConfig()
-		if err != nil {
-			return err
-		}
-
-		client, err := targetCtx.SharedContext.K.ToClient()
-		if err != nil {
-			return err
-		}
-
-		resultStore, err = results.NewResultStoreSecrets(ctx, config, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount, args.commandResultFlags.KeepValidateResultsCount)
-		if err != nil {
-			return err
-		}
-	}
-
 	cmdCtx := &commandCtx{
 		ctx:         ctx,
 		targetCtx:   targetCtx,
 		images:      images,
+		resultId:    commandResultId,
 		resultStore: resultStore,
 	}
 
 	return cb(cmdCtx)
+}
+
+func initStores(ctx context.Context, clientConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags) (results.ResultStore, error) {
+	if flags == nil || !flags.WriteCommandResult {
+		return nil, nil
+	}
+
+	client, err := client2.New(clientConfig, client2.Options{
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, clientConfig, client, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultStore, nil
 }
 
 func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {

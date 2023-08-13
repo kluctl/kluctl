@@ -1,13 +1,13 @@
 package e2e
 
 import (
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
 )
 
-func prepareContextTest(t *testing.T) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t)
+func prepareContextTest(t *testing.T) *test_project.TestProject {
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())
 	createNamespace(t, defaultCluster2, p.TestSlug())

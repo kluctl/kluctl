@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -16,7 +17,7 @@ type hooksTestContext struct {
 	t *testing.T
 	k *test_utils.EnvTestCluster
 
-	p *test_utils.TestProject
+	p *test_project.TestProject
 
 	m              sync.Mutex
 	seenConfigMaps []string
@@ -95,7 +96,7 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
-	s.p.AddKustomizeResources(dir, []test_utils.KustomizeResource{
+	s.p.AddKustomizeResources(dir, []test_project.KustomizeResource{
 		{Name: fmt.Sprintf("%s.yml", opts.name), Content: o},
 	})
 }
@@ -104,7 +105,7 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	s := &hooksTestContext{
 		t: t,
 		k: defaultCluster2, // use cluster2 as it has webhooks setup
-		p: test_utils.NewTestProject(t),
+		p: test_project.NewTestProject(t),
 	}
 	s.setupWebhook()
 	t.Cleanup(func() {

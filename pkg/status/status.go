@@ -14,18 +14,28 @@ type StatusContext struct {
 	finished bool
 	failed   bool
 
+	level        Level
 	prefix       string
 	startMessage string
 	startTotal   int
-	disableLogs  bool
 }
 
 type EndResult int
+type Level int
 
 const (
 	EndSuccess EndResult = iota
 	EndWarning
 	EndError
+)
+
+const (
+	LevelTrace = iota
+	LevelInfo
+	LevelWarning
+	LevelError
+	LevelProgress
+	LevelPrompt
 )
 
 type StatusLine interface {
@@ -37,23 +47,14 @@ type StatusLine interface {
 }
 
 type StatusHandler interface {
-	IsTerminal() bool
 	IsTraceEnabled() bool
 
-	SetTrace(trace bool)
 	Stop()
 	Flush()
-	StartStatus(total int, message string) StatusLine
+	StartStatus(level Level, total int, message string) StatusLine
 
-	Info(message string)
-	Warning(message string)
-	Error(message string)
-	Trace(message string)
-
-	PlainText(text string)
-	InfoFallback(message string)
-
-	Prompt(password bool, message string) (string, error)
+	Message(level Level, message string)
+	MessageFallback(level Level, message string)
 }
 
 type contextKey struct{}
@@ -89,6 +90,12 @@ func FromContext(ctx context.Context) StatusHandler {
 
 type Option func(s *StatusContext)
 
+func WithLevel(level Level) Option {
+	return func(s *StatusContext) {
+		s.level = level
+	}
+}
+
 func WithPrefix(prefix string) Option {
 	return func(s *StatusContext) {
 		s.prefix = prefix
@@ -111,24 +118,19 @@ func WithTotal(t int) Option {
 	}
 }
 
-func WithDisableLogs() Option {
-	return func(s *StatusContext) {
-		s.disableLogs = true
-	}
-}
-
 func StartWithOptions(ctx context.Context, opts ...Option) *StatusContext {
 	sh := FromContext(ctx)
 	s := &StatusContext{
-		ctx: ctx,
-		sh:  sh,
+		ctx:   ctx,
+		sh:    sh,
+		level: LevelProgress,
 	}
 
 	for _, o := range opts {
 		o(s)
 	}
 
-	s.sl = sh.StartStatus(s.startTotal, s.buildMessage(s.startMessage))
+	s.sl = sh.StartStatus(s.level, s.startTotal, s.buildMessage(s.startMessage))
 
 	return s
 }
@@ -244,14 +246,9 @@ func (s *StatusContext) Warning() {
 	s.finished = true
 }
 
-func PlainText(ctx context.Context, text string) {
-	slh := FromContext(ctx)
-	slh.PlainText(text)
-}
-
 func Info(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Info(status)
+	slh.Message(LevelInfo, status)
 }
 
 func Infof(ctx context.Context, status string, args ...any) {
@@ -260,7 +257,7 @@ func Infof(ctx context.Context, status string, args ...any) {
 
 func InfoFallback(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.InfoFallback(status)
+	slh.MessageFallback(LevelInfo, status)
 }
 
 func InfoFallbackf(ctx context.Context, status string, args ...any) {
@@ -269,7 +266,7 @@ func InfoFallbackf(ctx context.Context, status string, args ...any) {
 
 func Warning(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Warning(status)
+	slh.Message(LevelWarning, status)
 }
 
 func Warningf(ctx context.Context, status string, args ...any) {
@@ -292,7 +289,7 @@ func WarningOncef(ctx context.Context, key string, status string, args ...any) {
 
 func Trace(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Trace(status)
+	slh.Message(LevelTrace, status)
 }
 
 func Tracef(ctx context.Context, status string, args ...any) {
@@ -306,26 +303,17 @@ func IsTraceEnabled(ctx context.Context) bool {
 
 func Error(ctx context.Context, status string) {
 	slh := FromContext(ctx)
-	slh.Error(status)
+	slh.Message(LevelError, status)
 }
 
 func Errorf(ctx context.Context, status string, args ...any) {
 	Error(ctx, fmt.Sprintf(status, args...))
 }
 
-func Prompt(ctx context.Context, password bool, message string) (string, error) {
-	slh := FromContext(ctx)
-	return slh.Prompt(password, message)
-}
-
-func Promptf(ctx context.Context, password bool, message string, args ...any) (string, error) {
-	return Prompt(ctx, password, fmt.Sprintf(message, args...))
-}
-
 func Deprecation(ctx context.Context, key string, message string) {
 	cv := getContextValue(ctx)
 	cv.deprecationOnce.Do(key, func() {
-		cv.slh.Warning(message)
+		cv.slh.Message(LevelWarning, message)
 	})
 }
 

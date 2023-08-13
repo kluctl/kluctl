@@ -4,17 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/status/multiline"
-	"github.com/kluctl/kluctl/v2/pkg/utils/term"
 	"io"
-	"strings"
 	"sync"
-	"syscall"
 )
 
 type MultiLineStatusHandler struct {
 	ctx         context.Context
 	out         io.Writer
-	isTerminal  bool
 	enableColor bool
 	trace       bool
 
@@ -34,11 +30,10 @@ type statusLine struct {
 	mutex sync.Mutex
 }
 
-func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, isTerminal bool, enableColor bool, trace bool) *MultiLineStatusHandler {
+func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, enableColor bool, trace bool) *MultiLineStatusHandler {
 	sh := &MultiLineStatusHandler{
 		ctx:         ctx,
 		out:         out,
-		isTerminal:  isTerminal,
 		enableColor: enableColor,
 		trace:       trace,
 	}
@@ -46,10 +41,6 @@ func NewMultiLineStatusHandler(ctx context.Context, out io.Writer, isTerminal bo
 	sh.start()
 
 	return sh
-}
-
-func (s *MultiLineStatusHandler) IsTerminal() bool {
-	return s.isTerminal
 }
 
 func (s *MultiLineStatusHandler) IsTraceEnabled() bool {
@@ -73,16 +64,20 @@ func (s *MultiLineStatusHandler) Stop() {
 	s.ml.Stop()
 }
 
-func (s *MultiLineStatusHandler) StartStatus(total int, message string) StatusLine {
-	return s.startStatus(total, message, "")
+func (s *MultiLineStatusHandler) StartStatus(level Level, total int, message string) StatusLine {
+	return s.startStatus(level, total, message, "")
 }
 
-func (s *MultiLineStatusHandler) startStatus(total int, message string, barOverride string) *statusLine {
+func (s *MultiLineStatusHandler) startStatus(level Level, total int, message string, barOverride string) *statusLine {
 	sl := &statusLine{
 		slh:         s,
 		total:       total,
 		message:     message,
 		barOverride: barOverride,
+	}
+
+	if level != LevelProgress {
+		sl.barOverride = s.levelPrefix(level)
 	}
 
 	sl.l = sl.slh.ml.NewLine(sl.lineFunc)
@@ -91,7 +86,7 @@ func (s *MultiLineStatusHandler) startStatus(total int, message string, barOverr
 }
 
 func (s *MultiLineStatusHandler) withColor(c string, txt string) string {
-	if !s.isTerminal || !s.enableColor {
+	if !s.enableColor {
 		return txt
 	}
 	switch c {
@@ -114,51 +109,35 @@ func (s *MultiLineStatusHandler) printLine(message string, barOverride string, d
 	}
 }
 
-func (s *MultiLineStatusHandler) Info(message string) {
-	o := s.withColor("green", "ⓘ")
+func (s *MultiLineStatusHandler) levelPrefix(level Level) string {
+	var o string
+	switch level {
+	case LevelTrace:
+		fallthrough
+	case LevelInfo:
+		o = s.withColor("green", "ⓘ")
+	case LevelWarning:
+		o = s.withColor("yellow", "⚠")
+	case LevelError:
+		o = s.withColor("red", "✗")
+	case LevelPrompt:
+		o = s.withColor("yellow", "?")
+	default:
+		o = s.withColor("yellow", "¿")
+	}
+	return o
+}
+
+func (s *MultiLineStatusHandler) Message(level Level, message string) {
+	if level == LevelTrace && !s.trace {
+		return
+	}
+	o := s.levelPrefix(level)
 	s.printLine(message, o, true)
 }
 
-func (s *MultiLineStatusHandler) InfoFallback(message string) {
+func (s *MultiLineStatusHandler) MessageFallback(level Level, message string) {
 	// no fallback needed
-}
-
-func (s *MultiLineStatusHandler) Warning(message string) {
-	o := s.withColor("yellow", "⚠")
-	s.printLine(message, o, true)
-}
-
-func (s *MultiLineStatusHandler) Error(message string) {
-	o := s.withColor("red", "✗")
-	s.printLine(message, o, true)
-}
-
-func (s *MultiLineStatusHandler) Trace(message string) {
-	if s.trace {
-		s.Info(message)
-	}
-}
-
-func (s *MultiLineStatusHandler) PlainText(text string) {
-	s.Info(text)
-}
-
-func (s *MultiLineStatusHandler) Prompt(password bool, message string) (string, error) {
-	o := s.withColor("yellow", "?")
-	sl := s.startStatus(1, message, o)
-	defer sl.end(o)
-
-	doUpdate := func(ret []byte) {
-		if password {
-			sl.Update(message + strings.Repeat("*", len(ret)))
-		} else {
-			sl.Update(message + string(ret))
-		}
-	}
-
-	ret, err := term.ReadLineNoEcho(int(syscall.Stdin), doUpdate)
-
-	return string(ret), err
 }
 
 func (sl *statusLine) lineFunc() string {

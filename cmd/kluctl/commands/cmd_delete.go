@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 )
 
@@ -72,7 +72,7 @@ func confirmDeletion(ctx context.Context, refs []k8s2.ObjectRef, dryRun bool, fo
 			_, _ = getStderr(ctx).WriteString(fmt.Sprintf("  %s\n", ref.String()))
 		}
 		if !forceYes && !dryRun {
-			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
+			if !prompts.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
 				return fmt.Errorf("aborted")
 			}
 		}

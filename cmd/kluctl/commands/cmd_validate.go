@@ -40,14 +40,14 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		cmd2 := commands.NewValidateCommand(cmdCtx.ctx, "", cmdCtx.targetCtx, nil)
-		return cmd.doValidate(cmdCtx.ctx, cmd2)
+		return cmd.doValidate(cmdCtx, cmd2)
 	})
 }
 
-func (cmd *validateCmd) doValidate(ctx context.Context, cmd2 *commands.ValidateCommand) error {
+func (cmd *validateCmd) doValidate(ctx *commandCtx, cmd2 *commands.ValidateCommand) error {
 	startTime := time.Now()
 	for true {
-		result, err := cmd2.Run(ctx)
+		result, err := cmd2.Run(ctx.ctx)
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func (cmd *validateCmd) doValidate(ctx context.Context, cmd2 *commands.ValidateC
 		}
 
 		if !failed {
-			_, _ = getStderr(ctx).WriteString("Validation succeeded\n")
+			_, _ = getStderr(ctx.ctx).WriteString("Validation succeeded\n")
 			return nil
 		}
 

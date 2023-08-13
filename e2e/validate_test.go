@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/stretchr/testify/assert"
@@ -63,21 +64,21 @@ status:
 	return deployment
 }
 
-func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t)
+func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster) *test_project.TestProject {
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
 	p.UpdateTarget("test", nil)
 
-	p.AddKustomizeDeployment("d1", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("d1", []test_project.KustomizeResource{
 		{Name: fmt.Sprintf("configmap-%s.yml", "d1"), Content: buildDeployment("d1", p.TestSlug(), false)},
 	}, nil)
 
 	return p
 }
 
-func assertValidate(t *testing.T, p *test_utils.TestProject, succeed bool) (string, string) {
+func assertValidate(t *testing.T, p *test_project.TestProject, succeed bool) (string, string) {
 	args := []string{"validate"}
 	args = append(args, "-t", "test")
 

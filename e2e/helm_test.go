@@ -5,6 +5,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"net/url"
@@ -36,7 +37,7 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -132,7 +133,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -178,7 +179,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -293,7 +294,7 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -356,7 +357,7 @@ func TestHelmValues(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -421,7 +422,7 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 	createNamespace(t, k, p.TestSlug()+"-a")
@@ -452,7 +453,7 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -493,7 +494,7 @@ func TestHelmLocalChart(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -518,7 +519,7 @@ func TestHelmSkipPrePull(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -597,7 +598,7 @@ func TestHelmSkipPrePull(t *testing.T) {
 	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.2.0", u.Port())))
 }
 
-func getChartDir(t *testing.T, p *test_utils.TestProject, url2 string, chartName string, chartVersion string) string {
+func getChartDir(t *testing.T, p *test_project.TestProject, url2 string, chartName string, chartVersion string) string {
 	u, err := url.Parse(url2)
 	if err != nil {
 		t.Fatal(err)
@@ -614,11 +615,11 @@ func getChartDir(t *testing.T, p *test_utils.TestProject, url2 string, chartName
 	return dir
 }
 
-func getChartFile(t *testing.T, p *test_utils.TestProject, url2 string, chartName string, chartVersion string) string {
+func getChartFile(t *testing.T, p *test_project.TestProject, url2 string, chartName string, chartVersion string) string {
 	return filepath.Join(getChartDir(t, p, url2, chartName, chartVersion), "Chart.yaml")
 }
 
-func listChartVersions(t *testing.T, p *test_utils.TestProject, url2 string, chartName string) []string {
+func listChartVersions(t *testing.T, p *test_project.TestProject, url2 string, chartName string) []string {
 	des, err := os.ReadDir(getChartDir(t, p, url2, chartName, ""))
 	assert.NoError(t, err)
 

@@ -24,7 +24,9 @@ func readLine(reader io.Reader, cb func(ret []byte)) ([]byte, error) {
 				if len(ret) > 0 {
 					ret = ret[:len(ret)-1]
 				}
-				cb(ret)
+				if cb != nil {
+					cb(ret)
+				}
 			case '\n':
 				if runtime.GOOS != "windows" {
 					return ret, nil
@@ -37,7 +39,9 @@ func readLine(reader io.Reader, cb func(ret []byte)) ([]byte, error) {
 				// otherwise ignore \r
 			default:
 				ret = append(ret, buf[0])
-				cb(ret)
+				if cb != nil {
+					cb(ret)
+				}
 			}
 			continue
 		}

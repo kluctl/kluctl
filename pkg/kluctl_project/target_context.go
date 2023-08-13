@@ -44,7 +44,7 @@ type TargetContextParams struct {
 	RenderOutputDir    string
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params TargetContextParams) (*TargetContext, error) {
+func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName string, k *k8s.K8sCluster, params TargetContextParams) (*TargetContext, error) {
 	repoRoot, err := filepath.Abs(p.LoadArgs.RepoRoot)
 	if err != nil {
 		return nil, err
@@ -71,9 +71,10 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	if params.TargetNameOverride != "" {
 		target.Name = params.TargetNameOverride
 	}
-	if params.ContextOverride != "" {
-		target.Context = &params.ContextOverride
-	}
+
+	params.Images.PrependFixedImages(target.Images)
+
+	target.Context = &contextName
 
 	if needRender {
 		// we must render the target after handling overrides
@@ -83,38 +84,15 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		}
 	}
 
-	params.Images.PrependFixedImages(target.Images)
-
-	clientConfig, clusterContext, err := p.loadK8sConfig(target, params.OfflineK8s)
-	if err != nil {
-		return nil, err
-	}
-	target.Context = &clusterContext
-
 	varsCtx, err := p.buildVars(target, params.ForSeal)
 	if err != nil {
 		return nil, err
 	}
 
-	var k *k8s.K8sCluster
-	if clientConfig != nil {
-		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
-		clientFactory, err := k8s.NewClientFactoryFromConfig(ctx, clientConfig)
-		if err != nil {
-			return nil, err
-		}
-		k, err = k8s.NewK8sCluster(ctx, clientFactory, params.DryRun)
-		if err != nil {
-			s.Failed()
-			return nil, err
-		}
-		s.Success()
-	}
-
 	varsLoader := vars.NewVarsLoader(ctx, k, p.SopsDecrypter, p.RP, aws.NewClientFactory())
 
 	if params.ForSeal {
-		err = p.loadSecrets(target, varsCtx, varsLoader)
+		err = p.loadSecrets(ctx, target, varsCtx, varsLoader)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +127,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 		SharedContext:        dctx,
 		KluctlProject:        p,
 		Target:               *target,
-		ClusterContext:       clusterContext,
+		ClusterContext:       contextName,
 		DeploymentProject:    d,
 		DeploymentCollection: c,
 	}
@@ -157,12 +135,22 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, params Targe
 	return targetCtx, nil
 }
 
-func (p *LoadedKluctlProject) loadK8sConfig(target *types.Target, offlineK8s bool) (*rest.Config, string, error) {
-	if offlineK8s {
+func (p *LoadedKluctlProject) LoadK8sConfig(ctx context.Context, params TargetContextParams) (*rest.Config, string, error) {
+	if params.OfflineK8s {
 		return nil, "", nil
 	}
 
-	contextName := target.Context
+	var contextName *string
+	if params.TargetName != "" {
+		t, err := p.FindTarget(params.TargetName)
+		if err != nil {
+			return nil, "", err
+		}
+		contextName = t.Context
+	}
+	if params.ContextOverride != "" {
+		contextName = &params.ContextOverride
+	}
 
 	var err error
 	var clientConfig *rest.Config
@@ -170,18 +158,13 @@ func (p *LoadedKluctlProject) loadK8sConfig(target *types.Target, offlineK8s boo
 	clientConfig, restConfig, err = p.LoadArgs.ClientConfigGetter(contextName)
 	if err != nil {
 		if contextName == nil && clientcmd.IsEmptyConfig(err) {
-			status.Warning(p.ctx, "No valid KUBECONFIG provided, which means the Kubernetes client is not available. Depending on your deployment project, this might cause follow-up errors.")
+			status.Warning(ctx, "No valid KUBECONFIG provided, which means the Kubernetes client is not available. Depending on your deployment project, this might cause follow-up errors.")
 			return nil, "", nil
 		}
 		return nil, "", err
 	}
-	if contextName == nil {
-		contextName = &restConfig.CurrentContext
-	}
-	if contextName != nil {
-		return clientConfig, *contextName, nil
-	}
-	return clientConfig, "", nil
+	contextName = &restConfig.CurrentContext
+	return clientConfig, *contextName, nil
 }
 
 func (p *LoadedKluctlProject) buildVars(target *types.Target, forSeal bool) (*vars.VarsCtx, error) {
@@ -228,7 +211,7 @@ func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, e
 	return nil, fmt.Errorf("secret Set with name %s was not found", name)
 }
 
-func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
+func (p *LoadedKluctlProject) loadSecrets(ctx context.Context, target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
 	searchDirs := []string{p.LoadArgs.ProjectDir}
 
 	for _, secretSetName := range target.SealingConfig.SecretSets {
@@ -236,7 +219,7 @@ func (p *LoadedKluctlProject) loadSecrets(target *types.Target, varsCtx *vars.Va
 		if err != nil {
 			return err
 		}
-		err = varsLoader.LoadVarsList(p.ctx, varsCtx, secretEntry.Vars, searchDirs, "secrets")
+		err = varsLoader.LoadVarsList(ctx, varsCtx, secretEntry.Vars, searchDirs, "secrets")
 		if err != nil {
 			return err
 		}

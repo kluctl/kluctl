@@ -6,7 +6,7 @@ import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
 import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
-import { CardBody, cardHeight, CardTemplate, cardWidth } from "./Card";
+import { CardBody, CardTemplate } from "./Card";
 import { ApiContext, AppContext } from "../App";
 import { Loading } from "../Loading";
 import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
@@ -140,8 +140,6 @@ export const CommandResultItem = React.memo(React.forwardRef((
         paperProps={{
             sx: {
                 padding: '20px 16px 5px 16px',
-                width: cardWidth,
-                height: cardHeight,
                 ...sx,
             },
             onClick: () => onSelectCommandResult?.(rs)

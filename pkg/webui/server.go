@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
@@ -33,7 +34,8 @@ type CommandResultsServer struct {
 	cam   *clusterAccessorManager
 
 	// this is the client for the k8s cluster where the server runs on
-	serverClient client.Client
+	serverClient       client.Client
+	serverCoreV1Client *corev1.CoreV1Client
 
 	auth   *authHandler
 	events *eventsHandler
@@ -45,22 +47,29 @@ func NewCommandResultsServer(
 	ctx context.Context,
 	store *results.ResultsCollector,
 	configs []*rest.Config,
+	serverConfig *rest.Config,
 	serverClient client.Client,
 	authConfig AuthConfig,
 	onlyApi bool) (*CommandResultsServer, error) {
+
+	coreV1Client, err := corev1.NewForConfig(serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	ret := &CommandResultsServer{
 		ctx:   ctx,
 		store: store,
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
-		serverClient: serverClient,
-		onlyApi:      onlyApi,
+		serverClient:       serverClient,
+		serverCoreV1Client: coreV1Client,
+		onlyApi:            onlyApi,
 	}
 
 	ret.events = newEventsHandler(ret)
 
-	var err error
 	ret.auth, err = newAuthHandler(ctx, serverClient, authConfig)
 	if err != nil {
 		return nil, err
@@ -121,6 +130,8 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 		return err
 	}
 	api.Any("/events", s.events.handler)
+
+	api.Any("/logs", s.logsHandler)
 
 	address := fmt.Sprintf("%s:%d", host, port)
 	listener, err := net.Listen("tcp", address)
@@ -405,9 +416,9 @@ func (s *CommandResultsServer) doModifyKluctlDeployment(c *gin.Context, clusterI
 }
 
 type KluctlDeploymentParam struct {
-	Cluster   string `json:"cluster"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
+	Cluster   string `json:"cluster" form:"cluster"`
+	Name      string `json:"name" form:"name"`
+	Namespace string `json:"namespace" form:"namespace"`
 }
 
 func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {

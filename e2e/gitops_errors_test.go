@@ -3,7 +3,7 @@ package e2e
 import (
 	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -231,7 +231,9 @@ data:
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
 			{Message: "pruning without a discriminator is not supported"},
-		}, nil)
+		}, []result.DeploymentError{
+			{Message: "no discriminator configured. Orphan object detection will not work"},
+		})
 		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
 			_ = o.SetNestedField(backup, "discriminator")
 			return nil

@@ -16,3 +16,4 @@
 /vendor
 dist/
 .vscode
+cover.out
