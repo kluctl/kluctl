@@ -149,7 +149,9 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 					return
 				}
 				if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {
+					mutex.Lock()
 					permissionErrCount += 1
+					mutex.Unlock()
 					return
 				}
 				u.dew.AddError(ref, err)
