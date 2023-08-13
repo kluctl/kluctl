@@ -122,7 +122,7 @@ docker_manifests:
 
 brews:
   - name: kluctl
-    tap:
+    repository:
       owner: kluctl
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
