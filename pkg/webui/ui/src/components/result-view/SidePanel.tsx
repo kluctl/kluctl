@@ -87,10 +87,10 @@ export const SidePanel = (props: SidePanelProps) => {
                 </Box>
             </Box>
             <Divider sx={{ margin: 0 }} />
-            <Box overflow='auto' p='30px'>
+            <Box overflow='auto' p='30px' flex={"1 1 auto"}>
                 {tabs.map(tab => {
                     return <ThemeProvider theme={light} key={tab.label}>
-                        <TabPanel value={tab.label} sx={{ padding: 0 }}>
+                        <TabPanel value={tab.label} sx={{ padding: 0}}>
                             <Paper sx={{ padding: '10px 0' }}>
                                 {tab.content}
                             </Paper>
