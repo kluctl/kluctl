@@ -38,7 +38,7 @@ require (
 	golang.org/x/net v0.14.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.11.0
-	golang.org/x/term v0.11.0
+	golang.org/x/term v0.11.0 // indirect
 	golang.org/x/text v0.12.0
 	helm.sh/helm/v3 v3.12.2
 	k8s.io/api v0.27.4
