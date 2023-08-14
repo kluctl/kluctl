@@ -33,6 +33,8 @@ vars:
   noOverride: true
 - file: vars3.yaml
   when: some.var == "value"
+- file: vars3.yaml
+  sensitive: true
 ```
 
 `vars2.yaml` can now use variables that are defined in `vars1.yaml`. A special case is the use of previously defined
@@ -49,6 +51,10 @@ useful if you want to load default values for variables.
 
 Variables can also be loaded conditionally by specifying a condition via `when: <condition>`. The condition must be in
 the same format as described in [conditional deployment items](../deployments/deployment-yml.md#when)
+
+Specifying `sensitive: true` causes the Webui to redact the underlying variables for non-admin users. This will be set
+to `true` by default for all variable sources that usually load sensitive data, including sops encrypted files and
+Kubernetes secrets.
 
 Different types of vars entries are possible:
 
