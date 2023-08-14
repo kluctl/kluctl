@@ -1,8 +1,10 @@
 import { Box, Divider, IconButton, Paper, Tab, ThemeProvider, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
 import { CloseIcon } from "../../icons/Icons";
 import { light } from "../theme";
+import { User } from "../../api";
+import { UserContext } from "../App";
 
 export interface SidePanelTab {
     label: string
@@ -11,7 +13,7 @@ export interface SidePanelTab {
 
 export interface SidePanelProvider {
     buildSidePanelTitle(): React.ReactNode
-    buildSidePanelTabs(): SidePanelTab[]
+    buildSidePanelTabs(user?: User): SidePanelTab[]
 }
 
 export interface SidePanelProps {
@@ -21,14 +23,15 @@ export interface SidePanelProps {
 
 export function useSidePanelTabs(provider?: SidePanelProvider) {
     const [selectedTab, setSelectedTab] = useState<string>();
+    const user = useContext(UserContext)
 
     const handleTabChange = useCallback((_e: React.SyntheticEvent, value: string) => {
         setSelectedTab(value);
     }, []);
 
     const tabs = useMemo(
-        () => provider?.buildSidePanelTabs() || [],
-        [provider]
+        () => provider?.buildSidePanelTabs(user) || [],
+        [provider, user]
     );
 
     useEffect(() => {

@@ -4,7 +4,7 @@ import { Box, Divider, Typography } from "@mui/material";
 import { CommandResultProps } from "../CommandResultView";
 import { ChangesTable } from "../ChangesTable";
 import { ErrorsTable } from "../../ErrorsTable";
-import { ObjectType } from "../../../api";
+import { ObjectType, User } from "../../../api";
 import { ObjectYaml } from "../../ObjectYaml";
 import { StatusLine } from "../CommandResultStatusLine";
 import { SidePanelProvider, SidePanelTab } from "../SidePanel";
@@ -110,7 +110,7 @@ export abstract class NodeData implements SidePanelProvider {
 
     abstract buildIcon(): [React.ReactNode, string]
 
-    abstract buildSidePanelTabs(): SidePanelTab[]
+    abstract buildSidePanelTabs(user: User): SidePanelTab[]
 
     buildStatusLine(): React.ReactNode {
         return <StatusLine

@@ -7,12 +7,14 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"net"
@@ -282,6 +284,28 @@ func (s *CommandResultsServer) redactSensitiveVars(user *User, d *types.Deployme
 	}
 }
 
+func (s *CommandResultsServer) checkObjectAccess(c *gin.Context, user *User, o *uo.UnstructuredObject, objectType string) (bool, *uo.UnstructuredObject) {
+	if user.IsAdmin {
+		// everything allowed
+		return true, o
+	}
+	if o == nil {
+		return true, o
+	}
+
+	// non-admins can only see the rendered version
+	if objectType != "rendered" {
+		return false, o
+	}
+
+	// but no secrets
+	if o.GetK8sRef().GroupKind() == (schema.GroupKind{Kind: "Secret"}) {
+		return false, nil
+	}
+
+	return true, o
+}
+
 func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 	var params resultIdParam
 
@@ -307,6 +331,13 @@ func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 	user := s.auth.getUser(c)
 
 	s.redactSensitiveVars(user, sr.Deployment)
+
+	for i, _ := range sr.Objects {
+		o := &sr.Objects[i]
+		_, o.Rendered = s.checkObjectAccess(c, user, o.Rendered, "rendered")
+		_, o.Remote = s.checkObjectAccess(c, user, o.Remote, "remote")
+		_, o.Applied = s.checkObjectAccess(c, user, o.Applied, "applied")
+	}
 
 	c.JSON(http.StatusOK, sr)
 }
@@ -359,16 +390,26 @@ func (s *CommandResultsServer) getCommandResultObject(c *gin.Context) {
 		return
 	}
 
+	user := s.auth.getUser(c)
+
+	var ok bool
 	var o2 *uo.UnstructuredObject
 	switch objectType.ObjectType {
 	case "rendered":
-		o2 = found.Rendered
+		ok, o2 = s.checkObjectAccess(c, user, found.Rendered, objectType.ObjectType)
 	case "remote":
-		o2 = found.Remote
+		ok, o2 = s.checkObjectAccess(c, user, found.Remote, objectType.ObjectType)
 	case "applied":
-		o2 = found.Applied
+		ok, o2 = s.checkObjectAccess(c, user, found.Applied, objectType.ObjectType)
+	default:
+		c.AbortWithStatus(http.StatusNotFound)
+		return
 	}
-	if o2 == nil {
+
+	if !ok {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	} else if o2 == nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -409,7 +450,8 @@ func (s *CommandResultsServer) doModifyKluctlDeployment(c *gin.Context, clusterI
 		return
 	}
 
-	kc, err := ca.getClient(user.RbacUser, nil)
+	rbacUser := s.auth.getRbacUser(user)
+	kc, err := ca.getClient(rbacUser, nil)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
