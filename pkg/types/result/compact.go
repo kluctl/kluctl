@@ -154,7 +154,7 @@ func (l *CompactedObjects) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func buildReducedObject(o *uo.UnstructuredObject) *uo.UnstructuredObject {
+func BuildReducedObject(o *uo.UnstructuredObject) *uo.UnstructuredObject {
 	if o == nil {
 		return nil
 	}

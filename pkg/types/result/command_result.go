@@ -157,9 +157,9 @@ func (cr *CommandResult) ToReducedObjects() *CommandResult {
 	ret.Objects = make([]ResultObject, len(ret.Objects))
 	for i, o := range cr.Objects {
 		ret.Objects[i] = o
-		ret.Objects[i].Rendered = buildReducedObject(o.Rendered)
-		ret.Objects[i].Remote = buildReducedObject(o.Remote)
-		ret.Objects[i].Applied = buildReducedObject(o.Applied)
+		ret.Objects[i].Rendered = BuildReducedObject(o.Rendered)
+		ret.Objects[i].Remote = BuildReducedObject(o.Remote)
+		ret.Objects[i].Applied = BuildReducedObject(o.Applied)
 	}
 	return &ret
 }

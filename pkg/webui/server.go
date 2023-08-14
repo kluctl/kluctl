@@ -255,6 +255,33 @@ func (ref refParam) toK8sRef() k8s.ObjectRef {
 	}
 }
 
+func (s *CommandResultsServer) redactSensitiveVars(user *User, d *types.DeploymentProjectConfig) {
+	if d == nil {
+		return
+	}
+	if user.IsAdmin {
+		// don't redact vars
+		return
+	}
+
+	doRedact := func(vars *types.VarsSource) {
+		if vars.RenderedSensitive {
+			vars.RenderedVars = nil
+		}
+	}
+
+	for _, v := range d.Vars {
+		doRedact(v)
+	}
+
+	for _, di := range d.Deployments {
+		for _, v := range di.Vars {
+			doRedact(v)
+		}
+		s.redactSensitiveVars(user, di.RenderedInclude)
+	}
+}
+
 func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 	var params resultIdParam
 
@@ -276,6 +303,10 @@ func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+
+	user := s.auth.getUser(c)
+
+	s.redactSensitiveVars(user, sr.Deployment)
 
 	c.JSON(http.StatusOK, sr)
 }

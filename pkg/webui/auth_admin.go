@@ -102,7 +102,6 @@ func (s *authHandler) getAdminUser(id string) *User {
 		Username: id,
 		IsAdmin:  true,
 	}
-	u.RbacUser = s.authConfig.AdminRbacUser
 	return u
 }
 
@@ -111,6 +110,5 @@ func (s *authHandler) getViewerUser(id string) *User {
 		Username: id,
 		IsAdmin:  false,
 	}
-	u.RbacUser = s.authConfig.ViewerRbacUser
 	return u
 }

@@ -62,7 +62,6 @@ type authHandler struct {
 type User struct {
 	Username string `json:"username"`
 	IsAdmin  bool   `json:"isAdmin"`
-	RbacUser string `json:"RbacUser"`
 }
 
 func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig AuthConfig) (*authHandler, error) {
@@ -167,6 +166,14 @@ func (s *authHandler) getUser(c *gin.Context) *User {
 	}
 
 	return nil
+}
+
+func (s *authHandler) getRbacUser(user *User) string {
+	if user.IsAdmin {
+		return s.authConfig.AdminRbacUser
+	} else {
+		return s.authConfig.ViewerRbacUser
+	}
 }
 
 func (s *authHandler) authHandler(c *gin.Context) {
