@@ -5,13 +5,14 @@ import (
 )
 
 type CommandResultSummary struct {
-	Id          string       `json:"id"`
-	ProjectKey  ProjectKey   `json:"projectKey"`
-	TargetKey   TargetKey    `json:"targetKey"`
-	Target      types.Target `json:"target"`
-	Command     CommandInfo  `json:"commandInfo"`
-	GitInfo     GitInfo      `json:"gitInfo,omitempty"`
-	ClusterInfo ClusterInfo  `json:"clusterInfo,omitempty"`
+	Id               string                `json:"id"`
+	ProjectKey       ProjectKey            `json:"projectKey"`
+	TargetKey        TargetKey             `json:"targetKey"`
+	Target           types.Target          `json:"target"`
+	Command          CommandInfo           `json:"commandInfo"`
+	KluctlDeployment *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
+	GitInfo          GitInfo               `json:"gitInfo,omitempty"`
+	ClusterInfo      ClusterInfo           `json:"clusterInfo,omitempty"`
 
 	RenderedObjects    int `json:"renderedObjects"`
 	RemoteObjects      int `json:"remoteObjects"`
@@ -50,6 +51,7 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 		TargetKey:          cr.TargetKey,
 		Target:             cr.Target,
 		Command:            cr.Command,
+		KluctlDeployment:   cr.KluctlDeployment,
 		GitInfo:            cr.GitInfo,
 		ClusterInfo:        cr.ClusterInfo,
 		RenderedObjects:    count(func(o ResultObject) bool { return o.Rendered != nil }),

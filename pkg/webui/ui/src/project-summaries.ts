@@ -141,19 +141,19 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     })
 
     sortedCommandResults.forEach(rs => {
-        if (rs.commandInfo.kluctlDeployment) {
+        if (rs.kluctlDeployment) {
             // filter out command results from KluctlDeployments for which the KluctlDeployment itself vanished
-            const key = buildKdKey(rs.commandInfo.kluctlDeployment.clusterId, rs.commandInfo.kluctlDeployment.name, rs.commandInfo.kluctlDeployment.namespace)
+            const key = buildKdKey(rs.kluctlDeployment.clusterId, rs.kluctlDeployment.name, rs.kluctlDeployment.namespace)
             if (!kluctlDeploymentsByKdKey.has(key)) {
                 return
             }
         }
 
-        if (!filterTarget(undefined, rs.commandInfo.kluctlDeployment, rs.projectKey, rs.targetKey)) {
+        if (!filterTarget(undefined, rs.kluctlDeployment, rs.projectKey, rs.targetKey)) {
             return
         }
 
-        const target = getOrCreateTarget(rs.projectKey, rs.targetKey, rs.commandInfo.kluctlDeployment, true, true)
+        const target = getOrCreateTarget(rs.projectKey, rs.targetKey, rs.kluctlDeployment, true, true)
         if (!target) {
             return
         }

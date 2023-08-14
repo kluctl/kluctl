@@ -664,13 +664,13 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 
 	cmdResult.Id = crId
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
-	cmdResult.Command.KluctlDeployment = &result.KluctlDeploymentInfo{
+	cmdResult.KluctlDeployment = &result.KluctlDeploymentInfo{
 		Name:      pt.pp.obj.Name,
 		Namespace: pt.pp.obj.Namespace,
 	}
 
 	var err error
-	cmdResult.Command.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
+	cmdResult.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
 	if err != nil {
 		return err
 	}
