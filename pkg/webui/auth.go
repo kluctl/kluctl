@@ -20,11 +20,13 @@ type AuthConfig struct {
 	AuthSecretName string
 	AuthSecretKey  string
 
-	AdminEnabled    bool
-	AdminSecretName string
-	AdminSecretKey  string
-	AdminRbacUser   string
-	ViewerRbacUser  string
+	StaticLoginEnabled    bool
+	StaticLoginSecretName string
+	StaticAdminSecretKey  string
+	StaticViewerSecretKey string
+
+	AdminRbacUser  string
+	ViewerRbacUser string
 
 	OidcIssuerUrl        string
 	OidcDisplayName      string
@@ -52,8 +54,9 @@ type authHandler struct {
 
 	authConfig AuthConfig
 
-	authSecret    []byte
-	adminPassword string
+	authSecret     []byte
+	adminPassword  string
+	viewerPassword string
 
 	oidcProvider *oidc.Provider
 	oauth2Config *oauth2.Config
@@ -77,12 +80,18 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig 
 	}
 	ret.authSecret = []byte(x)
 
-	if authConfig.AdminEnabled {
-		x, err = ret.getSecret(authConfig.AdminSecretName, authConfig.AdminSecretKey)
+	if authConfig.StaticLoginEnabled {
+		x, err = ret.getSecret(authConfig.StaticLoginSecretName, authConfig.StaticAdminSecretKey)
 		if err != nil {
 			return nil, err
 		}
 		ret.adminPassword = x
+
+		x, err = ret.getSecret(authConfig.StaticLoginSecretName, authConfig.StaticViewerSecretKey)
+		if err != nil {
+			return nil, err
+		}
+		ret.viewerPassword = x
 	}
 
 	err = ret.setupOidcProvider(ctx, authConfig)
@@ -103,8 +112,8 @@ func (s *authHandler) setupRoutes(router gin.IRouter) error {
 
 	router.GET("/auth/info", s.authInfoHandler)
 
-	if s.authConfig.AdminEnabled {
-		router.POST("/auth/adminLogin", s.adminLoginHandler)
+	if s.authConfig.StaticLoginEnabled {
+		router.POST("/auth/staticLogin", s.staticLoginHandler)
 	}
 
 	if s.oidcProvider != nil {
@@ -119,8 +128,8 @@ func (s *authHandler) setupRoutes(router gin.IRouter) error {
 }
 
 type AuthInfo struct {
-	AuthEnabled  bool `json:"authEnabled"`
-	AdminEnabled bool `json:"adminEnabled"`
+	AuthEnabled        bool `json:"authEnabled"`
+	StaticLoginEnabled bool `json:"staticLoginEnabled"`
 
 	OidcEnabled     bool   `json:"oidcEnabled"`
 	OidcDisplayName string `json:"oidcName,omitempty"`
@@ -128,10 +137,10 @@ type AuthInfo struct {
 
 func (s *authHandler) authInfoHandler(c *gin.Context) {
 	info := AuthInfo{
-		AuthEnabled:     s.authConfig.AuthEnabled,
-		AdminEnabled:    s.authConfig.AdminEnabled,
-		OidcEnabled:     s.authConfig.OidcIssuerUrl != "",
-		OidcDisplayName: s.authConfig.OidcDisplayName,
+		AuthEnabled:        s.authConfig.AuthEnabled,
+		StaticLoginEnabled: s.authConfig.StaticLoginEnabled,
+		OidcEnabled:        s.authConfig.OidcIssuerUrl != "",
+		OidcDisplayName:    s.authConfig.OidcDisplayName,
 	}
 	c.JSON(http.StatusOK, info)
 }
@@ -152,7 +161,7 @@ func (s *authHandler) getUser(c *gin.Context) *User {
 		return s.getAdminUser("admin")
 	}
 
-	user := s.getAdminUserFromSession(c)
+	user := s.getStaticUserFromSession(c)
 	if user != nil {
 		return user
 	}

@@ -924,14 +924,14 @@ export class ProjectTargetKey {
 }
 export class AuthInfo {
     authEnabled: boolean;
-    adminEnabled: boolean;
+    staticLoginEnabled: boolean;
     oidcEnabled: boolean;
     oidcName?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.authEnabled = source["authEnabled"];
-        this.adminEnabled = source["adminEnabled"];
+        this.staticLoginEnabled = source["staticLoginEnabled"];
         this.oidcEnabled = source["oidcEnabled"];
         this.oidcName = source["oidcName"];
     }

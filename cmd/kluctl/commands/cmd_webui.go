@@ -28,9 +28,10 @@ type webuiCmd struct {
 	AuthSecretName string `group:"auth" help:"Specify the secret name for the secret used for internal encryption of tokens and cookies." default:"webui-secret"`
 	AuthSecretKey  string `group:"auth" help:"Specify the secret key for the secret used for internal encryption of tokens and cookies." default:"auth-secret"`
 
-	AuthAdminEnabled    bool   `group:"auth" help:"Enable the admin user." default:"true"`
-	AuthAdminSecretName string `group:"auth" help:"Specify the secret name for the admin password." default:"webui-secret"`
-	AuthAdminSecretKey  string `group:"auth" help:"Specify the secret key for the admin password." default:"admin-password"`
+	AuthStaticLoginEnabled    bool   `group:"auth" help:"Enable the admin user." default:"true"`
+	AuthStaticLoginSecretName string `group:"auth" help:"Specify the secret name for the admin and viewer passwords." default:"webui-secret"`
+	AuthStaticAdminSecretKey  string `group:"auth" help:"Specify the secret key for the admin password." default:"admin-password"`
+	AuthStaticViewerSecretKey string `group:"auth" help:"Specify the secret key for the viewer password." default:"viewer-password"`
 
 	AuthAdminRbacUser  string `group:"auth" help:"Specify the RBAC user to use for admin access." default:"kluctl-webui-admin"`
 	AuthViewerRbacUser string `group:"auth" help:"Specify the RBAC user to use for viewer access." default:"kluctl-webui-viewer"`
@@ -60,9 +61,10 @@ func (cmd *webuiCmd) buildAuthConfig(ctx context.Context, c client.Client) (webu
 	authConfig.AuthSecretName = cmd.AuthSecretName
 	authConfig.AuthSecretKey = cmd.AuthSecretKey
 
-	authConfig.AdminEnabled = cmd.AuthAdminEnabled
-	authConfig.AdminSecretName = cmd.AuthAdminSecretName
-	authConfig.AdminSecretKey = cmd.AuthAdminSecretKey
+	authConfig.StaticLoginEnabled = cmd.AuthStaticLoginEnabled
+	authConfig.StaticLoginSecretName = cmd.AuthStaticLoginSecretName
+	authConfig.StaticAdminSecretKey = cmd.AuthStaticAdminSecretKey
+	authConfig.StaticViewerSecretKey = cmd.AuthStaticViewerSecretKey
 
 	authConfig.AdminRbacUser = cmd.AuthAdminRbacUser
 	authConfig.ViewerRbacUser = cmd.AuthViewerRbacUser

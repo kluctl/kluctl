@@ -5,18 +5,18 @@ import { Category, Cloud, Dvr, Http, Lock, Settings } from "@mui/icons-material"
 import { FileIcon, GitIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
-import { Box } from "@mui/material";
+import { Alert, Box } from "@mui/material";
 import { CommandResultProps } from "../CommandResultView";
 
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
-import { buildGitRefString } from "../../../api";
+import { buildGitRefString, User } from "../../../api";
 
 interface VarsSourceHandler {
     type: string
     label: () => React.ReactNode
     icon: () => React.ReactNode
-    sourceProps: () => {name: string, value: React.ReactNode}[]
+    sourceProps: () => { name: string, value: React.ReactNode }[]
 }
 
 export class VarsSourceNodeData extends NodeData {
@@ -60,9 +60,9 @@ export class VarsSourceNodeData extends NodeData {
                 label: () => {
                     return this.varsSource.file
                 },
-                icon: () => <FileIcon />,
+                icon: () => <FileIcon/>,
                 sourceProps: () => [
-                    {name: "File", value: this.varsSource.file}
+                    { name: "File", value: this.varsSource.file }
                 ]
             }
         } else if (this.varsSource.git) {
@@ -70,7 +70,7 @@ export class VarsSourceNodeData extends NodeData {
                 type: "git",
                 label: () => {
                     const s = this.varsSource.git!.url.split("/")
-                    const name = s[s.length-1]
+                    const name = s[s.length - 1]
                     return <>
                         {name}<br/>
                         {this.varsSource.git!.path}
@@ -79,9 +79,9 @@ export class VarsSourceNodeData extends NodeData {
                 icon: () => <GitIcon/>,
                 sourceProps: () => {
                     const sourceProps = []
-                    sourceProps.push({name: "Url", value: this.varsSource.git!.url})
-                    sourceProps.push({name: "Path", value: this.varsSource.git!.path})
-                    sourceProps.push({name: "Ref", value: buildGitRefString(this.varsSource.git?.ref)})
+                    sourceProps.push({ name: "Url", value: this.varsSource.git!.url })
+                    sourceProps.push({ name: "Path", value: this.varsSource.git!.path })
+                    sourceProps.push({ name: "Ref", value: buildGitRefString(this.varsSource.git?.ref) })
                     return sourceProps
                 }
             }
@@ -97,11 +97,14 @@ export class VarsSourceNodeData extends NodeData {
                 icon: () => icon,
                 sourceProps: () => {
                     const sourceProps = []
-                    sourceProps.push({name: "Name", value: vs.name})
-                    sourceProps.push({name: "Namespace", value: vs.namespace})
-                    sourceProps.push({name: "Key", value: vs.key})
+                    sourceProps.push({ name: "Name", value: vs.name })
+                    sourceProps.push({ name: "Namespace", value: vs.namespace })
+                    sourceProps.push({ name: "Key", value: vs.key })
                     if (vs.labels) {
-                        sourceProps.push({name: "Labels", value: <CodeViewer code={this.labelsYaml!} language={"yaml"}/>})
+                        sourceProps.push({
+                            name: "Labels",
+                            value: <CodeViewer code={this.labelsYaml!} language={"yaml"}/>
+                        })
                     }
                     return sourceProps
                 }
@@ -127,10 +130,10 @@ export class VarsSourceNodeData extends NodeData {
                 icon: () => <Http fontSize={"large"}/>,
                 sourceProps: () => {
                     const sourceProps = []
-                    sourceProps.push({name: "Url", value: this.varsSource.http!.url})
-                    sourceProps.push({name: "Method", value: this.varsSource.http!.method || "GET"})
+                    sourceProps.push({ name: "Url", value: this.varsSource.http!.url })
+                    sourceProps.push({ name: "Method", value: this.varsSource.http!.method || "GET" })
                     if (this.varsSource.http!.jsonPath) {
-                        sourceProps.push({name: "JsonPath", value: this.varsSource.http!.jsonPath})
+                        sourceProps.push({ name: "JsonPath", value: this.varsSource.http!.jsonPath })
                     }
                     return sourceProps
                 }
@@ -144,7 +147,7 @@ export class VarsSourceNodeData extends NodeData {
                 icon: () => <Cloud fontSize={"large"}/>,
                 sourceProps: () => {
                     const sourceProps = []
-                    sourceProps.push({name: "SecretName", value: this.varsSource.awsSecretsManager!.secretName})
+                    sourceProps.push({ name: "SecretName", value: this.varsSource.awsSecretsManager!.secretName })
                     if (this.varsSource.awsSecretsManager!.region) {
                         sourceProps.push({ name: "Region", value: this.varsSource.awsSecretsManager!.region })
                     }
@@ -166,8 +169,8 @@ export class VarsSourceNodeData extends NodeData {
                 icon: () => <Cloud fontSize={"large"}/>,
                 sourceProps: () => {
                     const sourceProps = []
-                    sourceProps.push({name: "Address", value: this.varsSource.vault!.address})
-                    sourceProps.push({name: "Path", value: this.varsSource.vault!.path})
+                    sourceProps.push({ name: "Address", value: this.varsSource.vault!.address })
+                    sourceProps.push({ name: "Path", value: this.varsSource.vault!.path })
                     return sourceProps
                 }
             }
@@ -192,10 +195,10 @@ export class VarsSourceNodeData extends NodeData {
         return [h.icon(), h.type]
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(user?: User): SidePanelTab[] {
         const tabs = [
-            {label: "Summary", content: this.buildSummaryPage()},
-            {label: "Vars", content: this.buildVarsPage()}
+            { label: "Summary", content: this.buildSummaryPage() },
+            { label: "Vars", content: this.buildVarsPage(user) }
         ]
         this.buildDiffAndHealthPages(tabs)
         return tabs
@@ -205,14 +208,15 @@ export class VarsSourceNodeData extends NodeData {
         const h = this.getVarsSourceHandler()
 
         const props = [
-            {name: "Type", value: h.type},
+            { name: "Type", value: h.type },
             ...h.sourceProps(),
-            {name: "IgnoreMissing", value: (!!this.varsSource.ignoreMissing) + ""},
-            {name: "NoOverride", value: (!!this.varsSource.noOverride) + ""},
+            { name: "Sensitive", value: (!!this.varsSource.renderedSensitive) + "" },
+            { name: "IgnoreMissing", value: (!!this.varsSource.ignoreMissing) + "" },
+            { name: "NoOverride", value: (!!this.varsSource.noOverride) + "" },
         ]
 
         if (this.varsSource.when) {
-            props.push({name: "When", value: this.varsSource.when})
+            props.push({ name: "When", value: this.varsSource.when })
         }
 
         return <>
@@ -220,16 +224,25 @@ export class VarsSourceNodeData extends NodeData {
         </>
     }
 
-    buildVarsPage(): React.ReactNode {
-        return <Box sx={{
-            overflowY: 'scroll', // Enable vertical scrolling
-            //maxHeight: '400px', // Set a fixed height
-            border: '1px solid #ccc', // Optional border
-            padding: '10px', // Optional padding
-        }}>
-            <pre>
-                <CodeViewer code={this.renderedVarsYaml} language={"yaml"}/>
-            </pre>
+    buildVarsPage(user?: User): React.ReactNode {
+        const sensitiveWarning = user?.isAdmin && this.varsSource.renderedSensitive
+        const redactedWarning = !user?.isAdmin && this.varsSource.renderedSensitive
+
+        return <Box>
+            {redactedWarning && <Alert severity="error">Only admins can view sensitive vars!</Alert>}
+            {sensitiveWarning && <Alert severity="warning">Warning, the following vars are marked as sensitive!</Alert>}
+
+            {!redactedWarning && <Box sx={{
+                overflowY: 'scroll', // Enable vertical scrolling
+                //maxHeight: '400px', // Set a fixed height
+                border: '1px solid #ccc', // Optional border
+                padding: '10px', // Optional padding
+            }}>
+                <pre>
+                    <CodeViewer code={this.renderedVarsYaml} language={"yaml"}/>
+                </pre>
+            </Box>
+            }
         </Box>
     }
 }

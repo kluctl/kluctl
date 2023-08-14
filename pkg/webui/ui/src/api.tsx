@@ -271,7 +271,7 @@ export class StaticApi implements Api {
     async getAuthInfo(): Promise<AuthInfo> {
         const info = new AuthInfo()
         info.authEnabled = false
-        info.adminEnabled = false
+        info.staticLoginEnabled = false
         return info
     }
 
