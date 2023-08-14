@@ -117,11 +117,6 @@ func (in *CommandInfo) DeepCopyInto(out *CommandInfo) {
 	*out = *in
 	in.StartTime.DeepCopyInto(&out.StartTime)
 	in.EndTime.DeepCopyInto(&out.EndTime)
-	if in.KluctlDeployment != nil {
-		in, out := &in.KluctlDeployment, &out.KluctlDeployment
-		*out = new(KluctlDeploymentInfo)
-		**out = **in
-	}
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
 		*out = (*in).DeepCopy()
@@ -172,6 +167,11 @@ func (in *CommandResult) DeepCopyInto(out *CommandResult) {
 	out.TargetKey = in.TargetKey
 	in.Target.DeepCopyInto(&out.Target)
 	in.Command.DeepCopyInto(&out.Command)
+	if in.KluctlDeployment != nil {
+		in, out := &in.KluctlDeployment, &out.KluctlDeployment
+		*out = new(KluctlDeploymentInfo)
+		**out = **in
+	}
 	in.GitInfo.DeepCopyInto(&out.GitInfo)
 	out.ClusterInfo = in.ClusterInfo
 	if in.Deployment != nil {
@@ -222,6 +222,11 @@ func (in *CommandResultSummary) DeepCopyInto(out *CommandResultSummary) {
 	out.TargetKey = in.TargetKey
 	in.Target.DeepCopyInto(&out.Target)
 	in.Command.DeepCopyInto(&out.Command)
+	if in.KluctlDeployment != nil {
+		in, out := &in.KluctlDeployment, &out.KluctlDeployment
+		*out = new(KluctlDeploymentInfo)
+		**out = **in
+	}
 	in.GitInfo.DeepCopyInto(&out.GitInfo)
 	out.ClusterInfo = in.ClusterInfo
 	if in.Errors != nil {

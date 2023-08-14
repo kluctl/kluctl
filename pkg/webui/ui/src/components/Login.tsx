@@ -18,8 +18,8 @@ type LoginResult = {
     statusText: string
 }
 
-async function loginAdminUser(creds: loginCredentials): Promise<LoginResult> {
-    const url = rootPath + `/auth/adminLogin`
+async function loginStaticUser(creds: loginCredentials): Promise<LoginResult> {
+    const url = rootPath + `/auth/staticLogin`
     return fetch(url, {
         method: 'POST',
         headers: {
@@ -52,7 +52,7 @@ export default function Login(props: { authInfo: AuthInfo }) {
             return
         }
 
-        const result = await loginAdminUser({
+        const result = await loginStaticUser({
             username: username,
             password: password,
         });
@@ -76,7 +76,7 @@ export default function Login(props: { authInfo: AuthInfo }) {
         </ErrorMessageCard>
     }
 
-    const adminLogin = <form onSubmit={handleSubmit}>
+    const staticLogin = <form onSubmit={handleSubmit}>
         <Box
             display='flex'
             flexDirection='column'
@@ -150,7 +150,7 @@ export default function Login(props: { authInfo: AuthInfo }) {
         >
             <Typography variant='h1'>Please Log In</Typography>
             <Paper elevation={5} sx={{ width: '400px', borderRadius: '12px', padding: '30px' }}>
-                {props.authInfo.adminEnabled && adminLogin}
+                {props.authInfo.staticLoginEnabled && staticLogin}
                 {props.authInfo.oidcEnabled && oidcLogin}
             </Paper>
         </Box>

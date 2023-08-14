@@ -727,6 +727,11 @@ func (in *VarsSource) DeepCopyInto(out *VarsSource) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Sensitive != nil {
+		in, out := &in.Sensitive, &out.Sensitive
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Values != nil {
 		in, out := &in.Values, &out.Values
 		*out = (*in).DeepCopy()

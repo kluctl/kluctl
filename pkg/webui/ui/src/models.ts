@@ -295,6 +295,7 @@ export class VarsSourceGit {
 export class VarsSource {
     ignoreMissing?: boolean;
     noOverride?: boolean;
+    sensitive?: boolean;
     values?: any;
     file?: string;
     git?: VarsSourceGit;
@@ -305,12 +306,14 @@ export class VarsSource {
     awsSecretsManager?: VarsSourceAwsSecretsManager;
     vault?: VarsSourceVault;
     when?: string;
+    renderedSensitive?: boolean;
     renderedVars?: any;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.ignoreMissing = source["ignoreMissing"];
         this.noOverride = source["noOverride"];
+        this.sensitive = source["sensitive"];
         this.values = source["values"];
         this.file = source["file"];
         this.git = this.convertValues(source["git"], VarsSourceGit);
@@ -321,6 +324,7 @@ export class VarsSource {
         this.awsSecretsManager = this.convertValues(source["awsSecretsManager"], VarsSourceAwsSecretsManager);
         this.vault = this.convertValues(source["vault"], VarsSourceVault);
         this.when = source["when"];
+        this.renderedSensitive = source["renderedSensitive"];
         this.renderedVars = source["renderedVars"];
     }
 
@@ -424,7 +428,6 @@ export class CommandInfo {
     initiator: string;
     startTime: string;
     endTime: string;
-    kluctlDeployment?: KluctlDeploymentInfo;
     command?: string;
     target?: string;
     targetNameOverride?: string;
@@ -447,7 +450,6 @@ export class CommandInfo {
         this.initiator = source["initiator"];
         this.startTime = source["startTime"];
         this.endTime = source["endTime"];
-        this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
         this.command = source["command"];
         this.target = source["target"];
         this.targetNameOverride = source["targetNameOverride"];
@@ -620,6 +622,7 @@ export class CommandResult {
     targetKey: TargetKey;
     target: Target;
     command?: CommandInfo;
+    kluctlDeployment?: KluctlDeploymentInfo;
     gitInfo?: GitInfo;
     clusterInfo: ClusterInfo;
     deployment?: DeploymentProjectConfig;
@@ -635,6 +638,7 @@ export class CommandResult {
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.target = this.convertValues(source["target"], Target);
         this.command = this.convertValues(source["command"], CommandInfo);
+        this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
         this.gitInfo = this.convertValues(source["gitInfo"], GitInfo);
         this.clusterInfo = this.convertValues(source["clusterInfo"], ClusterInfo);
         this.deployment = this.convertValues(source["deployment"], DeploymentProjectConfig);
@@ -668,6 +672,7 @@ export class CommandResultSummary {
     targetKey: TargetKey;
     target: Target;
     commandInfo: CommandInfo;
+    kluctlDeployment?: KluctlDeploymentInfo;
     gitInfo?: GitInfo;
     clusterInfo?: ClusterInfo;
     renderedObjects: number;
@@ -689,6 +694,7 @@ export class CommandResultSummary {
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.target = this.convertValues(source["target"], Target);
         this.commandInfo = this.convertValues(source["commandInfo"], CommandInfo);
+        this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
         this.gitInfo = this.convertValues(source["gitInfo"], GitInfo);
         this.clusterInfo = this.convertValues(source["clusterInfo"], ClusterInfo);
         this.renderedObjects = source["renderedObjects"];
@@ -918,14 +924,14 @@ export class ProjectTargetKey {
 }
 export class AuthInfo {
     authEnabled: boolean;
-    adminEnabled: boolean;
+    staticLoginEnabled: boolean;
     oidcEnabled: boolean;
     oidcName?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.authEnabled = source["authEnabled"];
-        this.adminEnabled = source["adminEnabled"];
+        this.staticLoginEnabled = source["staticLoginEnabled"];
         this.oidcEnabled = source["oidcEnabled"];
         this.oidcName = source["oidcName"];
     }

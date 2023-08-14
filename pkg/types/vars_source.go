@@ -56,6 +56,7 @@ type VarsSourceVault struct {
 type VarsSource struct {
 	IgnoreMissing *bool `json:"ignoreMissing,omitempty"`
 	NoOverride    *bool `json:"noOverride,omitempty"`
+	Sensitive     *bool `json:"sensitive,omitempty"`
 
 	Values            *uo.UnstructuredObject              `json:"values,omitempty"`
 	File              *string                             `json:"file,omitempty"`
@@ -70,7 +71,8 @@ type VarsSource struct {
 	When string `json:"when,omitempty"`
 
 	// these are only allowed when writing the command result
-	RenderedVars *uo.UnstructuredObject `json:"renderedVars,omitempty"`
+	RenderedSensitive bool                   `json:"renderedSensitive,omitempty"`
+	RenderedVars      *uo.UnstructuredObject `json:"renderedVars,omitempty"`
 }
 
 func ValidateVarsSource(sl validator.StructLevel) {
@@ -80,7 +82,7 @@ func ValidateVarsSource(sl validator.StructLevel) {
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
 		switch v.Type().Field(i).Name {
-		case "IgnoreMissing", "NoOverride", "When", "RenderedVars":
+		case "IgnoreMissing", "NoOverride", "When", "RenderedSensitive", "RenderedVars":
 			continue
 		}
 		if !v.Field(i).IsNil() {

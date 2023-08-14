@@ -191,9 +191,9 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 	if cr.ProjectKey.SubDir != "" {
 		secret.Annotations["kluctl.io/result-project-subdir"] = cr.ProjectKey.SubDir
 	}
-	if cr.Command.KluctlDeployment != nil {
-		secret.Labels["kluctl.io/result-deployment-name"] = cr.Command.KluctlDeployment.Name
-		secret.Labels["kluctl.io/result-deployment-namespace"] = cr.Command.KluctlDeployment.Namespace
+	if cr.KluctlDeployment != nil {
+		secret.Labels["kluctl.io/result-deployment-name"] = cr.KluctlDeployment.Name
+		secret.Labels["kluctl.io/result-deployment-namespace"] = cr.KluctlDeployment.Namespace
 	}
 
 	err = s.client.Patch(s.ctx, &secret, client.Apply, client.FieldOwner("kluctl-results"))
@@ -342,10 +342,10 @@ func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
 	}
 
 	for _, e := range commandResults {
-		if e.summary.Command.KluctlDeployment == nil {
+		if e.summary.KluctlDeployment == nil {
 			continue
 		}
-		tryDeleteResult(e.name, e.summary.Command.KluctlDeployment, e.summary.Id, "command result")
+		tryDeleteResult(e.name, e.summary.KluctlDeployment, e.summary.Id, "command result")
 	}
 	for _, e := range validateResults {
 		if e.summary.KluctlDeployment == nil {

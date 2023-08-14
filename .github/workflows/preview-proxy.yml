@@ -110,7 +110,7 @@ jobs:
           # Accessing the UI
           The UI is now available at: https://kluctl-preview-${{ github.event.pull_request.number }}.kluctl.com
           
-          When asked for credentials, use admin:admin.
+          When asked for credentials, use admin:admin or viewer:viewer.
           
           # Shutting it down
           Either cancel the pipeline in the PR or simply wait for 30 minutes until it auto-terminates.

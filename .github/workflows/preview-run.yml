@@ -130,7 +130,8 @@ jobs:
             -a webui_args='[]'
           kubectl -n kluctl-system create secret generic webui-secret \
             --from-literal auth-secret=secret \
-            --from-literal admin-password=admin
+            --from-literal admin-password=admin \
+            --from-literal viewer-password=viewer
       - name: Run kubectl port-forward
         run: |
           kubectl -n kluctl-system port-forward svc/kluctl-webui 9090:8080 &

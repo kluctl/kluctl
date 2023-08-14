@@ -4,7 +4,7 @@ import { ObjectRef } from "../../../models";
 import { NodeData } from "./NodeData";
 import { PublishedWithChanges, Settings, SettingsEthernet, SmartToy, SvgIconComponent } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
-import { findObjectByRef, ObjectType } from "../../../api";
+import { findObjectByRef, ObjectType, User } from "../../../api";
 import { CommandResultProps } from "../CommandResultView";
 import { SidePanelTab } from "../SidePanel";
 import { BracketsCurlyIcon } from '../../../icons/Icons';
@@ -40,7 +40,7 @@ export class ObjectNodeData extends NodeData {
         return [<BracketsCurlyIcon />, snStr]
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(user?: User): SidePanelTab[] {
         const tabs = [
             { label: "Summary", content: this.buildSummaryPage() }
         ]
@@ -51,11 +51,13 @@ export class ObjectNodeData extends NodeData {
             tabs.push({ label: "Rendered", content: this.buildObjectPage(this.objectRef, ObjectType.Rendered) })
         }
 
-        if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.remote) {
-            tabs.push({ label: "Remote", content: this.buildObjectPage(this.objectRef, ObjectType.Remote) })
-        }
-        if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.applied) {
-            tabs.push({ label: "Applied", content: this.buildObjectPage(this.objectRef, ObjectType.Applied) })
+        if (user?.isAdmin) {
+            if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.remote) {
+                tabs.push({ label: "Remote", content: this.buildObjectPage(this.objectRef, ObjectType.Remote) })
+            }
+            if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.applied) {
+                tabs.push({ label: "Applied", content: this.buildObjectPage(this.objectRef, ObjectType.Applied) })
+            }
         }
 
         return tabs

@@ -77,7 +77,6 @@ type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
 	StartTime             metav1.Time            `json:"startTime"`
 	EndTime               metav1.Time            `json:"endTime"`
-	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	Command               string                 `json:"command,omitempty"`
 	Target                string                 `json:"target,omitempty"`
 	TargetNameOverride    string                 `json:"targetNameOverride,omitempty"`
@@ -127,14 +126,15 @@ type ResultObject struct {
 }
 
 type CommandResult struct {
-	Id          string                         `json:"id"`
-	ProjectKey  ProjectKey                     `json:"projectKey"`
-	TargetKey   TargetKey                      `json:"targetKey"`
-	Target      types.Target                   `json:"target"`
-	Command     CommandInfo                    `json:"command,omitempty"`
-	GitInfo     GitInfo                        `json:"gitInfo,omitempty"`
-	ClusterInfo ClusterInfo                    `json:"clusterInfo"`
-	Deployment  *types.DeploymentProjectConfig `json:"deployment,omitempty"`
+	Id               string                         `json:"id"`
+	ProjectKey       ProjectKey                     `json:"projectKey"`
+	TargetKey        TargetKey                      `json:"targetKey"`
+	Target           types.Target                   `json:"target"`
+	Command          CommandInfo                    `json:"command,omitempty"`
+	KluctlDeployment *KluctlDeploymentInfo          `json:"kluctlDeployment,omitempty"`
+	GitInfo          GitInfo                        `json:"gitInfo,omitempty"`
+	ClusterInfo      ClusterInfo                    `json:"clusterInfo"`
+	Deployment       *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
 	Objects []ResultObject `json:"objects,omitempty"`
 
@@ -157,9 +157,9 @@ func (cr *CommandResult) ToReducedObjects() *CommandResult {
 	ret.Objects = make([]ResultObject, len(ret.Objects))
 	for i, o := range cr.Objects {
 		ret.Objects[i] = o
-		ret.Objects[i].Rendered = buildReducedObject(o.Rendered)
-		ret.Objects[i].Remote = buildReducedObject(o.Remote)
-		ret.Objects[i].Applied = buildReducedObject(o.Applied)
+		ret.Objects[i].Rendered = BuildReducedObject(o.Rendered)
+		ret.Objects[i].Remote = BuildReducedObject(o.Remote)
+		ret.Objects[i].Applied = BuildReducedObject(o.Applied)
 	}
 	return &ret
 }
