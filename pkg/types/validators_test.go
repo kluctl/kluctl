@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	validator "github.com/go-playground/validator/v10"
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +24,8 @@ func TestValidateGitProjectSubDir(t *testing.T) {
 	validate.RegisterStructValidation(ValidateGitProject, GitProject{})
 
 	for _, item := range subDirItems {
-		gp := GitProject{SubDir: item.have}
+		u := ParseGitUrlMust("http://example.com/test")
+		gp := GitProject{Url: *u, SubDir: item.have}
 		err := validate.Struct(gp)
 		if item.want {
 			assert.Nil(t, err)
