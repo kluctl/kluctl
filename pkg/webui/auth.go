@@ -104,7 +104,7 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig 
 
 func (s *authHandler) setupRoutes(router gin.IRouter) error {
 	gob.Register(map[string]interface{}{})
-	gob.Register(oauth2.Token{})
+	gob.Register(oidcTokenInfo{})
 	gob.Register(time.Time{})
 
 	store := cookie.NewStore(s.authSecret)
@@ -166,7 +166,7 @@ func (s *authHandler) getUser(c *gin.Context) *User {
 		return user
 	}
 
-	user, err := s.getUserFromOidcProfile(c)
+	user, err := s.getUserFromOidcTokenInfo(c, true)
 	if err != nil {
 		return nil
 	}

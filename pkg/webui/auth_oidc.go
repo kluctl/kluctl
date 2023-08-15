@@ -12,7 +12,14 @@ import (
 	"golang.org/x/oauth2"
 	"net/http"
 	"strings"
+	"time"
 )
+
+type oidcTokenInfo struct {
+	RefreshToken string
+	Expiry       time.Time
+	User         *User
+}
 
 func (s *authHandler) setupOidcProvider(ctx context.Context, authConfig AuthConfig) error {
 	if authConfig.OidcIssuerUrl == "" {
@@ -78,40 +85,63 @@ func (s *authHandler) oidcLoginHandler(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, s.oauth2Config.AuthCodeURL(state, opts...))
 }
 
-func (s *authHandler) storeToken(session sessions.Session, token *oauth2.Token) error {
+func (s *authHandler) storeToken(c *gin.Context, session sessions.Session, token *oauth2.Token) error {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		return fmt.Errorf("no id_token field in oauth2 token.")
+		return fmt.Errorf("no id_token field in oauth2 token")
 	}
 
-	session.Set("token", token)
-	session.Set("id_token", rawIDToken)
+	idToken, err := s.verifyIDToken(c.Request.Context(), rawIDToken)
+	if err != nil {
+		return err
+	}
+
+	user, err := s.getUserFromIDToken(idToken)
+	if err != nil {
+		return err
+	}
+
+	tokenInfo := oidcTokenInfo{
+		RefreshToken: token.RefreshToken,
+		Expiry:       idToken.Expiry,
+		User:         user,
+	}
+
+	session.Set("oidcToken", tokenInfo)
 
 	return nil
 }
 
-func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
+func (s *authHandler) handleOidcCallback(c *gin.Context) (int, string) {
 	session := sessions.Default(c)
 	if c.Query("state") != session.Get("state") {
-		c.String(http.StatusBadRequest, "Invalid state parameter.")
-		return
+		return http.StatusBadRequest, "invalid state parameter"
 	}
+
+	session.Delete("state")
 
 	// Exchange an authorization code for a token.
 	token, err := s.oauth2Config.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
-		c.String(http.StatusUnauthorized, "Failed to exchange an authorization code for a token.")
-		return
+		return http.StatusUnauthorized, err.Error()
 	}
 
-	err = s.storeToken(session, token)
+	err = s.storeToken(c, session, token)
 	if err != nil {
-		c.String(http.StatusBadRequest, err.Error())
-		return
+		return http.StatusUnauthorized, err.Error()
 	}
 
 	if err := session.Save(); err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		return http.StatusInternalServerError, err.Error()
+	}
+
+	return http.StatusOK, ""
+}
+
+func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
+	status, errMsg := s.handleOidcCallback(c)
+	if status != http.StatusOK {
+		c.String(status, errMsg)
 		return
 	}
 
@@ -131,36 +161,22 @@ func (s *authHandler) generateRandomState() (string, error) {
 	return state, nil
 }
 
-func (s *authHandler) getUserFromOidcProfile(c *gin.Context) (*User, error) {
+func (s *authHandler) getUserFromOidcTokenInfo(c *gin.Context, allowRefresh bool) (*User, error) {
 	session := sessions.Default(c)
 
-	tokenI := session.Get("token")
-	if tokenI == nil {
+	tokenInfoI := session.Get("oidcToken")
+	if tokenInfoI == nil {
 		return nil, nil
 	}
-	token, ok := tokenI.(oauth2.Token)
+	tokenInfo, ok := tokenInfoI.(oidcTokenInfo)
 	if !ok {
 		return nil, nil
 	}
 
-	rawIdTokenI := session.Get("id_token")
-	if rawIdTokenI == nil {
-		return nil, nil
-	}
-	rawIdToken, ok := rawIdTokenI.(string)
-	if !ok {
-		return nil, nil
-	}
+	return tokenInfo.User, nil
+}
 
-	if !token.Valid() {
-		return nil, nil
-	}
-
-	idToken, err := s.verifyIDToken(c.Request.Context(), rawIdToken)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *authHandler) getUserFromIDToken(idToken *oidc.IDToken) (*User, error) {
 	var profile map[string]interface{}
 	if err := idToken.Claims(&profile); err != nil {
 		return nil, err
