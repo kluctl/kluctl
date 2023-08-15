@@ -149,6 +149,18 @@ func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, "/")
 }
 
+func (s *authHandler) oidcRefresh(c *gin.Context, session sessions.Session, tokenInfo *oidcTokenInfo) error {
+	ts := s.oauth2Config.TokenSource(c, &oauth2.Token{
+		RefreshToken: tokenInfo.RefreshToken,
+	})
+	newToken, err := ts.Token()
+	if err != nil {
+		return err
+	}
+
+	return s.storeToken(c, session, newToken)
+}
+
 func (s *authHandler) generateRandomState() (string, error) {
 	b := make([]byte, 32)
 	_, err := rand.Read(b)
@@ -171,6 +183,23 @@ func (s *authHandler) getUserFromOidcTokenInfo(c *gin.Context, allowRefresh bool
 	tokenInfo, ok := tokenInfoI.(oidcTokenInfo)
 	if !ok {
 		return nil, nil
+	}
+
+	if tokenInfo.Expiry.Before(time.Now().Add(10 * time.Minute)) {
+		if !allowRefresh {
+			return nil, fmt.Errorf("token expired")
+		}
+
+		err := s.oidcRefresh(c, session, &tokenInfo)
+		if err != nil {
+			return nil, err
+		}
+
+		err = session.Save()
+		if err != nil {
+			return nil, err
+		}
+		return s.getUserFromOidcTokenInfo(c, false)
 	}
 
 	return tokenInfo.User, nil
