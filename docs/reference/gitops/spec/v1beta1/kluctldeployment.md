@@ -30,6 +30,7 @@ spec:
   context: default
   prune: true
   delete: true
+  manual: true
 ```
 
 In the above example a KluctlDeployment is being created that defines the deployment based on the Kluctl project.
@@ -129,6 +130,16 @@ successful deployment.
 
 To enable deletion, set `spec.delete` to `true`. This will cause the controller to run `kluctl delete` when the
 KluctlDeployment gets deleted.
+
+### manual
+
+`spec.manual` enables manually approved/triggered deployments. This means, that deployments are performed in dry-run
+mode until the most recent deployment is approved. 
+
+This feature is most useful in combination with the Kluctl Webui, which offers a visualisation and proper actions
+for this feature.
+
+Internally, approval happens by setting `spec.manualObjectsHash` to the objects hash of the approved command result.
 
 ### args
 `spec.args` is an object representing [arguments](../../../kluctl-project/#args)
