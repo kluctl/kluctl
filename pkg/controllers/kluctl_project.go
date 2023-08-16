@@ -679,15 +679,23 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 	// the ref is not properly set by addGitInfo due to the way the repo cache checks out by commit
 	cmdResult.GitInfo.Ref = &pt.pp.co.CheckedOutRef
 
-	if pt.pp.r.ResultStore != nil {
+	summary := cmdResult.BuildSummary()
+	needStore := summary.NewObjects != 0 ||
+		summary.ChangedObjects != 0 ||
+		summary.OrphanObjects != 0 ||
+		summary.DeletedObjects != 0 ||
+		len(summary.Errors) != 0 ||
+		len(summary.Warnings) != 0
+
+	if !needStore {
+		log.Info("skipping storing of empty command result")
+	} else if pt.pp.r.ResultStore != nil {
 		log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
 		err = pt.pp.r.ResultStore.WriteCommandResult(cmdResult)
 		if err != nil {
 			log.Error(err, "Writing command result failed")
 		}
 	}
-
-	summary := cmdResult.BuildSummary()
 
 	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
 	defer pt.exportCommandResultMetricsToProm(summary)
