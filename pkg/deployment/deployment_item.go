@@ -543,7 +543,6 @@ func (di *DeploymentItem) buildKustomize() error {
 		}
 		o := uo.FromMap(y)
 		di.Objects = append(di.Objects, o)
-		di.Config.RenderedObjects = append(di.Config.RenderedObjects, o.GetK8sRef())
 	}
 
 	return nil
@@ -578,6 +577,13 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 	}
 
 	return errs.ErrorOrNil()
+}
+
+func (di *DeploymentItem) collectResultObjects() error {
+	for _, o := range di.Objects {
+		di.Config.RenderedObjects = append(di.Config.RenderedObjects, o.GetK8sRef())
+	}
+	return nil
 }
 
 func (di *DeploymentItem) writeRenderedYaml() error {
