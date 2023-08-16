@@ -626,6 +626,7 @@ export class CommandResult {
     gitInfo?: GitInfo;
     clusterInfo: ClusterInfo;
     deployment?: DeploymentProjectConfig;
+    renderedObjectsHash?: string;
     objects?: ResultObject[];
     errors?: DeploymentError[];
     warnings?: DeploymentError[];
@@ -642,6 +643,7 @@ export class CommandResult {
         this.gitInfo = this.convertValues(source["gitInfo"], GitInfo);
         this.clusterInfo = this.convertValues(source["clusterInfo"], ClusterInfo);
         this.deployment = this.convertValues(source["deployment"], DeploymentProjectConfig);
+        this.renderedObjectsHash = source["renderedObjectsHash"];
         this.objects = this.convertValues(source["objects"], ResultObject);
         this.errors = this.convertValues(source["errors"], DeploymentError);
         this.warnings = this.convertValues(source["warnings"], DeploymentError);
@@ -675,6 +677,7 @@ export class CommandResultSummary {
     kluctlDeployment?: KluctlDeploymentInfo;
     gitInfo?: GitInfo;
     clusterInfo?: ClusterInfo;
+    renderedObjectsHash?: string;
     renderedObjects: number;
     remoteObjects: number;
     appliedObjects: number;
@@ -697,6 +700,7 @@ export class CommandResultSummary {
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
         this.gitInfo = this.convertValues(source["gitInfo"], GitInfo);
         this.clusterInfo = this.convertValues(source["clusterInfo"], ClusterInfo);
+        this.renderedObjectsHash = source["renderedObjectsHash"];
         this.renderedObjects = source["renderedObjects"];
         this.remoteObjects = source["remoteObjects"];
         this.appliedObjects = source["appliedObjects"];
@@ -763,6 +767,7 @@ export class ValidateResult {
     projectKey: ProjectKey;
     targetKey: TargetKey;
     kluctlDeployment?: KluctlDeploymentInfo;
+    renderedObjectsHash?: string;
     startTime: string;
     endTime: string;
     ready: boolean;
@@ -776,6 +781,7 @@ export class ValidateResult {
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
+        this.renderedObjectsHash = source["renderedObjectsHash"];
         this.startTime = source["startTime"];
         this.endTime = source["endTime"];
         this.ready = source["ready"];
@@ -807,6 +813,7 @@ export class ValidateResultSummary {
     projectKey: ProjectKey;
     targetKey: TargetKey;
     kluctlDeployment?: KluctlDeploymentInfo;
+    renderedObjectsHash?: string;
     startTime: string;
     endTime: string;
     ready: boolean;
@@ -820,6 +827,7 @@ export class ValidateResultSummary {
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
+        this.renderedObjectsHash = source["renderedObjectsHash"];
         this.startTime = source["startTime"];
         this.endTime = source["endTime"];
         this.ready = source["ready"];

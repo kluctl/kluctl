@@ -45,6 +45,7 @@ export interface Api {
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
     setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response>
+    setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response>
     watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void
 }
 
@@ -238,6 +239,15 @@ export class RealApi implements Api {
         })
     }
 
+    async setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response> {
+        return this.doPost("/api/setManualObjectsHash", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+            "objectsHash": objectsHash,
+        })
+    }
+
     watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void {
         const params = new URLSearchParams()
         if (cluster) params.set("cluster", cluster)
@@ -346,6 +356,10 @@ export class StaticApi implements Api {
     }
 
     setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response> {
+        throw new Error("not implemented")
+    }
+
+    setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response> {
         throw new Error("not implemented")
     }
 

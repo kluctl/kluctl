@@ -622,6 +622,36 @@ bool
 <p>Delete enables deletion of the specified target when the KluctlDeployment object gets deleted.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>manual</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Manual enables manual deployments, meaning that the deployment will initially start as a dry run deployment
+and only after manual approval cause a real deployment</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>manualObjectsHash</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ManualObjectsHash specifies the rendered objects hash that is approved for manual deployment.
+If Manual is set to true, the controller will skip deployments when the current reconciliation loops calculated
+objects hash does not match this value.
+There are two ways to use this value properly.
+1. Set it manually to the value found in status.lastObjectsHash.
+2. Use the Kluctl Webui to manually approve a deployment, which will set this field appropriately.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -1063,6 +1093,36 @@ bool
 <p>Delete enables deletion of the specified target when the KluctlDeployment object gets deleted.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>manual</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Manual enables manual deployments, meaning that the deployment will initially start as a dry run deployment
+and only after manual approval cause a real deployment</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>manualObjectsHash</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ManualObjectsHash specifies the rendered objects hash that is approved for manual deployment.
+If Manual is set to true, the controller will skip deployments when the current reconciliation loops calculated
+objects hash does not match this value.
+There are two ways to use this value properly.
+1. Set it manually to the value found in status.lastObjectsHash.
+2. Use the Kluctl Webui to manually approve a deployment, which will set this field appropriately.</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -1181,6 +1241,17 @@ github.com/kluctl/kluctl/v2/pkg/types/result.TargetKey
 <tr>
 <td>
 <code>lastObjectsHash</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastManualObjectsHash</code><br>
 <em>
 string
 </em>

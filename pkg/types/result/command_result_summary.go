@@ -14,6 +14,8 @@ type CommandResultSummary struct {
 	GitInfo          GitInfo               `json:"gitInfo,omitempty"`
 	ClusterInfo      ClusterInfo           `json:"clusterInfo,omitempty"`
 
+	RenderedObjectsHash string `json:"renderedObjectsHash,omitempty"`
+
 	RenderedObjects    int `json:"renderedObjects"`
 	RemoteObjects      int `json:"remoteObjects"`
 	AppliedObjects     int `json:"appliedObjects"`
@@ -46,24 +48,25 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 	}
 
 	ret := &CommandResultSummary{
-		Id:                 cr.Id,
-		ProjectKey:         cr.ProjectKey,
-		TargetKey:          cr.TargetKey,
-		Target:             cr.Target,
-		Command:            cr.Command,
-		KluctlDeployment:   cr.KluctlDeployment,
-		GitInfo:            cr.GitInfo,
-		ClusterInfo:        cr.ClusterInfo,
-		RenderedObjects:    count(func(o ResultObject) bool { return o.Rendered != nil }),
-		RemoteObjects:      count(func(o ResultObject) bool { return o.Remote != nil }),
-		AppliedObjects:     count(func(o ResultObject) bool { return o.Applied != nil }),
-		AppliedHookObjects: count(func(o ResultObject) bool { return o.Hook }),
-		NewObjects:         count(func(o ResultObject) bool { return o.New }),
-		ChangedObjects:     count(func(o ResultObject) bool { return len(o.Changes) != 0 }),
-		OrphanObjects:      count(func(o ResultObject) bool { return o.Orphan }),
-		DeletedObjects:     count(func(o ResultObject) bool { return o.Deleted }),
-		Errors:             cr.Errors,
-		Warnings:           cr.Warnings,
+		Id:                  cr.Id,
+		ProjectKey:          cr.ProjectKey,
+		TargetKey:           cr.TargetKey,
+		Target:              cr.Target,
+		Command:             cr.Command,
+		KluctlDeployment:    cr.KluctlDeployment,
+		GitInfo:             cr.GitInfo,
+		ClusterInfo:         cr.ClusterInfo,
+		RenderedObjectsHash: cr.RenderedObjectsHash,
+		RenderedObjects:     count(func(o ResultObject) bool { return o.Rendered != nil }),
+		RemoteObjects:       count(func(o ResultObject) bool { return o.Remote != nil }),
+		AppliedObjects:      count(func(o ResultObject) bool { return o.Applied != nil }),
+		AppliedHookObjects:  count(func(o ResultObject) bool { return o.Hook }),
+		NewObjects:          count(func(o ResultObject) bool { return o.New }),
+		ChangedObjects:      count(func(o ResultObject) bool { return len(o.Changes) != 0 }),
+		OrphanObjects:       count(func(o ResultObject) bool { return o.Orphan }),
+		DeletedObjects:      count(func(o ResultObject) bool { return o.Deleted }),
+		Errors:              cr.Errors,
+		Warnings:            cr.Warnings,
 	}
 	for _, o := range cr.Objects {
 		ret.TotalChanges += len(o.Changes)

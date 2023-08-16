@@ -45,3 +45,13 @@ func ParseBoolOrFalse(s *string) bool {
 func StrPtr(s string) *string {
 	return &s
 }
+
+func StrPtrEquals(s1 *string, s2 *string) bool {
+	if s1 == nil && s2 == nil {
+		return true
+	}
+	if (s1 == nil) != (s2 == nil) {
+		return false
+	}
+	return *s1 == *s2
+}
