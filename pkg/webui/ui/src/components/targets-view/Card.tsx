@@ -10,16 +10,26 @@ export const projectCardMinHeight = 80;
 export const cardHeight = 126;
 export const cardGap = 20;
 
-export const CardPaper = React.forwardRef((props: PaperProps, ref: React.ForwardedRef<HTMLDivElement>) => {
-    const { sx, ...rest } = props;
+interface CardPaperProps extends PaperProps {
+    glow?: boolean
+}
+
+export const CardPaper = React.forwardRef((props: CardPaperProps, ref: React.ForwardedRef<HTMLDivElement>) => {
+    const { glow, sx, ...rest } = props;
+    let border = `1px solid #59A588`
+    let boxShadow = `4px 4px 10px #1E617A`
+    if (glow) {
+        border = `1px solid lightyellow`
+        boxShadow = `0px 0px 40px lightyellow`
+    }
     return <Paper
         elevation={5}
         sx={{
             width: '100%',
             height: '100%',
             borderRadius: '12px',
-            border: '1px solid #59A588',
-            boxShadow: '4px 4px 10px #1E617A',
+            border: border,
+            boxShadow: boxShadow,
             flexShrink: 0,
             position: 'relative',
             ...sx
@@ -40,7 +50,7 @@ export function CardRow(props: BoxProps) {
 }
 
 export const CardTemplate = React.forwardRef((props: {
-    paperProps?: PaperProps,
+    paperProps?: CardPaperProps,
     boxProps?: BoxProps,
     icon?: React.ReactNode,
     iconTooltip?: React.ReactNode,

@@ -136,7 +136,8 @@ type CommandResult struct {
 	ClusterInfo      ClusterInfo                    `json:"clusterInfo"`
 	Deployment       *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
-	Objects []ResultObject `json:"objects,omitempty"`
+	RenderedObjectsHash string         `json:"renderedObjectsHash,omitempty"`
+	Objects             []ResultObject `json:"objects,omitempty"`
 
 	Errors     []DeploymentError  `json:"errors,omitempty"`
 	Warnings   []DeploymentError  `json:"warnings,omitempty"`

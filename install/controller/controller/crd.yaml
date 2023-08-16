@@ -265,6 +265,20 @@ spec:
                     - name
                     type: object
                 type: object
+              manual:
+                description: Manual enables manual deployments, meaning that the deployment
+                  will initially start as a dry run deployment and only after manual
+                  approval cause a real deployment
+                type: boolean
+              manualObjectsHash:
+                description: ManualObjectsHash specifies the rendered objects hash
+                  that is approved for manual deployment. If Manual is set to true,
+                  the controller will skip deployments when the current reconciliation
+                  loops calculated objects hash does not match this value. There are
+                  two ways to use this value properly. 1. Set it manually to the value
+                  found in status.lastObjectsHash. 2. Use the Kluctl Webui to manually
+                  approve a deployment, which will set this field appropriately.
+                type: string
               noWait:
                 default: false
                 description: NoWait instructs kluctl to not wait for any resources
@@ -492,6 +506,8 @@ spec:
                   be detected.
                 type: string
               lastHandledValidateAt:
+                type: string
+              lastManualObjectsHash:
                 type: string
               lastObjectsHash:
                 type: string

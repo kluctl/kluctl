@@ -13,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -326,6 +327,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
 		// either never deployed or source code changed
 		needDeploy = true
+	} else if obj.Spec.Manual && !utils.StrPtrEquals(obj.Status.LastManualObjectsHash, obj.Spec.ManualObjectsHash) {
+		// approval hash was changed
+		needDeploy = true
 	} else if curDeployRequest != "" && oldDeployRequest != curDeployRequest {
 		// explicitly requested a deploy
 		needDeploy = true
@@ -337,6 +341,17 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		nextDeployTime := r.nextDeployTime(obj)
 		if nextDeployTime != nil {
 			needDeploy = nextDeployTime.Before(time.Now())
+		}
+	}
+
+	if needDeploy && obj.Spec.Manual {
+		log.Info("checking manual object hash")
+		if obj.Spec.ManualObjectsHash == nil || *obj.Spec.ManualObjectsHash != objectsHash {
+			log.Info("deployment is not approved", "manualObjectsHash", obj.Spec.ManualObjectsHash, "objectsHash", objectsHash)
+			targetContext.Params.DryRun = true
+			targetContext.SharedContext.K.DryRun = true
+		} else {
+			log.Info("deployment is approved", "objectsHash", objectsHash)
 		}
 	}
 
@@ -359,6 +374,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	obj.Status.LastObjectsHash = objectsHash
+	obj.Status.LastManualObjectsHash = obj.Spec.ManualObjectsHash
 
 	var deployResult *result.CommandResult
 	if needDeploy {
@@ -368,13 +384,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlDeploy(ctx, targetContext, reconcileId)
+			deployResult, err = pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash)
 		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
 			patchErr = doProgressingCondition("Performing kluctl poke-images", false)
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, reconcileId)
+			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash)
 		} else {
 			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
 		}
@@ -389,7 +405,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if patchErr != nil {
 			return nil, patchErr
 		}
-		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult, reconcileId)
+		validateResult, err := pt.kluctlValidate(ctx, targetContext, deployResult, reconcileId, objectsHash)
 		err = obj.Status.SetLastValidateResult(validateResult, err)
 		if err != nil {
 			log.Error(err, "Failed to write validate result")

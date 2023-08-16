@@ -445,19 +445,6 @@ func (k *K8sCluster) IsNamespaced(gvk schema.GroupVersionKind) *bool {
 	return &ret
 }
 
-func (k *K8sCluster) FixNamespaceInRef(ref k8s.ObjectRef) k8s.ObjectRef {
-	namespaced := k.IsNamespaced(ref.GroupVersionKind())
-	if namespaced == nil {
-		return ref
-	}
-	if !*namespaced && ref.Namespace != "" {
-		ref.Namespace = ""
-	} else if *namespaced && ref.Namespace == "" {
-		ref.Namespace = "default"
-	}
-	return ref
-}
-
 func (k *K8sCluster) GetSchemaForGVK(gvk schema.GroupVersionKind) (*uo.UnstructuredObject, error) {
 	rms, err := k.mapper.RESTMappings(gvk.GroupKind(), gvk.Version)
 	if err != nil {

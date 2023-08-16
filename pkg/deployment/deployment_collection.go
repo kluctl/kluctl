@@ -284,6 +284,16 @@ func (c *DeploymentCollection) fixNamespaces() error {
 	return nil
 }
 
+func (c *DeploymentCollection) collectResultObjects() error {
+	for _, d := range c.Deployments {
+		err := d.collectResultObjects()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *DeploymentCollection) buildNamespacedFromCRDs() map[schema.GroupKind]*bool {
 	namespacedFromCRDs := map[schema.GroupKind]*bool{}
 	for _, d := range c.Deployments {
@@ -358,6 +368,10 @@ func (c *DeploymentCollection) Prepare() error {
 		return err
 	}
 	err = c.fixNamespaces()
+	if err != nil {
+		return err
+	}
+	err = c.collectResultObjects()
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } fr
 import React, { useContext } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import {
+    Approval,
     Done,
     Error,
     Favorite,
@@ -15,6 +16,7 @@ import {
     PublishedWithChanges,
     RocketLaunch,
     SyncProblem,
+    Toys,
     Troubleshoot
 } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
@@ -290,6 +292,17 @@ export const TargetItem = React.memo(React.forwardRef((
     }
     const iconTooltip = <Box textAlign={"center"}>{iconTooltipChildren}</Box>
 
+    let dryRunApprovalIcon: React.ReactElement | undefined
+    if (kd?.deployment.spec.manual) {
+        dryRunApprovalIcon = <Tooltip title={"Deployment needs manual triggering"}>
+            <Box display='flex'><Approval/></Box>
+        </Tooltip>
+    } else if (kd?.deployment.spec.dryRun) {
+        dryRunApprovalIcon = <Tooltip title={"Deployment is in dry-run mode"}>
+            <Box display='flex'><Toys/></Box>
+        </Tooltip>
+    }
+
     const body = props.expanded ? <TargetItemBody ts={props.ts}/> : undefined;
 
     return <CardTemplate
@@ -317,6 +330,7 @@ export const TargetItem = React.memo(React.forwardRef((
                     <Tooltip title={"Discriminator: " + props.ts.target.discriminator}>
                         <Box display='flex'><FingerScanIcon/></Box>
                     </Tooltip>
+                    {dryRunApprovalIcon}
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <ReconcilingIcon {...props} />

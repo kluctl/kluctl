@@ -126,6 +126,7 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 	api.POST("/reconcileNow", s.reconcileNow)
 	api.POST("/deployNow", s.deployNow)
 	api.POST("/setSuspended", s.setSuspended)
+	api.POST("/setManualObjectsHash", s.setManualObjectsHash)
 
 	err = s.events.startEventsWatcher()
 	if err != nil {
@@ -532,6 +533,27 @@ func (s *CommandResultsServer) setSuspended(c *gin.Context) {
 
 	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
 		obj.Spec.Suspend = params.Suspend
+		return nil
+	})
+}
+
+func (s *CommandResultsServer) setManualObjectsHash(c *gin.Context) {
+	var params struct {
+		KluctlDeploymentParam
+		ObjectsHash string `json:"objectsHash"`
+	}
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
+		if params.ObjectsHash == "" {
+			obj.Spec.ManualObjectsHash = nil
+		} else {
+			obj.Spec.ManualObjectsHash = &params.ObjectsHash
+		}
 		return nil
 	})
 }

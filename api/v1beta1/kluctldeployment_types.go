@@ -209,6 +209,20 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Delete bool `json:"delete,omitempty"`
+
+	// Manual enables manual deployments, meaning that the deployment will initially start as a dry run deployment
+	// and only after manual approval cause a real deployment
+	// +optional
+	Manual bool `json:"manual,omitempty"`
+
+	// ManualObjectsHash specifies the rendered objects hash that is approved for manual deployment.
+	// If Manual is set to true, the controller will skip deployments when the current reconciliation loops calculated
+	// objects hash does not match this value.
+	// There are two ways to use this value properly.
+	// 1. Set it manually to the value found in status.lastObjectsHash.
+	// 2. Use the Kluctl Webui to manually approve a deployment, which will set this field appropriately.
+	// +optional
+	ManualObjectsHash *string `json:"manualObjectsHash,omitempty"`
 }
 
 // GetRetryInterval returns the retry interval
@@ -348,6 +362,9 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	LastObjectsHash string `json:"lastObjectsHash,omitempty"`
+
+	// +optional
+	LastManualObjectsHash *string `json:"lastManualObjectsHash,omitempty"`
 
 	// +optional
 	LastPrepareError string `json:"lastPrepareError,omitempty"`

@@ -306,6 +306,9 @@ export const TargetsView = () => {
                                             getKey={cd => cd.id}
                                             renderCard={(cardData, expanded, current) => {
                                                 return <CommandResultItem
+                                                    current={current}
+                                                    ps={ps}
+                                                    ts={ts}
                                                     rs={cardData}
                                                     expanded={expanded}
                                                     loadData={current}
