@@ -249,6 +249,8 @@ func Main() {
 
 	initViper(ctx)
 
+	didSetupStatusHandler := false
+
 	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags *GlobalFlags) (context.Context, error) {
 		err := setupGops(flags)
 		if err != nil {
@@ -264,6 +266,7 @@ func Main() {
 		}
 
 		ctx = initStatusHandlerAndPrompts(ctx, flags.Debug, flags.NoColor)
+		didSetupStatusHandler = true
 
 		if cmd.Name() != "run" && cmd.Parent().Name() != "controller" {
 			redirectLogsAndStderr(ctx)
@@ -281,6 +284,14 @@ func Main() {
 		pprof.StopCPUProfile()
 		_ = cpuProfileFile.Close()
 		cpuProfileFile = nil
+	}
+
+	if err != nil {
+		if didSetupStatusHandler {
+			status.Error(ctx, err.Error())
+		} else {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		}
 	}
 
 	sh := status.FromContext(ctx)

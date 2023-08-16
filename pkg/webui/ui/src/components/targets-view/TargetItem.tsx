@@ -403,10 +403,10 @@ class TargetItemCardProvider implements SidePanelProvider {
             }
         }
 
-        return <>
+        return <Box>
             {errorHeader}
             <PropertiesTable properties={props}/>
-        </>
+        </Box>
     }
 
     getTargetName() {
