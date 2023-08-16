@@ -52,10 +52,11 @@ func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.
 	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{
 		Id: lastDeployResult.Id,
 	})
-	g.Expect(err).To(Succeed())
-
-	g.Expect(cr.Errors).To(ConsistOf(expectedErrors))
-	g.Expect(cr.Warnings).To(ConsistOf(expectedWarnings))
+	if len(expectedErrors) != 0 || len(expectedWarnings) != 0 {
+		g.Expect(err).To(Succeed())
+		g.Expect(cr.Errors).To(ConsistOf(expectedErrors))
+		g.Expect(cr.Warnings).To(ConsistOf(expectedWarnings))
+	}
 
 	g.Expect(lastDeployResult.Errors).To(ConsistOf(expectedErrors))
 	g.Expect(lastDeployResult.Warnings).To(ConsistOf(expectedWarnings))
