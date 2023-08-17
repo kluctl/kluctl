@@ -654,7 +654,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	return targetContext, nil
 }
 
-func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string, crId string, objectsHash string) error {
+func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string, crId string, objectsHash string, triggeredByRequest bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	if cmdErr != nil {
@@ -686,6 +686,10 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		summary.DeletedObjects != 0 ||
 		len(summary.Errors) != 0 ||
 		len(summary.Warnings) != 0
+	if !needStore && triggeredByRequest {
+		needStore = true
+		log.Info("forcing storing of empty command result because the deploy was requested")
+	}
 
 	if !needStore {
 		log.Info("skipping storing of empty command result")
@@ -765,7 +769,7 @@ func (pt *preparedTarget) handleValidateResult(ctx context.Context, cmdErr error
 	return nil
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext)
@@ -779,17 +783,17 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.WaitPrune = false
 
 	cmdResult, err := cmd.Run(nil)
-	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy", crId, objectsHash)
+	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy", crId, objectsHash, triggeredByRequest)
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext)
 
 	cmdResult, err := cmd.Run()
-	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images", crId, objectsHash)
+	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images", crId, objectsHash, triggeredByRequest)
 	return cmdResult, err
 }
 
@@ -849,7 +853,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	cmdResult.TargetKey.Discriminator = discriminator
 	cmdResult.TargetKey.ClusterId = cmdResult.ClusterInfo.ClusterId
 
-	err = pt.handleCommandResult(ctx, err, cmdResult, "delete", crId, "")
+	err = pt.handleCommandResult(ctx, err, cmdResult, "delete", crId, "", false)
 	return cmdResult, err
 }
 
