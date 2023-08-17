@@ -5,7 +5,7 @@ import { AppContext } from "../App";
 import { ProjectItem } from "./ProjectItem";
 import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
-import { CommandResultItem } from "./CommandResultItem";
+import { CommandResultSummaryView } from "./CommandResultSummaryView";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
@@ -305,7 +305,7 @@ export const TargetsView = () => {
                                             cardsData={ts.commandResults}
                                             getKey={cd => cd.id}
                                             renderCard={(cardData, expanded, current) => {
-                                                return <CommandResultItem
+                                                return <CommandResultSummaryView
                                                     current={current}
                                                     ps={ps}
                                                     ts={ts}

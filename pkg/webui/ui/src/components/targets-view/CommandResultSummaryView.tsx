@@ -146,7 +146,7 @@ const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
     </Box>
 }
 
-export const CommandResultItem = React.memo(React.forwardRef((
+export const CommandResultSummaryView = React.memo(React.forwardRef((
     props: {
         current: boolean,
         ps: ProjectSummary,
@@ -258,4 +258,4 @@ export const CommandResultItem = React.memo(React.forwardRef((
     />;
 }));
 
-CommandResultItem.displayName = 'CommandResultItem';
+CommandResultSummaryView.displayName = 'CommandResultItem';
