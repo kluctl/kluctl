@@ -373,12 +373,12 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	LastValidateError string `json:"lastValidateError,omitempty"`
 
-	// LastDeployResult is the result of the last deploy command
+	// LastDeployResult is the result summary of the last deploy command
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	LastDeployResult *runtime.RawExtension `json:"lastDeployResult,omitempty"`
 
-	// LastValidateResult is the result of the last validate command
+	// LastValidateResult is the result summary of the last validate command
 	// +optional
 	LastValidateResult *runtime.RawExtension `json:"lastValidateResult,omitempty"`
 }

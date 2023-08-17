@@ -1302,7 +1302,7 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 </td>
 <td>
 <em>(Optional)</em>
-<p>LastDeployResult is the result of the last deploy command</p>
+<p>LastDeployResult is the result summary of the last deploy command</p>
 </td>
 </tr>
 <tr>
@@ -1314,7 +1314,7 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 </td>
 <td>
 <em>(Optional)</em>
-<p>LastValidateResult is the result of the last validate command</p>
+<p>LastValidateResult is the result summary of the last validate command</p>
 </td>
 </tr>
 </tbody>
