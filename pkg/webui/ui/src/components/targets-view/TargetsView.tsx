@@ -5,12 +5,12 @@ import { AppContext } from "../App";
 import { ProjectItem } from "./ProjectItem";
 import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
-import { CommandResultSummaryView } from "./CommandResultSummaryView";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { ExpandableCard } from "./ExpandableCard";
 import { useLocation, useNavigate } from "react-router-dom";
+import { CommandResultCard } from "./CommandResultCard";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -305,11 +305,12 @@ export const TargetsView = () => {
                                             cardsData={ts.commandResults}
                                             getKey={cd => cd.id}
                                             renderCard={(cardData, expanded, current) => {
-                                                return <CommandResultSummaryView
+                                                return <CommandResultCard
                                                     current={current}
                                                     ps={ps}
                                                     ts={ts}
                                                     rs={cardData}
+                                                    showSummary={true}
                                                     expanded={expanded}
                                                     loadData={current}
                                                     onClose={() => {
