@@ -105,7 +105,7 @@ const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
         }
     }
 
-    if (!user?.isAdmin || !props.ts.kd?.deployment.spec.manual) {
+    if (!user?.isAdmin || props.ts.kd?.deployment.spec.dryRun || !props.ts.kd?.deployment.spec.manual) {
         return <></>
     }
     if (props.rs.id !== props.ts.commandResults[0].id) {
@@ -116,7 +116,6 @@ const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
         return <></>
     }
 
-    console.log(props.ts.kd.deployment.spec.manualObjectsHash, props.rs.renderedObjectsHash)
     const isApproved = props.ts.kd.deployment.spec.manualObjectsHash === props.rs.renderedObjectsHash
 
     let icon: React.ReactElement
@@ -182,13 +181,15 @@ export const CommandResultItem = React.memo(React.forwardRef((
             icon = <PruneIcon/>
             break
         case "deploy":
-            if (props.ts.kd?.deployment.spec.manual && rs.commandInfo.dryRun && props.current) {
-                icon = <LiveHelp sx={{ width: "100%", height: "100%" }}/>
-                cardGlow = true
-                header = "manual deploy"
-            } else if (rs.commandInfo.dryRun) {
-                icon = <DeployIcon/>
-                header = "dry-run deploy"
+            if (rs.commandInfo.dryRun) {
+                if (props.ts.kd?.deployment.spec.manual && !props.ts.kd?.deployment.spec.dryRun) {
+                    icon = <LiveHelp sx={{ width: "100%", height: "100%" }}/>
+                    cardGlow = true
+                    header = "manual deploy"
+                } else {
+                    icon = <DeployIcon/>
+                    header = "dry-run deploy"
+                }
             } else {
                 icon = <DeployIcon/>
             }
