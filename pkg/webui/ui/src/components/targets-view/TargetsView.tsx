@@ -279,7 +279,7 @@ export const TargetsView = () => {
                                             }}
                                         />
                                     }}/>
-                                <RelationHorizontalLine/>
+                                {ts.commandResults.length ? <RelationHorizontalLine/> : <></>}
                             </Box>
                         })}
                     </CardCol>
