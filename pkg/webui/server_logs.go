@@ -23,6 +23,11 @@ func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
 		return
 	}
 
+	if s.serverCoreV1Client == nil {
+		_ = gctx.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
 	conn, err := acceptWebsocket(gctx)
 	if err != nil {
 		return
