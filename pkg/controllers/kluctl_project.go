@@ -572,9 +572,12 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 		}
 	}
 
-	externalArgs, err := uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
-	if err != nil {
-		return nil, err
+	var externalArgs *uo.UnstructuredObject
+	if pt.pp.obj.Spec.Args != nil {
+		externalArgs, err = uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{

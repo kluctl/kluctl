@@ -194,7 +194,11 @@ func (in *KluctlDeploymentSpec) DeepCopyInto(out *KluctlDeploymentSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	in.Args.DeepCopyInto(&out.Args)
+	if in.Args != nil {
+		in, out := &in.Args, &out.Args
+		*out = new(runtime.RawExtension)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Images != nil {
 		in, out := &in.Images, &out.Images
 		*out = make([]types.FixedImage, len(*in))

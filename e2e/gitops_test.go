@@ -176,7 +176,7 @@ func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject
 			Interval: metav1.Duration{Duration: interval},
 			Timeout:  &metav1.Duration{Duration: timeout},
 			Target:   &target,
-			Args: runtime.RawExtension{
+			Args: &runtime.RawExtension{
 				Raw: jargs,
 			},
 			Source: kluctlv1.ProjectSource{
