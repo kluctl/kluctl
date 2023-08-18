@@ -54,20 +54,22 @@ func NewCommandResultsServer(
 	authConfig AuthConfig,
 	onlyApi bool) (*CommandResultsServer, error) {
 
-	coreV1Client, err := corev1.NewForConfig(serverConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	ret := &CommandResultsServer{
 		ctx:   ctx,
 		store: store,
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
-		serverClient:       serverClient,
-		serverCoreV1Client: coreV1Client,
-		onlyApi:            onlyApi,
+		serverClient: serverClient,
+		onlyApi:      onlyApi,
+	}
+
+	var err error
+	if serverConfig != nil {
+		ret.serverCoreV1Client, err = corev1.NewForConfig(serverConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	ret.events = newEventsHandler(ret)

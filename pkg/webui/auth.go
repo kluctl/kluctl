@@ -74,6 +74,13 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig 
 		serverClient: serverClient,
 	}
 
+	if serverClient == nil {
+		if authConfig.AuthEnabled {
+			return nil, fmt.Errorf("serverClient can't be nil when auth is enabled")
+		}
+		return ret, nil
+	}
+
 	x, err := ret.getSecret(authConfig.AuthSecretName, authConfig.AuthSecretKey)
 	if err != nil {
 		return nil, err
