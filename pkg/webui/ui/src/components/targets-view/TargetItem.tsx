@@ -25,7 +25,7 @@ import { ApiContext, UserContext } from "../App";
 import { CardBody, CardTemplate } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
-import { PropertiesEntry, PropertiesTable } from "../PropertiesTable";
+import { PropertiesEntry, PropertiesTable, pushProp } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { Since } from "../Since";
@@ -33,6 +33,7 @@ import { ValidateResultsTable } from "../ValidateResultsTable";
 import { LogsViewer } from "../LogsViewer";
 import { K8sManifestViewer } from "../K8sManifestViewer";
 import { YamlViewer } from "../YamlViewer";
+import { gitRefToString } from "../../utils/git";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -407,43 +408,56 @@ class TargetItemCardProvider implements SidePanelProvider {
 
         const props: PropertiesEntry[] = [
             { name: "Target Name", value: this.getTargetName() },
-            { name: "Discriminator", value: this.ts?.target.discriminator },
         ]
 
-        props.push({ name: "Source Url", value: d.spec.source.url })
-        if (d.spec.source.ref) {
-            let ref = ""
-            if (d.spec.source.ref.tag) {
-                ref = "tag " + d.spec.source.ref.tag
-            } else if (d.spec.source.ref.branch) {
-                ref = "branch " + d.spec.source.ref.branch
-            } else if (d.spec.source.ref.commit) {
-                ref = "commit " + d.spec.source.ref.commit
-            } else {
-                ref = JSON.stringify(d.spec.source.ref)
+        pushProp(props, "Discriminator", this.ts?.target.discriminator)
+
+        if (d) {
+            let args = d.spec.args
+            if (args && Object.keys(args).length === 0) {
+                args = undefined
             }
-            props.push({ name: "Source Ref", value: ref })
-        }
-        if (d.spec.source.path) {
-            props.push({ name: "Source Path", value: d.spec.source.path })
+
+            pushProp(props, "Interval", d.spec.interval)
+            pushProp(props, "Retry Interval", d.spec.retryInterval)
+            pushProp(props, "Deploy Interval", d.spec.deployInterval)
+            pushProp(props, "Validate Interval", d.spec.validateInterval)
+            pushProp(props, "Timeout", d.spec.timeout)
+            pushProp(props, "Suspend", d.spec.suspend)
+            pushProp(props, "Target", d.spec.target)
+            pushProp(props, "Target Name Override", d.spec.targetNameOverride)
+            pushProp(props, "Context", d.spec.context)
+            pushProp(props, "Args", args, () => <YamlViewer obj={args}/>)
+            pushProp(props, "Dry Run", d.spec.dryRun)
+            pushProp(props, "No Wait", d.spec.noWait)
+            pushProp(props, "Force Apply", d.spec.forceApply)
+            pushProp(props, "Replace On Error", d.spec.replaceOnError)
+            pushProp(props, "Force Replace On Error", d.spec.forceReplaceOnError)
+            pushProp(props, "Abort On Error", d.spec.abortOnError)
+            pushProp(props, "Include Tags", d.spec.includeTags)
+            pushProp(props, "Exclude Tags", d.spec.excludeTags)
+            pushProp(props, "Include Deployment Dirs", d.spec.includeDeploymentDirs)
+            pushProp(props, "Exclude Deployment Dirs", d.spec.excludeDeploymentDirs)
+            pushProp(props, "Deploy Mode", d.spec.deployMode)
+            pushProp(props, "Validate", d.spec.validate)
+            pushProp(props, "Prune", d.spec.prune)
+            pushProp(props, "Delete", d.spec.delete)
+            pushProp(props, "Manual", d.spec.manual)
+            pushProp(props, "Manual Objects Hash", d.spec.manualObjectsHash)
+
+            pushProp(props, "Source Url", d.spec.source.url)
+            pushProp(props, "Source Ref", gitRefToString(d.spec.source.ref))
+            pushProp(props, "Source Path", d.spec.source.path)
+
+            pushProp(props, "Last Objects Hash", d.status.lastObjectsHash)
         }
 
-        if (d.spec.args) {
-            props.push({ name: "Args", value: <YamlViewer obj={d.spec.args}/>})
-        }
-
-        if (this.ts?.lastValidateResult) {
-            props.push({ name: "Ready", value: this.ts?.lastValidateResult.ready + "" })
-        }
-        if (this.ts?.lastValidateResult?.errors) {
-            props.push({ name: "Errors", value: this.ts?.lastValidateResult.errors + "" })
-        }
-        if (this.ts?.lastValidateResult?.warnings) {
-            props.push({ name: "Warnings", value: this.ts?.lastValidateResult.warnings + "" })
-        }
+        pushProp(props, "Ready", this.ts?.lastValidateResult?.ready)
+        pushProp(props, "Errors", this.ts?.lastValidateResult?.errors)
+        pushProp(props, "Warnings", this.ts?.lastValidateResult?.warnings)
 
         let errorHeader
-        if (d.status) {
+        if (d?.status) {
             if (d.status.lastPrepareError) {
                 errorHeader = <Alert severity="error">
                     The prepare step failed for this deployment. This usually means that your deployment is severely
