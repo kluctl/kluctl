@@ -6,7 +6,23 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 
-export function PropertiesTable(props: {properties: {name: string, value: React.ReactNode}[]}) {
+export interface PropertiesEntry {
+    name: string
+    value: React.ReactNode
+}
+
+export const pushProp = (props: PropertiesEntry[], name: string, v?: any, render?: () => React.ReactElement ) => {
+    if (!v) {
+        return
+    }
+    if (render) {
+        props.push({ name: name, value: render() })
+    } else {
+        props.push({ name: name, value: v + "" })
+    }
+}
+
+export function PropertiesTable(props: {properties: PropertiesEntry[]}) {
     return (
         <TableContainer>
             <Table>

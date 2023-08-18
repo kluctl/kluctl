@@ -808,6 +808,8 @@ func (s *ResultStoreSecrets) WatchKluctlDeployments() (<-chan WatchKluctlDeploym
 		if o == nil {
 			return nil
 		}
+		o.Kind = kluctlv1.KluctlDeploymentKind
+		o.APIVersion = kluctlv1.GroupVersion.String()
 		return &WatchKluctlDeploymentEvent{
 			Deployment: o,
 			ClusterId:  s.clusterId,

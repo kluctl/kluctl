@@ -495,7 +495,8 @@ spec:
               lastDeployError:
                 type: string
               lastDeployResult:
-                description: LastDeployResult is the result of the last deploy command
+                description: LastDeployResult is the result summary of the last deploy
+                  command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               lastHandledDeployAt:
@@ -516,8 +517,8 @@ spec:
               lastValidateError:
                 type: string
               lastValidateResult:
-                description: LastValidateResult is the result of the last validate
-                  command
+                description: LastValidateResult is the result summary of the last
+                  validate command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               observedCommit:

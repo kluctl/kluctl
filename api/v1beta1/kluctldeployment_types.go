@@ -101,7 +101,7 @@ type KluctlDeploymentSpec struct {
 	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
 	// the context found in the kluctl target. As an alternative, specify the context to be used via 'context'
 	// +optional
-	KubeConfig *KubeConfig `json:"kubeConfig"`
+	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
 	// Target specifies the kluctl target to deploy. If not specified, an empty target is used that has no name and no
 	// context. Use 'TargetName' and 'Context' to specify the name and context in that case.
@@ -124,7 +124,7 @@ type KluctlDeploymentSpec struct {
 	// Args specifies dynamic target args.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Args runtime.RawExtension `json:"args,omitempty"`
+	Args *runtime.RawExtension `json:"args,omitempty"`
 
 	// Images contains a list of fixed image overrides.
 	// Equivalent to using '--fixed-images-file' when calling kluctl.
@@ -373,12 +373,12 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	LastValidateError string `json:"lastValidateError,omitempty"`
 
-	// LastDeployResult is the result of the last deploy command
+	// LastDeployResult is the result summary of the last deploy command
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	LastDeployResult *runtime.RawExtension `json:"lastDeployResult,omitempty"`
 
-	// LastValidateResult is the result of the last validate command
+	// LastValidateResult is the result summary of the last validate command
 	// +optional
 	LastValidateResult *runtime.RawExtension `json:"lastValidateResult,omitempty"`
 }

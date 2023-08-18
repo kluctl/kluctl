@@ -6,6 +6,7 @@ import { Transition, TransitionStatus } from "react-transition-group";
 const transitionTime = 200
 const arrowButtonWidth = 80;
 const arrowButtonHeight = 50;
+export const expandedZIndex = 1300; // same as MUI modals
 
 const ArrowButton = React.memo((props: {
     direction: 'left' | 'right',
@@ -36,7 +37,7 @@ const ArrowButton = React.memo((props: {
             position: "fixed",
             top: `${top}px`,
             left: `${left}px`,
-            zIndex: 100000,
+            zIndex: expandedZIndex,
         }}
         onClick={(e) => {
             e.stopPropagation();
@@ -159,7 +160,7 @@ export const ExpandableCard = function <CardData>(props: ExpandedCardsViewProps<
                     duration: transitionTime,
                     easing: theme.transitions.easing.sharp
                 }),
-                "z-index": 10000,
+                "z-index": expandedZIndex,
                 visibility: i === selectedIndex ? "visible" : "hidden",
             }
         } else if (state === "entered") {
@@ -176,7 +177,7 @@ export const ExpandableCard = function <CardData>(props: ExpandedCardsViewProps<
                     duration: transitionTime,
                     easing: theme.transitions.easing.sharp
                 }),
-                "z-index": 10000,
+                "z-index": expandedZIndex,
             }
         } else if (state === "exiting") {
             return {
@@ -191,7 +192,7 @@ export const ExpandableCard = function <CardData>(props: ExpandedCardsViewProps<
                     duration: transitionTime,
                     easing: theme.transitions.easing.sharp
                 }),
-                "z-index": 10000,
+                "z-index": expandedZIndex,
                 visibility: i === expandingIndex ? "visible" : "hidden",
             }
         }

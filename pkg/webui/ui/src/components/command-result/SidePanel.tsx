@@ -1,7 +1,6 @@
-import { Box, Divider, IconButton, Paper, Tab, ThemeProvider, Typography, useTheme } from "@mui/material";
+import { Box, Divider, Tab, ThemeProvider } from "@mui/material";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
-import { CloseIcon } from "../../icons/Icons";
 import { light } from "../theme";
 import { User } from "../../api";
 import { UserContext } from "../App";
@@ -55,7 +54,6 @@ export function useSidePanelTabs(provider?: SidePanelProvider) {
 }
 
 export const SidePanel = (props: SidePanelProps) => {
-    const theme = useTheme();
     const { tabs, selectedTab, handleTabChange } = useSidePanelTabs(props.provider)
 
     if (!selectedTab || !tabs.find(x => x.label === selectedTab)) {
@@ -68,19 +66,7 @@ export const SidePanel = (props: SidePanelProps) => {
 
     return <Box width={"100%"} height={"100%"} display="flex" flexDirection="column" overflow='hidden'>
         <TabContext value={selectedTab}>
-            <Box minHeight={theme.consts.appBarHeight} display='flex' flexDirection='column' flex='0 0 auto' justifyContent='space-between'>
-                <Box flex='1 1 auto' display='flex' justifyContent='space-between'>
-                    <Box flex='1 1 auto' pt='25px' pl='35px'>
-                        <Typography variant="h4">
-                            {props.provider.buildSidePanelTitle()}
-                        </Typography>
-                    </Box>
-                    <Box flex='0 0 auto' pt='10px' pr='10px'>
-                        <IconButton onClick={props.onClose}>
-                            <CloseIcon />
-                        </IconButton>
-                    </Box>
-                </Box>
+            <Box display='flex' flexDirection='column' flex='0 0 auto' justifyContent='space-between'>
                 <Box height='36px' flex='0 0 auto' p='0 30px'>
                     <TabList onChange={handleTabChange}>
                         {tabs.map((tab, i) => {
@@ -89,14 +75,12 @@ export const SidePanel = (props: SidePanelProps) => {
                     </TabList>
                 </Box>
             </Box>
-            <Divider sx={{ margin: 0 }} />
-            <Box overflow='auto' p='30px' flex={"1 1 auto"}>
+            <Divider />
+            <Box overflow='auto' p='4px' flex={"1 1 auto"}>
                 {tabs.map(tab => {
                     return <ThemeProvider theme={light} key={tab.label}>
-                        <TabPanel value={tab.label} sx={{ padding: 0}}>
-                            <Paper sx={{ padding: '10px 0' }}>
-                                {tab.content}
-                            </Paper>
+                        <TabPanel value={tab.label} sx={{padding: 0, display: "flex"}}>
+                            {tab.content}
                         </TabPanel>
                     </ThemeProvider>
                 })}

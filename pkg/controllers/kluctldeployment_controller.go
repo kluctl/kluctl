@@ -322,6 +322,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	needDeploy := false
+	needDeployByRequest := false
 	needValidate := false
 
 	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
@@ -333,6 +334,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	} else if curDeployRequest != "" && oldDeployRequest != curDeployRequest {
 		// explicitly requested a deploy
 		needDeploy = true
+		needDeployByRequest = true
 	} else if oldGeneration != obj.GetGeneration() {
 		// spec has changed
 		needDeploy = true
@@ -384,13 +386,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash)
+			deployResult, err = pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
 		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
 			patchErr = doProgressingCondition("Performing kluctl poke-images", false)
 			if patchErr != nil {
 				return nil, patchErr
 			}
-			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash)
+			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
 		} else {
 			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
 		}

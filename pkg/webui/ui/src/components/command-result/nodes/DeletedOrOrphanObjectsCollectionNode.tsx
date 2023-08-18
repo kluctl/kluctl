@@ -1,15 +1,15 @@
 import { NodeData } from "./NodeData";
 import React from "react";
 import { Delete, LinkOff } from "@mui/icons-material";
-import { CommandResultProps } from "../CommandResultView";
 import { PropertiesTable } from "../../PropertiesTable";
 import { SidePanelTab } from "../SidePanel";
+import { CommandResult } from "../../../models";
 
 export class DeletedOrOrphanObjectsCollectionNode extends NodeData {
     deleted: boolean
 
-    constructor(props: CommandResultProps, id: string, deleted: boolean) {
-        super(props, id, false, true);
+    constructor(commandResult: CommandResult, id: string, deleted: boolean) {
+        super(commandResult, id, false, true);
         this.deleted = deleted
     }
 

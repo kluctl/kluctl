@@ -1,18 +1,17 @@
 import React from 'react';
 
-import { DeploymentItemConfig } from "../../../models";
+import { CommandResult, DeploymentItemConfig } from "../../../models";
 import { NodeData } from "./NodeData";
 import { Source } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
-import { CommandResultProps } from "../CommandResultView";
 import { SidePanelTab } from "../SidePanel";
 
 
 export class DeploymentItemNodeData extends NodeData {
     deploymentItem: DeploymentItemConfig
 
-    constructor(props: CommandResultProps, id: string, deploymentItem: DeploymentItemConfig) {
-        super(props, id, true, true);
+    constructor(commandResult: CommandResult, id: string, deploymentItem: DeploymentItemConfig) {
+        super(commandResult, id, true, true);
         this.deploymentItem = deploymentItem
     }
 

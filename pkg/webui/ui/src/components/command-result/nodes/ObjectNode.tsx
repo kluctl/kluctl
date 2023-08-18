@@ -1,13 +1,13 @@
 import React from 'react';
 
-import { ObjectRef } from "../../../models";
+import { CommandResult, ObjectRef } from "../../../models";
 import { NodeData } from "./NodeData";
 import { PublishedWithChanges, Settings, SettingsEthernet, SmartToy, SvgIconComponent } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
 import { findObjectByRef, ObjectType, User } from "../../../api";
-import { CommandResultProps } from "../CommandResultView";
 import { SidePanelTab } from "../SidePanel";
 import { BracketsCurlyIcon } from '../../../icons/Icons';
+import { AppContextProps } from "../../App";
 
 const kindMapping: { [key: string]: { icon: SvgIconComponent } } = {
     "/ConfigMap": { icon: Settings },
@@ -19,8 +19,8 @@ const kindMapping: { [key: string]: { icon: SvgIconComponent } } = {
 export class ObjectNodeData extends NodeData {
     objectRef: ObjectRef
 
-    constructor(props: CommandResultProps, id: string, objectRef: ObjectRef) {
-        super(props, id, true, true);
+    constructor(commandResult: CommandResult, id: string, objectRef: ObjectRef) {
+        super(commandResult, id, true, true);
         this.objectRef = objectRef
     }
 
@@ -28,8 +28,8 @@ export class ObjectNodeData extends NodeData {
         return this.objectRef.name
     }
 
-    buildIcon(): [React.ReactNode, string] {
-        const sn = this.props.shortNames.find(sn => sn.group === this.objectRef.group && sn.kind === this.objectRef.kind)
+    buildIcon(appContext: AppContextProps): [React.ReactNode, string] {
+        const sn = appContext.shortNames.find(sn => sn.group === this.objectRef.group && sn.kind === this.objectRef.kind)
         const snStr = sn?.shortName || ""
 
         const m = kindMapping[this.objectRef.group + "/" + this.objectRef.kind]
@@ -47,15 +47,15 @@ export class ObjectNodeData extends NodeData {
 
         this.buildDiffAndHealthPages(tabs)
 
-        if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.rendered) {
+        if (findObjectByRef(this.commandResult.objects, this.objectRef)?.rendered) {
             tabs.push({ label: "Rendered", content: this.buildObjectPage(this.objectRef, ObjectType.Rendered) })
         }
 
         if (user?.isAdmin) {
-            if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.remote) {
+            if (findObjectByRef(this.commandResult.objects, this.objectRef)?.remote) {
                 tabs.push({ label: "Remote", content: this.buildObjectPage(this.objectRef, ObjectType.Remote) })
             }
-            if (findObjectByRef(this.props.commandResult.objects, this.objectRef)?.applied) {
+            if (findObjectByRef(this.commandResult.objects, this.objectRef)?.applied) {
                 tabs.push({ label: "Applied", content: this.buildObjectPage(this.objectRef, ObjectType.Applied) })
             }
         }
@@ -78,7 +78,7 @@ export class ObjectNodeData extends NodeData {
             props.push({ name: "Namespace", value: this.objectRef.namespace })
         }
 
-        const o = findObjectByRef(this.props.commandResult.objects, this.objectRef)
+        const o = findObjectByRef(this.commandResult.objects, this.objectRef)
         const annotations: { [key: string]: string } = o?.rendered?.metadata.annotations
         if (annotations) {
             Object.keys(annotations).forEach(k => {

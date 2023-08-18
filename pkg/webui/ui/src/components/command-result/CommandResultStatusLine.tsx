@@ -2,6 +2,7 @@ import { CommandResultSummary, ValidateResult } from "../../models";
 import { Box, Tooltip, Typography } from "@mui/material";
 import React from "react";
 import { AddedIcon, ChangedIcon, ErrorIcon, OrphanIcon, TrashIcon, WarningIcon } from "../../icons/Icons";
+import { Hotel } from "@mui/icons-material";
 
 export interface StatusLineProps {
     errors?: number
@@ -49,6 +50,17 @@ export const StatusLine = (props: StatusLineProps) => {
 }
 
 export const CommandResultStatusLine = (props: { rs: CommandResultSummary }) => {
+    if (!props.rs.errors?.length &&
+        !props.rs.warnings?.length &&
+        !props.rs.changedObjects &&
+        !props.rs.newObjects &&
+        !props.rs.deletedObjects &&
+        !props.rs.orphanObjects
+    ) {
+        return <Tooltip title={"Result is empty"}>
+            <Hotel/>
+        </Tooltip>
+    }
     return <StatusLine errors={props.rs.errors?.length}
         warnings={props.rs.warnings?.length}
         changedObjects={props.rs.changedObjects}

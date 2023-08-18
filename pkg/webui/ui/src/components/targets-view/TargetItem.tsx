@@ -1,7 +1,7 @@
 import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import {
     Approval,
@@ -23,14 +23,17 @@ import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { ApiContext, UserContext } from "../App";
 import { CardBody, CardTemplate } from "./Card";
-import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
+import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
-import { PropertiesTable } from "../PropertiesTable";
+import { PropertiesEntry, PropertiesTable, pushProp } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { Since } from "../Since";
 import { ValidateResultsTable } from "../ValidateResultsTable";
 import { LogsViewer } from "../LogsViewer";
+import { K8sManifestViewer } from "../K8sManifestViewer";
+import { YamlViewer } from "../YamlViewer";
+import { gitRefToString } from "../../utils/git";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -172,8 +175,9 @@ export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
 }) => {
     const api = useContext(ApiContext);
+    const [initialLoading, setInitialLoading] = useState(true)
 
-    const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(async () => {
+    const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(true, async () => {
         if (!props.ts.lastValidateResult) {
             return undefined
         }
@@ -181,8 +185,10 @@ export const TargetItemBody = React.memo((props: {
         return o
     }, [props.ts.lastValidateResult?.id])
 
-    if (loading) {
+    if (initialLoading && loading) {
         return <Loading/>;
+    } else if (initialLoading) {
+        setInitialLoading(false)
     }
 
     if (error) {
@@ -362,6 +368,13 @@ class TargetItemCardProvider implements SidePanelProvider {
             { label: "Summary", content: this.buildSummaryTab() }
         ]
 
+        if (this.ts.kd?.deployment) {
+            tabs.push({
+                label: "KluctlDeployment",
+                content: <K8sManifestViewer obj={this.ts.kd.deployment} initialShowStatus={false}/>
+            })
+        }
+
         if (this.lastValidateResult?.results) {
             tabs.push({
                 label: "Validation Results",
@@ -391,33 +404,70 @@ class TargetItemCardProvider implements SidePanelProvider {
     }
 
     buildSummaryTab(): React.ReactNode {
-        const props = [
+        const d = this.ts?.kd?.deployment
+
+        const props: PropertiesEntry[] = [
             { name: "Target Name", value: this.getTargetName() },
-            { name: "Discriminator", value: this.ts?.target.discriminator },
         ]
 
-        if (this.ts?.lastValidateResult) {
-            props.push({ name: "Ready", value: this.ts?.lastValidateResult.ready + "" })
-        }
-        if (this.ts?.lastValidateResult?.errors) {
-            props.push({ name: "Errors", value: this.ts?.lastValidateResult.errors + "" })
-        }
-        if (this.ts?.lastValidateResult?.warnings) {
-            props.push({ name: "Warnings", value: this.ts?.lastValidateResult.warnings + "" })
+        pushProp(props, "Discriminator", this.ts?.target.discriminator)
+
+        if (d) {
+            let args = d.spec.args
+            if (args && Object.keys(args).length === 0) {
+                args = undefined
+            }
+
+            pushProp(props, "Interval", d.spec.interval)
+            pushProp(props, "Retry Interval", d.spec.retryInterval)
+            pushProp(props, "Deploy Interval", d.spec.deployInterval)
+            pushProp(props, "Validate Interval", d.spec.validateInterval)
+            pushProp(props, "Timeout", d.spec.timeout)
+            pushProp(props, "Suspend", d.spec.suspend)
+            pushProp(props, "Target", d.spec.target)
+            pushProp(props, "Target Name Override", d.spec.targetNameOverride)
+            pushProp(props, "Context", d.spec.context)
+            pushProp(props, "Args", args, () => <YamlViewer obj={args}/>)
+            pushProp(props, "Dry Run", d.spec.dryRun)
+            pushProp(props, "No Wait", d.spec.noWait)
+            pushProp(props, "Force Apply", d.spec.forceApply)
+            pushProp(props, "Replace On Error", d.spec.replaceOnError)
+            pushProp(props, "Force Replace On Error", d.spec.forceReplaceOnError)
+            pushProp(props, "Abort On Error", d.spec.abortOnError)
+            pushProp(props, "Include Tags", d.spec.includeTags)
+            pushProp(props, "Exclude Tags", d.spec.excludeTags)
+            pushProp(props, "Include Deployment Dirs", d.spec.includeDeploymentDirs)
+            pushProp(props, "Exclude Deployment Dirs", d.spec.excludeDeploymentDirs)
+            pushProp(props, "Deploy Mode", d.spec.deployMode)
+            pushProp(props, "Validate", d.spec.validate)
+            pushProp(props, "Prune", d.spec.prune)
+            pushProp(props, "Delete", d.spec.delete)
+            pushProp(props, "Manual", d.spec.manual)
+            pushProp(props, "Manual Objects Hash", d.spec.manualObjectsHash)
+
+            pushProp(props, "Source Url", d.spec.source.url)
+            pushProp(props, "Source Ref", gitRefToString(d.spec.source.ref))
+            pushProp(props, "Source Path", d.spec.source.path)
+
+            pushProp(props, "Last Objects Hash", d.status.lastObjectsHash)
         }
 
+        pushProp(props, "Ready", this.ts?.lastValidateResult?.ready)
+        pushProp(props, "Errors", this.ts?.lastValidateResult?.errors)
+        pushProp(props, "Warnings", this.ts?.lastValidateResult?.warnings)
+
         let errorHeader
-        if (this.ts?.kd?.deployment.status) {
-            if (this.ts.kd.deployment.status.lastPrepareError) {
+        if (d?.status) {
+            if (d.status.lastPrepareError) {
                 errorHeader = <Alert severity="error">
                     The prepare step failed for this deployment. This usually means that your deployment is severely
                     broken and can't even be loaded.<br/>
-                    The error message is: <b>{this.ts.kd.deployment.status.lastPrepareError}</b>
+                    The error message is: <b>{d.status.lastPrepareError}</b>
                 </Alert>
             }
         }
 
-        return <Box>
+        return <Box flex={"1 1 auto"}>
             {errorHeader}
             <PropertiesTable properties={props}/>
         </Box>

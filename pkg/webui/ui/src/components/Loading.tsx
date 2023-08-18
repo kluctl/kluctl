@@ -15,12 +15,22 @@ export const Loading = () => {
     </Box>
 }
 
-export function useLoadingHelper<T>(load: () => Promise<T>, deps: DependencyList): [boolean, any, T | undefined] {
-    const [loading, setLoading] = useState(true)
+export function useLoadingHelper<T>(needLoad: boolean, load: () => Promise<T>, deps: DependencyList): [boolean, any, T | undefined] {
+    const [loading, setLoading] = useState(needLoad)
     const [error, setError] = useState<any>()
     const [content, setContent] = useState<T>()
 
+    const deps2 = [...deps, needLoad]
+
     useEffect(() => {
+        setLoading(needLoad)
+        setContent(undefined)
+        setError(undefined)
+
+        if (!needLoad) {
+            return
+        }
+
         const doStartLoading = async () => {
             try {
                 const c = await load()
@@ -33,7 +43,7 @@ export function useLoadingHelper<T>(load: () => Promise<T>, deps: DependencyList
         }
         doStartLoading()
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, deps)
+    }, deps2)
 
     return [loading, error, content]
 }

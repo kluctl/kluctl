@@ -1,7 +1,6 @@
 import { createHashRouter, useRouteError } from "react-router-dom";
 import App from "./App";
 import { TargetsView } from "./targets-view/TargetsView";
-import { CommandResultView } from "./result-view/CommandResultView";
 import { ErrorMessageCard } from "./ErrorMessage";
 import { Box } from "@mui/material";
 
@@ -23,11 +22,6 @@ export const Router = createHashRouter([
             {
                 path: "targets/*",
                 element: <TargetsView />,
-                errorElement: <ErrorPage />,
-            },
-            {
-                path: "results/:id",
-                element: <CommandResultView />,
                 errorElement: <ErrorPage />,
             },
         ],

@@ -1,13 +1,13 @@
-import { ChangedObject, DeploymentError, ObjectRef, ResultObject } from "../../../models";
+import { ChangedObject, CommandResult, DeploymentError, ObjectRef, ResultObject } from "../../../models";
 import React from "react";
 import { Box, Divider, Typography } from "@mui/material";
-import { CommandResultProps } from "../CommandResultView";
 import { ChangesTable } from "../ChangesTable";
 import { ErrorsTable } from "../../ErrorsTable";
 import { ObjectType, User } from "../../../api";
-import { ObjectYaml } from "../../ObjectYaml";
+import { ResultObjectViewer } from "../../ResultObjectViewer";
 import { StatusLine } from "../CommandResultStatusLine";
 import { SidePanelProvider, SidePanelTab } from "../SidePanel";
+import { AppContextProps } from "../../App";
 
 export class DiffStatus {
     newObjects: ObjectRef[] = [];
@@ -69,7 +69,7 @@ export class HealthStatus {
 }
 
 export abstract class NodeData implements SidePanelProvider {
-    props: CommandResultProps
+    commandResult: CommandResult
 
     id: string
     children: NodeData[] = []
@@ -77,8 +77,8 @@ export abstract class NodeData implements SidePanelProvider {
     healthStatus?: HealthStatus;
     diffStatus?: DiffStatus;
 
-    protected constructor(props: CommandResultProps, id: string, hasHealthStatus: boolean, hasDiffStatus: boolean) {
-        this.props = props
+    protected constructor(commandResult: CommandResult, id: string, hasHealthStatus: boolean, hasDiffStatus: boolean) {
+        this.commandResult = commandResult
         this.id = id
         if (hasHealthStatus) {
             this.healthStatus = new HealthStatus()
@@ -108,7 +108,7 @@ export abstract class NodeData implements SidePanelProvider {
 
     abstract buildSidePanelTitle(): React.ReactNode
 
-    abstract buildIcon(): [React.ReactNode, string]
+    abstract buildIcon(appContext: AppContextProps): [React.ReactNode, string]
 
     abstract buildSidePanelTabs(user: User): SidePanelTab[]
 
@@ -123,8 +123,8 @@ export abstract class NodeData implements SidePanelProvider {
         />
     }
 
-    buildTreeItem(hasChildren?: boolean): React.ReactNode {
-        const [icon, iconText] = this.buildIcon();
+    buildTreeItem(appContext: AppContextProps, hasChildren: boolean): React.ReactNode {
+        const [icon, iconText] = this.buildIcon(appContext);
 
         const hasStatusLine = [
             this.healthStatus?.errors.length,
@@ -213,7 +213,7 @@ export abstract class NodeData implements SidePanelProvider {
     }
 
     buildObjectPage(ref: ObjectRef, objectType: ObjectType): React.ReactNode {
-        return <ObjectYaml treeProps={this.props} objectRef={ref} objectType={objectType} />
+        return <ResultObjectViewer cr={this.commandResult} objectRef={ref} objectType={objectType} />
     }
 
     buildChangesPage(tabs: { label: string, content: React.ReactNode }[]) {

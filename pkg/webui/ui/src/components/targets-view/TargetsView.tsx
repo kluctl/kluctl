@@ -5,12 +5,12 @@ import { AppContext } from "../App";
 import { ProjectItem } from "./ProjectItem";
 import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
-import { CommandResultItem } from "./CommandResultItem";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { ExpandableCard } from "./ExpandableCard";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { CommandResultCard } from "../command-result/CommandResultCard";
 
 const colWidth = 416;
 const curveRadius = 12;
@@ -177,20 +177,33 @@ function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment
 export const TargetsView = () => {
     const navigate = useNavigate();
     const loc = useLocation();
+    const [searchParams] = useSearchParams()
     const appContext = useContext(AppContext);
     const projects = appContext.projects;
+
+    const fullResultStr = searchParams.get("full")
+    const fullResult = fullResultStr === "" || fullResultStr === "1"
 
     const onSelectTargetItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
         navigate(`/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`);
     }, [navigate]);
 
-    const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary, rs?: CommandResultSummary) => {
+    const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary, rs: CommandResultSummary | undefined, forceFull: boolean | undefined) => {
         let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}/results`
         if (rs) {
             p += "/" + rs.id
+            let full = false
+            if (forceFull !== undefined) {
+                full = forceFull
+            } else {
+                full = fullResult
+            }
+            if (full) {
+                p += "?full=1"
+            }
         }
         navigate(p);
-    }, [navigate]);
+    }, [navigate, fullResult]);
 
     const onCardClose = useCallback(() => {
         navigate(`/targets/`);
@@ -228,6 +241,7 @@ export const TargetsView = () => {
             }
         }
     }
+
 
     return <Box minWidth={colWidth * 3} height={"100%"} p='0 40px'>
         <Box display={"flex"} alignItems={"center"} height='70px'>
@@ -279,7 +293,7 @@ export const TargetsView = () => {
                                             }}
                                         />
                                     }}/>
-                                <RelationHorizontalLine/>
+                                {ts.commandResults.length ? <RelationHorizontalLine/> : <></>}
                             </Box>
                         })}
                     </CardCol>
@@ -294,26 +308,32 @@ export const TargetsView = () => {
                                             cardWidth={cardWidth}
                                             cardHeight={cardHeight}
                                             expand={expandedResults && selectedTargetKey === tsKey}
-                                            onExpand={() => onSelectCommandResultItem(ps, ts)}
+                                            onExpand={() => {
+                                                onSelectCommandResultItem(ps, ts, rs, false)
+                                            }}
                                             onClose={() => {
                                                 onCardClose()
                                             }}
                                             onSelect={cd => {
-                                                onSelectCommandResultItem(ps, ts, cd)
+                                                onSelectCommandResultItem(ps, ts, cd, fullResult)
                                             }}
                                             selected={expandedResultId}
                                             cardsData={ts.commandResults}
                                             getKey={cd => cd.id}
                                             renderCard={(cardData, expanded, current) => {
-                                                return <CommandResultItem
+                                                return <CommandResultCard
                                                     current={current}
                                                     ps={ps}
                                                     ts={ts}
                                                     rs={cardData}
+                                                    showSummary={!fullResult}
                                                     expanded={expanded}
-                                                    loadData={current}
+                                                    loadData={expanded && current}
                                                     onClose={() => {
                                                         onCardClose()
+                                                    }}
+                                                    onSwitchFullCommandResult={() => {
+                                                        onSelectCommandResultItem(ps, ts, cardData, !fullResult)
                                                     }}
                                                 />
                                             }}/>

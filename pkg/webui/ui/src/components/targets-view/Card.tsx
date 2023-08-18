@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, BoxProps, Divider, IconButton, Paper, PaperProps, Tab, Tooltip } from "@mui/material"
 import { CloseLightIcon } from "../../icons/Icons";
-import { SidePanelProvider, useSidePanelTabs } from "../result-view/SidePanel";
+import { SidePanelProvider, useSidePanelTabs } from "../command-result/SidePanel";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
 import { ScrollingTextLine } from "../ScrollingTextLine";
 
