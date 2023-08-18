@@ -25,13 +25,14 @@ import { ApiContext, UserContext } from "../App";
 import { CardBody, CardTemplate } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
-import { PropertiesTable } from "../PropertiesTable";
+import { PropertiesEntry, PropertiesTable } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { Since } from "../Since";
 import { ValidateResultsTable } from "../ValidateResultsTable";
 import { LogsViewer } from "../LogsViewer";
 import { K8sManifestViewer } from "../K8sManifestViewer";
+import { YamlViewer } from "../YamlViewer";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -402,10 +403,34 @@ class TargetItemCardProvider implements SidePanelProvider {
     }
 
     buildSummaryTab(): React.ReactNode {
-        const props = [
+        const d = this.ts?.kd?.deployment
+
+        const props: PropertiesEntry[] = [
             { name: "Target Name", value: this.getTargetName() },
             { name: "Discriminator", value: this.ts?.target.discriminator },
         ]
+
+        props.push({ name: "Source Url", value: d.spec.source.url })
+        if (d.spec.source.ref) {
+            let ref = ""
+            if (d.spec.source.ref.tag) {
+                ref = "tag " + d.spec.source.ref.tag
+            } else if (d.spec.source.ref.branch) {
+                ref = "branch " + d.spec.source.ref.branch
+            } else if (d.spec.source.ref.commit) {
+                ref = "commit " + d.spec.source.ref.commit
+            } else {
+                ref = JSON.stringify(d.spec.source.ref)
+            }
+            props.push({ name: "Source Ref", value: ref })
+        }
+        if (d.spec.source.path) {
+            props.push({ name: "Source Path", value: d.spec.source.path })
+        }
+
+        if (d.spec.args) {
+            props.push({ name: "Args", value: <YamlViewer obj={d.spec.args}/>})
+        }
 
         if (this.ts?.lastValidateResult) {
             props.push({ name: "Ready", value: this.ts?.lastValidateResult.ready + "" })
@@ -418,17 +443,17 @@ class TargetItemCardProvider implements SidePanelProvider {
         }
 
         let errorHeader
-        if (this.ts?.kd?.deployment.status) {
-            if (this.ts.kd.deployment.status.lastPrepareError) {
+        if (d.status) {
+            if (d.status.lastPrepareError) {
                 errorHeader = <Alert severity="error">
                     The prepare step failed for this deployment. This usually means that your deployment is severely
                     broken and can't even be loaded.<br/>
-                    The error message is: <b>{this.ts.kd.deployment.status.lastPrepareError}</b>
+                    The error message is: <b>{d.status.lastPrepareError}</b>
                 </Alert>
             }
         }
 
-        return <Box>
+        return <Box flex={"1 1 auto"}>
             {errorHeader}
             <PropertiesTable properties={props}/>
         </Box>

@@ -6,7 +6,12 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 
-export function PropertiesTable(props: {properties: {name: string, value: React.ReactNode}[]}) {
+export interface PropertiesEntry {
+    name: string
+    value: React.ReactNode
+}
+
+export function PropertiesTable(props: {properties: PropertiesEntry[]}) {
     return (
         <TableContainer>
             <Table>
