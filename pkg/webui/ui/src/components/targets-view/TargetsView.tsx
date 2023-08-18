@@ -315,7 +315,7 @@ export const TargetsView = () => {
                                                 onCardClose()
                                             }}
                                             onSelect={cd => {
-                                                onSelectCommandResultItem(ps, ts, cd, false)
+                                                onSelectCommandResultItem(ps, ts, cd, fullResult)
                                             }}
                                             selected={expandedResultId}
                                             cardsData={ts.commandResults}

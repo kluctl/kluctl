@@ -1,7 +1,7 @@
 import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import {
     Approval,
@@ -31,6 +31,7 @@ import { ErrorMessage } from "../ErrorMessage";
 import { Since } from "../Since";
 import { ValidateResultsTable } from "../ValidateResultsTable";
 import { LogsViewer } from "../LogsViewer";
+import { K8sManifestViewer } from "../K8sManifestViewer";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -172,6 +173,7 @@ export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
 }) => {
     const api = useContext(ApiContext);
+    const [initialLoading, setInitialLoading] = useState(true)
 
     const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(async () => {
         if (!props.ts.lastValidateResult) {
@@ -181,8 +183,10 @@ export const TargetItemBody = React.memo((props: {
         return o
     }, [props.ts.lastValidateResult?.id])
 
-    if (loading) {
+    if (initialLoading && loading) {
         return <Loading/>;
+    } else if (initialLoading) {
+        setInitialLoading(false)
     }
 
     if (error) {
@@ -361,6 +365,13 @@ class TargetItemCardProvider implements SidePanelProvider {
         const tabs = [
             { label: "Summary", content: this.buildSummaryTab() }
         ]
+
+        if (this.ts.kd?.deployment) {
+            tabs.push({
+                label: "KluctlDeployment",
+                content: <K8sManifestViewer obj={this.ts.kd.deployment} initialShowStatus={false}/>
+            })
+        }
 
         if (this.lastValidateResult?.results) {
             tabs.push({

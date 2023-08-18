@@ -2,23 +2,16 @@ import React from 'react';
 
 import { NodeData } from "./NodeData";
 import { PropertiesTable } from "../../PropertiesTable";
-import { CodeViewer } from "../../CodeViewer";
 
-import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
 import { DeployIcon } from '../../../icons/Icons';
 import { LogsViewer } from "../../LogsViewer";
 import { CommandResult } from "../../../models";
+import { YamlViewer } from "../../YamlViewer";
 
 export class CommandResultNodeData extends NodeData {
-    dumpedTargetYaml?: string
-
     constructor(commandResult: CommandResult, id: string) {
         super(commandResult, id, true, true);
-
-        if (this.commandResult.command?.target) {
-            this.dumpedTargetYaml = yaml.dump(this.commandResult.command.target)
-        }
     }
 
     buildSidePanelTitle(): React.ReactNode {
@@ -31,13 +24,9 @@ export class CommandResultNodeData extends NodeData {
 
     buildSidePanelTabs(): SidePanelTab[] {
         const tabs = [
-            {label: "Summary", content: this.buildSummaryPage()}
+            {label: "Summary", content: this.buildSummaryPage()},
+            {label: "Target", content: this.buildTargetPage()},
         ]
-
-        if (this.dumpedTargetYaml) {
-            const page = this.buildTargetPage()
-            tabs.push({label: "Target", content: page})
-        }
 
         this.buildDiffAndHealthPages(tabs)
 
@@ -61,6 +50,6 @@ export class CommandResultNodeData extends NodeData {
     }
 
     buildTargetPage(): React.ReactNode {
-        return <CodeViewer code={this.dumpedTargetYaml!} language={"yaml"}/>
+        return <YamlViewer obj={this.commandResult.target} />
     }
 }

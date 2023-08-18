@@ -1,11 +1,9 @@
-import React, { useContext, useMemo } from "react";
+import React, { useContext } from "react";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CommandResultSummary, ShortName } from "../../models";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { LiveHelp, RocketLaunch, Summarize } from "@mui/icons-material";
-import * as yaml from "js-yaml";
-import { CodeViewer } from "../CodeViewer";
 import { CardTemplate } from "../targets-view/Card";
 import { Since } from "../Since";
 import { CommandResultSummaryBody } from "./CommandResultSummaryView";
@@ -14,6 +12,7 @@ import { Api } from "../../api";
 import { CommandResultBody } from "./CommandResultView";
 import { NodeBuilder } from "./nodes/NodeBuilder";
 import { CommandResultStatusLine } from "./CommandResultStatusLine";
+import { YamlViewer } from "../YamlViewer";
 
 export async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
     const r = await api.getCommandResult(rs.id);
@@ -130,10 +129,7 @@ export const CommandResultCard = React.memo(React.forwardRef((
             break
     }
 
-    const iconTooltip = useMemo(() => {
-        const cmdInfoYaml = yaml.dump(props.rs.commandInfo);
-        return <CodeViewer code={cmdInfoYaml} language={"yaml"} />
-    }, [props.rs.commandInfo]);
+    const iconTooltip = <YamlViewer obj={props.rs.commandInfo}/>
 
     let body: React.ReactElement | undefined
     if (props.expanded) {

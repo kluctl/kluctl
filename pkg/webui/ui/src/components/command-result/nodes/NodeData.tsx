@@ -4,7 +4,7 @@ import { Box, Divider, Typography } from "@mui/material";
 import { ChangesTable } from "../ChangesTable";
 import { ErrorsTable } from "../../ErrorsTable";
 import { ObjectType, User } from "../../../api";
-import { ObjectYaml } from "../../ObjectYaml";
+import { ResultObjectViewer } from "../../ResultObjectViewer";
 import { StatusLine } from "../CommandResultStatusLine";
 import { SidePanelProvider, SidePanelTab } from "../SidePanel";
 import { AppContextProps } from "../../App";
@@ -213,7 +213,7 @@ export abstract class NodeData implements SidePanelProvider {
     }
 
     buildObjectPage(ref: ObjectRef, objectType: ObjectType): React.ReactNode {
-        return <ObjectYaml cr={this.commandResult} objectRef={ref} objectType={objectType} />
+        return <ResultObjectViewer cr={this.commandResult} objectRef={ref} objectType={objectType} />
     }
 
     buildChangesPage(tabs: { label: string, content: React.ReactNode }[]) {
