@@ -1,17 +1,16 @@
 import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useContext, useState } from 'react';
 import TreeView from '@mui/lab/TreeView';
 import { TreeItem } from "@mui/lab";
-import { NodeBuilder } from "./nodes/NodeBuilder";
 import { NodeData } from "./nodes/NodeData";
 import { ActiveFilters, DoFilterSwitches } from "../FilterBar";
-import { CommandResultProps } from "./CommandResultView";
-import { Loading } from "../Loading";
-import { Box, Divider, Paper, useTheme } from '@mui/material';
+import { Box, Divider, useTheme } from '@mui/material';
 import { TriangleDownIcon, TriangleRightIcon } from '../../icons/Icons';
+import { CommandResultNodeData } from "./nodes/CommandResultNode";
+import { AppContext } from "../App";
 
 export interface CommandResultTreeProps {
-    commandResultProps?: CommandResultProps
+    rootNode: CommandResultNodeData
 
     onSelectNode: (node?: NodeData) => void
     activeFilters?: ActiveFilters
@@ -19,16 +18,8 @@ export interface CommandResultTreeProps {
 
 const CommandResultTree = (props: CommandResultTreeProps) => {
     const theme = useTheme();
+    const appContext = useContext(AppContext)
     const [expanded, setExpanded] = useState<string[]>(["root"]);
-
-    const [rootNode] = useMemo(() => {
-        if (!props.commandResultProps) {
-            return [undefined, undefined]
-        }
-
-        const builder = new NodeBuilder(props.commandResultProps)
-        return builder.buildRoot()
-    }, [props.commandResultProps])
 
     const handleToggle = (event: React.SyntheticEvent, nodeIds: string[]) => {
         setExpanded(nodeIds);
@@ -75,7 +66,7 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
                             }}
                         />
                     }
-                    {nodes.buildTreeItem(nodes.children.length !== 0)}
+                    {nodes.buildTreeItem(appContext, nodes.children.length !== 0)}
                 </Box>
             }
             sx={{
@@ -115,21 +106,15 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
         </TreeItem>
     };
 
-    if (!rootNode) {
-        return <Loading />
-    }
-
-    return <Paper sx={{ padding: '20px 40px' }}>
-        <TreeView expanded={expanded}
-            onNodeToggle={handleToggle}
-            aria-label="rich object"
-            defaultCollapseIcon={<TriangleDownIcon />}
-            defaultExpandIcon={<TriangleRightIcon />}
-            sx={{ width: "100%" }}
-        >
-            {renderTree(rootNode)}
-        </TreeView>
-    </Paper>
+    return <TreeView expanded={expanded}
+                     onNodeToggle={handleToggle}
+                     aria-label="rich object"
+                     defaultCollapseIcon={<TriangleDownIcon/>}
+                     defaultExpandIcon={<TriangleRightIcon/>}
+                     sx={{ width: "100%" }}
+    >
+        {renderTree(props.rootNode)}
+    </TreeView>
 }
 
 export default CommandResultTree;

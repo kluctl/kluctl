@@ -1,11 +1,11 @@
 import React, { useContext, useEffect, useState } from "react";
 import { CommandResultSummary } from "../../models";
-import { CardBody } from "./Card";
+import { CardBody } from "../targets-view/Card";
 import { ApiContext, AppContext } from "../App";
 import { Loading } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
-import { CommandResultNodeData } from "../result-view/nodes/CommandResultNode";
 import { doGetRootNode } from "./CommandResultCard";
+import { CommandResultNodeData } from "./nodes/CommandResultNode";
 
 
 export const CommandResultSummaryBody = React.memo((props: {

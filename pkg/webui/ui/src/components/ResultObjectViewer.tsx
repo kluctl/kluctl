@@ -1,15 +1,15 @@
 import { CommandResult, ObjectRef } from "../models";
 import { ObjectType } from "../api";
 import React, { useContext } from "react";
-import { CodeViewer } from "./CodeViewer";
 
 import { Loading, useLoadingHelper } from "./Loading";
 import { ApiContext } from "./App";
 import * as yaml from 'js-yaml';
 import { ErrorMessage } from "./ErrorMessage";
 import { Box } from "@mui/material";
+import { K8sManifestViewer } from "./K8sManifestViewer";
 
-export const ObjectYaml = (props: { cr: CommandResult, objectRef: ObjectRef, objectType: ObjectType }) => {
+export const ResultObjectViewer = (props: { cr: CommandResult, objectRef: ObjectRef, objectType: ObjectType }) => {
     const api = useContext(ApiContext)
     const [loading, error, content] = useLoadingHelper<string>(async () => {
         const o = await api.getCommandResultObject(props.cr.id, props.objectRef, props.objectType)
@@ -25,6 +25,6 @@ export const ObjectYaml = (props: { cr: CommandResult, objectRef: ObjectRef, obj
             {error.message}
         </ErrorMessage>
     } else {
-        return <CodeViewer code={content!} language={"yaml"} />
+        return <K8sManifestViewer obj={content}/>
     }
 }

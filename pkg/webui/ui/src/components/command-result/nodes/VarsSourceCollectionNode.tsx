@@ -1,15 +1,14 @@
-import { VarsSource } from "../../../models";
+import { CommandResult, VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
-import { CommandResultProps } from "../CommandResultView";
 import { SidePanelTab } from "../SidePanel";
 import { BracketsSquareIcon } from "../../../icons/Icons";
 
 export class VarsSourceCollectionNodeData extends NodeData {
     varsSources: VarsSource[] = []
 
-    constructor(props: CommandResultProps, id: string) {
-        super(props, id, false, false);
+    constructor(commandResult: CommandResult, id: string) {
+        super(commandResult, id, false, false);
     }
 
     buildSidePanelTitle(): React.ReactNode {

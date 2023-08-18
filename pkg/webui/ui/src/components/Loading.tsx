@@ -21,6 +21,9 @@ export function useLoadingHelper<T>(load: () => Promise<T>, deps: DependencyList
     const [content, setContent] = useState<T>()
 
     useEffect(() => {
+        setLoading(true)
+        setContent(undefined)
+        setError(undefined)
         const doStartLoading = async () => {
             try {
                 const c = await load()

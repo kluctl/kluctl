@@ -1,9 +1,8 @@
 import React from 'react';
 
-import { DeploymentItemConfig, DeploymentProjectConfig } from "../../../models";
+import { CommandResult, DeploymentItemConfig, DeploymentProjectConfig } from "../../../models";
 import { NodeData } from "./NodeData";
 import { GitIcon, IncludeIcon } from "../../../icons/Icons";
-import { CommandResultProps } from "../CommandResultView";
 import { PropertiesTable } from "../../PropertiesTable";
 import { buildDeploymentItemSummaryProps } from "./DeploymentItemNode";
 import { SidePanelTab } from "../SidePanel";
@@ -14,8 +13,8 @@ export class DeploymentItemIncludeNodeData extends NodeData {
     deploymentItem: DeploymentItemConfig
     includedDeployment: DeploymentProjectConfig
 
-    constructor(props: CommandResultProps, id: string, deploymentItem: DeploymentItemConfig, includedDeployment: DeploymentProjectConfig) {
-        super(props, id, true, true);
+    constructor(commandResult: CommandResult, id: string, deploymentItem: DeploymentItemConfig, includedDeployment: DeploymentProjectConfig) {
+        super(commandResult, id, true, true);
         this.deploymentItem = deploymentItem
         this.includedDeployment = includedDeployment
     }

@@ -23,7 +23,7 @@ import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { ApiContext, UserContext } from "../App";
 import { CardBody, CardTemplate } from "./Card";
-import { SidePanelProvider, SidePanelTab } from "../result-view/SidePanel";
+import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesTable } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";

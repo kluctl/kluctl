@@ -6,7 +6,7 @@ import { Transition, TransitionStatus } from "react-transition-group";
 const transitionTime = 200
 const arrowButtonWidth = 80;
 const arrowButtonHeight = 50;
-const expandedZIndex = 1300; // same as MUI modals
+export const expandedZIndex = 1300; // same as MUI modals
 
 const ArrowButton = React.memo((props: {
     direction: 'left' | 'right',

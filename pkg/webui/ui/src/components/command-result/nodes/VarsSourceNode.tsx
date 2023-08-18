@@ -1,4 +1,4 @@
-import { VarsSource } from "../../../models";
+import { CommandResult, VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
 import { Category, Cloud, Dvr, Http, Lock, Settings } from "@mui/icons-material";
@@ -6,7 +6,6 @@ import { FileIcon, GitIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
 import { Alert, Box } from "@mui/material";
-import { CommandResultProps } from "../CommandResultView";
 
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
@@ -25,8 +24,8 @@ export class VarsSourceNodeData extends NodeData {
     labelsYaml?: string
     renderedVarsYaml: string
 
-    constructor(props: CommandResultProps, id: string, varsSource: VarsSource) {
-        super(props, id, false, false);
+    constructor(commandResult: CommandResult, id: string, varsSource: VarsSource) {
+        super(commandResult, id, false, false);
         this.varsSource = varsSource
 
         let labels = this.varsSource.clusterConfigMap?.labels
@@ -232,16 +231,9 @@ export class VarsSourceNodeData extends NodeData {
             {redactedWarning && <Alert severity="error">Only admins can view sensitive vars!</Alert>}
             {sensitiveWarning && <Alert severity="warning">Warning, the following vars are marked as sensitive!</Alert>}
 
-            {!redactedWarning && <Box sx={{
-                overflowY: 'scroll', // Enable vertical scrolling
-                //maxHeight: '400px', // Set a fixed height
-                border: '1px solid #ccc', // Optional border
-                padding: '10px', // Optional padding
-            }}>
-                <pre>
-                    <CodeViewer code={this.renderedVarsYaml} language={"yaml"}/>
-                </pre>
-            </Box>
+            {!redactedWarning &&
+                <CodeViewer code={this.renderedVarsYaml} language={"yaml"}/>
+
             }
         </Box>
     }

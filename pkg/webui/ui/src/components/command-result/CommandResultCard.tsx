@@ -2,25 +2,22 @@ import React, { useContext, useMemo } from "react";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CommandResultSummary, ShortName } from "../../models";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
-import { useNavigate } from "react-router";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
-import { LiveHelp, RocketLaunch } from "@mui/icons-material";
+import { LiveHelp, RocketLaunch, Summarize } from "@mui/icons-material";
 import * as yaml from "js-yaml";
 import { CodeViewer } from "../CodeViewer";
-import { CardTemplate } from "./Card";
+import { CardTemplate } from "../targets-view/Card";
 import { Since } from "../Since";
-import { CommandResultStatusLine } from "../result-view/CommandResultStatusLine";
 import { CommandResultSummaryBody } from "./CommandResultSummaryView";
 import { ApiContext, UserContext } from "../App";
 import { Api } from "../../api";
-import { NodeBuilder } from "../result-view/nodes/NodeBuilder";
+import { CommandResultBody } from "./CommandResultView";
+import { NodeBuilder } from "./nodes/NodeBuilder";
+import { CommandResultStatusLine } from "./CommandResultStatusLine";
 
 export async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
     const r = await api.getCommandResult(rs.id);
-    const builder = new NodeBuilder({
-        shortNames,
-        commandResult: r,
-    });
+    const builder = new NodeBuilder(r)
     const [node] = builder.buildRoot();
     return node;
 }
@@ -89,7 +86,7 @@ export const CommandResultCard = React.memo(React.forwardRef((
         ps: ProjectSummary,
         ts: TargetSummary,
         rs: CommandResultSummary,
-        onSelectCommandResult?: (rs: CommandResultSummary) => void,
+        onSwitchFullCommandResult: () => void,
         sx?: SxProps<Theme>,
         showSummary: boolean,
         expanded?: boolean,
@@ -98,8 +95,6 @@ export const CommandResultCard = React.memo(React.forwardRef((
     },
     ref: React.ForwardedRef<HTMLDivElement>
 ) => {
-    const navigate = useNavigate();
-
     let icon: React.ReactElement
     let cardGlow = false
     let header = props.rs.commandInfo?.command
@@ -144,6 +139,8 @@ export const CommandResultCard = React.memo(React.forwardRef((
     if (props.expanded) {
         if (props.showSummary) {
             body = <CommandResultSummaryBody rs={props.rs} loadData={props.loadData} />
+        } else {
+            body = <CommandResultBody rs={props.rs} loadData={props.loadData}/>
         }
     }
 
@@ -156,7 +153,7 @@ export const CommandResultCard = React.memo(React.forwardRef((
             <IconButton
                 onClick={e => {
                     e.stopPropagation();
-                    navigate(`/results/${props.rs.id}`);
+                    props.onSwitchFullCommandResult()
                 }}
                 sx={{
                     padding: 0,
@@ -164,8 +161,8 @@ export const CommandResultCard = React.memo(React.forwardRef((
                     height: 26
                 }}
             >
-                <Tooltip title={"Open Result Tree"}>
-                    <Box display='flex'><TreeViewIcon /></Box>
+                <Tooltip title={props.showSummary ? "Show full result tree" : "Show summary"}>
+                    <Box display='flex'>{props.showSummary ? <TreeViewIcon /> : <Summarize/>}</Box>
                 </Tooltip>
             </IconButton>
         </Box>
@@ -181,7 +178,6 @@ export const CommandResultCard = React.memo(React.forwardRef((
                 ...props.sx,
             },
             glow: cardGlow,
-            onClick: () => props.onSelectCommandResult?.(props.rs)
         }}
         icon={icon}
         iconTooltip={iconTooltip}

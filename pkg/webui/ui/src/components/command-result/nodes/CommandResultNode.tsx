@@ -3,21 +3,21 @@ import React from 'react';
 import { NodeData } from "./NodeData";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
-import { CommandResultProps } from "../CommandResultView";
 
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
 import { DeployIcon } from '../../../icons/Icons';
 import { LogsViewer } from "../../LogsViewer";
+import { CommandResult } from "../../../models";
 
 export class CommandResultNodeData extends NodeData {
     dumpedTargetYaml?: string
 
-    constructor(props: CommandResultProps, id: string) {
-        super(props, id, true, true);
+    constructor(commandResult: CommandResult, id: string) {
+        super(commandResult, id, true, true);
 
-        if (this.props.commandResult.command?.target) {
-            this.dumpedTargetYaml = yaml.dump(this.props.commandResult.command.target)
+        if (this.commandResult.command?.target) {
+            this.dumpedTargetYaml = yaml.dump(this.commandResult.command.target)
         }
     }
 
@@ -42,8 +42,8 @@ export class CommandResultNodeData extends NodeData {
         this.buildDiffAndHealthPages(tabs)
 
         tabs.push({label: "Logs", content: <LogsViewer
-                cluster={this.props.commandResult.clusterInfo.clusterId}
-                reconcileId={this.props.commandResult.id}/>
+                cluster={this.commandResult.clusterInfo.clusterId}
+                reconcileId={this.commandResult.id}/>
         })
 
         return tabs
@@ -51,8 +51,8 @@ export class CommandResultNodeData extends NodeData {
 
     buildSummaryPage(): React.ReactNode {
         const props = [
-            {name: "Initiator", value: this.props.commandResult.command?.initiator},
-            {name: "Command", value: this.props.commandResult.command?.command},
+            {name: "Initiator", value: this.commandResult.command?.initiator},
+            {name: "Command", value: this.commandResult.command?.command},
         ]
 
         return <>

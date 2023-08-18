@@ -1,4 +1,5 @@
 import {
+    CommandResult,
     DeploymentError,
     DeploymentItemConfig,
     DeploymentProjectConfig,
@@ -13,11 +14,10 @@ import { NodeData } from "./NodeData";
 import { CommandResultNodeData } from "./CommandResultNode";
 import { VarsSourceCollectionNodeData } from "./VarsSourceCollectionNode";
 import { DeploymentItemIncludeNodeData } from "./DeploymentItemIncludeNode";
-import { CommandResultProps } from "../CommandResultView";
 import { DeletedOrOrphanObjectsCollectionNode } from "./DeletedOrOrphanObjectsCollectionNode";
 
 export class NodeBuilder {
-    private props: CommandResultProps
+    private commandResult: CommandResult
     private changedObjectsMap: Map<string, ResultObject> = new Map()
     private newObjectsMap: Map<string, ObjectRef> = new Map()
     private orphanObjectsMap: Map<string, ObjectRef> = new Map()
@@ -25,10 +25,10 @@ export class NodeBuilder {
     private errorsMap: Map<string, DeploymentError[]> = new Map()
     private warningsMap: Map<string, DeploymentError[]> = new Map()
 
-    constructor(props: CommandResultProps) {
-        this.props = props
+    constructor(commandResult: CommandResult) {
+        this.commandResult = commandResult
 
-        props.commandResult.objects?.forEach(o => {
+        commandResult.objects?.forEach(o => {
             const key = buildObjectRefKey(o.ref)
             if (o.changes?.length) {
                 this.changedObjectsMap.set(key, o)
@@ -43,7 +43,7 @@ export class NodeBuilder {
                 this.deletedObjectsMap.set(key, o.ref)
             }
         })
-        props.commandResult.errors?.forEach(e => {
+        commandResult.errors?.forEach(e => {
             const key = buildObjectRefKey(e.ref)
             let l = this.errorsMap.get(key)
             if (!l) {
@@ -53,7 +53,7 @@ export class NodeBuilder {
                 l.push(e)
             }
         })
-        props.commandResult.warnings?.forEach(e => {
+        commandResult.warnings?.forEach(e => {
             const key = buildObjectRefKey(e.ref)
             let l = this.warningsMap.get(key)
             if (!l) {
@@ -66,10 +66,10 @@ export class NodeBuilder {
     }
 
     buildRoot(): [CommandResultNodeData, Map<string, NodeData>] {
-        const rootNode = new CommandResultNodeData(this.props, "root")
+        const rootNode = new CommandResultNodeData(this.commandResult, "root")
 
-        if (this.props.commandResult.deployment) {
-            this.buildDeploymentProjectChildren(rootNode, this.props.commandResult.deployment)
+        if (this.commandResult.deployment) {
+            this.buildDeploymentProjectChildren(rootNode, this.commandResult.deployment)
         }
 
         if (this.deletedObjectsMap.size) {
@@ -106,7 +106,7 @@ export class NodeBuilder {
         }
 
         const newId = `${parentNode.id}/(vars)`
-        const node = new VarsSourceCollectionNodeData(this.props, newId)
+        const node = new VarsSourceCollectionNodeData(this.commandResult, newId)
         node.varsSources.push(...varsSources)
 
         varsSources.forEach((vs, i) => {
@@ -120,7 +120,7 @@ export class NodeBuilder {
 
     buildVarsSourceNode(parentNode: NodeData, varsSource: VarsSource, index: number): VarsSourceNodeData {
         const newId = `${parentNode.id}/${index}}`
-        const node = new VarsSourceNodeData(this.props, newId, varsSource)
+        const node = new VarsSourceNodeData(this.commandResult, newId, varsSource)
         parentNode.pushChild(node)
         return node
     }
@@ -129,13 +129,13 @@ export class NodeBuilder {
         let node: NodeData | undefined
         const newId = `${parentNode.id}/(dis)/${index}`
         if (deploymentItem.path) {
-            node = new DeploymentItemNodeData(this.props, newId, deploymentItem)
+            node = new DeploymentItemNodeData(this.commandResult, newId, deploymentItem)
             this.buildVarsSourceCollectionNode(node, deploymentItem.vars)
             deploymentItem.renderedObjects?.forEach(renderedObject => {
                 this.buildObjectNode(node!, renderedObject)
             })
         } else if (deploymentItem.include || deploymentItem.git) {
-            node = new DeploymentItemIncludeNodeData(this.props, newId, deploymentItem, deploymentItem.renderedInclude!)
+            node = new DeploymentItemIncludeNodeData(this.commandResult, newId, deploymentItem, deploymentItem.renderedInclude!)
             this.buildVarsSourceCollectionNode(node, deploymentItem.vars)
             if (deploymentItem.renderedInclude) {
                 this.buildDeploymentProjectChildren(node, deploymentItem.renderedInclude)
@@ -151,7 +151,7 @@ export class NodeBuilder {
 
     buildObjectNode(parentNode: NodeData, objectRef: ObjectRef): ObjectNodeData {
         const newId = `${parentNode.id}/(obj)/${buildObjectRefKey(objectRef)}`
-        const node = new ObjectNodeData(this.props, newId, objectRef)
+        const node = new ObjectNodeData(this.commandResult, newId, objectRef)
 
         const key = buildObjectRefKey(objectRef)
         if (this.changedObjectsMap.has(key)) {
@@ -182,7 +182,7 @@ export class NodeBuilder {
     buildDeletedOrOrphanNode(parentNode: NodeData, deleted: boolean, refs: ObjectRef[]): DeletedOrOrphanObjectsCollectionNode {
         const idType = deleted ? "deleted" : "orphaned"
         const newId = `${parentNode.id}/(${idType})`
-        const node = new DeletedOrOrphanObjectsCollectionNode(this.props, newId, deleted)
+        const node = new DeletedOrOrphanObjectsCollectionNode(this.commandResult, newId, deleted)
         refs.forEach(ref => {
             this.buildObjectNode(node, ref)
         })

@@ -10,20 +10,11 @@ SyntaxHighlighter.registerLanguage('yaml', yamlLanguage);
 SyntaxHighlighter.registerLanguage('diff', diffLanguage);
 
 export function CodeViewer(props: { code: string, language: string }) {
-    return <SyntaxHighlighter language={props.language} style={docco}>
-            {props.code!}
-        </SyntaxHighlighter>
-
-
-    /*return <Box height={"100%"}><Box sx={{
-        overflowY: 'scroll', // Enable vertical scrolling
-        height: "100%",
-        //maxHeight: '100%', // Set a fixed height
-        border: '1px solid #ccc', // Optional border
-        padding: '10px', // Optional padding
+    return <SyntaxHighlighter language={props.language} style={docco} customStyle={{
+        overflowX: undefined, // the parent container is handling scrolling
+        flex: "1 1 auto",
+        height: "max-content",
     }}>
-        <SyntaxHighlighter language={props.language} style={docco}>
-            {props.code!}
-        </SyntaxHighlighter>
-    </Box></Box>*/
+        {props.code!}
+    </SyntaxHighlighter>
 }
