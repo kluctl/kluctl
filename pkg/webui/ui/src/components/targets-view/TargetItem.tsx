@@ -175,7 +175,7 @@ export const TargetItemBody = React.memo((props: {
     const api = useContext(ApiContext);
     const [initialLoading, setInitialLoading] = useState(true)
 
-    const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(async () => {
+    const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(true, async () => {
         if (!props.ts.lastValidateResult) {
             return undefined
         }

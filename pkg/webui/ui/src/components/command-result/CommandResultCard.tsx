@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-import { CommandResultSummary, ShortName } from "../../models";
+import { CommandResult, CommandResultSummary } from "../../models";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { LiveHelp, RocketLaunch, Summarize } from "@mui/icons-material";
@@ -8,18 +8,11 @@ import { CardTemplate } from "../targets-view/Card";
 import { Since } from "../Since";
 import { CommandResultSummaryBody } from "./CommandResultSummaryView";
 import { ApiContext, UserContext } from "../App";
-import { Api } from "../../api";
 import { CommandResultBody } from "./CommandResultView";
-import { NodeBuilder } from "./nodes/NodeBuilder";
 import { CommandResultStatusLine } from "./CommandResultStatusLine";
 import { YamlViewer } from "../YamlViewer";
-
-export async function doGetRootNode(api: Api, rs: CommandResultSummary, shortNames: ShortName[]) {
-    const r = await api.getCommandResult(rs.id);
-    const builder = new NodeBuilder(r)
-    const [node] = builder.buildRoot();
-    return node;
-}
+import { Loading, useLoadingHelper } from "../Loading";
+import { ErrorMessage } from "../ErrorMessage";
 
 const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
     const api = useContext(ApiContext)
@@ -88,12 +81,21 @@ export const CommandResultCard = React.memo(React.forwardRef((
         onSwitchFullCommandResult: () => void,
         sx?: SxProps<Theme>,
         showSummary: boolean,
-        expanded?: boolean,
-        loadData?: boolean,
+        expanded: boolean,
+        loadData: boolean,
         onClose?: () => void
     },
     ref: React.ForwardedRef<HTMLDivElement>
 ) => {
+    const api = useContext(ApiContext)
+
+    const [loading, error, cr] = useLoadingHelper<CommandResult | undefined>(props.loadData, async () => {
+        if (!props.loadData) {
+            return undefined
+        }
+        return await api.getCommandResult(props.rs.id)
+    }, [props.rs.id, props.loadData])
+
     let icon: React.ReactElement
     let cardGlow = false
     let header = props.rs.commandInfo?.command
@@ -132,11 +134,21 @@ export const CommandResultCard = React.memo(React.forwardRef((
     const iconTooltip = <YamlViewer obj={props.rs.commandInfo}/>
 
     let body: React.ReactElement | undefined
-    if (props.expanded) {
-        if (props.showSummary) {
-            body = <CommandResultSummaryBody rs={props.rs} loadData={props.loadData} />
-        } else {
-            body = <CommandResultBody rs={props.rs} loadData={props.loadData}/>
+    if (props.expanded && props.loadData) {
+        if (loading) {
+            body = <Box width={"100%"} height={"100%"}>
+                <Loading />
+            </Box>
+        } else if (error) {
+            body = <ErrorMessage>
+                {error.message}
+            </ErrorMessage>
+        } else if (cr) {
+            if (props.showSummary) {
+                body = <CommandResultSummaryBody cr={cr}/>
+            } else {
+                body = <CommandResultBody cr={cr}/>
+            }
         }
     }
 

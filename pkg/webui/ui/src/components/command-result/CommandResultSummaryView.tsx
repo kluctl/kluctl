@@ -1,66 +1,17 @@
-import React, { useContext, useEffect, useState } from "react";
-import { CommandResultSummary } from "../../models";
+import React, { useMemo } from "react";
+import { CommandResult } from "../../models";
 import { CardBody } from "../targets-view/Card";
-import { ApiContext, AppContext } from "../App";
-import { Loading } from "../Loading";
-import { ErrorMessage } from "../ErrorMessage";
-import { doGetRootNode } from "./CommandResultCard";
-import { CommandResultNodeData } from "./nodes/CommandResultNode";
+import { NodeBuilder } from "./nodes/NodeBuilder";
 
 
 export const CommandResultSummaryBody = React.memo((props: {
-    rs: CommandResultSummary,
-    loadData?: boolean
+    cr: CommandResult,
 }) => {
-    const api = useContext(ApiContext);
-    const appContext = useContext(AppContext);
-
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<any>();
-    const [node, setNode] = useState<CommandResultNodeData>();
-    const [prevRsId, setPrevRsId] = useState<string>();
-
-    useEffect(() => {
-        let cancelled = false;
-        if (!props.loadData) {
-            return;
-        }
-
-        if (prevRsId === props.rs.id) {
-            return;
-        }
-
-        const doStartLoading = async () => {
-            try {
-                setLoading(true);
-                const n = await doGetRootNode(api, props.rs, appContext.shortNames);
-                if (cancelled) {
-                    return;
-                }
-                setNode(n);
-                setPrevRsId(props.rs.id);
-            } catch (error) {
-                setError(error);
-            }
-            setLoading(false);
-        };
-
-        doStartLoading();
-
-        return () => {
-            cancelled = true;
-        }
-    }, [api, appContext.shortNames, prevRsId, props.loadData, props.rs])
-
-    if (loading) {
-        return <Loading />;
-    }
-
-    if (error) {
-        return <ErrorMessage>
-            {error.message}
-        </ErrorMessage>;
-    }
+    const node = useMemo(() => {
+        const builder = new NodeBuilder(props.cr)
+        const [node] =  builder.buildRoot()
+        return node
+    }, [props.cr])
 
     if (!node) {
         return null;

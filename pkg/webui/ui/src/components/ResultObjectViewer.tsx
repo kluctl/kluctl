@@ -11,7 +11,7 @@ import { K8sManifestViewer } from "./K8sManifestViewer";
 
 export const ResultObjectViewer = (props: { cr: CommandResult, objectRef: ObjectRef, objectType: ObjectType }) => {
     const api = useContext(ApiContext)
-    const [loading, error, content] = useLoadingHelper<string>(async () => {
+    const [loading, error, content] = useLoadingHelper<string>(true, async () => {
         const o = await api.getCommandResultObject(props.cr.id, props.objectRef, props.objectType)
         return yaml.dump(o)
     }, [props.cr.id, props.objectRef, props.objectType])

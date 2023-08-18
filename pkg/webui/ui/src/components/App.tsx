@@ -126,7 +126,7 @@ const LoggedInApp = (props: { onLogout: () => void }) => {
         return buildProjectSummaries(commandResultSummaries, validateResultSummaries, kluctlDeployments, filters)
     }, [commandResultSummaries, validateResultSummaries, kluctlDeployments, filters])
 
-    const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(
+    const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(true,
         () => api.getShortNames(),
         [api]
     );

@@ -328,7 +328,7 @@ export const TargetsView = () => {
                                                     rs={cardData}
                                                     showSummary={!fullResult}
                                                     expanded={expanded}
-                                                    loadData={current}
+                                                    loadData={expanded && current}
                                                     onClose={() => {
                                                         onCardClose()
                                                     }}
