@@ -14,6 +14,10 @@ import (
 )
 
 type webuiCmd struct {
+	Run_ webuiRunCmd `cmd:"run" help:"Run the Kluctl Webui"`
+}
+
+type webuiRunCmd struct {
 	Host        string   `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to localhost."`
 	Port        int      `group:"misc" help:"Port to bind to." default:"8080"`
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
@@ -53,11 +57,11 @@ type webuiCmd struct {
 	AuthLogoutReturnParam string `group:"auth" help:"Specify the parameter name to pass to the logout redirect url, containing the return URL to redirect back."`
 }
 
-func (cmd *webuiCmd) Help() string {
+func (cmd *webuiRunCmd) Help() string {
 	return `TODO`
 }
 
-func (cmd *webuiCmd) buildAuthConfig(ctx context.Context, c client.Client) (webui.AuthConfig, error) {
+func (cmd *webuiRunCmd) buildAuthConfig(ctx context.Context, c client.Client) (webui.AuthConfig, error) {
 	var authConfig webui.AuthConfig
 	authConfig.AuthEnabled = cmd.InCluster
 
@@ -92,7 +96,7 @@ func (cmd *webuiCmd) buildAuthConfig(ctx context.Context, c client.Client) (webu
 	return authConfig, nil
 }
 
-func (cmd *webuiCmd) Run(ctx context.Context) error {
+func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 	if !cmd.OnlyApi && !webui.IsWebUiBuildIncluded() {
 		return fmt.Errorf("this build of Kluctl does not have the webui embedded")
 	}
@@ -171,7 +175,7 @@ func (cmd *webuiCmd) Run(ctx context.Context) error {
 	}
 }
 
-func (cmd *webuiCmd) createResultStores(ctx context.Context) ([]results.ResultStore, []*rest.Config, error) {
+func (cmd *webuiRunCmd) createResultStores(ctx context.Context) ([]results.ResultStore, []*rest.Config, error) {
 	r := clientcmd.NewDefaultClientConfigLoadingRules()
 
 	kcfg, err := r.Load()
