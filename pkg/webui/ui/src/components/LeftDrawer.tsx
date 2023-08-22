@@ -160,15 +160,6 @@ export default function LeftDrawer(props: {
                 <FilterBar onFilterChange={props.context.setFilters}/>
             </>
             break;
-        case 'results':
-            header = <
-            >
-                <Typography variant='h1'>
-                    Result Tree
-                </Typography>
-                <FilterBar onFilterChange={props.context.setFilters}/>
-            </>
-            break;
     }
 
     return (

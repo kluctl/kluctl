@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/oauth2"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -36,6 +37,11 @@ func (s *authHandler) setupOidcProvider(ctx context.Context, authConfig AuthConf
 		return err
 	}
 	s.oidcProvider = provider
+
+	err = provider.Claims(&s.oidcProviderClaims)
+	if err != nil {
+		return err
+	}
 
 	s.oauth2Config = &oauth2.Config{
 		ClientID:     authConfig.OidcClientId,
@@ -112,10 +118,10 @@ func (s *authHandler) storeToken(c *gin.Context, session sessions.Session, token
 	return nil
 }
 
-func (s *authHandler) handleOidcCallback(c *gin.Context) (int, string) {
+func (s *authHandler) handleOidcCallback(c *gin.Context) error {
 	session := sessions.Default(c)
 	if c.Query("state") != session.Get("state") {
-		return http.StatusBadRequest, "invalid state parameter"
+		return fmt.Errorf("invalid state parameter")
 	}
 
 	session.Delete("state")
@@ -123,30 +129,31 @@ func (s *authHandler) handleOidcCallback(c *gin.Context) (int, string) {
 	// Exchange an authorization code for a token.
 	token, err := s.oauth2Config.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
-		return http.StatusUnauthorized, err.Error()
+		return err
 	}
 
 	err = s.storeToken(c, session, token)
 	if err != nil {
-		return http.StatusUnauthorized, err.Error()
+		return err
 	}
 
 	if err := session.Save(); err != nil {
-		return http.StatusInternalServerError, err.Error()
+		return err
 	}
 
-	return http.StatusOK, ""
+	return nil
 }
 
 func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
-	status, errMsg := s.handleOidcCallback(c)
-	if status != http.StatusOK {
-		c.String(status, errMsg)
-		return
+	err := s.handleOidcCallback(c)
+
+	redirectTo := "/"
+	if err != nil {
+		redirectTo += fmt.Sprintf("?login_error=%s", url.QueryEscape(err.Error()))
 	}
 
-	// Redirect to logged in page.
-	c.Redirect(http.StatusTemporaryRedirect, "/")
+	// Redirect to root in page.
+	c.Redirect(http.StatusTemporaryRedirect, redirectTo)
 }
 
 func (s *authHandler) oidcRefresh(c *gin.Context, session sessions.Session, tokenInfo *oidcTokenInfo) error {

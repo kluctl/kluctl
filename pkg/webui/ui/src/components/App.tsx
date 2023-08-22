@@ -174,7 +174,9 @@ const App = () => {
     const onLogout = () => {
         console.log("handle onLogout")
         setUser(undefined)
-        window.location.href='/auth/logout'
+        const params = new URLSearchParams()
+        params.set("returnUrl", `${window.location.protocol}//${window.location.host}`)
+        window.location.href='/auth/logout?' + params.toString()
     }
     const onUnauthorized = () => {
         console.log("handle onUnauthorized")

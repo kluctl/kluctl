@@ -1,7 +1,6 @@
 import { Box, Button, FormControl, Paper, TextField, Typography, useTheme } from '@mui/material';
 import React, { SyntheticEvent, useState } from 'react';
 import { rootPath } from "../api";
-import { ErrorMessageCard } from './ErrorMessage';
 import { AuthInfo } from "../models";
 
 interface loginCredentials {
@@ -12,39 +11,59 @@ interface loginCredentials {
 type LoginResult = {
     type: 'success',
 } | {
-    type: 'unauthorized'
-} | {
-    type: 'other-error',
+    type: 'error',
     statusText: string
 }
 
 async function loginStaticUser(creds: loginCredentials): Promise<LoginResult> {
     const url = rootPath + `/auth/staticLogin`
-    return fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(creds)
-    }).then(response => {
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(creds)
+        })
         if (response.status === 200) {
             return { type: "success" }
         } else if (response.status === 401) {
-            return { type: 'unauthorized' }
+            let statusText = await response.text()
+            if (!statusText) {
+                statusText = "Invalid username/password"
+            }
+            return { type: 'error', statusText: statusText }
         } else {
             return {
-                type: 'other-error',
+                type: 'error',
                 statusText: response.statusText
             }
         }
-    });
+    } catch (e) {
+        return {
+            type: 'error',
+            statusText: "unknown error",
+        }
+    }
 }
 
 export default function Login(props: { authInfo: AuthInfo }) {
     const theme = useTheme();
     const [username, setUserName] = useState<string>();
     const [password, setPassword] = useState<string>();
-    const [error, setError] = useState<Exclude<LoginResult, { type: 'success' }>>();
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const loginErrorFromSearchParams = searchParams.get("login_error")
+    let initialError: LoginResult | undefined
+    if (loginErrorFromSearchParams) {
+        initialError = {
+            type: "error",
+            statusText: loginErrorFromSearchParams,
+        }
+    }
+
+    const [error, setError] = useState<LoginResult | undefined>(initialError);
+    console.log(searchParams, loginErrorFromSearchParams, initialError, error)
 
     const handleSubmit = async (e: SyntheticEvent) => {
         e.preventDefault();
@@ -60,20 +79,12 @@ export default function Login(props: { authInfo: AuthInfo }) {
         switch (result.type) {
             case 'success':
                 window.location.href='/'
+                setError(undefined)
                 break;
-            case 'unauthorized':
-                setError(result);
-                break;
-            case 'other-error':
+            case 'error':
                 setError(result)
                 break;
         }
-    }
-
-    if (error?.type === 'other-error') {
-        return <ErrorMessageCard>
-            {error.statusText}
-        </ErrorMessageCard>
     }
 
     const staticLogin = <form onSubmit={handleSubmit}>
@@ -90,9 +101,9 @@ export default function Login(props: { authInfo: AuthInfo }) {
             <FormControl fullWidth >
                 <TextField variant='standard' label='Password' type="password" onChange={e => setPassword(e.target.value)} />
             </FormControl>
-            {error?.type === 'unauthorized' && (
+            {error?.type !== 'success' && (
                 <Box color={theme.palette.error.main}>
-                    Invalid username or password
+                    {error?.statusText}
                 </Box>
             )}
             <FormControl >

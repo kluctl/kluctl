@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"golang.org/x/oauth2"
 	"net/http"
+	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
@@ -40,6 +41,9 @@ type AuthConfig struct {
 	OidcGroupClaim       string
 	OidcAdminsGroups     []string
 	OidcViewersGroups    []string
+
+	LogoutUrl         string
+	LogoutReturnParam string
 }
 
 type login struct {
@@ -58,8 +62,9 @@ type authHandler struct {
 	adminPassword  string
 	viewerPassword string
 
-	oidcProvider *oidc.Provider
-	oauth2Config *oauth2.Config
+	oidcProvider       *oidc.Provider
+	oidcProviderClaims map[string]any
+	oauth2Config       *oauth2.Config
 }
 
 type User struct {
@@ -159,7 +164,47 @@ func (s *authHandler) logoutHandler(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.Redirect(http.StatusTemporaryRedirect, "/")
+
+	redirectUrl, err := s.buildLogoutRedirect(c)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.Redirect(http.StatusTemporaryRedirect, redirectUrl)
+}
+
+func (s *authHandler) buildLogoutRedirect(c *gin.Context) (string, error) {
+	redirectUrl := s.authConfig.LogoutUrl
+
+	params := url.Values{}
+	if redirectUrl == "" {
+		redirectUrl = "/"
+	} else {
+		if s.authConfig.LogoutReturnParam != "" {
+			// the react app is passing this value
+			returnUrl := c.Request.URL.Query().Get("returnUrl")
+			if returnUrl != "" {
+				params.Set(s.authConfig.LogoutReturnParam, returnUrl)
+			}
+		}
+	}
+
+	if len(params) != 0 {
+		x, err := url.Parse(redirectUrl)
+		if err != nil {
+			return "", err
+		}
+		for k, v := range x.Query() {
+			for _, v2 := range v {
+				params.Add(k, v2)
+			}
+		}
+		x.RawQuery = params.Encode()
+		redirectUrl = x.String()
+	}
+
+	return redirectUrl, nil
 }
 
 func (s *authHandler) getUser(c *gin.Context) *User {

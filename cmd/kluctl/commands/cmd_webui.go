@@ -48,6 +48,9 @@ type webuiCmd struct {
 	AuthOidcGroupClaim       string   `group:"auth" help:"Specify claim for the groups.'" default:"groups"`
 	AuthOidcAdminsGroup      []string `group:"auth" help:"Specify admins group names.'"`
 	AuthOidcViewersGroup     []string `group:"auth" help:"Specify viewers group names.'"`
+
+	AuthLogoutURL         string `group:"auth" help:"Specify the logout URL, to which the user should be redirected after clearing the Kluctl Webui session."`
+	AuthLogoutReturnParam string `group:"auth" help:"Specify the parameter name to pass to the logout redirect url, containing the return URL to redirect back."`
 }
 
 func (cmd *webuiCmd) Help() string {
@@ -82,6 +85,8 @@ func (cmd *webuiCmd) buildAuthConfig(ctx context.Context, c client.Client) (webu
 		authConfig.OidcGroupClaim = cmd.AuthOidcGroupClaim
 		authConfig.OidcAdminsGroups = cmd.AuthOidcAdminsGroup
 		authConfig.OidcViewersGroups = cmd.AuthOidcViewersGroup
+		authConfig.LogoutUrl = cmd.AuthLogoutURL
+		authConfig.LogoutReturnParam = cmd.AuthLogoutReturnParam
 	}
 
 	return authConfig, nil
