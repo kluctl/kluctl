@@ -36,3 +36,4 @@ Individual commands are documented in sub-sections.
 14. [controller run](./controller-run.md)
 15. [controller install](./controller-install.md)
 16. [webui run](./webui-run.md)
+17. [webui build](./webui-build.md)
