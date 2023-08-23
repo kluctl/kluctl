@@ -122,7 +122,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
 
     const kluctlDeploymentsByKdKey = new Map<string, KluctlDeploymentWithClusterId>()
     kluctlDeployments.forEach(kd => {
-        if (!kd.deployment.status || !kd.deployment.status.projectKey) {
+        if (!kd.deployment.status || !kd.deployment.status.projectKey || !kd.deployment.status.targetKey) {
             return
         }
         if (!filterTarget(kd, undefined, kd.deployment.status.projectKey, kd.deployment.status.targetKey)) {
