@@ -12,7 +12,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { Link, useLocation } from "react-router-dom";
-import { AppOutletContext } from "./App";
+import { AppOutletContext, useAppContext } from "./App";
 import { KluctlLogo, KluctlText, LogoutIcon, TargetsIcon } from '../icons/Icons';
 import { dark } from './theme';
 import { Typography } from '@mui/material';
@@ -141,6 +141,7 @@ export default function LeftDrawer(props: {
     context: AppOutletContext,
     logout: () => void
 }) {
+    const appCtx = useAppContext()
     const [open, setOpen] = useState(true);
     const location = useLocation()
     const theme = useTheme();
@@ -186,11 +187,11 @@ export default function LeftDrawer(props: {
                                 <Item text={"Targets"} open={open} icon={<TargetsIcon />} to={"targets"} selected />
                             </List>
                         </Box>
-                        <Box flex='0 0 auto'>
+                        {appCtx.authInfo.authEnabled && <Box flex='0 0 auto'>
                             <List sx={{ padding: 0 }}>
                                 <Item text={"Log Out"} open={open} icon={<LogoutIcon />} onClick={props.logout} />
                             </List>
-                        </Box>
+                        </Box>}
                     </Box>
                 </Drawer>
             </ThemeProvider>
