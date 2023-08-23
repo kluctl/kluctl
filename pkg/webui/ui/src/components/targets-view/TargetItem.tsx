@@ -394,11 +394,15 @@ class TargetItemCardProvider implements SidePanelProvider {
             })
         }
 
-        tabs.push({label: "Logs", content: <LogsViewer
-                cluster={this.ts.kdInfo?.clusterId}
-                name={this.ts.kdInfo?.name}
-                namespace={this.ts.kdInfo?.namespace}
-            />})
+        if (this.ts.kd) {
+            tabs.push({
+                label: "Logs", content: <LogsViewer
+                    cluster={this.ts.kdInfo?.clusterId}
+                    name={this.ts.kdInfo?.name}
+                    namespace={this.ts.kdInfo?.namespace}
+                />
+            })
+        }
 
         return tabs
     }

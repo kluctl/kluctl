@@ -31,10 +31,13 @@ export class CommandResultNodeData extends NodeData {
 
         this.buildDiffAndHealthPages(tabs)
 
-        tabs.push({label: "Logs", content: <LogsViewer
-                cluster={this.commandResult.clusterInfo.clusterId}
-                reconcileId={this.commandResult.id}/>
-        })
+        if (this.commandResult.kluctlDeployment) {
+            tabs.push({
+                label: "Logs", content: <LogsViewer
+                    cluster={this.commandResult.clusterInfo.clusterId}
+                    reconcileId={this.commandResult.id}/>
+            })
+        }
 
         return tabs
     }
