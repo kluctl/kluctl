@@ -112,25 +112,25 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		DefaultSealedSecretsOutputPattern: target.Name,
 	}
 
+	targetCtx := &TargetContext{
+		Params:         params,
+		SharedContext:  dctx,
+		KluctlProject:  p,
+		Target:         *target,
+		ClusterContext: contextName,
+	}
+
 	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(repoRoot), relProjectDir, nil)
 	if err != nil {
-		return nil, err
+		return targetCtx, err
 	}
+	targetCtx.DeploymentProject = d
 
 	c, err := deployment.NewDeploymentCollection(dctx, d, params.Images, params.Inclusion, params.ForSeal)
 	if err != nil {
-		return nil, err
+		return targetCtx, err
 	}
-
-	targetCtx := &TargetContext{
-		Params:               params,
-		SharedContext:        dctx,
-		KluctlProject:        p,
-		Target:               *target,
-		ClusterContext:       contextName,
-		DeploymentProject:    d,
-		DeploymentCollection: c,
-	}
+	targetCtx.DeploymentCollection = c
 
 	return targetCtx, nil
 }

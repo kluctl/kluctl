@@ -279,6 +279,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
+	obj.Status.ProjectKey = &result.ProjectKey{
+		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
+		SubDir:     path.Clean(obj.Spec.Source.Path),
+	}
+	if obj.Status.ProjectKey.SubDir == "." {
+		obj.Status.ProjectKey.SubDir = ""
+	}
 
 	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
@@ -294,26 +301,19 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	targetContext, err := pt.loadTarget(ctx, lp)
+	if targetContext != nil {
+		clusterId, err := targetContext.SharedContext.K.GetClusterId()
+		if err != nil {
+			return doFailPrepare(err)
+		}
+		obj.Status.TargetKey = &result.TargetKey{
+			TargetName:    targetContext.Target.Name,
+			Discriminator: targetContext.Target.Discriminator,
+			ClusterId:     clusterId,
+		}
+	}
 	if err != nil {
 		return doFailPrepare(err)
-	}
-
-	obj.Status.ProjectKey = &result.ProjectKey{
-		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
-		SubDir:     path.Clean(obj.Spec.Source.Path),
-	}
-	clusterId, err := targetContext.SharedContext.K.GetClusterId()
-	if err != nil {
-		return doFailPrepare(err)
-	}
-	obj.Status.TargetKey = &result.TargetKey{
-		TargetName:    targetContext.Target.Name,
-		Discriminator: targetContext.Target.Discriminator,
-		ClusterId:     clusterId,
-	}
-
-	if obj.Status.ProjectKey.SubDir == "." {
-		obj.Status.ProjectKey.SubDir = ""
 	}
 
 	objectsHash, err := targetContext.DeploymentCollection.CalcObjectsHash()

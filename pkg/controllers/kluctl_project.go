@@ -648,11 +648,11 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 
 	targetContext, err := p.NewTargetContext(ctx, contextName, k, props)
 	if err != nil {
-		return nil, err
+		return targetContext, err
 	}
 	err = targetContext.DeploymentCollection.Prepare()
 	if err != nil {
-		return nil, err
+		return targetContext, err
 	}
 	return targetContext, nil
 }
