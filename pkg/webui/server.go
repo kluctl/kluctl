@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
@@ -94,6 +95,10 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 
 	s.cam.start()
 
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	router := gin.New()
 	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
 		SkipPaths: []string{"/healthz", "/readyz"},
@@ -151,6 +156,8 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 		},
 		Handler: router.Handler(),
 	}
+
+	status.Infof(s.ctx, "Webui is available at: http://%s\n", address)
 
 	return httpServer.Serve(listener)
 }
