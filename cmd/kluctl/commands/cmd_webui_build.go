@@ -10,9 +10,10 @@ import (
 )
 
 type webuiBuildCmd struct {
+	Path        string   `group:"misc" help:"Output path." required:"true"`
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use. Defaults to the current context."`
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
-	Path        string   `group:"misc" help:"Output path." required:"true"`
+	MaxResults  int      `group:"misc" help:"Specify the maximum number of results per target." default:"1"`
 }
 
 func (cmd *webuiBuildCmd) Help() string {
@@ -41,6 +42,6 @@ func (cmd *webuiBuildCmd) Run(ctx context.Context) error {
 	}
 	st.Success()
 
-	sbw := webui.NewStaticWebuiBuilder(collector)
+	sbw := webui.NewStaticWebuiBuilder(collector, cmd.MaxResults)
 	return sbw.Build(ctx, cmd.Path)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	cp "github.com/otiai10/copy"
@@ -15,11 +16,14 @@ import (
 
 type StaticWebuiBuilder struct {
 	store results.ResultStore
+
+	maxResults int
 }
 
-func NewStaticWebuiBuilder(store results.ResultStore) *StaticWebuiBuilder {
+func NewStaticWebuiBuilder(store results.ResultStore, maxResults int) *StaticWebuiBuilder {
 	ret := &StaticWebuiBuilder{
-		store: store,
+		store:      store,
+		maxResults: maxResults,
 	}
 	return ret
 }
@@ -40,6 +44,22 @@ func (swb *StaticWebuiBuilder) Build(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
+
+	filtered := make([]result.CommandResultSummary, 0, len(summaries))
+	counts := map[ProjectTargetKey]int{}
+	for _, rs := range summaries {
+		key := ProjectTargetKey{
+			Project: rs.ProjectKey,
+			Target:  rs.TargetKey,
+		}
+		cnt := counts[key]
+		if cnt >= swb.maxResults {
+			continue
+		}
+		counts[key]++
+		filtered = append(filtered, rs)
+	}
+	summaries = filtered
 
 	err = os.MkdirAll(filepath.Join(tmpDir, "staticdata"), 0o700)
 	if err != nil {
