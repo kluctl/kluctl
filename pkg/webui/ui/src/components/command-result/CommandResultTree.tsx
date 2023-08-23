@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import TreeView from '@mui/lab/TreeView';
 import { TreeItem } from "@mui/lab";
 import { NodeData } from "./nodes/NodeData";
@@ -7,7 +7,7 @@ import { ActiveFilters, DoFilterSwitches } from "../FilterBar";
 import { Box, Divider, useTheme } from '@mui/material';
 import { TriangleDownIcon, TriangleRightIcon } from '../../icons/Icons';
 import { CommandResultNodeData } from "./nodes/CommandResultNode";
-import { AppContext } from "../App";
+import { useAppContext } from "../App";
 
 export interface CommandResultTreeProps {
     rootNode: CommandResultNodeData
@@ -18,7 +18,7 @@ export interface CommandResultTreeProps {
 
 const CommandResultTree = (props: CommandResultTreeProps) => {
     const theme = useTheme();
-    const appContext = useContext(AppContext)
+    const appContext = useAppContext()
     const [expanded, setExpanded] = useState<string[]>(["root"]);
 
     const handleToggle = (event: React.SyntheticEvent, nodeIds: string[]) => {

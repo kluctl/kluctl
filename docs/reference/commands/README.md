@@ -33,3 +33,6 @@ Individual commands are documented in sub-sections.
 11. [prune](./prune.md)
 12. [render](./render.md)
 13. [validate](./validate.md)
+14. [controller run](./controller-run.md)
+15. [controller install](./controller-install.md)
+16. [webui run](./webui-run.md)

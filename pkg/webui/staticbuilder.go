@@ -4,25 +4,31 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	cp "github.com/otiai10/copy"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 )
 
 type StaticWebuiBuilder struct {
 	store results.ResultStore
+
+	maxResults int
 }
 
-func NewStaticWebuiBuilder(store results.ResultStore) *StaticWebuiBuilder {
+func NewStaticWebuiBuilder(store results.ResultStore, maxResults int) *StaticWebuiBuilder {
 	ret := &StaticWebuiBuilder{
-		store: store,
+		store:      store,
+		maxResults: maxResults,
 	}
 	return ret
 }
 
-func (swb *StaticWebuiBuilder) Build(path string) error {
+func (swb *StaticWebuiBuilder) Build(ctx context.Context, path string) error {
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return err
@@ -34,12 +40,40 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 		return err
 	}
 
+	kds, err := swb.store.ListKluctlDeployments()
+	if err != nil {
+		return err
+	}
+
+	filtered := make([]result.CommandResultSummary, 0, len(summaries))
+	counts := map[ProjectTargetKey]int{}
+	for _, rs := range summaries {
+		key := ProjectTargetKey{
+			Project: rs.ProjectKey,
+			Target:  rs.TargetKey,
+		}
+		cnt := counts[key]
+		if cnt >= swb.maxResults {
+			continue
+		}
+		counts[key]++
+		filtered = append(filtered, rs)
+	}
+	summaries = filtered
+
 	err = os.MkdirAll(filepath.Join(tmpDir, "staticdata"), 0o700)
 	if err != nil {
 		return err
 	}
 
-	gh := utils.NewGoHelper(context.Background(), 8)
+	doneCnt := atomic.Int32{}
+	buildStatusStr := func() string {
+		return fmt.Sprintf("Retrieved %d of %d results", doneCnt.Load(), len(summaries))
+	}
+	st := status.Start(ctx, buildStatusStr())
+	defer st.Failed()
+
+	gh := utils.NewGoHelper(ctx, 4)
 	for _, rs := range summaries {
 		rs := rs
 		gh.RunE(func() error {
@@ -71,10 +105,18 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 			if err != nil {
 				return err
 			}
+			doneCnt.Add(1)
+			st.Update(buildStatusStr())
 			return nil
 		})
 	}
 	gh.Wait()
+
+	err = gh.ErrorOrNil()
+	if err != nil {
+		return err
+	}
+	st.Success()
 
 	j, err := yaml.WriteJsonString(summaries)
 	if err != nil {
@@ -82,6 +124,23 @@ func (swb *StaticWebuiBuilder) Build(path string) error {
 	}
 	j = `const staticSummaries=` + j
 	err = os.WriteFile(filepath.Join(tmpDir, "staticdata/summaries.js"), []byte(j), 0o600)
+	if err != nil {
+		return err
+	}
+
+	var kds2 []map[string]any
+	for _, kd := range kds {
+		kds2 = append(kds2, map[string]any{
+			"clusterId":  kd.ClusterId,
+			"deployment": kd.Deployment,
+		})
+	}
+	j, err = yaml.WriteJsonString(kds2)
+	if err != nil {
+		return err
+	}
+	j = `const staticKluctlDeployments=` + j
+	err = os.WriteFile(filepath.Join(tmpDir, "staticdata/kluctldeployments.js"), []byte(j), 0o600)
 	if err != nil {
 		return err
 	}

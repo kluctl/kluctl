@@ -30,6 +30,7 @@ spec:
         command:
           - kluctl
           - webui
+          - run
           - --in-cluster
         args: []
         env: []

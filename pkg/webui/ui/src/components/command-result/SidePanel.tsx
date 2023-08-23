@@ -1,9 +1,8 @@
 import { Box, Divider, Tab, ThemeProvider } from "@mui/material";
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { TabContext, TabList, TabPanel } from "@mui/lab";
 import { light } from "../theme";
-import { User } from "../../api";
-import { UserContext } from "../App";
+import { AppContextProps, useAppContext } from "../App";
 
 export interface SidePanelTab {
     label: string
@@ -12,7 +11,7 @@ export interface SidePanelTab {
 
 export interface SidePanelProvider {
     buildSidePanelTitle(): React.ReactNode
-    buildSidePanelTabs(user?: User): SidePanelTab[]
+    buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[]
 }
 
 export interface SidePanelProps {
@@ -22,15 +21,15 @@ export interface SidePanelProps {
 
 export function useSidePanelTabs(provider?: SidePanelProvider) {
     const [selectedTab, setSelectedTab] = useState<string>();
-    const user = useContext(UserContext)
+    const appCtx = useAppContext()
 
     const handleTabChange = useCallback((_e: React.SyntheticEvent, value: string) => {
         setSelectedTab(value);
     }, []);
 
     const tabs = useMemo(
-        () => provider?.buildSidePanelTabs(user) || [],
-        [provider, user]
+        () => provider?.buildSidePanelTabs(appCtx) || [],
+        [provider, appCtx]
     );
 
     useEffect(() => {

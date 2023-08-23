@@ -72,7 +72,7 @@ type cli struct {
 	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
-	Webui       webuiCmd       `cmd:"" help:"TODO"`
+	Webui       webuiCmd       `cmd:"" help:"Kluctl Webui sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -89,9 +89,10 @@ var flagGroups = []groupInfo{
 
 var origStderr = os.Stderr
 
+// we must determine isTerminal before we override os.Stderr
+var isTerminal = isatty.IsTerminal(os.Stderr.Fd())
+
 func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) context.Context {
-	// we must determine isTerminal before we override os.Stderr
-	isTerminal := isatty.IsTerminal(origStderr.Fd())
 	var sh status.StatusHandler
 	var pp prompts.PromptProvider
 	if !debug && isTerminal {

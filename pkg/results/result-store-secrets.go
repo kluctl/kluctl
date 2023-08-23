@@ -320,7 +320,7 @@ func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
 
 	deploymentsMap := map[result.KluctlDeploymentInfo]bool{}
 	for _, d := range deployments {
-		deploymentsMap[result.KluctlDeploymentInfo{Name: d.Name, Namespace: d.Namespace, ClusterId: s.clusterId}] = true
+		deploymentsMap[result.KluctlDeploymentInfo{Name: d.Deployment.Name, Namespace: d.Deployment.Namespace, ClusterId: s.clusterId}] = true
 	}
 
 	tryDeleteResult := func(secretKey client.ObjectKey, deployment *result.KluctlDeploymentInfo, id string, t string) {
@@ -785,13 +785,21 @@ func (s *ResultStoreSecrets) GetValidateResult(options GetValidateResultOptions)
 	return &vr, nil
 }
 
-func (s *ResultStoreSecrets) ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error) {
+func (s *ResultStoreSecrets) ListKluctlDeployments() ([]WatchKluctlDeploymentEvent, error) {
 	var l kluctlv1.KluctlDeploymentList
 	err := s.cache.List(s.ctx, &l)
 	if err != nil {
 		return nil, err
 	}
-	return l.Items, nil
+	ret := make([]WatchKluctlDeploymentEvent, 0, len(l.Items))
+	for _, x := range l.Items {
+		x := x
+		ret = append(ret, WatchKluctlDeploymentEvent{
+			ClusterId:  s.clusterId,
+			Deployment: &x,
+		})
+	}
+	return ret, nil
 }
 
 func (s *ResultStoreSecrets) WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error) {

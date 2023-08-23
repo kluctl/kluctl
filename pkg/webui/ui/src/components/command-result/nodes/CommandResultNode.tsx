@@ -9,6 +9,7 @@ import { LogsViewer } from "../../LogsViewer";
 import { CommandResult } from "../../../models";
 import { YamlViewer } from "../../YamlViewer";
 import { gitRefToString } from "../../../utils/git";
+import { AppContextProps } from "../../App";
 
 export class CommandResultNodeData extends NodeData {
     constructor(commandResult: CommandResult, id: string) {
@@ -23,7 +24,7 @@ export class CommandResultNodeData extends NodeData {
         return [<DeployIcon />, "result"]
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(appCtx: AppContextProps): SidePanelTab[] {
         const tabs = [
             {label: "Summary", content: this.buildSummaryPage()},
             {label: "Target", content: this.buildTargetPage()},
@@ -31,10 +32,13 @@ export class CommandResultNodeData extends NodeData {
 
         this.buildDiffAndHealthPages(tabs)
 
-        tabs.push({label: "Logs", content: <LogsViewer
-                cluster={this.commandResult.clusterInfo.clusterId}
-                reconcileId={this.commandResult.id}/>
-        })
+        if (!appCtx.isStatic && this.commandResult.kluctlDeployment) {
+            tabs.push({
+                label: "Logs", content: <LogsViewer
+                    cluster={this.commandResult.clusterInfo.clusterId}
+                    reconcileId={this.commandResult.id}/>
+            })
+        }
 
         return tabs
     }

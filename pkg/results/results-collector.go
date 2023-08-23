@@ -391,12 +391,12 @@ func (rc *ResultsCollector) GetValidateResult(options GetValidateResultOptions) 
 	return se.store.GetValidateResult(options)
 }
 
-func (rc *ResultsCollector) ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error) {
+func (rc *ResultsCollector) ListKluctlDeployments() ([]WatchKluctlDeploymentEvent, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	ret := make([]kluctlv1.KluctlDeployment, 0, len(rc.commandResultSummaries))
+	ret := make([]WatchKluctlDeploymentEvent, 0, len(rc.kluctlDeployments))
 	for _, x := range rc.kluctlDeployments {
-		ret = append(ret, *x.event.Deployment)
+		ret = append(ret, x.event)
 	}
 	return ret, nil
 }

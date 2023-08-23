@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
@@ -86,13 +88,17 @@ func NewCommandResultsServer(
 	return ret, nil
 }
 
-func (s *CommandResultsServer) Run(host string, port int) error {
+func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) error {
 	err := s.startUpdateLogs()
 	if err != nil {
 		return err
 	}
 
 	s.cam.start()
+
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	router := gin.New()
 	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
@@ -150,6 +156,16 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 			return s.ctx
 		},
 		Handler: router.Handler(),
+	}
+
+	if host != "" {
+		url := fmt.Sprintf("http://%s", address)
+		status.Infof(s.ctx, "Webui is available at: %s\n", url)
+
+		if openBrowser {
+			status.Infof(s.ctx, "Opening browser")
+			_ = utils.OpenBrowser(url)
+		}
 	}
 
 	return httpServer.Serve(listener)
