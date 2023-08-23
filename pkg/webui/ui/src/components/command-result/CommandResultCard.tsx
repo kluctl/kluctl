@@ -30,7 +30,7 @@ const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
         }
     }
 
-    if (!appCtx.user.isAdmin || props.ts.kd?.deployment.spec.dryRun || !props.ts.kd?.deployment.spec.manual) {
+    if (appCtx.isStatic || !appCtx.user.isAdmin || props.ts.kd?.deployment.spec.dryRun || !props.ts.kd?.deployment.spec.manual) {
         return <></>
     }
     if (props.rs.id !== props.ts.commandResults[0].id) {

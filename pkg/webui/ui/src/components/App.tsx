@@ -25,6 +25,7 @@ export interface AppContextProps {
     api: Api
     user: User
     authInfo: AuthInfo
+    isStatic: boolean
     commandResultSummaries: Map<string, CommandResultSummary>
     projects: ProjectSummary[]
     validateResultSummaries: Map<string, ValidateResultSummary>
@@ -40,7 +41,7 @@ export interface KluctlDeploymentWithClusterId {
     clusterId: string
 }
 
-const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, onLogout: () => void }) => {
+const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, isStatic: boolean, onLogout: () => void }) => {
     const [filters, setFilters] = useState<ActiveFilters>()
 
     const [commandResultSummaries, setCommandResultSummaries] = useImmer(new Map<string, CommandResultSummary>())
@@ -131,7 +132,23 @@ const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, onLogout
         () => props.api.getShortNames(),
         [props.api]
     );
-    
+
+    const appCtx: AppContextProps = useMemo(() => {
+        return {
+            api: props.api,
+            user: props.user,
+            authInfo: props.authInfo,
+            isStatic: props.isStatic,
+            commandResultSummaries: commandResultSummaries,
+            projects,
+            validateResultSummaries: validateResultSummaries,
+            shortNames: shortNames || []
+        }
+    }, [
+        props.api, props.user, props.authInfo, props.isStatic,
+        commandResultSummaries, projects, validateResultSummaries, shortNames,
+    ])
+
     if (loading) {
         return <Loading />;
     }
@@ -142,23 +159,13 @@ const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, onLogout
         </ErrorMessageCard>;
     }
 
-    const appContext: AppContextProps = {
-        api: props.api,
-        user: props.user,
-        authInfo: props.authInfo,
-        commandResultSummaries: commandResultSummariesRef.current,
-        projects,
-        validateResultSummaries: validateResultSummaries,
-        shortNames: shortNames || []
-    }
-
     const outletContext: AppOutletContext = {
         filters: filters,
         setFilters: setFilters,
     }
 
     return (
-        <AppContext.Provider value={appContext}>
+        <AppContext.Provider value={appCtx}>
             <Box width={"100%"} height={"100%"}>
                 <LeftDrawer
                     content={<Outlet context={outletContext} />}
@@ -174,6 +181,7 @@ const App = () => {
     const [api, setApi] = useState<Api>()
     const [authInfo, setAuthInfo] = useState<AuthInfo>()
     const [user, setUser] = useState<User>()
+    const [isStatic, setIsStatic] = useState(false)
 
     const onLogout = () => {
         console.log("handle onLogout")
@@ -205,6 +213,7 @@ const App = () => {
             const authInfo = await api.getAuthInfo()
             setApi(api)
             setAuthInfo(authInfo)
+            setIsStatic(isStatic)
         }
         doInit()
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,7 +248,7 @@ const App = () => {
         return <Login authInfo={authInfo} />
     }
 
-    return <LoggedInApp onLogout={onLogout} api={api} user={user} authInfo={authInfo}/>
+    return <LoggedInApp onLogout={onLogout} api={api} user={user} authInfo={authInfo} isStatic={isStatic}/>
 }
 
 export default App;

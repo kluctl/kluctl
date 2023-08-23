@@ -3,7 +3,7 @@ import React from "react";
 import { Box, Divider, Typography } from "@mui/material";
 import { ChangesTable } from "../ChangesTable";
 import { ErrorsTable } from "../../ErrorsTable";
-import { ObjectType, User } from "../../../api";
+import { ObjectType } from "../../../api";
 import { ResultObjectViewer } from "../../ResultObjectViewer";
 import { StatusLine } from "../CommandResultStatusLine";
 import { SidePanelProvider, SidePanelTab } from "../SidePanel";
@@ -110,7 +110,7 @@ export abstract class NodeData implements SidePanelProvider {
 
     abstract buildIcon(appContext: AppContextProps): [React.ReactNode, string]
 
-    abstract buildSidePanelTabs(user: User): SidePanelTab[]
+    abstract buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[]
 
     buildStatusLine(): React.ReactNode {
         return <StatusLine

@@ -9,7 +9,8 @@ import { Alert, Box } from "@mui/material";
 
 import * as yaml from 'js-yaml';
 import { SidePanelTab } from "../SidePanel";
-import { buildGitRefString, User } from "../../../api";
+import { buildGitRefString } from "../../../api";
+import { AppContextProps } from "../../App";
 
 interface VarsSourceHandler {
     type: string
@@ -194,10 +195,10 @@ export class VarsSourceNodeData extends NodeData {
         return [h.icon(), h.type]
     }
 
-    buildSidePanelTabs(user?: User): SidePanelTab[] {
+    buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[] {
         const tabs = [
             { label: "Summary", content: this.buildSummaryPage() },
-            { label: "Vars", content: this.buildVarsPage(user) }
+            { label: "Vars", content: this.buildVarsPage(appContext) }
         ]
         this.buildDiffAndHealthPages(tabs)
         return tabs
@@ -223,9 +224,9 @@ export class VarsSourceNodeData extends NodeData {
         </>
     }
 
-    buildVarsPage(user?: User): React.ReactNode {
-        const sensitiveWarning = user?.isAdmin && this.varsSource.renderedSensitive
-        const redactedWarning = !user?.isAdmin && this.varsSource.renderedSensitive
+    buildVarsPage(appCtx: AppContextProps): React.ReactNode {
+        const sensitiveWarning = appCtx.user.isAdmin && this.varsSource.renderedSensitive
+        const redactedWarning = !appCtx.user.isAdmin && this.varsSource.renderedSensitive
 
         return <Box>
             {redactedWarning && <Alert severity="error">Only admins can view sensitive vars!</Alert>}

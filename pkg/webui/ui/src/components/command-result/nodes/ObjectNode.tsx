@@ -40,7 +40,7 @@ export class ObjectNodeData extends NodeData {
         return [<BracketsCurlyIcon />, snStr]
     }
 
-    buildSidePanelTabs(user?: User): SidePanelTab[] {
+    buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[] {
         const tabs = [
             { label: "Summary", content: this.buildSummaryPage() }
         ]
@@ -51,7 +51,7 @@ export class ObjectNodeData extends NodeData {
             tabs.push({ label: "Rendered", content: this.buildObjectPage(this.objectRef, ObjectType.Rendered) })
         }
 
-        if (user?.isAdmin) {
+        if (appContext.user.isAdmin) {
             if (findObjectByRef(this.commandResult.objects, this.objectRef)?.remote) {
                 tabs.push({ label: "Remote", content: this.buildObjectPage(this.objectRef, ObjectType.Remote) })
             }
