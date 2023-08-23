@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -87,7 +88,7 @@ func NewCommandResultsServer(
 	return ret, nil
 }
 
-func (s *CommandResultsServer) Run(host string, port int) error {
+func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) error {
 	err := s.startUpdateLogs()
 	if err != nil {
 		return err
@@ -157,7 +158,13 @@ func (s *CommandResultsServer) Run(host string, port int) error {
 		Handler: router.Handler(),
 	}
 
-	status.Infof(s.ctx, "Webui is available at: http://%s\n", address)
+	url := fmt.Sprintf("http://%s", address)
+	status.Infof(s.ctx, "Webui is available at: %s\n", url)
+
+	if openBrowser {
+		status.Infof(s.ctx, "Opening browser")
+		_ = utils.OpenBrowser(url)
+	}
 
 	return httpServer.Serve(listener)
 }

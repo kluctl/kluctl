@@ -89,9 +89,10 @@ var flagGroups = []groupInfo{
 
 var origStderr = os.Stderr
 
+// we must determine isTerminal before we override os.Stderr
+var isTerminal = isatty.IsTerminal(os.Stderr.Fd())
+
 func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) context.Context {
-	// we must determine isTerminal before we override os.Stderr
-	isTerminal := isatty.IsTerminal(origStderr.Fd())
 	var sh status.StatusHandler
 	var pp prompts.PromptProvider
 	if !debug && isTerminal {

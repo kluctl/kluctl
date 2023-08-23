@@ -171,7 +171,7 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		return server.Run(cmd.Host, cmd.Port)
+		return server.Run(cmd.Host, cmd.Port, isTerminal)
 	}
 }
 
