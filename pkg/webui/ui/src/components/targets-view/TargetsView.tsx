@@ -1,7 +1,7 @@
 import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey } from "../../models";
 import { Box, Typography, useTheme } from "@mui/material";
-import React, { useCallback, useContext, useMemo } from "react";
-import { AppContext } from "../App";
+import React, { useCallback, useMemo } from "react";
+import { useAppContext } from "../App";
 import { ProjectItem } from "./ProjectItem";
 import { TargetItem } from "./TargetItem";
 import Divider from "@mui/material/Divider";
@@ -178,7 +178,7 @@ export const TargetsView = () => {
     const navigate = useNavigate();
     const loc = useLocation();
     const [searchParams] = useSearchParams()
-    const appContext = useContext(AppContext);
+    const appContext = useAppContext();
     const projects = appContext.projects;
 
     const fullResultStr = searchParams.get("full")

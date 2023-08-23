@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CommandResult, CommandResultSummary } from "../../models";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
@@ -7,7 +7,7 @@ import { LiveHelp, RocketLaunch, Summarize } from "@mui/icons-material";
 import { CardTemplate } from "../targets-view/Card";
 import { Since } from "../Since";
 import { CommandResultSummaryBody } from "./CommandResultSummaryView";
-import { ApiContext, UserContext } from "../App";
+import { useAppContext } from "../App";
 import { CommandResultBody } from "./CommandResultView";
 import { CommandResultStatusLine } from "./CommandResultStatusLine";
 import { YamlViewer } from "../YamlViewer";
@@ -15,8 +15,7 @@ import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 
 const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
-    const api = useContext(ApiContext)
-    const user = useContext(UserContext)
+    const appCtx = useAppContext()
     const handleApprove = (approve: boolean) => {
         if (!props.ts.kdInfo || !props.ts.kd) {
             return
@@ -25,13 +24,13 @@ const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
             if (!props.rs.renderedObjectsHash) {
                 return
             }
-            api.setManualObjectsHash(props.ts.kdInfo.clusterId, props.ts.kdInfo.name, props.ts.kdInfo.namespace, props.rs.renderedObjectsHash)
+            appCtx.api.setManualObjectsHash(props.ts.kdInfo.clusterId, props.ts.kdInfo.name, props.ts.kdInfo.namespace, props.rs.renderedObjectsHash)
         } else {
-            api.setManualObjectsHash(props.ts.kdInfo.clusterId, props.ts.kdInfo.name, props.ts.kdInfo.namespace, "")
+            appCtx.api.setManualObjectsHash(props.ts.kdInfo.clusterId, props.ts.kdInfo.name, props.ts.kdInfo.namespace, "")
         }
     }
 
-    if (!user?.isAdmin || props.ts.kd?.deployment.spec.dryRun || !props.ts.kd?.deployment.spec.manual) {
+    if (!appCtx.user.isAdmin || props.ts.kd?.deployment.spec.dryRun || !props.ts.kd?.deployment.spec.manual) {
         return <></>
     }
     if (props.rs.id !== props.ts.commandResults[0].id) {
@@ -87,13 +86,13 @@ export const CommandResultCard = React.memo(React.forwardRef((
     },
     ref: React.ForwardedRef<HTMLDivElement>
 ) => {
-    const api = useContext(ApiContext)
+    const appCtx = useAppContext()
 
     const [loading, error, cr] = useLoadingHelper<CommandResult | undefined>(props.loadData, async () => {
         if (!props.loadData) {
             return undefined
         }
-        return await api.getCommandResult(props.rs.id)
+        return await appCtx.api.getCommandResult(props.rs.id)
     }, [props.rs.id, props.loadData])
 
     let icon: React.ReactElement

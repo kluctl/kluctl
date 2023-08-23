@@ -1,7 +1,7 @@
 import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
-import React, { useContext, useState } from "react";
+import React, { useState } from "react";
 import Tooltip from "@mui/material/Tooltip";
 import {
     Approval,
@@ -21,7 +21,6 @@ import {
 } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-import { ApiContext, UserContext } from "../App";
 import { CardBody, CardTemplate } from "./Card";
 import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
@@ -34,6 +33,7 @@ import { LogsViewer } from "../LogsViewer";
 import { K8sManifestViewer } from "../K8sManifestViewer";
 import { YamlViewer } from "../YamlViewer";
 import { gitRefToString } from "../../utils/git";
+import { useAppContext } from "../App";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -174,14 +174,14 @@ const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
 }) => {
-    const api = useContext(ApiContext);
+    const appCtx = useAppContext()
     const [initialLoading, setInitialLoading] = useState(true)
 
     const [loading, error, vr] = useLoadingHelper<ValidateResult | undefined>(true, async () => {
         if (!props.ts.lastValidateResult) {
             return undefined
         }
-        const o = await api.getValidateResult(props.ts.lastValidateResult?.id)
+        const o = await appCtx.api.getValidateResult(props.ts.lastValidateResult?.id)
         return o
     }, [props.ts.lastValidateResult?.id])
 
@@ -211,31 +211,30 @@ export const TargetItem = React.memo(React.forwardRef((
     },
     ref: React.ForwardedRef<HTMLDivElement>
 ) => {
-    const api = useContext(ApiContext)
-    const user = useContext(UserContext)
+    const appCtx = useAppContext()
     const actionMenuItems: ActionMenuItem[] = []
     const kd = props.ts.kd
 
-    if (kd && user && user.isAdmin) {
+    if (kd && appCtx.user.isAdmin) {
         actionMenuItems.push({
             icon: <Troubleshoot/>,
             text: <Typography>Validate</Typography>,
             handler: () => {
-                api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+                appCtx.api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({
             icon: <PublishedWithChanges/>,
             text: <Typography>Reconcile</Typography>,
             handler: () => {
-                api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+                appCtx.api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({
             icon: <RocketLaunch/>,
             text: <Typography>Deploy</Typography>,
             handler: () => {
-                api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+                appCtx.api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         if (!kd.deployment.spec.suspend) {
@@ -243,7 +242,7 @@ export const TargetItem = React.memo(React.forwardRef((
                 icon: <Pause/>,
                 text: <Typography>Suspend</Typography>,
                 handler: () => {
-                    api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, true)
+                    appCtx.api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, true)
                 }
             })
         } else {
@@ -251,7 +250,7 @@ export const TargetItem = React.memo(React.forwardRef((
                 icon: <PlayArrow/>,
                 text: <Typography>Resume</Typography>,
                 handler: () => {
-                    api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, false)
+                    appCtx.api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, false)
                 }
             })
         }

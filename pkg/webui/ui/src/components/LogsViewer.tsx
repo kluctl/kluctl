@@ -1,11 +1,11 @@
-import React, { useContext, useEffect, useState } from "react";
-import { ApiContext } from "./App";
+import React, { useEffect, useState } from "react";
+import { useAppContext } from "./App";
 import { Box } from "@mui/material";
 import { VariableSizeList as List } from 'react-window';
 import AutoSizer from "react-virtualized-auto-sizer";
 
 export function LogsViewer(props: { cluster?: string, name?: string, namespace?: string, reconcileId?: string }) {
-    const api = useContext(ApiContext);
+    const appCtx = useAppContext();
     const [lines, setLines] = useState<any[]>([])
 
     useEffect(() => {
@@ -16,11 +16,11 @@ export function LogsViewer(props: { cluster?: string, name?: string, namespace?:
             setLines(lines)
         }
 
-        const cancel = api.watchLogs(props.cluster, props.name, props.namespace, props.reconcileId, (jsonLines: any[]) => {
+        const cancel = appCtx.api.watchLogs(props.cluster, props.name, props.namespace, props.reconcileId, (jsonLines: any[]) => {
             appendLines(jsonLines)
         })
         return cancel
-    }, [props.cluster, props.name, props.namespace, props.reconcileId, api])
+    }, [props.cluster, props.name, props.namespace, props.reconcileId, appCtx.api])
 
     const lineHeight = 25
 

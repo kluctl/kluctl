@@ -21,28 +21,25 @@ export function useAppOutletContext(): AppOutletContext {
 }
 
 export interface AppContextProps {
+    api: Api
+    user: User
+    authInfo: AuthInfo
     commandResultSummaries: Map<string, CommandResultSummary>
     projects: ProjectSummary[]
     validateResultSummaries: Map<string, ValidateResultSummary>
     shortNames: ShortName[]
 }
-export const AppContext = createContext<AppContextProps>({
-    commandResultSummaries: new Map(),
-    projects: [],
-    validateResultSummaries: new Map(),
-    shortNames: []
-});
-
-export const ApiContext = createContext<Api>(new StaticApi())
-export const UserContext = createContext<User | undefined>(undefined)
+export const AppContext = createContext<AppContextProps | undefined>(undefined);
+export function useAppContext() {
+    return useContext(AppContext)!
+}
 
 export interface KluctlDeploymentWithClusterId {
     deployment: any
     clusterId: string
 }
 
-const LoggedInApp = (props: { onLogout: () => void }) => {
-    const api = useContext(ApiContext)
+const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, onLogout: () => void }) => {
     const [filters, setFilters] = useState<ActiveFilters>()
 
     const commandResultSummariesRef = useRef<Map<string, CommandResultSummary>>(new Map())
@@ -94,7 +91,7 @@ const LoggedInApp = (props: { onLogout: () => void }) => {
 
         console.log("starting listenResults")
         let cancel: Promise<() => void>
-        cancel = api.listenEvents(undefined, undefined, msg => {
+        cancel = props.api.listenEvents(undefined, undefined, msg => {
             switch (msg.type) {
                 case "update_command_result_summary":
                     updateCommandResultSummary(msg.summary)
@@ -120,15 +117,15 @@ const LoggedInApp = (props: { onLogout: () => void }) => {
             console.log("cancel listenResults")
             cancel.then(c => c())
         }
-    }, [api])
+    }, [props.api])
 
     const projects = useMemo(() => {
         return buildProjectSummaries(commandResultSummaries, validateResultSummaries, kluctlDeployments, filters)
     }, [commandResultSummaries, validateResultSummaries, kluctlDeployments, filters])
 
     const [loading, loadingError, shortNames] = useLoadingHelper<ShortName[]>(true,
-        () => api.getShortNames(),
-        [api]
+        () => props.api.getShortNames(),
+        [props.api]
     );
     
     if (loading) {
@@ -142,6 +139,9 @@ const LoggedInApp = (props: { onLogout: () => void }) => {
     }
 
     const appContext: AppContextProps = {
+        api: props.api,
+        user: props.user,
+        authInfo: props.authInfo,
         commandResultSummaries: commandResultSummariesRef.current,
         projects,
         validateResultSummaries: validateResultSummaries,
@@ -189,15 +189,18 @@ const App = () => {
         }
 
         const doInit = async () => {
+            console.log("checking if this is a static webui build")
             const isStatic = await checkStaticBuild()
+            console.log("isStatic=" + isStatic)
+            let api: Api
             if (isStatic) {
-                setApi(new StaticApi())
+                api = new StaticApi()
             } else {
-                const api = new RealApi(onUnauthorized)
-                const authInfo = await api.getAuthInfo()
-                setApi(api)
-                setAuthInfo(authInfo)
+                api = new RealApi(onUnauthorized)
             }
+            const authInfo = await api.getAuthInfo()
+            setApi(api)
+            setAuthInfo(authInfo)
         }
         doInit()
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -222,6 +225,8 @@ const App = () => {
         doGetUser()
     }, [user, api])
 
+    console.log(api, authInfo)
+
     if (!api || !authInfo) {
         return <Loading />
     }
@@ -230,11 +235,7 @@ const App = () => {
         return <Login authInfo={authInfo} />
     }
 
-    return <ApiContext.Provider value={api}>
-        <UserContext.Provider value={user}>
-            <LoggedInApp onLogout={onLogout}/>
-        </UserContext.Provider>
-    </ApiContext.Provider>
+    return <LoggedInApp onLogout={onLogout} api={api} user={user} authInfo={authInfo}/>
 }
 
 export default App;
