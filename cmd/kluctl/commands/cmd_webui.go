@@ -10,10 +10,11 @@ import (
 )
 
 type webuiCmd struct {
-	Run_ webuiRunCmd `cmd:"run" help:"Run the Kluctl Webui"`
+	Run_  webuiRunCmd   `cmd:"run" help:"Run the Kluctl Webui"`
+	Build webuiBuildCmd `cmd:"build" help:"Build the static Kluctl Webui"`
 }
 
-func (cmd *webuiRunCmd) createResultStores(ctx context.Context) ([]results.ResultStore, []*rest.Config, error) {
+func createResultStores(ctx context.Context, k8sContexts []string, allContexts bool, inCluster bool) ([]results.ResultStore, []*rest.Config, error) {
 	r := clientcmd.NewDefaultClientConfigLoadingRules()
 
 	kcfg, err := r.Load()
@@ -25,19 +26,19 @@ func (cmd *webuiRunCmd) createResultStores(ctx context.Context) ([]results.Resul
 	var configs []*rest.Config
 
 	var contexts []string
-	if cmd.AllContexts {
+	if allContexts {
 		for name, _ := range kcfg.Contexts {
 			contexts = append(contexts, name)
 		}
-	} else if cmd.InCluster {
+	} else if inCluster {
 		// placeholder for current context
 		contexts = append(contexts, "")
 	} else {
-		if len(cmd.Context) == 0 {
+		if len(k8sContexts) == 0 {
 			// placeholder for current context
 			contexts = append(contexts, "")
 		}
-		for _, c := range cmd.Context {
+		for _, c := range k8sContexts {
 			found := false
 			for name, _ := range kcfg.Contexts {
 				if c == name {

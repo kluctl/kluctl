@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"net/netip"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 type webuiRunCmd struct {
@@ -18,7 +17,6 @@ type webuiRunCmd struct {
 	Port        int      `group:"misc" help:"Port to bind to." default:"8080"`
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
-	StaticPath  string   `group:"misc" help:"Build static webui."`
 
 	InCluster        bool   `group:"misc" help:"This enables in-cluster functionality. This also enforces authentication."`
 	InClusterContext string `group:"misc" help:"The context to use fo in-cluster functionality."`
@@ -99,9 +97,6 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 	if !cmd.OnlyApi && !webui.IsWebUiBuildIncluded() {
 		return fmt.Errorf("this build of Kluctl does not have the webui embedded")
 	}
-	if cmd.OnlyApi && cmd.StaticPath != "" {
-		return fmt.Errorf("--static-path can not be combined with --only-api")
-	}
 
 	if !cmd.InCluster { // no authentication?
 		if cmd.Host == "" {
@@ -147,7 +142,7 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	stores, configs, err := cmd.createResultStores(ctx)
+	stores, configs, err := createResultStores(ctx, cmd.Context, cmd.AllContexts, cmd.InCluster)
 	if err != nil {
 		return err
 	}
@@ -155,21 +150,9 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 	collector := results.NewResultsCollector(ctx, stores)
 	collector.Start()
 
-	if cmd.StaticPath != "" {
-		st := status.Start(ctx, "Collecting results")
-		defer st.Failed()
-		err = collector.WaitForResults(time.Second, time.Second*30)
-		if err != nil {
-			return err
-		}
-		st.Success()
-		sbw := webui.NewStaticWebuiBuilder(collector)
-		return sbw.Build(cmd.StaticPath)
-	} else {
-		server, err := webui.NewCommandResultsServer(ctx, collector, configs, inClusterConfig, inClusterClient, authConfig, cmd.OnlyApi)
-		if err != nil {
-			return err
-		}
-		return server.Run(cmd.Host, cmd.Port, isTerminal)
+	server, err := webui.NewCommandResultsServer(ctx, collector, configs, inClusterConfig, inClusterClient, authConfig, cmd.OnlyApi)
+	if err != nil {
+		return err
 	}
+	return server.Run(cmd.Host, cmd.Port, isTerminal)
 }
