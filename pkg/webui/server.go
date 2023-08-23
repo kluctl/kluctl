@@ -158,12 +158,14 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 		Handler: router.Handler(),
 	}
 
-	url := fmt.Sprintf("http://%s", address)
-	status.Infof(s.ctx, "Webui is available at: %s\n", url)
+	if host != "" {
+		url := fmt.Sprintf("http://%s", address)
+		status.Infof(s.ctx, "Webui is available at: %s\n", url)
 
-	if openBrowser {
-		status.Infof(s.ctx, "Opening browser")
-		_ = utils.OpenBrowser(url)
+		if openBrowser {
+			status.Infof(s.ctx, "Opening browser")
+			_ = utils.OpenBrowser(url)
+		}
 	}
 
 	return httpServer.Serve(listener)

@@ -13,7 +13,7 @@ import (
 )
 
 type webuiRunCmd struct {
-	Host        string   `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to localhost."`
+	Host        string   `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses." default:"localhost"`
 	Port        int      `group:"misc" help:"Port to bind to." default:"8080"`
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
