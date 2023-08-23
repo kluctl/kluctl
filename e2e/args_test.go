@@ -187,3 +187,68 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c2", "data", "c")
 }
+
+func testArgsInDiscriminator(t *testing.T, inDefaultDiscriminator bool) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_project.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
+		if !inDefaultDiscriminator {
+			_ = target.SetNestedField("discriminator-{{ args.a }}", "discriminator")
+		}
+	})
+
+	args := []any{
+		map[string]any{
+			"name":    "a",
+			"default": "default",
+		},
+	}
+
+	p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField(args, "args")
+		if inDefaultDiscriminator {
+			_ = o.SetNestedField("discriminator-{{ args.a }}", "discriminator")
+		} else {
+			_ = o.RemoveNestedField("discriminator")
+		}
+		return nil
+	})
+
+	addConfigMapDeployment(p, "cm", nil, resourceOpts{
+		name:      "cm",
+		namespace: p.TestSlug(),
+	})
+
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
+	assertNestedFieldEquals(t, cm, "discriminator-default", "metadata", "labels", "kluctl.io/discriminator")
+
+	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a")
+	cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
+	assertNestedFieldEquals(t, cm, "discriminator-a", "metadata", "labels", "kluctl.io/discriminator")
+
+	if inDefaultDiscriminator {
+		// now without targets
+		p.KluctlMust("deploy", "--yes")
+		cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
+		assertNestedFieldEquals(t, cm, "discriminator-default", "metadata", "labels", "kluctl.io/discriminator")
+
+		p.KluctlMust("deploy", "--yes", "-aa=a")
+		cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
+		assertNestedFieldEquals(t, cm, "discriminator-a", "metadata", "labels", "kluctl.io/discriminator")
+	}
+}
+
+func TestArgsInDefaultDiscriminator(t *testing.T) {
+	testArgsInDiscriminator(t, true)
+}
+
+func TestArgsInTargetDiscriminator(t *testing.T) {
+	testArgsInDiscriminator(t, false)
+}
