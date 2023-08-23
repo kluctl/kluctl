@@ -116,3 +116,7 @@ deployments:
       ref:
         tag: v2.20.8
 ```
+
+## Installing the Kluctl Webui
+
+See [Installing the Kluctl Webui](./reference/webui/install.md) for details.

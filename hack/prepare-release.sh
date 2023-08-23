@@ -30,6 +30,7 @@ FILES="$FILES install/controller/controller/kustomization.yaml"
 FILES="$FILES install/webui/.kluctl.yaml"
 FILES="$FILES install/webui/webui/deployment.yaml"
 FILES="$FILES docs/installation.md"
+FILES="$FILES docs/reference/webui/installation.md"
 
 for f in $FILES; do
   cat $f | sed "s/$VERSION_REGEX_SED/$VERSION/g" > $f.tmp

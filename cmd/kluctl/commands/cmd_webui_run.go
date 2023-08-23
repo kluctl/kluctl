@@ -54,7 +54,7 @@ type webuiRunCmd struct {
 func (cmd *webuiRunCmd) Help() string {
 	return `This command will run the Kluctl Webui. It can be run in two modes:
 1. Locally, simply by invoking 'kluctl webui', which will run the Webui against the current Kubernetes context.
-2. On a Kubernetes Cluster. See https://kluctl.io/docs/kluctl/installation/#installing-the-webui for details and documentation.
+2. On a Kubernetes Cluster. See https://kluctl.io/docs/kluctl/installation/#installing-the-kluctl-webui for details and documentation.
 `
 }
 
