@@ -33,7 +33,7 @@ import { LogsViewer } from "../LogsViewer";
 import { K8sManifestViewer } from "../K8sManifestViewer";
 import { YamlViewer } from "../YamlViewer";
 import { gitRefToString } from "../../utils/git";
-import { useAppContext } from "../App";
+import { AppContextProps, useAppContext } from "../App";
 
 const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
     const theme = useTheme();
@@ -358,7 +358,7 @@ class TargetItemCardProvider implements SidePanelProvider {
         this.lastValidateResult = vr
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(appCtx: AppContextProps): SidePanelTab[] {
         if (!this.ts) {
             return []
         }
@@ -393,7 +393,7 @@ class TargetItemCardProvider implements SidePanelProvider {
             })
         }
 
-        if (this.ts.kd) {
+        if (!appCtx.isStatic && this.ts.kd) {
             tabs.push({
                 label: "Logs", content: <LogsViewer
                     cluster={this.ts.kdInfo?.clusterId}

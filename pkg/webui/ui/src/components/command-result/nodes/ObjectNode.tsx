@@ -4,7 +4,7 @@ import { CommandResult, ObjectRef } from "../../../models";
 import { NodeData } from "./NodeData";
 import { PublishedWithChanges, Settings, SettingsEthernet, SmartToy, SvgIconComponent } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
-import { findObjectByRef, ObjectType, User } from "../../../api";
+import { findObjectByRef, ObjectType } from "../../../api";
 import { SidePanelTab } from "../SidePanel";
 import { BracketsCurlyIcon } from '../../../icons/Icons';
 import { AppContextProps } from "../../App";
