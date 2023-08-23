@@ -1,4 +1,11 @@
-import { AuthInfo, CommandResult, ObjectRef, ResultObject, ShortName, ValidateResult } from "./models";
+import {
+    AuthInfo,
+    CommandResult, CommandResultSummary,
+    ObjectRef,
+    ResultObject,
+    ShortName,
+    ValidateResult
+} from "./models";
 import _ from "lodash";
 import React from "react";
 import { Box, Typography } from "@mui/material";
@@ -7,6 +14,7 @@ import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
 import { GitRef } from "./models-static";
 import { sleep } from "./utils/misc";
+import { KluctlDeploymentWithClusterId } from "./components/App";
 
 console.log(window.location)
 
@@ -299,16 +307,33 @@ export class StaticApi implements Api {
 
     async listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
         await loadScript(staticPath + "/summaries.js")
+        await loadScript(staticPath + "/kluctldeployments.js")
 
-        staticSummaries.forEach(rs => {
-            if (filterProject && filterProject !== rs.project.normalizedGitUrl) {
+        staticKluctlDeployments.forEach(kd_ => {
+            const kd = kd_ as KluctlDeploymentWithClusterId
+            if (filterProject && filterProject !== kd.deployment.status?.projectKey?.gitRepoKey) {
                 return
             }
-            if (filterSubDir && filterSubDir !== rs.project.subDir) {
+            if (filterSubDir && filterSubDir !== kd.deployment.status?.projectKey?.subDir) {
                 return
             }
             handle({
-                "type": "update_summary",
+                "type": "update_kluctl_deployment",
+                "deployment": kd.deployment,
+                "clusterId": kd.clusterId,
+            })
+        })
+
+        staticSummaries.forEach(rs_ => {
+            const rs = rs_ as CommandResultSummary
+            if (filterProject && filterProject !== rs.projectKey.gitRepoKey) {
+                return
+            }
+            if (filterSubDir && filterSubDir !== rs.projectKey.subDir) {
+                return
+            }
+            handle({
+                "type": "update_command_result_summary",
                 "summary": rs,
             })
         })

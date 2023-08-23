@@ -47,7 +47,7 @@ type ResultStore interface {
 	WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
 	GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error)
 
-	ListKluctlDeployments() ([]kluctlv1.KluctlDeployment, error)
+	ListKluctlDeployments() ([]WatchKluctlDeploymentEvent, error)
 	WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error)
 	GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error)
 }

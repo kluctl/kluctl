@@ -33,7 +33,7 @@ func (cmd *webuiBuildCmd) Run(ctx context.Context) error {
 	collector := results.NewResultsCollector(ctx, stores)
 	collector.Start()
 
-	st := status.Start(ctx, "Collecting results")
+	st := status.Start(ctx, "Collecting summaries")
 	defer st.Failed()
 	err = collector.WaitForResults(time.Second, time.Second*30)
 	if err != nil {
@@ -42,5 +42,5 @@ func (cmd *webuiBuildCmd) Run(ctx context.Context) error {
 	st.Success()
 
 	sbw := webui.NewStaticWebuiBuilder(collector)
-	return sbw.Build(cmd.Path)
+	return sbw.Build(ctx, cmd.Path)
 }
