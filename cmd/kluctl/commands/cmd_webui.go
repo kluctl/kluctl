@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,9 +22,6 @@ func createResultStores(ctx context.Context, k8sContexts []string, allContexts b
 	if err != nil {
 		return nil, nil, err
 	}
-
-	var stores []results.ResultStore
-	var configs []*rest.Config
 
 	var contexts []string
 	if allContexts {
@@ -53,28 +51,38 @@ func createResultStores(ctx context.Context, k8sContexts []string, allContexts b
 		}
 	}
 
-	for _, c := range contexts {
-		configOverrides := &clientcmd.ConfigOverrides{
-			CurrentContext: c,
-		}
-		config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-			r,
-			configOverrides).ClientConfig()
-		if err != nil {
-			return nil, nil, err
-		}
+	gh := utils.NewGoHelper(ctx, 4)
+	stores := make([]results.ResultStore, len(contexts))
+	configs := make([]*rest.Config, len(contexts))
+	for i, c := range contexts {
+		i := i
+		c := c
+		gh.RunE(func() error {
+			configOverrides := &clientcmd.ConfigOverrides{
+				CurrentContext: c,
+			}
+			config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(r, configOverrides).ClientConfig()
+			if err != nil {
+				return err
+			}
 
-		client, err := client.NewWithWatch(config, client.Options{})
-		if err != nil {
-			return nil, nil, err
-		}
+			client, err := client.NewWithWatch(config, client.Options{})
+			if err != nil {
+				return err
+			}
 
-		store, err := results.NewResultStoreSecrets(ctx, config, client, "", 0, 0)
-		if err != nil {
-			return nil, nil, err
-		}
-		stores = append(stores, store)
-		configs = append(configs, config)
+			store, err := results.NewResultStoreSecrets(ctx, config, client, "", 0, 0)
+			if err != nil {
+				return err
+			}
+			stores[i] = store
+			configs[i] = config
+			return nil
+		})
+	}
+	gh.Wait()
+	if gh.ErrorOrNil() != nil {
+		return nil, nil, gh.ErrorOrNil()
 	}
 
 	return stores, configs, nil
