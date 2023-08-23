@@ -26,13 +26,12 @@ Misc arguments:
 
       --all-contexts                Use all Kubernetes contexts found in the kubeconfig.
       --context stringArray         List of kubernetes contexts to use.
-      --host string                 Host to bind to. Pass an empty string to bind to all addresses. Defaults to
-                                    localhost.
+      --host string                 Host to bind to. Pass an empty string to bind to all addresses. (default
+                                    "localhost")
       --in-cluster                  This enables in-cluster functionality. This also enforces authentication.
       --in-cluster-context string   The context to use fo in-cluster functionality.
       --only-api                    Only serve API without the actual UI.
       --port int                    Port to bind to. (default 8080)
-      --static-path string          Build static webui.
 
 ```
 <!-- END SECTION -->
