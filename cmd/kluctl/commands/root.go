@@ -269,7 +269,7 @@ func Main() {
 		ctx = initStatusHandlerAndPrompts(ctx, flags.Debug, flags.NoColor)
 		didSetupStatusHandler = true
 
-		if cmd.Name() != "run" && cmd.Parent().Name() != "controller" {
+		if cmd.Parent() == nil || (cmd.Name() != "run" && cmd.Parent().Name() != "controller") {
 			redirectLogsAndStderr(ctx)
 		}
 
