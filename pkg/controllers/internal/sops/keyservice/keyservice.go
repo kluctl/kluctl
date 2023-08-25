@@ -7,9 +7,9 @@
 package keyservice
 
 import (
-	"go.mozilla.org/sops/v3/age"
-	"go.mozilla.org/sops/v3/keys"
-	"go.mozilla.org/sops/v3/pgp"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/keys"
+	"github.com/getsops/sops/v3/pgp"
 )
 
 // IsOfflineMethod returns true for offline decrypt methods or false otherwise
