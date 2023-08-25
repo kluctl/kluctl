@@ -276,3 +276,7 @@ require (
 	oras.land/oras-go v1.2.3 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
+
+// this is needed due to incompatibilities between oras-go (comes through helm) and docker/docker/registry
+// remove this when https://github.com/helm/helm/pull/12310 gets released
+replace github.com/docker/docker => github.com/docker/docker v23.0.6+incompatible
