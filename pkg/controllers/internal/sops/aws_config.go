@@ -3,7 +3,7 @@ package sops
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"go.mozilla.org/sops/v3/kms"
+	"github.com/getsops/sops/v3/kms"
 	"sigs.k8s.io/yaml"
 )
 

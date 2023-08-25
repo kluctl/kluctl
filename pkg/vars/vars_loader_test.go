@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getsops/sops/v3/age"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kluctl/kluctl/v2/pkg/git"
@@ -29,7 +30,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
-	"go.mozilla.org/sops/v3/age"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

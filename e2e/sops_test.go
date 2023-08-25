@@ -2,12 +2,12 @@ package e2e
 
 import (
 	"fmt"
+	"github.com/getsops/sops/v3/age"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
-	"go.mozilla.org/sops/v3/age"
 	"testing"
 )
 

@@ -8,20 +8,20 @@ package keyservice
 
 import (
 	"fmt"
-	"go.mozilla.org/sops/v3/age"
-	"go.mozilla.org/sops/v3/azkv"
-	"go.mozilla.org/sops/v3/gcpkms"
-	"go.mozilla.org/sops/v3/hcvault"
-	"go.mozilla.org/sops/v3/kms"
-	"go.mozilla.org/sops/v3/pgp"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
+	"github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	"os"
 	"runtime"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/getsops/sops/v3/keyservice"
 	. "github.com/onsi/gomega"
-	"go.mozilla.org/sops/v3/keyservice"
 	"golang.org/x/net/context"
 )
 
