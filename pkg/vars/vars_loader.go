@@ -162,7 +162,8 @@ func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool,
 	rendered, err := varsCtx.RenderFile(path, searchDirs)
 	if err != nil {
 		// TODO the Jinja2 renderer should be able to better report this error
-		if ignoreMissing && err.Error() == fmt.Sprintf("template %s not found", path) {
+		notFound := err.Error() == fmt.Sprintf("template %s not found", path) || err.Error() == fmt.Sprintf("absolute path of %s could not be resolved", path)
+		if ignoreMissing && notFound {
 			return uo.New(), false, nil
 		}
 		return nil, false, fmt.Errorf("failed to render vars file %s: %w", path, err)
