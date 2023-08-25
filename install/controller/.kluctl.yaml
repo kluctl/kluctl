@@ -15,5 +15,5 @@ args:
     default: {}
   - name: controller_tolerations
     default: []
-  - name: controller_priority_class
+  - name: controller_priority_class_name
     default: {}
