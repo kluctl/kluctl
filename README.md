@@ -40,8 +40,8 @@ The Kluctl CLI then allows to deploy, diff, prune, delete, ... your deployments.
 
 ## Where do I start?
 
-Installation instructions can be found [here](./docs/installation.md). For a getting started guide, continue
-[here](./docs/get-started.md).
+Installation instructions can be found [here](docs/kluctl/installation.md). For a getting started guide, continue
+[here](docs/kluctl/get-started.md).
 
 ## Community
 

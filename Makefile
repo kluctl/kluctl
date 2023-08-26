@@ -96,7 +96,7 @@ test-e2e: envtest ## Run e2e tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -coverprofile cover.out -test.v
 
 replace-commands-help: ## Replace commands help in docs
-	go run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
+	go run ./internal/replace-commands-help --docs-dir ./docs/kluctl/commands
 
 MARKDOWN_LINK_CHECK_VERSION=3.11.2
 markdown-link-check: ## Check markdown files for dead links

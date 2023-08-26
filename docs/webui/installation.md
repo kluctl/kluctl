@@ -10,7 +10,7 @@ weight: 20
 
 # Installation
 
-The Kluctl Webui can be installed by using a [Git Include](../deployments/deployment-yml.md#git-includes) that refers
+The Kluctl Webui can be installed by using a [Git Include](../kluctl/deployments/deployment-yml.md#git-includes) that refers
 to the [webui deployment project](https://github.com/kluctl/kluctl/tree/main/install/webui). Example:
 
 ```yaml

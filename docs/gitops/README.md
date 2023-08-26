@@ -1,14 +1,14 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "GitOps"
-linkTitle: "GitOps"
+title: "Kluctl GitOps"
+linkTitle: "Kluctl GitOps"
 description: "Kluctl Controller documentation."
-weight: 3
+weight: 20
 ---
 -->
 
-# GitOps
+# Kluctl GitOps
 
 GitOps in Kluctl is implemented through the Kluctl Controller, which must be [installed](../installation.md#installing-the-gitops-controller)
 to your target cluster.
