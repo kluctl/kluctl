@@ -12,7 +12,7 @@ weight: 30
 
 The Kluctl Webui is a powerful UI which allows you to monitor and control your Kluctl GitOps deployments.
 
-You can [run it locally](run.md) or [install](installation.md) it to your Kubernetes cluster.
+You can [run it locally](./running-locally.md) or [install](installation.md) it to your Kubernetes cluster.
 
 ## State of the Webui
 
