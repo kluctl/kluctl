@@ -19,5 +19,5 @@ the browser for you.
 The Webui can already handle multiple clusters. Simply pass `--context <context-name>` multiple times to `kluctl webui run`.
 This will cause the Webui to listen for status updates on all passed clusters.
 
-As noted in [State of the Webui](README.md#state-of-the-webui), the Webui is still in early stage and thus currently
+As noted in [State of the Webui](./README.md#state-of-the-webui), the Webui is still in early stage and thus currently
 lacks sorting and filtering for clusters. This will be implemented in future releases.
