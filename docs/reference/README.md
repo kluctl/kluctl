@@ -13,5 +13,5 @@ weight: 110
 
 1. [.kluctl.yaml](./kluctl-project)
 2. [Deployments](./deployments)
-3. [GitOps](./gitops)
+3. [Kluctl Webui](./webui)
 4. [Kluctl Commands](./commands)

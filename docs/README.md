@@ -16,7 +16,8 @@ weight: 20
 3. [Installation](./installation.md)
 4. [Philosophy](./philosophy.md)
 5. [History](./history.md)
-6. [Reference](./reference)
+6. [GitOps](./gitops)
+7. [Reference](./reference)
 
 <!-- TODO
 ## Community
