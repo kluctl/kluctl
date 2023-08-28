@@ -1,3 +1,3 @@
 # kluctl Installation
 
-Read [installation](../docs/installation.md) for instructions.
+Read [installation](../docs/kluctl/installation.md) for instructions.

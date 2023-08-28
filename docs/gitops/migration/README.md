@@ -20,7 +20,7 @@ To do this, follow the following steps:
 1. Upgrade the legacy flux-kluctl-controller to at least v0.16.0. This version will introduce a special marker field
 into the legacy `KluctlDeployment` status and set it to true. This marker field is used to inform the new Kluctl Controller
 that the legacy controller is now aware of the existence of the new controller.
-2. If not already done, [install](../../installation.md#installing-the-gitops-controller) the new Kluctl Controller.
+2. If not already done, [install](../installation.md) the new Kluctl Controller.
 3. To be on the safe side, disable [pruning](https://kluctl.io/docs/flux/spec/v1alpha1/kluctldeployment/#prune) and
 [deletion](https://kluctl.io/docs/flux/spec/v1alpha1/kluctldeployment/#delete) for all legacy `KluctlDeployment` objects.
 Don't forget to deploy/apply these changes before continuing with the next step.

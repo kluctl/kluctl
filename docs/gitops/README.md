@@ -10,7 +10,7 @@ weight: 20
 
 # Kluctl GitOps
 
-GitOps in Kluctl is implemented through the Kluctl Controller, which must be [installed](../installation.md#installing-the-gitops-controller)
+GitOps in Kluctl is implemented through the Kluctl Controller, which must be [installed](./installation.md)
 to your target cluster.
 
 The Kluctl Controller is a Kubernetes operator which implements the [`KluctlDeployment`](spec/v1beta1/kluctldeployment.md#kluctldeployment)
@@ -19,7 +19,7 @@ whenever the deployment changes.
 
 ## Motivation and Philosophy
 
-Kluctl tries its best to implement all its features via [Kluctl projects](../reference/kluctl-project/README.md), meaning that
+Kluctl tries its best to implement all its features via [Kluctl projects](../kluctl/kluctl-project/README.md), meaning that
 the deployments are, at least theoretically, deployable from the CLI at all times. The Kluctl Controller does not
 add functionality on top of that and thus does not couple your deployments to a running controller.
 
@@ -32,7 +32,7 @@ documentation of [`KluctlDeployment`](spec/v1beta1/kluctldeployment.md#spec-fiel
 
 ## Installation
 
-Installation instructions can be found [here](../installation.md#installing-the-gitops-controller)
+Installation instructions can be found [here](./installation.md)
 
 ## Design
 
@@ -40,9 +40,9 @@ The reconciliation process consists of multiple steps which are constantly repea
 
 - **clone** the root Kluctl project via Git
 - **prepare** the Kluctl deployment by rendering the whole deployment
-- **deploy** the specified target via [kluctl deploy](../reference/commands/deploy.md) if the rendered resources changed
-- **prune** orphaned objects via [kluctl prune](../reference/commands/prune.md)
-- **validate** the deployment status via [kluctl validate](../reference/commands/validate.md)
+- **deploy** the specified target via [kluctl deploy](../kluctl/commands/deploy.md) if the rendered resources changed
+- **prune** orphaned objects via [kluctl prune](../kluctl/commands/prune.md)
+- **validate** the deployment status via [kluctl validate](../kluctl/commands/validate.md)
 
 Reconciliation is performed on a configurable [interval](spec/v1beta1/kluctldeployment.md#interval). A single
 reconciliation iteration will first clone and prepare the project. Only when the rendered resources indicate a change
@@ -52,7 +52,7 @@ also perform pruning (only if [prune: true](spec/v1beta1/kluctldeployment.md#pru
 When the `KluctlDeployment` is removed from the cluster, the controller cal also delete all resources belonging to
 that deployment. This will only happen if [delete: true](spec/v1beta1/kluctldeployment.md#delete) is set.
 
-Deletion and pruning is based on the [discriminator](../reference/kluctl-project/README.md#discriminator) of the given target.
+Deletion and pruning is based on the [discriminator](../kluctl/kluctl-project/README.md#discriminator) of the given target.
 
 A `KluctlDeployment` can be [suspended](spec/v1beta1/kluctldeployment.md#suspend). While suspended, the controller
 will skip reconciliation, including deletion and pruning.

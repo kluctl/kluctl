@@ -23,21 +23,21 @@ These are some core concepts in Kluctl.
 
 ### Kluctl project
 The kluctl project defines targets.
-It is defined via the [.kluctl.yaml](./reference/kluctl-project) configuration file.
+It is defined via the [.kluctl.yaml](../kluctl/kluctl-project) configuration file.
 
 ### Targets
 A target defines a target cluster and a set of deployment arguments. Multiple targets can use the same cluster. Targets
 allow implementing multi-cluster, multi-environment, multi-customer, ... deployments.
 
 ### Deployments
-A [deployment](./reference/deployments) defines which Kustomize deployments and which sub-deployments
+A [deployment](../kluctl/deployments) defines which Kustomize deployments and which sub-deployments
 to deploy. It also controls the order of deployments.
 
 Deployments may be configured through deployment arguments, which are typically provided via the targets but might also
 be provided through the CLI.
 
 ### Variables
-[Variables](./reference/templating) are the main source of configuration. They are either loaded yaml
+[Variables](../kluctl/templating) are the main source of configuration. They are either loaded yaml
 files or directly defined inside deployments. Each variables file that is loaded has access to all the variables which
 were defined before, allowing complex composition of configuration.
 
@@ -46,7 +46,7 @@ After being loaded, variables are usable through the templating engine at all ne
 ### Templating
 All configuration files (including .kluctl.yaml and deployment.yaml) and all Kubernetes manifests involved are processed
 through a templating engine.
-The [templating engine](./reference/templating) allows simple variable substitution and also complex
+The [templating engine](../kluctl/templating) allows simple variable substitution and also complex
 control structures (if/else, for loops, ...).
 
 ### Unified CLI
