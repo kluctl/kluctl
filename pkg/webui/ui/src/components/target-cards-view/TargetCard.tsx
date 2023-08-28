@@ -21,7 +21,7 @@ import {
 } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
-import { CardBody, CardTemplate } from "./Card";
+import { CardBody, CardTemplate } from "../card/Card";
 import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesEntry, PropertiesTable, pushProp } from "../PropertiesTable";

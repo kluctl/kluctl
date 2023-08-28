@@ -3,7 +3,7 @@ import { Box } from "@mui/material";
 import React from "react";
 import { ProjectIcon } from "../../icons/Icons";
 import { ProjectSummary } from "../../project-summaries";
-import { CardTemplate, cardWidth, projectCardMinHeight } from "./Card";
+import { CardTemplate, cardWidth, projectCardMinHeight } from "../card/Card";
 
 export const ProjectCard = React.memo((props: { ps: ProjectSummary }) => {
     const name = getLastPathElement(props.ps.project.gitRepoKey)

@@ -5,10 +5,10 @@ import { useAppContext } from "../App";
 import { ProjectCard } from "./ProjectCard";
 import { TargetCard } from "./TargetCard";
 import Divider from "@mui/material/Divider";
-import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
+import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "../card/Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
-import { ExpandableCard } from "./ExpandableCard";
+import { ExpandableCard } from "../card/ExpandableCard";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CommandResultCard } from "../command-result/CommandResultCard";
 
