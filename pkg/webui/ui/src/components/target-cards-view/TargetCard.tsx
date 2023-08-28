@@ -1,9 +1,7 @@
 import { ValidateResult } from "../../models";
-import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Alert, Box, SxProps, Theme, Typography } from "@mui/material";
 import React, { useState } from "react";
 import Tooltip from "@mui/material/Tooltip";
-import { Pause, PlayArrow, PublishedWithChanges, RocketLaunch, Troubleshoot } from "@mui/icons-material";
 import { CpuIcon, FingerScanIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardBody, CardTemplate } from "../card/Card";
@@ -21,6 +19,7 @@ import { AppContextProps, useAppContext } from "../App";
 import { ReconcilingIcon } from "../targets-view/ReconcilingIcon";
 import { StatusIcon } from "../targets-view/StatusIcon";
 import { TargetTypeIcon } from "../targets-view/TargetTypeIcon";
+import { TargetActionMenu } from "../targets-view/TargetActionMenu";
 
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
@@ -62,50 +61,7 @@ export const TargetCard = React.memo(React.forwardRef((
     },
     ref: React.ForwardedRef<HTMLDivElement>
 ) => {
-    const appCtx = useAppContext()
-    const actionMenuItems: ActionMenuItem[] = []
     const kd = props.ts.kd
-
-    if (kd && appCtx.user.isAdmin) {
-        actionMenuItems.push({
-            icon: <Troubleshoot/>,
-            text: <Typography>Validate</Typography>,
-            handler: () => {
-                appCtx.api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
-            }
-        })
-        actionMenuItems.push({
-            icon: <PublishedWithChanges/>,
-            text: <Typography>Reconcile</Typography>,
-            handler: () => {
-                appCtx.api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
-            }
-        })
-        actionMenuItems.push({
-            icon: <RocketLaunch/>,
-            text: <Typography>Deploy</Typography>,
-            handler: () => {
-                appCtx.api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
-            }
-        })
-        if (!kd.deployment.spec.suspend) {
-            actionMenuItems.push({
-                icon: <Pause/>,
-                text: <Typography>Suspend</Typography>,
-                handler: () => {
-                    appCtx.api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, true)
-                }
-            })
-        } else {
-            actionMenuItems.push({
-                icon: <PlayArrow/>,
-                text: <Typography>Resume</Typography>,
-                handler: () => {
-                    appCtx.api.setSuspended(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace, false)
-                }
-            })
-        }
-    }
 
     const allContexts: string[] = []
 
@@ -180,7 +136,7 @@ export const TargetCard = React.memo(React.forwardRef((
                 <Box display='flex' gap='6px' alignItems='center'>
                     <ReconcilingIcon {...props} />
                     <StatusIcon {...props} />
-                    <ActionsMenu menuItems={actionMenuItems}/>
+                    <TargetActionMenu ts={props.ts}/>
                 </Box>
             </>
         }
