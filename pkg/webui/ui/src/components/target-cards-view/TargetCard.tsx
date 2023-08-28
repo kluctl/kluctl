@@ -22,7 +22,7 @@ import {
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardBody, CardTemplate } from "../card/Card";
-import { CardTabsProvider, CardTab } from "../card/CardTabs";
+import { CardTab, CardTabsProvider } from "../card/CardTabs";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesEntry, PropertiesTable, pushProp } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
