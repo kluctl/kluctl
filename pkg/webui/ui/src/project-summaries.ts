@@ -2,6 +2,7 @@ import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey, Vali
 import _ from "lodash";
 import { KluctlDeploymentWithClusterId } from "./components/App";
 import { ActiveFilters, DoFilterSwitches, DoFilterText } from "./components/FilterBar";
+import { buildListKey } from "./utils/listKey";
 
 export interface TargetSummary {
     target: TargetKey;
@@ -200,4 +201,13 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     })
 
     return ret
+}
+
+export function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo) {
+    const j = {
+        "project": project,
+        "target": target,
+        "kluctlDeployment": kluctlDeployment,
+    }
+    return buildListKey(j)
 }

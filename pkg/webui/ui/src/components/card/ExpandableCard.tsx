@@ -52,7 +52,7 @@ export interface ExpandedCardsViewProps<CardData> {
     cardWidth: number,
     cardHeight: number,
     expand: boolean,
-    selected: string
+    selected?: string
 
     cardsData: CardData[],
     getKey: (cd: CardData) => string

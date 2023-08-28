@@ -6,7 +6,7 @@ import { ErrorsTable } from "../../ErrorsTable";
 import { ObjectType } from "../../../api";
 import { ResultObjectViewer } from "../../ResultObjectViewer";
 import { StatusLine } from "../CommandResultStatusLine";
-import { CardTabsProvider, CardTab } from "../../card/CardTabs";
+import { CardTab, CardTabsProvider } from "../../card/CardTabs";
 import { AppContextProps } from "../../App";
 
 export class DiffStatus {

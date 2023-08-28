@@ -154,7 +154,7 @@ export const CardTemplate = React.forwardRef((props: {
 CardTemplate.displayName = 'CardTemplate';
 
 export const CardBody = React.memo((props: { provider: CardTabsProvider }) => {
-    const { tabs, selectedTab, handleTabChange } = useCardTabs(props.provider)
+    const { tabs, selectedTab } = useCardTabs(props.provider)
 
     if (!props.provider
         || !selectedTab

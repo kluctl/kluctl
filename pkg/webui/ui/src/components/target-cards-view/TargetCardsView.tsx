@@ -1,15 +1,14 @@
-import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey } from "../../models";
+import { CommandResultSummary } from "../../models";
 import { Box, Typography } from "@mui/material";
-import React, { useCallback, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useAppContext } from "../App";
 import { ProjectCard } from "./ProjectCard";
 import { TargetCard } from "./TargetCard";
 import Divider from "@mui/material/Divider";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "../card/Card";
-import { ProjectSummary, TargetSummary } from "../../project-summaries";
+import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { ExpandableCard } from "../card/ExpandableCard";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CommandResultCard } from "../command-result/CommandResultCard";
 import { RelationHorizontalLine, RelationTree } from "./Relations";
 
@@ -35,83 +34,24 @@ function ColHeader({ children }: { children: React.ReactNode }) {
     </Box>
 }
 
-function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo) {
-    const j = {
-        "project": project,
-        "target": target,
-        "kluctlDeployment": kluctlDeployment,
-    }
-    return buildListKey(j)
+export interface TargetCardsViewProps {
+    selectedProject?: ProjectSummary
+    selectedTarget?: TargetSummary
+    selectedResult?: CommandResultSummary
+    onSelect: (ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary) => void
+    onCloseExpanded: () => void
 }
 
-export const TargetCardsView = () => {
-    const navigate = useNavigate();
-    const loc = useLocation();
-    const [searchParams] = useSearchParams()
+export const TargetCardsView = (props: TargetCardsViewProps) => {
     const appContext = useAppContext();
     const projects = appContext.projects;
 
-    const fullResultStr = searchParams.get("full")
-    const fullResult = fullResultStr === "" || fullResultStr === "1"
-
-    const onSelectTargetItem = useCallback((ps: ProjectSummary, ts: TargetSummary) => {
-        navigate(`/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`);
-    }, [navigate]);
-
-    const onSelectCommandResultItem = useCallback((ps: ProjectSummary, ts: TargetSummary, rs: CommandResultSummary | undefined, forceFull: boolean | undefined) => {
-        let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}/results`
-        if (rs) {
-            p += "/" + rs.id
-            let full = false
-            if (forceFull !== undefined) {
-                full = forceFull
-            } else {
-                full = fullResult
-            }
-            if (full) {
-                p += "?full=1"
-            }
+    const selectedTargetKey = useMemo(() => {
+        if (!props.selectedProject || !props.selectedTarget) {
+            return undefined
         }
-        navigate(p);
-    }, [navigate, fullResult]);
-
-    const onCardClose = useCallback(() => {
-        navigate(`/targets/`);
-    }, [navigate]);
-
-    const targetsByKey = useMemo(() => {
-        const m = new Map<string, TargetSummary>()
-        projects.forEach(ps => {
-            ps.targets.forEach(ts => {
-                const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
-                m.set(key, ts)
-            })
-        })
-        return m
-    }, [projects])
-
-    const pathnameS = loc.pathname.split("/")
-    let selectedTargetKey = pathnameS[2]
-    const selectedTarget = targetsByKey.get(selectedTargetKey)
-
-    if (!selectedTarget) {
-        selectedTargetKey = ""
-    }
-
-    let expandedResults = false
-    let expandedResultId = ""
-    if (selectedTarget) {
-        if (pathnameS[3] === "results") {
-            expandedResults = true
-            const resultId = pathnameS[4]
-            if (resultId) {
-                if (appContext.commandResultSummaries.has(resultId)) {
-                    expandedResultId = resultId
-                }
-            }
-        }
-    }
-
+        return buildTargetKey(props.selectedProject.project, props.selectedTarget.target, props.selectedTarget.kdInfo)
+    }, [props.selectedProject, props.selectedTarget])
 
     return <Box minWidth={colWidth * 3} height={"100%"} p='0 40px'>
         <Box display={"flex"} alignItems={"center"} height='70px'>
@@ -143,10 +83,10 @@ export const TargetCardsView = () => {
                                 <ExpandableCard
                                     cardWidth={cardWidth}
                                     cardHeight={cardHeight}
-                                    expand={!expandedResults && selectedTargetKey === key}
-                                    onExpand={() => onSelectTargetItem(ps, ts)}
+                                    expand={!props.selectedResult && selectedTargetKey === key}
+                                    onExpand={() => props.onSelect(ps, ts, false)}
                                     onClose={() => {
-                                        onCardClose()
+                                        props.onCloseExpanded()
                                     }}
                                     onSelect={cd => {
                                     }}
@@ -159,7 +99,7 @@ export const TargetCardsView = () => {
                                             ts={ts}
                                             expanded={expanded}
                                             onClose={() => {
-                                                onCardClose()
+                                                props.onCloseExpanded()
                                             }}
                                         />
                                     }}/>
@@ -177,17 +117,17 @@ export const TargetCardsView = () => {
                                             key={rs.id}
                                             cardWidth={cardWidth}
                                             cardHeight={cardHeight}
-                                            expand={expandedResults && selectedTargetKey === tsKey}
+                                            expand={selectedTargetKey === tsKey && !!props.selectedResult}
                                             onExpand={() => {
-                                                onSelectCommandResultItem(ps, ts, rs, false)
+                                                props.onSelect(ps, ts, true, rs)
                                             }}
                                             onClose={() => {
-                                                onCardClose()
+                                                props.onCloseExpanded()
                                             }}
                                             onSelect={cd => {
-                                                onSelectCommandResultItem(ps, ts, cd, fullResult)
+                                                props.onSelect(ps, ts, true, cd)
                                             }}
-                                            selected={expandedResultId}
+                                            selected={props.selectedResult?.id}
                                             cardsData={ts.commandResults}
                                             getKey={cd => cd.id}
                                             renderCard={(cardData, expanded, current) => {
@@ -196,14 +136,13 @@ export const TargetCardsView = () => {
                                                     ps={ps}
                                                     ts={ts}
                                                     rs={cardData}
-                                                    showSummary={!fullResult}
+                                                    showSummary={true}
                                                     expanded={expanded}
                                                     loadData={expanded && current}
                                                     onClose={() => {
-                                                        onCardClose()
+                                                        props.onCloseExpanded()
                                                     }}
                                                     onSwitchFullCommandResult={() => {
-                                                        onSelectCommandResultItem(ps, ts, cardData, !fullResult)
                                                     }}
                                                 />
                                             }}/>
