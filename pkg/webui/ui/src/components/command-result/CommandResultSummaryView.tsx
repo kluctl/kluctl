@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { CommandResult } from "../../models";
-import { CardBody } from "../targets-view/Card";
+import { CardBody } from "../target-cards-view/Card";
 import { NodeBuilder } from "./nodes/NodeBuilder";
 
 

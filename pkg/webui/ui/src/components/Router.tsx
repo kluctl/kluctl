@@ -1,6 +1,6 @@
 import { createHashRouter, useNavigate, useRouteError } from "react-router-dom";
 import App from "./App";
-import { TargetsView } from "./targets-view/TargetsView";
+import { TargetCardsView } from "./target-cards-view/TargetCardsView";
 import { ErrorMessageCard } from "./ErrorMessage";
 import { Box } from "@mui/material";
 import React, { useEffect } from "react";
@@ -35,7 +35,7 @@ export const Router = createHashRouter([
             },
             {
                 path: "targets/*",
-                element: <TargetsView />,
+                element: <TargetCardsView />,
                 errorElement: <ErrorPage />,
             },
         ],

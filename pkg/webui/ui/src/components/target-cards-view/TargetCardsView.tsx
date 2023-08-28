@@ -2,8 +2,8 @@ import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey } fro
 import { Box, Typography, useTheme } from "@mui/material";
 import React, { useCallback, useMemo } from "react";
 import { useAppContext } from "../App";
-import { ProjectItem } from "./ProjectItem";
-import { TargetItem } from "./TargetItem";
+import { ProjectCard } from "./ProjectCard";
+import { TargetCard } from "./TargetCard";
 import Divider from "@mui/material/Divider";
 import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "./Card";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
@@ -174,7 +174,7 @@ function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment
     return buildListKey(j)
 }
 
-export const TargetsView = () => {
+export const TargetCardsView = () => {
     const navigate = useNavigate();
     const loc = useLocation();
     const [searchParams] = useSearchParams()
@@ -254,7 +254,7 @@ export const TargetsView = () => {
             return <Box key={buildListKey(ps.project)}>
                 <Box display={"flex"} alignItems={"center"} margin='40px 0'>
                     <Box display='flex' alignItems='center' width={colWidth} flex='0 0 auto'>
-                        <ProjectItem ps={ps} />
+                        <ProjectCard ps={ps} />
                         <Box
                             flexGrow={1}
                             height={ps.targets.length * cardHeight + (ps.targets.length - 1) * cardGap}
@@ -284,7 +284,7 @@ export const TargetsView = () => {
                                     getKey={cd => buildListKey([cd.target, cd.kdInfo])}
                                     selected={selectedTargetKey}
                                     renderCard={(cardData, expanded, current) => {
-                                        return <TargetItem
+                                        return <TargetCard
                                             ps={ps}
                                             ts={ts}
                                             expanded={expanded}

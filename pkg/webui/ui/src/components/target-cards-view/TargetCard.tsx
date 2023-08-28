@@ -200,7 +200,7 @@ export const TargetItemBody = React.memo((props: {
     return <CardBody provider={new TargetItemCardProvider(props.ts, vr)}/>
 });
 
-export const TargetItem = React.memo(React.forwardRef((
+export const TargetCard = React.memo(React.forwardRef((
     props: {
         ps: ProjectSummary,
         ts: TargetSummary,
@@ -347,7 +347,7 @@ export const TargetItem = React.memo(React.forwardRef((
     />;
 }));
 
-TargetItem.displayName = 'TargetItem';
+TargetCard.displayName = 'TargetItem';
 
 class TargetItemCardProvider implements SidePanelProvider {
     private ts?: TargetSummary;

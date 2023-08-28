@@ -4,7 +4,7 @@ import { CommandResult, CommandResultSummary } from "../../models";
 import { Box, IconButton, SxProps, Theme, Tooltip } from "@mui/material";
 import { DeployIcon, DiffIcon, PruneIcon, TreeViewIcon } from "../../icons/Icons";
 import { LiveHelp, RocketLaunch, Summarize } from "@mui/icons-material";
-import { CardTemplate } from "../targets-view/Card";
+import { CardTemplate } from "../target-cards-view/Card";
 import { Since } from "../Since";
 import { CommandResultSummaryBody } from "./CommandResultSummaryView";
 import { useAppContext } from "../App";
