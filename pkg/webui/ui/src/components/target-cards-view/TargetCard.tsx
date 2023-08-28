@@ -1,25 +1,10 @@
 import { ValidateResult } from "../../models";
 import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
-import { Alert, Box, CircularProgress, SxProps, Theme, Typography, useTheme } from "@mui/material";
+import { Alert, Box, SxProps, Theme, Typography } from "@mui/material";
 import React, { useState } from "react";
 import Tooltip from "@mui/material/Tooltip";
-import {
-    Approval,
-    Done,
-    Error,
-    Favorite,
-    HeartBroken,
-    Hotel,
-    HourglassTop,
-    Pause,
-    PlayArrow,
-    PublishedWithChanges,
-    RocketLaunch,
-    SyncProblem,
-    Toys,
-    Troubleshoot
-} from "@mui/icons-material";
-import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
+import { Pause, PlayArrow, PublishedWithChanges, RocketLaunch, Troubleshoot } from "@mui/icons-material";
+import { CpuIcon, FingerScanIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardBody, CardTemplate } from "../card/Card";
 import { CardTab, CardTabsProvider } from "../card/CardTabs";
@@ -27,149 +12,15 @@ import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesEntry, PropertiesTable, pushProp } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
-import { Since } from "../Since";
 import { ValidateResultsTable } from "../ValidateResultsTable";
 import { LogsViewer } from "../LogsViewer";
 import { K8sManifestViewer } from "../K8sManifestViewer";
 import { YamlViewer } from "../YamlViewer";
 import { gitRefToString } from "../../utils/git";
 import { AppContextProps, useAppContext } from "../App";
-
-const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
-    const theme = useTheme();
-
-    if (!props.ts.kd) {
-        return <></>
-    }
-
-    const buildStateTime = (c: any) => {
-        return <>In this state since <Since startTime={c.lastTransitionTime}/></>
-    }
-
-    let icon: React.ReactElement | undefined = undefined
-    const tooltip: React.ReactNode[] = []
-
-    const annotations: any = props.ts.kd.deployment.metadata?.annotations || {}
-    const requestReconcile = annotations["kluctl.io/request-reconcile"]
-    const requestValidate = annotations["kluctl.io/request-validate"]
-    const requestDeploy = annotations["kluctl.io/request-deploy"]
-
-    if (props.ts.kd.deployment.spec.suspend) {
-        icon = <Hotel color={"primary"}/>
-        tooltip.push("Deployment is suspended")
-    } else if (!props.ts.kd.deployment.status) {
-        icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
-        tooltip.push("Status not available")
-    } else {
-        const conditions: any[] | undefined = props.ts.kd.deployment.status.conditions
-        const readyCondition = conditions?.find(c => c.type === "Ready")
-        const reconcilingCondition = conditions?.find(c => c.type === "Reconciling")
-
-        if (reconcilingCondition) {
-            icon = <CircularProgress color={"info"} size={24}/>
-            tooltip.push(reconcilingCondition.message)
-            tooltip.push(buildStateTime(reconcilingCondition))
-        } else {
-            if (requestReconcile && requestReconcile !== props.ts.kd.deployment.status.lastHandledReconcileAt) {
-                icon = <HourglassTop color={"primary"}/>
-                tooltip.push("Reconcile requested: " + requestReconcile)
-            } else if (requestValidate && requestValidate !== props.ts.kd.deployment.status.lastHandledValidateAt) {
-                icon = <HourglassTop color={"primary"}/>
-                tooltip.push("Validate requested: " + requestValidate)
-            } else if (requestDeploy && requestDeploy !== props.ts.kd.deployment.status.lastHandledDeployAt) {
-                icon = <HourglassTop color={"primary"}/>
-                tooltip.push("Deploy requested: " + requestReconcile)
-            } else if (readyCondition) {
-                if (readyCondition.status === "True") {
-                    icon = <Done color={"success"}/>
-                    tooltip.push(readyCondition.message)
-                } else {
-                    if (readyCondition.reason === "PrepareFailed") {
-                        icon = <SyncProblem color={"error"}/>
-                        tooltip.push(readyCondition.message)
-                    } else if (readyCondition.reason === "ValidateFailed") {
-                        icon = <Done color={"success"}/>
-                        tooltip.push(readyCondition.message)
-                    } else {
-                        icon = <Error color={"warning"}/>
-                        tooltip.push(readyCondition.message)
-                    }
-                }
-                tooltip.push(buildStateTime(readyCondition))
-            } else {
-                icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
-                tooltip.push("Ready condition is missing")
-            }
-        }
-    }
-
-    if (!icon) {
-        icon = <MessageQuestionIcon color={theme.palette.warning.main}/>
-        tooltip.push("Unexpected state")
-    }
-
-    return <Tooltip title={
-        <>
-            <Typography key={"title"}><b>Reconciliation State</b></Typography>
-            {tooltip.map((t, i) => <Typography key={i}>{t}</Typography>)}
-        </>
-    }>
-        <Box display='flex'>{icon}</Box>
-    </Tooltip>
-}
-
-const StatusIcon = (props: { ps: ProjectSummary, ts: TargetSummary }) => {
-    let icon: React.ReactElement
-    const theme = useTheme();
-
-    if (!props.ts.kd?.deployment.spec.validate) {
-        icon = <Favorite color={"disabled"}/>
-    } else if (props.ts.lastValidateResult === undefined) {
-        icon = <MessageQuestionIcon color={theme.palette.error.main}/>
-    } else if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
-        if (props.ts.lastValidateResult.warnings) {
-            icon = <Favorite color={"warning"}/>
-            /*} else if (props.ts.lastValidateResult.drift?.length) {
-                icon = <Favorite color={"primary"} />*/
-        } else {
-            icon = <Favorite color={"success"}/>
-        }
-    } else {
-        icon = <HeartBroken color={"error"}/>
-    }
-
-    const tooltip: React.ReactNode[] = []
-    if (!props.ts.kd?.deployment.spec.validate) {
-        tooltip.push("Validation is disabled.")
-    } else if (props.ts.lastValidateResult === undefined) {
-        tooltip.push("No validation result available.")
-    } else {
-        if (props.ts.lastValidateResult.ready && !props.ts.lastValidateResult.errors) {
-            tooltip.push("Target is ready.")
-        } else {
-            tooltip.push("Target is not ready.")
-        }
-        if (props.ts.lastValidateResult.errors) {
-            tooltip.push(`Target has ${props.ts.lastValidateResult.errors} validation errors.`)
-        }
-        if (props.ts.lastValidateResult.warnings) {
-            tooltip.push(`Target has ${props.ts.lastValidateResult.warnings} validation warnings.`)
-        }
-        /*if (props.ts.lastValidateResult.drift?.length) {
-            tooltip.push(`Target has ${props.ts.lastValidateResult.drift.length} drifted objects.`)
-        }*/
-        tooltip.push(<>Validation performed <Since startTime={new Date(props.ts.lastValidateResult.startTime)}/> ago</>)
-    }
-
-    return <Tooltip title={
-        <>
-            <Typography key={"title"}><b>Validation State</b></Typography>
-            {tooltip.map((t, i) => <Typography key={i}>{t}</Typography>)}
-        </>
-    }>
-        <Box display='flex'>{icon}</Box>
-    </Tooltip>
-}
+import { ReconcilingIcon } from "../targets-view/ReconcilingIcon";
+import { StatusIcon } from "../targets-view/StatusIcon";
+import { TargetTypeIcon } from "../targets-view/TargetTypeIcon";
 
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
@@ -297,17 +148,6 @@ export const TargetCard = React.memo(React.forwardRef((
     }
     const iconTooltip = <Box textAlign={"center"}>{iconTooltipChildren}</Box>
 
-    let dryRunApprovalIcon: React.ReactElement | undefined
-    if (kd?.deployment.spec.manual) {
-        dryRunApprovalIcon = <Tooltip title={"Deployment needs manual triggering"}>
-            <Box display='flex'><Approval/></Box>
-        </Tooltip>
-    } else if (kd?.deployment.spec.dryRun) {
-        dryRunApprovalIcon = <Tooltip title={"Deployment is in dry-run mode"}>
-            <Box display='flex'><Toys/></Box>
-        </Tooltip>
-    }
-
     const body = props.expanded ? <TargetItemBody ts={props.ts}/> : undefined;
 
     return <CardTemplate
@@ -335,7 +175,7 @@ export const TargetCard = React.memo(React.forwardRef((
                     <Tooltip title={"Discriminator: " + props.ts.target.discriminator}>
                         <Box display='flex'><FingerScanIcon/></Box>
                     </Tooltip>
-                    {dryRunApprovalIcon}
+                    <TargetTypeIcon ts={props.ts}/>
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center'>
                     <ReconcilingIcon {...props} />
