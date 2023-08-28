@@ -47,7 +47,7 @@ for a given cluster.
 
 ## Install Kluctl
 
-The `kluctl` command-line interface (CLI) is required to perform deployments. Read the [installation instructions](./installation.md)
+The `kluctl` command-line interface (CLI) is required to perform deployments. Read the [installation instructions](installation.md)
 to figure out how to install it.
 
 ## Use Kluctl with a plain Kustomize deployment
@@ -128,4 +128,4 @@ You should need 2 instances of the nginx POD running now.
 ## Where to continue?
 
 Continue by reading through the [tutorials](https://kluctl.io/docs/guides/tutorials/) and by consulting
-the [reference documentation](./reference).
+the [reference documentation](./README.md).

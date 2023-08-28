@@ -424,7 +424,7 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 		return nil, err
 	}
 
-	var list []any
+	list := make([]any, 0, len(des))
 	m := map[string]bool{}
 
 	for _, de := range des {

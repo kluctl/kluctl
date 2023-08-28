@@ -100,7 +100,7 @@ The controller can be installed via two available options.
 
 ### Using the "install" sub-command
 
-The [`kluctl controller install`](./reference/commands/controller-install.md) command can be used to install the
+The [`kluctl controller install`](../kluctl/commands/controller-install.md) command can be used to install the
 controller. It will use an embedded version of the Controller Kluctl deployment project
 found [here](https://github.com/kluctl/kluctl/tree/main/install/controller).
 
@@ -116,3 +116,7 @@ deployments:
       ref:
         tag: v2.20.8
 ```
+
+## Installing the Kluctl Webui
+
+See [Installing the Kluctl Webui](../webui/installation.md) for details.

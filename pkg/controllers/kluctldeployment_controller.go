@@ -279,13 +279,23 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
-	obj.Status.ProjectKey = &result.ProjectKey{
+
+	newProjectKey := result.ProjectKey{
 		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
 		SubDir:     path.Clean(obj.Spec.Source.Path),
 	}
-	if obj.Status.ProjectKey.SubDir == "." {
-		obj.Status.ProjectKey.SubDir = ""
+	if newProjectKey.SubDir == "." {
+		newProjectKey.SubDir = ""
 	}
+
+	// we patch the projectKey immediately so that the webui knows it asap
+	if obj.Status.ProjectKey == nil || *obj.Status.ProjectKey != newProjectKey {
+		patchErr = r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
+			status.ProjectKey = &newProjectKey
+			return nil
+		})
+	}
+	obj.Status.ProjectKey = &newProjectKey
 
 	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
@@ -306,11 +316,19 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if err != nil {
 			return doFailPrepare(err)
 		}
-		obj.Status.TargetKey = &result.TargetKey{
+		newTargetKey := result.TargetKey{
 			TargetName:    targetContext.Target.Name,
 			Discriminator: targetContext.Target.Discriminator,
 			ClusterId:     clusterId,
 		}
+		// we patch the targetKey immediately so that the webui knows it asap
+		if obj.Status.TargetKey == nil || *obj.Status.TargetKey != newTargetKey {
+			patchErr = r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
+				status.TargetKey = &newTargetKey
+				return nil
+			})
+		}
+		obj.Status.TargetKey = &newTargetKey
 	}
 	if err != nil {
 		return doFailPrepare(err)

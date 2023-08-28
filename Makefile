@@ -69,7 +69,7 @@ manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRol
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/reference/gitops/api/kluctl-controller.md
+	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/gitops/api/kluctl-controller.md
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -96,12 +96,12 @@ test-e2e: envtest ## Run e2e tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -coverprofile cover.out -test.v
 
 replace-commands-help: ## Replace commands help in docs
-	go run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
+	go run ./internal/replace-commands-help --docs-dir ./docs/kluctl/commands
 
 MARKDOWN_LINK_CHECK_VERSION=3.11.2
 markdown-link-check: ## Check markdown files for dead links
 	find . -name '*.md' \
-		-and -not -path './docs/reference/gitops/api/kluctl-controller.md' \
+		-and -not -path './docs/gitops/api/kluctl-controller.md' \
 		-and -not -path './pkg/webui/ui/node_modules/*' \
 		-and -not -path './pkg/webui/ui/build/*' | \
 		xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
