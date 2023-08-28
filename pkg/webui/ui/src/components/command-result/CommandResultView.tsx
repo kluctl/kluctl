@@ -3,7 +3,7 @@ import { CommandResult } from "../../models";
 import { Box, Divider } from "@mui/material";
 import { NodeData } from "./nodes/NodeData";
 import CommandResultTree from "./CommandResultTree";
-import { SidePanel } from "./SidePanel";
+import { CardTabs } from "../card/CardTabs";
 import { NodeBuilder } from "./nodes/NodeBuilder";
 
 export const CommandResultBody = React.memo((props: {
@@ -31,7 +31,7 @@ export const CommandResultBody = React.memo((props: {
         </Box>
         <Divider orientation={"vertical"} sx={{marginX: "10px"}}/>
         <Box minWidth={"50%"} maxWidth={"50%"} height={"100%"}>
-            <SidePanel provider={selectedNode} onClose={() => setSelectedNode(undefined)} />
+            <CardTabs provider={selectedNode} onClose={() => setSelectedNode(undefined)} />
         </Box>
     </Box>
 });

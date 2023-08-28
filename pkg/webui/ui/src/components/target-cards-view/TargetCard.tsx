@@ -22,7 +22,7 @@ import {
 import { CpuIcon, FingerScanIcon, MessageQuestionIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardBody, CardTemplate } from "../card/Card";
-import { SidePanelProvider, SidePanelTab } from "../command-result/SidePanel";
+import { CardTabsProvider, CardTab } from "../card/CardTabs";
 import { ErrorsTable } from "../ErrorsTable";
 import { PropertiesEntry, PropertiesTable, pushProp } from "../PropertiesTable";
 import { Loading, useLoadingHelper } from "../Loading";
@@ -349,7 +349,7 @@ export const TargetCard = React.memo(React.forwardRef((
 
 TargetCard.displayName = 'TargetItem';
 
-class TargetItemCardProvider implements SidePanelProvider {
+class TargetItemCardProvider implements CardTabsProvider {
     private ts?: TargetSummary;
     private lastValidateResult?: ValidateResult
 
@@ -358,7 +358,7 @@ class TargetItemCardProvider implements SidePanelProvider {
         this.lastValidateResult = vr
     }
 
-    buildSidePanelTabs(appCtx: AppContextProps): SidePanelTab[] {
+    buildSidePanelTabs(appCtx: AppContextProps): CardTab[] {
         if (!this.ts) {
             return []
         }

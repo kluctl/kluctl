@@ -1,8 +1,7 @@
 import React from "react";
-import { Box, BoxProps, Divider, IconButton, Paper, PaperProps, Tab, Tooltip } from "@mui/material"
+import { Box, BoxProps, IconButton, Paper, PaperProps, Tooltip } from "@mui/material"
 import { CloseLightIcon } from "../../icons/Icons";
-import { SidePanelProvider, useSidePanelTabs } from "../command-result/SidePanel";
-import { TabContext, TabList, TabPanel } from "@mui/lab";
+import { CardTabs, CardTabsProvider, useCardTabs } from "./CardTabs";
 import { ScrollingTextLine } from "../ScrollingTextLine";
 
 export const cardWidth = 247;
@@ -154,8 +153,8 @@ export const CardTemplate = React.forwardRef((props: {
 
 CardTemplate.displayName = 'CardTemplate';
 
-export const CardBody = React.memo((props: { provider: SidePanelProvider }) => {
-    const { tabs, selectedTab, handleTabChange } = useSidePanelTabs(props.provider)
+export const CardBody = React.memo((props: { provider: CardTabsProvider }) => {
+    const { tabs, selectedTab, handleTabChange } = useCardTabs(props.provider)
 
     if (!props.provider
         || !selectedTab
@@ -164,30 +163,7 @@ export const CardBody = React.memo((props: { provider: SidePanelProvider }) => {
         return null;
     }
 
-    return <TabContext value={selectedTab}>
-        <Box display='flex' flexDirection='column' height='100%' overflow='hidden'>
-            <Box height='36px' flex='0 0 auto' p='0'>
-                <TabList onChange={handleTabChange}>
-                    {tabs.map((tab, i) => {
-                        return <Tab label={tab.label} value={tab.label} key={tab.label} />
-                    })}
-                </TabList>
-            </Box>
-            <Divider sx={{ margin: 0 }} />
-            <Box overflow='auto' p='10px 0' display={"flex"} flex={"1 1 auto"}>
-                {tabs.map(tab => {
-                    const sx: any = { padding: 0, flex: "1 1 auto" }
-                    if (selectedTab === tab.label) {
-                        // only the active tab should be a flex box, as otherwise the hidden ones go crazy
-                        sx.display = "flex"
-                    }
-                    return <TabPanel key={tab.label} value={tab.label} sx={sx} >
-                        {tab.content}
-                    </TabPanel>
-                })}
-            </Box>
-        </Box>
-    </TabContext>
+    return <CardTabs provider={props.provider}/>
 });
 
 CardBody.displayName = 'CardBody';

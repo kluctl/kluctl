@@ -2,7 +2,7 @@ import { NodeData } from "./NodeData";
 import React from "react";
 import { Delete, LinkOff } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 import { CommandResult } from "../../../models";
 
 export class DeletedOrOrphanObjectsCollectionNode extends NodeData {
@@ -29,7 +29,7 @@ export class DeletedOrOrphanObjectsCollectionNode extends NodeData {
         }
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(): CardTab[] {
         const tabs = [
             {label: "Summary", content: this.buildSummaryPage()}
         ]

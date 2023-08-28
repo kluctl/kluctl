@@ -3,7 +3,7 @@ import React from 'react';
 import { NodeData } from "./NodeData";
 import { PropertiesEntry, PropertiesTable, pushProp } from "../../PropertiesTable";
 
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 import { DeployIcon } from '../../../icons/Icons';
 import { LogsViewer } from "../../LogsViewer";
 import { CommandResult } from "../../../models";
@@ -24,7 +24,7 @@ export class CommandResultNodeData extends NodeData {
         return [<DeployIcon />, "result"]
     }
 
-    buildSidePanelTabs(appCtx: AppContextProps): SidePanelTab[] {
+    buildSidePanelTabs(appCtx: AppContextProps): CardTab[] {
         const tabs = [
             {label: "Summary", content: this.buildSummaryPage()},
             {label: "Target", content: this.buildTargetPage()},

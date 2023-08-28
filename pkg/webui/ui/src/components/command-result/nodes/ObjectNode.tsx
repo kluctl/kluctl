@@ -5,7 +5,7 @@ import { NodeData } from "./NodeData";
 import { PublishedWithChanges, Settings, SettingsEthernet, SmartToy, SvgIconComponent } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
 import { findObjectByRef, ObjectType } from "../../../api";
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 import { BracketsCurlyIcon } from '../../../icons/Icons';
 import { AppContextProps } from "../../App";
 
@@ -40,7 +40,7 @@ export class ObjectNodeData extends NodeData {
         return [<BracketsCurlyIcon />, snStr]
     }
 
-    buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[] {
+    buildSidePanelTabs(appContext: AppContextProps): CardTab[] {
         const tabs = [
             { label: "Summary", content: this.buildSummaryPage() }
         ]

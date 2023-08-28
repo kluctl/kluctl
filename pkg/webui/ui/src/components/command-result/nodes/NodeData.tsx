@@ -6,7 +6,7 @@ import { ErrorsTable } from "../../ErrorsTable";
 import { ObjectType } from "../../../api";
 import { ResultObjectViewer } from "../../ResultObjectViewer";
 import { StatusLine } from "../CommandResultStatusLine";
-import { SidePanelProvider, SidePanelTab } from "../SidePanel";
+import { CardTabsProvider, CardTab } from "../../card/CardTabs";
 import { AppContextProps } from "../../App";
 
 export class DiffStatus {
@@ -68,7 +68,7 @@ export class HealthStatus {
     }
 }
 
-export abstract class NodeData implements SidePanelProvider {
+export abstract class NodeData implements CardTabsProvider {
     commandResult: CommandResult
 
     id: string
@@ -110,7 +110,7 @@ export abstract class NodeData implements SidePanelProvider {
 
     abstract buildIcon(appContext: AppContextProps): [React.ReactNode, string]
 
-    abstract buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[]
+    abstract buildSidePanelTabs(appContext: AppContextProps): CardTab[]
 
     buildStatusLine(): React.ReactNode {
         return <StatusLine
