@@ -79,7 +79,7 @@ require (
 	golang.org/x/oauth2 v0.11.0
 	nhooyr.io/websocket v1.8.7
 	sigs.k8s.io/cli-utils v0.35.0
-	sigs.k8s.io/controller-runtime v0.15.1
+	sigs.k8s.io/controller-runtime v0.16.1
 	sigs.k8s.io/kustomize/api v0.14.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -251,6 +251,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/arch v0.4.0 // indirect
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846 // indirect
