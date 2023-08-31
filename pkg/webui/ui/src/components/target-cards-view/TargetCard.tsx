@@ -1,8 +1,7 @@
 import { ValidateResult } from "../../models";
 import { Alert, Box, SxProps, Theme, Typography } from "@mui/material";
 import React, { useState } from "react";
-import Tooltip from "@mui/material/Tooltip";
-import { CpuIcon, FingerScanIcon, TargetIcon } from "../../icons/Icons";
+import { TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardBody, CardTemplate } from "../card/Card";
 import { CardTab, CardTabsProvider } from "../card/CardTabs";
@@ -20,6 +19,8 @@ import { ReconcilingIcon } from "../targets-view/ReconcilingIcon";
 import { StatusIcon } from "../targets-view/StatusIcon";
 import { TargetTypeIcon } from "../targets-view/TargetTypeIcon";
 import { TargetActionMenu } from "../targets-view/TargetActionMenu";
+import { ClusterIcon } from "../targets-view/ClusterIcon";
+import { DiscriminatorIcon } from "../targets-view/DiscriminatorIcon";
 
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
@@ -125,12 +126,8 @@ export const TargetCard = React.memo(React.forwardRef((
         footer={
             <>
                 <Box display='flex' gap='6px' alignItems='center'>
-                    <Tooltip title={"Cluster ID: " + props.ts.target.clusterId}>
-                        <Box display='flex'><CpuIcon/></Box>
-                    </Tooltip>
-                    <Tooltip title={"Discriminator: " + props.ts.target.discriminator}>
-                        <Box display='flex'><FingerScanIcon/></Box>
-                    </Tooltip>
+                    <ClusterIcon ts={props.ts}/>
+                    <DiscriminatorIcon ts={props.ts}/>
                     <TargetTypeIcon ts={props.ts}/>
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center'>
