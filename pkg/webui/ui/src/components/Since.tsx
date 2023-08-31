@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { formatDurationShort } from "../utils/duration";
+import Tooltip from "@mui/material/Tooltip";
+import { Typography } from "@mui/material";
 
 export const Since = (props: { startTime: Date | string }) => {
     const [str, setStr] = useState("")
@@ -28,5 +30,9 @@ export const Since = (props: { startTime: Date | string }) => {
         return () => clearTimeout(x)
     }, [props.startTime, counter])
 
-    return <>{str}</>
+    const tooltip = props.startTime.toString()
+
+    return <Tooltip title={tooltip}>
+        <Typography>{str}</Typography>
+    </Tooltip>
 }
