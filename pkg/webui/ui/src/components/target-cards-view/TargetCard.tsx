@@ -57,7 +57,6 @@ export const TargetCard = React.memo(React.forwardRef((
         ps: ProjectSummary,
         ts: TargetSummary,
         onSelectTarget?: () => void,
-        sx?: SxProps<Theme>,
         expanded?: boolean,
         onClose?: () => void
     },
@@ -120,7 +119,6 @@ export const TargetCard = React.memo(React.forwardRef((
         paperProps={{
             sx: {
                 padding: '20px 16px 12px 16px',
-                ...props.sx
             },
             onClick: e => props.onSelectTarget?.()
         }}

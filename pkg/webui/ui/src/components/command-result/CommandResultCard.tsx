@@ -79,7 +79,6 @@ export const CommandResultCard = React.memo(React.forwardRef((
         ts: TargetSummary,
         rs: CommandResultSummary,
         onSwitchFullCommandResult: () => void,
-        sx?: SxProps<Theme>,
         showSummary: boolean,
         expanded: boolean,
         loadData: boolean,
@@ -159,7 +158,6 @@ export const CommandResultCard = React.memo(React.forwardRef((
         paperProps={{
             sx: {
                 padding: '20px 16px 5px 16px',
-                ...props.sx,
             },
             glow: cardGlow,
         }}
