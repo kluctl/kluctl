@@ -69,16 +69,20 @@ export const ProjectIcon = () => {
     return <ProjectIconSvg width="45px" height="45px" />
 }
 
-export const DeployIcon = () => {
-    return <DeployIconSvg width="45px" height="45px" />
+export const DeployIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    console.log(props.size)
+    return <DeployIconSvg width={size} height={size} />
 }
 
-export const PruneIcon = () => {
-    return <PruneIconSvg width="45px" height="45px" />
+export const PruneIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <PruneIconSvg width={size} height={size} />
 }
 
-export const DiffIcon = () => {
-    return <DiffIconSvg width="45px" height="45px" />
+export const DiffIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <DiffIconSvg width={size} height={size} />
 }
 
 export const CpuIcon = () => {

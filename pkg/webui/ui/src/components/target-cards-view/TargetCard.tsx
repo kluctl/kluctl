@@ -21,6 +21,7 @@ import { TargetTypeIcon } from "../targets-view/TargetTypeIcon";
 import { TargetActionMenu } from "../targets-view/TargetActionMenu";
 import { ClusterIcon } from "../targets-view/ClusterIcon";
 import { DiscriminatorIcon } from "../targets-view/DiscriminatorIcon";
+import Tooltip from "@mui/material/Tooltip";
 
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
@@ -104,6 +105,11 @@ export const TargetCard = React.memo(React.forwardRef((
         })
     }
     const iconTooltip = <Box textAlign={"center"}>{iconTooltipChildren}</Box>
+    const icon = <Tooltip title={iconTooltip}>
+        <Box>
+            <TargetIcon/>
+        </Box>
+    </Tooltip>
 
     const body = props.expanded ? <TargetItemBody ts={props.ts}/> : undefined;
 
@@ -118,8 +124,7 @@ export const TargetCard = React.memo(React.forwardRef((
             },
             onClick: e => props.onSelectTarget?.()
         }}
-        icon={<TargetIcon/>}
-        iconTooltip={iconTooltip}
+        icon={icon}
         header={header}
         subheader={subheader}
         body={body}

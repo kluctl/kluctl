@@ -13,6 +13,7 @@ import { CommandResultStatusLine } from "./CommandResultStatusLine";
 import { YamlViewer } from "../YamlViewer";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
+import { CommandTypeIcon } from "../targets-view/CommandTypeIcon";
 
 const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
     const appCtx = useAppContext()
@@ -95,42 +96,18 @@ export const CommandResultCard = React.memo(React.forwardRef((
         return await appCtx.api.getCommandResult(props.rs.id)
     }, [props.rs.id, props.loadData])
 
-    let icon: React.ReactElement
     let cardGlow = false
     let header = props.rs.commandInfo?.command
-    switch (props.rs.commandInfo?.command) {
-        default:
-            icon = <DiffIcon/>
-            break
-        case "delete":
-            icon = <PruneIcon/>
-            break
-        case "deploy":
-            if (props.rs.commandInfo.dryRun) {
-                if (props.ts.kd?.deployment.spec.manual && !props.ts.kd?.deployment.spec.dryRun) {
-                    icon = <LiveHelp sx={{ width: "100%", height: "100%" }}/>
-                    cardGlow = true
-                    header = "manual deploy"
-                } else {
-                    icon = <DeployIcon/>
-                    header = "dry-run deploy"
-                }
+    if (props.rs.commandInfo.command === "deploy") {
+        if (props.rs.commandInfo.dryRun) {
+            if (props.ts.kd?.deployment.spec.manual && !props.ts.kd?.deployment.spec.dryRun) {
+                cardGlow = true
+                header = "manual deploy"
             } else {
-                icon = <DeployIcon/>
+                header = "dry-run deploy"
             }
-            break
-        case "diff":
-            icon = <DiffIcon/>
-            break
-        case "poke-images":
-            icon = <DeployIcon/>
-            break
-        case "prune":
-            icon = <PruneIcon/>
-            break
+        }
     }
-
-    const iconTooltip = <YamlViewer obj={props.rs.commandInfo}/>
 
     let body: React.ReactElement | undefined
     if (props.expanded && props.loadData) {
@@ -186,8 +163,7 @@ export const CommandResultCard = React.memo(React.forwardRef((
             },
             glow: cardGlow,
         }}
-        icon={icon}
-        iconTooltip={iconTooltip}
+        icon={<CommandTypeIcon ts={props.ts} rs={props.rs}/>}
         header={header}
         subheader={<Since startTime={new Date(props.rs.commandInfo.startTime)}/>}
         subheaderTooltip={props.rs.commandInfo.startTime}

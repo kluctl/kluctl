@@ -52,7 +52,6 @@ export const CardTemplate = React.forwardRef((props: {
     paperProps?: CardPaperProps,
     boxProps?: BoxProps,
     icon?: React.ReactNode,
-    iconTooltip?: React.ReactNode,
     header?: React.ReactNode,
     headerTooltip?: React.ReactNode,
     subheader?: React.ReactNode,
@@ -63,17 +62,15 @@ export const CardTemplate = React.forwardRef((props: {
     onClose?: () => void
 }, ref: React.ForwardedRef<HTMLDivElement>) => {
     const icon = props.icon && (
-        <Tooltip title={props.iconTooltip}>
-            <Box
-                width='45px'
-                height='45px'
-                flex='0 0 auto'
-                justifyContent='center'
-                alignItems='center'
-            >
-                {props.icon}
-            </Box>
-        </Tooltip>
+        <Box
+            width='45px'
+            height='45px'
+            flex='0 0 auto'
+            justifyContent='center'
+            alignItems='center'
+        >
+            {props.icon}
+        </Box>
     );
 
     const header = props.header && (
