@@ -71,7 +71,6 @@ export const ProjectIcon = () => {
 
 export const DeployIcon = (props: {size?: string}) => {
     const size = props.size || "45px"
-    console.log(props.size)
     return <DeployIconSvg width={size} height={size} />
 }
 

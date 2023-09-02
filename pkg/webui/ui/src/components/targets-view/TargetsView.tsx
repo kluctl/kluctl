@@ -2,14 +2,30 @@ import { CommandResultSummary } from "../../models";
 import React, { useCallback, useMemo } from "react";
 import { useAppContext } from "../App";
 import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { TargetCardsView } from "../target-cards-view/TargetCardsView";
+import { TargetsListView } from "../targets-list-view/TargetsListView";
 
 export const TargetsView = () => {
     const navigate = useNavigate();
     const loc = useLocation();
     const appContext = useAppContext();
     const projects = appContext.projects;
+    const [searchParams] = useSearchParams()
+
+    const cardsView = searchParams.get("cards") === "1"
+
+    const doNavigate = useCallback((p: string, sp?: URLSearchParams) => {
+        sp = new URLSearchParams(sp)
+        if (cardsView) {
+            sp.set("cards", "1")
+        }
+        const qs = sp.toString()
+        if (qs.length) {
+            p += "?" + qs
+        }
+        navigate(p)
+    }, [])
 
     const onSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary | undefined) => {
         let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`
@@ -19,12 +35,12 @@ export const TargetsView = () => {
                 p += "/" + rs.id
             }
         }
-        navigate(p);
-    }, [navigate]);
+        doNavigate(p);
+    }, []);
 
     const onCloseExpanded = useCallback(() => {
-        navigate(`/targets/`);
-    }, [navigate]);
+        doNavigate(`/targets/`);
+    }, []);
 
     const targetsByKey = useMemo(() => {
         const m = new Map<string, {ps: ProjectSummary, ts: TargetSummary}>()
@@ -51,11 +67,20 @@ export const TargetsView = () => {
         }
     }
 
-    return <TargetCardsView
-        selectedProject={selected?.ps}
-        selectedTarget={selected?.ts}
-        selectedResult={selectedCommandResult}
-        onSelect={onSelect}
-        onCloseExpanded={onCloseExpanded}
-    />
+    if (cardsView) {
+        return <TargetCardsView
+            selectedProject={selected?.ps}
+            selectedTarget={selected?.ts}
+            selectedResult={selectedCommandResult}
+            onSelect={onSelect}
+            onCloseExpanded={onCloseExpanded}
+        />
+    } else {
+        return <TargetsListView selectedProject={selected?.ps}
+                                selectedTarget={selected?.ts}
+                                selectedResult={selectedCommandResult}
+                                onSelect={onSelect}
+                                onCloseExpanded={onCloseExpanded}
+        />
+    }
 }
