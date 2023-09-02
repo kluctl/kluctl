@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { formatDurationShort } from "../utils/duration";
 import Tooltip from "@mui/material/Tooltip";
-import { Box, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
 
 export const Since = (props: { startTime: Date | string }) => {
     const [str, setStr] = useState("")

@@ -1,5 +1,5 @@
 import { ValidateResult } from "../../models";
-import { Alert, Box, SxProps, Theme, Typography } from "@mui/material";
+import { Alert, Box, Typography } from "@mui/material";
 import React, { useState } from "react";
 import { TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
