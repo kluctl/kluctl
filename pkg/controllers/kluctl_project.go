@@ -772,6 +772,16 @@ func (pt *preparedTarget) handleValidateResult(ctx context.Context, cmdErr error
 	return nil
 }
 
+func (pt *preparedTarget) kluctlDeployOrPokeImages(ctx context.Context, deployMode string, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, needDeployByRequest bool) (*result.CommandResult, error) {
+	if deployMode == kluctlv1.KluctlDeployModeFull {
+		return pt.kluctlDeploy(ctx, targetContext, crId, objectsHash, needDeployByRequest)
+	} else if deployMode == kluctlv1.KluctlDeployPokeImages {
+		return pt.kluctlPokeImages(ctx, targetContext, crId, objectsHash, needDeployByRequest)
+	} else {
+		return nil, fmt.Errorf("deployMode '%s' not supported", deployMode)
+	}
+}
+
 func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()

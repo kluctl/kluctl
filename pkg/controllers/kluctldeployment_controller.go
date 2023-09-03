@@ -398,22 +398,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	var deployResult *result.CommandResult
 	if needDeploy {
-		// deploy the kluctl project
-		if obj.Spec.DeployMode == kluctlv1.KluctlDeployModeFull {
-			patchErr = doProgressingCondition("Performing kluctl deploy", false)
-			if patchErr != nil {
-				return nil, patchErr
-			}
-			deployResult, err = pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
-		} else if obj.Spec.DeployMode == kluctlv1.KluctlDeployPokeImages {
-			patchErr = doProgressingCondition("Performing kluctl poke-images", false)
-			if patchErr != nil {
-				return nil, patchErr
-			}
-			deployResult, err = pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
-		} else {
-			err = fmt.Errorf("deployMode '%s' not supported", obj.Spec.DeployMode)
+		patchErr = doProgressingCondition(fmt.Sprintf("Performing kluctl %s", obj.Spec.DeployMode), false)
+		if patchErr != nil {
+			return nil, patchErr
 		}
+		deployResult, err = pt.kluctlDeployOrPokeImages(ctx, obj.Spec.DeployMode, targetContext, reconcileId, objectsHash, needDeployByRequest)
 		err = obj.Status.SetLastDeployResult(deployResult.BuildSummary(), err)
 		if err != nil {
 			log.Error(err, "Failed to write deploy result")
