@@ -413,7 +413,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			log.Error(err, "Failed to write deploy result")
 		}
 
-		r.updateResourceVersions(key, deployResult.Objects, nil)
+		if obj.Spec.DryRun {
+			r.updateResourceVersions(key, nil, nil)
+		} else {
+			r.updateResourceVersions(key, deployResult.Objects, nil)
+		}
 	}
 
 	if needValidate {
