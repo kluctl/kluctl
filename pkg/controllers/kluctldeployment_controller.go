@@ -342,6 +342,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	needDeploy := false
 	needDeployByRequest := false
 	needValidate := false
+	needDriftDetection := true
 
 	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
 		// either never deployed or source code changed
@@ -368,8 +369,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		log.Info("checking manual object hash")
 		if obj.Spec.ManualObjectsHash == nil || *obj.Spec.ManualObjectsHash != objectsHash {
 			log.Info("deployment is not approved", "manualObjectsHash", obj.Spec.ManualObjectsHash, "objectsHash", objectsHash)
-			targetContext.Params.DryRun = true
-			targetContext.SharedContext.K.DryRun = true
+			needDeploy = false
 		} else {
 			log.Info("deployment is approved", "objectsHash", objectsHash)
 		}
@@ -418,6 +418,19 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		err = obj.Status.SetLastValidateResult(validateResult, err)
 		if err != nil {
 			log.Error(err, "Failed to write validate result")
+		}
+	}
+
+	if needDriftDetection {
+		patchErr = doProgressingCondition("Performing drift detection", false)
+		if patchErr != nil {
+			return nil, patchErr
+		}
+
+		diffResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash)
+		err = obj.Status.SetLastDriftDetectionResult(diffResult.BuildDriftDetectionResult(), cmdErr)
+		if err != nil {
+			log.Error(err, "Failed to write drift detection result")
 		}
 	}
 

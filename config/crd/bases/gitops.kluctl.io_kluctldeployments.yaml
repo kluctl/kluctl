@@ -24,6 +24,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.lastDriftDetectionResultMessage
+      name: Drift
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Status
       type: string
@@ -499,6 +502,17 @@ spec:
                   command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              lastDriftDetectionError:
+                type: string
+              lastDriftDetectionResult:
+                description: LastDriftDetectionResult is the result of the last drift
+                  detection command optional
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              lastDriftDetectionResultMessage:
+                description: LastDriftDetectionResultMessage contains a short message
+                  that describes the drift optional
+                type: string
               lastHandledDeployAt:
                 type: string
               lastHandledReconcileAt:

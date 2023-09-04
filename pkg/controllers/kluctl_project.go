@@ -824,6 +824,22 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 	return cmdResult, err
 }
 
+func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
+	defer timer.ObserveDuration()
+	cmd := commands.NewDiffCommand(targetContext)
+	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
+	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
+	cmd.ForceReplaceOnError = pt.pp.obj.Spec.ForceReplaceOnError
+
+	cmdResult, cmdErr := cmd.Run()
+	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
+	if err != nil {
+		return cmdResult, err
+	}
+	return cmdResult, cmdErr
+}
+
 func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult, crId string, objectsHash string) (*result.ValidateResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()

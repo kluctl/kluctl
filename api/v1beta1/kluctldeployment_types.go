@@ -372,6 +372,8 @@ type KluctlDeploymentStatus struct {
 	LastDeployError string `json:"lastDeployError,omitempty"`
 	// +optional
 	LastValidateError string `json:"lastValidateError,omitempty"`
+	// +optional
+	LastDriftDetectionError string `json:"lastDriftDetectionError,omitempty"`
 
 	// LastDeployResult is the result summary of the last deploy command
 	// +optional
@@ -381,6 +383,14 @@ type KluctlDeploymentStatus struct {
 	// LastValidateResult is the result summary of the last validate command
 	// +optional
 	LastValidateResult *runtime.RawExtension `json:"lastValidateResult,omitempty"`
+
+	// LastDriftDetectionResult is the result of the last drift detection command
+	// optional
+	LastDriftDetectionResult *runtime.RawExtension `json:"lastDriftDetectionResult,omitempty"`
+
+	// LastDriftDetectionResultMessage contains a short message that describes the drift
+	// optional
+	LastDriftDetectionResultMessage string `json:"lastDriftDetectionResultMessage,omitempty"`
 }
 
 func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary, err error) error {
@@ -417,6 +427,25 @@ func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResul
 	return nil
 }
 
+func (s *KluctlDeploymentStatus) SetLastDriftDetectionResult(dr *result.DriftDetectionResult, err error) error {
+	s.LastDriftDetectionError = ""
+	s.LastDriftDetectionResultMessage = ""
+	if err != nil {
+		s.LastDriftDetectionError = err.Error()
+	}
+	if dr == nil {
+		s.LastDriftDetectionResult = nil
+	} else {
+		b, err := yaml.WriteJsonString(dr)
+		if err != nil {
+			return err
+		}
+		s.LastDriftDetectionResult = &runtime.RawExtension{Raw: []byte(b)}
+		s.LastDriftDetectionResultMessage = dr.BuildShortMessage()
+	}
+	return nil
+}
+
 func (s *KluctlDeploymentStatus) GetLastDeployResult() (*result.CommandResultSummary, error) {
 	if s.LastDeployResult == nil {
 		return nil, nil
@@ -441,11 +470,24 @@ func (s *KluctlDeploymentStatus) GetLastValidateResult() (*result.ValidateResult
 	return &ret, nil
 }
 
+func (s *KluctlDeploymentStatus) GetDriftDetectionResult() (*result.DriftDetectionResult, error) {
+	if s.LastDriftDetectionResult == nil {
+		return nil, nil
+	}
+	var ret result.DriftDetectionResult
+	err := yaml.ReadYamlBytes(s.LastDriftDetectionResult.Raw, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="DryRun",type="boolean",JSONPath=".spec.dryRun",description=""
 //+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.commandInfo.endTime",description=""
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
+//+kubebuilder:printcolumn:name="Drift",type="string",JSONPath=".status.lastDriftDetectionResultMessage",description=""
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 
