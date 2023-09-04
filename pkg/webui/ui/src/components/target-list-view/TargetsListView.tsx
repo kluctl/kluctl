@@ -1,16 +1,16 @@
 import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
-import { CommandResultSummary } from "../../models";
+import { CommandResultSummary, DriftDetectionResult } from "../../models";
 import { useAppContext } from "../App";
 import React, { useCallback, useMemo } from "react";
 import { Box, Dialog, Typography } from "@mui/material";
 import { DataGrid, GridColDef, gridStringOrNumberComparator } from '@mui/x-data-grid';
 import { getLastPathElement } from "../../utils/misc";
 import Tooltip from "@mui/material/Tooltip";
-import { Approval, Toys } from "@mui/icons-material";
+import { Approval, Keyboard, Toys } from "@mui/icons-material";
 import { ReconcilingIcon } from "../target-view/ReconcilingIcon";
 import { StatusIcon } from "../target-view/StatusIcon";
 import { TargetActionMenu } from "../target-view/TargetActionMenu";
-import { CommandResultStatusLine } from "../command-result/CommandResultStatusLine";
+import { CommandResultStatusLine, DriftDetectionResultStatusLine } from "../command-result/CommandResultStatusLine";
 import { Since } from "../Since";
 import { ScrollingTextLine } from "../ScrollingTextLine";
 import { ClusterIcon } from "../target-view/ClusterIcon";
@@ -62,6 +62,24 @@ export const TargetsListView = (props: TargetsListViewProps) => {
     }
 
     const columns: GridColDef<Row>[] = [
+        {
+            field: "cli",
+            headerName: "CLI",
+            width: 48,
+            valueGetter: rp => {
+                return !rp.row.ts.kdInfo
+            },
+            renderCell: rp => {
+                if (rp.value) {
+                    const tooltip = <Typography>Invoked via the CLI</Typography>
+                    return <Tooltip title={tooltip}>
+                        <Keyboard/>
+                    </Tooltip>
+                } else {
+                    return <></>
+                }
+            }
+        },
         {
             field: "project",
             headerName: "Project",
@@ -178,9 +196,63 @@ export const TargetsListView = (props: TargetsListViewProps) => {
             field: "status",
             headerName: "Status",
             width: 48,
+            sortable: false,
+            filterable: false,
             renderCell: rp => {
                 return <Box onDoubleClick={() => doSelectTarget(rp.row)}>
                     <StatusIcon ps={rp.row.ps} ts={rp.row.ts}/>
+                </Box>
+            }
+        },
+        {
+            field: "drift",
+            headerName: "Drift",
+            width: 120,
+            filterable: false,
+            sortable: false,
+            valueGetter: rp => {
+                if (!rp.row.ts.commandResults.length) {
+                    return ""
+                }
+                const rs = rp.row.ts.commandResults[0]
+                return rs.commandInfo.command
+            },
+            renderCell: rp => {
+                if (!rp.row.ts.commandResults.length) {
+                    return <></>
+                }
+                const dr: DriftDetectionResult | undefined = rp.row.ts.kd?.deployment.status.lastDriftDetectionResult
+                return <Box display={"flex"}
+                            width={"100%"}
+                            onDoubleClick={() => doSelectTarget(rp.row)}>
+                    <DriftDetectionResultStatusLine dr={dr}/>
+                </Box>
+            }
+        },
+        {
+            field: "lastCommandResult",
+            headerName: "Last Command",
+            width: 120,
+            filterable: false,
+            sortable: false,
+            valueGetter: rp => {
+                if (!rp.row.ts.commandResults.length) {
+                    return ""
+                }
+                const rs = rp.row.ts.commandResults[0]
+                return rs.commandInfo.command
+            },
+            renderCell: rp => {
+                if (!rp.row.ts.commandResults.length) {
+                    return <></>
+                }
+                const rs = rp.row.ts.commandResults[0]
+                return <Box display={"flex"}
+                            width={"100%"}
+                            onDoubleClick={() => doSelectCommandResult(rp.row, 0)}>
+                    {/*<CommandTypeIcon ts={rp.row.ts} rs={rs} size={"24px"}/>*/}
+                    {/*<Divider orientation={"vertical"} sx={{height: "inherit", marginX: "5px"}}/>*/}
+                    <CommandResultStatusLine rs={rs}/>
                 </Box>
             }
         },
@@ -207,32 +279,6 @@ export const TargetsListView = (props: TargetsListViewProps) => {
             }
         },
         {
-            field: "lastCommandResult",
-            headerName: "Last Command",
-            width: 120,
-            filterable: false,
-            valueGetter: rp => {
-                if (!rp.row.ts.commandResults.length) {
-                    return ""
-                }
-                const rs = rp.row.ts.commandResults[0]
-                return rs.commandInfo.command
-            },
-            renderCell: rp => {
-                if (!rp.row.ts.commandResults.length) {
-                    return <></>
-                }
-                const rs = rp.row.ts.commandResults[0]
-                return <Box display={"flex"}
-                            width={"100%"}
-                            onDoubleClick={() => doSelectCommandResult(rp.row, 0)}>
-                    <CommandTypeIcon ts={rp.row.ts} rs={rs} size={"24px"}/>
-                    <Divider orientation={"vertical"} sx={{height: "inherit", marginX: "5px"}}/>
-                    <CommandResultStatusLine rs={rs}/>
-                </Box>
-            }
-        },
-        {
             field: "actions",
             headerName: "Actions",
             width: 96,
@@ -242,8 +288,6 @@ export const TargetsListView = (props: TargetsListViewProps) => {
             },
         },
     ];
-
-
 
     const rows = useMemo(() => {
         const rows: Row[] = []

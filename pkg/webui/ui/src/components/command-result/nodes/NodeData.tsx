@@ -19,7 +19,7 @@ export class DiffStatus {
     totalDeletions: number = 0;
     totalUpdates: number = 0;
 
-    addChangedObject(co: ResultObject) {
+    addChangedObject(co: ChangedObject) {
         this.changedObjects.push(co)
         co.changes?.forEach(x => {
             switch (x.type) {

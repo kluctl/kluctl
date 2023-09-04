@@ -17,6 +17,7 @@ func main() {
 		Add(result.CommandResultSummary{}).
 		Add(result.ValidateResult{}).
 		Add(result.ValidateResultSummary{}).
+		Add(result.DriftDetectionResult{}).
 		Add(result.ChangedObject{}).
 		Add(webui.ShortName{}).
 		Add(uo.UnstructuredObject{}).

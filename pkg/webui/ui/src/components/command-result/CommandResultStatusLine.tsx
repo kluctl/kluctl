@@ -1,4 +1,4 @@
-import { CommandResultSummary, ValidateResult } from "../../models";
+import { CommandResultSummary, DriftDetectionResult, ValidateResult } from "../../models";
 import { Box, Tooltip, Typography } from "@mui/material";
 import React from "react";
 import { AddedIcon, ChangedIcon, ErrorIcon, OrphanIcon, TrashIcon, WarningIcon } from "../../icons/Icons";
@@ -74,5 +74,31 @@ export const CommandResultStatusLine = (props: { rs: CommandResultSummary }) => 
 export const ValidateResultStatusLine = (props: { vr?: ValidateResult }) => {
     return <StatusLine errors={props.vr?.errors?.length}
         warnings={props.vr?.warnings?.length}
+    />
+}
+
+function count<T>(l: T[] | undefined, f: (o: T) => boolean) {
+    let c = 0
+    if (!l) {
+        return c
+    }
+    l.forEach(o => {
+        if (f(o)) {
+            c++
+        }
+    })
+    return c
+}
+
+export const DriftDetectionResultStatusLine = (props: {dr?: DriftDetectionResult}) => {
+    if (!props.dr) {
+        return <></>
+    }
+    return <StatusLine errors={props.dr.errors?.length}
+                       warnings={props.dr.warnings?.length}
+                       changedObjects={count(props.dr.objects, o => !!o.changes?.length)}
+                       newObjects={count(props.dr.objects, o => !!o.new)}
+                       deletedObjects={count(props.dr.objects, o => !!o.deleted)}
+                       orphanObjects={count(props.dr.objects, o => !!o.orphan)}
     />
 }

@@ -1,4 +1,4 @@
-import { ValidateResult } from "../../models";
+import { DriftDetectionResult, ValidateResult } from "../../models";
 import { Alert, Box, Typography } from "@mui/material";
 import React, { useState } from "react";
 import { TargetIcon } from "../../icons/Icons";
@@ -22,6 +22,8 @@ import { TargetActionMenu } from "../target-view/TargetActionMenu";
 import { ClusterIcon } from "../target-view/ClusterIcon";
 import { DiscriminatorIcon } from "../target-view/DiscriminatorIcon";
 import Tooltip from "@mui/material/Tooltip";
+import { ChangesTable } from "../command-result/ChangesTable";
+import { DiffStatus } from "../command-result/nodes/NodeData";
 
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
@@ -167,6 +169,35 @@ class TargetItemCardProvider implements CardTabsProvider {
             tabs.push({
                 label: "KluctlDeployment",
                 content: <K8sManifestViewer obj={this.ts.kd.deployment} initialShowStatus={false}/>
+            })
+        }
+
+        const dr: DriftDetectionResult | undefined = this.ts.kd?.deployment.status.lastDriftDetectionResult
+        if (dr?.warnings?.length) {
+            tabs.push({
+                label: "Drift Warning",
+                content: <ErrorsTable errors={dr.warnings}/>
+            })
+        }
+        if (dr?.errors?.length) {
+            tabs.push({
+                label: "Drift Errors",
+                content: <ErrorsTable errors={dr.errors}/>
+            })
+        }
+        if (dr?.objects?.length) {
+            const diffStatus = new DiffStatus()
+            dr.objects.forEach(o => {
+                if (o.changes?.length) {
+                    diffStatus.addChangedObject(o)
+                }
+                if (o.new) diffStatus.newObjects.push(o.ref)
+                if (o.orphan) diffStatus.orphanObjects.push(o.ref)
+                if (o.deleted) diffStatus.deletedObjects.push(o.ref)
+            })
+            tabs.push({
+                label: "Drift",
+                content: <ChangesTable diffStatus={diffStatus}/>
             })
         }
 
