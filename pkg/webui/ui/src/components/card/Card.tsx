@@ -5,7 +5,6 @@ import { CardTabs, CardTabsProvider, useCardTabs } from "./CardTabs";
 import { ScrollingTextLine } from "../ScrollingTextLine";
 
 export const cardWidth = 247;
-export const projectCardMinHeight = 80;
 export const cardHeight = 126;
 export const cardGap = 20;
 

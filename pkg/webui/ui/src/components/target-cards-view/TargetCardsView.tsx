@@ -5,7 +5,7 @@ import { useAppContext } from "../App";
 import { ProjectCard } from "./ProjectCard";
 import { TargetCard } from "./TargetCard";
 import Divider from "@mui/material/Divider";
-import { CardCol, cardGap, cardHeight, CardPaper, CardRow, cardWidth } from "../card/Card";
+import { CardCol, cardGap, cardHeight, CardPaper, CardRow } from "../card/Card";
 import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
 import { buildListKey } from "../../utils/listKey";
 import { ExpandableCard } from "../card/ExpandableCard";
@@ -13,6 +13,8 @@ import { CommandResultCard } from "../command-result/CommandResultCard";
 import { RelationHorizontalLine, RelationTree } from "./Relations";
 
 const colWidth = 416;
+const targetCardWidth = 300
+const commandResultCardWidth = 247
 
 function ColHeader({ children }: { children: React.ReactNode }) {
     return <Box
@@ -38,7 +40,8 @@ export interface TargetCardsViewProps {
     selectedProject?: ProjectSummary
     selectedTarget?: TargetSummary
     selectedResult?: CommandResultSummary
-    onSelect: (ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary) => void
+    selectedResultFull?: boolean
+    onSelect: (ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) => void
     onCloseExpanded: () => void
 }
 
@@ -81,7 +84,7 @@ export const TargetCardsView = (props: TargetCardsViewProps) => {
                             const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
                             return <Box key={key} display='flex'>
                                 <ExpandableCard
-                                    cardWidth={cardWidth}
+                                    cardWidth={targetCardWidth}
                                     cardHeight={cardHeight}
                                     expand={!props.selectedResult && selectedTargetKey === key}
                                     onExpand={() => props.onSelect(ps, ts, false)}
@@ -115,7 +118,7 @@ export const TargetCardsView = (props: TargetCardsViewProps) => {
                                 {ts.commandResults?.slice(0, 4).map((rs, i) => {
                                     return i === 0 ? <ExpandableCard
                                             key={rs.id}
-                                            cardWidth={cardWidth}
+                                            cardWidth={commandResultCardWidth}
                                             cardHeight={cardHeight}
                                             expand={selectedTargetKey === tsKey && !!props.selectedResult}
                                             onExpand={() => {
@@ -136,22 +139,23 @@ export const TargetCardsView = (props: TargetCardsViewProps) => {
                                                     ps={ps}
                                                     ts={ts}
                                                     rs={cardData}
-                                                    showSummary={true}
+                                                    showSummary={!props.selectedResultFull}
                                                     expanded={expanded}
                                                     loadData={expanded && current}
                                                     onClose={() => {
                                                         props.onCloseExpanded()
                                                     }}
                                                     onSwitchFullCommandResult={() => {
+                                                        props.onSelect(ps, ts, true, cardData, !props.selectedResultFull)
                                                     }}
                                                 />
                                             }}/>
                                         : <CardPaper
                                             key={rs.id}
                                             sx={{
-                                                width: cardWidth,
+                                                width: commandResultCardWidth,
                                                 height: cardHeight,
-                                                translate: `${-i * (cardWidth + cardGap / 2)}px`,
+                                                translate: `${-i * (commandResultCardWidth + cardGap / 2)}px`,
                                                 zIndex: -i,
                                             }}
                                         />

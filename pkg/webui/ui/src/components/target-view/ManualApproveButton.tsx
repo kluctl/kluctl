@@ -24,11 +24,15 @@ export const ManualApproveButton = (props: {ts: TargetSummary, renderedObjectsHa
         return <></>
     }
 
+    const hasDrift = !!props.ts.lastDriftDetectionResult?.objects?.length
     const isApproved = props.ts.kd.deployment.spec.manualObjectsHash === props.renderedObjectsHash
 
     let icon: React.ReactElement
     let tooltip: string
-    if (!isApproved) {
+    if (!hasDrift) {
+        tooltip = "No drift, so there is nothing to be manually deployed!"
+        icon = <RocketLaunch color={"disabled"}/>
+    } else if (!isApproved) {
         tooltip = "Click here to trigger this manual deployment."
         icon = <RocketLaunch color={"info"}/>
     } else {
@@ -39,7 +43,9 @@ export const ManualApproveButton = (props: {ts: TargetSummary, renderedObjectsHa
         <IconButton
             onClick={e => {
                 e.stopPropagation();
-                handleApprove(!isApproved)
+                if (hasDrift) {
+                    handleApprove(!isApproved)
+                }
             }}
             sx={{
                 padding: 0,

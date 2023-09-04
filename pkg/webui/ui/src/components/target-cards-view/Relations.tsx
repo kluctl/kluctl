@@ -63,7 +63,7 @@ export const RelationHorizontalLine = React.memo(() => {
 export const RelationTree = React.memo(({ targetCount }: { targetCount: number }): JSX.Element | null => {
     const theme = useTheme();
     const height = targetCount * cardHeight + (targetCount - 1) * cardGap
-    const width = 152;
+    const width = 100;
 
     if (targetCount <= 0) {
         return null;

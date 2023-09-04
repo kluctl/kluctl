@@ -17,13 +17,13 @@ import { gitRefToString } from "../../utils/git";
 import { AppContextProps, useAppContext } from "../App";
 import { ReconcilingIcon } from "../target-view/ReconcilingIcon";
 import { StatusIcon } from "../target-view/StatusIcon";
-import { TargetTypeIcon } from "../target-view/TargetTypeIcon";
 import { TargetActionMenu } from "../target-view/TargetActionMenu";
 import { ClusterIcon } from "../target-view/ClusterIcon";
-import { DiscriminatorIcon } from "../target-view/DiscriminatorIcon";
 import Tooltip from "@mui/material/Tooltip";
 import { ChangesTable } from "../command-result/ChangesTable";
 import { DiffStatus } from "../command-result/nodes/NodeData";
+import { DriftDetectionResultStatusLine } from "../command-result/CommandResultStatusLine";
+import { ManualApproveButton } from "../target-view/ManualApproveButton";
 
 export const TargetItemBody = React.memo((props: {
     ts: TargetSummary
@@ -114,6 +114,8 @@ export const TargetCard = React.memo(React.forwardRef((
 
     const body = props.expanded ? <TargetItemBody ts={props.ts}/> : undefined;
 
+    const dr = props.ts.lastDriftDetectionResult
+
     return <CardTemplate
         ref={ref}
         showCloseButton={props.expanded}
@@ -122,6 +124,7 @@ export const TargetCard = React.memo(React.forwardRef((
             sx: {
                 padding: '20px 16px 12px 16px',
             },
+            glow: !!dr?.objects?.length,
             onClick: e => props.onSelectTarget?.()
         }}
         icon={icon}
@@ -131,11 +134,11 @@ export const TargetCard = React.memo(React.forwardRef((
         footer={
             <>
                 <Box display='flex' gap='6px' alignItems='center'>
-                    <ClusterIcon ts={props.ts}/>
-                    <DiscriminatorIcon ts={props.ts}/>
-                    <TargetTypeIcon ts={props.ts}/>
+                    <DriftDetectionResultStatusLine dr={dr}/>
                 </Box>
                 <Box display='flex' gap='6px' alignItems='center'>
+                    {dr && <ManualApproveButton ts={props.ts} renderedObjectsHash={dr.renderedObjectsHash!}/>}
+                    <ClusterIcon ts={props.ts}/>
                     <ReconcilingIcon {...props} />
                     <StatusIcon {...props} />
                     <TargetActionMenu ts={props.ts}/>

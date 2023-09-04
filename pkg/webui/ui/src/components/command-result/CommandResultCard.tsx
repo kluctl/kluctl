@@ -37,18 +37,7 @@ export const CommandResultCard = React.memo(React.forwardRef((
         return await appCtx.api.getCommandResult(props.rs.id)
     }, [props.rs.id, props.loadData])
 
-    let cardGlow = false
     let header = props.rs.commandInfo?.command
-    if (props.rs.commandInfo.command === "deploy") {
-        if (props.rs.commandInfo.dryRun) {
-            if (props.ts.kd?.deployment.spec.manual && !props.ts.kd?.deployment.spec.dryRun) {
-                cardGlow = true
-                header = "manual deploy"
-            } else {
-                header = "dry-run deploy"
-            }
-        }
-    }
 
     let body: React.ReactElement | undefined
     if (props.expanded && props.loadData) {
@@ -100,7 +89,6 @@ export const CommandResultCard = React.memo(React.forwardRef((
             sx: {
                 padding: '20px 16px 5px 16px',
             },
-            glow: cardGlow,
         }}
         icon={<CommandTypeIcon ts={props.ts} rs={props.rs}/>}
         header={header}

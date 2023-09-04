@@ -37,6 +37,8 @@ import { ReactComponent as FileIconSvg } from './file.svg';
 import { ReactComponent as ResultIconSvg } from './result.svg';
 import { ReactComponent as IncludeIconSvg } from './include.svg';
 import { ReactComponent as LogoutIconSvg } from './logout.svg';
+import ToysIcon from '@mui/icons-material/Toys';
+import React from "react";
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -72,6 +74,11 @@ export const ProjectIcon = () => {
 export const DeployIcon = (props: {size?: string}) => {
     const size = props.size || "45px"
     return <DeployIconSvg width={size} height={size} />
+}
+
+export const DryRunDeployIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <ToysIcon sx={{width: size, height: size}} />
 }
 
 export const PruneIcon = (props: {size?: string}) => {

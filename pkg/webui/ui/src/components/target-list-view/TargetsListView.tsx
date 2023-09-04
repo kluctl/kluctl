@@ -246,8 +246,6 @@ export const TargetsListView = (props: TargetsListViewProps) => {
                 return <Box display={"flex"}
                             width={"100%"}
                             onDoubleClick={() => doSelectCommandResult(rp.row, 0)}>
-                    {/*<CommandTypeIcon ts={rp.row.ts} rs={rs} size={"24px"}/>*/}
-                    {/*<Divider orientation={"vertical"} sx={{height: "inherit", marginX: "5px"}}/>*/}
                     <CommandResultStatusLine rs={rs}/>
                     <Tooltip title={<Typography>Show full result tree</Typography>}>
                     <IconButton
