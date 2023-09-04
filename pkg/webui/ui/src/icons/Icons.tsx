@@ -39,6 +39,7 @@ import { ReactComponent as IncludeIconSvg } from './include.svg';
 import { ReactComponent as LogoutIconSvg } from './logout.svg';
 import ToysIcon from '@mui/icons-material/Toys';
 import React from "react";
+import { Keyboard } from "@mui/icons-material";
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -62,6 +63,10 @@ export const TargetsIcon = () => {
 
 export const TargetIcon = () => {
     return <TargetIconSvg width="45px" height="45px" />
+}
+export const CLITargetIcon = () => {
+    const size = "45px"
+    return <Keyboard sx={{width: size, height: size}}/>
 }
 export const RelationHLine = () => {
     return <RelationHLineSvg width="169px" height="12px" />

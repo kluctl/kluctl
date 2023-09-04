@@ -1,7 +1,7 @@
 import { ValidateResult } from "../../models";
 import { Alert, Box, Typography } from "@mui/material";
 import React, { useState } from "react";
-import { TargetIcon } from "../../icons/Icons";
+import { CLITargetIcon, TargetIcon } from "../../icons/Icons";
 import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CardBody, CardTemplate } from "../card/Card";
 import { CardTab, CardTabsProvider } from "../card/CardTabs";
@@ -84,8 +84,12 @@ export const TargetCard = React.memo(React.forwardRef((
     })
 
     let header = "<command-line>"
+    let targetIcon: React.ReactElement
     if (kd) {
         header = kd.deployment.metadata.name
+        targetIcon = <TargetIcon/>
+    } else {
+        targetIcon = <CLITargetIcon/>
     }
 
     let subheader = "<no-name>"
@@ -108,7 +112,7 @@ export const TargetCard = React.memo(React.forwardRef((
     const iconTooltip = <Box textAlign={"center"}>{iconTooltipChildren}</Box>
     const icon = <Tooltip title={iconTooltip}>
         <Box>
-            <TargetIcon/>
+            {targetIcon}
         </Box>
     </Tooltip>
 
