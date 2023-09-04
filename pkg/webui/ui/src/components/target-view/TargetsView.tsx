@@ -4,7 +4,7 @@ import { useAppContext } from "../App";
 import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { TargetCardsView } from "../target-cards-view/TargetCardsView";
-import { TargetsListView } from "../targets-list-view/TargetsListView";
+import { TargetsListView } from "../target-list-view/TargetsListView";
 
 export const TargetsView = () => {
     const navigate = useNavigate();

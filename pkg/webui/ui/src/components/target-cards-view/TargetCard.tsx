@@ -15,12 +15,12 @@ import { K8sManifestViewer } from "../K8sManifestViewer";
 import { YamlViewer } from "../YamlViewer";
 import { gitRefToString } from "../../utils/git";
 import { AppContextProps, useAppContext } from "../App";
-import { ReconcilingIcon } from "../targets-view/ReconcilingIcon";
-import { StatusIcon } from "../targets-view/StatusIcon";
-import { TargetTypeIcon } from "../targets-view/TargetTypeIcon";
-import { TargetActionMenu } from "../targets-view/TargetActionMenu";
-import { ClusterIcon } from "../targets-view/ClusterIcon";
-import { DiscriminatorIcon } from "../targets-view/DiscriminatorIcon";
+import { ReconcilingIcon } from "../target-view/ReconcilingIcon";
+import { StatusIcon } from "../target-view/StatusIcon";
+import { TargetTypeIcon } from "../target-view/TargetTypeIcon";
+import { TargetActionMenu } from "../target-view/TargetActionMenu";
+import { ClusterIcon } from "../target-view/ClusterIcon";
+import { DiscriminatorIcon } from "../target-view/DiscriminatorIcon";
 import Tooltip from "@mui/material/Tooltip";
 
 export const TargetItemBody = React.memo((props: {

@@ -12,7 +12,7 @@ import { CommandResultBody } from "./CommandResultView";
 import { CommandResultStatusLine } from "./CommandResultStatusLine";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
-import { CommandTypeIcon } from "../targets-view/CommandTypeIcon";
+import { CommandTypeIcon } from "../target-view/CommandTypeIcon";
 
 const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
     const appCtx = useAppContext()
