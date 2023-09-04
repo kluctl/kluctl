@@ -5,6 +5,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type DriftedObject struct {
+	BaseObject
+
+	LastResourceVersion string `json:"lastResourceVersion"`
+}
+
 type DriftDetectionResult struct {
 	Id                  string                `json:"id"`
 	ProjectKey          ProjectKey            `json:"projectKey"`
@@ -16,7 +22,7 @@ type DriftDetectionResult struct {
 
 	Warnings []DeploymentError `json:"warnings,omitempty"`
 	Errors   []DeploymentError `json:"errors,omitempty"`
-	Objects  []BaseObject      `json:"objects,omitempty"`
+	Objects  []DriftedObject   `json:"objects,omitempty"`
 }
 
 func (cr *CommandResult) BuildDriftDetectionResult() *DriftDetectionResult {
@@ -39,7 +45,19 @@ func (cr *CommandResult) BuildDriftDetectionResult() *DriftDetectionResult {
 		if !o.New && !o.Orphan && !o.Deleted && len(o.Changes) == 0 {
 			continue
 		}
-		ret.Objects = append(ret.Objects, o.BaseObject)
+		resourceVersion := ""
+		ro := o.Applied
+		if ro == nil {
+			ro = o.Remote
+		}
+		if ro != nil {
+			resourceVersion = ro.GetK8sResourceVersion()
+		}
+
+		ret.Objects = append(ret.Objects, DriftedObject{
+			BaseObject:          o.BaseObject,
+			LastResourceVersion: resourceVersion,
+		})
 	}
 
 	return ret
@@ -48,7 +66,7 @@ func (cr *CommandResult) BuildDriftDetectionResult() *DriftDetectionResult {
 func (dr *DriftDetectionResult) BuildShortMessage() string {
 	ret := ""
 
-	count := func(f func(o BaseObject) bool) int {
+	count := func(f func(o DriftedObject) bool) int {
 		cnt := 0
 		for _, o := range dr.Objects {
 			if f(o) {
@@ -68,17 +86,17 @@ func (dr *DriftDetectionResult) BuildShortMessage() string {
 		ret += fmt.Sprintf("%d %s", cnt, s)
 	}
 
-	countAndAdd := func(s string, cntFun func(o BaseObject) bool) {
+	countAndAdd := func(s string, cntFun func(o DriftedObject) bool) {
 		add(s, count(cntFun))
 	}
 
 	if len(dr.Objects) == 0 {
 		ret = "no drift"
 	} else {
-		countAndAdd("new", func(o BaseObject) bool { return o.New })
-		countAndAdd("chg", func(o BaseObject) bool { return len(o.Changes) != 0 })
-		countAndAdd("orp", func(o BaseObject) bool { return o.Orphan })
-		countAndAdd("del", func(o BaseObject) bool { return o.Deleted })
+		countAndAdd("new", func(o DriftedObject) bool { return o.New })
+		countAndAdd("chg", func(o DriftedObject) bool { return len(o.Changes) != 0 })
+		countAndAdd("orp", func(o DriftedObject) bool { return o.Orphan })
+		countAndAdd("del", func(o DriftedObject) bool { return o.Deleted })
 		add("err", len(dr.Errors))
 		add("wrn", len(dr.Warnings))
 	}

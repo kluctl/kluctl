@@ -12,6 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
@@ -32,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sync"
 	"time"
 )
 
@@ -48,6 +50,9 @@ type KluctlDeploymentReconciler struct {
 	SshPool *ssh_pool.SshPool
 
 	ResultStore results.ResultStore
+
+	mutex               sync.Mutex
+	resourceVersionsMap map[client.ObjectKey]map[k8s.ObjectRef]string
 }
 
 // KluctlDeploymentReconcilerOpts contains options for the BaseReconciler.
@@ -407,6 +412,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if err != nil {
 			log.Error(err, "Failed to write deploy result")
 		}
+
+		r.updateResourceVersions(key, deployResult.Objects, nil)
 	}
 
 	if needValidate {
@@ -427,11 +434,16 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			return nil, patchErr
 		}
 
-		diffResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash)
-		err = obj.Status.SetLastDriftDetectionResult(diffResult.BuildDriftDetectionResult(), cmdErr)
+		resourceVersions := r.getResourceVersions(key)
+
+		diffResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash, resourceVersions)
+		driftDetectionResult := diffResult.BuildDriftDetectionResult()
+		err = obj.Status.SetLastDriftDetectionResult(driftDetectionResult, cmdErr)
 		if err != nil {
 			log.Error(err, "Failed to write drift detection result")
 		}
+
+		r.updateResourceVersions(key, diffResult.Objects, driftDetectionResult.Objects)
 	}
 
 	var ctrlResult ctrl.Result
@@ -458,6 +470,45 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, patchErr
 	}
 	return &ctrlResult, nil
+}
+
+func (r *KluctlDeploymentReconciler) buildResourceVersionsMap(objects []result.ResultObject) map[k8s.ObjectRef]string {
+	m := map[k8s.ObjectRef]string{}
+	for _, o := range objects {
+		if o.Applied == nil && o.Remote == nil {
+			continue
+		}
+		ro := o.Applied
+		if ro == nil {
+			ro = o.Remote
+		}
+		s := ro.GetK8sResourceVersion()
+		if s == "" {
+			continue
+		}
+		m[o.Ref] = s
+	}
+	return m
+}
+
+func (r *KluctlDeploymentReconciler) getResourceVersions(key client.ObjectKey) map[k8s.ObjectRef]string {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	m, _ := r.resourceVersionsMap[key]
+	return m
+}
+
+func (r *KluctlDeploymentReconciler) updateResourceVersions(key client.ObjectKey, diffObjects []result.ResultObject, driftedObjects []result.DriftedObject) {
+	newMap := r.buildResourceVersionsMap(diffObjects)
+
+	// ignore versions from already drifted objects so that we re-diff them the next time
+	for _, o := range driftedObjects {
+		delete(newMap, o.Ref)
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.resourceVersionsMap[key] = newMap
 }
 
 func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {
@@ -599,6 +650,10 @@ func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeploy
 
 func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) (ctrl.Result, error) {
 	r.doFinalize(ctx, obj)
+
+	r.mutex.Lock()
+	delete(r.resourceVersionsMap, client.ObjectKeyFromObject(obj))
+	r.mutex.Unlock()
 
 	// Remove our finalizer from the list and update it
 	patch := client.MergeFrom(obj.DeepCopy())

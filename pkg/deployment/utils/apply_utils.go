@@ -33,6 +33,8 @@ type ApplyUtilOptions struct {
 	AbortOnError        bool
 	ReadinessTimeout    time.Duration
 	NoWait              bool
+
+	SkipResourceVersions map[k8s2.ObjectRef]string
 }
 
 type ApplyUtil struct {
@@ -339,6 +341,16 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 
 	x = a.k.FixObjectForPatch(x)
 	remoteObject := a.ru.GetRemoteObject(ref)
+
+	if a.o.SkipResourceVersions != nil && remoteObject != nil {
+		remoteResourceVersion := remoteObject.GetK8sResourceVersion()
+		skipVersion, ok := a.o.SkipResourceVersions[ref]
+		if ok && skipVersion == remoteResourceVersion {
+			a.handleResult(remoteObject, hook)
+			return
+		}
+	}
+
 	var remoteNamespace *uo.UnstructuredObject
 	if ref.Namespace != "" {
 		remoteNamespace = a.ru.GetRemoteNamespace(ref.Namespace)
