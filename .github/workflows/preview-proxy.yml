@@ -28,7 +28,7 @@ jobs:
           message: |
             # 🤖 Preview Environment
             The preview environment is starting up and will be available soon.
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # Warning, do not try to checkout the base branch here as it would introduce enormous security risks!
           # Also don't introduce a cache in this workflow!
