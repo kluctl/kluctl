@@ -25,7 +25,7 @@ export const TargetsView = () => {
             p += "?" + qs
         }
         navigate(p)
-    }, [])
+    }, [cardsView, navigate])
 
     const onSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary | undefined) => {
         let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`
@@ -36,11 +36,11 @@ export const TargetsView = () => {
             }
         }
         doNavigate(p);
-    }, []);
+    }, [doNavigate]);
 
     const onCloseExpanded = useCallback(() => {
         doNavigate(`/targets/`);
-    }, []);
+    }, [doNavigate]);
 
     const targetsByKey = useMemo(() => {
         const m = new Map<string, {ps: ProjectSummary, ts: TargetSummary}>()

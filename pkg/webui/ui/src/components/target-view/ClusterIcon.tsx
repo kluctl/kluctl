@@ -31,7 +31,7 @@ export const ClusterIcon = (props: {ts: TargetSummary}) => {
         const children: React.ReactNode[] = []
         children.push(<Typography key={children.length} variant="subtitle2"><b>Cluster ID</b></Typography>)
         children.push(<Typography key={children.length} variant="subtitle2">{props.ts.target.clusterId}</Typography>)
-        children.push(<br/>)
+        children.push(<br key={children.length}/>)
 
         if (allContexts.length) {
             children.push(<Typography key={children.length} variant="subtitle2"><b>Contexts</b></Typography>)

@@ -1,4 +1,4 @@
-import { ChangedObject, CommandResult, DeploymentError, ObjectRef, ResultObject } from "../../../models";
+import { ChangedObject, CommandResult, DeploymentError, ObjectRef } from "../../../models";
 import React from "react";
 import { Box, Divider, Typography } from "@mui/material";
 import { ChangesTable } from "../ChangesTable";

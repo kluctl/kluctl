@@ -1,4 +1,4 @@
-import { DriftDetectionResult, ValidateResult } from "../../models";
+import { ValidateResult } from "../../models";
 import { Alert, Box, Typography } from "@mui/material";
 import React, { useState } from "react";
 import { TargetIcon } from "../../icons/Icons";
@@ -172,7 +172,7 @@ class TargetItemCardProvider implements CardTabsProvider {
             })
         }
 
-        const dr: DriftDetectionResult | undefined = this.ts.kd?.deployment.status.lastDriftDetectionResult
+        const dr = this.ts.lastDriftDetectionResult
         if (dr?.warnings?.length) {
             tabs.push({
                 label: "Drift Warning",

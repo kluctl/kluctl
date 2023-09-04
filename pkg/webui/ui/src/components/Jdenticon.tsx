@@ -10,7 +10,7 @@ export const Jdenticon = (props: { value: string, size: string, disabled?: boole
         }
         const sat = props.disabled ? 0.0 : 1.0
         jdenticon.update(icon.current, props.value, {saturation: {color: sat}});
-    }, [props.value, props.size, props.disabled, icon.current])
+    }, [props.value, props.size, props.disabled, icon])
 
     return <Box display={"flex"} alignItems={"center"}>
         <SvgIcon ref={icon} height={props.size} width={props.size}/>

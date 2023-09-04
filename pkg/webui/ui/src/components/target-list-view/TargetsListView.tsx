@@ -1,5 +1,5 @@
 import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
-import { CommandResultSummary, DriftDetectionResult } from "../../models";
+import { CommandResultSummary } from "../../models";
 import { useAppContext } from "../App";
 import React, { useCallback, useMemo } from "react";
 import { Box, Dialog, Typography } from "@mui/material";
@@ -14,8 +14,6 @@ import { CommandResultStatusLine, DriftDetectionResultStatusLine } from "../comm
 import { Since } from "../Since";
 import { ScrollingTextLine } from "../ScrollingTextLine";
 import { ClusterIcon } from "../target-view/ClusterIcon";
-import { CommandTypeIcon } from "../target-view/CommandTypeIcon";
-import Divider from "@mui/material/Divider";
 import { TargetCard } from "../target-cards-view/TargetCard";
 import { CommandResultCard } from "../command-result/CommandResultCard";
 import { ManualApproveButton } from "../target-view/ManualApproveButton";
@@ -33,23 +31,17 @@ export const TargetsListView = (props: TargetsListViewProps) => {
     const appContext = useAppContext();
     const projects = appContext.projects;
 
-    const selectedTargetKey = useMemo(() => {
-        if (!props.selectedProject || !props.selectedTarget) {
-            return undefined
-        }
-        return buildTargetKey(props.selectedProject.project, props.selectedTarget.target, props.selectedTarget.kdInfo)
-    }, [props.selectedProject, props.selectedTarget])
-
     interface Row {
         id: string,
         ps: ProjectSummary
         ts: TargetSummary
     }
 
+    const onSelect = props.onSelect
     const doSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary) => {
         console.log("select", ps, ts, showResults, rs)
-        props.onSelect(ps, ts, showResults, rs)
-    }, [])
+        onSelect(ps, ts, showResults, rs)
+    }, [onSelect])
 
     const doSelectTarget = (row: Row) => {
         doSelect(row.ps, row.ts, false)
@@ -222,7 +214,7 @@ export const TargetsListView = (props: TargetsListViewProps) => {
                 if (!rp.row.ts.commandResults.length) {
                     return <></>
                 }
-                const dr: DriftDetectionResult | undefined = rp.row.ts.kd?.deployment.status.lastDriftDetectionResult
+                const dr = rp.row.ts.lastDriftDetectionResult
                 return <Box display={"flex"}
                             width={"100%"}
                             onDoubleClick={() => doSelectTarget(rp.row)}>

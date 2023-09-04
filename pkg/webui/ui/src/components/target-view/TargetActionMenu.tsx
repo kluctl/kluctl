@@ -7,9 +7,10 @@ import React, { useMemo } from "react";
 
 export const TargetActionMenu = (props: {ts: TargetSummary}) => {
     const appCtx = useAppContext()
-    const kd = props.ts.kd
 
     const actionMenuItems = useMemo(() => {
+        const kd = props.ts.kd
+
         const actionMenuItems: ActionMenuItem[] = []
         if (!kd || !appCtx.user.isAdmin) {
             return actionMenuItems
@@ -55,7 +56,7 @@ export const TargetActionMenu = (props: {ts: TargetSummary}) => {
         }
 
         return actionMenuItems
-    }, [props.ts, appCtx.user])
+    }, [props.ts, appCtx.user, appCtx.api])
 
     return <ActionsMenu menuItems={actionMenuItems}/>
 }
