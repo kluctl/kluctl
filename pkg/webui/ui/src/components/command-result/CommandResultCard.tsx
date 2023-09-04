@@ -13,7 +13,6 @@ import { CommandResultStatusLine } from "./CommandResultStatusLine";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { CommandTypeIcon } from "../target-view/CommandTypeIcon";
-import { ManualApproveButton } from "../target-view/ManualApproveButton";
 
 export const CommandResultCard = React.memo(React.forwardRef((
     props: {
@@ -70,16 +69,10 @@ export const CommandResultCard = React.memo(React.forwardRef((
         }
     }
 
-    let approveButton: React.ReactElement | undefined
-    if (props.rs.id === props.ts.commandResults[0].id && props.rs.commandInfo.dryRun && props.rs.renderedObjectsHash) {
-        approveButton = <ManualApproveButton ts={props.ts} renderedObjectsHash={props.rs.renderedObjectsHash}/>
-    }
-
     const footer = <>
         <Box display='flex' gap='6px' alignItems='center' flex={"1 1 auto"}>
             <CommandResultStatusLine rs={props.rs} />
         </Box>
-        {approveButton}
         <Box display='flex' gap='6px' alignItems='center' height='39px'>
             <IconButton
                 onClick={e => {

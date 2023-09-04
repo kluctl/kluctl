@@ -14,6 +14,7 @@ export const TargetsView = () => {
     const [searchParams] = useSearchParams()
 
     const cardsView = searchParams.get("cards") === "1"
+    const fullResult = searchParams.get("full") === "1"
 
     const doNavigate = useCallback((p: string, sp?: URLSearchParams) => {
         sp = new URLSearchParams(sp)
@@ -27,15 +28,20 @@ export const TargetsView = () => {
         navigate(p)
     }, [cardsView, navigate])
 
-    const onSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary | undefined) => {
+    const onSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) => {
         let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`
+        const sp = new URLSearchParams()
         if (showResults) {
             p += "/results"
             if (rs) {
                 p += "/" + rs.id
+                if (full) {
+                    console.log("full")
+                    sp.set("full", "1")
+                }
             }
         }
-        doNavigate(p);
+        doNavigate(p, sp);
     }, [doNavigate]);
 
     const onCloseExpanded = useCallback(() => {
@@ -79,6 +85,7 @@ export const TargetsView = () => {
         return <TargetsListView selectedProject={selected?.ps}
                                 selectedTarget={selected?.ts}
                                 selectedResult={selectedCommandResult}
+                                selectedResultFull={fullResult}
                                 onSelect={onSelect}
                                 onCloseExpanded={onCloseExpanded}
         />

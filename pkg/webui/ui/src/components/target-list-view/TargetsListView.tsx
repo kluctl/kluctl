@@ -2,7 +2,7 @@ import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-sum
 import { CommandResultSummary } from "../../models";
 import { useAppContext } from "../App";
 import React, { useCallback, useMemo } from "react";
-import { Box, Dialog, Typography } from "@mui/material";
+import { Box, Dialog, IconButton, Typography } from "@mui/material";
 import { DataGrid, GridColDef, gridStringOrNumberComparator } from '@mui/x-data-grid';
 import { getLastPathElement } from "../../utils/misc";
 import Tooltip from "@mui/material/Tooltip";
@@ -17,13 +17,15 @@ import { ClusterIcon } from "../target-view/ClusterIcon";
 import { TargetCard } from "../target-cards-view/TargetCard";
 import { CommandResultCard } from "../command-result/CommandResultCard";
 import { ManualApproveButton } from "../target-view/ManualApproveButton";
+import { TreeViewIcon } from "../../icons/Icons";
 
 
 export interface TargetsListViewProps {
     selectedProject?: ProjectSummary
     selectedTarget?: TargetSummary
     selectedResult?: CommandResultSummary
-    onSelect: (ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary) => void
+    selectedResultFull?: boolean
+    onSelect: (ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) => void
     onCloseExpanded: () => void
 }
 
@@ -38,20 +40,20 @@ export const TargetsListView = (props: TargetsListViewProps) => {
     }
 
     const onSelect = props.onSelect
-    const doSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary) => {
+    const doSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) => {
         console.log("select", ps, ts, showResults, rs)
-        onSelect(ps, ts, showResults, rs)
+        onSelect(ps, ts, showResults, rs, full)
     }, [onSelect])
 
     const doSelectTarget = (row: Row) => {
         doSelect(row.ps, row.ts, false)
     }
-    const doSelectCommandResult = (row: Row, index: number) => {
+    const doSelectCommandResult = (row: Row, index: number, full?: boolean) => {
         if (index >= (row.ts.commandResults.length || 0)) {
             return
         }
         const rs = row.ts.commandResults[index]
-        doSelect(row.ps, row.ts, true, rs)
+        doSelect(row.ps, row.ts, true, rs, full)
     }
 
     const columns: GridColDef<Row>[] = [
@@ -247,6 +249,21 @@ export const TargetsListView = (props: TargetsListViewProps) => {
                     {/*<CommandTypeIcon ts={rp.row.ts} rs={rs} size={"24px"}/>*/}
                     {/*<Divider orientation={"vertical"} sx={{height: "inherit", marginX: "5px"}}/>*/}
                     <CommandResultStatusLine rs={rs}/>
+                    <Tooltip title={<Typography>Show full result tree</Typography>}>
+                    <IconButton
+                        onClick={e => {
+                            e.stopPropagation();
+                            doSelectCommandResult(rp.row, 0, true)
+                        }}
+                        sx={{
+                            padding: 0,
+                            width: 26,
+                            height: 26
+                        }}
+                    >
+                            <TreeViewIcon />
+                    </IconButton>
+                    </Tooltip>
                 </Box>
             }
         },
@@ -313,8 +330,8 @@ export const TargetsListView = (props: TargetsListViewProps) => {
                 ps={props.selectedProject}
                 ts={props.selectedTarget}
                 rs={props.selectedResult}
-                onSwitchFullCommandResult={() => {}}
-                showSummary={true}
+                onSwitchFullCommandResult={() => doSelect(props.selectedProject!, props.selectedTarget!, true, props.selectedResult, !props.selectedResultFull)}
+                showSummary={!props.selectedResultFull}
                 expanded={true}
                 loadData={true}
                 onClose={() => props.onCloseExpanded()}
@@ -331,7 +348,7 @@ export const TargetsListView = (props: TargetsListViewProps) => {
     return <Box>
         <Dialog
             open={!!dialogCard}
-            maxWidth={"lg"}
+            maxWidth={"xl"}
             fullWidth={true}
             PaperProps={dialogPaperProps}
             onClose={() => props.onCloseExpanded()}
