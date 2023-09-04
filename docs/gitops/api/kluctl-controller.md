@@ -1295,6 +1295,17 @@ string
 </tr>
 <tr>
 <td>
+<code>lastDriftDetectionError</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>lastDeployResult</code><br>
 <em>
 k8s.io/apimachinery/pkg/runtime.RawExtension
@@ -1315,6 +1326,30 @@ k8s.io/apimachinery/pkg/runtime.RawExtension
 <td>
 <em>(Optional)</em>
 <p>LastValidateResult is the result summary of the last validate command</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastDriftDetectionResult</code><br>
+<em>
+k8s.io/apimachinery/pkg/runtime.RawExtension
+</em>
+</td>
+<td>
+<p>LastDriftDetectionResult is the result of the last drift detection command
+optional</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastDriftDetectionResultMessage</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>LastDriftDetectionResultMessage contains a short message that describes the drift
+optional</p>
 </td>
 </tr>
 </tbody>
