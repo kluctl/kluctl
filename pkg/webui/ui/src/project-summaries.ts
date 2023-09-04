@@ -70,7 +70,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     const filterTargetByStatus = (ts: TargetSummary) => {
         let hasErrors = !!ts.lastValidateResult?.errors || !!ts.lastDriftDetectionResult?.errors?.length
         let hasWarnings = !!ts.lastValidateResult?.warnings || !!ts.lastDriftDetectionResult?.warnings?.length
-        let hasChanges = !!ts.lastDriftDetectionResult?.objects?.length
+        let hasDrifted = !!ts.lastDriftDetectionResult?.objects?.length
 
         const conditions: any[] | undefined = ts.kd?.deployment.status?.conditions
         const readyCondition = conditions?.find(c => c.type === "Ready")
@@ -82,7 +82,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
             hasErrors = hasErrors || !!ts.commandResults[0].errors?.length
             hasWarnings = hasWarnings || !!ts.commandResults[0].warnings?.length
         }
-        return DoFilterSwitches(hasChanges, hasErrors, hasWarnings, filters)
+        return DoFilterSwitches(hasDrifted, hasErrors, hasWarnings, filters)
     }
 
     const sortedCommandResults = Array.from(commandResultSummaries.values())

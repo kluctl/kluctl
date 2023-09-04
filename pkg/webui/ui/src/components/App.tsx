@@ -148,7 +148,7 @@ const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, isStatic
         }
     }, [
         props.api, props.user, props.authInfo, props.isStatic,
-        commandResultSummaries, projects, validateResultSummaries, shortNames,
+        filters, commandResultSummaries, projects, validateResultSummaries, shortNames,
     ])
 
     if (loading) {

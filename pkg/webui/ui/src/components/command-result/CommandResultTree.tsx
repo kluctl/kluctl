@@ -3,7 +3,6 @@ import { useState } from 'react';
 import TreeView from '@mui/lab/TreeView';
 import { TreeItem } from "@mui/lab";
 import { NodeData } from "./nodes/NodeData";
-import { ActiveFilters, DoFilterSwitches } from "../FilterBar";
 import { Box, Divider, useTheme } from '@mui/material';
 import { TriangleDownIcon, TriangleRightIcon } from '../../icons/Icons';
 import { CommandResultNodeData } from "./nodes/CommandResultNode";
@@ -13,7 +12,6 @@ export interface CommandResultTreeProps {
     rootNode: CommandResultNodeData
 
     onSelectNode: (node?: NodeData) => void
-    activeFilters?: ActiveFilters
 }
 
 const CommandResultTree = (props: CommandResultTreeProps) => {
@@ -40,9 +38,6 @@ const CommandResultTree = (props: CommandResultTreeProps) => {
     }
 
     const renderTree = (nodes: NodeData) => {
-        if (!DoFilterSwitches(!!nodes.diffStatus?.hasDiffs(), !!nodes.healthStatus?.errors.length, !!nodes.healthStatus?.warnings.length, props.activeFilters)) {
-            return null
-        }
         return <TreeItem
             key={nodes.id}
             nodeId={nodes.id}
