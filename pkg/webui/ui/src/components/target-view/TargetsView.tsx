@@ -13,20 +13,16 @@ export const TargetsView = () => {
     const projects = appContext.projects;
     const [searchParams] = useSearchParams()
 
-    const cardsView = searchParams.get("cards") === "1"
     const fullResult = searchParams.get("full") === "1"
 
     const doNavigate = useCallback((p: string, sp?: URLSearchParams) => {
         sp = new URLSearchParams(sp)
-        if (cardsView) {
-            sp.set("cards", "1")
-        }
         const qs = sp.toString()
         if (qs.length) {
             p += "?" + qs
         }
         navigate(p)
-    }, [cardsView, navigate])
+    }, [navigate])
 
     const onSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) => {
         let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`
@@ -73,11 +69,12 @@ export const TargetsView = () => {
         }
     }
 
-    if (cardsView) {
+    if (!appContext.filters?.showTableView) {
         return <TargetCardsView
             selectedProject={selected?.ps}
             selectedTarget={selected?.ts}
             selectedResult={selectedCommandResult}
+            selectedResultFull={fullResult}
             onSelect={onSelect}
             onCloseExpanded={onCloseExpanded}
         />

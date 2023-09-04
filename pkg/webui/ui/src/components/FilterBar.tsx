@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Box, Chip } from "@mui/material";
-import { AutoFixHigh, ErrorOutline, Grade } from "@mui/icons-material";
+import { AutoFixHigh, ErrorOutline, Grade, TableRows } from "@mui/icons-material";
 import { OverridableComponent } from "@mui/material/OverridableComponent";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 
 export interface ActiveFilters {
+    showTableView: boolean
     onlyImportant: boolean
     onlyChanged: boolean
     onlyWithErrorsOrWarnings: boolean
@@ -70,6 +71,7 @@ export const FilterBar = (props: { onFilterChange: (f: ActiveFilters) => void })
     const theme = useTheme();
 
     const [activeFilters, setActiveFilters] = useState<ActiveFilters>({
+        showTableView: false,
         onlyImportant: false,
         onlyChanged: false,
         onlyWithErrorsOrWarnings: false,
@@ -88,6 +90,12 @@ export const FilterBar = (props: { onFilterChange: (f: ActiveFilters) => void })
                 alignItems="center"
                 gap="5px"
             >
+                <FilterButton Icon={TableRows} tooltip={"Show table view"}
+                              color={"secondary"}
+                              active={activeFilters.showTableView}
+                              handler={(active: boolean) => {
+                                  doSetActiveFilters({ ...activeFilters, showTableView: active });
+                              }}/>
                 <FilterButton Icon={Grade} tooltip={"Only important (changed or with errors/warnings)"}
                               color={"secondary"}
                               active={activeFilters.onlyImportant}

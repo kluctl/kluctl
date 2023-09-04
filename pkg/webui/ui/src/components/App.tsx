@@ -26,6 +26,7 @@ export interface AppContextProps {
     user: User
     authInfo: AuthInfo
     isStatic: boolean
+    filters?: ActiveFilters
     commandResultSummaries: Map<string, CommandResultSummary>
     projects: ProjectSummary[]
     validateResultSummaries: Map<string, ValidateResultSummary>
@@ -139,6 +140,7 @@ const LoggedInApp = (props: { api: Api, user: User, authInfo: AuthInfo, isStatic
             user: props.user,
             authInfo: props.authInfo,
             isStatic: props.isStatic,
+            filters: filters,
             commandResultSummaries: commandResultSummaries,
             projects,
             validateResultSummaries: validateResultSummaries,
