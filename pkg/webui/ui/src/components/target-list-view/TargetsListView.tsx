@@ -18,6 +18,7 @@ import { CommandTypeIcon } from "../target-view/CommandTypeIcon";
 import Divider from "@mui/material/Divider";
 import { TargetCard } from "../target-cards-view/TargetCard";
 import { CommandResultCard } from "../command-result/CommandResultCard";
+import { ManualApproveButton } from "../target-view/ManualApproveButton";
 
 
 export interface TargetsListViewProps {
@@ -226,6 +227,7 @@ export const TargetsListView = (props: TargetsListViewProps) => {
                             width={"100%"}
                             onDoubleClick={() => doSelectTarget(rp.row)}>
                     <DriftDetectionResultStatusLine dr={dr}/>
+                    {dr?.objects?.length && <ManualApproveButton ts={rp.row.ts} renderedObjectsHash={dr.renderedObjectsHash!}/>}
                 </Box>
             }
         },

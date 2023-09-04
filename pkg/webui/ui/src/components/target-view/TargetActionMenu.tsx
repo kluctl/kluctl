@@ -16,17 +16,17 @@ export const TargetActionMenu = (props: {ts: TargetSummary}) => {
         }
 
         actionMenuItems.push({
-            icon: <Troubleshoot/>,
-            text: <Typography>Validate</Typography>,
-            handler: () => {
-                appCtx.api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
-            }
-        })
-        actionMenuItems.push({
             icon: <PublishedWithChanges/>,
             text: <Typography>Reconcile</Typography>,
             handler: () => {
                 appCtx.api.reconcileNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+            }
+        })
+        actionMenuItems.push({
+            icon: <Troubleshoot/>,
+            text: <Typography>Validate</Typography>,
+            handler: () => {
+                appCtx.api.validateNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         actionMenuItems.push({

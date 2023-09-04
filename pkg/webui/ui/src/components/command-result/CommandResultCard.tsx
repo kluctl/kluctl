@@ -3,7 +3,7 @@ import { ProjectSummary, TargetSummary } from "../../project-summaries";
 import { CommandResult, CommandResultSummary } from "../../models";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { TreeViewIcon } from "../../icons/Icons";
-import { RocketLaunch, Summarize } from "@mui/icons-material";
+import { Summarize } from "@mui/icons-material";
 import { CardTemplate } from "../card/Card";
 import { Since } from "../Since";
 import { CommandResultSummaryBody } from "./CommandResultSummaryView";
@@ -13,63 +13,7 @@ import { CommandResultStatusLine } from "./CommandResultStatusLine";
 import { Loading, useLoadingHelper } from "../Loading";
 import { ErrorMessage } from "../ErrorMessage";
 import { CommandTypeIcon } from "../target-view/CommandTypeIcon";
-
-const ApprovalIcon = (props: {ts: TargetSummary, rs: CommandResultSummary}) => {
-    const appCtx = useAppContext()
-    const handleApprove = (approve: boolean) => {
-        if (!props.ts.kdInfo || !props.ts.kd) {
-            return
-        }
-        if (approve) {
-            if (!props.rs.renderedObjectsHash) {
-                return
-            }
-            appCtx.api.setManualObjectsHash(props.ts.kdInfo.clusterId, props.ts.kdInfo.name, props.ts.kdInfo.namespace, props.rs.renderedObjectsHash)
-        } else {
-            appCtx.api.setManualObjectsHash(props.ts.kdInfo.clusterId, props.ts.kdInfo.name, props.ts.kdInfo.namespace, "")
-        }
-    }
-
-    if (appCtx.isStatic || !appCtx.user.isAdmin || props.ts.kd?.deployment.spec.dryRun || !props.ts.kd?.deployment.spec.manual) {
-        return <></>
-    }
-    if (props.rs.id !== props.ts.commandResults[0].id) {
-        return <></>
-    }
-
-    if (!props.rs.commandInfo.dryRun || !props.rs.renderedObjectsHash) {
-        return <></>
-    }
-
-    const isApproved = props.ts.kd.deployment.spec.manualObjectsHash === props.rs.renderedObjectsHash
-
-    let icon: React.ReactElement
-    let tooltip: string
-    if (!isApproved) {
-        tooltip = "Click here to trigger this manual deployment."
-        icon = <RocketLaunch color={"info"}/>
-    } else {
-        tooltip = "Click here to cancel this deployment. This will only have an effect if the deployment has not started reconciliation yet!"
-        icon = <RocketLaunch color={"success"}/>
-    }
-    return <Box display='flex' gap='6px' alignItems='center' height='39px'>
-        <IconButton
-            onClick={e => {
-                e.stopPropagation();
-                handleApprove(!isApproved)
-            }}
-            sx={{
-                padding: 0,
-                width: 26,
-                height: 26
-            }}
-        >
-            <Tooltip title={tooltip}>
-                <Box display='flex'>{icon}</Box>
-            </Tooltip>
-        </IconButton>
-    </Box>
-}
+import { ManualApproveButton } from "../target-view/ManualApproveButton";
 
 export const CommandResultCard = React.memo(React.forwardRef((
     props: {
@@ -126,11 +70,16 @@ export const CommandResultCard = React.memo(React.forwardRef((
         }
     }
 
+    let approveButton: React.ReactElement | undefined
+    if (props.rs.id === props.ts.commandResults[0].id && props.rs.commandInfo.dryRun && props.rs.renderedObjectsHash) {
+        approveButton = <ManualApproveButton ts={props.ts} renderedObjectsHash={props.rs.renderedObjectsHash}/>
+    }
+
     const footer = <>
         <Box display='flex' gap='6px' alignItems='center' flex={"1 1 auto"}>
             <CommandResultStatusLine rs={props.rs} />
         </Box>
-        <ApprovalIcon ts={props.ts} rs={props.rs}/>
+        {approveButton}
         <Box display='flex' gap='6px' alignItems='center' height='39px'>
             <IconButton
                 onClick={e => {
