@@ -1,7 +1,7 @@
 import { CommandResultSummary } from "../../models";
 import React, { useCallback, useMemo } from "react";
 import { useAppContext } from "../App";
-import { buildTargetKey, ProjectSummary, TargetSummary } from "../../project-summaries";
+import { buildTargetKey, buildTargetPath, ProjectSummary, TargetSummary } from "../../project-summaries";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { TargetCardsView } from "../target-cards-view/TargetCardsView";
 import { TargetsListView } from "../target-list-view/TargetsListView";
@@ -15,34 +15,14 @@ export const TargetsView = () => {
 
     const fullResult = searchParams.get("full") === "1"
 
-    const doNavigate = useCallback((p: string, sp?: URLSearchParams) => {
-        sp = new URLSearchParams(sp)
-        const qs = sp.toString()
-        if (qs.length) {
-            p += "?" + qs
-        }
-        navigate(p)
-    }, [navigate])
-
     const onSelect = useCallback((ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) => {
-        let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`
-        const sp = new URLSearchParams()
-        if (showResults) {
-            p += "/results"
-            if (rs) {
-                p += "/" + rs.id
-                if (full) {
-                    console.log("full")
-                    sp.set("full", "1")
-                }
-            }
-        }
-        doNavigate(p, sp);
-    }, [doNavigate]);
+        const p = buildTargetPath(ps, ts, showResults, rs, full)
+        navigate(p);
+    }, [navigate]);
 
     const onCloseExpanded = useCallback(() => {
-        doNavigate(`/targets/`);
-    }, [doNavigate]);
+        navigate(`/targets/`);
+    }, [navigate]);
 
     const targetsByKey = useMemo(() => {
         const m = new Map<string, {ps: ProjectSummary, ts: TargetSummary}>()
