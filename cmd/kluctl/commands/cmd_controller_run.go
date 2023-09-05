@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -90,9 +91,10 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                 cmd.scheme,
-		MetricsBindAddress:     cmd.MetricsBindAddress,
-		Port:                   9443,
+		Scheme: cmd.scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: cmd.MetricsBindAddress,
+		},
 		HealthProbeBindAddress: cmd.HealthProbeBindAddress,
 		LeaderElection:         cmd.LeaderElect,
 		LeaderElectionID:       "5ab5d0f9.kluctl.io",
