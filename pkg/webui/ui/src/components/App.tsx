@@ -240,8 +240,6 @@ const App = () => {
         doGetUser()
     }, [user, api])
 
-    console.log(api, authInfo)
-
     if (!api || !authInfo) {
         return <Loading />
     }
