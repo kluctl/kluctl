@@ -86,20 +86,20 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig 
 		return ret, nil
 	}
 
-	x, err := ret.getSecret(authConfig.AuthSecretName, authConfig.AuthSecretKey)
+	x, err := ret.getSecret(authConfig.AuthSecretName, authConfig.AuthSecretKey, true)
 	if err != nil {
 		return nil, err
 	}
 	ret.authSecret = []byte(x)
 
 	if authConfig.StaticLoginEnabled {
-		x, err = ret.getSecret(authConfig.StaticLoginSecretName, authConfig.StaticAdminSecretKey)
+		x, err = ret.getSecret(authConfig.StaticLoginSecretName, authConfig.StaticAdminSecretKey, true)
 		if err != nil {
 			return nil, err
 		}
 		ret.adminPassword = x
 
-		x, err = ret.getSecret(authConfig.StaticLoginSecretName, authConfig.StaticViewerSecretKey)
+		x, err = ret.getSecret(authConfig.StaticLoginSecretName, authConfig.StaticViewerSecretKey, true)
 		if err != nil {
 			return nil, err
 		}
@@ -251,9 +251,13 @@ func (s *authHandler) userHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (s *authHandler) getSecret(secretName string, secretKey string) (string, error) {
+func (s *authHandler) getSecret(secretName string, secretKey string, allowGenerate bool) (string, error) {
 	if s.serverClient == nil {
 		return "", fmt.Errorf("no serverClient set")
 	}
-	return k8s.GetSingleSecret(s.ctx, s.serverClient, secretName, "kluctl-system", secretKey)
+	if allowGenerate {
+		return k8s.GetOrGenerateSingleSecret(s.ctx, s.serverClient, secretName, "kluctl-system", secretKey, "kluctl-webui")
+	} else {
+		return k8s.GetSingleSecret(s.ctx, s.serverClient, secretName, "kluctl-system", secretKey)
+	}
 }

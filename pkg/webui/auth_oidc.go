@@ -27,7 +27,7 @@ func (s *authHandler) setupOidcProvider(ctx context.Context, authConfig AuthConf
 		return nil
 	}
 
-	clientSecret, err := s.getSecret(authConfig.OidcClientSecretName, authConfig.OidcClientSecretKey)
+	clientSecret, err := s.getSecret(authConfig.OidcClientSecretName, authConfig.OidcClientSecretKey, false)
 	if err != nil {
 		return err
 	}

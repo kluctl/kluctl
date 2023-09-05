@@ -407,6 +407,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		obj.Status.LastValidateError = ""
 	}
 
+	if !needDeploy && obj.Status.LastObjectsHash != objectsHash {
+		// force full drift detection as we can't know which objects changed in-between
+		r.updateResourceVersions(key, nil, nil)
+	}
+
 	obj.Status.LastObjectsHash = objectsHash
 	obj.Status.LastManualObjectsHash = obj.Spec.ManualObjectsHash
 

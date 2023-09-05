@@ -32,6 +32,7 @@ FILES="$FILES install/webui/webui/deployment.yaml"
 FILES="$FILES docs/kluctl/installation.md"
 FILES="$FILES docs/gitops/installation.md"
 FILES="$FILES docs/webui/installation.md"
+FILES="$FILES docs/webui/oidc-azure-ad.md"
 
 for f in $FILES; do
   cat $f | sed "s/$VERSION_REGEX_SED/$VERSION/g" > $f.tmp
