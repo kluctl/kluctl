@@ -1,23 +1,24 @@
 import React, { useState } from "react";
 import { Box, Chip } from "@mui/material";
-import { AutoFixHigh, ErrorOutline, Grade } from "@mui/icons-material";
+import { AutoFixHigh, ErrorOutline, Grade, TableRows } from "@mui/icons-material";
 import { OverridableComponent } from "@mui/material/OverridableComponent";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 
 export interface ActiveFilters {
+    showTableView: boolean
     onlyImportant: boolean
-    onlyChanged: boolean
+    onlyDrifted: boolean
     onlyWithErrorsOrWarnings: boolean
     filterStr: string
 }
 
-export function DoFilterSwitches(hasChanges: boolean, hasErrors: boolean, hasWarnings: boolean, activeFilters?: ActiveFilters) {
+export function DoFilterSwitches(hasDrift: boolean, hasErrors: boolean, hasWarnings: boolean, activeFilters?: ActiveFilters) {
     const hasErrorsOrWarnings = hasErrors || hasWarnings
-    if (activeFilters?.onlyImportant && !hasChanges && !hasErrorsOrWarnings) {
+    if (activeFilters?.onlyImportant && !hasDrift && !hasErrorsOrWarnings) {
         return false
     }
-    if (activeFilters?.onlyChanged && !hasChanges) {
+    if (activeFilters?.onlyDrifted && !hasDrift) {
         return false
     }
     if (activeFilters?.onlyWithErrorsOrWarnings && !hasErrorsOrWarnings) {
@@ -70,8 +71,9 @@ export const FilterBar = (props: { onFilterChange: (f: ActiveFilters) => void })
     const theme = useTheme();
 
     const [activeFilters, setActiveFilters] = useState<ActiveFilters>({
+        showTableView: false,
         onlyImportant: false,
-        onlyChanged: false,
+        onlyDrifted: false,
         onlyWithErrorsOrWarnings: false,
         filterStr: "",
     })
@@ -88,16 +90,22 @@ export const FilterBar = (props: { onFilterChange: (f: ActiveFilters) => void })
                 alignItems="center"
                 gap="5px"
             >
-                <FilterButton Icon={Grade} tooltip={"Only important (changed or with errors/warnings)"}
+                <FilterButton Icon={TableRows} tooltip={"Show table view"}
+                              color={"secondary"}
+                              active={activeFilters.showTableView}
+                              handler={(active: boolean) => {
+                                  doSetActiveFilters({ ...activeFilters, showTableView: active });
+                              }}/>
+                <FilterButton Icon={Grade} tooltip={"Only important (drifted or with errors/warnings)"}
                               color={"secondary"}
                               active={activeFilters.onlyImportant}
                               handler={(active: boolean) => {
                                   doSetActiveFilters({ ...activeFilters, onlyImportant: active });
                               }}/>
-                <FilterButton Icon={AutoFixHigh} tooltip={"Only with changed"} color={"secondary"}
-                              active={activeFilters.onlyChanged}
+                <FilterButton Icon={AutoFixHigh} tooltip={"Only with drift"} color={"secondary"}
+                              active={activeFilters.onlyDrifted}
                               handler={(active: boolean) => {
-                                  doSetActiveFilters({ ...activeFilters, onlyChanged: active });
+                                  doSetActiveFilters({ ...activeFilters, onlyDrifted: active });
                               }}/>
                 <FilterButton Icon={ErrorOutline} tooltip={"Only with errors or warnings"} color={"error"}
                               active={activeFilters.onlyWithErrorsOrWarnings}

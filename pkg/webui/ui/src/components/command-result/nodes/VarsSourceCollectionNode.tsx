@@ -1,7 +1,7 @@
 import { CommandResult, VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 import { BracketsSquareIcon } from "../../../icons/Icons";
 
 export class VarsSourceCollectionNodeData extends NodeData {
@@ -19,7 +19,7 @@ export class VarsSourceCollectionNodeData extends NodeData {
         return [<BracketsSquareIcon />, "vars"]
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(): CardTab[] {
         return [];
     }
 }

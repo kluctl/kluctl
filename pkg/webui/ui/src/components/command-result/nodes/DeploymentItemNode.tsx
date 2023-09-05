@@ -4,7 +4,7 @@ import { CommandResult, DeploymentItemConfig } from "../../../models";
 import { NodeData } from "./NodeData";
 import { Source } from "@mui/icons-material";
 import { PropertiesTable } from "../../PropertiesTable";
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 
 
 export class DeploymentItemNodeData extends NodeData {
@@ -24,7 +24,7 @@ export class DeploymentItemNodeData extends NodeData {
         return [<Source fontSize={"large"}/>, iconText]
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(): CardTab[] {
         const tabs = [
             {label: "Summary", content: this.buildSummaryPage()},
         ]

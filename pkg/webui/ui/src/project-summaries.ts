@@ -1,13 +1,22 @@
-import { CommandResultSummary, KluctlDeploymentInfo, ProjectKey, TargetKey, ValidateResultSummary, } from "./models";
+import {
+    CommandResultSummary,
+    DriftDetectionResult,
+    KluctlDeploymentInfo,
+    ProjectKey,
+    TargetKey,
+    ValidateResultSummary,
+} from "./models";
 import _ from "lodash";
 import { KluctlDeploymentWithClusterId } from "./components/App";
 import { ActiveFilters, DoFilterSwitches, DoFilterText } from "./components/FilterBar";
+import { buildListKey } from "./utils/listKey";
 
 export interface TargetSummary {
     target: TargetKey;
     kdInfo?: KluctlDeploymentInfo
     kd?: KluctlDeploymentWithClusterId;
     lastValidateResult?: ValidateResultSummary;
+    lastDriftDetectionResult?: DriftDetectionResult
     commandResults: CommandResultSummary[];
 }
 
@@ -59,9 +68,9 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     }
 
     const filterTargetByStatus = (ts: TargetSummary) => {
-        let hasErrors = !!ts.lastValidateResult?.errors
-        let hasWarnings = !!ts.lastValidateResult?.warnings
-        let hasChanges = false
+        let hasErrors = !!ts.lastValidateResult?.errors || !!ts.lastDriftDetectionResult?.errors?.length
+        let hasWarnings = !!ts.lastValidateResult?.warnings || !!ts.lastDriftDetectionResult?.warnings?.length
+        let hasDrifted = !!ts.lastDriftDetectionResult?.objects?.length
 
         const conditions: any[] | undefined = ts.kd?.deployment.status?.conditions
         const readyCondition = conditions?.find(c => c.type === "Ready")
@@ -72,9 +81,8 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
         if (ts.commandResults.length) {
             hasErrors = hasErrors || !!ts.commandResults[0].errors?.length
             hasWarnings = hasWarnings || !!ts.commandResults[0].warnings?.length
-            hasChanges = hasChanges || !!ts.commandResults[0].changedObjects
         }
-        return DoFilterSwitches(hasChanges, hasErrors, hasWarnings, filters)
+        return DoFilterSwitches(hasDrifted, hasErrors, hasWarnings, filters)
     }
 
     const sortedCommandResults = Array.from(commandResultSummaries.values())
@@ -138,6 +146,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
 
         const target = getOrCreateTarget(kd.deployment.status.projectKey, kd.deployment.status.targetKey, kdInfo,true, true)
         target!.kd = kd
+        target!.lastDriftDetectionResult = kd.deployment.status?.lastDriftDetectionResult
     })
 
     sortedCommandResults.forEach(rs => {
@@ -200,4 +209,13 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     })
 
     return ret
+}
+
+export function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDeployment?: KluctlDeploymentInfo) {
+    const j = {
+        "project": project,
+        "target": target,
+        "kluctlDeployment": kluctlDeployment,
+    }
+    return buildListKey(j)
 }

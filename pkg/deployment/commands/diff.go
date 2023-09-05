@@ -18,6 +18,8 @@ type DiffCommand struct {
 	IgnoreTags          bool
 	IgnoreLabels        bool
 	IgnoreAnnotations   bool
+
+	SkipResourceVersions map[k8s2.ObjectRef]string
 }
 
 func NewDiffCommand(targetCtx *kluctl_project.TargetContext) *DiffCommand {
@@ -41,12 +43,13 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 	}
 
 	o := &utils.ApplyUtilOptions{
-		ForceApply:          cmd.ForceApply,
-		ReplaceOnError:      cmd.ReplaceOnError,
-		ForceReplaceOnError: cmd.ForceReplaceOnError,
-		DryRun:              true,
-		AbortOnError:        false,
-		ReadinessTimeout:    0,
+		ForceApply:           cmd.ForceApply,
+		ReplaceOnError:       cmd.ReplaceOnError,
+		ForceReplaceOnError:  cmd.ForceReplaceOnError,
+		DryRun:               true,
+		AbortOnError:         false,
+		ReadinessTimeout:     0,
+		SkipResourceVersions: cmd.SkipResourceVersions,
 	}
 	au := utils.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, dew, ru, cmd.targetCtx.SharedContext.K, o)
 	au.ApplyDeployments(cmd.targetCtx.DeploymentCollection.Deployments)

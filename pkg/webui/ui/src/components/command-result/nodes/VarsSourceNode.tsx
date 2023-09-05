@@ -8,7 +8,7 @@ import { CodeViewer } from "../../CodeViewer";
 import { Alert, Box } from "@mui/material";
 
 import * as yaml from 'js-yaml';
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 import { buildGitRefString } from "../../../api";
 import { AppContextProps } from "../../App";
 
@@ -195,7 +195,7 @@ export class VarsSourceNodeData extends NodeData {
         return [h.icon(), h.type]
     }
 
-    buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[] {
+    buildSidePanelTabs(appContext: AppContextProps): CardTab[] {
         const tabs = [
             { label: "Summary", content: this.buildSummaryPage() },
             { label: "Vars", content: this.buildVarsPage(appContext) }

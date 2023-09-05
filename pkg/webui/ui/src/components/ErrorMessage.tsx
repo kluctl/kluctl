@@ -1,5 +1,5 @@
 import { Box, Typography, useTheme } from "@mui/material";
-import { CardPaper } from "./targets-view/Card";
+import { CardPaper } from "./card/Card";
 
 export interface ErrorMessageProps {
     children?: React.ReactNode;

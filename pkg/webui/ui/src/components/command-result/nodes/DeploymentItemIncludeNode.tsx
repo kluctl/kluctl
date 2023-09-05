@@ -5,7 +5,7 @@ import { NodeData } from "./NodeData";
 import { GitIcon, IncludeIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { buildDeploymentItemSummaryProps } from "./DeploymentItemNode";
-import { SidePanelTab } from "../SidePanel";
+import { CardTab } from "../../card/CardTabs";
 import { buildGitRefString } from "../../../api";
 
 
@@ -41,7 +41,7 @@ export class DeploymentItemIncludeNodeData extends NodeData {
         return [<IncludeIcon />, "include"]
     }
 
-    buildSidePanelTabs(): SidePanelTab[] {
+    buildSidePanelTabs(): CardTab[] {
         const tabs = [
             {label: "Summary", content: this.buildSummaryPage()},
         ]

@@ -37,6 +37,9 @@ import { ReactComponent as FileIconSvg } from './file.svg';
 import { ReactComponent as ResultIconSvg } from './result.svg';
 import { ReactComponent as IncludeIconSvg } from './include.svg';
 import { ReactComponent as LogoutIconSvg } from './logout.svg';
+import ToysIcon from '@mui/icons-material/Toys';
+import React from "react";
+import { Keyboard } from "@mui/icons-material";
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -61,6 +64,10 @@ export const TargetsIcon = () => {
 export const TargetIcon = () => {
     return <TargetIconSvg width="45px" height="45px" />
 }
+export const CLITargetIcon = () => {
+    const size = "45px"
+    return <Keyboard sx={{width: size, height: size}}/>
+}
 export const RelationHLine = () => {
     return <RelationHLineSvg width="169px" height="12px" />
 }
@@ -69,16 +76,24 @@ export const ProjectIcon = () => {
     return <ProjectIconSvg width="45px" height="45px" />
 }
 
-export const DeployIcon = () => {
-    return <DeployIconSvg width="45px" height="45px" />
+export const DeployIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <DeployIconSvg width={size} height={size} />
 }
 
-export const PruneIcon = () => {
-    return <PruneIconSvg width="45px" height="45px" />
+export const DryRunDeployIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <ToysIcon sx={{width: size, height: size}} />
 }
 
-export const DiffIcon = () => {
-    return <DiffIconSvg width="45px" height="45px" />
+export const PruneIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <PruneIconSvg width={size} height={size} />
+}
+
+export const DiffIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <DiffIconSvg width={size} height={size} />
 }
 
 export const CpuIcon = () => {

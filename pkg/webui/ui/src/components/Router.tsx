@@ -1,9 +1,9 @@
 import { createHashRouter, useNavigate, useRouteError } from "react-router-dom";
 import App from "./App";
-import { TargetsView } from "./targets-view/TargetsView";
 import { ErrorMessageCard } from "./ErrorMessage";
 import { Box } from "@mui/material";
 import React, { useEffect } from "react";
+import { TargetsView } from "./target-view/TargetsView";
 
 function ErrorPage() {
     const error = useRouteError() as any;

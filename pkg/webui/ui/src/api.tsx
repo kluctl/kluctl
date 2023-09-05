@@ -1,6 +1,7 @@
 import {
     AuthInfo,
-    CommandResult, CommandResultSummary,
+    CommandResult,
+    CommandResultSummary,
     ObjectRef,
     ResultObject,
     ShortName,

@@ -1,4 +1,4 @@
-import { ChangedObject, CommandResult, DeploymentError, ObjectRef, ResultObject } from "../../../models";
+import { ChangedObject, CommandResult, DeploymentError, ObjectRef } from "../../../models";
 import React from "react";
 import { Box, Divider, Typography } from "@mui/material";
 import { ChangesTable } from "../ChangesTable";
@@ -6,7 +6,7 @@ import { ErrorsTable } from "../../ErrorsTable";
 import { ObjectType } from "../../../api";
 import { ResultObjectViewer } from "../../ResultObjectViewer";
 import { StatusLine } from "../CommandResultStatusLine";
-import { SidePanelProvider, SidePanelTab } from "../SidePanel";
+import { CardTab, CardTabsProvider } from "../../card/CardTabs";
 import { AppContextProps } from "../../App";
 
 export class DiffStatus {
@@ -19,7 +19,7 @@ export class DiffStatus {
     totalDeletions: number = 0;
     totalUpdates: number = 0;
 
-    addChangedObject(co: ResultObject) {
+    addChangedObject(co: ChangedObject) {
         this.changedObjects.push(co)
         co.changes?.forEach(x => {
             switch (x.type) {
@@ -68,7 +68,7 @@ export class HealthStatus {
     }
 }
 
-export abstract class NodeData implements SidePanelProvider {
+export abstract class NodeData implements CardTabsProvider {
     commandResult: CommandResult
 
     id: string
@@ -110,7 +110,7 @@ export abstract class NodeData implements SidePanelProvider {
 
     abstract buildIcon(appContext: AppContextProps): [React.ReactNode, string]
 
-    abstract buildSidePanelTabs(appContext: AppContextProps): SidePanelTab[]
+    abstract buildSidePanelTabs(appContext: AppContextProps): CardTab[]
 
     buildStatusLine(): React.ReactNode {
         return <StatusLine
