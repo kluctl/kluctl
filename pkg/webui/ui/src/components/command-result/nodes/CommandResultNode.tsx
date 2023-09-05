@@ -36,7 +36,7 @@ export class CommandResultNodeData extends NodeData {
             tabs.push({
                 label: "Logs", content: <LogsViewer
                     cluster={this.commandResult.clusterInfo.clusterId}
-                    reconcileId={this.commandResult.id}/>
+                    reconcileId={this.commandResult.reconcileId}/>
             })
         }
 

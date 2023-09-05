@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
@@ -657,8 +658,9 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	return targetContext, nil
 }
 
-func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *result.CommandResult, crId string, objectsHash string) error {
-	cmdResult.Id = crId
+func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *result.CommandResult, reconcileId string, objectsHash string) error {
+	cmdResult.Id = uuid.NewString()
+	cmdResult.ReconcileId = reconcileId
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
 	cmdResult.KluctlDeployment = &result.KluctlDeploymentInfo{
 		Name:      pt.pp.obj.Name,
@@ -678,7 +680,7 @@ func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *r
 	return nil
 }
 
-func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string, triggeredByRequest bool) error {
+func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string, forceStore bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	if cmdErr != nil {
@@ -695,9 +697,9 @@ func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, 
 		summary.DeletedObjects != 0 ||
 		len(summary.Errors) != 0 ||
 		len(summary.Warnings) != 0
-	if !needStore && triggeredByRequest {
+	if !needStore && forceStore {
 		needStore = true
-		log.Info("forcing storing of empty command result because the deploy was requested")
+		log.Info("forcing storing of empty command result because the command was requested")
 	}
 
 	if !needStore {
@@ -746,7 +748,7 @@ func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, 
 	return err
 }
 
-func (pt *preparedTarget) writeValidateResult(ctx context.Context, cmdErr error, validateResult *result.ValidateResult, crId string, objectsHash string) error {
+func (pt *preparedTarget) writeValidateResult(ctx context.Context, cmdErr error, validateResult *result.ValidateResult, reconcileId string, objectsHash string) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	if cmdErr != nil {
@@ -754,7 +756,8 @@ func (pt *preparedTarget) writeValidateResult(ctx context.Context, cmdErr error,
 		return cmdErr
 	}
 
-	validateResult.Id = crId
+	validateResult.Id = uuid.NewString()
+	validateResult.ReconcileId = reconcileId
 	validateResult.KluctlDeployment = &result.KluctlDeploymentInfo{
 		Name:      pt.pp.obj.Name,
 		Namespace: pt.pp.obj.Namespace,
@@ -778,17 +781,17 @@ func (pt *preparedTarget) writeValidateResult(ctx context.Context, cmdErr error,
 	return nil
 }
 
-func (pt *preparedTarget) kluctlDeployOrPokeImages(ctx context.Context, deployMode string, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, needDeployByRequest bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeployOrPokeImages(ctx context.Context, deployMode string, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string, needDeployByRequest bool) (*result.CommandResult, error) {
 	if deployMode == kluctlv1.KluctlDeployModeFull {
-		return pt.kluctlDeploy(ctx, targetContext, crId, objectsHash, needDeployByRequest)
+		return pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
 	} else if deployMode == kluctlv1.KluctlDeployPokeImages {
-		return pt.kluctlPokeImages(ctx, targetContext, crId, objectsHash, needDeployByRequest)
+		return pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
 	} else {
 		return nil, fmt.Errorf("deployMode '%s' not supported", deployMode)
 	}
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext)
@@ -802,7 +805,7 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.WaitPrune = false
 
 	cmdResult, cmdErr := cmd.Run(nil)
-	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
+	err := pt.addCommandResultInfo(ctx, cmdResult, reconcileId, objectsHash)
 	if err != nil {
 		return cmdResult, err
 	}

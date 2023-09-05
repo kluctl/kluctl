@@ -618,6 +618,7 @@ export class ProjectKey {
 }
 export class CommandResult {
     id: string;
+    reconcileId: string;
     projectKey: ProjectKey;
     targetKey: TargetKey;
     target: Target;
@@ -635,6 +636,7 @@ export class CommandResult {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.id = source["id"];
+        this.reconcileId = source["reconcileId"];
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.target = this.convertValues(source["target"], Target);
@@ -670,6 +672,7 @@ export class CommandResult {
 }
 export class CommandResultSummary {
     id: string;
+    reconcileId: string;
     projectKey: ProjectKey;
     targetKey: TargetKey;
     target: Target;
@@ -693,6 +696,7 @@ export class CommandResultSummary {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.id = source["id"];
+        this.reconcileId = source["reconcileId"];
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.target = this.convertValues(source["target"], Target);
@@ -764,6 +768,7 @@ export class ValidateResultEntry {
 }
 export class ValidateResult {
     id: string;
+    reconcileId: string;
     projectKey: ProjectKey;
     targetKey: TargetKey;
     kluctlDeployment?: KluctlDeploymentInfo;
@@ -778,6 +783,7 @@ export class ValidateResult {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.id = source["id"];
+        this.reconcileId = source["reconcileId"];
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
@@ -810,6 +816,7 @@ export class ValidateResult {
 }
 export class ValidateResultSummary {
     id: string;
+    reconcileId: string;
     projectKey: ProjectKey;
     targetKey: TargetKey;
     kluctlDeployment?: KluctlDeploymentInfo;
@@ -824,6 +831,7 @@ export class ValidateResultSummary {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.id = source["id"];
+        this.reconcileId = source["reconcileId"];
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
@@ -894,6 +902,7 @@ export class DriftedObject {
 }
 export class DriftDetectionResult {
     id: string;
+    reconcileId: string;
     projectKey: ProjectKey;
     targetKey: TargetKey;
     kluctlDeployment?: KluctlDeploymentInfo;
@@ -907,6 +916,7 @@ export class DriftDetectionResult {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.id = source["id"];
+        this.reconcileId = source["reconcileId"];
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
