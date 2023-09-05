@@ -63,7 +63,6 @@ export default function Login(props: { authInfo: AuthInfo }) {
     }
 
     const [error, setError] = useState<LoginResult | undefined>(initialError);
-    console.log(searchParams, loginErrorFromSearchParams, initialError, error)
 
     const handleSubmit = async (e: SyntheticEvent) => {
         e.preventDefault();

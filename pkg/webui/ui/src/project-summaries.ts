@@ -219,3 +219,22 @@ export function buildTargetKey(project: ProjectKey, target: TargetKey, kluctlDep
     }
     return buildListKey(j)
 }
+
+export function buildTargetPath(ps: ProjectSummary, ts: TargetSummary, showResults: boolean, rs?: CommandResultSummary, full?: boolean) {
+    let p = `/targets/${buildTargetKey(ps.project, ts.target, ts.kdInfo)}`
+    const sp = new URLSearchParams()
+    if (showResults) {
+        p += "/results"
+        if (rs) {
+            p += "/" + rs.id
+            if (full) {
+                sp.set("full", "1")
+            }
+        }
+    }
+    const qs = sp.toString()
+    if (qs.length) {
+        p += "?" + qs
+    }
+    return p
+}
