@@ -4,6 +4,7 @@ import { ActionMenuItem, ActionsMenu } from "../ActionsMenu";
 import { Pause, PlayArrow, PublishedWithChanges, RocketLaunch, Troubleshoot } from "@mui/icons-material";
 import { Typography } from "@mui/material";
 import React, { useMemo } from "react";
+import { PruneIcon } from "../../icons/Icons";
 
 export const TargetActionMenu = (props: {ts: TargetSummary}) => {
     const appCtx = useAppContext()
@@ -35,6 +36,13 @@ export const TargetActionMenu = (props: {ts: TargetSummary}) => {
             text: <Typography>Deploy</Typography>,
             handler: () => {
                 appCtx.api.deployNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
+            }
+        })
+        actionMenuItems.push({
+            icon: <PruneIcon size={"24px"}/>,
+            text: <Typography>Prune</Typography>,
+            handler: () => {
+                appCtx.api.pruneNow(kd.clusterId, kd.deployment.metadata.name, kd.deployment.metadata.namespace)
             }
         })
         if (!kd.deployment.spec.suspend) {

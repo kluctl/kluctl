@@ -139,7 +139,7 @@ Command Results:
       --command-result-namespace string   Override the namespace to be used when writing command results. (default
                                           "kluctl-results")
       --force-write-command-result        Force writing of command results, even if the command is run in dry-run mode.
-      --keep-command-results-count int    Configure how many old command results to keep. (default 10)
+      --keep-command-results-count int    Configure how many old command results to keep. (default 5)
       --keep-validate-results-count int   Configure how many old validate results to keep. (default 2)
       --write-command-result              Enable writing of command results into the cluster. This is enabled by
                                           default. (default true)

@@ -13,6 +13,7 @@ type ValidateResultEntry struct {
 
 type ValidateResult struct {
 	Id                  string                `json:"id"`
+	ReconcileId         string                `json:"reconcileId"`
 	ProjectKey          ProjectKey            `json:"projectKey"`
 	TargetKey           TargetKey             `json:"targetKey"`
 	KluctlDeployment    *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
@@ -27,6 +28,7 @@ type ValidateResult struct {
 
 type ValidateResultSummary struct {
 	Id                  string                `json:"id"`
+	ReconcileId         string                `json:"reconcileId"`
 	ProjectKey          ProjectKey            `json:"projectKey"`
 	TargetKey           TargetKey             `json:"targetKey"`
 	KluctlDeployment    *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
@@ -43,6 +45,7 @@ type ValidateResultSummary struct {
 func (vr *ValidateResult) BuildSummary() ValidateResultSummary {
 	return ValidateResultSummary{
 		Id:                  vr.Id,
+		ReconcileId:         vr.ReconcileId,
 		ProjectKey:          vr.ProjectKey,
 		TargetKey:           vr.TargetKey,
 		KluctlDeployment:    vr.KluctlDeployment,

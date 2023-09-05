@@ -258,11 +258,14 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	oldGeneration := obj.Status.ObservedGeneration
 	oldDeployRequest := obj.Status.LastHandledDeployAt
+	oldPruneRequest := obj.Status.LastHandledPruneAt
 	oldValidateRequest := obj.Status.LastHandledValidateAt
 	curDeployRequest, _ := obj.GetAnnotations()[kluctlv1.KluctlRequestDeployAnnotation]
+	curPruneRequest, _ := obj.GetAnnotations()[kluctlv1.KluctlRequestPruneAnnotation]
 	curValidateRequest, _ := obj.GetAnnotations()[kluctlv1.KluctlRequestValidateAnnotation]
 	obj.Status.ObservedGeneration = obj.GetGeneration()
 	obj.Status.LastHandledDeployAt = curDeployRequest
+	obj.Status.LastHandledPruneAt = curPruneRequest
 	obj.Status.LastHandledValidateAt = curValidateRequest
 
 	patchErr = doProgressingCondition("Preparing project", true)
@@ -346,6 +349,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	needDeploy := false
 	needDeployByRequest := false
+	needPrune := false
 	needValidate := false
 	needDriftDetection := true
 
@@ -378,6 +382,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		} else {
 			log.Info("deployment is approved", "objectsHash", objectsHash)
 		}
+	}
+
+	if curPruneRequest != "" && oldPruneRequest != curPruneRequest {
+		// explicitly requested a prune
+		needPrune = true
 	}
 
 	if obj.Spec.Validate {
@@ -414,10 +423,26 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		}
 
 		if obj.Spec.DryRun {
+			// force full drift detection (otherwise we'd see the dry-run applied changes as non-drifted)
 			r.updateResourceVersions(key, nil, nil)
 		} else {
 			r.updateResourceVersions(key, deployResult.Objects, nil)
 		}
+	}
+
+	if needPrune {
+		patchErr = doProgressingCondition("Performing kluctl prune", false)
+		if patchErr != nil {
+			return nil, patchErr
+		}
+		pruneResult, err := pt.kluctlPrune(ctx, targetContext, reconcileId, objectsHash)
+		err = obj.Status.SetLastDeployResult(pruneResult.BuildSummary(), err)
+		if err != nil {
+			log.Error(err, "Failed to write prune result")
+		}
+
+		// force full drift detection
+		r.updateResourceVersions(key, nil, nil)
 	}
 
 	if needValidate {

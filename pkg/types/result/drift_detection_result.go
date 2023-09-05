@@ -13,6 +13,7 @@ type DriftedObject struct {
 
 type DriftDetectionResult struct {
 	Id                  string                `json:"id"`
+	ReconcileId         string                `json:"reconcileId"`
 	ProjectKey          ProjectKey            `json:"projectKey"`
 	TargetKey           TargetKey             `json:"targetKey"`
 	KluctlDeployment    *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
@@ -32,6 +33,7 @@ func (cr *CommandResult) BuildDriftDetectionResult() *DriftDetectionResult {
 
 	ret := &DriftDetectionResult{
 		Id:                  cr.Id,
+		ReconcileId:         cr.ReconcileId,
 		ProjectKey:          cr.ProjectKey,
 		TargetKey:           cr.TargetKey,
 		KluctlDeployment:    cr.KluctlDeployment,

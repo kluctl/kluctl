@@ -6,6 +6,7 @@ import (
 
 type CommandResultSummary struct {
 	Id               string                `json:"id"`
+	ReconcileId      string                `json:"reconcileId"`
 	ProjectKey       ProjectKey            `json:"projectKey"`
 	TargetKey        TargetKey             `json:"targetKey"`
 	Target           types.Target          `json:"target"`
@@ -49,6 +50,7 @@ func (cr *CommandResult) BuildSummary() *CommandResultSummary {
 
 	ret := &CommandResultSummary{
 		Id:                  cr.Id,
+		ReconcileId:         cr.ReconcileId,
 		ProjectKey:          cr.ProjectKey,
 		TargetKey:           cr.TargetKey,
 		Target:              cr.Target,
