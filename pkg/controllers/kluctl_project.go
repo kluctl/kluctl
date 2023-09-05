@@ -827,6 +827,23 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 	return cmdResult, err
 }
 
+func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
+	defer timer.ObserveDuration()
+	cmd := commands.NewPruneCommand("", targetContext, false)
+
+	cmdResult, cmdErr := cmd.Run(func(refs []k8s.ObjectRef) error {
+		pt.printDeletedRefs(ctx, refs)
+		return nil
+	})
+	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
+	if err != nil {
+		return cmdResult, err
+	}
+	err = pt.writeCommandResult(ctx, cmdErr, cmdResult, "prune", false)
+	return cmdResult, err
+}
+
 func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, resourceVersions map[k8s.ObjectRef]string) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()

@@ -133,6 +133,7 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 	api.POST("/validateNow", s.validateNow)
 	api.POST("/reconcileNow", s.reconcileNow)
 	api.POST("/deployNow", s.deployNow)
+	api.POST("/pruneNow", s.pruneNow)
 	api.POST("/setSuspended", s.setSuspended)
 	api.POST("/setManualObjectsHash", s.setManualObjectsHash)
 
@@ -536,6 +537,10 @@ func (s *CommandResultsServer) reconcileNow(c *gin.Context) {
 
 func (s *CommandResultsServer) deployNow(c *gin.Context) {
 	s.doSetAnnotation(c, kluctlv1.KluctlRequestDeployAnnotation, time.Now().Format(time.RFC3339Nano))
+}
+
+func (s *CommandResultsServer) pruneNow(c *gin.Context) {
+	s.doSetAnnotation(c, kluctlv1.KluctlRequestPruneAnnotation, time.Now().Format(time.RFC3339Nano))
 }
 
 func (s *CommandResultsServer) setSuspended(c *gin.Context) {

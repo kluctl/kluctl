@@ -1171,6 +1171,17 @@ string
 </tr>
 <tr>
 <td>
+<code>lastHandledPruneAt</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>lastHandledValidateAt</code><br>
 <em>
 string

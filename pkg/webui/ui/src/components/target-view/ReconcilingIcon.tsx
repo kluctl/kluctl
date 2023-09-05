@@ -18,6 +18,7 @@ export interface ReconcilingState {
     requestedReconcile: string
     requestedValidate: string
     requestedDeploy: string
+    requestedPrune: string
 
     statusExists: boolean
     readyCondition?: Condition
@@ -37,6 +38,7 @@ export function buildReconcilingState(ts: TargetSummary): ReconcilingState | und
     const requestReconcile = annotations["kluctl.io/request-reconcile"]
     const requestValidate = annotations["kluctl.io/request-validate"]
     const requestDeploy = annotations["kluctl.io/request-deploy"]
+    const requestPrune = annotations["kluctl.io/request-prune"]
 
     const conditions: any[] | undefined = ts.kd.deployment.status.conditions
     const readyCondition = conditions?.find(c => c.type === "Ready")
@@ -49,6 +51,7 @@ export function buildReconcilingState(ts: TargetSummary): ReconcilingState | und
         requestedReconcile: requestReconcile && requestReconcile !== ts.kd.deployment.status?.lastHandledReconcileAt && requestReconcile,
         requestedValidate: requestValidate && requestValidate !== ts.kd.deployment.status?.lastHandledValidateAt && requestValidate,
         requestedDeploy: requestDeploy && requestDeploy !== ts.kd.deployment.status?.lastHandledDeployAt && requestDeploy,
+        requestedPrune: requestPrune && requestPrune !== ts.kd.deployment.status?.lastHandledPruneAt && requestPrune,
         statusExists: !!ts.kd.deployment.status,
         readyCondition: readyCondition,
         reconcilingCondition: reconcilingCondition,
@@ -96,6 +99,9 @@ export const ReconcilingIcon = (props: { ps: ProjectSummary, ts: TargetSummary }
             } else if (state.requestedDeploy) {
                 icon = <HourglassTop color={"primary"}/>
                 tooltip.push("Deploy requested: " + state.requestedDeploy)
+            } else if (state.requestedPrune) {
+                icon = <HourglassTop color={"primary"}/>
+                tooltip.push("Prune requested: " + state.requestedPrune)
             } else if (state.readyCondition) {
                 if (state.readyCondition.status === "True") {
                     icon = <Done color={"success"}/>

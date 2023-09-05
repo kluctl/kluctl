@@ -53,6 +53,7 @@ export interface Api {
     validateNow(cluster: string, name: string, namespace: string): Promise<Response>
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
     deployNow(cluster: string, name: string, namespace: string): Promise<Response>
+    pruneNow(cluster: string, name: string, namespace: string): Promise<Response>
     setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response>
     setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response>
     watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void
@@ -231,6 +232,14 @@ export class RealApi implements Api {
         })
     }
 
+    async pruneNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        return this.doPost("/api/pruneNow", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+        })
+    }
+
     async reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
         return this.doPost("/api/reconcileNow", {
             "cluster": cluster,
@@ -378,6 +387,10 @@ export class StaticApi implements Api {
     }
 
     deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        throw new Error("not implemented")
+    }
+
+    pruneNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
 

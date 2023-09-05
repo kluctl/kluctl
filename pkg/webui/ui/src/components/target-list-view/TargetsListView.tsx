@@ -213,9 +213,6 @@ export const TargetsListView = (props: TargetsListViewProps) => {
                 return rs.commandInfo.command
             },
             renderCell: rp => {
-                if (!rp.row.ts.commandResults.length) {
-                    return <></>
-                }
                 const dr = rp.row.ts.lastDriftDetectionResult
                 return <Box display={"flex"}
                             width={"100%"}

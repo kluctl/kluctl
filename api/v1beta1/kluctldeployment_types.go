@@ -35,6 +35,7 @@ const (
 
 	KluctlRequestReconcileAnnotation = "kluctl.io/request-reconcile"
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
+	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
 	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
 )
 
@@ -340,6 +341,9 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
+
+	// +optional
+	LastHandledPruneAt string `json:"lastHandledPruneAt,omitempty"`
 
 	// +optional
 	LastHandledValidateAt string `json:"lastHandledValidateAt,omitempty"`

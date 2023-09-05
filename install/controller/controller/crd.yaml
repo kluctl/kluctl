@@ -515,6 +515,8 @@ spec:
                 type: string
               lastHandledDeployAt:
                 type: string
+              lastHandledPruneAt:
+                type: string
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can
