@@ -23,7 +23,7 @@ to https://github.com/kluctl/kluctl/issues.
 ## Screenshots
 
 ### Targets Overview
-![targets.jpg](https://kluctl.io/images/webui/targets.jpg)
+![targets.png](https://kluctl.io/images/webui/targets.png)
 
 ### Command Result
-![targets-result.jpg](https://kluctl.io/images/webui/targets-result.jpg)
+![targets-result.png](https://kluctl.io/images/webui/targets-result.png)
