@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -96,6 +97,9 @@ func buildGitInfo(targetCtx *kluctl_project.TargetContext) (result.GitInfo, resu
 	var gitInfo result.GitInfo
 	var projectKey result.ProjectKey
 	if targetCtx.KluctlProject.LoadArgs.RepoRoot == "" {
+		return gitInfo, projectKey, nil
+	}
+	if _, err := os.Stat(filepath.Join(targetCtx.KluctlProject.LoadArgs.RepoRoot, ".git")); os.IsNotExist(err) {
 		return gitInfo, projectKey, nil
 	}
 
