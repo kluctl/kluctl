@@ -46,6 +46,7 @@ func (cmd *controllerInstallCmd) Run(ctx context.Context) error {
 		ArgsFlags: args.ArgsFlags{
 			Arg: deployArgs,
 		},
+		YesFlags:           cmd.YesFlags,
 		DryRunFlags:        cmd.DryRunFlags,
 		CommandResultFlags: cmd.CommandResultFlags,
 		internal:           true,
