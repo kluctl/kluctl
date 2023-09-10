@@ -609,6 +609,12 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			startTime = time.Now()
 			didLog = true
 		}
+	}
+	// Wait for readiness if needed after we have applied all objects
+	for _, o := range applyObjects {
+		if a.abortSignal.Load().(bool) {
+			break
+		}
 
 		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
 		if !a.o.NoWait && waitReadiness {
