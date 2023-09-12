@@ -24,10 +24,6 @@ local machine, from your CI/CD pipelines or any automation platform/system that 
 If you want to follow a pull based GitOps flow, then you can use the Kluctl Controller, which then allows you to use
 `KluctlDeployment` custom resources to define your Kluctl deployments.
 
-Please note: GitOps support was previously implemented via the now deprecated [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
-Historically, the flux-kluctl-controller depended on the Flux ecosystem (the source-controller to be specific), which
-has changed in the meantime, meaning that it runs completely independent and thus is not part of the Flux ecosystem anymore.
-
 ## What can I do with Kluctl?
 
 Kluctl allows you to define a Kluctl project, which in turn defines Kluctl
