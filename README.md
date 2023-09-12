@@ -93,4 +93,7 @@ handles these matters.
 | 🔐 Encrypted Secrets | Manage encrypted secrets for multiple target environments and clusters. |
 
 ## Demo
-![](https://kluctl.io/asciinema/kluctl.gif)
+
+https://kluctl.io/vhs/demo-cut.mp4
+
+Click on the link to play the video.
