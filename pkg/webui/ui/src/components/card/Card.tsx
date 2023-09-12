@@ -115,7 +115,7 @@ export const CardTemplate = React.forwardRef((props: {
                 right='10px'
                 top='10px'
             >
-                <IconButton onClick={props.onClose}>
+                <IconButton id={"close-card-button"} onClick={props.onClose}>
                     <CloseLightIcon />
                 </IconButton>
             </Box>

@@ -42,7 +42,7 @@ spec:
             path: /healthz
             port: 8080
           initialDelaySeconds: 5
-          periodSeconds: 20
+          periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /readyz

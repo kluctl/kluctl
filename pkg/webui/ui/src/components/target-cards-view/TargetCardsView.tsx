@@ -83,29 +83,31 @@ export const TargetCardsView = (props: TargetCardsViewProps) => {
                         {ps.targets.map((ts, i) => {
                             const key = buildTargetKey(ps.project, ts.target, ts.kdInfo)
                             return <Box key={key} display='flex'>
-                                <ExpandableCard
-                                    cardWidth={targetCardWidth}
-                                    cardHeight={cardHeight}
-                                    expand={!props.selectedResult && selectedTargetKey === key}
-                                    onExpand={() => props.onSelect(ps, ts, false)}
-                                    onClose={() => {
-                                        props.onCloseExpanded()
-                                    }}
-                                    onSelect={cd => {
-                                    }}
-                                    cardsData={[ts]}
-                                    getKey={cd => buildListKey([cd.target, cd.kdInfo])}
-                                    selected={selectedTargetKey}
-                                    renderCard={(cardData, expanded, current) => {
-                                        return <TargetCard
-                                            ps={ps}
-                                            ts={ts}
-                                            expanded={expanded}
-                                            onClose={() => {
-                                                props.onCloseExpanded()
-                                            }}
-                                        />
-                                    }}/>
+                                <Box id={"targetCard-" + ts.target.discriminator} >
+                                    <ExpandableCard
+                                        cardWidth={targetCardWidth}
+                                        cardHeight={cardHeight}
+                                        expand={!props.selectedResult && selectedTargetKey === key}
+                                        onExpand={() => props.onSelect(ps, ts, false)}
+                                        onClose={() => {
+                                            props.onCloseExpanded()
+                                        }}
+                                        onSelect={cd => {
+                                        }}
+                                        cardsData={[ts]}
+                                        getKey={cd => buildListKey([cd.target, cd.kdInfo])}
+                                        selected={selectedTargetKey}
+                                        renderCard={(cardData, expanded, current) => {
+                                            return <TargetCard
+                                                ps={ps}
+                                                ts={ts}
+                                                expanded={expanded}
+                                                onClose={() => {
+                                                    props.onCloseExpanded()
+                                                }}
+                                            />
+                                        }}/>
+                                </Box>
                                 {ts.commandResults.length ? <RelationHorizontalLine/> : <></>}
                             </Box>
                         })}
@@ -116,8 +118,9 @@ export const TargetCardsView = (props: TargetCardsViewProps) => {
                             const tsKey = buildTargetKey(ps.project, ts.target, ts.kdInfo)
                             return <CardRow key={tsKey} height={cardHeight}>
                                 {ts.commandResults?.slice(0, 4).map((rs, i) => {
-                                    return i === 0 ? <ExpandableCard
-                                            key={rs.id}
+                                    const idSuffix = (ts.kdInfo ? "kd" : "cli") + "-" + ts.target.discriminator
+                                    return i === 0 ? <Box key={rs.id} id={"firstCommandResult-" + idSuffix}>
+                                        <ExpandableCard
                                             cardWidth={commandResultCardWidth}
                                             cardHeight={cardHeight}
                                             expand={selectedTargetKey === tsKey && !!props.selectedResult}
@@ -150,7 +153,9 @@ export const TargetCardsView = (props: TargetCardsViewProps) => {
                                                     }}
                                                 />
                                             }}/>
+                                        </Box>
                                         : <CardPaper
+                                            id={"additionalCommandResult-" + idSuffix}
                                             key={rs.id}
                                             sx={{
                                                 width: commandResultCardWidth,

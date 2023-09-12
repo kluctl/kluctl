@@ -81,6 +81,10 @@ See [Git authentication](#git-authentication) for details on authentication and 
 ### interval
 See [Reconciliation](#reconciliation).
 
+### deployInterval
+If set, the controller will periodically force a deployment, even if the rendered manifests have not changed. 
+See [Reconciliation](#reconciliation) for more details.
+
 ### suspend
 See [Reconciliation](#reconciliation).
 

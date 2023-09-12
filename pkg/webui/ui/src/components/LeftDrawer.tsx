@@ -173,7 +173,7 @@ export default function LeftDrawer(props: {
             <ThemeProvider theme={dark}>
                 <Drawer variant="permanent" open={open}>
                     <DrawerHeader>
-                        <IconButton
+                        <IconButton id={"kluctl-logo"}
                             onClick={toggleDrawer}
                             sx={{ gap: '13px', padding: 0 }}>
                             <KluctlLogo />

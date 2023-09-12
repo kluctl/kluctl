@@ -300,6 +300,9 @@ func outputYamlResult(ctx context.Context, output []string, result interface{}, 
 }
 
 func outputResult(ctx context.Context, f *string, result string) error {
+	// make sure there is no pending render of a status line
+	status.Flush(ctx)
+
 	var w io.Writer
 	w = getStdout(ctx)
 	if f != nil && *f != "-" {

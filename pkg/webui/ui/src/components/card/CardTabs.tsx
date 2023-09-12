@@ -62,12 +62,13 @@ export const CardTabs = (props: CardTabsProps) => {
         return <></>
     }
 
+
     return <TabContext value={selectedTab}>
         <Box display='flex' flexDirection='column' height='100%' overflow='hidden'>
             <Box height='36px' flex='0 0 auto' p='0'>
                 <TabList onChange={handleTabChange}>
                     {tabs.map((tab, i) => {
-                        return <Tab label={tab.label} value={tab.label} key={tab.label}/>
+                        return <Tab id={tab.label} label={tab.label} value={tab.label} key={tab.label}/>
                     })}
                 </TabList>
             </Box>
