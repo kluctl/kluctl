@@ -21,9 +21,6 @@ Kluctl does not strictly depend on a controller and allows to use the same deplo
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
 local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
 
-If you want to follow a pull based GitOps flow, then you can use the Kluctl Controller, which then allows you to use
-`KluctlDeployment` custom resources to define your Kluctl deployments.
-
 ## What can I do with Kluctl?
 
 Kluctl allows you to define a Kluctl project, which in turn defines Kluctl
@@ -33,6 +30,19 @@ A Kluctl project also defines targets, which represent your target environments
 and/or clusters.
 
 The Kluctl CLI then allows to deploy, diff, prune, delete, ... your deployments.
+
+## GitOps
+
+If you want to follow a pull based [GitOps](https://kluctl.io/docs/gitops/) flow, then you can use the Kluctl
+Controller, which then allows you to use `KluctlDeployment` custom resources to define your Kluctl deployments.
+
+## Kluctl Webui
+
+Kluctl also offers a [Webui](https://kluctl.io/docs/webui/) that allows you to visualise and control your Kluctl
+deployments. It works for deployments performed by the CLI and for deployments performed via GitOps.
+
+[Here](https://medium.com/kluctl/introducing-the-kluctl-webui-bcd3ea4b264d) is an introduction to the Webui together
+with a tutorial.
 
 ## Where do I start?
 
