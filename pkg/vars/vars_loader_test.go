@@ -28,6 +28,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
+	"github.com/kluctl/kluctl/v2/pkg/vars/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -85,11 +86,12 @@ func (s *VarsLoaderTestSuite) newRP() *repocache.GitRepoCache {
 func (s *VarsLoaderTestSuite) testVarsLoader(test func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory)) {
 	grc := s.newRP()
 	fakeAws := aws.NewFakeClientFactory()
+	fakeGcp := gcp.NewFakeClientFactory()
 
 	d := decryptor.NewDecryptor("", decryptor.MaxEncryptedFileSize)
 	d.AddLocalKeyService()
 
-	vl := NewVarsLoader(context.TODO(), s.k2, d, grc, fakeAws)
+	vl := NewVarsLoader(context.TODO(), s.k2, d, grc, fakeAws, fakeGcp)
 	vc := NewVarsCtx(newJinja2Must(s.T()))
 
 	test(vl, vc, fakeAws)

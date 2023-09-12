@@ -236,6 +236,14 @@ export class VarsSourceVault {
         this.path = source["path"];
     }
 }
+export class VarsSourceGcpSecretsManager {
+    secretName: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.secretName = source["secretName"];
+    }
+}
 export class VarsSourceAwsSecretsManager {
     secretName: string;
     region?: string;
@@ -304,6 +312,7 @@ export class VarsSource {
     systemEnvVars?: any;
     http?: VarsSourceHttp;
     awsSecretsManager?: VarsSourceAwsSecretsManager;
+    gcpSecretsManager?: VarsSourceGcpSecretsManager;
     vault?: VarsSourceVault;
     when?: string;
     renderedSensitive?: boolean;
@@ -322,6 +331,7 @@ export class VarsSource {
         this.systemEnvVars = source["systemEnvVars"];
         this.http = this.convertValues(source["http"], VarsSourceHttp);
         this.awsSecretsManager = this.convertValues(source["awsSecretsManager"], VarsSourceAwsSecretsManager);
+        this.gcpSecretsManager = this.convertValues(source["gcpSecretsManager"], VarsSourceGcpSecretsManager);
         this.vault = this.convertValues(source["vault"], VarsSourceVault);
         this.when = source["when"];
         this.renderedSensitive = source["renderedSensitive"];
