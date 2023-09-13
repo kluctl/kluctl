@@ -836,7 +836,7 @@ func (s *VarsLoaderTestSuite) TestGcpSecretsManager() {
 				SecretName: "projects/different-project/secrets/secret/versions/latest",
 			},
 		}, nil, "")
-		assert.EqualError(s.T(), err, "secret projects/different-project/secrets/secret/versions/latest not found")
+		assert.EqualError(s.T(), err, "secret not found: failed to access secret version: rpc error: code = NotFound desc = secret not found: failed to access secret version: rpc error: code = NotFound desc = secret projects/different-project/secrets/secret/versions/latest not found")
 
 	})
 

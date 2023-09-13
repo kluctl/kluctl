@@ -3,7 +3,6 @@ package gcp
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/googleapis/gax-go/v2"
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
@@ -17,9 +16,7 @@ type FakeClientFactory struct {
 }
 
 func (f *FakeClientFactory) AccessSecretVersion(ctx context.Context, req *secretmanagerpb.AccessSecretVersionRequest, opts ...gax.CallOption) (*secretmanagerpb.AccessSecretVersionResponse, error) {
-	secretName := req.Name[strings.LastIndex(req.Name, "/")+1:]
-
-	if secret, ok := f.Secrets[secretName]; ok {
+	if secret, ok := f.Secrets[req.Name]; ok {
 		return &secretmanagerpb.AccessSecretVersionResponse{
 			Payload: &secretmanagerpb.SecretPayload{
 				Data: []byte(secret),
@@ -27,7 +24,7 @@ func (f *FakeClientFactory) AccessSecretVersion(ctx context.Context, req *secret
 		}, nil
 	}
 
-	errMsg := fmt.Sprintf("secret %s not found", req.Name)
+	errMsg := fmt.Sprintf("secret not found: failed to access secret version: rpc error: code = NotFound desc = secret %s not found", req.Name)
 	return nil, status.Errorf(codes.NotFound, errMsg)
 }
 
