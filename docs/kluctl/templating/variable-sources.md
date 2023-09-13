@@ -273,6 +273,21 @@ vars:
 The advantage of the latter is that the auto-generated suffix in the ARN (which might not be known at the time of
 writing the configuration) doesn't have to be specified.
 
+### gcpSecretsManager
+[Google Secret Manager](https://cloud.google.com/secret-manager) integration. Loads a variables YAML from a Google Secrets
+Manager secret. The secret can be specified via full resource name.
+
+The secrets stored in Google Secrets manager must contain a valid yaml or json file.
+
+Example:
+```yaml
+vars:
+  - gcpSecretsManager:
+      secretName: "projects/my-project/secrets/secret/versions/latest"
+```
+
+It is recommended to use [workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) when you are using kluctl controller. To run it locally provide path to service account json file by setting environment variable `GOOGLE_APPLICATION_CREDENTIALS`.
+
 ### vault
 
 [Vault by HashiCorp](https://www.vaultproject.io/) with [Tokens](https://www.vaultproject.io/docs/concepts/tokens) 
