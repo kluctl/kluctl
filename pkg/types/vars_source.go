@@ -49,7 +49,7 @@ type VarsSourceAwsSecretsManager struct {
 }
 
 type VarsSourceGcpSecretsManager struct {
-	// Name or ARN of the secret. In case a name is given, the region must be specified as well
+	// Name of the secret. Should be provided in full resource url format: "projects/my-project/secrets/secret/versions/latest"
 	SecretName string `json:"secretName" validate:"required"`
 }
 
