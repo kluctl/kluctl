@@ -273,7 +273,7 @@ vars:
 The advantage of the latter is that the auto-generated suffix in the ARN (which might not be known at the time of
 writing the configuration) doesn't have to be specified.
 
-### gcpSecretsManager
+### gcpSecretManager
 [Google Secret Manager](https://cloud.google.com/secret-manager) integration. Loads a variables YAML from a Google Secrets
 Manager secret. The secret can be specified via full resource name.
 
@@ -282,7 +282,7 @@ The secrets stored in Google Secrets manager must contain a valid yaml or json f
 Example:
 ```yaml
 vars:
-  - gcpSecretsManager:
+  - gcpSecretManager:
       secretName: "projects/my-project/secrets/secret/versions/latest"
 ```
 

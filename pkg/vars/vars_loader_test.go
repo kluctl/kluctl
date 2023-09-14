@@ -809,14 +809,14 @@ func (s *VarsLoaderTestSuite) TestAwsSecretsManager() {
 	})
 }
 
-func (s *VarsLoaderTestSuite) TestGcpSecretsManager() {
+func (s *VarsLoaderTestSuite) TestGcpSecretManager() {
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		gcp.Secrets = map[string]string{
 			"projects/my-project/secrets/secret/versions/latest": `{"test1": {"test2": 42}}`,
 		}
 
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
-			GcpSecretsManager: &types.VarsSourceGcpSecretsManager{
+			GcpSecretManager: &types.VarsSourceGcpSecretManager{
 				SecretName: "projects/my-project/secrets/secret/versions/latest",
 			},
 		}, nil, "")
@@ -832,7 +832,7 @@ func (s *VarsLoaderTestSuite) TestGcpSecretsManager() {
 		}
 
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
-			GcpSecretsManager: &types.VarsSourceGcpSecretsManager{
+			GcpSecretManager: &types.VarsSourceGcpSecretManager{
 				SecretName: "projects/different-project/secrets/secret/versions/latest",
 			},
 		}, nil, "")
@@ -848,7 +848,7 @@ func (s *VarsLoaderTestSuite) TestGcpSecretsManager() {
 		b := true
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
-			GcpSecretsManager: &types.VarsSourceGcpSecretsManager{
+			GcpSecretManager: &types.VarsSourceGcpSecretManager{
 				SecretName: "projects/my-project/secrets/missing-secret/versions/latest",
 			},
 		}, nil, "")

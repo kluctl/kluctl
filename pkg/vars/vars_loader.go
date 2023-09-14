@@ -125,8 +125,8 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 	} else if source.AwsSecretsManager != nil {
 		newVars, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
 		sensitive = true
-	} else if source.GcpSecretsManager != nil {
-		newVars, err = v.loadGcpSecretsManager(varsCtx, &source, ignoreMissing)
+	} else if source.GcpSecretManager != nil {
+		newVars, err = v.loadGcpSecretManager(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else if source.Vault != nil {
 		newVars, err = v.loadVault(varsCtx, &source, ignoreMissing)
@@ -265,12 +265,12 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 	return v.loadFromString(varsCtx, secret)
 }
 
-func (v *VarsLoader) loadGcpSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadGcpSecretManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
 	if v.gcp == nil {
 		return uo.New(), fmt.Errorf("no GCP client factory provided")
 	}
 
-	secret, err := gcp.GetGoogleSecretsManagerSecret(v.ctx, v.gcp, source.GcpSecretsManager.SecretName)
+	secret, err := gcp.GetGoogleSecretsManagerSecret(v.ctx, v.gcp, source.GcpSecretManager.SecretName)
 	if err != nil {
 		if strings.Contains(err.Error(), "NotFound") {
 			if ignoreMissing {

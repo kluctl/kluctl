@@ -157,6 +157,19 @@ export class VarsSourceNodeData extends NodeData {
                     return sourceProps
                 }
             }
+        } else if (this.varsSource.gcpSecretManager) {
+            return {
+                type: "gcpSecretManager",
+                label: () => {
+                    return this.varsSource.gcpSecretManager!.secretName
+                },
+                icon: () => <Cloud fontSize={"large"}/>,
+                sourceProps: () => {
+                    const sourceProps = []
+                    sourceProps.push({ name: "SecretName", value: this.varsSource.gcpSecretManager!.secretName })
+                    return sourceProps
+                }
+            }
         } else if (this.varsSource.vault) {
             return {
                 type: "vault",
