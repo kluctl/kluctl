@@ -41,10 +41,10 @@ require (
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/text v0.13.0
 	helm.sh/helm/v3 v3.12.3
-	k8s.io/api v0.28.1
+	k8s.io/api v0.28.2
 	k8s.io/apiextensions-apiserver v0.28.1
 	k8s.io/apimachinery v0.28.2
-	k8s.io/client-go v0.28.1
+	k8s.io/client-go v0.28.2
 	k8s.io/klog/v2 v2.100.1
 	sigs.k8s.io/kustomize/kyaml v0.14.3
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
