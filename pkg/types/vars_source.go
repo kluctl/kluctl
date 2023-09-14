@@ -48,6 +48,11 @@ type VarsSourceAwsSecretsManager struct {
 	Profile *string `json:"profile,omitempty"`
 }
 
+type VarsSourceGcpSecretManager struct {
+	// Name of the secret. Should be provided in relative resource name format: "projects/my-project/secrets/secret/versions/latest"
+	SecretName string `json:"secretName" validate:"required"`
+}
+
 type VarsSourceVault struct {
 	Address string `json:"address" validate:"required"`
 	Path    string `json:"path" validate:"required"`
@@ -66,6 +71,7 @@ type VarsSource struct {
 	SystemEnvVars     *uo.UnstructuredObject              `json:"systemEnvVars,omitempty"`
 	Http              *VarsSourceHttp                     `json:"http,omitempty"`
 	AwsSecretsManager *VarsSourceAwsSecretsManager        `json:"awsSecretsManager,omitempty"`
+	GcpSecretManager  *VarsSourceGcpSecretManager         `json:"gcpSecretManager,omitempty"`
 	Vault             *VarsSourceVault                    `json:"vault,omitempty"`
 
 	When string `json:"when,omitempty"`

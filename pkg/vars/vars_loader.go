@@ -18,6 +18,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
+	"github.com/kluctl/kluctl/v2/pkg/vars/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,17 +38,19 @@ type VarsLoader struct {
 	sops *decryptor.Decryptor
 	rp   *repocache.GitRepoCache
 	aws  aws.AwsClientFactory
+	gcp  gcp.GcpClientFactory
 
 	credentialsCache map[string]usernamePassword
 }
 
-func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops *decryptor.Decryptor, rp *repocache.GitRepoCache, aws aws.AwsClientFactory) *VarsLoader {
+func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops *decryptor.Decryptor, rp *repocache.GitRepoCache, aws aws.AwsClientFactory, gcp gcp.GcpClientFactory) *VarsLoader {
 	return &VarsLoader{
 		ctx:              ctx,
 		k:                k,
 		sops:             sops,
 		rp:               rp,
 		aws:              aws,
+		gcp:              gcp,
 		credentialsCache: map[string]usernamePassword{},
 	}
 }
@@ -121,6 +124,9 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		newVars, sensitive, err = v.loadHttp(varsCtx, &source, ignoreMissing)
 	} else if source.AwsSecretsManager != nil {
 		newVars, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
+		sensitive = true
+	} else if source.GcpSecretManager != nil {
+		newVars, err = v.loadGcpSecretManager(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else if source.Vault != nil {
 		newVars, err = v.loadVault(varsCtx, &source, ignoreMissing)
@@ -253,6 +259,24 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 			if ignoreMissing {
 				return uo.New(), nil
 			}
+		}
+		return nil, err
+	}
+	return v.loadFromString(varsCtx, secret)
+}
+
+func (v *VarsLoader) loadGcpSecretManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+	if v.gcp == nil {
+		return uo.New(), fmt.Errorf("no GCP client factory provided")
+	}
+
+	secret, err := gcp.GetGoogleSecretsManagerSecret(v.ctx, v.gcp, source.GcpSecretManager.SecretName)
+	if err != nil {
+		if strings.Contains(err.Error(), "NotFound") {
+			if ignoreMissing {
+				return uo.New(), nil
+			}
+			return nil, fmt.Errorf("secret not found: %v", err)
 		}
 		return nil, err
 	}
