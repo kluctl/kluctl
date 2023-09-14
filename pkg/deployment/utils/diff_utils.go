@@ -9,7 +9,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"sort"
 	"sync"
-	"time"
 )
 
 type DiffUtil struct {
@@ -128,11 +127,22 @@ func (u *DiffUtil) calcRemoteObjectsForDiff() {
 	u.remoteDiffObjects = make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
 	for _, o := range u.ru.remoteObjects {
 		diffRef := u.GetDiffRef(o)
-		oldCreationTime := time.Time{}
-		if old, ok := u.remoteDiffObjects[diffRef]; ok {
-			oldCreationTime = old.GetK8sCreationTime()
+		old := u.remoteDiffObjects[diffRef]
+
+		replace := false
+		if old == nil {
+			replace = true
+		} else if old.GetK8sCreationTime() == o.GetK8sCreationTime() {
+			// unfortunately the creation time has only seconds resolution, meaning that we can easily get into a
+			// situation where two deployments happen in the same second resulting in a situation where it's unclear
+			// which of the two objects to use as the "diff-object". We have to resolve this tie in some way, and using
+			// the name of the real objects seems to be the most consistent way. Using the resourceVersion would be
+			// another option, but it would be unpredictable if other components start to modify resources in-between.
+			replace = o.GetK8sName() > old.GetK8sName()
+		} else {
+			replace = o.GetK8sCreationTime().After(old.GetK8sCreationTime())
 		}
-		if oldCreationTime.IsZero() || o.GetK8sCreationTime().After(oldCreationTime) {
+		if replace {
 			u.remoteDiffObjects[diffRef] = o
 		}
 	}
