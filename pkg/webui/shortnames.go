@@ -90,7 +90,6 @@ expansiontemplate                                             expansion.gatekeep
 providers                                                     externaldata.gatekeeper.sh/v1beta1          false        Provider
 flowschemas                                                   flowcontrol.apiserver.k8s.io/v1beta2        false        FlowSchema
 prioritylevelconfigurations                                   flowcontrol.apiserver.k8s.io/v1beta2        false        PriorityLevelConfiguration
-kluctldeployments                                             flux.kluctl.io/v1alpha1                     true         KluctlDeployment
 jaegers                                                       jaegertracing.io/v1                         true         Jaeger
 kafkabridges                              kb                  kafka.strimzi.io/v1beta2                    true         KafkaBridge
 kafkaconnectors                           kctr                kafka.strimzi.io/v1beta2                    true         KafkaConnector
