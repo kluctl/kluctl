@@ -80,7 +80,7 @@ require (
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
 	golang.org/x/oauth2 v0.12.0
 	google.golang.org/genproto v0.0.0-20230911183012-2d3300fd4832
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.1
 	nhooyr.io/websocket v1.8.7
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.16.2
