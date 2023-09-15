@@ -42,6 +42,11 @@ This effectively disables the warnings that are shown when field ownership is lo
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
+### kluctl.io/wait-readiness
+If set to `true`, kluctl will wait for readiness of this object. Readiness is defined
+the same as in [hook readiness](../../deployments/readiness.md). Waiting happens after all resources from the parent 
+deployment item have been applied.
+
 ## Control deletion/pruning
 
 The following annotations control how delete/prune is behaving.
