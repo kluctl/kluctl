@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.CommandResult, command string) error {
+func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.CommandResult, command string) {
 	r.Target = targetCtx.Target
 	r.Command = result.CommandInfo{
 		StartTime: metav1.NewTime(startTime),
@@ -36,43 +36,47 @@ func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTi
 	var err error
 	r.GitInfo, r.ProjectKey, err = buildGitInfo(targetCtx)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	r.ClusterInfo, err = buildClusterInfo(targetCtx.SharedContext.K)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
 	r.TargetKey.ClusterId = r.ClusterInfo.ClusterId
-
-	return nil
 }
 
-func addValidateCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.ValidateResult) error {
+func addValidateCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.ValidateResult) {
 	r.StartTime = metav1.NewTime(startTime)
 	r.EndTime = metav1.Now()
 	var err error
 	_, r.ProjectKey, err = buildGitInfo(targetCtx)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	clusterInfo, err := buildClusterInfo(targetCtx.SharedContext.K)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
 	r.TargetKey.ClusterId = clusterInfo.ClusterId
-
-	return nil
 }
 
-func addDeleteCommandInfoToResult(r *result.CommandResult, k *k8s2.K8sCluster, startTime time.Time, inclusion *utils.Inclusion) error {
+func addDeleteCommandInfoToResult(r *result.CommandResult, k *k8s2.K8sCluster, startTime time.Time, inclusion *utils.Inclusion) {
 	r.Command = result.CommandInfo{
 		StartTime: metav1.NewTime(startTime),
 		EndTime:   metav1.Now(),
@@ -87,10 +91,10 @@ func addDeleteCommandInfoToResult(r *result.CommandResult, k *k8s2.K8sCluster, s
 	var err error
 	r.ClusterInfo, err = buildClusterInfo(k)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
-
-	return nil
 }
 
 func buildGitInfo(targetCtx *kluctl_project.TargetContext) (result.GitInfo, result.ProjectKey, error) {

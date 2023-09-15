@@ -49,13 +49,10 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 
 func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx, true)
-	result, err := cmd2.Run(func(refs []k8s2.ObjectRef) error {
+	result := cmd2.Run(func(refs []k8s2.ObjectRef) error {
 		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
 	})
-	if err != nil {
-		return err
-	}
-	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+	err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}
