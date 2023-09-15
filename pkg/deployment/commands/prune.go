@@ -27,13 +27,10 @@ func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetConte
 func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) *result.CommandResult {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	r := &result.CommandResult{}
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "prune")
 
 	defer func() {
-		r.Errors = append(r.Errors, dew.GetErrorsList()...)
-		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
-		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
-		addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "prune")
+		finishCommandResult(r, cmd.targetCtx, dew)
 	}()
 
 	discriminator := cmd.discriminator

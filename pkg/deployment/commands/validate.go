@@ -22,14 +22,14 @@ type ValidateCommand struct {
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(ctx context.Context, discriminator string, targetCtx *kluctl_project.TargetContext, r *result.CommandResult) *ValidateCommand {
+func NewValidateCommand(discriminator string, targetCtx *kluctl_project.TargetContext, r *result.CommandResult) *ValidateCommand {
 	cmd := &ValidateCommand{
 		targetCtx:     targetCtx,
 		r:             r,
 		discriminator: discriminator,
 		dew:           utils2.NewDeploymentErrorsAndWarnings(),
 	}
-	cmd.ru = utils2.NewRemoteObjectsUtil(ctx, cmd.dew)
+	cmd.ru = utils2.NewRemoteObjectsUtil(targetCtx.SharedContext.Ctx, cmd.dew)
 	return cmd
 }
 
@@ -41,14 +41,11 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 
 	cmd.dew.Init()
 
-	r := &result.ValidateResult{
-		Ready: true,
-	}
+	r := newValidateCommandResult(cmd.targetCtx, startTime)
+	r.Ready = true
 
 	defer func() {
-		r.Errors = append(r.Errors, cmd.dew.GetErrorsList()...)
-		r.Warnings = append(r.Warnings, cmd.dew.GetWarningsList()...)
-		addValidateCommandInfoToResult(cmd.targetCtx, startTime, r)
+		finishValidateResult(r, cmd.targetCtx, cmd.dew)
 	}()
 
 	var refs []k8s2.ObjectRef

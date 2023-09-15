@@ -31,16 +31,13 @@ func NewDiffCommand(targetCtx *kluctl_project.TargetContext) *DiffCommand {
 func (cmd *DiffCommand) Run() *result.CommandResult {
 	dew := utils.NewDeploymentErrorsAndWarnings()
 
-	r := &result.CommandResult{}
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "diff")
 	r.Command.ForceApply = cmd.ForceApply
 	r.Command.ReplaceOnError = cmd.ReplaceOnError
 	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
 
 	defer func() {
-		r.Errors = append(r.Errors, dew.GetErrorsList()...)
-		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
-		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
-		addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "diff")
+		finishCommandResult(r, cmd.targetCtx, dew)
 	}()
 
 	if cmd.targetCtx.Target.Discriminator == "" {

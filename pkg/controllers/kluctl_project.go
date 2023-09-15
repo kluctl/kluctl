@@ -868,7 +868,7 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, targetContext, cmdResult)
+	cmd := commands.NewValidateCommand(targetContext.Target.Discriminator, targetContext, cmdResult)
 
 	validateResult := cmd.Run(ctx)
 	err := pt.writeValidateResult(ctx, validateResult, crId, objectsHash)

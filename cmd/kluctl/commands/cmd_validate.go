@@ -39,7 +39,7 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 	}
 
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewValidateCommand(cmdCtx.ctx, "", cmdCtx.targetCtx, nil)
+		cmd2 := commands.NewValidateCommand("", cmdCtx.targetCtx, nil)
 		return cmd.doValidate(cmdCtx, cmd2)
 	})
 }

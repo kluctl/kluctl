@@ -32,7 +32,7 @@ func NewDeployCommand(targetCtx *kluctl_project.TargetContext) *DeployCommand {
 func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult) error) *result.CommandResult {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	r := &result.CommandResult{}
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "deploy")
 	r.Command.ForceApply = cmd.ForceApply
 	r.Command.ReplaceOnError = cmd.ReplaceOnError
 	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
@@ -40,10 +40,7 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	r.Command.NoWait = cmd.NoWait
 
 	defer func() {
-		r.Errors = append(r.Errors, dew.GetErrorsList()...)
-		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
-		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
-		addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "deploy")
+		finishCommandResult(r, cmd.targetCtx, dew)
 	}()
 
 	if cmd.targetCtx.Target.Discriminator == "" {
