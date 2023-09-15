@@ -389,7 +389,7 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
 			if a.o.DryRun {
 				a.handleResult(x, hook)
-				a.HandleWarning(x.GetK8sRef(), fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
+				a.HandleWarning(ref, fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
 				return
 			} else {
 				// retry with invalidated discovery
