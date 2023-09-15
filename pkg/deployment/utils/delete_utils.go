@@ -50,7 +50,7 @@ func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef
 }
 
 func isSkipDelete(o *uo.UnstructuredObject) bool {
-	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete")) {
+	if o.GetK8sAnnotationBoolOrFalse("kluctl.io/skip-delete") {
 		return true
 	}
 
@@ -134,7 +134,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 
 		// exclude resources which have the 'kluctl.io/skip-delete-if-tags' annotation set
 		if inclusionHasTags {
-			if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete-if-tags")) {
+			if o.GetK8sAnnotationBoolOrFalse("kluctl.io/skip-delete-if-tags") {
 				continue
 			}
 		}

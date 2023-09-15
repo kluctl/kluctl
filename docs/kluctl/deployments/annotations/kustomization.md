@@ -35,4 +35,5 @@ same effect as [barrier](../../deployments/deployment-yml.md#barriers) from depl
 
 ### kluctl.io/wait-readiness
 If set to `true`, kluctl will wait for readiness of all objects from this kustomization project. Readiness is defined
-the same as in [hook readiness](../../deployments/readiness.md).
+the same as in [hook readiness](../../deployments/readiness.md). Waiting happens after all resources from the current
+deployment item have been applied.

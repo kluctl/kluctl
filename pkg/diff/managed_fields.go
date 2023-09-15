@@ -2,14 +2,12 @@ package diff
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"regexp"
 	"sigs.k8s.io/structured-merge-diff/v4/fieldpath"
 	"sigs.k8s.io/structured-merge-diff/v4/value"
-	"strconv"
 )
 
 type LostOwnership struct {
@@ -175,11 +173,8 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 
 	ret := local.Clone()
 
-	forceApplyAll := utils.ParseBoolOrFalse(local.GetK8sAnnotation("kluctl.io/force-apply"))
-	ignoreConflictsAll := utils.ParseBoolOrFalse(local.GetK8sAnnotation("kluctl.io/ignore-conflicts"))
-	if x := local.GetK8sAnnotation("kluctl.io/force-apply"); x != nil {
-		forceApplyAll, _ = strconv.ParseBool(*x)
-	}
+	forceApplyAll := local.GetK8sAnnotationBoolOrFalse("kluctl.io/force-apply")
+	ignoreConflictsAll := local.GetK8sAnnotationBoolOrFalse("kluctl.io/ignore-conflicts")
 
 	forceApplyFields, err := collectFields(ret, forceApplyFieldAnnotationRegex)
 	if err != nil {

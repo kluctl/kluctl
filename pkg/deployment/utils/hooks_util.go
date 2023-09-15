@@ -157,7 +157,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		return ret
 	}
 
-	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/delete")) {
+	if o.GetK8sAnnotationBoolOrFalse("kluctl.io/delete") {
 		return nil
 	}
 
@@ -215,14 +215,9 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		}
 	}
 
-	waitStr := o.GetK8sAnnotation("kluctl.io/hook-wait")
-	if waitStr == nil {
-		x := "true"
-		waitStr = &x
-	}
-	wait, err := strconv.ParseBool(*waitStr)
+	wait, err := o.GetK8sAnnotationBool("kluctl.io/hook-wait")
 	if err != nil {
-		u.a.HandleError(ref, fmt.Errorf("failed to parse %s as bool", *waitStr))
+		u.a.HandleError(ref, err)
 		wait = true
 	}
 

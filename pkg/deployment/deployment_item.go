@@ -499,8 +499,8 @@ func (di *DeploymentItem) prepareKustomizationYaml() (*uo.UnstructuredObject, er
 		}
 	}
 
-	di.Barrier = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/barrier"))
-	di.WaitReadiness = utils.ParseBoolOrFalse(ky.GetK8sAnnotation("kluctl.io/wait-readiness"))
+	di.Barrier, _ = ky.GetK8sAnnotationBool("kluctl.io/barrier")
+	di.WaitReadiness, _ = ky.GetK8sAnnotationBool("kluctl.io/wait-readiness")
 
 	return ky, nil
 }

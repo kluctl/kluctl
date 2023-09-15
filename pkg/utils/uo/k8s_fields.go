@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -201,6 +202,23 @@ func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[stri
 		}
 	}
 	return ret
+}
+
+func (uo *UnstructuredObject) GetK8sAnnotationBool(name string) (bool, error) {
+	s := uo.GetK8sAnnotation(name)
+	if s == nil {
+		return false, nil
+	}
+	b, err := strconv.ParseBool(*s)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse annotation %s=%v as bool", name, *s)
+	}
+	return b, nil
+}
+
+func (uo *UnstructuredObject) GetK8sAnnotationBoolOrFalse(name string) bool {
+	b, _ := uo.GetK8sAnnotationBool(name)
+	return b
 }
 
 func (uo *UnstructuredObject) GetK8sGeneration() int64 {
