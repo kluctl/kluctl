@@ -659,6 +659,11 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 }
 
 func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *result.CommandResult, reconcileId string, objectsHash string) error {
+	if cmdResult == nil {
+		// this might happen if something has gone so wrong that nothing succeeded
+		return nil
+	}
+
 	cmdResult.Id = uuid.NewString()
 	cmdResult.ReconcileId = reconcileId
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
@@ -686,6 +691,11 @@ func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, 
 	if cmdErr != nil {
 		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
 		return cmdErr
+	}
+	if cmdResult == nil {
+		err := fmt.Errorf("command result is nil, which should not happen if cmdErr is nil")
+		pt.pp.r.event(ctx, pt.pp.obj, true, err.Error(), nil)
+		return err
 	}
 
 	var err error
