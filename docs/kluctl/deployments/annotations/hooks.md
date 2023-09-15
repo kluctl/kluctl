@@ -26,4 +26,4 @@ Specifies a weight for the hook, used to determine deployment/execution order.
 Defines when to delete the hook resource.
 
 ### kluctl.io/hook-wait
-Defines whether kluctl should wait for hook-completion.
+Defines whether kluctl should wait for hook-completion. It defaults to `true` and can be manually set to `false`.
