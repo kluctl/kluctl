@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -51,7 +50,7 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 	// We assume all is good in case no validation is performed
 	ret.Ready = true
 
-	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/validate-ignore")) {
+	if o.GetK8sAnnotationBoolOrFalse("kluctl.io/validate-ignore") {
 		return
 	}
 

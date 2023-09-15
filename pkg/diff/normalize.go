@@ -3,7 +3,6 @@ package diff
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"regexp"
 	"strings"
@@ -152,7 +151,7 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		normalizeServiceAccount(o)
 	}
 
-	if utils.ParseBoolOrFalse(localObject.GetK8sAnnotation("kluctl.io/ignore-diff")) {
+	if localObject.GetK8sAnnotationBoolOrFalse("kluctl.io/ignore-diff") {
 		// Return empty object so that diffs will always be empty
 		return &uo.UnstructuredObject{Object: map[string]interface{}{}}, nil
 	}
