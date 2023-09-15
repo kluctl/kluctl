@@ -111,7 +111,9 @@ func newDeleteCommandResult(k *k8s2.K8sCluster, startTime time.Time, inclusion *
 func finishCommandResult(r *result.CommandResult, targetCtx *kluctl_project.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
 	r.Errors = append(r.Errors, dew.GetErrorsList()...)
 	r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
-	r.SeenImages = targetCtx.DeploymentCollection.Images.SeenImages(false)
+	if targetCtx != nil {
+		r.SeenImages = targetCtx.DeploymentCollection.Images.SeenImages(false)
+	}
 	r.Command.EndTime = metav1.Now()
 }
 
