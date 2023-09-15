@@ -41,11 +41,11 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 
 	cmd.dew.Init()
 
-	r := newValidateCommandResult(cmd.targetCtx, startTime)
-	r.Ready = true
+	ret := newValidateCommandResult(cmd.targetCtx, startTime)
+	ret.Ready = true
 
 	defer func() {
-		finishValidateResult(r, cmd.targetCtx, cmd.dew)
+		finishValidateResult(ret, cmd.targetCtx, cmd.dew)
 	}()
 
 	var refs []k8s2.ObjectRef
@@ -85,7 +85,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 	err := cmd.ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, refs, true)
 	if err != nil {
 		cmd.dew.AddError(k8s2.ObjectRef{}, err)
-		return r
+		return ret
 	}
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, cmd.targetCtx.SharedContext.K, &utils2.ApplyUtilOptions{})
@@ -108,19 +108,19 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 
 		remoteObject := cmd.ru.GetRemoteObject(ref)
 		if remoteObject == nil {
-			r.Errors = append(r.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
+			ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
 			continue
 		}
 		r := validation.ValidateObject(cmd.targetCtx.SharedContext.K, remoteObject, true, false)
 		if !r.Ready {
-			r.Ready = false
+			ret.Ready = false
 		}
-		r.Errors = append(r.Errors, r.Errors...)
-		r.Warnings = append(r.Warnings, r.Warnings...)
-		r.Results = append(r.Results, r.Results...)
+		ret.Errors = append(ret.Errors, r.Errors...)
+		ret.Warnings = append(ret.Warnings, r.Warnings...)
+		ret.Results = append(ret.Results, r.Results...)
 	}
 
-	return r
+	return ret
 }
 
 func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {
