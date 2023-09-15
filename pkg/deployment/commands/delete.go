@@ -38,17 +38,16 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 	}
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
-	r := &result.CommandResult{}
+
+	var r *result.CommandResult
+	if cmd.targetCtx != nil {
+		r = newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "delete")
+	} else {
+		r = newDeleteCommandResult(k, startTime, inclusion)
+	}
 
 	defer func() {
-		r.Errors = append(r.Errors, dew.GetErrorsList()...)
-		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
-		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
-		if cmd.targetCtx != nil {
-			addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "delete")
-		} else {
-			addDeleteCommandInfoToResult(r, k, startTime, inclusion)
-		}
+		finishCommandResult(r, cmd.targetCtx, dew)
 	}()
 
 	discriminator := cmd.discriminator

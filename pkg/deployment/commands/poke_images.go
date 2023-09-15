@@ -26,13 +26,10 @@ func (cmd *PokeImagesCommand) Run() *result.CommandResult {
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
-	r := &result.CommandResult{}
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "poke-images")
 
 	defer func() {
-		r.Errors = append(r.Errors, dew.GetErrorsList()...)
-		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
-		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
-		addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "poke-images")
+		finishCommandResult(r, cmd.targetCtx, dew)
 	}()
 
 	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
