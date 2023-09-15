@@ -21,15 +21,25 @@ func NewPokeImagesCommand(targetCtx *kluctl_project.TargetContext) *PokeImagesCo
 	}
 }
 
-func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
+func (cmd *PokeImagesCommand) Run() *result.CommandResult {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
+	r := &result.CommandResult{}
+
+	defer func() {
+		r.Errors = append(r.Errors, dew.GetErrorsList()...)
+		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
+		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
+		addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "poke-images")
+	}()
+
 	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
 	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, nil, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
@@ -95,18 +105,11 @@ func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
 
 	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
-	r := &result.CommandResult{
-		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
-		Errors:     dew.GetErrorsList(),
-		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}
-	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "deploy")
-	if err != nil {
-		return r, err
-	}
-	return r, nil
+	r.Objects = collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil)
+
+	return r
 }

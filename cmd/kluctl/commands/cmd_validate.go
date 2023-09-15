@@ -47,13 +47,10 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 func (cmd *validateCmd) doValidate(ctx *commandCtx, cmd2 *commands.ValidateCommand) error {
 	startTime := time.Now()
 	for true {
-		result, err := cmd2.Run(ctx.ctx)
-		if err != nil {
-			return err
-		}
+		result := cmd2.Run(ctx.ctx)
 		failed := len(result.Errors) != 0 || (cmd.WarningsAsErrors && len(result.Warnings) != 0)
 
-		err = outputValidateResult(ctx, cmd.Output, result)
+		err := outputValidateResult(ctx, cmd.Output, result)
 		if err != nil {
 			return err
 		}

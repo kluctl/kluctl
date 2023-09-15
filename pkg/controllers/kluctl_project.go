@@ -685,17 +685,11 @@ func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *r
 	return nil
 }
 
-func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string, forceStore bool) error {
+func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdResult *result.CommandResult, commandName string, forceStore bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
-		return cmdErr
-	}
 	if cmdResult == nil {
-		err := fmt.Errorf("command result is nil, which should not happen if cmdErr is nil")
-		pt.pp.r.event(ctx, pt.pp.obj, true, err.Error(), nil)
-		return err
+		return fmt.Errorf("command result is nil, which should not happen")
 	}
 
 	var err error
@@ -722,7 +716,7 @@ func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, 
 		}
 	}
 
-	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
+	log.Info(fmt.Sprintf("command finished with %d errors and %d warnings", len(cmdResult.Errors), len(cmdResult.Warnings)))
 	defer pt.exportCommandResultMetricsToProm(summary)
 
 	msg := fmt.Sprintf("%s succeeded.", commandName)
@@ -758,12 +752,11 @@ func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdErr error, 
 	return err
 }
 
-func (pt *preparedTarget) writeValidateResult(ctx context.Context, cmdErr error, validateResult *result.ValidateResult, reconcileId string, objectsHash string) error {
+func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResult *result.ValidateResult, reconcileId string, objectsHash string) error {
 	log := ctrl.LoggerFrom(ctx)
 
-	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("validation failed. %s", cmdErr.Error()), nil)
-		return cmdErr
+	if validateResult == nil {
+		return fmt.Errorf("validate result is nil, which should not happen")
 	}
 
 	validateResult.Id = uuid.NewString()
@@ -814,12 +807,12 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.Prune = pt.pp.obj.Spec.Prune
 	cmd.WaitPrune = false
 
-	cmdResult, cmdErr := cmd.Run(nil)
+	cmdResult := cmd.Run(nil)
 	err := pt.addCommandResultInfo(ctx, cmdResult, reconcileId, objectsHash)
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdErr, cmdResult, "deploy", triggeredByRequest)
+	err = pt.writeCommandResult(ctx, cmdResult, "deploy", triggeredByRequest)
 	return cmdResult, err
 }
 
@@ -828,12 +821,12 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext)
 
-	cmdResult, cmdErr := cmd.Run()
+	cmdResult := cmd.Run()
 	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdErr, cmdResult, "poke-images", triggeredByRequest)
+	err = pt.writeCommandResult(ctx, cmdResult, "poke-images", triggeredByRequest)
 	return cmdResult, err
 }
 
@@ -842,7 +835,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	defer timer.ObserveDuration()
 	cmd := commands.NewPruneCommand("", targetContext, false)
 
-	cmdResult, cmdErr := cmd.Run(func(refs []k8s.ObjectRef) error {
+	cmdResult := cmd.Run(func(refs []k8s.ObjectRef) error {
 		pt.printDeletedRefs(ctx, refs)
 		return nil
 	})
@@ -850,7 +843,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdErr, cmdResult, "prune", false)
+	err = pt.writeCommandResult(ctx, cmdResult, "prune", false)
 	return cmdResult, err
 }
 
@@ -863,12 +856,12 @@ func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_
 	cmd.ForceReplaceOnError = pt.pp.obj.Spec.ForceReplaceOnError
 	cmd.SkipResourceVersions = resourceVersions
 
-	cmdResult, cmdErr := cmd.Run()
+	cmdResult := cmd.Run()
 	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
 	if err != nil {
 		return cmdResult, err
 	}
-	return cmdResult, cmdErr
+	return cmdResult, nil
 }
 
 func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult, crId string, objectsHash string) (*result.ValidateResult, error) {
@@ -877,8 +870,8 @@ func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *klu
 
 	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, targetContext, cmdResult)
 
-	validateResult, err := cmd.Run(ctx)
-	err = pt.writeValidateResult(ctx, err, validateResult, crId, objectsHash)
+	validateResult := cmd.Run(ctx)
+	err := pt.writeValidateResult(ctx, validateResult, crId, objectsHash)
 	return validateResult, err
 }
 
@@ -909,7 +902,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 		return nil, err
 	}
 
-	cmdResult, cmdErr := cmd.Run(ctx, k, func(refs []k8s.ObjectRef) error {
+	cmdResult := cmd.Run(ctx, k, func(refs []k8s.ObjectRef) error {
 		pt.printDeletedRefs(ctx, refs)
 		return nil
 	})
@@ -928,7 +921,7 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdErr, cmdResult, "delete", false)
+	err = pt.writeCommandResult(ctx, cmdResult, "delete", false)
 	return cmdResult, err
 }
 

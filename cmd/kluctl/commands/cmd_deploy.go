@@ -79,11 +79,8 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 		cb = nil
 	}
 
-	result, err := cmd2.Run(cb)
-	if err != nil {
-		return err
-	}
-	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+	result := cmd2.Run(cb)
+	err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}

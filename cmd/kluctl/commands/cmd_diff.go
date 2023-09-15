@@ -46,11 +46,8 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		cmd2.IgnoreTags = cmd.IgnoreTags
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
-		result, err := cmd2.Run()
-		if err != nil {
-			return err
-		}
-		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, false)
+		result := cmd2.Run()
+		err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, false)
 		if err != nil {
 			return err
 		}

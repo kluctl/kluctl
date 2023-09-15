@@ -29,7 +29,7 @@ func NewDeleteCommand(discriminator string, targetCtx *kluctl_project.TargetCont
 	}
 }
 
-func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
+func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb func(refs []k8s2.ObjectRef) error) *result.CommandResult {
 	startTime := time.Now()
 
 	inclusion := cmd.inclusion
@@ -37,31 +37,48 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 		inclusion = cmd.targetCtx.DeploymentCollection.Inclusion
 	}
 
+	dew := utils2.NewDeploymentErrorsAndWarnings()
+	r := &result.CommandResult{}
+
+	defer func() {
+		r.Errors = append(r.Errors, dew.GetErrorsList()...)
+		r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
+		r.SeenImages = cmd.targetCtx.DeploymentCollection.Images.SeenImages(false)
+		if cmd.targetCtx != nil {
+			addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "delete")
+		} else {
+			addDeleteCommandInfoToResult(r, k, startTime, inclusion)
+		}
+	}()
+
 	discriminator := cmd.discriminator
 	if discriminator == "" && cmd.targetCtx != nil {
 		discriminator = cmd.targetCtx.Target.Discriminator
 	}
 
 	if discriminator == "" {
-		return nil, fmt.Errorf("deletion without a discriminator is not supported")
+		dew.AddError(k8s2.ObjectRef{}, fmt.Errorf("deletion without a discriminator is not supported"))
+		return r
 	}
 
-	dew := utils2.NewDeploymentErrorsAndWarnings()
 	ru := utils2.NewRemoteObjectsUtil(ctx, dew)
 	err := ru.UpdateRemoteObjects(k, &discriminator, nil, false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	deleteRefs, err := utils2.FindObjectsForDelete(k, ru.GetFilteredRemoteObjects(inclusion), inclusion.HasType("tags"), nil)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	if confirmCb != nil {
 		err = confirmCb(deleteRefs)
 		if err != nil {
-			return nil, err
+			dew.AddError(k8s2.ObjectRef{}, err)
+			return r
 		}
 	}
 
@@ -72,21 +89,7 @@ func (cmd *DeleteCommand) Run(ctx context.Context, k *k8s.K8sCluster, confirmCb 
 		c = cmd.targetCtx.DeploymentCollection
 	}
 
-	r := &result.CommandResult{
-		Objects:  collectObjects(c, ru, nil, nil, nil, deleted),
-		Errors:   dew.GetErrorsList(),
-		Warnings: dew.GetWarningsList(),
-	}
-	if cmd.targetCtx != nil {
-		err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "delete")
-		if err != nil {
-			return r, err
-		}
-	} else {
-		err = addDeleteCommandInfoToResult(r, k, startTime, inclusion)
-		if err != nil {
-			return r, err
-		}
-	}
-	return r, nil
+	r.Objects = collectObjects(c, ru, nil, nil, nil, deleted)
+
+	return r
 }

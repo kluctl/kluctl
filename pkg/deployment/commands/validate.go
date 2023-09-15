@@ -33,17 +33,23 @@ func NewValidateCommand(ctx context.Context, discriminator string, targetCtx *kl
 	return cmd
 }
 
-func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, error) {
-	ret := result.ValidateResult{
-		Ready: true,
-	}
-
+func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 	startTime := time.Now()
 	if cmd.r == nil {
 		startTime = cmd.targetCtx.KluctlProject.LoadTime
 	}
 
 	cmd.dew.Init()
+
+	r := &result.ValidateResult{
+		Ready: true,
+	}
+
+	defer func() {
+		r.Errors = append(r.Errors, cmd.dew.GetErrorsList()...)
+		r.Warnings = append(r.Warnings, cmd.dew.GetWarningsList()...)
+		addValidateCommandInfoToResult(cmd.targetCtx, startTime, r)
+	}()
 
 	var refs []k8s2.ObjectRef
 	var renderedObjects []*uo.UnstructuredObject
@@ -81,7 +87,8 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 
 	err := cmd.ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, refs, true)
 	if err != nil {
-		return nil, err
+		cmd.dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, cmd.targetCtx.SharedContext.K, &utils2.ApplyUtilOptions{})
@@ -104,27 +111,19 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 
 		remoteObject := cmd.ru.GetRemoteObject(ref)
 		if remoteObject == nil {
-			ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
+			r.Errors = append(r.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
 			continue
 		}
 		r := validation.ValidateObject(cmd.targetCtx.SharedContext.K, remoteObject, true, false)
 		if !r.Ready {
-			ret.Ready = false
+			r.Ready = false
 		}
-		ret.Errors = append(ret.Errors, r.Errors...)
-		ret.Warnings = append(ret.Warnings, r.Warnings...)
-		ret.Results = append(ret.Results, r.Results...)
+		r.Errors = append(r.Errors, r.Errors...)
+		r.Warnings = append(r.Warnings, r.Warnings...)
+		r.Results = append(r.Results, r.Results...)
 	}
 
-	ret.Warnings = append(ret.Warnings, cmd.dew.GetWarningsList()...)
-	ret.Errors = append(ret.Errors, cmd.dew.GetErrorsList()...)
-
-	err = addValidateCommandInfoToResult(cmd.targetCtx, startTime, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ret, nil
+	return r
 }
 
 func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {
