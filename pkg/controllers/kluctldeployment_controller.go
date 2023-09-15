@@ -85,10 +85,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(ctx, r.calcTimeout(obj))
-	defer cancel()
-
 	retryInterval := obj.Spec.GetRetryInterval()
 	interval := obj.Spec.Interval.Duration
 
@@ -275,7 +271,10 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	obj.Status.LastPrepareError = ""
 
-	pp, err := prepareProject(ctx, r, obj, true)
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.calcTimeout(obj))
+	defer cancel()
+
+	pp, err := prepareProject(timeoutCtx, r, obj, true)
 	if err != nil {
 		return doFailPrepare(err)
 	}
@@ -313,12 +312,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	pt := pp.newTarget()
 
-	lp, err := pp.loadKluctlProject(ctx, pt, j2)
+	lp, err := pp.loadKluctlProject(timeoutCtx, pt, j2)
 	if err != nil {
 		return doFailPrepare(err)
 	}
 
-	targetContext, err := pt.loadTarget(ctx, lp)
+	targetContext, err := pt.loadTarget(timeoutCtx, lp)
 	if targetContext != nil {
 		clusterId, err := targetContext.SharedContext.K.GetClusterId()
 		if err != nil {
