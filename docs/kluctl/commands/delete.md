@@ -53,6 +53,7 @@ Misc arguments:
                                                     --helm-username=<credentialsId>:<username>, where
                                                     <credentialsId> must match the id specified in the helm-chart.yaml.
       --no-obfuscate                                Disable obfuscation of sensitive/secret data
+      --no-wait                                     Don't wait for deletion of objects to finish.'
   -o, --output-format stringArray                   Specify output format and target file, in the format
                                                     'format=path'. Format can either be 'text' or 'yaml'. Can be
                                                     specified multiple times. The actual format for yaml is

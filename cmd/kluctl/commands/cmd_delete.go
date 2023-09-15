@@ -23,6 +23,8 @@ type deleteCmd struct {
 	args.CommandResultFlags
 
 	Discriminator string `group:"misc" help:"Override the discriminator used to find objects for deletion."`
+
+	NoWait bool `group:"misc" help:"Don't wait for deletion of objects to finish.'"`
 }
 
 func (cmd *deleteCmd) Help() string {
@@ -46,7 +48,7 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx, nil, true)
+		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx, nil, !cmd.NoWait)
 
 		result, err := cmd2.Run(cmdCtx.targetCtx.SharedContext.Ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
 			return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
