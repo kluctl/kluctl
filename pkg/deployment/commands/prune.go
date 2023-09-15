@@ -24,47 +24,51 @@ func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetConte
 	}
 }
 
-func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) (*result.CommandResult, error) {
+func (cmd *PruneCommand) Run(confirmCb func(refs []k8s2.ObjectRef) error) *result.CommandResult {
+	dew := utils2.NewDeploymentErrorsAndWarnings()
+
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "prune")
+
+	defer func() {
+		finishCommandResult(r, cmd.targetCtx, dew)
+	}()
+
 	discriminator := cmd.discriminator
 	if discriminator == "" && cmd.targetCtx != nil {
 		discriminator = cmd.targetCtx.Target.Discriminator
 	}
 	if discriminator == "" {
-		return nil, fmt.Errorf("pruning without a discriminator is not supported")
+		dew.AddError(k8s2.ObjectRef{}, fmt.Errorf("pruning without a discriminator is not supported"))
+		return r
 	}
-
-	dew := utils2.NewDeploymentErrorsAndWarnings()
 
 	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
 	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, nil, false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	if confirmCb != nil {
 		err = confirmCb(orphanObjects)
 		if err != nil {
-			return nil, err
+			dew.AddError(k8s2.ObjectRef{}, err)
+			return r
 		}
 	}
 
 	deleted := utils2.DeleteObjects(cmd.targetCtx.SharedContext.Ctx, cmd.targetCtx.SharedContext.K, orphanObjects, dew, cmd.wait)
 	orphanObjects = filterDeletedOrphans(orphanObjects, deleted)
 
-	r := &result.CommandResult{
-		Objects:  collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, orphanObjects, deleted),
-		Warnings: dew.GetWarningsList(),
-	}
-	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "prune")
-	if err != nil {
-		return r, err
-	}
-	return r, nil
+	r.Objects = collectObjects(cmd.targetCtx.DeploymentCollection, ru, nil, nil, orphanObjects, deleted)
+
+	return r
 }
 
 func FindOrphanObjects(k *k8s.K8sCluster, ru *utils2.RemoteObjectUtils, c *deployment.DeploymentCollection) ([]k8s2.ObjectRef, error) {

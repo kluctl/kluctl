@@ -2,6 +2,7 @@ package commands
 
 import (
 	git2 "github.com/go-git/go-git/v5"
+	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -14,11 +15,12 @@ import (
 	"time"
 )
 
-func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.CommandResult, command string) error {
+func newCommandResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, command string) *result.CommandResult {
+	r := &result.CommandResult{}
+
 	r.Target = targetCtx.Target
 	r.Command = result.CommandInfo{
 		StartTime: metav1.NewTime(startTime),
-		EndTime:   metav1.Now(),
 		Command:   command,
 		Args:      targetCtx.KluctlProject.LoadArgs.ExternalArgs,
 	}
@@ -36,46 +38,57 @@ func addBaseCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTi
 	var err error
 	r.GitInfo, r.ProjectKey, err = buildGitInfo(targetCtx)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	r.ClusterInfo, err = buildClusterInfo(targetCtx.SharedContext.K)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
 	r.TargetKey.ClusterId = r.ClusterInfo.ClusterId
 
-	return nil
+	return r
 }
 
-func addValidateCommandInfoToResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, r *result.ValidateResult) error {
+func newValidateCommandResult(targetCtx *kluctl_project.TargetContext, startTime time.Time) *result.ValidateResult {
+	r := &result.ValidateResult{}
+
 	r.StartTime = metav1.NewTime(startTime)
 	r.EndTime = metav1.Now()
 	var err error
 	_, r.ProjectKey, err = buildGitInfo(targetCtx)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	clusterInfo, err := buildClusterInfo(targetCtx.SharedContext.K)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
 	r.TargetKey.ClusterId = clusterInfo.ClusterId
 
-	return nil
+	return r
 }
 
-func addDeleteCommandInfoToResult(r *result.CommandResult, k *k8s2.K8sCluster, startTime time.Time, inclusion *utils.Inclusion) error {
+func newDeleteCommandResult(k *k8s2.K8sCluster, startTime time.Time, inclusion *utils.Inclusion) *result.CommandResult {
+	r := &result.CommandResult{}
+
 	r.Command = result.CommandInfo{
 		StartTime: metav1.NewTime(startTime),
-		EndTime:   metav1.Now(),
 		Command:   "delete",
 	}
 
@@ -87,10 +100,27 @@ func addDeleteCommandInfoToResult(r *result.CommandResult, k *k8s2.K8sCluster, s
 	var err error
 	r.ClusterInfo, err = buildClusterInfo(k)
 	if err != nil {
-		return err
+		r.Errors = append(r.Errors, result.DeploymentError{
+			Message: err.Error(),
+		})
 	}
 
-	return nil
+	return r
+}
+
+func finishCommandResult(r *result.CommandResult, targetCtx *kluctl_project.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
+	r.Errors = append(r.Errors, dew.GetErrorsList()...)
+	r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
+	if targetCtx != nil {
+		r.SeenImages = targetCtx.DeploymentCollection.Images.SeenImages(false)
+	}
+	r.Command.EndTime = metav1.Now()
+}
+
+func finishValidateResult(r *result.ValidateResult, targetCtx *kluctl_project.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
+	r.Errors = append(r.Errors, dew.GetErrorsList()...)
+	r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
+	r.EndTime = metav1.Now()
 }
 
 func buildGitInfo(targetCtx *kluctl_project.TargetContext) (result.GitInfo, result.ProjectKey, error) {

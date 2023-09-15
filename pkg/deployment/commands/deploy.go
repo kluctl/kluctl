@@ -29,8 +29,19 @@ func NewDeployCommand(targetCtx *kluctl_project.TargetContext) *DeployCommand {
 	}
 }
 
-func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult) error) (*result.CommandResult, error) {
+func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult) error) *result.CommandResult {
 	dew := utils2.NewDeploymentErrorsAndWarnings()
+
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "deploy")
+	r.Command.ForceApply = cmd.ForceApply
+	r.Command.ReplaceOnError = cmd.ReplaceOnError
+	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
+	r.Command.AbortOnError = cmd.AbortOnError
+	r.Command.NoWait = cmd.NoWait
+
+	defer func() {
+		finishCommandResult(r, cmd.targetCtx, dew)
+	}()
 
 	if cmd.targetCtx.Target.Discriminator == "" {
 		status.Warning(cmd.targetCtx.SharedContext.Ctx, "No discriminator configured. Orphan object detection will not work")
@@ -40,7 +51,8 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
 	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &cmd.targetCtx.Target.Discriminator, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	// prepare for a diff
@@ -72,7 +84,8 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 
 		err = diffResultCb(diffResult)
 		if err != nil {
-			return nil, err
+			dew.AddError(k8s2.ObjectRef{}, err)
+			return r
 		}
 	}
 
@@ -86,12 +99,14 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 	du := utils2.NewDiffUtil(dew, ru, au.GetAppliedObjectsMap())
 	du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
-	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
+	var orphanObjects []k8s2.ObjectRef
+	var deleted []k8s2.ObjectRef
+
+	orphanObjects, err = FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
 	}
 
-	var deleted []k8s2.ObjectRef
 	if cmd.Prune && cmd.targetCtx.Target.Discriminator == "" {
 		dew.AddError(k8s2.ObjectRef{}, fmt.Errorf("pruning without a discriminator is not supported"))
 	} else if cmd.Prune {
@@ -101,20 +116,7 @@ func (cmd *DeployCommand) Run(diffResultCb func(diffResult *result.CommandResult
 		orphanObjects = filterDeletedOrphans(orphanObjects, deleted)
 	}
 
-	r := &result.CommandResult{
-		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, deleted),
-		Errors:     dew.GetErrorsList(),
-		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}
-	r.Command.ForceApply = cmd.ForceApply
-	r.Command.ReplaceOnError = cmd.ReplaceOnError
-	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
-	r.Command.AbortOnError = cmd.AbortOnError
-	r.Command.NoWait = cmd.NoWait
-	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "deploy")
-	if err != nil {
-		return r, err
-	}
-	return r, nil
+	r.Objects = collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, deleted)
+
+	return r
 }

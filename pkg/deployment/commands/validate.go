@@ -21,28 +21,31 @@ type ValidateCommand struct {
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(ctx context.Context, discriminator string, targetCtx *kluctl_project.TargetContext, r *result.CommandResult) *ValidateCommand {
+func NewValidateCommand(discriminator string, targetCtx *kluctl_project.TargetContext, r *result.CommandResult) *ValidateCommand {
 	cmd := &ValidateCommand{
 		targetCtx:     targetCtx,
 		r:             r,
 		discriminator: discriminator,
 		dew:           utils2.NewDeploymentErrorsAndWarnings(),
 	}
-	cmd.ru = utils2.NewRemoteObjectsUtil(ctx, cmd.dew)
+	cmd.ru = utils2.NewRemoteObjectsUtil(targetCtx.SharedContext.Ctx, cmd.dew)
 	return cmd
 }
 
-func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, error) {
-	ret := result.ValidateResult{
-		Ready: true,
-	}
-
+func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 	startTime := time.Now()
 	if cmd.r == nil {
 		startTime = cmd.targetCtx.KluctlProject.LoadTime
 	}
 
 	cmd.dew.Init()
+
+	ret := newValidateCommandResult(cmd.targetCtx, startTime)
+	ret.Ready = true
+
+	defer func() {
+		finishValidateResult(ret, cmd.targetCtx, cmd.dew)
+	}()
 
 	var refs []k8s2.ObjectRef
 	var renderedObjects []*uo.UnstructuredObject
@@ -80,7 +83,8 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 
 	err := cmd.ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, refs, true)
 	if err != nil {
-		return nil, err
+		cmd.dew.AddError(k8s2.ObjectRef{}, err)
+		return ret
 	}
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, cmd.targetCtx.SharedContext.K, &utils2.ApplyUtilOptions{})
@@ -115,15 +119,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context) (*result.ValidateResult, er
 		ret.Results = append(ret.Results, r.Results...)
 	}
 
-	ret.Warnings = append(ret.Warnings, cmd.dew.GetWarningsList()...)
-	ret.Errors = append(ret.Errors, cmd.dew.GetErrorsList()...)
-
-	err = addValidateCommandInfoToResult(cmd.targetCtx, startTime, &ret)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ret, nil
+	return ret
 }
 
 func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {

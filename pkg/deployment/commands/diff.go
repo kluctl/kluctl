@@ -28,8 +28,17 @@ func NewDiffCommand(targetCtx *kluctl_project.TargetContext) *DiffCommand {
 	}
 }
 
-func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
+func (cmd *DiffCommand) Run() *result.CommandResult {
 	dew := utils.NewDeploymentErrorsAndWarnings()
+
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "diff")
+	r.Command.ForceApply = cmd.ForceApply
+	r.Command.ReplaceOnError = cmd.ReplaceOnError
+	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
+
+	defer func() {
+		finishCommandResult(r, cmd.targetCtx, dew)
+	}()
 
 	if cmd.targetCtx.Target.Discriminator == "" {
 		status.Warning(cmd.targetCtx.SharedContext.Ctx, "No discriminator configured. Orphan object detection will not work")
@@ -39,7 +48,8 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 	ru := utils.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
 	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &cmd.targetCtx.Target.Discriminator, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	o := &utils.ApplyUtilOptions{
@@ -62,20 +72,10 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 
 	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
-	r := &result.CommandResult{
-		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
-		Errors:     dew.GetErrorsList(),
-		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}
-	r.Command.ForceApply = cmd.ForceApply
-	r.Command.ReplaceOnError = cmd.ReplaceOnError
-	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
-	err = addBaseCommandInfoToResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, r, "diff")
-	if err != nil {
-		return r, err
-	}
-	return r, nil
+	r.Objects = collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil)
+
+	return r
 }
