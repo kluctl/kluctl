@@ -31,6 +31,7 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sync"
@@ -743,7 +744,8 @@ func (r *KluctlDeploymentReconciler) checkLegacyKluctlDeployment(ctx context.Con
 		if errors2.Unwrap(err) != nil {
 			err = errors2.Unwrap(err)
 		}
-		if apimeta.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) {
+		_, isRDFErr := err.(*apiutil.ErrResourceDiscoveryFailed)
+		if apimeta.IsNoMatchError(err) || errors.IsNotFound(err) || discovery.IsGroupDiscoveryFailedError(err) || isRDFErr {
 			// legacy object not present, we're safe to continue
 			return false, nil
 		}
