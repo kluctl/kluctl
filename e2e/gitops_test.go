@@ -15,9 +15,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog/v2"
 	"math/rand"
 	"os"
 	"path/filepath"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"testing"
@@ -30,6 +32,11 @@ const (
 	timeout  = time.Second * 300
 	interval = time.Second * 5
 )
+
+func init() {
+	// this must be called in the first 30 seconds of startup, so we have to do it here at init() time
+	ctrl.SetLogger(klog.NewKlogr())
+}
 
 type GitopsTestSuite struct {
 	suite.Suite
