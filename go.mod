@@ -56,7 +56,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.7.2
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.1
 	github.com/aws/aws-sdk-go-v2 v1.21.0
-	github.com/aws/aws-sdk-go-v2/config v1.18.39
+	github.com/aws/aws-sdk-go-v2/config v1.18.40
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.38
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.21.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.22.0
