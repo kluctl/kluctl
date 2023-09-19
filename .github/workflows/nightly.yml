@@ -36,7 +36,7 @@ jobs:
         uses: docker/setup-qemu-action@v2
       - name: Setup Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
       - name: Setup Syft
         uses: anchore/sbom-action/download-syft@v0
       - name: Login to GitHub Container Registry

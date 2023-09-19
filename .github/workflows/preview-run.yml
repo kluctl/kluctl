@@ -102,7 +102,7 @@ jobs:
       # BUILD
       - name: Setup Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
       - name: Build binary
         run: |
           make build-webui
