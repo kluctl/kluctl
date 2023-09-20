@@ -17,3 +17,5 @@ args:
     default: []
   - name: controller_priority_class_name
     default: {}
+  - name: controller_service_account_annotations
+    default: {}

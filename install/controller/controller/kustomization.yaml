@@ -53,3 +53,12 @@ patches:
         path: /spec/template/spec/priorityClassName
         value: {{ get_var("args.controller_priority_class_name", none) | to_json }}
 {% endif %}
+{% if get_var("args.controller_service_account_annotations", none) %}
+  - target:
+      kind: ServiceAccount
+      name: kluctl-controller
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value: {{ get_var("args.controller_service_account_annotations", none) | to_json }}
+{% endif %}
