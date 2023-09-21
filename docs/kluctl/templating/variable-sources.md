@@ -286,16 +286,16 @@ vars:
       secretName: "projects/my-project/secrets/secret/versions/latest"
 ```
 
-It is recommended to use [workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) when you are using kluctl controller. You will need to annotate kluctl controller service account with service account name created in k8s:
+It is recommended to use [workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) when you are using kluctl controller. You will need to annotate kluctl controller service account with service account name created in your google project:
 
 ```
     args:
       controller_service_account_annotations:
         iam.gke.io/gcp-service-account: kluctl-controller@PROJECT-NAME.iam.gserviceaccount.com
 ```
-substitute PROJECT-NAME with your real project name in google.
+substitute PROJECT-NAME with your real project name in google. Service account in your google project should have role `roles/secretmanager.secretAccessor` to access secrets.
 
-To run it locally refer to [setting local development environment](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-dev) article.
+To run kluctl locally with gcpSecretManager enabled refer to [setting local development environment](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-dev) article.
 
 ### vault
 
