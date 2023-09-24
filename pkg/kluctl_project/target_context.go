@@ -94,7 +94,12 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 	if err != nil {
 		return nil, err
 	}
-	varsLoader := vars.NewVarsLoader(ctx, k, p.SopsDecrypter, p.RP, aws.NewClientFactory(client, target.Aws), gcp.NewClientFactory())
+
+	sopsDecryptor, err := p.buildSopsDecrypter(ctx, client, target)
+	if err != nil {
+		return nil, err
+	}
+	varsLoader := vars.NewVarsLoader(ctx, k, sopsDecryptor, p.RP, aws.NewClientFactory(client, target.Aws), gcp.NewClientFactory())
 
 	if params.ForSeal {
 		err = p.loadSecrets(ctx, target, varsCtx, varsLoader)
@@ -108,7 +113,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		K:                                 k,
 		K8sVersion:                        params.K8sVersion,
 		RP:                                p.RP,
-		SopsDecrypter:                     p.SopsDecrypter,
+		SopsDecrypter:                     sopsDecryptor,
 		VarsLoader:                        varsLoader,
 		HelmCredentials:                   params.HelmCredentials,
 		Discriminator:                     target.Discriminator,
