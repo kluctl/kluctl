@@ -51,9 +51,9 @@ func newK8sClients(k *K8sCluster, count int) (*k8sClients, error) {
 		p.config.Burst = 20
 		p.config.WarningHandler = p
 
-		p.httpClient, err = rest.HTTPClientFor(k.config)
+		p.httpClient, err = rest.HTTPClientFor(p.config)
 
-		p.client, err = client.New(k.config, client.Options{
+		p.client, err = client.New(p.config, client.Options{
 			HTTPClient: p.httpClient,
 			Mapper:     k.mapper,
 		})
