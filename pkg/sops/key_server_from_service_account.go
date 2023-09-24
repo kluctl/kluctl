@@ -5,7 +5,7 @@ import (
 	"github.com/getsops/sops/v3/keyservice"
 	"github.com/getsops/sops/v3/kms"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
-	intkeyservice "github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops/keyservice"
+	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

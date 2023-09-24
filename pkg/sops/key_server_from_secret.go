@@ -10,7 +10,7 @@ import (
 	"github.com/getsops/sops/v3/keyservice"
 	"github.com/getsops/sops/v3/kms"
 	"github.com/getsops/sops/v3/pgp"
-	intkeyservice "github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops/keyservice"
+	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	corev1 "k8s.io/api/core/v1"
 	"path/filepath"
 	"strings"
