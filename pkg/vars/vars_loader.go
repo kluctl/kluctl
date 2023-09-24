@@ -18,6 +18,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
+	"github.com/kluctl/kluctl/v2/pkg/vars/azure"
 	"github.com/kluctl/kluctl/v2/pkg/vars/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -130,6 +131,9 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		sensitive = true
 	} else if source.Vault != nil {
 		newVars, err = v.loadVault(varsCtx, &source, ignoreMissing)
+		sensitive = true
+	} else if source.AzureKeyVault != nil {
+		newVars, err = v.loadAzureKeyVault(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else {
 		return fmt.Errorf("invalid vars source")
@@ -279,6 +283,20 @@ func (v *VarsLoader) loadGcpSecretManager(varsCtx *VarsCtx, source *types.VarsSo
 			return nil, fmt.Errorf("secret not found: %v", err)
 		}
 		return nil, err
+	}
+	return v.loadFromString(varsCtx, secret)
+}
+
+func (v *VarsLoader) loadAzureKeyVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+	secret, err := azure.GetAzureKeyVaultSecret(v.ctx, source.AzureKeyVault.VaultUri, source.AzureKeyVault.SecretName)
+	if err != nil {
+		return nil, err
+	}
+	if secret == "" {
+		if ignoreMissing {
+			return uo.New(), nil
+		}
+		return nil, fmt.Errorf("the specified azure-key-vault secret was not found")
 	}
 	return v.loadFromString(varsCtx, secret)
 }

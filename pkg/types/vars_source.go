@@ -48,6 +48,13 @@ type VarsSourceAwsSecretsManager struct {
 	Profile *string `json:"profile,omitempty"`
 }
 
+type VarSourceAzureKeyVault struct {
+	// Name or ARN of the secret. In case a name is given, the region must be specified as well
+	VaultUri string `json:"vaultUri" validate:"required"`
+	// Name of the secret
+	SecretName string `json:"secretName" validate:"required"`
+}
+
 type VarsSourceGcpSecretManager struct {
 	// Name of the secret. Should be provided in relative resource name format: "projects/my-project/secrets/secret/versions/latest"
 	SecretName string `json:"secretName" validate:"required"`
@@ -73,6 +80,7 @@ type VarsSource struct {
 	AwsSecretsManager *VarsSourceAwsSecretsManager        `json:"awsSecretsManager,omitempty"`
 	GcpSecretManager  *VarsSourceGcpSecretManager         `json:"gcpSecretManager,omitempty"`
 	Vault             *VarsSourceVault                    `json:"vault,omitempty"`
+	AzureKeyVault     *VarSourceAzureKeyVault             `json:"azureKeyVault,omitempty"`
 
 	When string `json:"when,omitempty"`
 
