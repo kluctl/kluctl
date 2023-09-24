@@ -44,7 +44,7 @@ func newK8sClients(k *K8sCluster, count int) (*k8sClients, error) {
 	}
 
 	for i := 0; i < count; i++ {
-		p, err := kc.newClientEtry()
+		p, err := kc.newClientEntry()
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +54,7 @@ func newK8sClients(k *K8sCluster, count int) (*k8sClients, error) {
 	return kc, nil
 }
 
-func (kc *k8sClients) newClientEtry() (*parallelClientEntry, error) {
+func (kc *k8sClients) newClientEntry() (*parallelClientEntry, error) {
 	p := &parallelClientEntry{}
 
 	p.config = rest.CopyConfig(kc.k.config)
