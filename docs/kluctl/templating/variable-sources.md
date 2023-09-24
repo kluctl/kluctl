@@ -275,7 +275,7 @@ writing the configuration) doesn't have to be specified.
 
 ### gcpSecretManager
 [Google Secret Manager](https://cloud.google.com/secret-manager) integration. Loads a variables YAML from a Google Secrets
-Manager secret. The secret can be specified via full resource name.
+Manager secret. The secret name should be specified in `projects/*/secrets/*/versions/*` [format](https://cloud.google.com/secret-manager/docs/reference/rest/v1/projects.secrets.versions/get#path-parameters).
 
 The secrets stored in Google Secrets manager must contain a valid yaml or json file.
 
@@ -286,7 +286,16 @@ vars:
       secretName: "projects/my-project/secrets/secret/versions/latest"
 ```
 
-It is recommended to use [workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) when you are using kluctl controller. To run it locally provide path to service account json file by setting environment variable `GOOGLE_APPLICATION_CREDENTIALS`.
+It is recommended to use [workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) when you are using kluctl controller. You will need to annotate kluctl controller service account with service account name created in your google project:
+
+```
+    args:
+      controller_service_account_annotations:
+        iam.gke.io/gcp-service-account: kluctl-controller@PROJECT-NAME.iam.gserviceaccount.com
+```
+substitute PROJECT-NAME with your real project name in google. Service account in your google project should have role `roles/secretmanager.secretAccessor` to access secrets.
+
+To run kluctl locally with gcpSecretManager enabled refer to [setting local development environment](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-dev) article.
 
 ### vault
 
