@@ -75,5 +75,15 @@ func (c *LoadedKluctlProject) buildTarget(configTarget *types.Target) (*types.Ta
 	if target.Discriminator == "" {
 		target.Discriminator = c.Config.Discriminator
 	}
+	if target.Aws == nil {
+		target.Aws = c.Config.Aws
+	} else if c.Config.Aws != nil {
+		if target.Aws.Profile == nil {
+			target.Aws.Profile = c.Config.Aws.Profile
+		}
+		if target.Aws.ServiceAccount == nil {
+			target.Aws.ServiceAccount = c.Config.Aws.ServiceAccount
+		}
+	}
 	return &target, nil
 }

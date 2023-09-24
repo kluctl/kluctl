@@ -11,11 +11,22 @@ type SealingConfig struct {
 	CertFile   *string                `json:"certFile,omitempty"`
 }
 
+type ServiceAccountRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+type AwsConfig struct {
+	Profile        *string            `json:"profile,omitempty"`
+	ServiceAccount *ServiceAccountRef `json:"serviceAccount,omitempty"`
+}
+
 type Target struct {
 	Name          string                 `json:"name"`
 	Context       *string                `json:"context,omitempty"`
 	Args          *uo.UnstructuredObject `json:"args,omitempty"`
 	SealingConfig *SealingConfig         `json:"sealingConfig,omitempty"`
+	Aws           *AwsConfig             `json:"aws,omitempty"`
 	Images        []FixedImage           `json:"images,omitempty"`
 	Discriminator string                 `json:"discriminator,omitempty"`
 }
@@ -46,4 +57,5 @@ type KluctlProject struct {
 	Args          []*DeploymentArg `json:"args,omitempty"`
 	SecretsConfig *SecretsConfig   `json:"secretsConfig,omitempty"`
 	Discriminator string           `json:"discriminator,omitempty"`
+	Aws           *AwsConfig       `json:"aws,omitempty"`
 }

@@ -37,7 +37,7 @@ func (f *FakeAwsClientFactory) GetSecretValue(ctx context.Context, params *secre
 	}
 }
 
-func (f *FakeAwsClientFactory) SecretsManagerClient(profile *string, region *string) (GetSecretValueInterface, error) {
+func (f *FakeAwsClientFactory) SecretsManagerClient(ctx context.Context, profile *string, region *string) (GetSecretValueInterface, error) {
 	return f, nil
 }
 
