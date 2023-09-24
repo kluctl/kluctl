@@ -3,6 +3,8 @@ package kluctl_project
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -11,8 +13,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
-	"github.com/kluctl/kluctl/v2/pkg/vars/aws"
-	"github.com/kluctl/kluctl/v2/pkg/vars/gcp"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
