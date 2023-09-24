@@ -288,6 +288,27 @@ vars:
 
 It is recommended to use [workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) when you are using kluctl controller. To run it locally provide path to service account json file by setting environment variable `GOOGLE_APPLICATION_CREDENTIALS`.
 
+### azureKeyVault
+[Azure Key Vault](https://azure.microsoft.com/en-us/products/key-vault/) integration.
+Loads a variables YAML from an Azure Key Vault.
+
+Example
+```yaml
+vars:
+  - azureKeyVault:
+      vaultUri: "https://example.vault.azure.net/"
+      secretName: kluctl
+```
+
+SDK [azure-sdk-for-go](https://github.com/Azure/azure-sdk-for-go) supports `az login`
+or Environment Variables
+```bash
+  export AZURE_CLIENT_ID="__CLIENT_ID__"
+  export AZURE_CLIENT_SECRET="__CLIENT_SECRET__"
+  export AZURE_TENANT_ID="__TENANT_ID__"
+  export AZURE_SUBSCRIPTION_ID="__SUBSCRIPTION_ID__"
+```
+
 ### vault
 
 [Vault by HashiCorp](https://www.vaultproject.io/) with [Tokens](https://www.vaultproject.io/docs/concepts/tokens) 
