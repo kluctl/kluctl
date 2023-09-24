@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type TargetContext struct {
@@ -90,9 +91,12 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		return nil, err
 	}
 
-	client, err := k.ToClient()
-	if err != nil {
-		return nil, err
+	var client client.Client
+	if k != nil {
+		client, err = k.ToClient()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sopsDecryptor, err := p.buildSopsDecrypter(ctx, client, target)

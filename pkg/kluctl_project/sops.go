@@ -48,7 +48,7 @@ func (c *LoadedKluctlProject) addAwsKeyServers(ctx context.Context, client clien
 		}
 	}
 
-	if target.Aws.ServiceAccount != nil {
+	if target.Aws.ServiceAccount != nil && client != nil {
 		ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, client, target.Aws.ServiceAccount.Name, target.Aws.ServiceAccount.Namespace)
 		if err != nil {
 			return err
