@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 )
 
@@ -83,9 +84,20 @@ func assertNestedFieldEquals(t *testing.T, o *uo.UnstructuredObject, expected in
 }
 
 func updateObject(t *testing.T, k *test_utils.EnvTestCluster, o *uo.UnstructuredObject) {
-	_, err := k.DynamicClient.Resource(schema.GroupVersionResource{
-		Version:  "v1",
-		Resource: "configmaps",
-	}).Namespace(o.GetK8sNamespace()).Update(context.Background(), o.ToUnstructured(), metav1.UpdateOptions{})
+	_, err := k.DynamicClient.Resource(v1.SchemeGroupVersion.WithResource("configmaps")).
+		Namespace(o.GetK8sNamespace()).
+		Update(context.Background(), o.ToUnstructured(), metav1.UpdateOptions{})
 	assert.NoError(t, err)
+}
+
+func patchObject(t *testing.T, k *test_utils.EnvTestCluster, gvr schema.GroupVersionResource, namespace string, name string, cb func(o *uo.UnstructuredObject)) {
+	o := assertObjectExists(t, k, gvr, namespace, name)
+	patch := client.MergeFrom(o.ToUnstructured().DeepCopy())
+	cb(o)
+	err := k.Client.Patch(context.Background(), o.ToUnstructured(), patch)
+	assert.NoError(t, err)
+}
+
+func patchConfigMap(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string, cb func(o *uo.UnstructuredObject)) {
+	patchObject(t, k, v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name, cb)
 }

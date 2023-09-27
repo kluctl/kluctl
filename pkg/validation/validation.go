@@ -50,7 +50,7 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 	// We assume all is good in case no validation is performed
 	ret.Ready = true
 
-	if o.GetK8sAnnotationBoolOrFalse("kluctl.io/validate-ignore") {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/validate-ignore", false) {
 		return
 	}
 
@@ -113,6 +113,16 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 		if doRaise {
 			panic(&validationFailed{})
 		}
+	}
+
+	isReadyAnnotation, _ := o.GetK8sAnnotationBoolPtr("kluctl.io/is-ready")
+	if isReadyAnnotation != nil {
+		if !*isReadyAnnotation {
+			addNotReady("kluctl.io/is-ready annotation is set to false")
+			return
+		}
+		// ready
+		return
 	}
 
 	status, _, _ := o.GetNestedObject("status")

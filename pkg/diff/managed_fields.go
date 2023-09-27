@@ -173,8 +173,8 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 
 	ret := local.Clone()
 
-	forceApplyAll := local.GetK8sAnnotationBoolOrFalse("kluctl.io/force-apply")
-	ignoreConflictsAll := local.GetK8sAnnotationBoolOrFalse("kluctl.io/ignore-conflicts")
+	forceApplyAll := local.GetK8sAnnotationBoolNoError("kluctl.io/force-apply", false)
+	ignoreConflictsAll := local.GetK8sAnnotationBoolNoError("kluctl.io/ignore-conflicts", false)
 
 	forceApplyFields, err := collectFields(ret, forceApplyFieldAnnotationRegex)
 	if err != nil {

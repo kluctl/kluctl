@@ -204,20 +204,31 @@ func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[stri
 	return ret
 }
 
-func (uo *UnstructuredObject) GetK8sAnnotationBool(name string) (bool, error) {
+func (uo *UnstructuredObject) GetK8sAnnotationBoolPtr(name string) (*bool, error) {
 	s := uo.GetK8sAnnotation(name)
 	if s == nil {
-		return false, nil
+		return nil, nil
 	}
 	b, err := strconv.ParseBool(*s)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse annotation %s=%v as bool", name, *s)
+		return nil, fmt.Errorf("failed to parse annotation %s=%v as bool", name, *s)
 	}
-	return b, nil
+	return &b, nil
 }
 
-func (uo *UnstructuredObject) GetK8sAnnotationBoolOrFalse(name string) bool {
-	b, _ := uo.GetK8sAnnotationBool(name)
+func (uo *UnstructuredObject) GetK8sAnnotationBool(name string, defaultValue bool) (bool, error) {
+	b, err := uo.GetK8sAnnotationBoolPtr(name)
+	if err != nil {
+		return defaultValue, err
+	}
+	if b == nil {
+		return defaultValue, nil
+	}
+	return *b, nil
+}
+
+func (uo *UnstructuredObject) GetK8sAnnotationBoolNoError(name string, defaultValue bool) bool {
+	b, _ := uo.GetK8sAnnotationBool(name, defaultValue)
 	return b
 }
 

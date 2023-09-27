@@ -47,6 +47,13 @@ If set to `true`, kluctl will wait for readiness of this object. Readiness is de
 the same as in [hook readiness](../../deployments/readiness.md). Waiting happens after all resources from the parent 
 deployment item have been applied.
 
+### kluctl.io/is-ready
+If set to `true`, kluctl will always consider this object as [ready](../../deployments/readiness.md). If set to `false`,
+kluctl will always consider this object as not ready. If omitted, kluctl will perform normal readiness checks.
+
+This annotation is useful if you need to introduce externalized readiness determination, e.g. inside a non-hook `Pod`
+that can annotate an object that something got ready.
+
 ## Control deletion/pruning
 
 The following annotations control how delete/prune is behaving.
