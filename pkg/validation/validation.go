@@ -115,6 +115,16 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 		}
 	}
 
+	isReadyAnnotation, _ := o.GetK8sAnnotationBoolPtr("kluctl.io/is-ready")
+	if isReadyAnnotation != nil {
+		if !*isReadyAnnotation {
+			addNotReady("kluctl.io/is-ready annotation is set to false")
+			return
+		}
+		// ready
+		return
+	}
+
 	status, _, _ := o.GetNestedObject("status")
 	if status == nil {
 		if forceStatusRequired {
