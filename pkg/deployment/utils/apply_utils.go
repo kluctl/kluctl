@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 )
 
@@ -486,11 +487,16 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 
 		a.sctx.Update(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
 
+		reportStillWaitingTime := 10 * time.Second
+		if testing.Testing() {
+			reportStillWaitingTime = 3 * time.Second
+		}
+
 		if !didLog {
 			a.sctx.InfoFallbackf("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			didLog = true
 			lastLogTime = time.Now()
-		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
+		} else if didLog && time.Now().Sub(lastLogTime) >= reportStillWaitingTime {
 			a.sctx.InfoFallbackf("Still waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			lastLogTime = time.Now()
 		}
