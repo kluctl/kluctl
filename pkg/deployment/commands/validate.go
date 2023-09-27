@@ -89,7 +89,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 
 	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, cmd.targetCtx.SharedContext.K, &utils2.ApplyUtilOptions{})
 	for _, o := range renderedObjects {
-		if o.GetK8sAnnotationBoolOrFalse("kluctl.io/delete") {
+		if o.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
 			if cmd.ru.GetRemoteObject(o.GetK8sRef()) != nil {
 				cmd.dew.AddError(o.GetK8sRef(), fmt.Errorf("object is marked for deletion but still exists on the target cluster"))
 			}

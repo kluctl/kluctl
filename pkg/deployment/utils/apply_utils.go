@@ -538,7 +538,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		}
 	}
 	for _, x := range d.Objects {
-		if x.GetK8sAnnotationBoolOrFalse("kluctl.io/delete") {
+		if x.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
 			toDelete[x.GetK8sRef()] = true
 		}
 	}
@@ -616,7 +616,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			break
 		}
 
-		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || o.GetK8sAnnotationBoolOrFalse("kluctl.io/wait-readiness")
+		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || o.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
 		if !a.o.NoWait && waitReadiness {
 			a.WaitReadiness(o.GetK8sRef(), 0)
 		}

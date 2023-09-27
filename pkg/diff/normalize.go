@@ -151,7 +151,7 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		normalizeServiceAccount(o)
 	}
 
-	if localObject.GetK8sAnnotationBoolOrFalse("kluctl.io/ignore-diff") {
+	if localObject.GetK8sAnnotationBoolNoError("kluctl.io/ignore-diff", false) {
 		// Return empty object so that diffs will always be empty
 		return &uo.UnstructuredObject{Object: map[string]interface{}{}}, nil
 	}

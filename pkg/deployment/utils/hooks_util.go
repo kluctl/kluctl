@@ -157,7 +157,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		return ret
 	}
 
-	if o.GetK8sAnnotationBoolOrFalse("kluctl.io/delete") {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
 		return nil
 	}
 
@@ -215,10 +215,9 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		}
 	}
 
-	wait, err := o.GetK8sAnnotationBool("kluctl.io/hook-wait")
+	wait, err := o.GetK8sAnnotationBool("kluctl.io/hook-wait", true)
 	if err != nil {
 		u.a.HandleError(ref, err)
-		wait = true
 	}
 
 	timeoutStr := o.GetK8sAnnotation("kluctl.io/hook-timeout")
