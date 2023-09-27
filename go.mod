@@ -1,6 +1,6 @@
 module github.com/kluctl/kluctl/v2
 
-go 1.19
+go 1.21
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
