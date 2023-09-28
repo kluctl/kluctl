@@ -89,7 +89,7 @@ dockers:
     build_flag_templates:
       - "--pull"
       # use https://registry-ui.chainguard.app/?image=cgr.dev/chainguard/wolfi-base to find the latest one
-      - "--build-arg=WOLFI_DIGEST=sha256:e8411b9629bd13123a978a2d1a27c3ee64c7751d3032ce80ad6e673e329ef964"
+      - "--build-arg=WOLFI_DIGEST=sha256:066409365aa20bb686fc08dc5692ab9358fe6f1cd7001c39b539561bf35e290f"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -104,7 +104,7 @@ dockers:
     build_flag_templates:
       - "--pull"
       # use https://registry-ui.chainguard.app/?image=cgr.dev/chainguard/wolfi-base to find the latest one
-      - "--build-arg=WOLFI_DIGEST=sha256:05a4280b4c5b5cafc7eb2a012983bc79e3ddca938f01ddc3deb797ca3fddd399"
+      - "--build-arg=WOLFI_DIGEST=sha256:25fe46783deb30d07921d05a1cbe21629a2f9e6256ecc9e1c52bc10e7d10afb1"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
