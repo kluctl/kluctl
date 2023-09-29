@@ -40,9 +40,9 @@ require (
 	golang.org/x/sys v0.12.0
 	golang.org/x/term v0.12.0 // indirect
 	golang.org/x/text v0.13.0
-	helm.sh/helm/v3 v3.12.3
+	helm.sh/helm/v3 v3.13.0
 	k8s.io/api v0.28.2
-	k8s.io/apiextensions-apiserver v0.28.1
+	k8s.io/apiextensions-apiserver v0.28.2
 	k8s.io/apimachinery v0.28.2
 	k8s.io/client-go v0.28.2
 	k8s.io/klog/v2 v2.100.1
@@ -106,6 +106,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/Microsoft/hcsshim v0.11.0 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -126,7 +127,7 @@ require (
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.0 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
-	github.com/containerd/containerd v1.7.4 // indirect
+	github.com/containerd/containerd v1.7.6 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -269,11 +270,11 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.28.1 // indirect
-	k8s.io/cli-runtime v0.28.1 // indirect
-	k8s.io/component-base v0.28.1 // indirect
+	k8s.io/apiserver v0.28.2 // indirect
+	k8s.io/cli-runtime v0.28.2 // indirect
+	k8s.io/component-base v0.28.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443 // indirect
-	k8s.io/kubectl v0.28.1 // indirect
+	k8s.io/kubectl v0.28.2 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	oras.land/oras-go v1.2.3 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
