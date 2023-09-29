@@ -73,7 +73,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.4.0
-	github.com/onsi/gomega v1.27.10
+	github.com/onsi/gomega v1.28.0
 	github.com/otiai10/copy v1.12.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/sergi/go-diff v1.3.1
