@@ -1,10 +1,11 @@
 # We must use a glibc based distro due to embedded python not supporting musl libc for aarch64 (only amd64+musl is supported)
 # see https://github.com/indygreg/python-build-standalone/issues/87
-ARG WOLFI_DIGEST=sha256:e8411b9629bd13123a978a2d1a27c3ee64c7751d3032ce80ad6e673e329ef964
+# use `docker buildx imagetools inspect  cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 of multiarch image
+ARG WOLFI_DIGEST=sha256:ccc5551b5dd1fdcff5fc76ac1605b4c217f77f43410e0bd8a56599d6504dbbdd
 FROM cgr.dev/chainguard/wolfi-base@$WOLFI_DIGEST
 
 # We need git for kustomize to support overlays from git
-RUN apk add git tzdata
+RUN apk update && apk add git tzdata
 
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
