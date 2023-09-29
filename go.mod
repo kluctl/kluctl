@@ -75,7 +75,7 @@ require (
 	github.com/huandu/xstrings v1.4.0
 	github.com/onsi/gomega v1.28.0
 	github.com/otiai10/copy v1.12.0
-	github.com/prometheus/client_golang v1.16.0
+	github.com/prometheus/client_golang v1.17.0
 	github.com/sergi/go-diff v1.3.1
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
 	golang.org/x/oauth2 v0.12.0
@@ -224,7 +224,7 @@ require (
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_model v0.4.0 // indirect
+	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
