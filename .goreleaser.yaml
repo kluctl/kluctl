@@ -88,8 +88,8 @@ dockers:
     goarch: amd64
     build_flag_templates:
       - "--pull"
-      # use https://registry-ui.chainguard.app/?image=cgr.dev/chainguard/wolfi-base to find the latest one
-      - "--build-arg=WOLFI_DIGEST=sha256:066409365aa20bb686fc08dc5692ab9358fe6f1cd7001c39b539561bf35e290f"
+      # use `docker buildx imagetools inspect  cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 of linux/amd64 layer
+      - "--build-arg=WOLFI_DIGEST=sha256:3c41b0c5a5b09fb4e5fccdc9469c992cf489161989fcc3e17c7c394bbea4b215"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -103,8 +103,8 @@ dockers:
     goarch: arm64
     build_flag_templates:
       - "--pull"
-      # use https://registry-ui.chainguard.app/?image=cgr.dev/chainguard/wolfi-base to find the latest one
-      - "--build-arg=WOLFI_DIGEST=sha256:25fe46783deb30d07921d05a1cbe21629a2f9e6256ecc9e1c52bc10e7d10afb1"
+      # use `docker buildx imagetools inspect  cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 of linux/arm64 layer
+      - "--build-arg=WOLFI_DIGEST=sha256:f27d65564f05397c920f63fb81b485f829de3ee23fd32a4a0af1002ec7ead0d2"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"

@@ -1,6 +1,7 @@
 # We must use a glibc based distro due to embedded python not supporting musl libc for aarch64 (only amd64+musl is supported)
 # see https://github.com/indygreg/python-build-standalone/issues/87
-ARG WOLFI_DIGEST=sha256:0f5ba4905ca6ea9c43660cca233e663eb9bb21cbc6993656936d2aef80c43310
+# use `docker buildx imagetools inspect  cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 for multiarch image
+ARG WOLFI_DIGEST=sha256:ccc5551b5dd1fdcff5fc76ac1605b4c217f77f43410e0bd8a56599d6504dbbdd
 FROM cgr.dev/chainguard/wolfi-base@$WOLFI_DIGEST
 
 # We need git for kustomize to support overlays from git
