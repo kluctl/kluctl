@@ -200,6 +200,9 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 
 	client := action.NewInstall(cfg)
 	client.DryRun = true
+	if k != nil {
+		client.DryRunOption = "server"
+	}
 	client.Namespace = namespace
 	client.ReleaseName = hr.Config.ReleaseName
 	client.Replace = true

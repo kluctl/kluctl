@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -8,6 +9,8 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -629,4 +632,55 @@ func listChartVersions(t *testing.T, p *test_project.TestProject, url2 string, c
 	}
 	sort.Strings(versions)
 	return versions
+}
+
+func TestHelmLookup(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_project.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	lookupCm := corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "lookup-cm",
+			Namespace: p.TestSlug(),
+		},
+		Data: map[string]string{
+			"a": "lookupValue",
+		},
+	}
+	err := k.Client.Create(context.Background(), &lookupCm)
+	assert.NoError(t, err)
+
+	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
+		{ChartName: "test-chart1", Version: "0.1.0"},
+	}, "", "")
+
+	values1 := map[string]any{
+		"lookup":          true,
+		"lookupNamespace": lookupCm.Namespace,
+		"lookupName":      lookupCm.Name,
+	}
+
+	p.UpdateTarget("test", nil)
+	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
+
+	p.KluctlMust("helm-pull")
+	p.KluctlMust("deploy", "--yes", "-t", "test")
+
+	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
+	assertNestedFieldEquals(t, cm1, "lookupValue", "data", "lookup")
+
+	s, _ := p.KluctlMust("render", "-t", "test", "--print-all")
+	y, err := uo.FromString(s)
+	assert.NoError(t, err)
+	assertNestedFieldEquals(t, y, "lookupValue", "data", "lookup")
+
+	s, _ = p.KluctlMust("render", "-t", "test", "--print-all", "--offline-kubernetes")
+	y, err = uo.FromString(s)
+	assert.NoError(t, err)
+	assertNestedFieldEquals(t, y, "lookupReturnedNil", "data", "lookup")
 }
