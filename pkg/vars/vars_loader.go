@@ -9,6 +9,7 @@ import (
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/azure"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
