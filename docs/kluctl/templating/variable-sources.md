@@ -297,6 +297,27 @@ substitute PROJECT-NAME with your real project name in google. Service account i
 
 To run kluctl locally with gcpSecretManager enabled refer to [setting local development environment](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-dev) article.
 
+### azureKeyVault
+[Azure Key Vault](https://azure.microsoft.com/en-us/products/key-vault/) integration.
+Loads a variables YAML from an Azure Key Vault.
+
+Example
+```yaml
+vars:
+  - azureKeyVault:
+      vaultUri: "https://example.vault.azure.net/"
+      secretName: kluctl
+```
+
+SDK [azure-sdk-for-go](https://github.com/Azure/azure-sdk-for-go) supports `az login`
+or Environment Variables
+```bash
+  export AZURE_CLIENT_ID="__CLIENT_ID__"
+  export AZURE_CLIENT_SECRET="__CLIENT_SECRET__"
+  export AZURE_TENANT_ID="__TENANT_ID__"
+  export AZURE_SUBSCRIPTION_ID="__SUBSCRIPTION_ID__"
+```
+
 ### vault
 
 [Vault by HashiCorp](https://www.vaultproject.io/) with [Tokens](https://www.vaultproject.io/docs/concepts/tokens) 

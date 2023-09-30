@@ -226,6 +226,16 @@ export class SealedSecretsConfig {
         this.outputPattern = source["outputPattern"];
     }
 }
+export class VarSourceAzureKeyVault {
+    vaultUri: string;
+    secretName: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.vaultUri = source["vaultUri"];
+        this.secretName = source["secretName"];
+    }
+}
 export class VarsSourceVault {
     address: string;
     path: string;
@@ -314,6 +324,7 @@ export class VarsSource {
     awsSecretsManager?: VarsSourceAwsSecretsManager;
     gcpSecretManager?: VarsSourceGcpSecretManager;
     vault?: VarsSourceVault;
+    azureKeyVault?: VarSourceAzureKeyVault;
     when?: string;
     renderedSensitive?: boolean;
     renderedVars?: any;
@@ -333,6 +344,7 @@ export class VarsSource {
         this.awsSecretsManager = this.convertValues(source["awsSecretsManager"], VarsSourceAwsSecretsManager);
         this.gcpSecretManager = this.convertValues(source["gcpSecretManager"], VarsSourceGcpSecretManager);
         this.vault = this.convertValues(source["vault"], VarsSourceVault);
+        this.azureKeyVault = this.convertValues(source["azureKeyVault"], VarSourceAzureKeyVault);
         this.when = source["when"];
         this.renderedSensitive = source["renderedSensitive"];
         this.renderedVars = source["renderedVars"];
