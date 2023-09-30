@@ -187,6 +187,23 @@ export class VarsSourceNodeData extends NodeData {
                     return sourceProps
                 }
             }
+        } else if (this.varsSource.azureKeyVault) {
+            return {
+                type: "azureKeyVault",
+                label: () => {
+                    return <>
+                        {this.varsSource.azureKeyVault!.vaultUri}<br/>
+                        {this.varsSource.azureKeyVault!.secretName}
+                    </>
+                },
+                icon: () => <Cloud fontSize={"large"}/>,
+                sourceProps: () => {
+                    const sourceProps = []
+                    sourceProps.push({ name: "VaultURI", value: this.varsSource.azureKeyVault!.vaultUri })
+                    sourceProps.push({ name: "SecretName", value: this.varsSource.azureKeyVault!.secretName })
+                    return sourceProps
+                }
+            }
         } else {
             return {
                 type: "unknown",
