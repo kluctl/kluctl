@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+	"time"
 )
 
 func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {
@@ -100,4 +101,27 @@ func patchObject(t *testing.T, k *test_utils.EnvTestCluster, gvr schema.GroupVer
 
 func patchConfigMap(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string, cb func(o *uo.UnstructuredObject)) {
 	patchObject(t, k, v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name, cb)
+}
+
+type secondPassedBarrier struct {
+	last time.Time
+	t    *testing.T
+}
+
+func newSecondPassedBarrier(t *testing.T) secondPassedBarrier {
+	return secondPassedBarrier{
+		t:    t,
+		last: time.Now(),
+	}
+}
+
+func (b *secondPassedBarrier) Wait() {
+	t := time.Now()
+	passed := t.Sub(b.last)
+	if passed < time.Second {
+		sleep := time.Second - passed + 100*time.Millisecond
+		b.t.Logf("sleeping for %s", sleep.String())
+		time.Sleep(sleep)
+	}
+	b.last = time.Now()
 }
