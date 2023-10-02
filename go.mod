@@ -75,7 +75,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.4.0
 	github.com/onsi/gomega v1.28.0
-	github.com/otiai10/copy v1.12.0
+	github.com/otiai10/copy v1.14.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/sergi/go-diff v1.3.1
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
