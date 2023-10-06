@@ -76,7 +76,11 @@ func (c *LoadedKluctlProject) buildTarget(configTarget *types.Target) (*types.Ta
 		target.Discriminator = c.Config.Discriminator
 	}
 	if target.Aws == nil {
-		target.Aws = c.Config.Aws
+		if c.Config.Aws != nil {
+			target.Aws = c.Config.Aws
+		} else {
+			target.Aws = &types.AwsConfig{}
+		}
 	} else if c.Config.Aws != nil {
 		if target.Aws.Profile == nil {
 			target.Aws.Profile = c.Config.Aws.Profile

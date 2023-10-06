@@ -33,10 +33,6 @@ func (c *LoadedKluctlProject) buildSopsDecrypter(ctx context.Context, client cli
 }
 
 func (c *LoadedKluctlProject) addAwsKeyServers(ctx context.Context, client client.Client, d *decryptor.Decryptor, target *types.Target) error {
-	if target.Aws == nil {
-		return nil
-	}
-
 	if target.Aws.Profile != nil {
 		var configOpts []func(*config.LoadOptions) error
 		configOpts = append(configOpts, config.WithSharedConfigProfile(*target.Aws.Profile))
