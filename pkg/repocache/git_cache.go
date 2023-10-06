@@ -27,7 +27,7 @@ type GitRepoCache struct {
 	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
 
-	repos      map[types.GitRepoKey]*CacheEntry
+	repos      map[types.GitRepoKey]*GitCacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides []RepoOverride
@@ -36,7 +36,7 @@ type GitRepoCache struct {
 	cleanupDirsMutex sync.Mutex
 }
 
-type CacheEntry struct {
+type GitCacheEntry struct {
 	rp         *GitRepoCache
 	url        types.GitUrl
 	mr         *git.MirroredGitRepo
@@ -72,7 +72,7 @@ func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProvide
 		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
-		repos:          map[types.GitRepoKey]*CacheEntry{},
+		repos:          map[types.GitRepoKey]*GitCacheEntry{},
 		repoOverrides:  repoOverrides,
 	}
 }
@@ -87,7 +87,7 @@ func (rp *GitRepoCache) Clear() {
 	rp.cleanupDirs = nil
 }
 
-func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
+func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 	rp.reposMutex.Lock()
 	defer rp.reposMutex.Unlock()
 
@@ -126,7 +126,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 
 		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
 
-		e := &CacheEntry{
+		e := &GitCacheEntry{
 			rp:           rp,
 			url:          url,
 			mr:           nil, // mark as overridden
@@ -143,7 +143,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		e = &CacheEntry{
+		e = &GitCacheEntry{
 			rp:         rp,
 			url:        url,
 			mr:         mr,
@@ -158,7 +158,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 	return e, nil
 }
 
-func (e *CacheEntry) Update() error {
+func (e *GitCacheEntry) Update() error {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -207,7 +207,7 @@ func (e *CacheEntry) Update() error {
 	return nil
 }
 
-func (e *CacheEntry) GetRepoInfo() RepoInfo {
+func (e *GitCacheEntry) GetRepoInfo() RepoInfo {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -220,7 +220,7 @@ func (e *CacheEntry) GetRepoInfo() RepoInfo {
 	return info
 }
 
-func (e *CacheEntry) findCommit(ref string) (string, string, error) {
+func (e *GitCacheEntry) findCommit(ref string) (string, string, error) {
 	ref, objectHash, err := e.findRef(ref)
 	if err != nil {
 		return "", "", err
@@ -241,7 +241,7 @@ func (e *CacheEntry) findCommit(ref string) (string, string, error) {
 	}
 }
 
-func (e *CacheEntry) findRef(ref string) (string, string, error) {
+func (e *GitCacheEntry) findRef(ref string) (string, string, error) {
 	switch {
 	case strings.HasPrefix(ref, "refs/heads"), strings.HasPrefix(ref, "refs/tags"):
 		c, ok := e.refs[ref]
@@ -265,7 +265,7 @@ func (e *CacheEntry) findRef(ref string) (string, string, error) {
 	}
 }
 
-func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
+func (e *GitCacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
