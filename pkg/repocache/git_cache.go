@@ -32,8 +32,8 @@ type GitRepoCache struct {
 
 	repoOverrides []RepoOverride
 
-	cleanupDirs       []string
-	cleeanupDirsMutex sync.Mutex
+	cleanupDirs      []string
+	cleanupDirsMutex sync.Mutex
 }
 
 type CacheEntry struct {
@@ -78,8 +78,8 @@ func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProvide
 }
 
 func (rp *GitRepoCache) Clear() {
-	rp.cleeanupDirsMutex.Lock()
-	defer rp.cleeanupDirsMutex.Unlock()
+	rp.cleanupDirsMutex.Lock()
+	defer rp.cleanupDirsMutex.Unlock()
 
 	for _, p := range rp.cleanupDirs {
 		_ = os.RemoveAll(p)
@@ -289,9 +289,9 @@ func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, 
 		return "", git.CheckoutInfo{}, err
 	}
 
-	e.rp.cleeanupDirsMutex.Lock()
+	e.rp.cleanupDirsMutex.Lock()
 	e.rp.cleanupDirs = append(e.rp.cleanupDirs, p)
-	e.rp.cleeanupDirsMutex.Unlock()
+	e.rp.cleanupDirsMutex.Unlock()
 
 	if e.mr == nil { // local override exist
 		err = cp.Copy(e.overridePath, p)
