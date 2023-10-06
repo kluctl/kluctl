@@ -22,27 +22,13 @@ type awsClientFactory struct {
 }
 
 func (a *awsClientFactory) SecretsManagerClient(ctx context.Context, profile *string, region *string) (GetSecretValueInterface, error) {
-	if profile == nil {
-		profile = a.awsConfig.Profile
-	}
-
 	var configOpts []func(*config.LoadOptions) error
-	if profile != nil {
-		configOpts = append(configOpts, config.WithSharedConfigProfile(*profile))
-	}
 
 	if region != nil {
 		configOpts = append(configOpts, config.WithRegion(*region))
 	}
 
-	if a.awsConfig.ServiceAccount != nil && a.client != nil {
-		webIdentityCreds, err := BuildCredentialsFromServiceAccount(ctx, a.client, a.awsConfig.ServiceAccount.Name, a.awsConfig.ServiceAccount.Namespace, "kluctl-vars-loader")
-		if err == nil && webIdentityCreds != nil {
-			configOpts = append(configOpts, config.WithCredentialsProvider(webIdentityCreds))
-		}
-	}
-
-	cfg, err := config.LoadDefaultConfig(context.Background(), configOpts...)
+	cfg, err := LoadAwsConfigHelper(ctx, a.client, a.awsConfig, profile, configOpts...)
 	if err != nil {
 		return nil, err
 	}

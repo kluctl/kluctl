@@ -3,14 +3,18 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/getsops/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/kms"
 	"github.com/google/uuid"
 	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
@@ -545,13 +549,14 @@ func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context,
 		return nil
 	}
 
-	ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, pp.r.Client, name, pp.obj.Namespace)
-	if err != nil {
+	creds, err := aws.BuildCredentialsFromServiceAccount(ctx, pp.r.Client, name, pp.obj.Namespace, "kluctl-controller")
+	if err != nil || creds == nil {
 		return err
 	}
-	if ks != nil {
-		d.AddKeyServiceClient(ks)
-	}
+
+	server := intkeyservice.NewServer(intkeyservice.WithAWSKeys{CredsProvider: kms.NewCredentialsProvider(creds)})
+	ks := keyservice.NewCustomLocalClient(server)
+	d.AddKeyServiceClient(ks)
 	return nil
 }
 
