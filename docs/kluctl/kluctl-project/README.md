@@ -98,6 +98,38 @@ kluctl deploy -t my-target -a my.nested1=override`
 
 will only modify the value below `my.nested1` and keep the value of `my.nested2`.
 
+### aws
+If specified, configures the default AWS configuration to use for
+[awsSecretsManager](../templating/variable-sources.md#awssecretsmanager) vars sources and KMS based
+[SOPS descryption](../deployments/sops.md).
+
+Example:
+
+```yaml
+aws:
+  profile: my-local-aws-profile
+  serviceAccount:
+    name: service-account-name
+    namespace: service-account-namespace
+```
+
+If any of the environment variables `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_ACCESS_KEY` or `AWS_WEB_IDENTITY_TOKEN_FILE`
+is set, Kluctl will ignore this AWS configuration and revert to using the environment variables based credentials.
+
+#### profile
+If specified, Kluctl will use this [AWS config profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-using-profiles)
+when found locally. If it is not found in your local AWS config, Kluctl will not try to use the specified profile.
+
+#### serviceAccount
+Optionally specifies the name and namespace of a service account to use for [IRSA based authentication](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+The specified service accounts needs to have the `eks.amazonaws.com/role-arn` annotation set to an existing IAM role
+with a proper trust policy that allows this service account to assume that role. Please read the AWS documentation
+for details.
+
+The service account is only used when [profile](#profile) was not specified or when it is not present locally.
+If a service account is specified and accessible (you need proper RBAC access), Kluctl will not try to perform default
+AWS config loading.
+
 ## Using Kluctl without .kluctl.yaml
 
 It's possible to use Kluctl without any `.kluctl.yaml`. In that case, all commands must be used without specifying the

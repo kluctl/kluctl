@@ -568,6 +568,44 @@ export class FixedImage {
 	    return a;
 	}
 }
+export class ServiceAccountRef {
+    name: string;
+    namespace: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.name = source["name"];
+        this.namespace = source["namespace"];
+    }
+}
+export class AwsConfig {
+    profile?: string;
+    serviceAccount?: ServiceAccountRef;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.profile = source["profile"];
+        this.serviceAccount = this.convertValues(source["serviceAccount"], ServiceAccountRef);
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (a.slice) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
+}
 export class SealingConfig {
     args?: any;
     secretSets?: string[];
@@ -585,6 +623,7 @@ export class Target {
     context?: string;
     args?: any;
     sealingConfig?: SealingConfig;
+    aws?: AwsConfig;
     images?: FixedImage[];
     discriminator?: string;
 
@@ -594,6 +633,7 @@ export class Target {
         this.context = source["context"];
         this.args = source["args"];
         this.sealingConfig = this.convertValues(source["sealingConfig"], SealingConfig);
+        this.aws = this.convertValues(source["aws"], AwsConfig);
         this.images = this.convertValues(source["images"], FixedImage);
         this.discriminator = source["discriminator"];
     }

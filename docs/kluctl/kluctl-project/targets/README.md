@@ -32,6 +32,11 @@ targets:
     images:
       - image: my-image
         resultImage: my-image:1.2.3
+    aws:
+      profile: my-local-aws-profile
+      serviceAccount:
+        name: service-account-name
+        namespace: service-account-namespace
     discriminator: "my-project-{{ target.name }}"
 ...
 ```
@@ -53,6 +58,10 @@ are configured via [deployment args](../../deployments/deployment-yml.md#args).
 ## images
 This field specifies a list of fixed images to be used by [`images.get_image(...)`](../../deployments/images.md#imagesget_image).
 The format is identical to the [fixed images file](../../deployments/images.md#command-line-argument---fixed-images-file).
+
+## aws
+This field specifies target specific AWS configuration, which overrides what was optionally specified via the
+[global AWS configuration](../README.md#aws).
 
 ## discriminator
 

@@ -16,7 +16,7 @@ func GetAwsSecretsManagerSecret(ctx context.Context, aws AwsClientFactory, profi
 		region = &arn.Region
 	}
 
-	smClient, err := aws.SecretsManagerClient(profile, region)
+	smClient, err := aws.SecretsManagerClient(ctx, profile, region)
 	if err != nil {
 		return "", fmt.Errorf("getting secret %s from AWS secrets manager failed: %w", secretName, err)
 	}

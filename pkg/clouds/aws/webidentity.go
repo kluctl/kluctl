@@ -1,4 +1,4 @@
-package sops
+package aws
 
 import (
 	"context"
@@ -8,9 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/logging"
-	"github.com/getsops/sops/v3/keyservice"
-	"github.com/getsops/sops/v3/kms"
-	intkeyservice "github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops/keyservice"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,26 +15,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func BuildSopsKeyServerFromServiceAccount(ctx context.Context, client client.Client, sa *corev1.ServiceAccount) (keyservice.KeyServiceClient, error) {
-	var serverOpts []intkeyservice.ServerOption
-
-	x, err := withAWSWebIdentity(ctx, client, sa)
-	if err != nil {
-		return nil, err
-	}
-	serverOpts = append(serverOpts, x...)
-
-	server := intkeyservice.NewServer(serverOpts...)
-	return keyservice.NewCustomLocalClient(server), nil
-}
-
 type webIdentityToken string
 
 func (t webIdentityToken) GetIdentityToken() ([]byte, error) {
 	return []byte(t), nil
 }
 
-func withAWSWebIdentity(ctx context.Context, client client.Client, sa *corev1.ServiceAccount) ([]intkeyservice.ServerOption, error) {
+func BuildCredentialsFromServiceAccount(ctx context.Context, c client.Client, name string, namespace string, sessionName string) (*stscreds.WebIdentityRoleProvider, error) {
+	var sa corev1.ServiceAccount
+	err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &sa)
+	if err != nil {
+		return nil, err
+	}
+
 	roleArnStr := ""
 	if sa.GetAnnotations() != nil {
 		roleArnStr, _ = sa.GetAnnotations()["eks.amazonaws.com/role-arn"]
@@ -63,7 +53,7 @@ func withAWSWebIdentity(ctx context.Context, client client.Client, sa *corev1.Se
 		},
 	}
 
-	err = client.SubResource("token").Create(ctx, sa, &tokenRequest)
+	err = c.SubResource("token").Create(ctx, &sa, &tokenRequest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token for AWS STS: %w", err)
 	}
@@ -79,13 +69,11 @@ func withAWSWebIdentity(ctx context.Context, client client.Client, sa *corev1.Se
 
 	optFns := []func(*stscreds.WebIdentityRoleOptions){
 		func(options *stscreds.WebIdentityRoleOptions) {
-			options.RoleSessionName = "kluctl-sops-decrypter"
+			options.RoleSessionName = sessionName
 		},
 	}
 
 	provider := stscreds.NewWebIdentityRoleProvider(sts.NewFromConfig(cfg), roleArnStr, webIdentityToken(tokenRequest.Status.Token), optFns...)
 
-	var serverOpts []intkeyservice.ServerOption
-	serverOpts = append(serverOpts, intkeyservice.WithAWSKeys{CredsProvider: kms.NewCredentialsProvider(provider)})
-	return serverOpts, nil
+	return provider, nil
 }

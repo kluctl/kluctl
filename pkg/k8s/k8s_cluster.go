@@ -530,3 +530,11 @@ func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, er
 func (k *K8sCluster) ToRESTMapper() (meta.RESTMapper, error) {
 	return k.mapper, nil
 }
+
+func (k *K8sCluster) ToClient() (client.Client, error) {
+	p, err := k.clients.newClientEntry()
+	if err != nil {
+		return nil, err
+	}
+	return p.client, nil
+}

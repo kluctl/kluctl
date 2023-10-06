@@ -71,7 +71,10 @@ func lessCommandSummary(a *result.CommandResultSummary, b *result.CommandResultS
 	if a.Command.EndTime != b.Command.EndTime {
 		return a.Command.EndTime.After(b.Command.EndTime.Time)
 	}
-	return a.Command.Command < b.Command.Command
+	if a.Command.Command != b.Command.Command {
+		return a.Command.Command < b.Command.Command
+	}
+	return a.Id < b.Id
 }
 
 func lessValidateSummary(a *result.ValidateResultSummary, b *result.ValidateResultSummary) bool {
@@ -81,5 +84,5 @@ func lessValidateSummary(a *result.ValidateResultSummary, b *result.ValidateResu
 	if a.EndTime != b.EndTime {
 		return a.EndTime.After(b.EndTime.Time)
 	}
-	return false
+	return a.Id < b.Id
 }

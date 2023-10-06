@@ -3,14 +3,18 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/getsops/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/kms"
 	"github.com/google/uuid"
 	"github.com/kluctl/go-jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
@@ -18,7 +22,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -482,25 +485,23 @@ func (pt *preparedTarget) clientConfigGetter(ctx context.Context) func(context *
 	}
 }
 
-func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (*decryptor.Decryptor, error) {
+func (pp *preparedProject) addKeyServers(ctx context.Context, d *decryptor.Decryptor) error {
 	if pp.obj.Spec.Decryption == nil {
-		return nil, nil
+		return nil
 	}
 	if pp.obj.Spec.Decryption.Provider != "sops" {
-		return nil, fmt.Errorf("not supported decryption provider %s", pp.obj.Spec.Decryption.Provider)
+		return fmt.Errorf("not supported decryption provider %s", pp.obj.Spec.Decryption.Provider)
 	}
-
-	d := decryptor.NewDecryptor(filepath.Join(pp.tmpDir, "project"), decryptor.MaxEncryptedFileSize)
 
 	err := pp.addSecretBasedKeyServers(ctx, d)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = pp.addServiceAccountBasedKeyServers(ctx, d)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return d, nil
+	return nil
 }
 
 func (pp *preparedProject) addSecretBasedKeyServers(ctx context.Context, d *decryptor.Decryptor) error {
@@ -547,31 +548,20 @@ func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context,
 	if name == "" {
 		return nil
 	}
-	var sa corev1.ServiceAccount
-	err := pp.r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: pp.obj.Namespace}, &sa)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve service account %s: %w", name, err)
-	}
 
-	ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, pp.r.Client, &sa)
-	if err != nil {
+	creds, err := aws.BuildCredentialsFromServiceAccount(ctx, pp.r.Client, name, pp.obj.Namespace, "kluctl-controller")
+	if err != nil || creds == nil {
 		return err
 	}
-	if ks != nil {
-		d.AddKeyServiceClient(ks)
-	}
+
+	server := intkeyservice.NewServer(intkeyservice.WithAWSKeys{CredsProvider: kms.NewCredentialsProvider(creds)})
+	ks := keyservice.NewCustomLocalClient(server)
+	d.AddKeyServiceClient(ks)
 	return nil
 }
 
 func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTarget, j2 *jinja2.Jinja2) (*kluctl_project.LoadedKluctlProject, error) {
 	var err error
-	var sopsDecrypter *decryptor.Decryptor
-	if pp.obj.Spec.Decryption != nil {
-		sopsDecrypter, err = pp.buildSopsDecrypter(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	var externalArgs *uo.UnstructuredObject
 	if pt.pp.obj.Spec.Args != nil {
@@ -582,11 +572,13 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		RepoRoot:      pp.repoDir,
-		ExternalArgs:  externalArgs,
-		ProjectDir:    pp.projectDir,
-		RP:            pp.rp,
-		SopsDecrypter: sopsDecrypter,
+		RepoRoot:     pp.repoDir,
+		ExternalArgs: externalArgs,
+		ProjectDir:   pp.projectDir,
+		RP:           pp.rp,
+		AddKeyServersFunc: func(ctx context.Context, d *decryptor.Decryptor) error {
+			return pp.addKeyServers(ctx, d)
+		},
 	}
 	if pt != nil {
 		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)

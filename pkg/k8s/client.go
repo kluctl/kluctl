@@ -9,6 +9,7 @@ import (
 )
 
 type k8sClients struct {
+	k          *K8sCluster
 	clientPool chan *parallelClientEntry
 	count      int
 }
@@ -36,27 +37,14 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 }
 
 func newK8sClients(k *K8sCluster, count int) (*k8sClients, error) {
-	var err error
-
 	kc := &k8sClients{
+		k:          k,
 		clientPool: make(chan *parallelClientEntry, count),
 		count:      count,
 	}
 
 	for i := 0; i < count; i++ {
-		p := &parallelClientEntry{}
-
-		p.config = rest.CopyConfig(k.config)
-		p.config.QPS = 10
-		p.config.Burst = 20
-		p.config.WarningHandler = p
-
-		p.httpClient, err = rest.HTTPClientFor(k.config)
-
-		p.client, err = client.New(k.config, client.Options{
-			HTTPClient: p.httpClient,
-			Mapper:     k.mapper,
-		})
+		p, err := kc.newClientEntry()
 		if err != nil {
 			return nil, err
 		}
@@ -64,6 +52,32 @@ func newK8sClients(k *K8sCluster, count int) (*k8sClients, error) {
 		kc.clientPool <- p
 	}
 	return kc, nil
+}
+
+func (kc *k8sClients) newClientEntry() (*parallelClientEntry, error) {
+	p := &parallelClientEntry{}
+
+	p.config = rest.CopyConfig(kc.k.config)
+	p.config.QPS = 10
+	p.config.Burst = 20
+	p.config.WarningHandler = p
+
+	var err error
+	p.httpClient, err = rest.HTTPClientFor(p.config)
+
+	p.client, err = client.New(p.config, client.Options{
+		HTTPClient: p.httpClient,
+		Mapper:     kc.k.mapper,
+		WarningHandler: client.WarningHandlerOptions{
+			// we're handling warnings on our own, so don't let controller-runtime interfere
+			SuppressWarnings: true,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (k *k8sClients) close() {
