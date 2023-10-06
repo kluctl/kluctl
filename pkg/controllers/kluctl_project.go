@@ -102,18 +102,27 @@ func prepareProject(ctx context.Context,
 	}
 
 	if doCloneSource {
-		rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.URL)
-		if err != nil {
-			return nil, fmt.Errorf("failed clone source: %w", err)
-		}
+		if pp.obj.Spec.Source.Git != nil {
+			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.Git.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone git source: %w", err)
+			}
 
-		clonedDir, co, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
-		if err != nil {
-			return nil, err
-		}
+			pp.repoDir, pp.co, err = rpEntry.GetClonedDir(pp.obj.Spec.Source.Git.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone git source: %w", err)
+			}
 
-		pp.co = co
-		pp.repoDir = clonedDir
+			pp.repoDir, pp.co, err = rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
+			if err != nil {
+				return nil, err
+			}
+		}
 
 		// check kluctl project path exists
 		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.Spec.Source.Path)

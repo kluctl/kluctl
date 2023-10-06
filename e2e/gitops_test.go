@@ -166,6 +166,14 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 }
 
 func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
+	return suite.createKluctlDeployment2(p, target, args, kluctlv1.ProjectSource{
+		Git: &kluctlv1.ProjectSourceGit{
+			URL: *types2.ParseGitUrlMust(p.GitUrl()),
+		},
+	})
+}
+
+func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProject, target string, args map[string]any, source kluctlv1.ProjectSource) client.ObjectKey {
 	gitopsNs := p.TestSlug() + "-gitops"
 	createNamespace(suite.T(), suite.k, gitopsNs)
 
@@ -186,9 +194,7 @@ func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject
 			Args: &runtime.RawExtension{
 				Raw: jargs,
 			},
-			Source: kluctlv1.ProjectSource{
-				URL: *types2.ParseGitUrlMust(p.GitUrl()),
-			},
+			Source: source,
 		},
 	}
 
@@ -250,9 +256,12 @@ data:
 `)},
 	}, nil)
 
-	key := suite.createKluctlDeployment(p, "target1", map[string]any{
+	key := suite.createKluctlDeployment2(p, "target1", map[string]any{
 		"namespace": p.TestSlug(),
 		"k2":        42,
+	}, kluctlv1.ProjectSource{
+		// let's misuse this testcase to test the deprecated ProjectSource
+		URL: *types2.ParseGitUrlMust(p.GitUrl()),
 	})
 
 	suite.Run("initial deployment", func() {

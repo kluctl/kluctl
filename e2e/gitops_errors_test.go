@@ -193,8 +193,8 @@ data:
 	suite.Run("non existing git repo", func() {
 		var backup types.GitUrl
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			backup = kd.Spec.Source.URL
-			kd.Spec.Source.URL = *types.ParseGitUrlMust(backup.String() + "/invalid")
+			backup = kd.Spec.Source.Git.URL
+			kd.Spec.Source.Git.URL = *types.ParseGitUrlMust(backup.String() + "/invalid")
 		})
 		suite.waitForReconcile(key)
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed clone source: repository not found", nil, nil)

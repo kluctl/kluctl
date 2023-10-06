@@ -233,9 +233,17 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, patchErr
 	}
 
-	newProjectKey := result.ProjectKey{
-		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
-		SubDir:     path.Clean(obj.Spec.Source.Path),
+	var newProjectKey result.ProjectKey
+	if obj.Spec.Source.Git != nil {
+		newProjectKey = result.ProjectKey{
+			GitRepoKey: obj.Spec.Source.Git.URL.RepoKey(),
+			SubDir:     path.Clean(obj.Spec.Source.Git.Path),
+		}
+	} else {
+		newProjectKey = result.ProjectKey{
+			GitRepoKey: obj.Spec.Source.URL.RepoKey(),
+			SubDir:     path.Clean(obj.Spec.Source.Path),
+		}
 	}
 	if newProjectKey.SubDir == "." {
 		newProjectKey.SubDir = ""

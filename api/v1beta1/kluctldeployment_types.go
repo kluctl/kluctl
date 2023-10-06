@@ -235,6 +235,40 @@ func (in KluctlDeploymentSpec) GetRetryInterval() time.Duration {
 }
 
 type ProjectSource struct {
+	// Git specifies a git repository as project source
+	// +optional
+	Git *ProjectSourceGit `json:"git,omitempty"`
+
+	// Url specifies the Git url where the project source is located
+	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.url instead.
+	// +optional
+	URL types.GitUrl `json:"url"`
+
+	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
+	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.ref instead.
+	// +optional
+	Ref *types.GitRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.path instead.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// See GitCredentials.SecretRef for details
+	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
+	// instead.
+	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+	// Use Credentials with a proper Host field instead.
+	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+
+	// Credentials specifies a list of secrets with credentials
+	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.credentials instead.
+	// +optional
+	Credentials []GitCredentials `json:"credentials,omitempty"`
+}
+
+type ProjectSourceGit struct {
 	// Url specifies the Git url where the project source is located
 	// +required
 	URL types.GitUrl `json:"url"`
@@ -261,23 +295,23 @@ type ProjectSource struct {
 }
 
 type GitCredentials struct {
-	// Host specifies the hostname that this git secret applies to. If set to '*', this set of credentials
+	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
 	// applies to all hosts.
 	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
 	// You must always set a proper hostname in that case.
 	// +required
 	Host string `json:"host,omitempty"`
 
-	// PathPrefix specified the path prefix to be used to filter git urls. Only urls that have this prefix will use
+	// PathPrefix specified the path prefix to be used to filter source urls. Only urls that have this prefix will use
 	// this set of credentials.
 	// +optional
 	PathPrefix string `json:"pathPrefix,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
 	// the git repository.
-	// For HTTPS repositories the Secret must contain 'username' and 'password'
+	// For HTTPS git repositories the Secret must contain 'username' and 'password'
 	// fields.
-	// For SSH repositories the Secret must contain 'identity'
+	// For SSH git repositories the Secret must contain 'identity'
 	// and 'known_hosts' fields.
 	// +required
 	SecretRef LocalObjectReference `json:"secretRef"`
