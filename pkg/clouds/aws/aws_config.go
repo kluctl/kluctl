@@ -9,11 +9,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func isConfiguredViaEnv(cfg config.EnvConfig) bool {
+	if cfg.SharedConfigProfile != "" {
+		return true
+	}
+	if cfg.Credentials.HasKeys() {
+		return true
+	}
+	if cfg.WebIdentityTokenFilePath != "" {
+		return true
+	}
+	return false
+}
+
 // LoadAwsConfigHelper will try to load the profile given either by profile or by awsConfig.Profile and only if this succeeds (the profile exists),
 // it will use it to perform default config loading. The reason for this is that non-existent profiles is expected in Kluctl,
 // at it might run on an environment that does not have the profile configured, in which case it should not error out later (due to it using a non-existing profile).
 // This helper will also try to load service account based web identity configuration.
 func LoadAwsConfigHelper(ctx context.Context, c client.Client, awsConfig *types.AwsConfig, profile *string, optFnsIn ...func(*config.LoadOptions) error) (aws.Config, error) {
+	envCfg, err := config.NewEnvConfig()
+	if err != nil {
+		return aws.Config{}, err
+	}
+	if isConfiguredViaEnv(envCfg) {
+		return config.LoadDefaultConfig(context.Background(), optFnsIn...)
+	}
+
 	var configOpts []func(*config.LoadOptions) error
 
 	if profile == nil && awsConfig != nil {
@@ -22,7 +43,14 @@ func LoadAwsConfigHelper(ctx context.Context, c client.Client, awsConfig *types.
 
 	profileOk := false
 	if profile != nil {
-		_, err := config.LoadSharedConfigProfile(ctx, *profile)
+		_, err := config.LoadSharedConfigProfile(ctx, *profile, func(options *config.LoadSharedConfigOptions) {
+			if envCfg.SharedConfigFile != "" {
+				options.ConfigFiles = append(options.ConfigFiles, envCfg.SharedConfigFile)
+			}
+			if envCfg.SharedCredentialsFile != "" {
+				options.CredentialsFiles = append(options.CredentialsFiles, envCfg.SharedCredentialsFile)
+			}
+		})
 		if err != nil {
 			status.WarningOncef(ctx, "aws-profile-"+*profile, "The AWS profile %s could not be loaded, reverting to default handling: %s", *profile, err)
 		} else {

@@ -113,6 +113,9 @@ aws:
     namespace: service-account-namespace
 ```
 
+If any of the environment variables `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_ACCESS_KEY` or `AWS_WEB_IDENTITY_TOKEN_FILE`
+is set, Kluctl will ignore this AWS configuration and revert to using the environment variables based credentials.
+
 #### profile
 If specified, Kluctl will use this [AWS config profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html#cli-configure-files-using-profiles)
 when found locally. If it is not found in your local AWS config, Kluctl will not try to use the specified profile.
