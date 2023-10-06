@@ -68,6 +68,10 @@ func (kc *k8sClients) newClientEtry() (*parallelClientEntry, error) {
 	p.client, err = client.New(p.config, client.Options{
 		HTTPClient: p.httpClient,
 		Mapper:     kc.k.mapper,
+		WarningHandler: client.WarningHandlerOptions{
+			// we're handling warnings on our own, so don't let controller-runtime interfere
+			SuppressWarnings: true,
+		},
 	})
 	if err != nil {
 		return nil, err
