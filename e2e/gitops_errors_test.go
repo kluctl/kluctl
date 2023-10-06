@@ -197,9 +197,9 @@ data:
 			kd.Spec.Source.Git.URL = *types.ParseGitUrlMust(backup.String() + "/invalid")
 		})
 		suite.waitForReconcile(key)
-		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed clone source: repository not found", nil, nil)
+		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed to clone git source: repository not found", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Source.URL = backup
+			kd.Spec.Source.Git.URL = backup
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})

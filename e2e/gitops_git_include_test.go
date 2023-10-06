@@ -33,7 +33,7 @@ func (suite *GitopsTestSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(readinessCondition.Message).To(Equal("failed clone source: authentication required"))
+		g.Expect(readinessCondition.Message).To(Equal("failed to clone git source: authentication required"))
 	})
 
 	secret := corev1.Secret{
@@ -95,7 +95,7 @@ func (suite *GitopsTestSuite) TestGitOpsGitIncludeCredentials() {
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(readinessCondition.Message).To(Equal("failed clone source: authentication required"))
+		g.Expect(readinessCondition.Message).To(Equal("failed to clone git source: authentication required"))
 	})
 
 	createSecret := func(secretName string, username string, password string) {
