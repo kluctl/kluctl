@@ -322,7 +322,10 @@ func (in *ProjectSource) DeepCopyInto(out *ProjectSource) {
 		*out = new(ProjectSourceOci)
 		(*in).DeepCopyInto(*out)
 	}
-	in.URL.DeepCopyInto(&out.URL)
+	if in.URL != nil {
+		in, out := &in.URL, &out.URL
+		*out = (*in).DeepCopy()
+	}
 	if in.Ref != nil {
 		in, out := &in.Ref, &out.Ref
 		*out = new(types.GitRef)

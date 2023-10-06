@@ -249,11 +249,13 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			OciRepoKey: repoKey,
 			SubDir:     path.Clean(obj.Spec.Source.Oci.Path),
 		}
-	} else {
+	} else if obj.Spec.Source.URL != nil {
 		newProjectKey = result.ProjectKey{
 			GitRepoKey: obj.Spec.Source.URL.RepoKey(),
 			SubDir:     path.Clean(obj.Spec.Source.Path),
 		}
+	} else {
+		return doFailPrepare(fmt.Errorf("missing source spec"))
 	}
 	if newProjectKey.SubDir == "." {
 		newProjectKey.SubDir = ""
@@ -744,7 +746,7 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
 		internal_metrics.NewKluctlOciSourceSpec(obj.Namespace, obj.Name,
 			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
-	} else {
+	} else if obj.Spec.Source.URL != nil {
 		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
 			obj.Spec.Source.URL.String(), obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
 	}

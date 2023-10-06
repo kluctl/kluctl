@@ -246,7 +246,7 @@ type ProjectSource struct {
 	// Url specifies the Git url where the project source is located
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.url instead.
 	// +optional
-	URL types.GitUrl `json:"url"`
+	URL *types.GitUrl `json:"url,omitempty"`
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.ref instead.

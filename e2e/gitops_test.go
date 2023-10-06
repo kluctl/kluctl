@@ -261,7 +261,7 @@ data:
 		"k2":        42,
 	}, kluctlv1.ProjectSource{
 		// let's misuse this testcase to test the deprecated ProjectSource
-		URL: *types2.ParseGitUrlMust(p.GitUrl()),
+		URL: types2.ParseGitUrlMust(p.GitUrl()),
 	})
 
 	suite.Run("initial deployment", func() {

@@ -122,8 +122,8 @@ func prepareProject(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-		} else {
-			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.URL)
+		} else if pp.obj.Spec.Source.URL != nil {
+			rpEntry, err := pp.gitRP.GetEntry(*pp.obj.Spec.Source.URL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to clone git source: %w", err)
 			}
@@ -132,6 +132,8 @@ func prepareProject(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			return nil, fmt.Errorf("missing source spec")
 		}
 
 		// check kluctl project path exists
