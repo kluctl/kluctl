@@ -233,24 +233,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, patchErr
 	}
 
-	obj.Status.LastPrepareError = ""
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, r.calcTimeout(obj))
-	defer cancel()
-
-	pp, err := prepareProject(timeoutCtx, r, obj, true)
-	if err != nil {
-		return doFailPrepare(err)
-	}
-	defer pp.cleanup()
-
-	patchErr = doProgressingCondition("Loading project and target", true)
-	if patchErr != nil {
-		return nil, patchErr
-	}
-
-	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
-
 	newProjectKey := result.ProjectKey{
 		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
 		SubDir:     path.Clean(obj.Spec.Source.Path),
@@ -267,6 +249,23 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		})
 	}
 	obj.Status.ProjectKey = &newProjectKey
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.calcTimeout(obj))
+	defer cancel()
+
+	obj.Status.LastPrepareError = ""
+	pp, err := prepareProject(timeoutCtx, r, obj, true)
+	if err != nil {
+		return doFailPrepare(err)
+	}
+	defer pp.cleanup()
+
+	patchErr = doProgressingCondition("Loading project and target", true)
+	if patchErr != nil {
+		return nil, patchErr
+	}
+
+	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
 
 	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
