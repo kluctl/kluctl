@@ -91,39 +91,14 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 	rp.reposMutex.Lock()
 	defer rp.reposMutex.Unlock()
 
-	urlN := url.Normalize()
 	repoKey := url.RepoKey()
 
-	// evaluate overrides
-	for _, ro := range rp.repoOverrides {
-		if ro.RepoKey.Host != urlN.Host {
-			continue
-		}
+	overridePath, err := findRepoOverride(rp.repoOverrides, repoKey)
+	if err != nil {
+		return nil, err
+	}
 
-		var overridePath string
-		if ro.IsGroup {
-			prefix := "/" + ro.RepoKey.Path + "/"
-			if !strings.HasPrefix(urlN.Path, prefix) {
-				continue
-			}
-			relPath := strings.TrimPrefix(urlN.Path, prefix)
-			overridePath = path.Join(ro.Override, relPath)
-		} else {
-			if "/"+ro.RepoKey.Path != urlN.Path {
-				continue
-			}
-			overridePath = ro.Override
-		}
-
-		if st, err := os.Stat(overridePath); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return nil, fmt.Errorf("can not override repo %s with %s: %w", url.String(), overridePath, err)
-		} else if !st.IsDir() {
-			return nil, fmt.Errorf("can not override repo %s. %s is not a directory", url.String(), overridePath)
-		}
-
+	if overridePath != "" {
 		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
 
 		e := &GitCacheEntry{
@@ -151,7 +126,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 		}
 		rp.repos[repoKey] = e
 	}
-	err := e.Update()
+	err = e.Update()
 	if err != nil {
 		return nil, err
 	}
