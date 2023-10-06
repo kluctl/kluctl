@@ -313,10 +313,12 @@ spec:
                 properties:
                   credentials:
                     description: Credentials specifies a list of secrets with credentials
+                      DEPRECATED this field is deprecated and will be removed in a
+                      future version of the controller. Use git.credentials instead.
                     items:
                       properties:
                         host:
-                          description: Host specifies the hostname that this git secret
+                          description: Host specifies the hostname that this secret
                             applies to. If set to '*', this set of credentials applies
                             to all hosts. Using '*' for http(s) based repositories
                             is not supported, meaning that such credentials sets will
@@ -325,14 +327,14 @@ spec:
                           type: string
                         pathPrefix:
                           description: PathPrefix specified the path prefix to be
-                            used to filter git urls. Only urls that have this prefix
+                            used to filter source urls. Only urls that have this prefix
                             will use this set of credentials.
                           type: string
                         secretRef:
                           description: SecretRef specifies the Secret containing authentication
-                            credentials for the git repository. For HTTPS repositories
+                            credentials for the git repository. For HTTPS git repositories
                             the Secret must contain 'username' and 'password' fields.
-                            For SSH repositories the Secret must contain 'identity'
+                            For SSH git repositories the Secret must contain 'identity'
                             and 'known_hosts' fields.
                           properties:
                             name:
@@ -345,13 +347,160 @@ spec:
                       - secretRef
                       type: object
                     type: array
+                  git:
+                    description: Git specifies a git repository as project source
+                    properties:
+                      credentials:
+                        description: Credentials specifies a list of secrets with
+                          credentials
+                        items:
+                          properties:
+                            host:
+                              description: Host specifies the hostname that this secret
+                                applies to. If set to '*', this set of credentials
+                                applies to all hosts. Using '*' for http(s) based
+                                repositories is not supported, meaning that such credentials
+                                sets will be ignored. You must always set a proper
+                                hostname in that case.
+                              type: string
+                            pathPrefix:
+                              description: PathPrefix specified the path prefix to
+                                be used to filter source urls. Only urls that have
+                                this prefix will use this set of credentials.
+                              type: string
+                            secretRef:
+                              description: SecretRef specifies the Secret containing
+                                authentication credentials for the git repository.
+                                For HTTPS git repositories the Secret must contain
+                                'username' and 'password' fields. For SSH git repositories
+                                the Secret must contain 'identity' and 'known_hosts'
+                                fields.
+                              properties:
+                                name:
+                                  description: Name of the referent.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                          required:
+                          - secretRef
+                          type: object
+                        type: array
+                      path:
+                        description: Path specifies the sub-directory to be used as
+                          project directory
+                        type: string
+                      ref:
+                        description: Ref specifies the branch, tag or commit that
+                          should be used. If omitted, the default branch of the repo
+                          is used.
+                        properties:
+                          branch:
+                            description: Branch to use.
+                            type: string
+                          commit:
+                            description: Commit SHA to use.
+                            type: string
+                          tag:
+                            description: Tag to use.
+                            type: string
+                        type: object
+                      secretRef:
+                        description: SecretRef specifies the Secret containing authentication
+                          credentials for See ProjectSourceCredentials.SecretRef for
+                          details DEPRECATED this field is deprecated and will be
+                          removed in a future version of the controller. Use Credentials
+                          instead. WARNING using this field causes the controller
+                          to pass http basic auth credentials to ALL repositories
+                          involved. Use Credentials with a proper Host field instead.
+                        properties:
+                          name:
+                            description: Name of the referent.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: Url specifies the Git url where the project source
+                          is located
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  oci:
+                    description: Oci specifies an OCI repository as project source
+                    properties:
+                      credentials:
+                        description: Credentials specifies a list of secrets with
+                          credentials
+                        items:
+                          properties:
+                            host:
+                              description: Host specifies the hostname that this secret
+                                applies to. If set to '*', this set of credentials
+                                applies to all hosts. Using '*' for http(s) based
+                                repositories is not supported, meaning that such credentials
+                                sets will be ignored. You must always set a proper
+                                hostname in that case.
+                              type: string
+                            pathPrefix:
+                              description: PathPrefix specified the path prefix to
+                                be used to filter source urls. Only urls that have
+                                this prefix will use this set of credentials.
+                              type: string
+                            secretRef:
+                              description: SecretRef specifies the Secret containing
+                                authentication credentials for the git repository.
+                                For HTTPS git repositories the Secret must contain
+                                'username' and 'password' fields. For SSH git repositories
+                                the Secret must contain 'identity' and 'known_hosts'
+                                fields.
+                              properties:
+                                name:
+                                  description: Name of the referent.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                          required:
+                          - secretRef
+                          type: object
+                        type: array
+                      path:
+                        description: Path specifies the sub-directory to be used as
+                          project directory
+                        type: string
+                      ref:
+                        description: Ref specifies the tag to be used. If omitted,
+                          the "latest" tag is used.
+                        properties:
+                          digest:
+                            description: Digest is the image digest to pull, takes
+                              precedence over SemVer. The value should be in the format
+                              'sha256:<HASH>'.
+                            type: string
+                          tag:
+                            description: Tag is the image tag to pull, defaults to
+                              latest.
+                            type: string
+                        type: object
+                      url:
+                        description: Url specifies the Git url where the project source
+                          is located
+                        type: string
+                    required:
+                    - url
+                    type: object
                   path:
                     description: Path specifies the sub-directory to be used as project
-                      directory
+                      directory DEPRECATED this field is deprecated and will be removed
+                      in a future version of the controller. Use git.path instead.
                     type: string
                   ref:
                     description: Ref specifies the branch, tag or commit that should
                       be used. If omitted, the default branch of the repo is used.
+                      DEPRECATED this field is deprecated and will be removed in a
+                      future version of the controller. Use git.ref instead.
                     properties:
                       branch:
                         description: Branch to use.
@@ -365,12 +514,12 @@ spec:
                     type: object
                   secretRef:
                     description: SecretRef specifies the Secret containing authentication
-                      credentials for See GitCredentials.SecretRef for details DEPRECATED
-                      this field is deprecated and will be removed in a future version
-                      of the controller. Use Credentials instead. WARNING using this
-                      field causes the controller to pass http basic auth credentials
-                      to ALL repositories involved. Use Credentials with a proper
-                      Host field instead.
+                      credentials for See ProjectSourceCredentials.SecretRef for details
+                      DEPRECATED this field is deprecated and will be removed in a
+                      future version of the controller. Use Credentials instead. WARNING
+                      using this field causes the controller to pass http basic auth
+                      credentials to ALL repositories involved. Use Credentials with
+                      a proper Host field instead.
                     properties:
                       name:
                         description: Name of the referent.
@@ -380,10 +529,9 @@ spec:
                     type: object
                   url:
                     description: Url specifies the Git url where the project source
-                      is located
+                      is located DEPRECATED this field is deprecated and will be removed
+                      in a future version of the controller. Use git.url instead.
                     type: string
-                required:
-                - url
                 type: object
               suspend:
                 description: This flag tells the controller to suspend subsequent
@@ -547,6 +695,8 @@ spec:
               projectKey:
                 properties:
                   gitRepoKey:
+                    type: string
+                  ociRepoKey:
                     type: string
                   subDir:
                     type: string
