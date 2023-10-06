@@ -133,21 +133,6 @@ func ValidateGitProject(sl validator.StructLevel) {
 	}
 }
 
-type ExternalProject struct {
-	Project *GitProject `json:"project,omitempty"`
-	Path    *string     `json:"path,omitempty"`
-}
-
-func ValidateExternalProject(sl validator.StructLevel) {
-	p := sl.Current().Interface().(ExternalProject)
-	if p.Project == nil && p.Path == nil {
-		sl.ReportError(p, ".", ".", "either project or path must be set", "")
-	} else if p.Project != nil && p.Path != nil {
-		sl.ReportError(p, ".", ".", "only one of project or path can be set", "")
-	}
-}
-
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
-	yaml.Validator.RegisterStructValidation(ValidateExternalProject, ExternalProject{})
 }
