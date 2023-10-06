@@ -152,6 +152,14 @@ func NewRepoKey(host string, path string) GitRepoKey {
 	}
 }
 
+func NewRepoKeyFromUrl(urlIn string) (GitRepoKey, error) {
+	u, err := url.Parse(urlIn)
+	if err != nil {
+		return GitRepoKey{}, err
+	}
+	return NewRepoKey(u.Host, u.Path), nil
+}
+
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)
 
 func ParseGitRepoKey(s string) (GitRepoKey, error) {

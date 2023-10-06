@@ -152,13 +152,11 @@ export class DeleteObjectItemConfig {
 }
 export class OciRef {
     digest?: string;
-    semver?: string;
     tag?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.digest = source["digest"];
-        this.semver = source["semver"];
         this.tag = source["tag"];
     }
 }
@@ -714,11 +712,13 @@ export class TargetKey {
 }
 export class ProjectKey {
     gitRepoKey?: string;
+    ociRepoKey?: string;
     subDir?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.gitRepoKey = source["gitRepoKey"];
+        this.ociRepoKey = source["ociRepoKey"];
         this.subDir = source["subDir"];
     }
 }

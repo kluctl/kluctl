@@ -112,6 +112,16 @@ func prepareProject(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
+		} else if pp.obj.Spec.Source.Oci != nil {
+			rpEntry, err := pp.ociRP.GetEntry(pp.obj.Spec.Source.Oci.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pull OCI source: %w", err)
+			}
+
+			pp.repoDir, pp.co, err = rpEntry.GetExtractedDir(pp.obj.Spec.Source.Oci.Ref)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.URL)
 			if err != nil {

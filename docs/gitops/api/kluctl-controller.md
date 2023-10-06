@@ -69,71 +69,6 @@ by signing a token in an IRSA compliant way.</p>
 </table>
 </div>
 </div>
-<h3 id="gitops.kluctl.io/v1beta1.GitCredentials">GitCredentials
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>host</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Host specifies the hostname that this git secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
-applies to all hosts.
-Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
-You must always set a proper hostname in that case.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>pathPrefix</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PathPrefix specified the path prefix to be used to filter git urls. Only urls that have this prefix will use
-this set of credentials.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>secretRef</code><br>
-<em>
-<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
-LocalObjectReference
-</a>
-</em>
-</td>
-<td>
-<p>SecretRef specifies the Secret containing authentication credentials for
-the git repository.
-For HTTPS repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
-fields.
-For SSH repositories the Secret must contain &lsquo;identity&rsquo;
-and &lsquo;known_hosts&rsquo; fields.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials
 </h3>
 <p>
@@ -1414,9 +1349,10 @@ the KluctlDeployment.</p>
 <p>
 (<em>Appears on:</em>
 <a href="#gitops.kluctl.io/v1beta1.Decryption">Decryption</a>, 
-<a href="#gitops.kluctl.io/v1beta1.GitCredentials">GitCredentials</a>, 
 <a href="#gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
+<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">ProjectSourceCredentials</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGit">ProjectSourceGit</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -1448,6 +1384,193 @@ string
 <p>
 (<em>Appears on:</em>
 <a href="#gitops.kluctl.io/v1beta1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>git</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGit">
+ProjectSourceGit
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Git specifies a git repository as project source</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>oci</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceOci">
+ProjectSourceOci
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Oci specifies an OCI repository as project source</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>url</code><br>
+<em>
+github.com/kluctl/kluctl/v2/pkg/types.GitUrl
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Url specifies the Git url where the project source is located
+DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.url instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ref</code><br>
+<em>
+github.com/kluctl/kluctl/v2/pkg/types.GitRef
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
+DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.ref instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path specifies the sub-directory to be used as project directory
+DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.path instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretRef specifies the Secret containing authentication credentials for
+See ProjectSourceCredentials.SecretRef for details
+DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
+instead.
+WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+Use Credentials with a proper Host field instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>credentials</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">
+[]ProjectSourceCredentials
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Credentials specifies a list of secrets with credentials
+DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.credentials instead.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ProjectSourceCredentials">ProjectSourceCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGit">ProjectSourceGit</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceOci">ProjectSourceOci</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>host</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Host specifies the hostname that this secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
+applies to all hosts.
+Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+You must always set a proper hostname in that case.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pathPrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PathPrefix specified the path prefix to be used to filter source urls. Only urls that have this prefix will use
+this set of credentials.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretRef specifies the Secret containing authentication credentials for
+the git repository.
+For HTTPS git repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
+fields.
+For SSH git repositories the Secret must contain &lsquo;identity&rsquo;
+and &lsquo;known_hosts&rsquo; fields.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ProjectSourceGit">ProjectSourceGit
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -1505,7 +1628,7 @@ LocalObjectReference
 </td>
 <td>
 <p>SecretRef specifies the Secret containing authentication credentials for
-See GitCredentials.SecretRef for details
+See ProjectSourceCredentials.SecretRef for details
 DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
 instead.
 WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
@@ -1516,8 +1639,77 @@ Use Credentials with a proper Host field instead.</p>
 <td>
 <code>credentials</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.GitCredentials">
-[]GitCredentials
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">
+[]ProjectSourceCredentials
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Credentials specifies a list of secrets with credentials</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ProjectSourceOci">ProjectSourceOci
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Url specifies the Git url where the project source is located</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ref</code><br>
+<em>
+github.com/kluctl/kluctl/v2/pkg/types.OciRef
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Ref specifies the tag to be used. If omitted, the &ldquo;latest&rdquo; tag is used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path specifies the sub-directory to be used as project directory</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>credentials</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">
+[]ProjectSourceCredentials
 </a>
 </em>
 </td>

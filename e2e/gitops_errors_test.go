@@ -206,15 +206,15 @@ data:
 	suite.Run("non existing git branch", func() {
 		var backup *types.GitRef
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			backup = kd.Spec.Source.Ref
-			kd.Spec.Source.Ref = &types.GitRef{
+			backup = kd.Spec.Source.Git.Ref
+			kd.Spec.Source.Git.Ref = &types.GitRef{
 				Branch: "invalid",
 			}
 		})
 		suite.waitForReconcile(key)
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "ref refs/heads/invalid not found", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Source.Ref = backup
+			kd.Spec.Source.Git.Ref = backup
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})

@@ -15,6 +15,8 @@ const (
 	PruneEnabledKey       = "prune_enabled"
 	DeleteEnabledKey      = "delete_enabled"
 	SourceSpecKey         = "source_spec"
+	GitSourceSpecKey      = "git_source_spec"
+	OciSourceSpecKey      = "oci_source_spec"
 )
 
 var (
@@ -53,6 +55,18 @@ var (
 		Name:      SourceSpecKey,
 		Help:      "The configured source spec of a single deployment.",
 	}, []string{"namespace", "name", "url", "path", "ref"})
+
+	gitSourceSpec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: KluctlDeploymentControllerSubsystem,
+		Name:      GitSourceSpecKey,
+		Help:      "The configured git source spec of a single deployment.",
+	}, []string{"namespace", "name", "url", "path", "ref"})
+
+	ociSourceSpec = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: KluctlDeploymentControllerSubsystem,
+		Name:      OciSourceSpecKey,
+		Help:      "The configured git source spec of a single deployment.",
+	}, []string{"namespace", "name", "url", "path", "ref"})
 )
 
 func init() {
@@ -86,4 +100,12 @@ func NewKluctlDeleteEnabled(namespace string, name string) prometheus.Gauge {
 
 func NewKluctlSourceSpec(namespace string, name string, url string, path string, ref string) prometheus.Gauge {
 	return sourceSpec.WithLabelValues(namespace, name, url, path, ref)
+}
+
+func NewKluctlGitSourceSpec(namespace string, name string, url string, path string, ref string) prometheus.Gauge {
+	return gitSourceSpec.WithLabelValues(namespace, name, url, path, ref)
+}
+
+func NewKluctlOciSourceSpec(namespace string, name string, url string, path string, ref string) prometheus.Gauge {
+	return ociSourceSpec.WithLabelValues(namespace, name, url, path, ref)
 }

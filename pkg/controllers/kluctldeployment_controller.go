@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -238,6 +239,15 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		newProjectKey = result.ProjectKey{
 			GitRepoKey: obj.Spec.Source.Git.URL.RepoKey(),
 			SubDir:     path.Clean(obj.Spec.Source.Git.Path),
+		}
+	} else if obj.Spec.Source.Oci != nil {
+		repoKey, err := types.NewRepoKeyFromUrl(obj.Spec.Source.Oci.URL)
+		if err != nil {
+			return doFailPrepare(err)
+		}
+		newProjectKey = result.ProjectKey{
+			OciRepoKey: repoKey,
+			SubDir:     path.Clean(obj.Spec.Source.Oci.Path),
 		}
 	} else {
 		newProjectKey = result.ProjectKey{
@@ -724,5 +734,18 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 	internal_metrics.NewKluctlDeleteEnabled(obj.Namespace, obj.Name).Set(deleteEnabled)
 	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Set(dryRunEnabled)
 	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Set(deploymentInterval)
-	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL.String(), obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
+	if obj.Spec.Source.Git != nil {
+		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Git.URL.String(), obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
+		internal_metrics.NewKluctlGitSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Git.URL.String(), obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
+	} else if obj.Spec.Source.Oci != nil {
+		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
+		internal_metrics.NewKluctlOciSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
+	} else {
+		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.URL.String(), obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
+	}
 }

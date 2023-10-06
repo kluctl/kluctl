@@ -122,17 +122,17 @@ func (suite *GitopsTestSuite) TestGitOpsGitIncludeCredentials() {
 
 	patch := client.MergeFrom(kd.DeepCopy())
 
-	kd.Spec.Source.Credentials = append(kd.Spec.Source.Credentials, v1beta1.GitCredentials{
+	kd.Spec.Source.Credentials = append(kd.Spec.Source.Credentials, v1beta1.ProjectSourceCredentials{
 		Host:       gs1.GitHost(),
 		PathPrefix: ip1.GitRepoName(),
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret2"},
 	})
-	kd.Spec.Source.Credentials = append(kd.Spec.Source.Credentials, v1beta1.GitCredentials{
+	kd.Spec.Source.Credentials = append(kd.Spec.Source.Credentials, v1beta1.ProjectSourceCredentials{
 		Host:      mainGs.GitHost(),
 		SecretRef: v1beta1.LocalObjectReference{Name: "secret1"},
 	})
 	// make sure this one is ignored for http based urls
-	kd.Spec.Source.Credentials = append(kd.Spec.Source.Credentials, v1beta1.GitCredentials{
+	kd.Spec.Source.Credentials = append(kd.Spec.Source.Credentials, v1beta1.ProjectSourceCredentials{
 		Host:      "*",
 		SecretRef: v1beta1.LocalObjectReference{Name: "secret1"},
 	})

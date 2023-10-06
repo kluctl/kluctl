@@ -41,6 +41,7 @@ const (
 
 type ProjectKey struct {
 	GitRepoKey types.GitRepoKey `json:"gitRepoKey,omitempty"`
+	OciRepoKey types.GitRepoKey `json:"ociRepoKey,omitempty"`
 	SubDir     string           `json:"subDir,omitempty"`
 }
 

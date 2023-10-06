@@ -239,6 +239,10 @@ type ProjectSource struct {
 	// +optional
 	Git *ProjectSourceGit `json:"git,omitempty"`
 
+	// Oci specifies an OCI repository as project source
+	// +optional
+	Oci *ProjectSourceOci `json:"oci,omitempty"`
+
 	// Url specifies the Git url where the project source is located
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.url instead.
 	// +optional
@@ -255,7 +259,7 @@ type ProjectSource struct {
 	Path string `json:"path,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
-	// See GitCredentials.SecretRef for details
+	// See ProjectSourceCredentials.SecretRef for details
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
 	// instead.
 	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
@@ -265,7 +269,7 @@ type ProjectSource struct {
 	// Credentials specifies a list of secrets with credentials
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.credentials instead.
 	// +optional
-	Credentials []GitCredentials `json:"credentials,omitempty"`
+	Credentials []ProjectSourceCredentials `json:"credentials,omitempty"`
 }
 
 type ProjectSourceGit struct {
@@ -282,7 +286,7 @@ type ProjectSourceGit struct {
 	Path string `json:"path,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
-	// See GitCredentials.SecretRef for details
+	// See ProjectSourceCredentials.SecretRef for details
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
 	// instead.
 	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
@@ -291,10 +295,28 @@ type ProjectSourceGit struct {
 
 	// Credentials specifies a list of secrets with credentials
 	// +optional
-	Credentials []GitCredentials `json:"credentials,omitempty"`
+	Credentials []ProjectSourceCredentials `json:"credentials,omitempty"`
 }
 
-type GitCredentials struct {
+type ProjectSourceOci struct {
+	// Url specifies the Git url where the project source is located
+	// +required
+	URL string `json:"url"`
+
+	// Ref specifies the tag to be used. If omitted, the "latest" tag is used.
+	// +optional
+	Ref *types.OciRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// Credentials specifies a list of secrets with credentials
+	// +optional
+	Credentials []ProjectSourceCredentials `json:"credentials,omitempty"`
+}
+
+type ProjectSourceCredentials struct {
 	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
 	// applies to all hosts.
 	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
