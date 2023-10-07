@@ -16,14 +16,14 @@ func findRepoOverride(repoOverrides []RepoOverride, repoKey types.GitRepoKey) (s
 
 		var overridePath string
 		if ro.IsGroup {
-			prefix := "/" + ro.RepoKey.Path + "/"
+			prefix := ro.RepoKey.Path + "/"
 			if !strings.HasPrefix(repoKey.Path, prefix) {
 				continue
 			}
 			relPath := strings.TrimPrefix(repoKey.Path, prefix)
 			overridePath = path.Join(ro.Override, relPath)
 		} else {
-			if "/"+ro.RepoKey.Path != repoKey.Path {
+			if ro.RepoKey.Path != repoKey.Path {
 				continue
 			}
 			overridePath = ro.Override
