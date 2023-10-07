@@ -34,11 +34,11 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/ssh-agent v0.3.3
-	golang.org/x/crypto v0.13.0
-	golang.org/x/net v0.15.0
+	golang.org/x/crypto v0.14.0
+	golang.org/x/net v0.16.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.12.0
-	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/sys v0.13.0
+	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0
 	helm.sh/helm/v3 v3.13.0
 	k8s.io/api v0.28.2
@@ -79,7 +79,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/sergi/go-diff v1.3.1
 	github.com/tkrajina/typescriptify-golang-structs v0.1.10
-	golang.org/x/oauth2 v0.12.0
+	golang.org/x/oauth2 v0.13.0
 	google.golang.org/genproto v0.0.0-20230911183012-2d3300fd4832
 	google.golang.org/grpc v1.58.2
 	nhooyr.io/websocket v1.8.7
