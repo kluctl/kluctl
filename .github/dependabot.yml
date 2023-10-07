@@ -10,6 +10,9 @@ updates:
     schedule:
       interval: "daily"
     groups:
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
       aws-sdk:
         patterns:
           - "*aws-sdk*"
