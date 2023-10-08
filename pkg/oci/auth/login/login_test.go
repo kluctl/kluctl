@@ -28,10 +28,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	. "github.com/onsi/gomega"
 
-	"github.com/fluxcd/pkg/oci"
-	"github.com/fluxcd/pkg/oci/auth/aws"
-	"github.com/fluxcd/pkg/oci/auth/azure"
-	"github.com/fluxcd/pkg/oci/auth/gcp"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/aws"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/azure"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/gcp"
 )
 
 func TestImageRegistryProvider(t *testing.T) {

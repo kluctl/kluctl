@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 
-	"github.com/fluxcd/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 )
 
 // ParseArtifactURL validates the OCI URL and returns the address of the artifact.

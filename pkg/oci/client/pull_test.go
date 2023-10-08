@@ -22,12 +22,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fluxcd/pkg/oci"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 	. "github.com/onsi/gomega"
 )
 

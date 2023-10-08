@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fluxcd/pkg/tar"
+	"github.com/kluctl/kluctl/v2/pkg/tar"
 	. "github.com/onsi/gomega"
 )
 

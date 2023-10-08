@@ -28,7 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
 
-	"github.com/fluxcd/pkg/version"
+	"github.com/kluctl/kluctl/v2/pkg/oci/version"
 )
 
 // ListOptions contains options for listing tags from an OCI repository.

@@ -31,7 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/fluxcd/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 )
 
 var registryPartRe = regexp.MustCompile(`([0-9+]*).dkr.ecr.([^/.]*)\.(amazonaws\.com[.cn]*)`)

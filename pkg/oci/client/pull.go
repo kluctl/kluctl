@@ -23,7 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 
-	"github.com/fluxcd/pkg/tar"
+	"github.com/kluctl/kluctl/v2/pkg/tar"
 )
 
 // Pull downloads an artifact from an OCI repository and extracts the content to the given directory.

@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/fluxcd/pkg/oci/auth/login"
+	_ "github.com/kluctl/kluctl/v2/pkg/oci/auth/login"
 )
 
 func TestNonTestFlagCheck(t *testing.T) {

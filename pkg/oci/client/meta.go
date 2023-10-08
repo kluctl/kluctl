@@ -17,7 +17,7 @@ limitations under the License.
 package client
 
 import (
-	"github.com/fluxcd/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 )
 
 // Metadata holds the upstream information about on artifact's source.

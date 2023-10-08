@@ -31,7 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
-	"github.com/fluxcd/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 )
 
 // WithRetryTransport returns a crane.Option for setting transport that uses the  backoff for retries

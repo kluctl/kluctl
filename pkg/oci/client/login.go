@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/fluxcd/pkg/oci"
-	"github.com/fluxcd/pkg/oci/auth/aws"
-	"github.com/fluxcd/pkg/oci/auth/azure"
-	"github.com/fluxcd/pkg/oci/auth/gcp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/aws"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/azure"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/gcp"
 )
 
 // LoginWithCredentials configures the client with static credentials, accepts a single token

@@ -20,14 +20,14 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/fluxcd/pkg/oci/client/internal/fs"
-	"github.com/fluxcd/pkg/sourceignore"
+	"github.com/kluctl/kluctl/v2/pkg/oci/client/internal/fs"
 )
 
 // Build archives the given directory as a tarball to the given local path.

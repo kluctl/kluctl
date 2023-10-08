@@ -26,10 +26,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/fluxcd/pkg/oci"
-	"github.com/fluxcd/pkg/oci/auth/aws"
-	"github.com/fluxcd/pkg/oci/auth/azure"
-	"github.com/fluxcd/pkg/oci/auth/gcp"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/aws"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/azure"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth/gcp"
 )
 
 // ImageRegistryProvider analyzes the provided registry and returns the identified

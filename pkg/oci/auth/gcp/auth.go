@@ -28,7 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/fluxcd/pkg/oci"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 )
 
 type gceToken struct {
