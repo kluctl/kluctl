@@ -2,19 +2,17 @@ package repocache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/oci/client"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/tar"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	cp "github.com/otiai10/copy"
 	"net/url"
-	"oras.land/oras-go/v2"
-	"oras.land/oras-go/v2/content/file"
-	"oras.land/oras-go/v2/registry/remote"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -35,13 +33,14 @@ type OciRepoCache struct {
 }
 
 type OciCacheEntry struct {
-	rp   *OciRepoCache
-	url  url.URL
-	repo *remote.Repository
+	rp          *OciRepoCache
+	url         url.URL
+	ociClient   *client.Client
+	ociCacheDir string
 
-	extractedDirs map[types.OciRef]string
-	updateMutex   sync.Mutex
-	overridePath  string
+	pulledDirs   map[types.OciRef]clonedDir
+	updateMutex  sync.Mutex
+	overridePath string
 }
 
 func NewOciRepoCache(ctx context.Context, repoOverrides []RepoOverride, updateInterval time.Duration) *OciRepoCache {
@@ -86,33 +85,50 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding oci repo %s with local directory %s", urlIn, overridePath)
 
 		e := &OciCacheEntry{
-			rp:            rp,
-			url:           *urlN,
-			repo:          nil, // mark as overridden
-			extractedDirs: map[types.OciRef]string{},
-			overridePath:  overridePath,
+			rp:           rp,
+			url:          *urlN,
+			ociClient:    nil, // mark as overridden
+			pulledDirs:   map[types.OciRef]clonedDir{},
+			overridePath: overridePath,
 		}
 		rp.repos[repoKey] = e
 		return e, nil
 	}
 
 	e, ok := rp.repos[repoKey]
-	if !ok {
-		repo, err := remote.NewRepository(strings.TrimPrefix(urlN.String(), "oci://"))
-		if err != nil {
-			return nil, err
-		}
-
-		repo.PlainHTTP = true
-
-		e = &OciCacheEntry{
-			rp:            rp,
-			url:           *urlN,
-			repo:          repo,
-			extractedDirs: map[types.OciRef]string{},
-		}
-		rp.repos[repoKey] = e
+	if ok {
+		return e, nil
 	}
+
+	hostOciCacheDir := filepath.Join(utils.GetTmpBaseDir(rp.ctx), "oci")
+	hostOciCacheDir = filepath.Join(hostOciCacheDir, strings.ReplaceAll(urlN.Host, ":", "-"))
+
+	ociCacheDir := filepath.Join(hostOciCacheDir, urlN.Path)
+	err = utils.CheckSubInDir(hostOciCacheDir, ociCacheDir)
+	if err != nil {
+		return nil, err
+	}
+
+	err = os.MkdirAll(ociCacheDir, 0700)
+	if err != nil {
+		return nil, err
+	}
+
+	rp.cleanupDirsMutex.Lock()
+	rp.cleanupDirs = append(rp.cleanupDirs, ociCacheDir)
+	rp.cleanupDirsMutex.Unlock()
+
+	ociClient := client.NewClient(nil)
+
+	e = &OciCacheEntry{
+		rp:          rp,
+		url:         *urlN,
+		ociClient:   ociClient,
+		ociCacheDir: ociCacheDir,
+		pulledDirs:  map[types.OciRef]clonedDir{},
+	}
+	rp.repos[repoKey] = e
+
 	return e, nil
 }
 
@@ -124,68 +140,46 @@ func (e *OciCacheEntry) GetExtractedDir(ref *types.OciRef) (string, git.Checkout
 		ref = &types.OciRef{}
 	}
 
-	repoName := path.Base(e.url.Path) + "-"
-	repoName += ref.String() + "-"
-	repoName = strings.ReplaceAll(repoName, "/", "-")
-	repoName = strings.ReplaceAll(repoName, ":", "-")
+	ed, ok := e.pulledDirs[*ref]
+	if ok {
+		return ed.dir, ed.info, nil
+	}
 
-	ociDir := filepath.Join(utils.GetTmpBaseDir(e.rp.ctx), "oci")
-	err := os.MkdirAll(ociDir, 0700)
+	ociDir, err := os.MkdirTemp(e.ociCacheDir, "")
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
 
-	ociDir, err = os.MkdirTemp(ociDir, repoName)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-
-	pulledDir := filepath.Join(ociDir, "pulled")
-	extractedDir := filepath.Join(ociDir, "extracted")
-	err = os.Mkdir(pulledDir, 0700)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-	err = os.Mkdir(extractedDir, 0700)
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-
-	e.rp.cleanupDirsMutex.Lock()
-	e.rp.cleanupDirs = append(e.rp.cleanupDirs, ociDir)
-	e.rp.cleanupDirsMutex.Unlock()
-
-	if e.repo == nil { // local override exist
-		err = cp.Copy(e.overridePath, extractedDir)
+	if e.ociClient == nil { // local override exist
+		err = cp.Copy(e.overridePath, ociDir)
 		if err != nil {
 			return "", git.CheckoutInfo{}, err
 		}
-		return extractedDir, git.CheckoutInfo{}, err
+		return ociDir, git.CheckoutInfo{}, err
 	}
 
-	fs, err := file.New(pulledDir)
+	image := strings.TrimPrefix(e.url.String(), "oci://") + ":" + ref.String()
+
+	md, err := e.ociClient.Pull(e.rp.ctx, image, ociDir)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
 
-	manifestDescriptor, err := oras.Copy(e.rp.ctx, e.repo, ref.String(), fs, "", oras.CopyOptions{})
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-	_ = manifestDescriptor
+	var cd clonedDir
+	cd.dir = ociDir
 
-	tgz, err := os.Open(filepath.Join(pulledDir, "artifact.tgz"))
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
-	}
-	defer tgz.Close()
-
-	err = tar.Untar(tgz, extractedDir, tar.WithSkipSymlinks())
-	if err != nil {
-		return "", git.CheckoutInfo{}, err
+	if a, ok := md.Annotations["io.kluctl.image.git_info"]; ok {
+		var gitInfo result.GitInfo
+		err = json.Unmarshal([]byte(a), &gitInfo)
+		if err != nil {
+			return ociDir, git.CheckoutInfo{}, err
+		}
+		if gitInfo.Ref != nil {
+			cd.info.CheckedOutRef = *gitInfo.Ref
+		}
+		cd.info.CheckedOutCommit = gitInfo.Commit
 	}
 
-	e.extractedDirs[*ref] = extractedDir
-
-	return extractedDir, git.CheckoutInfo{}, nil
+	e.pulledDirs[*ref] = cd
+	return cd.dir, cd.info, nil
 }
