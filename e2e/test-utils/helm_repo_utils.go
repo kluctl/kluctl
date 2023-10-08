@@ -114,7 +114,7 @@ func CreateHelmRepo(t *testing.T, charts []RepoChart, username string, password 
 	return s.URL
 }
 
-func CreateOciRepo(t *testing.T, charts []RepoChart, username string, password string) string {
+func CreateHelmOciRepo(t *testing.T, charts []RepoChart, username string, password string) string {
 	tmpDir := t.TempDir()
 
 	ociRegistry := registry.New()

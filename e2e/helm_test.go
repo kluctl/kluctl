@@ -20,7 +20,7 @@ import (
 
 func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, user string, password string) string {
 	if oci {
-		return test_utils.CreateOciRepo(t, charts, user, password)
+		return test_utils.CreateHelmOciRepo(t, charts, user, password)
 	} else {
 		return test_utils.CreateHelmRepo(t, charts, user, password)
 	}

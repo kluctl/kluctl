@@ -372,7 +372,7 @@ func (suite *GitopsTestSuite) TestKluctlDeploymentReconciler_Helm() {
 	repoUrlWithCreds := test_utils.CreateHelmRepo(suite.T(), []test_utils.RepoChart{
 		{ChartName: "test-chart2", Version: "0.1.0"},
 	}, "test-user", "test-password")
-	ociRepoUrlWithCreds := test_utils.CreateOciRepo(suite.T(), []test_utils.RepoChart{
+	ociRepoUrlWithCreds := test_utils.CreateHelmOciRepo(suite.T(), []test_utils.RepoChart{
 		{ChartName: "test-chart3", Version: "0.1.0"},
 	}, "test-user", "test-password")
 
