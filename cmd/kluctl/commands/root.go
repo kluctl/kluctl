@@ -18,6 +18,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	go_container_logs "github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/gops/agent"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	flag "github.com/spf13/pflag"
@@ -73,6 +74,7 @@ type cli struct {
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
 	Webui       webuiCmd       `cmd:"" help:"Kluctl Webui sub-commands"`
+	Oci         ociCmd         `cmd:"" help:"Oci sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -122,6 +124,10 @@ func redirectLogsAndStderr(ctx context.Context) {
 	klog.SetOutput(lr1)
 	log.SetOutput(lr2)
 	ctrl.SetLogger(klog.NewKlogr())
+
+	go_container_logs.Warn.SetOutput(status.NewLineRedirector(func(line string) {
+		status.Warning(ctx, line)
+	}))
 
 	pr, pw, err := os.Pipe()
 	if err != nil {
