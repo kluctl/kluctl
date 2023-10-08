@@ -1,7 +1,6 @@
 package test_utils
 
 import (
-	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils/test-helm-chart"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -17,7 +16,6 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,28 +114,7 @@ func CreateHelmRepo(t *testing.T, charts []RepoChart, username string, password 
 
 func CreateHelmOciRepo(t *testing.T, charts []RepoChart, username string, password string) string {
 	tmpDir := t.TempDir()
-
-	ociRegistry := registry.New()
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if username != "" || password != "" {
-			u, p, ok := r.BasicAuth()
-			if !ok {
-				w.Header().Add("WWW-Authenticate", "Basic")
-				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
-				return
-			}
-			if u != username || p != password {
-				http.Error(w, "Auth header was incorrect", http.StatusUnauthorized)
-				return
-			}
-		}
-		ociRegistry.ServeHTTP(w, r)
-	}))
-
-	t.Cleanup(s.Close)
-
-	ociUrl := strings.ReplaceAll(s.URL, "http://", "oci://")
-	ociUrl2, _ := url.Parse(ociUrl)
+	ociUrl := CreateOciRegistry(t, username, password)
 
 	var out strings.Builder
 	settings := cli.New()
@@ -154,7 +131,7 @@ func CreateHelmOciRepo(t *testing.T, charts []RepoChart, username string, passwo
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = registryClient.Login(ociUrl2.Host, registry2.LoginOptBasicAuth(username, password), registry2.LoginOptInsecure(true))
+		err = registryClient.Login(ociUrl.Host, registry2.LoginOptBasicAuth(username, password), registry2.LoginOptInsecure(true))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,15 +142,15 @@ func CreateHelmOciRepo(t *testing.T, charts []RepoChart, username string, passwo
 		tgz := createHelmPackage(t, chart.ChartName, chart.Version)
 		_ = cp.Copy(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
 
-		err := c.UploadTo(tgz, ociUrl)
+		err := c.UploadTo(tgz, ociUrl.String())
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	if registryClient != nil {
-		registryClient.Logout(ociUrl2.Host)
+		registryClient.Logout(ociUrl.Host)
 	}
 
-	return ociUrl
+	return ociUrl.String()
 }
