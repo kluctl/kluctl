@@ -20,11 +20,11 @@ import "github.com/google/go-containerregistry/pkg/v1/types"
 
 var (
 	// CanonicalConfigMediaType is the OCI media type for the config layer.
-	CanonicalConfigMediaType types.MediaType = "application/vnd.cncf.flux.config.v1+json"
+	CanonicalConfigMediaType types.MediaType = "application/vnd.io.kluctl.config.v1+json"
 
 	// CanonicalContentMediaType is the OCI media type for the content layer.
-	CanonicalContentMediaType types.MediaType = "application/vnd.cncf.flux.content.v1.tar+gzip"
+	CanonicalContentMediaType types.MediaType = "application/vnd.io.kluctl.content.v1.tar+gzip"
 
 	// UserAgent string used for OCI calls.
-	UserAgent = "flux/v2"
+	UserAgent = "kluctl/v2"
 )
