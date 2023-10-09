@@ -27,7 +27,7 @@ type GitRepoCache struct {
 	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
 
-	repos      map[types.GitRepoKey]*GitCacheEntry
+	repos      map[types.RepoKey]*GitCacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides []RepoOverride
@@ -55,7 +55,7 @@ type RepoInfo struct {
 }
 
 type RepoOverride struct {
-	RepoKey  types.GitRepoKey
+	RepoKey  types.RepoKey
 	Ref      string
 	Override string
 	IsGroup  bool
@@ -72,7 +72,7 @@ func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProvide
 		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
-		repos:          map[types.GitRepoKey]*GitCacheEntry{},
+		repos:          map[types.RepoKey]*GitCacheEntry{},
 		repoOverrides:  repoOverrides,
 	}
 }

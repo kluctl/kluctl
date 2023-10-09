@@ -25,7 +25,7 @@ func main() {
 		Add(webui.AuthInfo{}).
 		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.GitRef{}, typescriptify.TypeOptions{TSType: "GitRef", TSTransform: "new GitRef(__VALUE__)"}).
-		ManageType(types.GitRepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(types.RepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.YamlUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(uo.UnstructuredObject{}, typescriptify.TypeOptions{TSType: "any"}).
 		ManageType(metav1.Time{}, typescriptify.TypeOptions{TSType: "string"}).

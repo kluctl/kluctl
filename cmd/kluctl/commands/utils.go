@@ -323,7 +323,7 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, allowLegacy 
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
-	repoKey, err := types.ParseGitRepoKey(sp[0])
+	repoKey, err := types.ParseRepoKey(sp[0])
 	if err != nil {
 		if !allowLegacy {
 			return repocache.RepoOverride{}, err
@@ -341,7 +341,7 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, allowLegacy 
 			x += "/"
 		}
 		x += u.Path
-		repoKey, err2 = types.ParseGitRepoKey(x)
+		repoKey, err2 = types.ParseRepoKey(x)
 		if err2 != nil {
 			// return original error
 			return repocache.RepoOverride{}, err

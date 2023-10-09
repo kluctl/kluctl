@@ -62,7 +62,7 @@ func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (resu
 		}
 	}
 
-	var repoKey types.GitRepoKey
+	var repoKey types.RepoKey
 	if originUrl != nil {
 		repoKey = originUrl.RepoKey()
 	}

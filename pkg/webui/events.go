@@ -237,7 +237,7 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		return
 	}
 
-	repoKey, err := types.ParseGitRepoKey(args.FilterProject)
+	repoKey, err := types.ParseRepoKey(args.FilterProject)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return

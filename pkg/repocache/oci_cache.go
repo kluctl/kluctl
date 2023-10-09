@@ -23,7 +23,7 @@ type OciRepoCache struct {
 	ctx            context.Context
 	updateInterval time.Duration
 
-	repos      map[types.GitRepoKey]*OciCacheEntry
+	repos      map[types.RepoKey]*OciCacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides []RepoOverride
@@ -47,7 +47,7 @@ func NewOciRepoCache(ctx context.Context, repoOverrides []RepoOverride, updateIn
 	return &OciRepoCache{
 		ctx:            ctx,
 		updateInterval: updateInterval,
-		repos:          map[types.GitRepoKey]*OciCacheEntry{},
+		repos:          map[types.RepoKey]*OciCacheEntry{},
 		repoOverrides:  repoOverrides,
 	}
 }

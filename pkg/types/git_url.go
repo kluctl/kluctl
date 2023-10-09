@@ -132,30 +132,30 @@ func (u *GitUrl) Normalize() *GitUrl {
 	return &u2
 }
 
-func (u *GitUrl) RepoKey() GitRepoKey {
+func (u *GitUrl) RepoKey() RepoKey {
 	u2 := u.Normalize()
 	return NewRepoKey(u2.Host, u2.Path)
 }
 
 // +kubebuilder:validation:Type=string
-type GitRepoKey struct {
+type RepoKey struct {
 	Host string `json:"-"`
 	Path string `json:"-"`
 }
 
-func NewRepoKey(host string, path string) GitRepoKey {
+func NewRepoKey(host string, path string) RepoKey {
 	path = strings.TrimSuffix(path, "/")
 	path = strings.TrimPrefix(path, "/")
-	return GitRepoKey{
+	return RepoKey{
 		Host: host,
 		Path: path,
 	}
 }
 
-func NewRepoKeyFromUrl(urlIn string) (GitRepoKey, error) {
+func NewRepoKeyFromUrl(urlIn string) (RepoKey, error) {
 	u, err := url.Parse(urlIn)
 	if err != nil {
-		return GitRepoKey{}, err
+		return RepoKey{}, err
 	}
 	return NewRepoKey(u.Host, u.Path), nil
 }
@@ -163,14 +163,14 @@ func NewRepoKeyFromUrl(urlIn string) (GitRepoKey, error) {
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)
 var ipRegex = regexp.MustCompile(`^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$`)
 
-func ParseGitRepoKey(s string) (GitRepoKey, error) {
+func ParseRepoKey(s string) (RepoKey, error) {
 	if s == "" {
-		return GitRepoKey{}, nil
+		return RepoKey{}, nil
 	}
 
 	s2 := strings.SplitN(s, "/", 2)
 	if len(s2) != 2 {
-		return GitRepoKey{}, fmt.Errorf("invalid repo key: %s", s)
+		return RepoKey{}, fmt.Errorf("invalid repo key: %s", s)
 	}
 
 	var host, port string
@@ -183,29 +183,29 @@ func ParseGitRepoKey(s string) (GitRepoKey, error) {
 	}
 
 	if !hostNameRegex.MatchString(host) && !ipRegex.MatchString(host) {
-		return GitRepoKey{}, fmt.Errorf("invalid repo key: %s", s)
+		return RepoKey{}, fmt.Errorf("invalid repo key: %s", s)
 	}
 
 	if port != "" {
 		if _, err := strconv.ParseInt(port, 10, 32); err != nil {
-			return GitRepoKey{}, fmt.Errorf("invalid repo key: %s", s)
+			return RepoKey{}, fmt.Errorf("invalid repo key: %s", s)
 		}
 	}
 
-	return GitRepoKey{
+	return RepoKey{
 		Host: s2[0],
 		Path: s2[1],
 	}, nil
 }
 
-func (u GitRepoKey) String() string {
+func (u RepoKey) String() string {
 	if u.Host == "" && u.Path == "" {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s", u.Host, u.Path)
 }
 
-func (u *GitRepoKey) UnmarshalJSON(b []byte) error {
+func (u *RepoKey) UnmarshalJSON(b []byte) error {
 	var s string
 	err := yaml.ReadYamlBytes(b, &s)
 	if err != nil {
@@ -216,7 +216,7 @@ func (u *GitRepoKey) UnmarshalJSON(b []byte) error {
 		u.Path = ""
 		return nil
 	}
-	x, err := ParseGitRepoKey(s)
+	x, err := ParseRepoKey(s)
 	if err != nil {
 		return err
 	}
@@ -224,7 +224,7 @@ func (u *GitRepoKey) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (u GitRepoKey) MarshalJSON() ([]byte, error) {
+func (u RepoKey) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(u.String())
 	if err != nil {
 		return nil, err

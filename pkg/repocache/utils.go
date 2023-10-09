@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func findRepoOverride(repoOverrides []RepoOverride, repoKey types.GitRepoKey) (string, error) {
+func findRepoOverride(repoOverrides []RepoOverride, repoKey types.RepoKey) (string, error) {
 	for _, ro := range repoOverrides {
 		if ro.RepoKey.Host != repoKey.Host {
 			continue
