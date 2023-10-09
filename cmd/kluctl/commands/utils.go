@@ -67,28 +67,28 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	var gitRepoOverrides []repocache.RepoOverride
 	var ociRepoOverrides []repocache.RepoOverride
 	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(ctx, x, false, true)
+		ro, err := parseRepoOverride(ctx, x, false, "git", true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-override: %w", err)
 		}
 		gitRepoOverrides = append(gitRepoOverrides, ro)
 	}
 	for _, x := range projectFlags.LocalGitGroupOverride {
-		ro, err := parseRepoOverride(ctx, x, true, true)
+		ro, err := parseRepoOverride(ctx, x, true, "git", true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-group-override: %w", err)
 		}
 		gitRepoOverrides = append(gitRepoOverrides, ro)
 	}
 	for _, x := range projectFlags.LocalOciOverride {
-		ro, err := parseRepoOverride(ctx, x, false, false)
+		ro, err := parseRepoOverride(ctx, x, false, "oci", false)
 		if err != nil {
 			return fmt.Errorf("invalid --local-oci-override: %w", err)
 		}
 		ociRepoOverrides = append(ociRepoOverrides, ro)
 	}
 	for _, x := range projectFlags.LocalOciGroupOverride {
-		ro, err := parseRepoOverride(ctx, x, true, false)
+		ro, err := parseRepoOverride(ctx, x, true, "oci", false)
 		if err != nil {
 			return fmt.Errorf("invalid --local-oci-group-override: %w", err)
 		}
@@ -317,13 +317,13 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 	}
 }
 
-func parseRepoOverride(ctx context.Context, s string, isGroup bool, allowLegacy bool) (repocache.RepoOverride, error) {
+func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string, allowLegacy bool) (repocache.RepoOverride, error) {
 	sp := strings.SplitN(s, "=", 2)
 	if len(sp) != 2 {
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
-	repoKey, err := types.ParseRepoKey(sp[0])
+	repoKey, err := types.ParseRepoKey(sp[0], type_)
 	if err != nil {
 		if !allowLegacy {
 			return repocache.RepoOverride{}, err
@@ -341,7 +341,7 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, allowLegacy 
 			x += "/"
 		}
 		x += u.Path
-		repoKey, err2 = types.ParseRepoKey(x)
+		repoKey, err2 = types.ParseRepoKey(x, type_)
 		if err2 != nil {
 			// return original error
 			return repocache.RepoOverride{}, err

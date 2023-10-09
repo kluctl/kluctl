@@ -10,6 +10,9 @@ import (
 
 func findRepoOverride(repoOverrides []RepoOverride, repoKey types.RepoKey) (string, error) {
 	for _, ro := range repoOverrides {
+		if ro.RepoKey.Type != repoKey.Type {
+			continue
+		}
 		if ro.RepoKey.Host != repoKey.Host {
 			continue
 		}

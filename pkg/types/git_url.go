@@ -134,19 +134,21 @@ func (u *GitUrl) Normalize() *GitUrl {
 
 func (u *GitUrl) RepoKey() RepoKey {
 	u2 := u.Normalize()
-	return NewRepoKey(u2.Host, u2.Path)
+	return NewRepoKey("git", u2.Host, u2.Path)
 }
 
 // +kubebuilder:validation:Type=string
 type RepoKey struct {
+	Type string `json:"-"`
 	Host string `json:"-"`
 	Path string `json:"-"`
 }
 
-func NewRepoKey(host string, path string) RepoKey {
+func NewRepoKey(type_ string, host string, path string) RepoKey {
 	path = strings.TrimSuffix(path, "/")
 	path = strings.TrimPrefix(path, "/")
 	return RepoKey{
+		Type: type_,
 		Host: host,
 		Path: path,
 	}
@@ -157,15 +159,30 @@ func NewRepoKeyFromUrl(urlIn string) (RepoKey, error) {
 	if err != nil {
 		return RepoKey{}, err
 	}
-	return NewRepoKey(u.Host, u.Path), nil
+	t := "git"
+	if u.Scheme == "oci" {
+		t = "oci"
+	}
+	return NewRepoKey(t, u.Host, u.Path), nil
 }
 
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)
 var ipRegex = regexp.MustCompile(`^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$`)
 
-func ParseRepoKey(s string) (RepoKey, error) {
+func ParseRepoKey(s string, defaultType string) (RepoKey, error) {
 	if s == "" {
 		return RepoKey{}, nil
+	}
+
+	var t string
+	if strings.HasPrefix(s, "git://") {
+		t = "git"
+		s = strings.TrimPrefix(s, "git://")
+	} else if strings.HasPrefix(s, "oci://") {
+		t = "oci"
+		s = strings.TrimPrefix(s, "oci://")
+	} else {
+		t = defaultType
 	}
 
 	s2 := strings.SplitN(s, "/", 2)
@@ -193,6 +210,7 @@ func ParseRepoKey(s string) (RepoKey, error) {
 	}
 
 	return RepoKey{
+		Type: t,
 		Host: s2[0],
 		Path: s2[1],
 	}, nil
@@ -202,7 +220,11 @@ func (u RepoKey) String() string {
 	if u.Host == "" && u.Path == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/%s", u.Host, u.Path)
+	t := u.Type
+	if t == "" {
+		t = "git"
+	}
+	return fmt.Sprintf("%s://%s/%s", t, u.Host, u.Path)
 }
 
 func (u *RepoKey) UnmarshalJSON(b []byte) error {
@@ -212,11 +234,12 @@ func (u *RepoKey) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	if s == "" {
+		u.Type = ""
 		u.Host = ""
 		u.Path = ""
 		return nil
 	}
-	x, err := ParseRepoKey(s)
+	x, err := ParseRepoKey(s, "git")
 	if err != nil {
 		return err
 	}

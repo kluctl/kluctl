@@ -74,7 +74,7 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		return nil, fmt.Errorf("unsupported scheme %s, must be oci://", urlN.Scheme)
 	}
 
-	repoKey := types.NewRepoKey(urlN.Host, urlN.Path)
+	repoKey := types.NewRepoKey("oci", urlN.Host, urlN.Path)
 
 	overridePath, err := findRepoOverride(rp.repoOverrides, repoKey)
 	if err != nil {
