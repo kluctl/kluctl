@@ -161,6 +161,7 @@ func NewRepoKeyFromUrl(urlIn string) (GitRepoKey, error) {
 }
 
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)
+var ipRegex = regexp.MustCompile(`^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$`)
 
 func ParseGitRepoKey(s string) (GitRepoKey, error) {
 	if s == "" {
@@ -169,7 +170,7 @@ func ParseGitRepoKey(s string) (GitRepoKey, error) {
 
 	s2 := strings.SplitN(s, "/", 2)
 	if len(s2) != 2 {
-		return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
+		return GitRepoKey{}, fmt.Errorf("invalid repo key: %s", s)
 	}
 
 	var host, port string
@@ -181,13 +182,13 @@ func ParseGitRepoKey(s string) (GitRepoKey, error) {
 		host = s2[0]
 	}
 
-	if !hostNameRegex.MatchString(host) {
-		return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
+	if !hostNameRegex.MatchString(host) && !ipRegex.MatchString(host) {
+		return GitRepoKey{}, fmt.Errorf("invalid repo key: %s", s)
 	}
 
 	if port != "" {
 		if _, err := strconv.ParseInt(port, 10, 32); err != nil {
-			return GitRepoKey{}, fmt.Errorf("invalid git repo key: %s", s)
+			return GitRepoKey{}, fmt.Errorf("invalid repo key: %s", s)
 		}
 	}
 

@@ -64,20 +64,35 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	sshPool := &ssh_pool.SshPool{}
 
-	var repoOverrides []repocache.RepoOverride
+	var gitRepoOverrides []repocache.RepoOverride
+	var ociRepoOverrides []repocache.RepoOverride
 	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(ctx, x, false)
+		ro, err := parseRepoOverride(ctx, x, false, true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-override: %w", err)
 		}
-		repoOverrides = append(repoOverrides, ro)
+		gitRepoOverrides = append(gitRepoOverrides, ro)
 	}
 	for _, x := range projectFlags.LocalGitGroupOverride {
-		ro, err := parseRepoOverride(ctx, x, true)
+		ro, err := parseRepoOverride(ctx, x, true, true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-group-override: %w", err)
 		}
-		repoOverrides = append(repoOverrides, ro)
+		gitRepoOverrides = append(gitRepoOverrides, ro)
+	}
+	for _, x := range projectFlags.LocalOciOverride {
+		ro, err := parseRepoOverride(ctx, x, false, false)
+		if err != nil {
+			return fmt.Errorf("invalid --local-oci-override: %w", err)
+		}
+		ociRepoOverrides = append(ociRepoOverrides, ro)
+	}
+	for _, x := range projectFlags.LocalOciGroupOverride {
+		ro, err := parseRepoOverride(ctx, x, true, false)
+		if err != nil {
+			return fmt.Errorf("invalid --local-oci-group-override: %w", err)
+		}
+		ociRepoOverrides = append(ociRepoOverrides, ro)
 	}
 
 	messageCallbacks := &messages.MessageCallbacks{
@@ -88,10 +103,10 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 
-	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, gitRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
-	ociRp := repocache.NewOciRepoCache(ctx, nil, projectFlags.GitCacheUpdateInterval)
+	ociRp := repocache.NewOciRepoCache(ctx, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
 	var externalArgs *uo.UnstructuredObject
@@ -302,7 +317,7 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 	}
 }
 
-func parseRepoOverride(ctx context.Context, s string, isGroup bool) (repocache.RepoOverride, error) {
+func parseRepoOverride(ctx context.Context, s string, isGroup bool, allowLegacy bool) (repocache.RepoOverride, error) {
 	sp := strings.SplitN(s, "=", 2)
 	if len(sp) != 2 {
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
@@ -310,6 +325,10 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool) (repocache.R
 
 	repoKey, err := types.ParseGitRepoKey(sp[0])
 	if err != nil {
+		if !allowLegacy {
+			return repocache.RepoOverride{}, err
+		}
+
 		// try as legacy repo key
 		u, err2 := types.ParseGitUrl(sp[0])
 		if err2 != nil {
