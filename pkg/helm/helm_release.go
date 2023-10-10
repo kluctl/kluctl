@@ -3,6 +3,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +39,7 @@ type Release struct {
 	baseChartsDir string
 }
 
-func NewRelease(projectRoot string, relDirInProject string, configFile string, baseChartsDir string, credentialsProvider HelmCredentialsProvider) (*Release, error) {
+func NewRelease(projectRoot string, relDirInProject string, configFile string, baseChartsDir string, credentialsProvider HelmCredentialsProvider, ociAuthProvider auth_provider.OciAuthProvider) (*Release, error) {
 	var config types.HelmChartConfig
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
@@ -72,7 +73,7 @@ func NewRelease(projectRoot string, relDirInProject string, configFile string, b
 	if config.CredentialsId != nil {
 		credentialsId = *config.CredentialsId
 	}
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, credentialsProvider, credentialsId)
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, credentialsProvider, credentialsId, ociAuthProvider)
 	if err != nil {
 		return nil, err
 	}

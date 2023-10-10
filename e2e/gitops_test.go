@@ -256,12 +256,9 @@ data:
 `)},
 	}, nil)
 
-	key := suite.createKluctlDeployment2(p, "target1", map[string]any{
+	key := suite.createKluctlDeployment(p, "target1", map[string]any{
 		"namespace": p.TestSlug(),
 		"k2":        42,
-	}, kluctlv1.ProjectSource{
-		// let's misuse this testcase to test the deprecated ProjectSource
-		URL: types2.ParseGitUrlMust(p.GitUrl()),
 	})
 
 	suite.Run("initial deployment", func() {

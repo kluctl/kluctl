@@ -11,7 +11,6 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/go-containerregistry v0.16.1
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hexops/gotextdiff v1.0.3
@@ -66,6 +65,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2
+	github.com/docker/cli v24.0.6+incompatible
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
@@ -76,6 +76,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huandu/xstrings v1.4.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/gomega v1.28.0
 	github.com/otiai10/copy v1.14.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -143,7 +144,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.5.0 // indirect
-	github.com/docker/cli v24.0.6+incompatible // indirect
 	github.com/docker/docker v24.0.6+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -223,7 +223,6 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/locker v1.0.1 // indirect

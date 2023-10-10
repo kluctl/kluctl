@@ -1351,8 +1351,8 @@ the KluctlDeployment.</p>
 <a href="#gitops.kluctl.io/v1beta1.Decryption">Decryption</a>, 
 <a href="#gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">ProjectSourceCredentials</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGit">ProjectSourceGit</a>)
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGitCredentials">ProjectSourceGitCredentials</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceOciCredentials">ProjectSourceOciCredentials</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -1484,8 +1484,8 @@ Use Credentials with a proper Host field instead.</p>
 <td>
 <code>credentials</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">
-[]ProjectSourceCredentials
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGitCredentials">
+[]ProjectSourceGitCredentials
 </a>
 </em>
 </td>
@@ -1493,73 +1493,6 @@ Use Credentials with a proper Host field instead.</p>
 <em>(Optional)</em>
 <p>Credentials specifies a list of secrets with credentials
 DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.credentials instead.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-<h3 id="gitops.kluctl.io/v1beta1.ProjectSourceCredentials">ProjectSourceCredentials
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGit">ProjectSourceGit</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceOci">ProjectSourceOci</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>host</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Host specifies the hostname that this secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
-applies to all hosts.
-Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
-You must always set a proper hostname in that case.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>pathPrefix</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PathPrefix specified the path prefix to be used to filter source urls. Only urls that have this prefix will use
-this set of credentials.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>secretRef</code><br>
-<em>
-<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
-LocalObjectReference
-</a>
-</em>
-</td>
-<td>
-<p>SecretRef specifies the Secret containing authentication credentials for
-the git repository.
-For HTTPS git repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
-fields.
-For SSH git repositories the Secret must contain &lsquo;identity&rsquo;
-and &lsquo;known_hosts&rsquo; fields.</p>
 </td>
 </tr>
 </tbody>
@@ -1619,6 +1552,68 @@ string
 </tr>
 <tr>
 <td>
+<code>credentials</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGitCredentials">
+[]ProjectSourceGitCredentials
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Credentials specifies a list of secrets with credentials</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ProjectSourceGitCredentials">ProjectSourceGitCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceGit">ProjectSourceGit</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>host</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Host specifies the hostname that this secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
+applies to all hosts.
+Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+You must always set a proper hostname in that case.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>pathPrefix</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PathPrefix specified the path prefix to be used to filter source urls. Only urls that have this prefix will use
+this set of credentials.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>secretRef</code><br>
 <em>
 <a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
@@ -1628,25 +1623,11 @@ LocalObjectReference
 </td>
 <td>
 <p>SecretRef specifies the Secret containing authentication credentials for
-See ProjectSourceCredentials.SecretRef for details
-DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
-instead.
-WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
-Use Credentials with a proper Host field instead.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>credentials</code><br>
-<em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">
-[]ProjectSourceCredentials
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Credentials specifies a list of secrets with credentials</p>
+the git repository.
+For HTTPS git repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
+fields.
+For SSH git repositories the Secret must contain &lsquo;identity&rsquo;
+and &lsquo;known_hosts&rsquo; fields.</p>
 </td>
 </tr>
 </tbody>
@@ -1708,14 +1689,73 @@ string
 <td>
 <code>credentials</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSourceCredentials">
-[]ProjectSourceCredentials
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceOciCredentials">
+[]ProjectSourceOciCredentials
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Credentials specifies a list of secrets with credentials</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ProjectSourceOciCredentials">ProjectSourceOciCredentials
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ProjectSourceOci">ProjectSourceOci</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>registry</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Registry specifies the hostname that this secret applies to.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Repository specifies the org and repo name in the format &lsquo;org-name/repo-name&rsquo;.
+Both &lsquo;org-name&rsquo; and &lsquo;repo-name&rsquo; can be specified as &lsquo;*&rsquo;, meaning that all names are matched.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretRef specifies the Secret containing authentication credentials for
+the oci repository.
+The secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;.</p>
 </td>
 </tr>
 </tbody>

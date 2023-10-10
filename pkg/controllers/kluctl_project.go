@@ -91,12 +91,17 @@ func prepareProject(ctx context.Context,
 		return nil, err
 	}
 
+	ociSecrets, err := r.getOciSecrets(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
 	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets)
 	if err != nil {
 		return nil, err
 	}
 
-	pp.ociRP, err = r.buildOciRepoCache(ctx, nil)
+	pp.ociRP, err = r.buildOciRepoCache(ctx, ociSecrets)
 	if err != nil {
 		return nil, err
 	}

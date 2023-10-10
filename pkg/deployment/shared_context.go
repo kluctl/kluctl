@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
@@ -18,6 +19,7 @@ type SharedContext struct {
 	SopsDecrypter   *decryptor.Decryptor
 	VarsLoader      *vars.VarsLoader
 	HelmCredentials helm.HelmCredentialsProvider
+	OciAuthProvider auth_provider.OciAuthProvider
 
 	Discriminator                     string
 	RenderDir                         string

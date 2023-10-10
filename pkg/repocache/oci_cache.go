@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -22,6 +24,8 @@ import (
 type OciRepoCache struct {
 	ctx            context.Context
 	updateInterval time.Duration
+
+	ociAuthProvider auth_provider.OciAuthProvider
 
 	repos      map[types.RepoKey]*OciCacheEntry
 	reposMutex sync.Mutex
@@ -43,12 +47,13 @@ type OciCacheEntry struct {
 	overridePath string
 }
 
-func NewOciRepoCache(ctx context.Context, repoOverrides []RepoOverride, updateInterval time.Duration) *OciRepoCache {
+func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthProvider, repoOverrides []RepoOverride, updateInterval time.Duration) *OciRepoCache {
 	return &OciRepoCache{
-		ctx:            ctx,
-		updateInterval: updateInterval,
-		repos:          map[types.RepoKey]*OciCacheEntry{},
-		repoOverrides:  repoOverrides,
+		ctx:             ctx,
+		updateInterval:  updateInterval,
+		ociAuthProvider: ociAuthProvider,
+		repos:           map[types.RepoKey]*OciCacheEntry{},
+		repoOverrides:   repoOverrides,
 	}
 }
 
@@ -118,7 +123,16 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 	rp.cleanupDirs = append(rp.cleanupDirs, ociCacheDir)
 	rp.cleanupDirsMutex.Unlock()
 
-	ociClient := client.NewClient(nil)
+	var clientOpts []crane.Option
+	if rp.ociAuthProvider != nil {
+		auth, err := rp.ociAuthProvider.Login(rp.ctx, urlN.String())
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, auth.BuildCraneOptions()...)
+	}
+
+	ociClient := client.NewClient(clientOpts)
 
 	e = &OciCacheEntry{
 		rp:          rp,

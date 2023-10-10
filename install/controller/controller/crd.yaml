@@ -405,21 +405,6 @@ spec:
                             description: Tag to use.
                             type: string
                         type: object
-                      secretRef:
-                        description: SecretRef specifies the Secret containing authentication
-                          credentials for See ProjectSourceCredentials.SecretRef for
-                          details DEPRECATED this field is deprecated and will be
-                          removed in a future version of the controller. Use Credentials
-                          instead. WARNING using this field causes the controller
-                          to pass http basic auth credentials to ALL repositories
-                          involved. Use Credentials with a proper Host field instead.
-                        properties:
-                          name:
-                            description: Name of the referent.
-                            type: string
-                        required:
-                        - name
-                        type: object
                       url:
                         description: Url specifies the Git url where the project source
                           is located
@@ -435,26 +420,20 @@ spec:
                           credentials
                         items:
                           properties:
-                            host:
-                              description: Host specifies the hostname that this secret
-                                applies to. If set to '*', this set of credentials
-                                applies to all hosts. Using '*' for http(s) based
-                                repositories is not supported, meaning that such credentials
-                                sets will be ignored. You must always set a proper
-                                hostname in that case.
+                            registry:
+                              description: Registry specifies the hostname that this
+                                secret applies to.
                               type: string
-                            pathPrefix:
-                              description: PathPrefix specified the path prefix to
-                                be used to filter source urls. Only urls that have
-                                this prefix will use this set of credentials.
+                            repository:
+                              description: Repository specifies the org and repo name
+                                in the format 'org-name/repo-name'. Both 'org-name'
+                                and 'repo-name' can be specified as '*', meaning that
+                                all names are matched.
                               type: string
                             secretRef:
                               description: SecretRef specifies the Secret containing
-                                authentication credentials for the git repository.
-                                For HTTPS git repositories the Secret must contain
-                                'username' and 'password' fields. For SSH git repositories
-                                the Secret must contain 'identity' and 'known_hosts'
-                                fields.
+                                authentication credentials for the oci repository.
+                                The secret must contain 'username' and 'password'.
                               properties:
                                 name:
                                   description: Name of the referent.

@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/Masterminds/semver/v3"
-	"github.com/kluctl/kluctl/v2/pkg/registries"
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -36,15 +37,18 @@ type Chart struct {
 	credentials   HelmCredentialsProvider
 	credentialsId string
 
+	ociAuthProvider auth_provider.OciAuthProvider
+
 	versions []string
 }
 
-func NewChart(repo string, localPath string, chartName string, credentialsProvider HelmCredentialsProvider, credentialsId string) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, credentialsProvider HelmCredentialsProvider, credentialsId string, ociAuthProvider auth_provider.OciAuthProvider) (*Chart, error) {
 	hc := &Chart{
-		repo:          repo,
-		localPath:     localPath,
-		credentials:   credentialsProvider,
-		credentialsId: credentialsId,
+		repo:            repo,
+		localPath:       localPath,
+		credentials:     credentialsProvider,
+		credentialsId:   credentialsId,
+		ociAuthProvider: ociAuthProvider,
 	}
 
 	if localPath == "" && repo == "" {
@@ -184,7 +188,7 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 
 	if c.credentialsId != "" {
 		if registry.IsOCI(c.repo) {
-			return nil, fmt.Errorf("OCI charts can currently only be authenticated via registry login and not via cli arguments")
+			return nil, fmt.Errorf("OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments")
 		}
 		if c.credentials == nil {
 			return nil, fmt.Errorf("no credentials provider")
@@ -363,10 +367,18 @@ func (c *Chart) QueryVersions(ctx context.Context) error {
 }
 
 func (c *Chart) queryVersionsOci(ctx context.Context) error {
-	rh := registries.NewRegistryHelper(ctx)
+	var clientOpts []crane.Option
+	clientOpts = append(clientOpts, crane.WithContext(ctx))
+	if c.ociAuthProvider != nil {
+		auth, err := c.ociAuthProvider.Login(ctx, c.repo)
+		if err != nil {
+			return err
+		}
+		clientOpts = append(clientOpts, auth.BuildCraneOptions()...)
+	}
 
 	imageName := strings.TrimPrefix(c.repo, "oci://")
-	tags, err := rh.ListImageTags(imageName)
+	tags, err := crane.ListTags(imageName, clientOpts...)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/results"
@@ -102,11 +103,12 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
+	ociAuth := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
 
 	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, gitRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
-	ociRp := repocache.NewOciRepoCache(ctx, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
 	var externalArgs *uo.UnstructuredObject
@@ -135,6 +137,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ExternalArgs:       externalArgs,
 		GitRP:              gitRp,
 		OciRP:              ociRp,
+		OciAuthProvider:    ociAuth,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 
@@ -216,6 +219,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		Images:             images,
 		Inclusion:          inclusion,
 		HelmCredentials:    &args.helmCredentials,
+		OciAuthProvider:    p.LoadArgs.OciAuthProvider,
 		RenderOutputDir:    renderOutputDir,
 	}
 

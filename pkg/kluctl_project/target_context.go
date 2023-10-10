@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -43,6 +44,7 @@ type TargetContextParams struct {
 	Images             *deployment.Images
 	Inclusion          *utils.Inclusion
 	HelmCredentials    helm.HelmCredentialsProvider
+	OciAuthProvider    auth_provider.OciAuthProvider
 	RenderOutputDir    string
 }
 
@@ -121,6 +123,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		SopsDecrypter:                     sopsDecryptor,
 		VarsLoader:                        varsLoader,
 		HelmCredentials:                   params.HelmCredentials,
+		OciAuthProvider:                   params.OciAuthProvider,
 		Discriminator:                     target.Discriminator,
 		RenderDir:                         params.RenderOutputDir,
 		SealedSecretsDir:                  p.sealedSecretsDir,

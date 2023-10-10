@@ -269,7 +269,7 @@ type ProjectSource struct {
 	// Credentials specifies a list of secrets with credentials
 	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use git.credentials instead.
 	// +optional
-	Credentials []ProjectSourceCredentials `json:"credentials,omitempty"`
+	Credentials []ProjectSourceGitCredentials `json:"credentials,omitempty"`
 }
 
 type ProjectSourceGit struct {
@@ -285,17 +285,9 @@ type ProjectSourceGit struct {
 	// +optional
 	Path string `json:"path,omitempty"`
 
-	// SecretRef specifies the Secret containing authentication credentials for
-	// See ProjectSourceCredentials.SecretRef for details
-	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
-	// instead.
-	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
-	// Use Credentials with a proper Host field instead.
-	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
-
 	// Credentials specifies a list of secrets with credentials
 	// +optional
-	Credentials []ProjectSourceCredentials `json:"credentials,omitempty"`
+	Credentials []ProjectSourceGitCredentials `json:"credentials,omitempty"`
 }
 
 type ProjectSourceOci struct {
@@ -313,10 +305,10 @@ type ProjectSourceOci struct {
 
 	// Credentials specifies a list of secrets with credentials
 	// +optional
-	Credentials []ProjectSourceCredentials `json:"credentials,omitempty"`
+	Credentials []ProjectSourceOciCredentials `json:"credentials,omitempty"`
 }
 
-type ProjectSourceCredentials struct {
+type ProjectSourceGitCredentials struct {
 	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
 	// applies to all hosts.
 	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
@@ -335,6 +327,23 @@ type ProjectSourceCredentials struct {
 	// fields.
 	// For SSH git repositories the Secret must contain 'identity'
 	// and 'known_hosts' fields.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectSourceOciCredentials struct {
+	// Registry specifies the hostname that this secret applies to.
+	// +required
+	Registry string `json:"registry,omitempty"`
+
+	// Repository specifies the org and repo name in the format 'org-name/repo-name'.
+	// Both 'org-name' and 'repo-name' can be specified as '*', meaning that all names are matched.
+	// +optional
+	Repository string `json:"repository,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the oci repository.
+	// The secret must contain 'username' and 'password'.
 	// +required
 	SecretRef LocalObjectReference `json:"secretRef"`
 }

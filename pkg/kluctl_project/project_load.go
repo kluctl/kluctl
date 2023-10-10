@@ -2,6 +2,7 @@ package kluctl_project
 
 import (
 	"context"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -21,6 +22,8 @@ type LoadKluctlProjectArgs struct {
 
 	GitRP *repocache.GitRepoCache
 	OciRP *repocache.OciRepoCache
+
+	OciAuthProvider auth_provider.OciAuthProvider
 
 	AddKeyServersFunc  func(ctx context.Context, d *decryptor.Decryptor) error
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)

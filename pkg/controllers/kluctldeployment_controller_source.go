@@ -9,6 +9,7 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -19,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type repoSecrets struct {
+type gitRepoSecrets struct {
 	deprecatedSecret bool
 
 	host       string
@@ -27,12 +28,18 @@ type repoSecrets struct {
 	secret     corev1.Secret
 }
 
-func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]repoSecrets, error) {
+type ociRepoSecrets struct {
+	registry string
+	repo     string
+	secret   corev1.Secret
+}
+
+func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]gitRepoSecrets, error) {
 	if source == nil {
 		return nil, nil
 	}
 
-	var ret []repoSecrets
+	var ret []gitRepoSecrets
 
 	loadCredentials := func(deprecatedSecret bool, host string, pathPrefix string, secretName string) error {
 		if host == "" {
@@ -43,7 +50,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
-		ret = append(ret, repoSecrets{
+		ret = append(ret, gitRepoSecrets{
 			deprecatedSecret: deprecatedSecret,
 			host:             host,
 			pathPrefix:       pathPrefix,
@@ -52,17 +59,62 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 		return nil
 	}
 
-	if source.SecretRef != nil {
-		// Attempt to retrieve deprecated secret
-		err := loadCredentials(true, "", "", source.SecretRef.Name)
-		if err != nil {
-			return nil, err
+	if source.Git != nil {
+		for _, c := range source.Git.Credentials {
+			err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
+			if err != nil {
+				return nil, err
+			}
 		}
-		status.Deprecation(ctx, "spec.source.secretRef", "the 'spec.source.secretRef' is deprecated and will be removed in the next API version bump.")
+	} else if source.Oci == nil {
+		status.Deprecation(ctx, "spec.source.url", "'spec.source.url' is deprecated and will be removed in the next API version bump. Use 'spec.source.git.url' instead")
+
+		if source.SecretRef != nil {
+			// Attempt to retrieve deprecated secret
+			err := loadCredentials(true, "", "", source.SecretRef.Name)
+			if err != nil {
+				return nil, err
+			}
+			status.Deprecation(ctx, "spec.source.secretRef", "the 'spec.source.secretRef' is deprecated and will be removed in the next API version bump.")
+		}
+
+		for _, c := range source.Credentials {
+			err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	for _, c := range source.Credentials {
-		err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
+	return ret, nil
+}
+
+func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]ociRepoSecrets, error) {
+	if source == nil || source.Oci == nil {
+		return nil, nil
+	}
+
+	var ret []ociRepoSecrets
+
+	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
+		if repo == "" {
+			repo = "*"
+		}
+		var secret corev1.Secret
+		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		if err != nil {
+			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
+		}
+		ret = append(ret, ociRepoSecrets{
+			registry: registry,
+			repo:     repo,
+			secret:   secret,
+		})
+		return nil
+	}
+
+	for _, c := range source.Oci.Credentials {
+		err := loadCredentials(false, c.Registry, c.Repository, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +123,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 	return ret, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecrets []repoSecrets) (*auth.GitAuthProviders, error) {
+func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecrets []gitRepoSecrets) (*auth.GitAuthProviders, error) {
 	log := ctrl.LoggerFrom(ctx)
 	ga := auth.NewDefaultAuthProviders("KLUCTL_GIT", &messages.MessageCallbacks{
 		WarningFn: func(s string) {
@@ -119,7 +171,48 @@ func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecret
 	return ga, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildRepoCacheKey(secrets []repoSecrets) (string, error) {
+func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecrets []ociRepoSecrets) (*auth_provider.OciAuthProviders, error) {
+	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+
+	if len(ociSecrets) == 0 {
+		return ociAuthProvider, nil
+	}
+
+	var la auth_provider.ListAuthProvider
+	ociAuthProvider.RegisterAuthProvider(&la, false)
+
+	for _, secret := range ociSecrets {
+		e := auth_provider.AuthEntry{
+			Registry: secret.registry,
+			Repo:     secret.repo,
+		}
+
+		if x, ok := secret.secret.Data["username"]; ok {
+			e.AuthConfig.Username = string(x)
+		}
+		if x, ok := secret.secret.Data["password"]; ok {
+			e.AuthConfig.Password = string(x)
+		}
+		if x, ok := secret.secret.Data["auth"]; ok {
+			e.AuthConfig.Auth = string(x)
+		}
+		if x, ok := secret.secret.Data["identity_token"]; ok {
+			e.AuthConfig.IdentityToken = string(x)
+		}
+		if x, ok := secret.secret.Data["registry_token"]; ok {
+			e.AuthConfig.RegistryToken = string(x)
+		}
+		if x, ok := secret.secret.Data["insecure"]; ok {
+			x2 := string(x)
+			e.Insecure = utils.ParseBoolOrFalse(&x2)
+		}
+
+		la.AddEntry(e)
+	}
+	return ociAuthProvider, nil
+}
+
+func (r *KluctlDeploymentReconciler) buildGitRepoCacheKey(secrets []gitRepoSecrets) (string, error) {
 	// make sure we use a unique repo cache per set of credentials
 	h := sha256.New()
 	if len(secrets) == 0 {
@@ -141,8 +234,30 @@ func (r *KluctlDeploymentReconciler) buildRepoCacheKey(secrets []repoSecrets) (s
 	return h2, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []repoSecrets) (*repocache.GitRepoCache, error) {
-	key, err := r.buildRepoCacheKey(secrets)
+func (r *KluctlDeploymentReconciler) buildOciRepoCacheKey(secrets []ociRepoSecrets) (string, error) {
+	// make sure we use a unique repo cache per set of credentials
+	h := sha256.New()
+	if len(secrets) == 0 {
+		h.Write([]byte("no-secret"))
+	} else {
+		m := json.NewEncoder(h)
+		for _, secret := range secrets {
+			err := m.Encode(map[string]any{
+				"registry": secret.registry,
+				"repo":     secret.repo,
+				"data":     secret.secret.Data,
+			})
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+	h2 := hex.EncodeToString(h.Sum(nil))
+	return h2, nil
+}
+
+func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets) (*repocache.GitRepoCache, error) {
+	key, err := r.buildGitRepoCacheKey(secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +279,8 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 	return rc, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []repoSecrets) (*repocache.OciRepoCache, error) {
-	key, err := r.buildRepoCacheKey(secrets)
+func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets) (*repocache.OciRepoCache, error) {
+	key, err := r.buildOciRepoCacheKey(secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +293,11 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secr
 
 	ctx = utils.WithTmpBaseDir(ctx, tmpBaseDir)
 
-	rc := repocache.NewOciRepoCache(ctx, nil, 0)
+	ociAuthProvider, err := r.buildOciAuth(ctx, secrets)
+	if err != nil {
+		return nil, err
+	}
+
+	rc := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, 0)
 	return rc, nil
 }
