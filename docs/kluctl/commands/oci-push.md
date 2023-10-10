@@ -14,7 +14,7 @@ description: >
 Usage: kluctl oci push [flags]
 
 Push to an oci repository
-The push command creates a tarball from the given directory or the single file and uploads the
+The push command creates a tarball from the current project and uploads the
 artifact to an OCI repository. The command can read the credentials from '~/.docker/config.json' but they can also be
 passed with --creds. It can also login to a supported provider with the --provider flag.
 
