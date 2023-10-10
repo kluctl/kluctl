@@ -86,12 +86,12 @@ func prepareProject(ctx context.Context,
 
 	pp.tmpDir = tmpDir
 
-	gitSecrets, err := r.getGitSecrets(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
+	gitSecrets, err := r.getGitSecrets(ctx, pp.obj.Spec.Source, pp.obj.Spec.Credentials, obj.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
 
-	ociSecrets, err := r.getOciSecrets(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
+	ociSecrets, err := r.getOciSecrets(ctx, pp.obj.Spec.Credentials, obj.GetNamespace())
 	if err != nil {
 		return nil, err
 	}

@@ -132,19 +132,19 @@ func (suite *GitopsTestSuite) testGitOpsGitIncludeCredentials(legacyGitSource bo
 
 	patch := client.MergeFrom(kd.DeepCopy())
 
-	var credentials []v1beta1.ProjectSourceGitCredentials
+	var credentials []v1beta1.ProjectCredentialsGit
 
-	credentials = append(credentials, v1beta1.ProjectSourceGitCredentials{
+	credentials = append(credentials, v1beta1.ProjectCredentialsGit{
 		Host:       gs1.GitHost(),
 		PathPrefix: ip1.GitRepoName(),
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret2"},
 	})
-	credentials = append(credentials, v1beta1.ProjectSourceGitCredentials{
+	credentials = append(credentials, v1beta1.ProjectCredentialsGit{
 		Host:      mainGs.GitHost(),
 		SecretRef: v1beta1.LocalObjectReference{Name: "secret1"},
 	})
 	// make sure this one is ignored for http based urls
-	credentials = append(credentials, v1beta1.ProjectSourceGitCredentials{
+	credentials = append(credentials, v1beta1.ProjectCredentialsGit{
 		Host:      "*",
 		SecretRef: v1beta1.LocalObjectReference{Name: "secret1"},
 	})
@@ -152,7 +152,7 @@ func (suite *GitopsTestSuite) testGitOpsGitIncludeCredentials(legacyGitSource bo
 	if legacyGitSource {
 		kd.Spec.Source.Credentials = credentials
 	} else {
-		kd.Spec.Source.Git.Credentials = credentials
+		kd.Spec.Credentials.Git = credentials
 	}
 
 	err = suite.k.Client.Patch(context.Background(), &kd, patch, client.FieldOwner("kluctl"))

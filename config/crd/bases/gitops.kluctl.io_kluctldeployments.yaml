@@ -67,6 +67,74 @@ spec:
                   will effectively make kluctl ignore the context specified in the
                   target.
                 type: string
+              credentials:
+                description: Credentials specifies the credentials used when pulling
+                  sources
+                properties:
+                  git:
+                    description: Git specifies a list of git credentials
+                    items:
+                      properties:
+                        host:
+                          description: Host specifies the hostname that this secret
+                            applies to. If set to '*', this set of credentials applies
+                            to all hosts. Using '*' for http(s) based repositories
+                            is not supported, meaning that such credentials sets will
+                            be ignored. You must always set a proper hostname in that
+                            case.
+                          type: string
+                        pathPrefix:
+                          description: PathPrefix specified the path prefix to be
+                            used to filter source urls. Only urls that have this prefix
+                            will use this set of credentials.
+                          type: string
+                        secretRef:
+                          description: SecretRef specifies the Secret containing authentication
+                            credentials for the git repository. For HTTPS git repositories
+                            the Secret must contain 'username' and 'password' fields.
+                            For SSH git repositories the Secret must contain 'identity'
+                            and 'known_hosts' fields.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - secretRef
+                      type: object
+                    type: array
+                  oci:
+                    description: Oci specifies a list of OCI credentials
+                    items:
+                      properties:
+                        registry:
+                          description: Registry specifies the hostname that this secret
+                            applies to.
+                          type: string
+                        repository:
+                          description: Repository specifies the org and repo name
+                            in the format 'org-name/repo-name'. Both 'org-name' and
+                            'repo-name' can be specified as '*', meaning that all
+                            names are matched.
+                          type: string
+                        secretRef:
+                          description: SecretRef specifies the Secret containing authentication
+                            credentials for the oci repository. The secret must contain
+                            'username' and 'password'.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - secretRef
+                      type: object
+                    type: array
+                type: object
               decryption:
                 description: Decrypt Kubernetes secrets before applying them on the
                   cluster.
@@ -314,7 +382,7 @@ spec:
                   credentials:
                     description: Credentials specifies a list of secrets with credentials
                       DEPRECATED this field is deprecated and will be removed in a
-                      future version of the controller. Use git.credentials instead.
+                      future version of the controller. Use spec.credentials.git instead.
                     items:
                       properties:
                         host:
@@ -350,42 +418,6 @@ spec:
                   git:
                     description: Git specifies a git repository as project source
                     properties:
-                      credentials:
-                        description: Credentials specifies a list of secrets with
-                          credentials
-                        items:
-                          properties:
-                            host:
-                              description: Host specifies the hostname that this secret
-                                applies to. If set to '*', this set of credentials
-                                applies to all hosts. Using '*' for http(s) based
-                                repositories is not supported, meaning that such credentials
-                                sets will be ignored. You must always set a proper
-                                hostname in that case.
-                              type: string
-                            pathPrefix:
-                              description: PathPrefix specified the path prefix to
-                                be used to filter source urls. Only urls that have
-                                this prefix will use this set of credentials.
-                              type: string
-                            secretRef:
-                              description: SecretRef specifies the Secret containing
-                                authentication credentials for the git repository.
-                                For HTTPS git repositories the Secret must contain
-                                'username' and 'password' fields. For SSH git repositories
-                                the Secret must contain 'identity' and 'known_hosts'
-                                fields.
-                              properties:
-                                name:
-                                  description: Name of the referent.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                          required:
-                          - secretRef
-                          type: object
-                        type: array
                       path:
                         description: Path specifies the sub-directory to be used as
                           project directory
@@ -406,8 +438,9 @@ spec:
                             type: string
                         type: object
                       url:
-                        description: Url specifies the Git url where the project source
-                          is located
+                        description: URL specifies the Git url where the project source
+                          is located. If the given Git repository needs authentication,
+                          use spec.credentials.git to specify those.
                         type: string
                     required:
                     - url
@@ -415,36 +448,6 @@ spec:
                   oci:
                     description: Oci specifies an OCI repository as project source
                     properties:
-                      credentials:
-                        description: Credentials specifies a list of secrets with
-                          credentials
-                        items:
-                          properties:
-                            registry:
-                              description: Registry specifies the hostname that this
-                                secret applies to.
-                              type: string
-                            repository:
-                              description: Repository specifies the org and repo name
-                                in the format 'org-name/repo-name'. Both 'org-name'
-                                and 'repo-name' can be specified as '*', meaning that
-                                all names are matched.
-                              type: string
-                            secretRef:
-                              description: SecretRef specifies the Secret containing
-                                authentication credentials for the oci repository.
-                                The secret must contain 'username' and 'password'.
-                              properties:
-                                name:
-                                  description: Name of the referent.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                          required:
-                          - secretRef
-                          type: object
-                        type: array
                       path:
                         description: Path specifies the sub-directory to be used as
                           project directory
@@ -465,7 +468,8 @@ spec:
                         type: object
                       url:
                         description: Url specifies the Git url where the project source
-                          is located
+                          is located. If the given OCI repository needs authentication,
+                          use spec.credentials.oci to specify those.
                         type: string
                     required:
                     - url
@@ -473,13 +477,13 @@ spec:
                   path:
                     description: Path specifies the sub-directory to be used as project
                       directory DEPRECATED this field is deprecated and will be removed
-                      in a future version of the controller. Use git.path instead.
+                      in a future version of the controller. Use spec.git.path instead.
                     type: string
                   ref:
                     description: Ref specifies the branch, tag or commit that should
                       be used. If omitted, the default branch of the repo is used.
                       DEPRECATED this field is deprecated and will be removed in a
-                      future version of the controller. Use git.ref instead.
+                      future version of the controller. Use spec.git.ref instead.
                     properties:
                       branch:
                         description: Branch to use.
@@ -495,10 +499,10 @@ spec:
                     description: SecretRef specifies the Secret containing authentication
                       credentials for See ProjectSourceCredentials.SecretRef for details
                       DEPRECATED this field is deprecated and will be removed in a
-                      future version of the controller. Use Credentials instead. WARNING
-                      using this field causes the controller to pass http basic auth
-                      credentials to ALL repositories involved. Use Credentials with
-                      a proper Host field instead.
+                      future version of the controller. Use spec.credentials.git instead.
+                      WARNING using this field causes the controller to pass http
+                      basic auth credentials to ALL repositories involved. Use spec.credentials.git
+                      with a proper Host field instead.
                     properties:
                       name:
                         description: Name of the referent.
@@ -509,7 +513,7 @@ spec:
                   url:
                     description: Url specifies the Git url where the project source
                       is located DEPRECATED this field is deprecated and will be removed
-                      in a future version of the controller. Use git.url instead.
+                      in a future version of the controller. Use spec.git.url instead.
                     type: string
                 type: object
               suspend:

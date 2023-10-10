@@ -103,22 +103,22 @@ func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
 
 	patch := client.MergeFrom(kd.DeepCopy())
 
-	kd.Spec.Source.Oci.Credentials = append(kd.Spec.Source.Oci.Credentials, v1beta1.ProjectSourceOciCredentials{
+	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
 		Registry:   ociUrl0.Host,
 		Repository: "org0/repo0",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret0"},
 	})
-	kd.Spec.Source.Oci.Credentials = append(kd.Spec.Source.Oci.Credentials, v1beta1.ProjectSourceOciCredentials{
+	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
 		Registry:   ociUrl1.Host,
 		Repository: "org1/repo1",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret1"},
 	})
-	kd.Spec.Source.Oci.Credentials = append(kd.Spec.Source.Oci.Credentials, v1beta1.ProjectSourceOciCredentials{
+	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
 		Registry:   ociUrl2.Host,
 		Repository: "*/repo2",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret2"},
 	})
-	kd.Spec.Source.Oci.Credentials = append(kd.Spec.Source.Oci.Credentials, v1beta1.ProjectSourceOciCredentials{
+	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
 		Registry:   ociUrl3.Host,
 		Repository: "org3/*",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret3"},

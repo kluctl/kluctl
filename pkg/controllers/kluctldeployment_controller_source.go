@@ -34,11 +34,7 @@ type ociRepoSecrets struct {
 	secret   corev1.Secret
 }
 
-func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]gitRepoSecrets, error) {
-	if source == nil {
-		return nil, nil
-	}
-
+func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
 	var ret []gitRepoSecrets
 
 	loadCredentials := func(deprecatedSecret bool, host string, pathPrefix string, secretName string) error {
@@ -59,25 +55,21 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 		return nil
 	}
 
-	if source.Git != nil {
-		for _, c := range source.Git.Credentials {
-			err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
-			if err != nil {
-				return nil, err
-			}
+	for _, c := range credentials.Git {
+		err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
+		if err != nil {
+			return nil, err
 		}
-	} else if source.Oci == nil {
-		status.Deprecation(ctx, "spec.source.url", "'spec.source.url' is deprecated and will be removed in the next API version bump. Use 'spec.source.git.url' instead")
-
-		if source.SecretRef != nil {
-			// Attempt to retrieve deprecated secret
-			err := loadCredentials(true, "", "", source.SecretRef.Name)
-			if err != nil {
-				return nil, err
-			}
-			status.Deprecation(ctx, "spec.source.secretRef", "the 'spec.source.secretRef' is deprecated and will be removed in the next API version bump.")
+	}
+	if source.SecretRef != nil {
+		status.Deprecation(ctx, "spec.source.secretRef", "the 'spec.source.secretRef' is deprecated and will be removed in the next API version bump.")
+		err := loadCredentials(true, "", "", source.SecretRef.Name)
+		if err != nil {
+			return nil, err
 		}
-
+	}
+	if len(source.Credentials) != 0 {
+		status.Deprecation(ctx, "spec.source.credentials", "'spec.source.credentials' is deprecated and will be removed in the next API version bump. Use 'spec.credentials.git' instead")
 		for _, c := range source.Credentials {
 			err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
 			if err != nil {
@@ -89,11 +81,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 	return ret, nil
 }
 
-func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]ociRepoSecrets, error) {
-	if source == nil || source.Oci == nil {
-		return nil, nil
-	}
-
+func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credentials kluctlv1.ProjectCredentials, objNs string) ([]ociRepoSecrets, error) {
 	var ret []ociRepoSecrets
 
 	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
@@ -113,7 +101,7 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, source *
 		return nil
 	}
 
-	for _, c := range source.Oci.Credentials {
+	for _, c := range credentials.Oci {
 		err := loadCredentials(false, c.Registry, c.Repository, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
