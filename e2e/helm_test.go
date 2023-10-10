@@ -118,7 +118,7 @@ func TestHelmPull(t *testing.T) {
 		{name: "oci", oci: true},
 		{name: "oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
 			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"},
-			expectedError: "OCI charts can currently only be authenticated via registry login and not via cli arguments"},
+			expectedError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments"},
 	}
 
 	for _, tc := range tests {
