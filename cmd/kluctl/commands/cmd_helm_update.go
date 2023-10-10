@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -49,6 +50,12 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuthProvider := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuthProvider.RegisterAuthProvider(x, false)
+	}
 
 	if cmd.Commit {
 		gitStatus, err := git2.GetWorktreeStatus(ctx, gitRootPath)
@@ -71,13 +78,13 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 	g := utils.NewGoHelper(ctx, 8)
 
-	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, &cmd.HelmCredentials, ociAuthProvider)
+	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider)
 	if err != nil {
 		return err
 	}
 
 	if cmd.Commit {
-		actions, err := doHelmPull(ctx, projectDir, &cmd.HelmCredentials, ociAuthProvider, true, false)
+		actions, err := doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, true, false)
 		if err != nil {
 			return err
 		}
@@ -192,7 +199,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	for k, hrs := range upgrades {
-		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion, ociAuthProvider)
+		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion, helmAuthProvider, ociAuthProvider)
 		if err != nil {
 			return err
 		}
@@ -222,7 +229,7 @@ func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]os.
 	return err
 }
 
-func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string, ociAuthProvider *auth_provider.OciAuthProviders) error {
+func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider *auth_provider.OciAuthProviders) error {
 	chart := hrs[0].Chart
 	newVersion := hrs[0].Config.ChartVersion
 
@@ -267,7 +274,7 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 		}
 	}
 
-	_, err = doHelmPull(ctx, projectDir, &cmd.HelmCredentials, ociAuthProvider, false, false)
+	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, false, false)
 	if err != nil {
 		return doError(err)
 	}

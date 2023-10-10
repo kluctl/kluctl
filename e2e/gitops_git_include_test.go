@@ -21,8 +21,8 @@ func (suite *GitopsTestSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 
 	p, _, _ := prepareGitIncludeTest(suite.T(), suite.k, mainGs, gs1, gs2)
 
-	key := suite.createKluctlDeployment2(p, "test", nil, v1beta1.ProjectSource{
-		URL: types2.ParseGitUrlMust(p.GitUrl()),
+	key := suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
+		kd.Spec.Source.URL = types2.ParseGitUrlMust(p.GitUrl())
 	})
 
 	suite.Run("fail without authentication", func() {
@@ -87,8 +87,8 @@ func (suite *GitopsTestSuite) testGitOpsGitIncludeCredentials(legacyGitSource bo
 
 	var key client.ObjectKey
 	if legacyGitSource {
-		key = suite.createKluctlDeployment2(p, "test", nil, v1beta1.ProjectSource{
-			URL: types2.ParseGitUrlMust(p.GitUrl()),
+		key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
+			kd.Spec.Source.URL = types2.ParseGitUrlMust(p.GitUrl())
 		})
 	} else {
 		key = suite.createKluctlDeployment(p, "test", nil)

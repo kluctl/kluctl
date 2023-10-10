@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 	"testing"
 	"time"
 
@@ -166,14 +165,14 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 }
 
 func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
-	return suite.createKluctlDeployment2(p, target, args, kluctlv1.ProjectSource{
-		Git: &kluctlv1.ProjectSourceGit{
+	return suite.createKluctlDeployment2(p, target, args, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.Source.Git = &kluctlv1.ProjectSourceGit{
 			URL: *types2.ParseGitUrlMust(p.GitUrl()),
-		},
+		}
 	})
 }
 
-func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProject, target string, args map[string]any, source kluctlv1.ProjectSource) client.ObjectKey {
+func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProject, target string, args map[string]any, modify ...func(kd *kluctlv1.KluctlDeployment)) client.ObjectKey {
 	gitopsNs := p.TestSlug() + "-gitops"
 	createNamespace(suite.T(), suite.k, gitopsNs)
 
@@ -194,8 +193,13 @@ func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProjec
 			Args: &runtime.RawExtension{
 				Raw: jargs,
 			},
-			Source: source,
 		},
+	}
+
+	for _, m := range modify {
+		if m != nil {
+			m(kluctlDeployment)
+		}
 	}
 
 	err = suite.k.Client.Create(context.Background(), kluctlDeployment)
@@ -353,170 +357,6 @@ data:
 			return cm.Data["k1"] == "v1"
 		}, timeout, time.Second).Should(BeTrue())
 	})
-}
-
-func (suite *GitopsTestSuite) TestKluctlDeploymentReconciler_Helm() {
-	g := NewWithT(suite.T())
-
-	p := test_project.NewTestProject(suite.T())
-	createNamespace(suite.T(), suite.k, p.TestSlug())
-
-	p.UpdateTarget("target1", nil)
-
-	repoUrl := test_utils.CreateHelmRepo(suite.T(), []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
-	repoUrlWithCreds := test_utils.CreateHelmRepo(suite.T(), []test_utils.RepoChart{
-		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "test-user", "test-password")
-	ociRepoUrlWithCreds := test_utils.CreateHelmOciRepo(suite.T(), []test_utils.RepoChart{
-		{ChartName: "test-chart3", Version: "0.1.0"},
-	}, "test-user", "test-password")
-
-	p.AddHelmDeployment("d1", repoUrl, "test-chart1", "0.1.0", "test-helm-1", p.TestSlug(), nil)
-	p.UpdateYaml("d1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
-		return nil
-	}, "")
-
-	key := suite.createKluctlDeployment(p, "target1", map[string]any{
-		"namespace": p.TestSlug(),
-	})
-
-	suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-
-	cm := &corev1.ConfigMap{}
-
-	suite.Run("chart got deployed", func() {
-		err := suite.k.Client.Get(context.TODO(), client.ObjectKey{
-			Name:      "test-helm-1-test-chart1",
-			Namespace: p.TestSlug(),
-		}, cm)
-		g.Expect(err).To(Succeed())
-		g.Expect(cm.Data).To(HaveKeyWithValue("a", "v1"))
-	})
-
-	p.AddHelmDeployment("d2", repoUrlWithCreds, "test-chart2", "0.1.0", "test-helm-2", p.TestSlug(), nil)
-	p.UpdateYaml("d2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
-		return nil
-	}, "")
-
-	kd := &kluctlv1.KluctlDeployment{}
-
-	suite.Run("chart with credentials fails with 401", func() {
-		g.Eventually(func() bool {
-			err := suite.k.Client.Get(context.TODO(), key, kd)
-			g.Expect(err).To(Succeed())
-			for _, c := range kd.Status.Conditions {
-				_ = c
-				if c.Type == "Ready" && c.Reason == "PrepareFailed" && strings.Contains(c.Message, "401 Unauthorized") {
-					return true
-				}
-			}
-			return false
-		}, timeout, time.Second).Should(BeTrue())
-	})
-
-	credsSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: key.Namespace,
-			Name:      "helm-secrets-1",
-		},
-		Data: map[string][]byte{
-			"url":      []byte(repoUrlWithCreds),
-			"username": []byte("test-user"),
-			"password": []byte("test-password"),
-		},
-	}
-	err := suite.k.Client.Create(context.TODO(), credsSecret)
-	g.Expect(err).To(Succeed())
-
-	suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-		kd.Spec.HelmCredentials = append(kd.Spec.HelmCredentials, kluctlv1.HelmCredentials{SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"}})
-	})
-
-	suite.Run("chart with credentials succeeds", func() {
-		g.Eventually(func() bool {
-			err := suite.k.Client.Get(context.TODO(), client.ObjectKey{
-				Name:      "test-helm-2-test-chart2",
-				Namespace: p.TestSlug(),
-			}, cm)
-			if err != nil {
-				return false
-			}
-			g.Expect(cm.Data).To(HaveKeyWithValue("a", "v1"))
-			return true
-		}, timeout, time.Second).Should(BeTrue())
-	})
-
-	p.AddHelmDeployment("d3", ociRepoUrlWithCreds, "test-chart3", "0.1.0", "test-helm-3", p.TestSlug(), nil)
-	p.UpdateYaml("d3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
-		return nil
-	}, "")
-
-	suite.Run("OCI chart with credentials fails with 401", func() {
-		g.Eventually(func() bool {
-			err = suite.k.Client.Get(context.TODO(), key, kd)
-			g.Expect(err).To(Succeed())
-			for _, c := range kd.Status.Conditions {
-				_ = c
-				if c.Type == "Ready" && c.Reason == "PrepareFailed" && strings.Contains(c.Message, "401 Unauthorized") {
-					return true
-				}
-			}
-			return false
-		}, timeout, time.Second).Should(BeTrue())
-	})
-
-	/*
-		TODO enable this when Kluctl supports OCI authentication
-		url, err := url2.Parse(ociRepoUrlWithCreds)
-		g.Expect(err).To(Succeed())
-
-		dockerJson := map[string]any{
-			"auths": map[string]any{
-				url.Host: map[string]any{
-					"username": "test-user",
-					"password": "test-password,",
-					"auth":     base64.StdEncoding.EncodeToString([]byte("test-user:test-password")),
-				},
-			},
-		}
-		dockerJsonStr, err := json.Marshal(dockerJson)
-		g.Expect(err).To(Succeed())
-
-		credsSecret2 := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "helm-secrets-2",
-			},
-			Data: map[string][]byte{
-				"url":               []byte(ociRepoUrlWithCreds),
-				".dockerconfigjson": dockerJsonStr,
-			},
-		}
-		err = k.Client.Create(context.TODO(), credsSecret2)
-		g.Expect(err).To(Succeed())
-
-		kluctlDeployment.Spec.HelmCredentials = append(kluctlDeployment.Spec.HelmCredentials, flux_utils.LocalObjectReference{Name: "helm-secrets-2"})
-		err = k.Client.Update(context.TODO(), kluctlDeployment)
-		g.Expect(err).To(Succeed())
-
-		t.Run("OCI chart with credentials succeeds", func(t *testing.T) {
-			g.Eventually(func() bool {
-				err := k.Client.Get(context.TODO(), client.ObjectKey{
-					Name:      "test-helm-3-test-chart3",
-					Namespace: namespace,
-				}, cm)
-				if err != nil {
-					return false
-				}
-				g.Expect(cm.Data).To(HaveKeyWithValue("a", "v1"))
-				return true
-			}, timeout, time.Second).Should(BeTrue())
-		})*/
 }
 
 func (suite *GitopsTestSuite) TestKluctlDeploymentReconciler_Prune() {

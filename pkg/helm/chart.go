@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -25,30 +26,26 @@ import (
 	"strings"
 )
 
-type HelmCredentialsProvider interface {
-	FindCredentials(repoUrl string, credentialsId *string) *repo.Entry
-}
-
 type Chart struct {
 	repo      string
 	localPath string
 	chartName string
 
-	credentials   HelmCredentialsProvider
-	credentialsId string
+	helmAuthProvider auth.HelmAuthProvider
+	credentialsId    string
 
 	ociAuthProvider auth_provider.OciAuthProvider
 
 	versions []string
 }
 
-func NewChart(repo string, localPath string, chartName string, credentialsProvider HelmCredentialsProvider, credentialsId string, ociAuthProvider auth_provider.OciAuthProvider) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, helmAuthProvider auth.HelmAuthProvider, credentialsId string, ociAuthProvider auth_provider.OciAuthProvider) (*Chart, error) {
 	hc := &Chart{
-		repo:            repo,
-		localPath:       localPath,
-		credentials:     credentialsProvider,
-		credentialsId:   credentialsId,
-		ociAuthProvider: ociAuthProvider,
+		repo:             repo,
+		localPath:        localPath,
+		helmAuthProvider: helmAuthProvider,
+		credentialsId:    credentialsId,
+		ociAuthProvider:  ociAuthProvider,
 	}
 
 	if localPath == "" && repo == "" {
@@ -170,6 +167,11 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 		return nil, fmt.Errorf("can not pull local charts")
 	}
 
+	u, err := url.Parse(c.repo)
+	if err != nil {
+		return nil, err
+	}
+
 	tmpPullDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), c.chartName+"-pull-")
 	if err != nil {
 		return nil, err
@@ -190,26 +192,21 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 		if registry.IsOCI(c.repo) {
 			return nil, fmt.Errorf("OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments")
 		}
-		if c.credentials == nil {
-			return nil, fmt.Errorf("no credentials provider")
-		}
 	}
 
-	if c.credentials != nil {
-		p := &c.credentialsId
-		if c.credentialsId == "" {
-			p = nil
-		}
-		creds := c.credentials.FindCredentials(c.repo, p)
-		if creds != nil {
-			a.Username = creds.Username
-			a.Password = creds.Password
-			a.CertFile = creds.CertFile
-			a.CaFile = creds.CAFile
-			a.KeyFile = creds.KeyFile
-			a.InsecureSkipTLSverify = creds.InsecureSkipTLSverify
-			a.PassCredentialsAll = creds.PassCredentialsAll
-		}
+	creds, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
+	if err != nil {
+		return nil, err
+	}
+	defer cf()
+	if creds != nil {
+		a.Username = creds.Username
+		a.Password = creds.Password
+		a.CertFile = creds.CertFile
+		a.CaFile = creds.CAFile
+		a.KeyFile = creds.KeyFile
+		a.InsecureSkipTLSverify = creds.InsecureSkipTLSverify
+		a.PassCredentialsAll = creds.PassCredentialsAll
 	}
 
 	var out string
@@ -391,16 +388,20 @@ func (c *Chart) queryVersionsOci(ctx context.Context) error {
 func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
 	settings := cli.New()
 
-	var e *repo.Entry
-	if c.credentialsId != "" {
-		if c.credentials == nil {
-			return fmt.Errorf("no credentials provider")
+	u, err := url.Parse(c.repo)
+	if err != nil {
+		return err
+	}
+
+	e, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
+	if err != nil {
+		return err
+	}
+	defer cf()
+	if e == nil {
+		if c.credentialsId != "" {
+			return fmt.Errorf("no credentials found for Chart %s", c.chartName)
 		}
-		e = c.credentials.FindCredentials(c.repo, &c.credentialsId)
-		if e == nil {
-			return fmt.Errorf("no credentials provided for Chart %s", c.chartName)
-		}
-	} else {
 		e = &repo.Entry{
 			URL: c.repo,
 		}

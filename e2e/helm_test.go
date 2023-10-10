@@ -15,31 +15,107 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
-func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, user string, password string) string {
+func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, path string, user string, password string) string {
 	if oci {
 		return test_utils.CreateHelmOciRepo(t, charts, user, password)
 	} else {
-		return test_utils.CreateHelmRepo(t, charts, user, password)
+		return test_utils.CreateHelmRepo(t, charts, path, user, password)
 	}
 }
 
-type testCase struct {
-	name          string
-	oci           bool
-	testAuth      bool
-	credsId       string
-	extraArgs     []string
+type helmTestCase struct {
+	path     string
+	name     string
+	oci      bool
+	testAuth bool
+	credsId  string
+
+	argCredsId   string
+	argCredsHost string
+	argCredsPath string
+	argUsername  string
+	argPassword  string
+
 	expectedError string
 }
 
-func testHelmPull(t *testing.T, tc testCase, prePull bool) {
-	t.Parallel()
+var helmTests = []helmTestCase{
+	{name: "helm-no-creds"},
+	{name: "oci-no-creds", oci: true},
 
-	k := defaultCluster1
+	// deprecated helm credentials flags
+	{
+		name: "dep-helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "dep-helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
+		argCredsId: "test-creds", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "dep-helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
+		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
+	},
+	{
+		name: "dep-oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
+		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments",
+	},
 
+	// new helm credentials flags
+	{
+		name: "helm-creds-missing", oci: false, testAuth: true,
+		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized"},
+	{
+		name: "helm-creds-invalid", oci: false, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-valid", oci: false, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "secret-password",
+	},
+	{
+		name: "helm-creds-missing-path", oci: false, testAuth: true, path: "path1",
+		argCredsHost: "<host>", argCredsPath: "path2", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-invalid-path", oci: false, testAuth: true, path: "path1",
+		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-valid-path", oci: false, testAuth: true, path: "path1",
+		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "secret-password",
+	},
+}
+
+func buildHelmTestExtraArgs(tc helmTestCase, repoUrl string) []string {
+	u, _ := url.Parse(repoUrl)
+
+	var ret []string
+	if tc.argCredsId != "" {
+		ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
+		ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
+	} else if tc.argCredsHost != "" {
+		r := strings.ReplaceAll(tc.argCredsHost, "<host>", u.Host)
+		if tc.argCredsPath != "" {
+			r += "/" + tc.argCredsPath
+		}
+		ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
+		ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
+	}
+	return ret
+}
+
+func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool) (*test_project.TestProject, url.URL, error) {
 	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
@@ -53,7 +129,11 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, tc.oci, user, password)
+	}, tc.oci, tc.path, user, password)
+	repoUrl2, err := url.Parse(repoUrl)
+	assert.NoError(t, err)
+
+	extraArgs := buildHelmTestExtraArgs(tc, repoUrl)
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -69,16 +149,18 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	if prePull {
 		args := []string{"helm-pull"}
-		args = append(args, tc.extraArgs...)
+		args = append(args, extraArgs...)
 
 		_, stderr, err := p.Kluctl(args...)
 		if tc.expectedError != "" {
 			assert.Error(t, err)
 			assert.Contains(t, stderr, tc.expectedError)
-			return
+			return p, *repoUrl2, err
 		} else {
 			assert.NoError(t, err)
 			assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
+
+			p.GitServer().CommitFiles(p.GitRepoName(), []string{".helm-charts"}, true, "helm-pull")
 		}
 	} else {
 		p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
@@ -87,8 +169,24 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 		}, "")
 	}
 
+	return p, *repoUrl2, nil
+}
+
+func testHelmPull(t *testing.T, tc helmTestCase, prePull bool) {
+	t.Parallel()
+
+	k := defaultCluster1
+	p, repoUrl, err := prepareHelmTestCase(t, k, tc, prePull)
+	if err != nil {
+		if tc.expectedError == "" {
+			assert.Fail(t, "did not expect error")
+		}
+		return
+	}
+
 	args := []string{"deploy", "--yes", "-t", "test"}
-	args = append(args, tc.extraArgs...)
+	args = append(args, buildHelmTestExtraArgs(tc, repoUrl.String())...)
+
 	_, stderr, err := p.Kluctl(args...)
 	pullMessage := "Pulling Helm Chart test-chart1 with version 0.1.0"
 	if prePull {
@@ -106,26 +204,18 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 }
 
 func TestHelmPull(t *testing.T) {
-	tests := []testCase{
-		{name: "helm-no-creds"},
-		{name: "helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
-			expectedError: "401 Unauthorized"},
-		{name: "helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
-			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:invalid"},
-			expectedError: "401 Unauthorized"},
-		{name: "helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
-			extraArgs: []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"}},
-		{name: "oci", oci: true},
-		{name: "oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
-			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"},
-			expectedError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments"},
-	}
-
-	for _, tc := range tests {
+	for _, tc := range helmTests {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			testHelmPull(t, tc, false)
 		})
-		t.Run(tc.name+"-prepull", func(t *testing.T) {
+	}
+}
+
+func TestHelmPrePull(t *testing.T) {
+	for _, tc := range helmTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
 			testHelmPull(t, tc, true)
 		})
 	}
@@ -143,7 +233,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart1", Version: "0.2.0"},
-	}, oci, "", "")
+	}, oci, "", "", "")
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -191,7 +281,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 		{ChartName: "test-chart1", Version: "0.2.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.3.0"},
-	}, oci, "", "")
+	}, oci, "", "", "")
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -308,7 +398,7 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 		{ChartName: "test-chart1", Version: "1.1.0"},
 		{ChartName: "test-chart1", Version: "1.1.1"},
 		{ChartName: "test-chart1", Version: "1.2.1"},
-	}, oci, "", "")
+	}, oci, "", "", "")
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -367,7 +457,7 @@ func TestHelmValues(t *testing.T) {
 	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "", "")
+	}, "", "", "")
 
 	values1 := map[string]any{
 		"data": map[string]any{
@@ -434,7 +524,7 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "", "")
+	}, "", "", "")
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.TestSlug(), nil)
@@ -462,7 +552,7 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 
 	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
+	}, "", "", "")
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -530,7 +620,7 @@ func TestHelmSkipPrePull(t *testing.T) {
 		{ChartName: "test-chart1", Version: "0.1.0"},
 		{ChartName: "test-chart1", Version: "0.1.1"},
 		{ChartName: "test-chart1", Version: "0.2.0"},
-	}, false, "", "")
+	}, false, "", "", "")
 	u, _ := url.Parse(repoUrl)
 
 	p.UpdateTarget("test", nil)
@@ -610,7 +700,7 @@ func getChartDir(t *testing.T, p *test_project.TestProject, url2 string, chartNa
 	if u.Scheme == "oci" {
 		dir = filepath.Join(p.LocalProjectDir(), ".helm-charts", fmt.Sprintf("%s_%s", u.Scheme, u.Hostname()), chartName)
 	} else {
-		dir = filepath.Join(p.LocalProjectDir(), ".helm-charts", fmt.Sprintf("%s_%s_%s", u.Scheme, u.Port(), u.Hostname()), chartName)
+		dir = filepath.Join(p.LocalProjectDir(), ".helm-charts", fmt.Sprintf("%s_%s_%s", u.Scheme, u.Port(), u.Hostname()), u.Path, chartName)
 	}
 	if chartVersion != "" {
 		dir = filepath.Join(dir, chartVersion)
@@ -657,7 +747,7 @@ func TestHelmLookup(t *testing.T) {
 
 	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
+	}, "", "", "")
 
 	values1 := map[string]any{
 		"lookup":          true,

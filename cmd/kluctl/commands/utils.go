@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -30,7 +31,7 @@ import (
 	"strings"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
@@ -104,6 +105,12 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 	ociAuth := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuth := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := helmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuth.RegisterAuthProvider(x, false)
+	}
 
 	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, gitRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
@@ -138,6 +145,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		GitRP:              gitRp,
 		OciRP:              ociRp,
 		OciAuthProvider:    ociAuth,
+		HelmAuthProvider:   helmAuth,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 
@@ -177,7 +185,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, &args.helmCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
@@ -218,8 +226,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		ForSeal:            args.forSeal,
 		Images:             images,
 		Inclusion:          inclusion,
-		HelmCredentials:    &args.helmCredentials,
 		OciAuthProvider:    p.LoadArgs.OciAuthProvider,
+		HelmAuthProvider:   p.LoadArgs.HelmAuthProvider,
 		RenderOutputDir:    renderOutputDir,
 	}
 

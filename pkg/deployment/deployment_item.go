@@ -191,7 +191,7 @@ func (di *DeploymentItem) newHelmRelease(subDir string) (*helm.Release, error) {
 		helmChartsDir = filepath.Join(di.Project.source.dir, ".helm-charts")
 	}
 
-	hr, err := helm.NewRelease(di.Project.source.dir, filepath.Join(di.RelToSourceItemDir, subDir), configPath, helmChartsDir, di.ctx.HelmCredentials, di.ctx.OciAuthProvider)
+	hr, err := helm.NewRelease(di.ctx.Ctx, di.Project.source.dir, filepath.Join(di.RelToSourceItemDir, subDir), configPath, helmChartsDir, di.ctx.HelmAuthProvider, di.ctx.OciAuthProvider)
 	if err != nil {
 		return nil, err
 	}

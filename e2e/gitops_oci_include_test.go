@@ -57,12 +57,11 @@ func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
 	}))
 	p.KluctlMust("oci", "push", "--url", repo0, "--creds", "user0:pass0")
 
-	key := suite.createKluctlDeployment2(p, "test", nil, v1beta1.ProjectSource{
-		Oci: &v1beta1.ProjectSourceOci{
+	var key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
+		kd.Spec.Source.Oci = &v1beta1.ProjectSourceOci{
 			URL: repo0,
-		},
+		}
 	})
-
 	suite.Run("fail without authentication", func() {
 		suite.waitForCommit(key, "")
 

@@ -50,10 +50,7 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 		if e.Host != "*" && e.Host != gitUrl.Host {
 			continue
 		}
-		urlPath := gitUrl.Path
-		if strings.HasPrefix(urlPath, "/") {
-			urlPath = urlPath[1:]
-		}
+		urlPath := strings.TrimPrefix(gitUrl.Path, "/")
 		if !strings.HasPrefix(urlPath, e.PathPrefix) {
 			continue
 		}

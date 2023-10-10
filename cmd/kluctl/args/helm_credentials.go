@@ -1,83 +1,103 @@
 package args
 
 import (
+	"context"
+	"fmt"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"os"
 	"strings"
-
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/repo"
 )
 
 type HelmCredentials struct {
-	HelmUsername              []string `group:"misc" help:"Specify username to use for Helm Repository authentication. Must be in the form --helm-username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmPassword              []string `group:"misc" help:"Specify password to use for Helm Repository authentication. Must be in the form --helm-password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmKeyFile               []string `group:"misc" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --helm-key-file=<credentialsId>:<path>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmInsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmUsername              []string `group:"misc" help:"Specify username to use for Helm Repository authentication. Must be in the form --helm-username=<host>/<path>=<username> or in the deprecated form --helm-username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmPassword              []string `group:"misc" help:"Specify password to use for Helm Repository authentication. Must be in the form --helm-password=<host>/<path>=<password> or in the deprecated form --helm-password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmKeyFile               []string `group:"misc" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --helm-key-file=<host>/<path>=<filePath> or in the deprecated form --helm-key-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmInsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<host>/<path> or in the deprecated form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 }
 
-func (c *HelmCredentials) FindCredentials(repoUrl string, credentialsId *string) *repo.Entry {
-	if credentialsId != nil {
-		splitIdAndValue := func(s string) (string, bool) {
-			x := strings.SplitN(s, ":", 2)
-			if len(x) < 0 {
-				return "", false
-			}
-			if x[0] != *credentialsId {
-				return "", false
-			}
-			return x[1], true
-		}
+func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.HelmAuthProvider, error) {
+	la := &helm_auth.ListAuthProvider{}
+	if c == nil {
+		return la, nil
+	}
 
-		var e repo.Entry
-		for _, x := range c.HelmUsername {
-			if v, ok := splitIdAndValue(x); ok {
-				e.Username = v
-			}
-		}
-		for _, x := range c.HelmPassword {
-			if v, ok := splitIdAndValue(x); ok {
-				e.Password = v
-			}
-		}
-		for _, x := range c.HelmKeyFile {
-			if v, ok := splitIdAndValue(x); ok {
-				e.KeyFile = v
-			}
-		}
-		for _, x := range c.HelmInsecureSkipTlsVerify {
-			if x == *credentialsId {
-				e.InsecureSkipTLSverify = true
-			}
-		}
+	byCredentialId := map[string]*helm_auth.AuthEntry{}
+	byHostPath := map[string]*helm_auth.AuthEntry{}
 
-		if e != (repo.Entry{}) {
-			e.URL = repoUrl
-			return &e
+	getEntry := func(s string) (*helm_auth.AuthEntry, string, error) {
+		x1 := strings.SplitN(s, "=", 2)
+		x2 := strings.SplitN(s, ":", 2) // deprecated
+		if len(x1) == 2 {
+			k := x1[0]
+			e, ok := byHostPath[k]
+			if !ok {
+				x := strings.SplitN(k, "/", 2)
+				e = &helm_auth.AuthEntry{}
+				if len(x) == 2 {
+					e.Host = x[0]
+					e.Path = x[1]
+				} else {
+					e.Host = x[0]
+				}
+				byHostPath[k] = e
+			}
+			return e, x1[1], nil
+		} else if len(x2) == 2 {
+			status.Deprecation(ctx, "helm-credential-args-id", "Passing Helm credentials via credentialsId is deprecated and support for it will be removed in a future version of Kluctl. Please switch to using the <host>/<path>=value format.")
+			k := x2[0]
+			e, ok := byCredentialId[k]
+			if !ok {
+				e = &helm_auth.AuthEntry{
+					CredentialsId: k,
+				}
+				byCredentialId[k] = e
+			}
+			return e, x2[1], nil
+		} else {
+			return nil, "", fmt.Errorf("invalid parameter format")
 		}
 	}
 
-	env := cli.New()
-
-	f, err := repo.LoadFile(env.RepositoryConfig)
-	if err != nil {
-		return nil
+	for _, s := range c.HelmUsername {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.Username = v
+	}
+	for _, s := range c.HelmPassword {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.Password = v
+	}
+	for _, s := range c.HelmKeyFile {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.Key, err = os.ReadFile(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, s := range c.HelmInsecureSkipTlsVerify {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.InsecureSkipTLSverify = utils.ParseBoolOrFalse(v)
 	}
 
-	removeTrailingSlash := func(s string) string {
-		if len(s) == 0 {
-			return s
-		}
-		if s[len(s)-1] == '/' {
-			return s[:len(s)-1]
-		}
-		return s
+	for _, e := range byCredentialId {
+		la.AddEntry(*e)
 	}
-	repoUrl = removeTrailingSlash(repoUrl)
-
-	for _, e := range f.Repositories {
-		if removeTrailingSlash(e.URL) == repoUrl {
-			return e
-		}
+	for _, e := range byHostPath {
+		la.AddEntry(*e)
 	}
 
-	return nil
+	return la, nil
 }

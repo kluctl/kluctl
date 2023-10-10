@@ -6,7 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -43,7 +43,7 @@ type TargetContextParams struct {
 	ForSeal            bool
 	Images             *deployment.Images
 	Inclusion          *utils.Inclusion
-	HelmCredentials    helm.HelmCredentialsProvider
+	HelmAuthProvider   helm_auth.HelmAuthProvider
 	OciAuthProvider    auth_provider.OciAuthProvider
 	RenderOutputDir    string
 }
@@ -122,7 +122,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		OciRP:                             p.OciRP,
 		SopsDecrypter:                     sopsDecryptor,
 		VarsLoader:                        varsLoader,
-		HelmCredentials:                   params.HelmCredentials,
+		HelmAuthProvider:                  params.HelmAuthProvider,
 		OciAuthProvider:                   params.OciAuthProvider,
 		Discriminator:                     target.Discriminator,
 		RenderDir:                         params.RenderOutputDir,

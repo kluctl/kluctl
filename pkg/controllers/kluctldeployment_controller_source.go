@@ -9,15 +9,18 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	"net/url"
 	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 type gitRepoSecrets struct {
@@ -32,6 +35,13 @@ type ociRepoSecrets struct {
 	registry string
 	repo     string
 	secret   corev1.Secret
+}
+
+type helmRepoSecrets struct {
+	credentialsId string
+	host          string
+	path          string
+	secret        corev1.Secret
 }
 
 func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
@@ -105,6 +115,55 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credenti
 		err := loadCredentials(false, c.Registry, c.Repository, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	return ret, nil
+}
+
+func (r *KluctlDeploymentReconciler) getHelmSecrets(ctx context.Context, obj *kluctlv1.KluctlDeployment, objNs string) ([]helmRepoSecrets, error) {
+	var ret []helmRepoSecrets
+
+	loadCredentials := func(host string, path string, secretName string) error {
+		var secret corev1.Secret
+		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		if err != nil {
+			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
+		}
+		ret = append(ret, helmRepoSecrets{
+			host:   host,
+			path:   path,
+			secret: secret,
+		})
+		return nil
+	}
+
+	for _, c := range obj.Spec.Credentials.Helm {
+		err := loadCredentials(c.Host, c.Path, c.SecretRef.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, c := range obj.Spec.HelmCredentials {
+		err := loadCredentials("", "", c.SecretRef.Name)
+		if err != nil {
+			return nil, err
+		}
+		e := &ret[len(ret)-1]
+		cid := e.secret.Data["credentialsId"]
+		u := e.secret.Data["url"]
+		if cid != nil {
+			e.credentialsId = string(cid)
+		}
+		if u != nil {
+			u2, err := url.Parse(string(u))
+			if err != nil {
+				return nil, err
+			}
+			e.host = u2.Host
+			e.path = strings.TrimPrefix(u2.Path, "/")
+			e.path = strings.TrimSuffix(e.path, "/")
 		}
 	}
 
@@ -191,13 +250,60 @@ func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecret
 			e.AuthConfig.RegistryToken = string(x)
 		}
 		if x, ok := secret.secret.Data["insecure"]; ok {
-			x2 := string(x)
-			e.Insecure = utils.ParseBoolOrFalse(&x2)
+			e.Insecure = utils.ParseBoolOrFalse(string(x))
 		}
 
 		la.AddEntry(e)
 	}
 	return ociAuthProvider, nil
+}
+
+func (r *KluctlDeploymentReconciler) buildHelmAuth(ctx context.Context, helmSecrets []helmRepoSecrets) (helm_auth.HelmAuthProvider, error) {
+	authProvider := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+
+	var la helm_auth.ListAuthProvider
+	authProvider.RegisterAuthProvider(&la, false)
+
+	for _, secret := range helmSecrets {
+		e := helm_auth.AuthEntry{
+			CredentialsId: secret.credentialsId,
+			Host:          secret.host,
+			Path:          secret.path,
+		}
+
+		if x, ok := secret.secret.Data["username"]; ok {
+			e.Username = string(x)
+		}
+		if x, ok := secret.secret.Data["password"]; ok {
+			e.Password = string(x)
+		}
+		if x, ok := secret.secret.Data["cert"]; ok {
+			e.Cert = x
+		} else if x, ok := secret.secret.Data["certFile"]; ok {
+			e.Cert = x
+		}
+		if x, ok := secret.secret.Data["key"]; ok {
+			e.Key = x
+		} else if x, ok := secret.secret.Data["keyFile"]; ok {
+			e.Key = x
+		}
+		if x, ok := secret.secret.Data["ca"]; ok {
+			e.CA = x
+		} else if x, ok := secret.secret.Data["caFile"]; ok {
+			e.CA = x
+		}
+		if x, ok := secret.secret.Data["insecure"]; ok {
+			e.InsecureSkipTLSverify = utils.ParseBoolOrFalse(string(x))
+		} else if x, ok := secret.secret.Data["insecureSkipTlsVerify"]; ok {
+			e.InsecureSkipTLSverify = utils.ParseBoolOrFalse(string(x))
+		}
+		if x, ok := secret.secret.Data["passCredentialsAll"]; ok {
+			e.PassCredentialsAll = utils.ParseBoolOrFalse(string(x))
+		}
+
+		la.AddEntry(e)
+	}
+	return authProvider, nil
 }
 
 func (r *KluctlDeploymentReconciler) buildGitRepoCacheKey(secrets []gitRepoSecrets) (string, error) {

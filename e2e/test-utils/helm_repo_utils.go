@@ -76,12 +76,12 @@ type RepoChart struct {
 	Version   string
 }
 
-func CreateHelmRepo(t *testing.T, charts []RepoChart, username string, password string) string {
+func CreateHelmRepo(t *testing.T, charts []RepoChart, path string, username string, password string) string {
 	tmpDir := t.TempDir()
 
 	for _, c := range charts {
 		tgz := createHelmPackage(t, c.ChartName, c.Version)
-		_ = cp.Copy(tgz, filepath.Join(tmpDir, filepath.Base(tgz)))
+		_ = cp.Copy(tgz, filepath.Join(tmpDir, path, filepath.Base(tgz)))
 	}
 
 	fs := http.FileServer(http.FS(os.DirFS(tmpDir)))
@@ -104,12 +104,17 @@ func CreateHelmRepo(t *testing.T, charts []RepoChart, username string, password 
 	}
 
 	i.SortEntries()
-	err = i.WriteFile(filepath.Join(tmpDir, "index.yaml"), 0644)
+	err = i.WriteFile(filepath.Join(tmpDir, path, "index.yaml"), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return s.URL
+	retUrl := s.URL
+	if path != "" {
+		retUrl += "/" + path
+	}
+
+	return retUrl
 }
 
 func CreateHelmOciRepo(t *testing.T, charts []RepoChart, username string, password string) string {

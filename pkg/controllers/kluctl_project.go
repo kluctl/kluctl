@@ -10,7 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
@@ -49,6 +49,8 @@ type preparedProject struct {
 
 	gitRP *repocache.GitRepoCache
 	ociRP *repocache.OciRepoCache
+
+	helmAuthProvider helm_auth.HelmAuthProvider
 
 	co         git.CheckoutInfo
 	tmpDir     string
@@ -96,12 +98,22 @@ func prepareProject(ctx context.Context,
 		return nil, err
 	}
 
+	helmSecrets, err := r.getHelmSecrets(ctx, pp.obj, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
 	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets)
 	if err != nil {
 		return nil, err
 	}
 
 	pp.ociRP, err = r.buildOciRepoCache(ctx, ociSecrets)
+	if err != nil {
+		return nil, err
+	}
+
+	pp.helmAuthProvider, err = r.buildHelmAuth(ctx, helmSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -404,75 +416,6 @@ func (p helmCredentialsProvider) FindCredentials(repoUrl string, credentialsId *
 	return nil
 }
 
-func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (helm.HelmCredentialsProvider, error) {
-	var creds []repo.Entry
-
-	tmpDirBase := filepath.Join(pt.pp.tmpDir, "helm-certs")
-	_ = os.MkdirAll(tmpDirBase, 0o700)
-
-	var writeTmpFilErr error
-	writeTmpFile := func(secretData map[string][]byte, name string) string {
-		b, ok := secretData["certFile"]
-		if ok {
-			tmpFile, err := os.CreateTemp(tmpDirBase, name+"-")
-			if err != nil {
-				writeTmpFilErr = err
-				return ""
-			}
-			defer tmpFile.Close()
-			_, err = tmpFile.Write(b)
-			if err != nil {
-				writeTmpFilErr = err
-			}
-			return tmpFile.Name()
-		}
-		return ""
-	}
-
-	for _, e := range pt.pp.obj.Spec.HelmCredentials {
-		var secret corev1.Secret
-		err := pt.pp.r.Client.Get(ctx, types.NamespacedName{
-			Namespace: pt.pp.obj.GetNamespace(),
-			Name:      e.SecretRef.Name,
-		}, &secret)
-		if err != nil {
-			return nil, err
-		}
-
-		var entry repo.Entry
-
-		credentialsId := string(secret.Data["credentialsId"])
-		url := string(secret.Data["url"])
-		if credentialsId == "" && url == "" {
-			return nil, fmt.Errorf("secret %s must at least contain 'credentialsId' or 'url'", e.SecretRef.Name)
-		}
-		entry.Name = credentialsId
-		entry.URL = url
-		entry.Username = string(secret.Data["username"])
-		entry.Password = string(secret.Data["password"])
-		entry.CertFile = writeTmpFile(secret.Data, "certFile")
-		entry.KeyFile = writeTmpFile(secret.Data, "keyFile")
-		entry.CAFile = writeTmpFile(secret.Data, "caFile")
-		if writeTmpFilErr != nil {
-			return nil, writeTmpFilErr
-		}
-
-		b, _ := secret.Data["insecureSkipTlsVerify"]
-		s := string(b)
-		if utils.ParseBoolOrFalse(&s) {
-			entry.InsecureSkipTLSverify = true
-		}
-		b, _ = secret.Data["passCredentialsAll"]
-		s = string(b)
-		if utils.ParseBoolOrFalse(&s) {
-			entry.PassCredentialsAll = true
-		}
-		creds = append(creds, entry)
-	}
-
-	return helmCredentialsProvider(creds), nil
-}
-
 func (pt *preparedTarget) buildInclusion() *utils.Inclusion {
 	inc := utils.NewInclusion()
 	for _, x := range pt.pp.obj.Spec.IncludeTags {
@@ -634,18 +577,15 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	if err != nil {
 		return nil, err
 	}
-	helmCredentials, err := pt.buildHelmCredentials(ctx)
-	if err != nil {
-		return nil, err
-	}
+
 	inclusion := pt.buildInclusion()
 
 	props := kluctl_project.TargetContextParams{
-		DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
-		Images:          images,
-		Inclusion:       inclusion,
-		HelmCredentials: helmCredentials,
-		RenderOutputDir: renderOutputDir,
+		DryRun:           pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
+		Images:           images,
+		Inclusion:        inclusion,
+		HelmAuthProvider: pt.pp.helmAuthProvider,
+		RenderOutputDir:  renderOutputDir,
 	}
 	if pt.pp.obj.Spec.Target != nil {
 		props.TargetName = *pt.pp.obj.Spec.Target

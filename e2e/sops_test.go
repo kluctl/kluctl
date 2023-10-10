@@ -101,7 +101,7 @@ func TestSopsHelmValues(t *testing.T) {
 
 	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
+	}, "", "", "")
 
 	valuesBytes, err := sops_test_resources.TestResources.ReadFile("helm-values.yaml")
 	assert.NoError(t, err)
