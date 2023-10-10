@@ -26,8 +26,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/kluctl/kluctl/v2/pkg/oci/client/internal/fs"
 )
 
 // Build archives the given directory as a tarball to the given local path.
@@ -149,7 +147,32 @@ func (c *Client) Build(artifactPath, sourceDir string, ignorePaths []string) (er
 		return err
 	}
 
-	return fs.RenameWithFallback(tmpName, artifactPath)
+	return renameWithFallback(tmpName, artifactPath)
+}
+
+func renameWithFallback(src, dst string) error {
+	err := os.Rename(src, dst)
+	if err == nil {
+		return nil
+	}
+
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	f2, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer f2.Close()
+
+	_, err = io.Copy(f2, f)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type writeCounter struct {
