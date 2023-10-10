@@ -262,7 +262,7 @@ func TestHooksWait(t *testing.T) {
 	// we run a goroutine in the background that will wait for a few seconds and then annotate kluctl.io/is-ready=true,
 	// which will then cause the hook to get ready
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 		patchConfigMap(t, s.k, s.p.TestSlug(), "hook2", func(o *uo.UnstructuredObject) {
 			o.SetK8sAnnotation("kluctl.io/is-ready", "true")
 		})
