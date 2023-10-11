@@ -12,7 +12,7 @@ import (
 type OciDockerConfigAuthProvider struct {
 }
 
-func (o OciDockerConfigAuthProvider) Login(ctx context.Context, ociUrl string) (*OciAuthInfo, error) {
+func (o OciDockerConfigAuthProvider) FindAuthEntry(ctx context.Context, ociUrl string) (*AuthEntry, error) {
 	if !strings.HasPrefix(ociUrl, "oci://") {
 		return nil, fmt.Errorf("invalid oci url: %s", ociUrl)
 	}
@@ -31,7 +31,14 @@ func (o OciDockerConfigAuthProvider) Login(ctx context.Context, ociUrl string) (
 		return nil, nil
 	}
 
-	return &OciAuthInfo{
-		Authenticator: auth,
+	authConfig, err := auth.Authorization()
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthEntry{
+		Registry:   ociRef.Context().RegistryStr(),
+		Repo:       ociRef.Context().RepositoryStr(),
+		AuthConfig: *authConfig,
 	}, nil
 }

@@ -2,11 +2,8 @@ package helm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/Masterminds/semver/v3"
-	"github.com/docker/cli/cli/config/configfile"
-	types2 "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
@@ -125,6 +122,7 @@ func (c *Chart) BuildPulledChartDir(baseDir string, version string) (string, err
 	switch {
 	case u.Scheme == "oci":
 		scheme = "oci"
+		port = u.Port()
 	case u.Scheme == "http":
 		scheme = "http"
 		if u.Port() != "80" {
@@ -165,57 +163,13 @@ func (c *Chart) GetChartName() string {
 	return c.chartName
 }
 
-func (c *Chart) buildOciAuth(ctx context.Context) (*auth_provider.OciAuthInfo, string, error) {
+func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings) (*registry.Client, func(), error) {
+	cleanup := func() {}
+
 	u, err := url.Parse(c.repo)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-
-	ai, err := c.ociAuthProvider.Login(ctx, c.repo)
-	if err != nil {
-		return nil, "", err
-	}
-	if ai == nil {
-		return nil, "", nil
-	}
-	a, err := ai.Authenticator.Authorization()
-	if err != nil {
-		return nil, "", err
-	}
-
-	cf := configfile.ConfigFile{
-		AuthConfigs: map[string]types2.AuthConfig{
-			u.Host: {
-				Username:      a.Username,
-				Password:      a.Password,
-				Auth:          a.Auth,
-				IdentityToken: a.IdentityToken,
-				RegistryToken: a.RegistryToken,
-			},
-		},
-	}
-	cfStr, err := json.Marshal(&cf)
-	if err != nil {
-		return nil, "", err
-	}
-
-	tmpFile, err := os.CreateTemp(utils.GetTmpBaseDir(ctx), "helm-config-*.json")
-	if err != nil {
-		return nil, "", err
-	}
-	defer tmpFile.Close()
-
-	_, err = tmpFile.Write(cfStr)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return ai, tmpFile.Name(), nil
-}
-
-func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings) (*registry.Client, func(), error) {
-	noop := func() {}
-	cleanup := noop
 
 	opts := []registry.ClientOption{
 		registry.ClientOptDebug(settings.Debug),
@@ -223,14 +177,18 @@ func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings
 	}
 
 	if registry.IsOCI(c.repo) {
-		_, configFile, err := c.buildOciAuth(ctx)
+		ociAuth, err := c.ociAuthProvider.FindAuthEntry(ctx, c.repo)
 		if err != nil {
-			return nil, noop, err
+			return nil, nil, err
 		}
-		cleanup = func() {
-			_ = os.Remove(configFile)
+		if ociAuth != nil {
+			var authOpts []registry.ClientOption
+			authOpts, cleanup, err = ociAuth.BuildHelmRegistryOptions(ctx, u.Host)
+			if err != nil {
+				return nil, nil, err
+			}
+			opts = append(opts, authOpts...)
 		}
-		opts = append(opts, registry.ClientOptCredentialsFile(configFile))
 	} else {
 		opts = append(opts, registry.ClientOptCredentialsFile(settings.RegistryConfig))
 	}
@@ -239,7 +197,7 @@ func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings
 	registryClient, err := registry.NewClient(opts...)
 	if err != nil {
 		cleanup()
-		return nil, noop, err
+		return nil, nil, err
 	}
 	return registryClient, cleanup, nil
 }
@@ -460,11 +418,15 @@ func (c *Chart) queryVersionsOci(ctx context.Context) error {
 	var clientOpts []crane.Option
 	clientOpts = append(clientOpts, crane.WithContext(ctx))
 	if c.ociAuthProvider != nil {
-		auth, err := c.ociAuthProvider.Login(ctx, c.repo)
+		auth, err := c.ociAuthProvider.FindAuthEntry(ctx, c.repo)
 		if err != nil {
 			return err
 		}
-		clientOpts = append(clientOpts, auth.BuildCraneOptions()...)
+		authOpts, err := auth.BuildCraneOptions()
+		if err != nil {
+			return nil
+		}
+		clientOpts = append(clientOpts, authOpts...)
 	}
 
 	imageName := strings.TrimPrefix(c.repo, "oci://")

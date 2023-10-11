@@ -125,11 +125,15 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 
 	var clientOpts []crane.Option
 	if rp.ociAuthProvider != nil {
-		auth, err := rp.ociAuthProvider.Login(rp.ctx, urlN.String())
+		auth, err := rp.ociAuthProvider.FindAuthEntry(rp.ctx, urlN.String())
 		if err != nil {
 			return nil, err
 		}
-		clientOpts = append(clientOpts, auth.BuildCraneOptions()...)
+		authOpts, err := auth.BuildCraneOptions()
+		if err != nil {
+			return nil, err
+		}
+		clientOpts = append(clientOpts, authOpts...)
 	}
 
 	ociClient := client.NewClient(clientOpts)

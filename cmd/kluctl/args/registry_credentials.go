@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"os"
 	"strings"
 )
 
@@ -13,6 +15,12 @@ type RegistryCredentials struct {
 	RegistryAuth          []string `group:"misc" help:"Specify auth string to use for OCI authentication. Must be in the form --registry-auth=<registry>/<repo>=<auth>."`
 	RegistryIdentityToken []string `group:"misc" help:"Specify auth string to use for OCI authentication. Must be in the form --registry-identity-token=<registry>/<repo>=<identity-token>."`
 	RegistryToken         []string `group:"misc" help:"Specify auth string to use for OCI authentication. Must be in the form --registry-token=<registry>/<repo>=<token>."`
+
+	RegistryKeyFile  []string `group:"misc" help:"Specify key to use for OCI authentication. Must be in the form --registry-key-file=<registry>/<repo>=<filePath>."`
+	RegistryCertFile []string `group:"misc" help:"Specify certificate to use for OCI authentication. Must be in the form --registry-cert-file=<registry>/<repo>=<filePath>."`
+	RegistryCAFile   []string `group:"misc" help:"Specify CA bundle to use for https verification. Must be in the form --registry-ca-file=<registry>/<repo>=<filePath>."`
+
+	RegistryInsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --registry-insecure-skip-tls-verify=<registry>/<repo>."`
 }
 
 func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provider.OciAuthProvider, error) {
@@ -79,6 +87,46 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 			return nil, err
 		}
 		e.AuthConfig.RegistryToken = v
+	}
+	for _, s := range c.RegistryKeyFile {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		b, err := os.ReadFile(v)
+		if err != nil {
+			return nil, err
+		}
+		e.Key = b
+	}
+	for _, s := range c.RegistryCertFile {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		b, err := os.ReadFile(v)
+		if err != nil {
+			return nil, err
+		}
+		e.Cert = b
+	}
+	for _, s := range c.RegistryCAFile {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		b, err := os.ReadFile(v)
+		if err != nil {
+			return nil, err
+		}
+		e.CA = b
+	}
+	for _, s := range c.RegistryInsecureSkipTlsVerify {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.InsecureSkipTlsVerify = utils.ParseBoolOrFalse(v)
 	}
 
 	for _, e := range byRegistryAndRepo {

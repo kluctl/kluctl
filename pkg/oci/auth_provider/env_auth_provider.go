@@ -7,24 +7,23 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"strconv"
 )
 
 type OciEnvAuthProvider struct {
 	Prefix string
 }
 
-func (a *OciEnvAuthProvider) isDefaultInsecure(ctx context.Context) bool {
-	defaultInsecure, err := utils.ParseEnvBool(fmt.Sprintf("%s_DEFAULT_INSECURE", a.Prefix), false)
+func (a *OciEnvAuthProvider) isDefaultInsecureSkipTlsVerify(ctx context.Context) bool {
+	defaultInsecure, err := utils.ParseEnvBool(fmt.Sprintf("%s_DEFAULT_INSECURE_SKIP_TLS_VERIFY", a.Prefix), false)
 	if err != nil {
-		status.Warningf(ctx, "Failed to parse %s_DEFAULT_INSECURE: %s", a.Prefix, err)
+		status.Warningf(ctx, "Failed to parse %s_DEFAULT_INSECURE_SKIP_TLS_VERIFY: %s", a.Prefix, err)
 		return false
 	}
 	return defaultInsecure
 }
 
-func (a *OciEnvAuthProvider) Login(ctx context.Context, ociUrl string) (*OciAuthInfo, error) {
-	defaultInsecure := a.isDefaultInsecure(ctx)
+func (a *OciEnvAuthProvider) FindAuthEntry(ctx context.Context, ociUrl string) (*AuthEntry, error) {
+	defaultInsecureSkipTlsVerify := a.isDefaultInsecureSkipTlsVerify(ctx)
 
 	var la ListAuthProvider
 
@@ -57,24 +56,25 @@ func (a *OciEnvAuthProvider) Login(ctx context.Context, ociUrl string) (*OciAuth
 				Password:      m["PASSWORD"],
 				Auth:          m["AUTH"],
 				IdentityToken: m["IDENTITY_TOKEN"],
-				RegistryToken: m["REGISTRY_TOKEN"],
+				RegistryToken: m["TOKEN"],
 			},
-			Insecure: defaultInsecure,
+			InsecureSkipTlsVerify: defaultInsecureSkipTlsVerify,
 		}
 		if e.Registry == "" {
 			continue
 		}
 
-		insecureStr, ok := m["INSECURE"]
+		x, ok := m["PLAIN_HTTP"]
 		if ok {
-			insecure, err := strconv.ParseBool(insecureStr)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse INSECURE from env: %w", err)
-			}
-			e.Insecure = insecure
+			e.PlainHTTP = utils.ParseBoolOrFalse(x)
+		}
+
+		x, ok = m["INSECURE_SKIP_TLS_VERIFY"]
+		if ok {
+			e.InsecureSkipTlsVerify = utils.ParseBoolOrFalse(x)
 		}
 
 		la.AddEntry(e)
 	}
-	return la.Login(ctx, ociUrl)
+	return la.FindAuthEntry(ctx, ociUrl)
 }

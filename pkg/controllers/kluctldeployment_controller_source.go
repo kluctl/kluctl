@@ -249,8 +249,11 @@ func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecret
 		if x, ok := secret.secret.Data["registry_token"]; ok {
 			e.AuthConfig.RegistryToken = string(x)
 		}
-		if x, ok := secret.secret.Data["insecure"]; ok {
-			e.Insecure = utils.ParseBoolOrFalse(string(x))
+		if x, ok := secret.secret.Data["plain_http"]; ok {
+			e.PlainHTTP = utils.ParseBoolOrFalse(string(x))
+		}
+		if x, ok := secret.secret.Data["insecure_skip_tls_verify"]; ok {
+			e.InsecureSkipTlsVerify = utils.ParseBoolOrFalse(string(x))
 		}
 
 		la.AddEntry(e)
