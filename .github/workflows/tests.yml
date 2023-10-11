@@ -100,13 +100,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             run_on_pull_requests: true
-          - os: macos-11
+          - os: macos-12
             run_on_pull_requests: false
-          - os: windows-2019
+          - os: windows-2022
             run_on_pull_requests: false
-        os: [ubuntu-20.04, macos-11, windows-2019]
+        os: [ubuntu-22.04, macos-12, windows-2022]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
