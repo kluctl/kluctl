@@ -97,15 +97,13 @@ var helmTests = []helmTestCase{
 	},
 }
 
-func buildHelmTestExtraArgs(tc helmTestCase, repoUrl string) []string {
-	u, _ := url.Parse(repoUrl)
-
+func buildHelmTestExtraArgs(tc helmTestCase, host string) []string {
 	var ret []string
 	if tc.argCredsId != "" {
 		ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
 		ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
 	} else if tc.argCredsHost != "" {
-		r := strings.ReplaceAll(tc.argCredsHost, "<host>", u.Host)
+		r := strings.ReplaceAll(tc.argCredsHost, "<host>", host)
 		if tc.argCredsPath != "" {
 			r += "/" + tc.argCredsPath
 		}
@@ -113,6 +111,24 @@ func buildHelmTestExtraArgs(tc helmTestCase, repoUrl string) []string {
 		ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
 	}
 	return ret
+}
+
+func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, host string) {
+	if tc.argCredsId != "" {
+		t.Setenv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
+	}
+	if tc.argCredsHost != "" {
+		t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", host))
+	}
+	if tc.argCredsPath != "" {
+		t.Setenv("KLUCTL_HELM_PATH", tc.argCredsPath)
+	}
+	if tc.argUsername != "" {
+		t.Setenv("KLUCTL_HELM_USERNAME", tc.argUsername)
+	}
+	if tc.argPassword != "" {
+		t.Setenv("KLUCTL_HELM_PASSWORD", tc.argPassword)
+	}
 }
 
 func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool) (*test_project.TestProject, url.URL, error) {
@@ -133,7 +149,7 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 	repoUrl2, err := url.Parse(repoUrl)
 	assert.NoError(t, err)
 
-	extraArgs := buildHelmTestExtraArgs(tc, repoUrl)
+	extraArgs := buildHelmTestExtraArgs(tc, repoUrl2.Host)
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -172,8 +188,10 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 	return p, *repoUrl2, nil
 }
 
-func testHelmPull(t *testing.T, tc helmTestCase, prePull bool) {
-	t.Parallel()
+func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool) {
+	if !credsViaEnv {
+		t.Parallel()
+	}
 
 	k := defaultCluster1
 	p, repoUrl, err := prepareHelmTestCase(t, k, tc, prePull)
@@ -185,7 +203,11 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool) {
 	}
 
 	args := []string{"deploy", "--yes", "-t", "test"}
-	args = append(args, buildHelmTestExtraArgs(tc, repoUrl.String())...)
+	if credsViaEnv {
+		buildHelmTestEnvVars(t, tc, repoUrl.Host)
+	} else {
+		args = append(args, buildHelmTestExtraArgs(tc, repoUrl.Host)...)
+	}
 
 	_, stderr, err := p.Kluctl(args...)
 	pullMessage := "Pulling Helm Chart test-chart1 with version 0.1.0"
@@ -207,7 +229,7 @@ func TestHelmPull(t *testing.T) {
 	for _, tc := range helmTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			testHelmPull(t, tc, false)
+			testHelmPull(t, tc, false, false)
 		})
 	}
 }
@@ -216,7 +238,16 @@ func TestHelmPrePull(t *testing.T) {
 	for _, tc := range helmTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			testHelmPull(t, tc, true)
+			testHelmPull(t, tc, true, false)
+		})
+	}
+}
+
+func TestHelmPullCredsViaEnv(t *testing.T) {
+	for _, tc := range helmTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			testHelmPull(t, tc, false, true)
 		})
 	}
 }
