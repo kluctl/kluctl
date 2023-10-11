@@ -14,7 +14,7 @@ import (
 func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	g := NewWithT(suite.T())
 
-	p, repoUrl, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull)
+	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull)
 	if err != nil {
 		if tc.expectedError == "" {
 			assert.Fail(suite.T(), "did not expect error")
@@ -60,7 +60,7 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 			})
 		}
 	} else if tc.argCredsHost != "" {
-		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repoUrl.Host)
+		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 		if tc.oci {
 			createSecret("oci-secrets-1", map[string]string{
 				"username": tc.argUsername,

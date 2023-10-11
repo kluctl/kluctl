@@ -25,9 +25,13 @@ func TestOciIncludeMultipleRepos(t *testing.T) {
 	ip1 := prepareIncludeProject(t, "include1", "", nil)
 	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
 
-	ociUrl := test_utils.CreateOciRegistry(t, "", "")
-	repo1 := ociUrl.String() + "/org1/repo1"
-	repo2 := ociUrl.String() + "/org2/repo2"
+	repo := &test_utils.TestHelmRepo{
+		Oci: true,
+	}
+	repo.Start(t)
+
+	repo1 := repo.URL.String() + "/org1/repo1"
+	repo2 := repo.URL.String() + "/org2/repo2"
 
 	ip1.KluctlMust("oci", "push", "--url", repo1)
 	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
@@ -62,27 +66,38 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
 	ip3 := prepareIncludeProject(t, "include3", "", nil)
 
-	ociUrl1 := test_utils.CreateOciRegistry(t, "user1", "pass1")
-	ociUrl2 := test_utils.CreateOciRegistry(t, "user2", "pass2")
-	ociUrl3 := test_utils.CreateOciRegistry(t, "user3", "pass3")
-	repo1 := ociUrl1.String() + "/org1/repo1"
-	repo2 := ociUrl2.String() + "/org2/repo2"
-	repo3 := ociUrl3.String() + "/org3/repo3"
+	createRepo := func(user, pass string) *test_utils.TestHelmRepo {
+		repo := &test_utils.TestHelmRepo{
+			TestHttpServer: test_utils.TestHttpServer{
+				Username: user,
+				Password: pass,
+			},
+			Oci: true,
+		}
+		repo.Start(t)
+		return repo
+	}
+	repo1 := createRepo("user1", "pass1")
+	repo2 := createRepo("user1", "pass1")
+	repo3 := createRepo("user1", "pass1")
+	repoUrl1 := repo1.URL.String() + "/org1/repo1"
+	repoUrl2 := repo2.URL.String() + "/org2/repo2"
+	repoUrl3 := repo3.URL.String() + "/org3/repo3"
 
 	// push with no creds
-	_, stderr, err := ip1.Kluctl("oci", "push", "--url", repo1)
+	_, stderr, err := ip1.Kluctl("oci", "push", "--url", repoUrl1)
 	assert.ErrorContains(t, err, "401 Unauthorized")
 	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// push with invalid creds
-	_, stderr, err = ip1.Kluctl("oci", "push", "--url", repo1, "--creds", "user1:invalid")
+	_, stderr, err = ip1.Kluctl("oci", "push", "--url", repoUrl1, "--creds", "user1:invalid")
 	assert.ErrorContains(t, err, "401 Unauthorized")
 	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// now with valid creds
-	ip1.KluctlMust("oci", "push", "--url", repo1, "--creds", "user1:pass1")
-	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir(), "--creds", "user2:pass2")
-	ip3.KluctlMust("oci", "push", "--url", repo3, "--creds", "user3:pass3")
+	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--creds", "user1:pass1")
+	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--creds", "user2:pass2")
+	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--creds", "user3:pass3")
 
 	p := test_project.NewTestProject(t)
 
@@ -113,11 +128,11 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// deploy with some invalid creds
-	t.Setenv("KLUCTL_REGISTRY_1_HOST", ociUrl1.Host)
+	t.Setenv("KLUCTL_REGISTRY_1_HOST", repo1.URL.Host)
 	t.Setenv("KLUCTL_REGISTRY_1_REPO", "org1/repo1")
 	t.Setenv("KLUCTL_REGISTRY_1_USERNAME", "user1")
 	t.Setenv("KLUCTL_REGISTRY_1_PASSWORD", "pass1")
-	t.Setenv("KLUCTL_REGISTRY_2_REPOSITORY", fmt.Sprintf("%s/org2/repo2", ociUrl2.Host))
+	t.Setenv("KLUCTL_REGISTRY_2_REPOSITORY", fmt.Sprintf("%s/org2/repo2", repo2.URL.Host))
 	t.Setenv("KLUCTL_REGISTRY_2_USERNAME", "user2")
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "invalid")
 	_, stderr, err = p.Kluctl("deploy", "--yes", "-t", "test")
@@ -126,7 +141,7 @@ func TestOciIncludeWithCreds(t *testing.T) {
 
 	// deploy with valid creds
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "pass2")
-	dockerLogin(t, ociUrl3.Host, "user3", "pass3")
+	dockerLogin(t, repo3.URL.Host, "user3", "pass3")
 
 	x, _ := homedir.Dir()
 	t.Logf("homedir=%s", x)
@@ -164,8 +179,12 @@ func TestOciIncludeTagsAndDigests(t *testing.T) {
 
 	ip1 := prepareIncludeProject(t, "include1", "", nil)
 
-	ociUrl := test_utils.CreateOciRegistry(t, "", "")
-	repo1 := ociUrl.String() + "/org1/repo1"
+	repo := test_utils.TestHelmRepo{
+		Oci: true,
+	}
+	repo.Start(t)
+
+	repo1 := repo.URL.String() + "/org1/repo1"
 
 	ip1.KluctlMust("oci", "push", "--url", repo1+":tag1")
 
@@ -233,9 +252,13 @@ func TestLocalOciOverride(t *testing.T) {
 	ip1 := prepareIncludeProject(t, "include1", "", nil)
 	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
 
-	ociUrl := test_utils.CreateOciRegistry(t, "", "")
-	repo1 := ociUrl.String() + "/org1/repo1"
-	repo2 := ociUrl.String() + "/org2/repo2"
+	repo := test_utils.TestHelmRepo{
+		Oci: true,
+	}
+	repo.Start(t)
+
+	repo1 := repo.URL.String() + "/org1/repo1"
+	repo2 := repo.URL.String() + "/org2/repo2"
 
 	ip1.KluctlMust("oci", "push", "--url", repo1)
 	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
@@ -296,9 +319,13 @@ func TestLocalOciGroupOverride(t *testing.T) {
 	ip1 := prepareIncludeProject(t, "include1", "", nil)
 	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
 
-	ociUrl := test_utils.CreateOciRegistry(t, "", "")
-	repo1 := ociUrl.String() + "/org1/repo1"
-	repo2 := ociUrl.String() + "/org1/repo2"
+	repo := test_utils.TestHelmRepo{
+		Oci: true,
+	}
+	repo.Start(t)
+
+	repo1 := repo.URL.String() + "/org1/repo1"
+	repo2 := repo.URL.String() + "/org1/repo2"
 
 	ip1.KluctlMust("oci", "push", "--url", repo1)
 	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
@@ -340,7 +367,7 @@ func TestLocalOciGroupOverride(t *testing.T) {
 	_ = cm.SetNestedField("o2", "data", "a")
 	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
 
-	k1 := strings.TrimPrefix(ociUrl.String(), "oci://") + "/org1"
+	k1 := strings.TrimPrefix(repo.URL.String(), "oci://") + "/org1"
 
 	p.KluctlMust("deploy", "--yes", "-t", "test",
 		"--local-oci-group-override", fmt.Sprintf("%s=%s", k1, overrideGroupDir),

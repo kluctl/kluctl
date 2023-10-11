@@ -20,18 +20,31 @@ func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
 	ip2 := prepareIncludeProject(suite.T(), "include2", "subDir", nil)
 	ip3 := prepareIncludeProject(suite.T(), "include3", "", nil)
 
-	ociUrl0 := test_utils.CreateOciRegistry(suite.T(), "user0", "pass0")
-	ociUrl1 := test_utils.CreateOciRegistry(suite.T(), "user1", "pass1")
-	ociUrl2 := test_utils.CreateOciRegistry(suite.T(), "user2", "pass2")
-	ociUrl3 := test_utils.CreateOciRegistry(suite.T(), "user3", "pass3")
-	repo0 := ociUrl0.String() + "/org0/repo0"
-	repo1 := ociUrl1.String() + "/org1/repo1"
-	repo2 := ociUrl2.String() + "/org2/repo2"
-	repo3 := ociUrl3.String() + "/org3/repo3"
+	createRepo := func(user, pass string) *test_utils.TestHelmRepo {
+		repo := &test_utils.TestHelmRepo{
+			TestHttpServer: test_utils.TestHttpServer{
+				Username: user,
+				Password: pass,
+			},
+			Oci: true,
+		}
+		repo.Start(suite.T())
+		return repo
+	}
 
-	ip1.KluctlMust("oci", "push", "--url", repo1, "--creds", "user1:pass1")
-	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir(), "--creds", "user2:pass2")
-	ip3.KluctlMust("oci", "push", "--url", repo3, "--creds", "user3:pass3")
+	repo0 := createRepo("user0", "pass0")
+	repo1 := createRepo("user1", "pass1")
+	repo2 := createRepo("user2", "pass2")
+	repo3 := createRepo("user3", "pass3")
+
+	repoUrl0 := repo0.URL.String() + "/org0/repo0"
+	repoUrl1 := repo1.URL.String() + "/org1/repo1"
+	repoUrl2 := repo2.URL.String() + "/org2/repo2"
+	repoUrl3 := repo3.URL.String() + "/org3/repo3"
+
+	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--creds", "user1:pass1")
+	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--creds", "user2:pass2")
+	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--creds", "user3:pass3")
 
 	p := test_project.NewTestProject(suite.T())
 
@@ -41,25 +54,25 @@ func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
 
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"oci": map[string]any{
-			"url": repo1,
+			"url": repoUrl1,
 		},
 	}))
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"oci": map[string]any{
-			"url":    repo2,
+			"url":    repoUrl2,
 			"subDir": "subDir",
 		},
 	}))
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"oci": map[string]any{
-			"url": repo3,
+			"url": repoUrl3,
 		},
 	}))
-	p.KluctlMust("oci", "push", "--url", repo0, "--creds", "user0:pass0")
+	p.KluctlMust("oci", "push", "--url", repoUrl0, "--creds", "user0:pass0")
 
 	var key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
 		kd.Spec.Source.Oci = &v1beta1.ProjectSourceOci{
-			URL: repo0,
+			URL: repoUrl0,
 		}
 	})
 	suite.Run("fail without authentication", func() {
@@ -103,22 +116,22 @@ func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
 	patch := client.MergeFrom(kd.DeepCopy())
 
 	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   ociUrl0.Host,
+		Registry:   repo0.URL.Host,
 		Repository: "org0/repo0",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret0"},
 	})
 	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   ociUrl1.Host,
+		Registry:   repo1.URL.Host,
 		Repository: "org1/repo1",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret1"},
 	})
 	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   ociUrl2.Host,
+		Registry:   repo2.URL.Host,
 		Repository: "*/repo2",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret2"},
 	})
 	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   ociUrl3.Host,
+		Registry:   repo3.URL.Host,
 		Repository: "org3/*",
 		SecretRef:  v1beta1.LocalObjectReference{Name: "secret3"},
 	})
