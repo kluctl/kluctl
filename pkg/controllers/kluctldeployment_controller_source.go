@@ -373,25 +373,25 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 	return rc, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets) (*repocache.OciRepoCache, error) {
+func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
 	key, err := r.buildOciRepoCacheKey(secrets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-oci-cache", key)
 	err = os.MkdirAll(tmpBaseDir, 0o700)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ctx = utils.WithTmpBaseDir(ctx, tmpBaseDir)
 
 	ociAuthProvider, err := r.buildOciAuth(ctx, secrets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	rc := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, 0)
-	return rc, nil
+	return rc, ociAuthProvider, nil
 }

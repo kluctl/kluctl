@@ -2,8 +2,11 @@ package helm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/Masterminds/semver/v3"
+	"github.com/docker/cli/cli/config/configfile"
+	types2 "github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
@@ -32,9 +35,9 @@ type Chart struct {
 	chartName string
 
 	helmAuthProvider auth.HelmAuthProvider
-	credentialsId    string
+	ociAuthProvider  auth_provider.OciAuthProvider
 
-	ociAuthProvider auth_provider.OciAuthProvider
+	credentialsId string
 
 	versions []string
 }
@@ -162,6 +165,85 @@ func (c *Chart) GetChartName() string {
 	return c.chartName
 }
 
+func (c *Chart) buildOciAuth(ctx context.Context) (*auth_provider.OciAuthInfo, string, error) {
+	u, err := url.Parse(c.repo)
+	if err != nil {
+		return nil, "", err
+	}
+
+	ai, err := c.ociAuthProvider.Login(ctx, c.repo)
+	if err != nil {
+		return nil, "", err
+	}
+	if ai == nil {
+		return nil, "", nil
+	}
+	a, err := ai.Authenticator.Authorization()
+	if err != nil {
+		return nil, "", err
+	}
+
+	cf := configfile.ConfigFile{
+		AuthConfigs: map[string]types2.AuthConfig{
+			u.Host: {
+				Username:      a.Username,
+				Password:      a.Password,
+				Auth:          a.Auth,
+				IdentityToken: a.IdentityToken,
+				RegistryToken: a.RegistryToken,
+			},
+		},
+	}
+	cfStr, err := json.Marshal(&cf)
+	if err != nil {
+		return nil, "", err
+	}
+
+	tmpFile, err := os.CreateTemp(utils.GetTmpBaseDir(ctx), "helm-config-*.json")
+	if err != nil {
+		return nil, "", err
+	}
+	defer tmpFile.Close()
+
+	_, err = tmpFile.Write(cfStr)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return ai, tmpFile.Name(), nil
+}
+
+func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings) (*registry.Client, func(), error) {
+	noop := func() {}
+	cleanup := noop
+
+	opts := []registry.ClientOption{
+		registry.ClientOptDebug(settings.Debug),
+		registry.ClientOptEnableCache(true),
+	}
+
+	if registry.IsOCI(c.repo) {
+		_, configFile, err := c.buildOciAuth(ctx)
+		if err != nil {
+			return nil, noop, err
+		}
+		cleanup = func() {
+			_ = os.Remove(configFile)
+		}
+		opts = append(opts, registry.ClientOptCredentialsFile(configFile))
+	} else {
+		opts = append(opts, registry.ClientOptCredentialsFile(settings.RegistryConfig))
+	}
+
+	// Create a new registry client
+	registryClient, err := registry.NewClient(opts...)
+	if err != nil {
+		cleanup()
+		return nil, noop, err
+	}
+	return registryClient, cleanup, nil
+}
+
 func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
@@ -178,12 +260,20 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 	}
 	defer os.RemoveAll(tmpPullDir)
 
-	cfg, err := buildHelmConfig(nil)
+	settings := cli.New()
+	registryClient, cleanup, err := c.newRegistryClient(ctx, settings)
 	if err != nil {
 		return nil, err
 	}
+	defer cleanup()
+
+	cfg, err := buildHelmConfig(nil, registryClient)
+	if err != nil {
+		return nil, err
+	}
+
 	a := action.NewPullWithOpts(action.WithConfig(cfg))
-	a.Settings = cli.New()
+	a.Settings = settings
 	a.Untar = true
 	a.DestDir = tmpPullDir
 	a.Version = version
@@ -194,19 +284,22 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 		}
 	}
 
-	creds, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
-	if err != nil {
-		return nil, err
-	}
-	defer cf()
-	if creds != nil {
-		a.Username = creds.Username
-		a.Password = creds.Password
-		a.CertFile = creds.CertFile
-		a.CaFile = creds.CAFile
-		a.KeyFile = creds.KeyFile
-		a.InsecureSkipTLSverify = creds.InsecureSkipTLSverify
-		a.PassCredentialsAll = creds.PassCredentialsAll
+	if !registry.IsOCI(c.repo) {
+		helmCreds, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
+		if err != nil {
+			return nil, err
+		}
+		defer cf()
+
+		if helmCreds != nil {
+			a.Username = helmCreds.Username
+			a.Password = helmCreds.Password
+			a.CertFile = helmCreds.CertFile
+			a.CaFile = helmCreds.CAFile
+			a.KeyFile = helmCreds.KeyFile
+			a.InsecureSkipTLSverify = helmCreds.InsecureSkipTLSverify
+			a.PassCredentialsAll = helmCreds.PassCredentialsAll
+		}
 	}
 
 	var out string

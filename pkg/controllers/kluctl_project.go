@@ -11,6 +11,7 @@ import (
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
@@ -51,6 +52,7 @@ type preparedProject struct {
 	ociRP *repocache.OciRepoCache
 
 	helmAuthProvider helm_auth.HelmAuthProvider
+	ociAuthProvider  auth_provider.OciAuthProvider
 
 	co         git.CheckoutInfo
 	tmpDir     string
@@ -108,7 +110,7 @@ func prepareProject(ctx context.Context,
 		return nil, err
 	}
 
-	pp.ociRP, err = r.buildOciRepoCache(ctx, ociSecrets)
+	pp.ociRP, pp.ociAuthProvider, err = r.buildOciRepoCache(ctx, ociSecrets)
 	if err != nil {
 		return nil, err
 	}
@@ -585,6 +587,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 		Images:           images,
 		Inclusion:        inclusion,
 		HelmAuthProvider: pt.pp.helmAuthProvider,
+		OciAuthProvider:  pt.pp.ociAuthProvider,
 		RenderOutputDir:  renderOutputDir,
 	}
 	if pt.pp.obj.Spec.Target != nil {

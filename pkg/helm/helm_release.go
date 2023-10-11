@@ -167,7 +167,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	}
 	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(hr.ConfigFile), "helm-values.yml"))
 
-	cfg, err := buildHelmConfig(k)
+	cfg, err := buildHelmConfig(k, nil)
 	if err != nil {
 		return err
 	}
