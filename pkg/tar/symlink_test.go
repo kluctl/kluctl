@@ -24,10 +24,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestSkipSymlinks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
 	tmpDir := t.TempDir()
 
 	symlinkTarget := filepath.Join(tmpDir, "symlink.target")

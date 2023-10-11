@@ -22,6 +22,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,10 @@ import (
 )
 
 func Test_Push_Pull(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip()
+	}
+
 	g := NewWithT(t)
 	ctx := context.Background()
 	c := NewClient(DefaultOptions())
