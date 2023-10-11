@@ -61,16 +61,30 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		}
 	} else if tc.argCredsHost != "" {
 		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repoUrl.Host)
-		createSecret("helm-secrets-1", map[string]string{
-			"username": tc.argUsername,
-			"password": tc.argPassword,
-		})
-		kdModCreds = func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Credentials.Helm = append(kd.Spec.Credentials.Helm, kluctlv1.ProjectCredentialsHelm{
-				Host:      host,
-				Path:      tc.argCredsPath,
-				SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
+		if tc.oci {
+			createSecret("oci-secrets-1", map[string]string{
+				"username": tc.argUsername,
+				"password": tc.argPassword,
 			})
+			kdModCreds = func(kd *kluctlv1.KluctlDeployment) {
+				kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, kluctlv1.ProjectCredentialsOci{
+					Registry:   host,
+					Repository: tc.argCredsPath,
+					SecretRef:  kluctlv1.LocalObjectReference{Name: "oci-secrets-1"},
+				})
+			}
+		} else {
+			createSecret("helm-secrets-1", map[string]string{
+				"username": tc.argUsername,
+				"password": tc.argPassword,
+			})
+			kdModCreds = func(kd *kluctlv1.KluctlDeployment) {
+				kd.Spec.Credentials.Helm = append(kd.Spec.Credentials.Helm, kluctlv1.ProjectCredentialsHelm{
+					Host:      host,
+					Path:      tc.argCredsPath,
+					SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
+				})
+			}
 		}
 	}
 

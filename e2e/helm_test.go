@@ -71,7 +71,8 @@ var helmTests = []helmTestCase{
 	{
 		name: "helm-creds-missing", oci: false, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "401 Unauthorized"},
+		expectedError: "401 Unauthorized",
+	},
 	{
 		name: "helm-creds-invalid", oci: false, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
@@ -95,39 +96,95 @@ var helmTests = []helmTestCase{
 		name: "helm-creds-valid-path", oci: false, testAuth: true, path: "path1",
 		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "secret-password",
 	},
+
+	// oci creds
+	{
+		name: "oci-creds-missing", oci: true, testAuth: true,
+		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-invalid", oci: true, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-valid", oci: true, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "secret-password",
+	},
+	{
+		name: "oci-creds-missing-path", oci: true, testAuth: true,
+		argCredsHost: "<host>", argCredsPath: "test-chart2", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-invalid-path", oci: true, testAuth: true,
+		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-valid-path", oci: true, testAuth: true,
+		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "secret-password",
+	},
 }
 
-func buildHelmTestExtraArgs(tc helmTestCase, host string) []string {
+func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, host string) []string {
 	var ret []string
-	if tc.argCredsId != "" {
-		ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
-		ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
-	} else if tc.argCredsHost != "" {
-		r := strings.ReplaceAll(tc.argCredsHost, "<host>", host)
-		if tc.argCredsPath != "" {
-			r += "/" + tc.argCredsPath
+	if tc.oci {
+		if tc.argCredsHost != "" {
+			r := strings.ReplaceAll(tc.argCredsHost, "<host>", host)
+			if tc.argCredsPath != "" {
+				r += "/" + tc.argCredsPath
+			}
+			ret = append(ret, fmt.Sprintf("--registry-username=%s=%s", r, tc.argUsername))
+			ret = append(ret, fmt.Sprintf("--registry-password=%s=%s", r, tc.argPassword))
 		}
-		ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
-		ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
+	} else {
+		if tc.argCredsId != "" {
+			ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
+			ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
+		} else if tc.argCredsHost != "" {
+			r := strings.ReplaceAll(tc.argCredsHost, "<host>", host)
+			if tc.argCredsPath != "" {
+				r += "/" + tc.argCredsPath
+			}
+			ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
+			ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
+		}
 	}
 	return ret
 }
 
 func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, host string) {
-	if tc.argCredsId != "" {
-		t.Setenv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
-	}
-	if tc.argCredsHost != "" {
-		t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", host))
-	}
-	if tc.argCredsPath != "" {
-		t.Setenv("KLUCTL_HELM_PATH", tc.argCredsPath)
-	}
-	if tc.argUsername != "" {
-		t.Setenv("KLUCTL_HELM_USERNAME", tc.argUsername)
-	}
-	if tc.argPassword != "" {
-		t.Setenv("KLUCTL_HELM_PASSWORD", tc.argPassword)
+	if tc.oci {
+		if tc.argCredsHost != "" {
+			t.Setenv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", host))
+		}
+		if tc.argCredsPath != "" {
+			t.Setenv("KLUCTL_REGISTRY_REPOSITORY", tc.argCredsPath)
+		}
+		if tc.argUsername != "" {
+			t.Setenv("KLUCTL_REGISTRY_USERNAME", tc.argUsername)
+		}
+		if tc.argPassword != "" {
+			t.Setenv("KLUCTL_REGISTRY_PASSWORD", tc.argPassword)
+		}
+	} else {
+		if tc.argCredsId != "" {
+			t.Setenv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
+		}
+		if tc.argCredsHost != "" {
+			t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", host))
+		}
+		if tc.argCredsPath != "" {
+			t.Setenv("KLUCTL_HELM_PATH", tc.argCredsPath)
+		}
+		if tc.argUsername != "" {
+			t.Setenv("KLUCTL_HELM_USERNAME", tc.argUsername)
+		}
+		if tc.argPassword != "" {
+			t.Setenv("KLUCTL_HELM_PASSWORD", tc.argPassword)
+		}
 	}
 }
 
@@ -149,7 +206,7 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 	repoUrl2, err := url.Parse(repoUrl)
 	assert.NoError(t, err)
 
-	extraArgs := buildHelmTestExtraArgs(tc, repoUrl2.Host)
+	extraArgs := buildHelmTestExtraArgs(t, tc, repoUrl2.Host)
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -206,7 +263,7 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 	if credsViaEnv {
 		buildHelmTestEnvVars(t, tc, repoUrl.Host)
 	} else {
-		args = append(args, buildHelmTestExtraArgs(tc, repoUrl.Host)...)
+		args = append(args, buildHelmTestExtraArgs(t, tc, repoUrl.Host)...)
 	}
 
 	_, stderr, err := p.Kluctl(args...)
