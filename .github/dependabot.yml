@@ -16,3 +16,6 @@ updates:
       aws-sdk:
         patterns:
           - "*aws-sdk*"
+      azure-sdk:
+        patterns:
+          - "*azure-sdk*"
