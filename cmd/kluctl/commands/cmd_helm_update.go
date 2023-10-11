@@ -23,6 +23,7 @@ import (
 type helmUpdateCmd struct {
 	args.ProjectDir
 	args.HelmCredentials
+	args.RegistryCredentials
 
 	Upgrade bool `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
 	Commit  bool `group:"misc" help:"Create a git commit for every updated chart"`
@@ -55,6 +56,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		return err
 	} else {
 		helmAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuthProvider.RegisterAuthProvider(x, false)
 	}
 
 	if cmd.Commit {

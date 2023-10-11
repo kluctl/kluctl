@@ -18,6 +18,7 @@ import (
 type helmPullCmd struct {
 	args.ProjectDir
 	args.HelmCredentials
+	args.RegistryCredentials
 }
 
 func (cmd *helmPullCmd) Help() string {
@@ -42,6 +43,11 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return err
 	} else {
 		helmAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuthProvider.RegisterAuthProvider(x, false)
 	}
 
 	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, false, true)

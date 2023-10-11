@@ -18,6 +18,7 @@ type sealCmd struct {
 	args.ProjectFlags
 	args.TargetFlags
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.OfflineKubernetesFlags
 
 	ForceReseal bool   `group:"misc" help:"Lets kluctl ignore secret hashes found in already sealed secrets and thus forces resealing of those."`
@@ -43,12 +44,13 @@ func (cmd *sealCmd) runCmdSealForTarget(ctx context.Context, p *kluctl_project.L
 	}
 
 	ptArgs := projectTargetCommandArgs{
-		projectFlags:      cmd.ProjectFlags,
-		targetFlags:       cmd.TargetFlags,
-		helmCredentials:   cmd.HelmCredentials,
-		forSeal:           true,
-		offlineKubernetes: cmd.OfflineKubernetes,
-		kubernetesVersion: cmd.KubernetesVersion,
+		projectFlags:        cmd.ProjectFlags,
+		targetFlags:         cmd.TargetFlags,
+		helmCredentials:     cmd.HelmCredentials,
+		registryCredentials: cmd.RegistryCredentials,
+		forSeal:             true,
+		offlineKubernetes:   cmd.OfflineKubernetes,
+		kubernetesVersion:   cmd.KubernetesVersion,
 	}
 	ptArgs.targetFlags.Target = targetName
 
@@ -155,7 +157,7 @@ func (cmd *sealCmd) loadCert(cmdCtx *commandCtx) (*x509.Certificate, error) {
 }
 
 func (cmd *sealCmd) Run(ctx context.Context) error {
-	return withKluctlProjectFromArgs(ctx, cmd.ProjectFlags, nil, nil, false, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, cmd.ProjectFlags, nil, &cmd.HelmCredentials, &cmd.RegistryCredentials, false, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		hadError := false
 
 		noTargetMatch := true
