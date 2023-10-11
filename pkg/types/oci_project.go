@@ -1,5 +1,11 @@
 package types
 
+import (
+	"fmt"
+	"github.com/go-playground/validator/v10"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
+)
+
 type OciProject struct {
 	Url    string  `json:"url" validate:"required"`
 	Ref    *OciRef `json:"ref,omitempty"`
@@ -30,4 +36,15 @@ func (ref *OciRef) String() string {
 		return ref.Tag + "@" + ref.Digest
 	}
 	return ref.Tag
+}
+
+func ValidateOciProject(sl validator.StructLevel) {
+	p := sl.Current().Interface().(OciProject)
+	if !validateGitSubDir(p.SubDir) {
+		sl.ReportError(p.SubDir, "subDir", "SubDir", fmt.Sprintf("'%s' is not valid oci subdirectory path", p.SubDir), "")
+	}
+}
+
+func init() {
+	yaml.Validator.RegisterStructValidation(ValidateOciProject, OciProject{})
 }
