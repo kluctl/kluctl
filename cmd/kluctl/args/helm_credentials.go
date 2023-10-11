@@ -14,6 +14,8 @@ type HelmCredentials struct {
 	HelmUsername              []string `group:"misc" help:"Specify username to use for Helm Repository authentication. Must be in the form --helm-username=<host>/<path>=<username> or in the deprecated form --helm-username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 	HelmPassword              []string `group:"misc" help:"Specify password to use for Helm Repository authentication. Must be in the form --helm-password=<host>/<path>=<password> or in the deprecated form --helm-password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 	HelmKeyFile               []string `group:"misc" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --helm-key-file=<host>/<path>=<filePath> or in the deprecated form --helm-key-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmCertFile              []string `group:"misc" help:"Specify key to use for Helm Repository authentication. Must be in the form --helm-cert-file=<host>/<path>=<filePath> or in the deprecated form --helm-cert-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmCAFile                []string `group:"misc" help:"Specify ca bundle certificate to use for Helm Repository authentication. Must be in the form --helm-ca-file=<host>/<path>=<filePath> or in the deprecated form --helm-ca-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 	HelmInsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<host>/<path> or in the deprecated form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 }
 
@@ -80,6 +82,26 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 			return nil, err
 		}
 		e.Key, err = os.ReadFile(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, s := range c.HelmCertFile {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.Cert, err = os.ReadFile(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, s := range c.HelmCAFile {
+		e, v, err := getEntry(s)
+		if err != nil {
+			return nil, err
+		}
+		e.CA, err = os.ReadFile(v)
 		if err != nil {
 			return nil, err
 		}
