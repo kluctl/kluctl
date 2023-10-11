@@ -131,8 +131,10 @@ func CreateHelmOciRepo(t *testing.T, charts []RepoChart, username string, passwo
 
 	var registryClient *registry2.Client
 	if password != "" {
+		tmpConfigFile := filepath.Join(t.TempDir(), "config.json")
+
 		var err error
-		registryClient, err = registry2.NewClient()
+		registryClient, err = registry2.NewClient(registry2.ClientOptCredentialsFile(tmpConfigFile))
 		if err != nil {
 			t.Fatal(err)
 		}
