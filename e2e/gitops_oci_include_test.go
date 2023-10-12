@@ -96,8 +96,9 @@ func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
 				Namespace: key.Namespace,
 			},
 			Data: map[string][]byte{
-				"username": []byte(username),
-				"password": []byte(password),
+				"username":   []byte(username),
+				"password":   []byte(password),
+				"plain_http": []byte("true"),
 			},
 		}
 		err := suite.k.Client.Create(context.Background(), &secret)

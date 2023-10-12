@@ -40,57 +40,89 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		g.Expect(err).To(Succeed())
 	}
 
-	kdModSource := func(kd *kluctlv1.KluctlDeployment) {
-		kd.Spec.Source = kluctlv1.ProjectSource{
-			Git: &kluctlv1.ProjectSourceGit{
-				URL: *types2.ParseGitUrlMust(p.GitUrl()),
-			},
-		}
-	}
-	var kdModCreds func(kd *kluctlv1.KluctlDeployment)
+	var legacyHelmCreds []kluctlv1.HelmCredentials
+	var projectCreds kluctlv1.ProjectCredentials
+
 	if tc.argCredsId != "" {
 		createSecret("helm-secrets-1", map[string]string{
 			"credentialsId": tc.argCredsId,
 			"username":      tc.argUsername,
 			"password":      tc.argPassword,
 		})
-		kdModCreds = func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.HelmCredentials = append(kd.Spec.HelmCredentials, kluctlv1.HelmCredentials{
-				SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
-			})
-		}
+		legacyHelmCreds = append(legacyHelmCreds, kluctlv1.HelmCredentials{
+			SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
+		})
 	} else if tc.argCredsHost != "" {
 		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 		if tc.oci {
-			createSecret("oci-secrets-1", map[string]string{
+			m := map[string]string{
 				"username": tc.argUsername,
 				"password": tc.argPassword,
-			})
-			kdModCreds = func(kd *kluctlv1.KluctlDeployment) {
-				kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, kluctlv1.ProjectCredentialsOci{
-					Registry:   host,
-					Repository: tc.argCredsPath,
-					SecretRef:  kluctlv1.LocalObjectReference{Name: "oci-secrets-1"},
-				})
 			}
+			if !repo.TLSEnabled {
+				m["plain_http"] = "true"
+			}
+			if tc.argPassCA {
+				m["ca"] = string(repo.ServerCAs)
+			}
+			if tc.argPassClientCert {
+				m["cert"] = string(repo.ClientCert)
+			}
+			if tc.argPassClientCert {
+				m["key"] = string(repo.ClientKey)
+			}
+			createSecret("oci-secrets-1", m)
+			projectCreds.Oci = append(projectCreds.Oci, kluctlv1.ProjectCredentialsOci{
+				Registry:   host,
+				Repository: tc.argCredsPath,
+				SecretRef:  kluctlv1.LocalObjectReference{Name: "oci-secrets-1"},
+			})
 		} else {
-			createSecret("helm-secrets-1", map[string]string{
+			m := map[string]string{
 				"username": tc.argUsername,
 				"password": tc.argPassword,
-			})
-			kdModCreds = func(kd *kluctlv1.KluctlDeployment) {
-				kd.Spec.Credentials.Helm = append(kd.Spec.Credentials.Helm, kluctlv1.ProjectCredentialsHelm{
-					Host:      host,
-					Path:      tc.argCredsPath,
-					SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
-				})
 			}
+			if tc.argPassCA {
+				m["ca"] = string(repo.ServerCAs)
+			}
+			if tc.argPassClientCert {
+				m["cert"] = string(repo.ClientCert)
+			}
+			if tc.argPassClientCert {
+				m["key"] = string(repo.ClientKey)
+			}
+			createSecret("helm-secrets-1", m)
+			projectCreds.Helm = append(projectCreds.Helm, kluctlv1.ProjectCredentialsHelm{
+				Host:      host,
+				Path:      tc.argCredsPath,
+				SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
+			})
 		}
+	}
+
+	// add a fallback secret that enables plain_http in case we have no matching creds
+	if tc.oci && !repo.TLSEnabled {
+		m := map[string]string{
+			"plain_http": "true",
+		}
+		createSecret("oci-secrets-plain-http", m)
+		projectCreds.Oci = append(projectCreds.Oci, kluctlv1.ProjectCredentialsOci{
+			Registry:  repo.URL.Host,
+			SecretRef: kluctlv1.LocalObjectReference{Name: "oci-secrets-plain-http"},
+		})
 	}
 
 	key := suite.createKluctlDeployment2(p, "test", map[string]any{
 		"namespace": p.TestSlug(),
-	}, kdModSource, kdModCreds)
+	}, func(kd *kluctlv1.KluctlDeployment) {
+		kd.Spec.Source = kluctlv1.ProjectSource{
+			Git: &kluctlv1.ProjectSourceGit{
+				URL: *types2.ParseGitUrlMust(p.GitUrl()),
+			},
+		}
+		kd.Spec.HelmCredentials = legacyHelmCreds
+		kd.Spec.Credentials = projectCreds
+	})
 
 	suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 

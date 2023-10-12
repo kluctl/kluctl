@@ -20,12 +20,13 @@ import (
 )
 
 type helmTestCase struct {
-	path     string
-	name     string
-	oci      bool
-	testAuth bool
-	testTLS  bool
-	credsId  string
+	path              string
+	name              string
+	oci               bool
+	testAuth          bool
+	testTLS           bool
+	testTLSClientCert bool
+	credsId           string
 
 	argCredsId   string
 	argCredsHost string
@@ -33,12 +34,66 @@ type helmTestCase struct {
 	argUsername  string
 	argPassword  string
 
+	argPassCA         bool
+	argPassClientCert bool
+
 	expectedError string
 }
 
 var helmTests = []helmTestCase{
 	{name: "helm-no-creds"},
 	{name: "oci-no-creds", oci: true},
+
+	// tls tests
+	{
+		name: "helm-tls-missing-ca", testTLS: true,
+		argPassCA:     false,
+		argCredsHost:  "<host>",
+		expectedError: "failed to verify certificate",
+	},
+	{
+		name: "helm-tls-valid-ca", testTLS: true,
+		argPassCA:    true,
+		argCredsHost: "<host>",
+	},
+	{
+		name: "helm-tls-missing-cert", testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: false,
+		argCredsHost:      "<host>",
+		expectedError:     "certificate required",
+	},
+	{
+		name: "helm-tls-valid-cert", testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: true,
+		argCredsHost:      "<host>",
+	},
+
+	{
+		name: "oci-tls-missing-ca", oci: true, testTLS: true,
+		argPassCA:     false,
+		argCredsHost:  "<host>",
+		expectedError: "failed to verify certificate",
+	},
+	{
+		name: "oci-tls-valid-ca", oci: true, testTLS: true,
+		argPassCA:    true,
+		argCredsHost: "<host>",
+	},
+	{
+		name: "oci-tls-missing-cert", oci: true, testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: false,
+		argCredsHost:      "<host>",
+		expectedError:     "certificate required",
+	},
+	{
+		name: "oci-tls-valid-cert", oci: true, testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: true,
+		argCredsHost:      "<host>",
+	},
 
 	// deprecated helm credentials flags
 	{
@@ -121,37 +176,76 @@ var helmTests = []helmTestCase{
 	},
 }
 
-func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, host string) []string {
+func newTmpFile(t *testing.T, b []byte) string {
+	tmp, _ := os.Create(filepath.Join(t.TempDir(), "x.pem"))
+	defer tmp.Close()
+	tmp.Write(b)
+	return tmp.Name()
+}
+
+func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.TestHelmRepo) []string {
 	var ret []string
 	if tc.oci {
 		if tc.argCredsHost != "" {
-			r := strings.ReplaceAll(tc.argCredsHost, "<host>", host)
+			r := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 			if tc.argCredsPath != "" {
 				r += "/" + tc.argCredsPath
 			}
 			ret = append(ret, fmt.Sprintf("--registry-username=%s=%s", r, tc.argUsername))
 			ret = append(ret, fmt.Sprintf("--registry-password=%s=%s", r, tc.argPassword))
+			if !repo.TLSEnabled {
+				ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", r))
+			}
+		}
+		if !repo.TLSEnabled {
+			r := repo.URL.Host
+			if tc.argCredsPath != "" {
+				r += "/" + tc.argCredsPath
+			}
+			ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", r))
+		}
+		if tc.testTLS {
+			if tc.argPassCA {
+				ret = append(ret, fmt.Sprintf("--registry-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ServerCAs)))
+			}
+			if tc.argPassClientCert {
+				ret = append(ret, fmt.Sprintf("--registry-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientCert)))
+				ret = append(ret, fmt.Sprintf("--registry-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientKey)))
+			}
 		}
 	} else {
 		if tc.argCredsId != "" {
 			ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
 			ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
 		} else if tc.argCredsHost != "" {
-			r := strings.ReplaceAll(tc.argCredsHost, "<host>", host)
+			r := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 			if tc.argCredsPath != "" {
 				r += "/" + tc.argCredsPath
 			}
 			ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
 			ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
 		}
+		if tc.testTLS {
+			if tc.argPassCA {
+				ret = append(ret, fmt.Sprintf("--helm-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ServerCAs)))
+			}
+			if tc.argPassClientCert {
+				ret = append(ret, fmt.Sprintf("--helm-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientCert)))
+				ret = append(ret, fmt.Sprintf("--helm-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientKey)))
+			}
+		}
+	}
+	// add a fallback that enables plain_http in case we have no matching creds
+	if tc.oci && !repo.TLSEnabled {
+		ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", repo.URL.Host))
 	}
 	return ret
 }
 
-func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, host string) {
+func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, repo *test_utils.TestHelmRepo) {
 	if tc.oci {
 		if tc.argCredsHost != "" {
-			t.Setenv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", host))
+			t.Setenv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
 		}
 		if tc.argCredsPath != "" {
 			t.Setenv("KLUCTL_REGISTRY_REPOSITORY", tc.argCredsPath)
@@ -162,12 +256,22 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, host string) {
 		if tc.argPassword != "" {
 			t.Setenv("KLUCTL_REGISTRY_PASSWORD", tc.argPassword)
 		}
+		if !repo.TLSEnabled {
+			t.Setenv("KLUCTL_REGISTRY_PLAIN_HTTP", "true")
+		}
+		if tc.argPassCA {
+			t.Setenv("KLUCTL_REGISTRY_CA_FILE", newTmpFile(t, repo.ServerCAs))
+		}
+		if tc.argPassClientCert {
+			t.Setenv("KLUCTL_REGISTRY_CERT_FILE", newTmpFile(t, repo.ClientCert))
+			t.Setenv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.ClientKey))
+		}
 	} else {
 		if tc.argCredsId != "" {
 			t.Setenv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
 		}
 		if tc.argCredsHost != "" {
-			t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", host))
+			t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
 		}
 		if tc.argCredsPath != "" {
 			t.Setenv("KLUCTL_HELM_PATH", tc.argCredsPath)
@@ -178,6 +282,18 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, host string) {
 		if tc.argPassword != "" {
 			t.Setenv("KLUCTL_HELM_PASSWORD", tc.argPassword)
 		}
+		if tc.argPassCA {
+			t.Setenv("KLUCTL_HELM_CA_FILE", newTmpFile(t, repo.ServerCAs))
+		}
+		if tc.argPassClientCert {
+			t.Setenv("KLUCTL_HELM_CERT_FILE", newTmpFile(t, repo.ClientCert))
+			t.Setenv("KLUCTL_HELM_KEY_FILE", newTmpFile(t, repo.ClientKey))
+		}
+	}
+	// add a fallback that enables plain_http in case we have no matching creds
+	if tc.oci && !repo.TLSEnabled {
+		t.Setenv("KLUCTL_REGISTRY_1_HOST", repo.URL.Host)
+		t.Setenv("KLUCTL_REGISTRY_1_PLAIN_HTTP", "true")
 	}
 }
 
@@ -195,9 +311,11 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 
 	repo := &test_utils.TestHelmRepo{
 		TestHttpServer: test_utils.TestHttpServer{
-			Username:   user,
-			Password:   password,
-			TLSEnabled: tc.testTLS,
+			Username:               user,
+			Password:               password,
+			NoLoopbackProxyEnabled: true,
+			TLSEnabled:             tc.testTLS,
+			TLSClientCertEnabled:   tc.testTLSClientCert,
 		},
 		Charts: []test_utils.RepoChart{
 			{ChartName: "test-chart1", Version: "0.1.0"},
@@ -207,7 +325,7 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 	}
 	repo.Start(t)
 
-	extraArgs := buildHelmTestExtraArgs(t, tc, repo.URL.Host)
+	extraArgs := buildHelmTestExtraArgs(t, tc, repo)
 
 	p.UpdateTarget("test", nil)
 	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
@@ -262,9 +380,9 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 
 	args := []string{"deploy", "--yes", "-t", "test"}
 	if credsViaEnv {
-		buildHelmTestEnvVars(t, tc, repo.URL.Host)
+		buildHelmTestEnvVars(t, tc, repo)
 	} else {
-		args = append(args, buildHelmTestExtraArgs(t, tc, repo.URL.Host)...)
+		args = append(args, buildHelmTestExtraArgs(t, tc, repo)...)
 	}
 
 	_, stderr, err := p.Kluctl(args...)
