@@ -100,8 +100,8 @@ func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, fo
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
-		var tags utils.OrderedMap
-		var deploymentItemDirs utils.OrderedMap
+		var tags utils.OrderedMap[bool]
+		var deploymentItemDirs utils.OrderedMap[bool]
 		var mutex sync.Mutex
 
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
@@ -155,7 +155,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
-		var images utils.OrderedMap
+		var images utils.OrderedMap[bool]
 		var mutex sync.Mutex
 
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {

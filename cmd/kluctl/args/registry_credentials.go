@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"strings"
 )
@@ -29,7 +30,7 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 		return la, nil
 	}
 
-	byRegistryAndRepo := map[string]*auth_provider.AuthEntry{}
+	var byRegistryAndRepo utils.OrderedMap[*auth_provider.AuthEntry]
 
 	getEntry := func(s string, expectValue bool) (*auth_provider.AuthEntry, string, error) {
 		x := strings.SplitN(s, "=", 2)
@@ -37,7 +38,7 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 			return nil, "", fmt.Errorf("expected value")
 		}
 		k := x[0]
-		e, ok := byRegistryAndRepo[k]
+		e, ok := byRegistryAndRepo.Get(k)
 		if !ok {
 			x := strings.SplitN(k, "/", 2)
 			e = &auth_provider.AuthEntry{}
@@ -47,7 +48,7 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 			} else {
 				e.Registry = x[0]
 			}
-			byRegistryAndRepo[k] = e
+			byRegistryAndRepo.Set(k, e)
 		}
 
 		if len(x) == 1 {
@@ -139,7 +140,7 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 		e.InsecureSkipTlsVerify = true
 	}
 
-	for _, e := range byRegistryAndRepo {
+	for _, e := range byRegistryAndRepo.ListValues() {
 		la.AddEntry(*e)
 	}
 

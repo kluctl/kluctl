@@ -5,6 +5,7 @@ import (
 	"fmt"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"strings"
 )
@@ -24,8 +25,8 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		return la, nil
 	}
 
-	byCredentialId := map[string]*helm_auth.AuthEntry{}
-	byHostPath := map[string]*helm_auth.AuthEntry{}
+	var byCredentialId utils.OrderedMap[*helm_auth.AuthEntry]
+	var byHostPath utils.OrderedMap[*helm_auth.AuthEntry]
 
 	getDeprecatedEntry := func(s string) (*helm_auth.AuthEntry, string, bool) {
 		x := strings.Split(s, ":")
@@ -34,12 +35,12 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		}
 		status.Deprecation(ctx, "helm-credential-args-id", "Passing Helm credentials via credentialsId is deprecated and support for it will be removed in a future version of Kluctl. Please switch to using the <host>/<path>=value format.")
 		k := x[0]
-		e, ok := byCredentialId[k]
+		e, ok := byCredentialId.Get(k)
 		if !ok {
 			e = &helm_auth.AuthEntry{
 				CredentialsId: k,
 			}
-			byCredentialId[k] = e
+			byCredentialId.Set(k, e)
 		}
 		return e, x[1], true
 	}
@@ -58,7 +59,7 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		}
 
 		k := x[0]
-		e, ok := byHostPath[k]
+		e, ok := byHostPath.Get(k)
 		if !ok {
 			x := strings.SplitN(k, "/", 2)
 			e = &helm_auth.AuthEntry{}
@@ -68,7 +69,7 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 			} else {
 				e.Host = x[0]
 			}
-			byHostPath[k] = e
+			byHostPath.Set(k, e)
 		}
 
 		if len(x) == 1 {
@@ -129,10 +130,10 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		e.InsecureSkipTLSverify = true
 	}
 
-	for _, e := range byCredentialId {
+	for _, e := range byCredentialId.ListValues() {
 		la.AddEntry(*e)
 	}
-	for _, e := range byHostPath {
+	for _, e := range byHostPath.ListValues() {
 		la.AddEntry(*e)
 	}
 

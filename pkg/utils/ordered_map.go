@@ -1,16 +1,16 @@
 package utils
 
-type orderedMapEntry struct {
+type orderedMapEntry[T any] struct {
 	k string
-	v interface{}
+	v T
 }
 
-type OrderedMap struct {
+type OrderedMap[T any] struct {
 	m map[string]int
-	l []orderedMapEntry
+	l []orderedMapEntry[T]
 }
 
-func (s *OrderedMap) Set(k string, v interface{}) bool {
+func (s *OrderedMap[T]) Set(k string, v T) bool {
 	if s.m == nil {
 		s.m = map[string]int{k: 0}
 	} else {
@@ -19,30 +19,31 @@ func (s *OrderedMap) Set(k string, v interface{}) bool {
 		}
 		s.m[k] = len(s.l)
 	}
-	s.l = append(s.l, orderedMapEntry{k: k, v: v})
+	s.l = append(s.l, orderedMapEntry[T]{k: k, v: v})
 	return true
 }
 
-func (s *OrderedMap) SetMultiple(k []string, v interface{}) {
+func (s *OrderedMap[T]) SetMultiple(k []string, v T) {
 	for _, x := range k {
 		s.Set(x, v)
 	}
 }
 
-func (s *OrderedMap) Has(v string) bool {
+func (s *OrderedMap[T]) Has(v string) bool {
 	_, ok := s.m[v]
 	return ok
 }
 
-func (s *OrderedMap) Get(v string) (interface{}, bool) {
+func (s *OrderedMap[T]) Get(v string) (T, bool) {
 	i, ok := s.m[v]
 	if !ok {
-		return nil, ok
+		var n T
+		return n, ok
 	}
 	return s.l[i].v, true
 }
 
-func (s *OrderedMap) ListKeys() []string {
+func (s *OrderedMap[T]) ListKeys() []string {
 	l := make([]string, len(s.l))
 	for i, e := range s.l {
 		l[i] = e.k
@@ -50,15 +51,15 @@ func (s *OrderedMap) ListKeys() []string {
 	return l
 }
 
-func (s *OrderedMap) ListValues() []interface{} {
-	l := make([]interface{}, len(s.l))
+func (s *OrderedMap[T]) ListValues() []T {
+	l := make([]T, len(s.l))
 	for i, e := range s.l {
 		l[i] = e.v
 	}
 	return l
 }
 
-func (s *OrderedMap) Merge(other *OrderedMap) {
+func (s *OrderedMap[T]) Merge(other *OrderedMap[T]) {
 	for _, e := range other.l {
 		s.Set(e.k, e.v)
 	}
