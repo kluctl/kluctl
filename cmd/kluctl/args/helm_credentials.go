@@ -5,7 +5,6 @@ import (
 	"fmt"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"strings"
 )
@@ -28,56 +27,72 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 	byCredentialId := map[string]*helm_auth.AuthEntry{}
 	byHostPath := map[string]*helm_auth.AuthEntry{}
 
-	getEntry := func(s string) (*helm_auth.AuthEntry, string, error) {
-		x1 := strings.SplitN(s, "=", 2)
-		x2 := strings.SplitN(s, ":", 2) // deprecated
-		if len(x1) == 2 {
-			k := x1[0]
-			e, ok := byHostPath[k]
-			if !ok {
-				x := strings.SplitN(k, "/", 2)
-				e = &helm_auth.AuthEntry{}
-				if len(x) == 2 {
-					e.Host = x[0]
-					e.Path = x[1]
-				} else {
-					e.Host = x[0]
-				}
-				byHostPath[k] = e
-			}
-			return e, x1[1], nil
-		} else if len(x2) == 2 {
-			status.Deprecation(ctx, "helm-credential-args-id", "Passing Helm credentials via credentialsId is deprecated and support for it will be removed in a future version of Kluctl. Please switch to using the <host>/<path>=value format.")
-			k := x2[0]
-			e, ok := byCredentialId[k]
-			if !ok {
-				e = &helm_auth.AuthEntry{
-					CredentialsId: k,
-				}
-				byCredentialId[k] = e
-			}
-			return e, x2[1], nil
-		} else {
-			return nil, "", fmt.Errorf("invalid parameter format")
+	getDeprecatedEntry := func(s string) (*helm_auth.AuthEntry, string, bool) {
+		x := strings.Split(s, ":")
+		if len(x) != 2 {
+			return nil, "", false
 		}
+		status.Deprecation(ctx, "helm-credential-args-id", "Passing Helm credentials via credentialsId is deprecated and support for it will be removed in a future version of Kluctl. Please switch to using the <host>/<path>=value format.")
+		k := x[0]
+		e, ok := byCredentialId[k]
+		if !ok {
+			e = &helm_auth.AuthEntry{
+				CredentialsId: k,
+			}
+			byCredentialId[k] = e
+		}
+		return e, x[1], true
+	}
+
+	getEntry := func(s string, expectValue bool) (*helm_auth.AuthEntry, string, error) {
+		if !strings.Contains(s, "=") {
+			e, v, ok := getDeprecatedEntry(s)
+			if ok {
+				return e, v, nil
+			}
+		}
+
+		x := strings.SplitN(s, "=", 2)
+		if expectValue && len(x) != 2 {
+			return nil, "", fmt.Errorf("expected value")
+		}
+
+		k := x[0]
+		e, ok := byHostPath[k]
+		if !ok {
+			x := strings.SplitN(k, "/", 2)
+			e = &helm_auth.AuthEntry{}
+			if len(x) == 2 {
+				e.Host = x[0]
+				e.Path = x[1]
+			} else {
+				e.Host = x[0]
+			}
+			byHostPath[k] = e
+		}
+
+		if len(x) == 1 {
+			return e, "", nil
+		}
+		return e, x[1], nil
 	}
 
 	for _, s := range c.HelmUsername {
-		e, v, err := getEntry(s)
+		e, v, err := getEntry(s, true)
 		if err != nil {
 			return nil, err
 		}
 		e.Username = v
 	}
 	for _, s := range c.HelmPassword {
-		e, v, err := getEntry(s)
+		e, v, err := getEntry(s, true)
 		if err != nil {
 			return nil, err
 		}
 		e.Password = v
 	}
 	for _, s := range c.HelmKeyFile {
-		e, v, err := getEntry(s)
+		e, v, err := getEntry(s, true)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +102,7 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		}
 	}
 	for _, s := range c.HelmCertFile {
-		e, v, err := getEntry(s)
+		e, v, err := getEntry(s, true)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +112,7 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		}
 	}
 	for _, s := range c.HelmCAFile {
-		e, v, err := getEntry(s)
+		e, v, err := getEntry(s, true)
 		if err != nil {
 			return nil, err
 		}
@@ -107,11 +122,11 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		}
 	}
 	for _, s := range c.HelmInsecureSkipTlsVerify {
-		e, v, err := getEntry(s)
+		e, _, err := getEntry(s, false)
 		if err != nil {
 			return nil, err
 		}
-		e.InsecureSkipTLSverify = utils.ParseBoolOrFalse(v)
+		e.InsecureSkipTLSverify = true
 	}
 
 	for _, e := range byCredentialId {
