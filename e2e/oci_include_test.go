@@ -8,7 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	homedir "github.com/mitchellh/go-homedir"
 	cp "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -78,8 +77,8 @@ func TestOciIncludeWithCreds(t *testing.T) {
 		return repo
 	}
 	repo1 := createRepo("user1", "pass1")
-	repo2 := createRepo("user1", "pass1")
-	repo3 := createRepo("user1", "pass1")
+	repo2 := createRepo("user2", "pass2")
+	repo3 := createRepo("user3", "pass3")
 	repoUrl1 := repo1.URL.String() + "/org1/repo1"
 	repoUrl2 := repo2.URL.String() + "/org2/repo2"
 	repoUrl3 := repo3.URL.String() + "/org3/repo3"
@@ -107,18 +106,18 @@ func TestOciIncludeWithCreds(t *testing.T) {
 
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"oci": map[string]any{
-			"url": repo1,
+			"url": repoUrl1,
 		},
 	}))
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"oci": map[string]any{
-			"url":    repo2,
+			"url":    repoUrl2,
 			"subDir": "subDir",
 		},
 	}))
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"oci": map[string]any{
-			"url": repo3,
+			"url": repoUrl3,
 		},
 	}))
 
@@ -129,7 +128,7 @@ func TestOciIncludeWithCreds(t *testing.T) {
 
 	// deploy with some invalid creds
 	t.Setenv("KLUCTL_REGISTRY_1_HOST", repo1.URL.Host)
-	t.Setenv("KLUCTL_REGISTRY_1_REPO", "org1/repo1")
+	t.Setenv("KLUCTL_REGISTRY_1_REPOSITORY", "org1/repo1")
 	t.Setenv("KLUCTL_REGISTRY_1_USERNAME", "user1")
 	t.Setenv("KLUCTL_REGISTRY_1_PASSWORD", "pass1")
 	t.Setenv("KLUCTL_REGISTRY_2_REPOSITORY", fmt.Sprintf("%s/org2/repo2", repo2.URL.Host))
@@ -142,9 +141,6 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	// deploy with valid creds
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "pass2")
 	dockerLogin(t, repo3.URL.Host, "user3", "pass3")
-
-	x, _ := homedir.Dir()
-	t.Logf("homedir=%s", x)
 
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
