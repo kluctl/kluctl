@@ -6,12 +6,22 @@ import (
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
+	"testing"
 )
 
-func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
+type GitOpsHelmSuite struct {
+	GitopsTestSuite
+}
+
+func TestGitOpsHelm(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, new(GitOpsHelmSuite))
+}
+
+func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	g := NewWithT(suite.T())
 
 	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull)
@@ -22,35 +32,17 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		return
 	}
 
-	createNamespace(suite.T(), suite.k, p.TestSlug()+"-gitops")
-
-	createSecret := func(name string, m map[string]string) {
-		mb := map[string][]byte{}
-		for k, v := range m {
-			mb[k] = []byte(v)
-		}
-		credsSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: p.TestSlug() + "-gitops",
-				Name:      name,
-			},
-			Data: mb,
-		}
-		err := suite.k.Client.Create(context.TODO(), credsSecret)
-		g.Expect(err).To(Succeed())
-	}
-
 	var legacyHelmCreds []kluctlv1.HelmCredentials
 	var projectCreds kluctlv1.ProjectCredentials
 
 	if tc.argCredsId != "" {
-		createSecret("helm-secrets-1", map[string]string{
+		name := suite.createGitopsSecret(map[string]string{
 			"credentialsId": tc.argCredsId,
 			"username":      tc.argUsername,
 			"password":      tc.argPassword,
 		})
 		legacyHelmCreds = append(legacyHelmCreds, kluctlv1.HelmCredentials{
-			SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
+			SecretRef: kluctlv1.LocalObjectReference{Name: name},
 		})
 	} else if tc.argCredsHost != "" {
 		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
@@ -71,11 +63,11 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 			if tc.argPassClientCert {
 				m["key"] = string(repo.ClientKey)
 			}
-			createSecret("oci-secrets-1", m)
+			name := suite.createGitopsSecret(m)
 			projectCreds.Oci = append(projectCreds.Oci, kluctlv1.ProjectCredentialsOci{
 				Registry:   host,
 				Repository: tc.argCredsPath,
-				SecretRef:  kluctlv1.LocalObjectReference{Name: "oci-secrets-1"},
+				SecretRef:  kluctlv1.LocalObjectReference{Name: name},
 			})
 		} else {
 			m := map[string]string{
@@ -91,11 +83,11 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 			if tc.argPassClientCert {
 				m["key"] = string(repo.ClientKey)
 			}
-			createSecret("helm-secrets-1", m)
+			name := suite.createGitopsSecret(m)
 			projectCreds.Helm = append(projectCreds.Helm, kluctlv1.ProjectCredentialsHelm{
 				Host:      host,
 				Path:      tc.argCredsPath,
-				SecretRef: kluctlv1.LocalObjectReference{Name: "helm-secrets-1"},
+				SecretRef: kluctlv1.LocalObjectReference{Name: name},
 			})
 		}
 	}
@@ -105,10 +97,10 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		m := map[string]string{
 			"plain_http": "true",
 		}
-		createSecret("oci-secrets-plain-http", m)
+		name := suite.createGitopsSecret(m)
 		projectCreds.Oci = append(projectCreds.Oci, kluctlv1.ProjectCredentialsOci{
 			Registry:  repo.URL.Host,
-			SecretRef: kluctlv1.LocalObjectReference{Name: "oci-secrets-plain-http"},
+			SecretRef: kluctlv1.LocalObjectReference{Name: name},
 		})
 	}
 
@@ -146,7 +138,7 @@ func (suite *GitopsTestSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	}
 }
 
-func (suite *GitopsTestSuite) TestHelm() {
+func (suite *GitOpsHelmSuite) TestHelm() {
 	for _, tc := range helmTests {
 		tc := tc
 		if tc.name == "dep-oci-creds-fail" {
@@ -158,7 +150,7 @@ func (suite *GitopsTestSuite) TestHelm() {
 	}
 }
 
-func (suite *GitopsTestSuite) TestHelmPrePull() {
+func (suite *GitOpsHelmSuite) TestHelmPrePull() {
 	for _, tc := range helmTests {
 		tc := tc
 		if tc.name == "dep-oci-creds-fail" {

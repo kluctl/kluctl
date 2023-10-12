@@ -7,12 +7,23 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
 )
 
-func (suite *GitopsTestSuite) TestGitOpsOciIncludeCredentials() {
+type GitOpsOciIncludeSuite struct {
+	GitopsTestSuite
+}
+
+func TestGitOpsOciInclude(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, new(GitOpsOciIncludeSuite))
+}
+
+func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	g := NewWithT(suite.T())
 	_ = g
 

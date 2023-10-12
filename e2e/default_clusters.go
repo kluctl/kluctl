@@ -16,6 +16,7 @@ import (
 
 var defaultCluster1 = test_utils.CreateEnvTestCluster("cluster1")
 var defaultCluster2 = test_utils.CreateEnvTestCluster("cluster2")
+var gitopsCluster = test_utils.CreateEnvTestCluster("gitops")
 var mergedKubeconfig string
 
 func init() {
@@ -24,7 +25,7 @@ func init() {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		err := defaultCluster1.Start()
@@ -44,6 +45,14 @@ func init() {
 		}
 		test_resources.ApplyYaml(nil, "sealed-secrets.yaml", defaultCluster2)
 	}()
+	go func() {
+		defer wg.Done()
+		gitopsCluster.CRDDirectoryPaths = []string{"../config/crd/bases"}
+		err := gitopsCluster.Start()
+		if err != nil {
+			panic(err)
+		}
+	}()
 	wg.Wait()
 
 	tmpKubeconfig, err := os.CreateTemp("", "")
@@ -57,6 +66,7 @@ func init() {
 
 	mergeKubeconfig(tmpKubeconfig.Name(), defaultCluster1.Kubeconfig)
 	mergeKubeconfig(tmpKubeconfig.Name(), defaultCluster2.Kubeconfig)
+	mergeKubeconfig(tmpKubeconfig.Name(), gitopsCluster.Kubeconfig)
 
 	mergedKubeconfig = tmpKubeconfig.Name()
 	_ = os.Setenv("KUBECONFIG", mergedKubeconfig)

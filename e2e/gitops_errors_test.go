@@ -9,23 +9,24 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
 )
 
-func (suite *GitopsTestSuite) getReadiness(obj *kluctlv1.KluctlDeployment) *metav1.Condition {
-	for _, c := range obj.Status.Conditions {
-		if c.Type == meta.ReadyCondition {
-			return &c
-		}
-	}
-	return nil
+type GitOpsErrorsSuite struct {
+	GitopsTestSuite
 }
 
-func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.ConditionStatus, rreason string, rmessage string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
+func TestGitOpsErrors(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, new(GitOpsErrorsSuite))
+}
+
+func (suite *GitOpsErrorsSuite) assertErrors(key client.ObjectKey, rstatus metav1.ConditionStatus, rreason string, rmessage string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
 	g := NewWithT(suite.T())
 
 	var kd kluctlv1.KluctlDeployment
@@ -62,7 +63,7 @@ func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.
 	g.Expect(lastDeployResult.Warnings).To(ConsistOf(expectedWarnings))
 }
 
-func (suite *GitopsTestSuite) TestGitOpsErrors() {
+func (suite *GitOpsErrorsSuite) TestGitOpsErrors() {
 	g := NewWithT(suite.T())
 	_ = g
 
@@ -117,7 +118,7 @@ data:
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
 			{
 				Ref:     cm1Ref,
-				Message: "failed to patch test-git-ops-test-git-ops-errors/ConfigMap/cm1: failed to create typed patch object (test-git-ops-test-git-ops-errors/cm1; /v1, Kind=ConfigMap): .data_error: field not declared in schema",
+				Message: "failed to patch git-ops-errors-git-ops-errors/ConfigMap/cm1: failed to create typed patch object (git-ops-errors-git-ops-errors/cm1; /v1, Kind=ConfigMap): .data_error: field not declared in schema",
 			},
 		}, nil)
 		p.UpdateFile("d1/cm1.yaml", func(f string) (string, error) {
