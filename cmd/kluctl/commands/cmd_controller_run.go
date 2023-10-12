@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -39,6 +40,7 @@ type controllerRunCmd struct {
 
 	Kubeconfig string `group:"misc" help:"Override the kubeconfig to use."`
 	Context    string `group:"misc" help:"Override the context to use."`
+	Namespace  string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
 
 	MetricsBindAddress     string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
 	HealthProbeBindAddress string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
@@ -90,6 +92,13 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		restConfig.Burst = -1
 	}
 
+	var cacheNamespaces map[string]cache.Config
+	if cmd.Namespace != "" {
+		cacheNamespaces = map[string]cache.Config{
+			cmd.Namespace: {},
+		}
+	}
+
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme: cmd.scheme,
 		Metrics: metricsserver.Options{
@@ -109,6 +118,9 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
+		Cache: cache.Options{
+			DefaultNamespaces: cacheNamespaces,
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
