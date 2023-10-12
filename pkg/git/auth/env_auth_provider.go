@@ -18,7 +18,8 @@ type GitEnvAuthProvider struct {
 func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
 	var la ListAuthProvider
 
-	for _, m := range utils.ParseEnvConfigSets(a.Prefix) {
+	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
+		m := s.Map
 		e := AuthEntry{
 			Host:       m["HOST"],
 			PathPrefix: m["PATH_PREFIX"],

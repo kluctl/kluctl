@@ -25,7 +25,8 @@ func (a *HelmEnvAuthProvider) isDefaultInsecure(ctx context.Context) bool {
 func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error) {
 	defaultInsecure := a.isDefaultInsecure(ctx)
 
-	for _, m := range utils.ParseEnvConfigSets(a.Prefix) {
+	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
+		m := s.Map
 		host := m["HOST"]
 		cid := m["CREDENTIALS_ID"]
 		if host == "" && cid == "" {

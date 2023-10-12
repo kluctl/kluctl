@@ -28,7 +28,8 @@ func (a *OciEnvAuthProvider) FindAuthEntry(ctx context.Context, ociUrl string) (
 
 	var la ListAuthProvider
 
-	for _, m := range utils.ParseEnvConfigSets(a.Prefix) {
+	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
+		m := s.Map
 		host := m["HOST"]
 		repo := m["REPOSITORY"]
 		if host == "" && repo == "" {
