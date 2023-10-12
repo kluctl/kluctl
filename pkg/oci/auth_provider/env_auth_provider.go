@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"os"
 )
 
 type OciEnvAuthProvider struct {
@@ -72,6 +73,31 @@ func (a *OciEnvAuthProvider) FindAuthEntry(ctx context.Context, ociUrl string) (
 		x, ok = m["INSECURE_SKIP_TLS_VERIFY"]
 		if ok {
 			e.InsecureSkipTlsVerify = utils.ParseBoolOrFalse(x)
+		}
+
+		x, ok = m["CA_FILE"]
+		if ok {
+			b, err := os.ReadFile(x)
+			if err != nil {
+				return nil, err
+			}
+			e.CA = b
+		}
+		x, ok = m["CERT_FILE"]
+		if ok {
+			b, err := os.ReadFile(x)
+			if err != nil {
+				return nil, err
+			}
+			e.Cert = b
+		}
+		x, ok = m["KEY_FILE"]
+		if ok {
+			b, err := os.ReadFile(x)
+			if err != nil {
+				return nil, err
+			}
+			e.Key = b
 		}
 
 		la.AddEntry(e)

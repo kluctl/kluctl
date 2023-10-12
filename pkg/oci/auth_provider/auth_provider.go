@@ -139,15 +139,16 @@ func (a *AuthEntry) BuildHelmRegistryOptions(ctx context.Context, host string) (
 
 	cleanup := func() {}
 
-	cf, err := a.BuildDockerConfig(ctx, host)
-	if err != nil {
-		return nil, nil, err
+	if a.AuthConfig != (authn.AuthConfig{}) {
+		cf, err := a.BuildDockerConfig(ctx, host)
+		if err != nil {
+			return nil, nil, err
+		}
+		cleanup = func() {
+			_ = os.Remove(cf)
+		}
+		ret = append(ret, registry.ClientOptCredentialsFile(cf))
 	}
-	cleanup = func() {
-		_ = os.Remove(cf)
-	}
-
-	ret = append(ret, registry.ClientOptCredentialsFile(cf))
 
 	t, err := a.BuildHttpTransport()
 	if err != nil {
@@ -159,6 +160,10 @@ func (a *AuthEntry) BuildHelmRegistryOptions(ctx context.Context, host string) (
 		Transport: t,
 	}
 	ret = append(ret, registry.ClientOptHTTPClient(hc))
+
+	if a.PlainHTTP {
+		ret = append(ret, registry.ClientOptPlainHTTP())
+	}
 
 	return ret, cleanup, nil
 }

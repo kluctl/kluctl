@@ -124,6 +124,13 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 		}
 		e.CA = b
 	}
+	for _, s := range c.RegistryPlainHttp {
+		e, _, err := getEntry(s, false)
+		if err != nil {
+			return nil, err
+		}
+		e.PlainHTTP = true
+	}
 	for _, s := range c.RegistryInsecureSkipTlsVerify {
 		e, _, err := getEntry(s, false)
 		if err != nil {
