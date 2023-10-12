@@ -73,7 +73,10 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	cmd.initScheme()
 
 	metricsRecorder := metrics.NewRecorder()
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+	if cmd.MetricsBindAddress != "0" {
+		metricsRecorder = metrics.NewRecorder()
+		crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+	}
 
 	opts := zap.Options{}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
