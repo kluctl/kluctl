@@ -324,6 +324,9 @@ func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
 	}
 
 	tryDeleteResult := func(secretKey client.ObjectKey, deployment *result.KluctlDeploymentInfo, id string, t string) {
+		if secretKey.Namespace != s.writeNamespace {
+			return
+		}
 		if _, ok := deploymentsMap[*deployment]; ok {
 			return
 		}
