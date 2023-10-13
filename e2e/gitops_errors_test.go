@@ -53,7 +53,9 @@ func (suite *GitOpsErrorsSuite) assertErrors(key client.ObjectKey, rstatus metav
 	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{
 		Id: lastDeployResult.Id,
 	})
+	g.Expect(err).To(Succeed())
 	if len(expectedErrors) != 0 || len(expectedWarnings) != 0 {
+		g.Expect(cr).ToNot(BeNil())
 		g.Expect(err).To(Succeed())
 		g.Expect(cr.Errors).To(ConsistOf(expectedErrors))
 		g.Expect(cr.Warnings).To(ConsistOf(expectedWarnings))

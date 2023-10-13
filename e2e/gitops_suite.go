@@ -45,10 +45,11 @@ type GitopsTestSuite struct {
 
 	cancelController context.CancelFunc
 
-	gitopsNamespace    string
-	gitopsSecretIdx    int
-	deployments        []client.ObjectKey
-	deletedDeployments []client.ObjectKey
+	gitopsNamespace        string
+	gitopsResultsNamespace string
+	gitopsSecretIdx        int
+	deployments            []client.ObjectKey
+	deletedDeployments     []client.ObjectKey
 }
 
 func (suite *GitopsTestSuite) SetupSuite() {
@@ -59,6 +60,7 @@ func (suite *GitopsTestSuite) SetupSuite() {
 	n = strings.ReplaceAll(n, "/", "-")
 	n += "-gitops"
 	suite.gitopsNamespace = n
+	suite.gitopsResultsNamespace = n + "-r"
 
 	createNamespace(suite.T(), suite.k, suite.gitopsNamespace)
 
@@ -109,6 +111,8 @@ func (suite *GitopsTestSuite) startController() {
 		"gitops",
 		"--namespace",
 		suite.gitopsNamespace,
+		"--command-result-namespace",
+		suite.gitopsNamespace + "-results",
 		"--metrics-bind-address=0",
 		"--health-probe-bind-address=0",
 	}
