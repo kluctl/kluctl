@@ -9,7 +9,7 @@ EXE=.exe
 endif
 
 RACE=
-ifeq ($(GOOS), linux)
+ifneq ($(GOOS), windows)
 RACE=-race
 endif
 
