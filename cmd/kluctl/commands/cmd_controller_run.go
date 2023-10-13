@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"testing"
 )
 
 var (
@@ -79,6 +80,9 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	opts := zap.Options{}
+	if testing.Testing() {
+		opts.Development = true
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	restConfig, err := cmd.loadConfig(cmd.Kubeconfig, cmd.Context)
