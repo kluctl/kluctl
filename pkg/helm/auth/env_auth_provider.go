@@ -13,17 +13,17 @@ type HelmEnvAuthProvider struct {
 	Prefix string
 }
 
-func (a *HelmEnvAuthProvider) isDefaultInsecure(ctx context.Context) bool {
-	defaultInsecure, err := utils.ParseEnvBool(fmt.Sprintf("%s_DEFAULT_INSECURE", a.Prefix), false)
+func (a *HelmEnvAuthProvider) isDefaultInsecureSkipTlsVerify(ctx context.Context) bool {
+	defaultInsecure, err := utils.ParseEnvBool(fmt.Sprintf("%s_DEFAULT_INSECURE_SKIP_TLS_VERIFY", a.Prefix), false)
 	if err != nil {
-		status.Warningf(ctx, "Failed to parse %s_DEFAULT_INSECURE: %s", a.Prefix, err)
+		status.Warningf(ctx, "Failed to parse %s_DEFAULT_INSECURE_SKIP_TLS_VERIFY: %s", a.Prefix, err)
 		return false
 	}
 	return defaultInsecure
 }
 
 func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error) {
-	defaultInsecure := a.isDefaultInsecure(ctx)
+	defaultInsecure := a.isDefaultInsecureSkipTlsVerify(ctx)
 
 	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
 		m := s.Map
@@ -39,7 +39,7 @@ func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL
 			Path:                  m["PATH"],
 			Username:              m["USERNAME"],
 			Password:              m["PASSWORD"],
-			InsecureSkipTLSverify: utils.ParseBoolOrDefault(m["INSECURE"], defaultInsecure),
+			InsecureSkipTLSverify: utils.ParseBoolOrDefault(m["INSECURE_SKIP_TLS_VERIFY"], defaultInsecure),
 			PassCredentialsAll:    utils.ParseBoolOrFalse(m["PASS_CREDENTIALS_ALL"]),
 		}
 
