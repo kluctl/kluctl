@@ -78,7 +78,7 @@ require (
 	github.com/otiai10/copy v1.14.0
 	github.com/prometheus/client_golang v1.17.0
 	github.com/sergi/go-diff v1.3.1
-	github.com/tkrajina/typescriptify-golang-structs v0.1.10
+	github.com/tkrajina/typescriptify-golang-structs v0.1.11
 	golang.org/x/oauth2 v0.13.0
 	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97
 	google.golang.org/grpc v1.58.3
