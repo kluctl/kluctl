@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/gobwas/glob"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
@@ -51,9 +52,6 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 		if host == "" {
 			host = "*"
 		}
-		if path == "" {
-			path = "*"
-		}
 		var secret corev1.Secret
 		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
@@ -84,7 +82,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 	if len(source.Credentials) != 0 {
 		status.Deprecation(ctx, "spec.source.credentials", "'spec.source.credentials' is deprecated and will be removed in the next API version bump. Use 'spec.credentials.git' instead")
 		for _, c := range source.Credentials {
-			err := loadCredentials(false, c.Host, c.PathPrefix+"*", c.SecretRef.Name)
+			err := loadCredentials(false, c.Host, c.PathPrefix+"**", c.SecretRef.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -98,9 +96,6 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credenti
 	var ret []ociRepoSecrets
 
 	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
-		if repo == "" {
-			repo = "*"
-		}
 		var secret corev1.Secret
 		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
@@ -196,8 +191,15 @@ func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecret
 			AllowWildcardHostForHttp: secret.deprecatedSecret,
 
 			Host:     secret.host,
-			Path:     secret.path,
 			Username: "*",
+		}
+		if secret.path != "" {
+			g, err := glob.Compile(secret.path, '/')
+			if err != nil {
+				return nil, err
+			}
+			e.PathStr = secret.path
+			e.PathGlob = g
 		}
 
 		if x, ok := secret.secret.Data["username"]; ok {
@@ -234,7 +236,15 @@ func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecret
 	for _, secret := range ociSecrets {
 		e := auth_provider.AuthEntry{
 			Registry: secret.registry,
-			Repo:     secret.repo,
+		}
+
+		if secret.repo != "" {
+			g, err := glob.Compile(secret.repo, '/')
+			if err != nil {
+				return nil, err
+			}
+			e.RepoStr = secret.repo
+			e.RepoGlob = g
 		}
 
 		if x, ok := secret.secret.Data["username"]; ok {
@@ -286,7 +296,15 @@ func (r *KluctlDeploymentReconciler) buildHelmAuth(ctx context.Context, helmSecr
 		e := helm_auth.AuthEntry{
 			CredentialsId: secret.credentialsId,
 			Host:          secret.host,
-			Path:          secret.path,
+		}
+
+		if secret.path != "" {
+			g, err := glob.Compile(secret.path, '/')
+			if err != nil {
+				return nil, err
+			}
+			e.PathStr = secret.path
+			e.PathGlob = g
 		}
 
 		if x, ok := secret.secret.Data["username"]; ok {

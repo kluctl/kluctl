@@ -220,7 +220,10 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		return err
 	}
 
-	auth := g.authProviders.BuildAuth(g.ctx, g.url)
+	auth, err := g.authProviders.BuildAuth(g.ctx, g.url)
+	if err != nil {
+		return err
+	}
 
 	remoteRefs, err := ListRemoteRefs(g.ctx, g.url, g.sshPool, auth)
 	if err != nil {

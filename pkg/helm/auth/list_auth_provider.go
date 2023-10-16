@@ -2,12 +2,12 @@ package auth
 
 import (
 	"context"
+	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/repo"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -18,8 +18,9 @@ type ListAuthProvider struct {
 type AuthEntry struct {
 	CredentialsId string
 
-	Host string
-	Path string
+	Host     string
+	PathGlob glob.Glob
+	PathStr  string
 
 	Username string
 	Password string
@@ -47,10 +48,9 @@ func (e *AuthEntry) Match(repoUrl url.URL, credentialsId string) bool {
 		return false
 	}
 
-	if e.Path != "" {
+	if e.PathGlob != nil {
 		urlPath := strings.TrimPrefix(repoUrl.Path, "/")
-		m, err := filepath.Match(e.Path, urlPath)
-		if err != nil || !m {
+		if !e.PathGlob.Match(urlPath) {
 			return false
 		}
 	}
@@ -121,7 +121,7 @@ func (a *ListAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL, c
 	status.Tracef(ctx, "ListAuthProvider: BuildAuth for %s and credentialsId %v", repoUrl.String(), credentialsId)
 
 	for _, e := range a.entries {
-		status.Tracef(ctx, "ListAuthProvider: try host=%s, path=%s", e.Host, e.Path)
+		status.Tracef(ctx, "ListAuthProvider: try host=%s, path=%s", e.Host, e.PathStr)
 
 		if !e.Match(repoUrl, credentialsId) {
 			status.Tracef(ctx, "ListAuthProvider: no match")

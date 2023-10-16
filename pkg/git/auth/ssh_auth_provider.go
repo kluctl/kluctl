@@ -144,12 +144,12 @@ func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl types.GitUrl) {
 	}
 }
 
-func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
+func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error) {
 	if !gitUrl.IsSsh() {
-		return AuthMethodAndCA{}
+		return AuthMethodAndCA{}, nil
 	}
 	if gitUrl.User == nil {
-		return AuthMethodAndCA{}
+		return AuthMethodAndCA{}, nil
 	}
 
 	auth := &sshDefaultIdentityAndAgent{
@@ -173,7 +173,7 @@ func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl)
 			}
 			return buildHashForList(signers)
 		},
-	}
+	}, nil
 }
 
 // we defer asking for passphrase so that we don't unnecessarily ask for passphrases for keys that are already provided

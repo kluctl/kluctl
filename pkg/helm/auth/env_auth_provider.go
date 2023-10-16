@@ -3,14 +3,21 @@ package auth
 import (
 	"context"
 	"fmt"
+	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/repo"
 	"net/url"
+	"os"
+	"sync"
 )
 
 type HelmEnvAuthProvider struct {
 	Prefix string
+
+	mutext  sync.Mutex
+	list    *ListAuthProvider
+	listErr error
 }
 
 func (a *HelmEnvAuthProvider) isDefaultInsecureSkipTlsVerify(ctx context.Context) bool {
@@ -22,7 +29,22 @@ func (a *HelmEnvAuthProvider) isDefaultInsecureSkipTlsVerify(ctx context.Context
 	return defaultInsecure
 }
 
-func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error) {
+func (a *HelmEnvAuthProvider) buildList(ctx context.Context) error {
+	a.mutext.Lock()
+	defer a.mutext.Unlock()
+	if a.listErr != nil {
+		return a.listErr
+	}
+	if a.list != nil {
+		return nil
+	}
+	a.listErr = a.doBuildList(ctx)
+	return a.listErr
+}
+
+func (a *HelmEnvAuthProvider) doBuildList(ctx context.Context) error {
+	a.list = &ListAuthProvider{}
+
 	defaultInsecure := a.isDefaultInsecureSkipTlsVerify(ctx)
 
 	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
@@ -36,30 +58,56 @@ func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL
 		e := AuthEntry{
 			CredentialsId:         cid,
 			Host:                  host,
-			Path:                  m["PATH"],
+			PathStr:               m["PATH"],
 			Username:              m["USERNAME"],
 			Password:              m["PASSWORD"],
 			InsecureSkipTLSverify: utils.ParseBoolOrDefault(m["INSECURE_SKIP_TLS_VERIFY"], defaultInsecure),
 			PassCredentialsAll:    utils.ParseBoolOrFalse(m["PASS_CREDENTIALS_ALL"]),
 		}
 
-		if !e.Match(repoUrl, credentialsId) {
-			continue
+		if e.PathStr != "" {
+			g, err := glob.Compile(e.PathStr, '/')
+			if err != nil {
+				return err
+			}
+			e.PathGlob = g
 		}
 
-		ret, cf, err := e.BuildEntry(ctx, repoUrl)
-		if err != nil {
-			return nil, cf, err
+		p, ok := m["CERT_FILE"]
+		if ok {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			e.Cert = b
 		}
-		if ret == nil {
-			continue
+		p, ok = m["KEY_FILE"]
+		if ok {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			e.Key = b
+		}
+		p, ok = m["CA_FILE"]
+		if ok {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			e.CA = b
 		}
 
-		ret.CertFile = m["CERT_FILE"]
-		ret.KeyFile = m["KEY_FILE"]
-		ret.CAFile = m["CA_FILE"]
-
-		return ret, cf, nil
+		a.list.AddEntry(e)
 	}
-	return nil, nil, nil
+
+	return nil
+}
+
+func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error) {
+	err := a.buildList(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return a.list.FindAuthEntry(ctx, repoUrl, credentialsId)
 }

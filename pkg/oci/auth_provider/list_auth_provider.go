@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"path"
 	"strings"
 )
 
@@ -32,14 +31,14 @@ func (a *ListAuthProvider) FindAuthEntry(ctx context.Context, ociUrl string) (*A
 	repo := ociRef.Context().RepositoryStr()
 
 	for _, e := range a.entries {
-		status.Tracef(ctx, "ListAuthProvider: try registry=%s, repo=%s", e.Registry, e.Repo)
+		status.Tracef(ctx, "ListAuthProvider: try registry=%s, repo=%s", e.Registry, e.RepoStr)
 
 		if e.Registry != ociRef.Context().RegistryStr() {
 			continue
 		}
 
-		if e.Repo != "" {
-			if m, _ := path.Match(e.Repo, repo); !m {
+		if e.RepoGlob != nil {
+			if !e.RepoGlob.Match(repo) {
 				continue
 			}
 		}

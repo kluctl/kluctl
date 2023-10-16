@@ -3,6 +3,7 @@ package args
 import (
 	"context"
 	"fmt"
+	"github.com/gobwas/glob"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -66,7 +67,12 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 			e = &helm_auth.AuthEntry{}
 			if len(x) == 2 {
 				e.Host = x[0]
-				e.Path = x[1]
+				g, err := glob.Compile(x[1], '/')
+				if err != nil {
+					return nil, "", err
+				}
+				e.PathStr = x[1]
+				e.PathGlob = g
 			} else {
 				e.Host = x[0]
 			}

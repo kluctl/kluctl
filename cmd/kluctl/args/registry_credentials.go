@@ -3,6 +3,7 @@ package args
 import (
 	"context"
 	"fmt"
+	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
@@ -44,7 +45,12 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 			e = &auth_provider.AuthEntry{}
 			if len(x) == 2 {
 				e.Registry = x[0]
-				e.Repo = x[1]
+				g, err := glob.Compile(x[1], '/')
+				if err != nil {
+					return nil, "", err
+				}
+				e.RepoStr = x[1]
+				e.RepoGlob = g
 			} else {
 				e.Registry = x[0]
 			}

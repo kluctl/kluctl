@@ -3,6 +3,7 @@ package auth_provider
 import (
 	"context"
 	"fmt"
+	"github.com/gobwas/glob/match"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -36,9 +37,11 @@ func (o OciDockerConfigAuthProvider) FindAuthEntry(ctx context.Context, ociUrl s
 		return nil, err
 	}
 
+	g := match.NewText(ociRef.Context().RepositoryStr())
 	return &AuthEntry{
 		Registry:   ociRef.Context().RegistryStr(),
-		Repo:       ociRef.Context().RepositoryStr(),
+		RepoStr:    ociRef.Context().RepositoryStr(),
+		RepoGlob:   g,
 		AuthConfig: *authConfig,
 	}, nil
 }
