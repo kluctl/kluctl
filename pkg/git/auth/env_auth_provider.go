@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
@@ -21,18 +22,27 @@ func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl)
 	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
 		m := s.Map
 		e := AuthEntry{
-			Host:       m["HOST"],
-			PathPrefix: m["PATH_PREFIX"],
-			Username:   m["USERNAME"],
-			Password:   m["PASSWORD"],
+			Host:     m["HOST"],
+			Username: m["USERNAME"],
+			Password: m["PASSWORD"],
 		}
 		if e.Host == "" {
 			continue
 		}
 
+		path, ok := m["PATH"]
+		if !ok {
+			path, ok = m["PATH_PREFIX"]
+			if ok {
+				status.Deprecation(ctx, "git-prefix-path", "The environment variable KLUCTL_GIT_PREFIX_PATH is deprecated and support for it will be removed in a future Kluctl version. Please switch to KLUCTL_GIT_PATH with wildcards instead.")
+				path += "*"
+			}
+		}
+		e.Path = path
+
 		ssh_key_path, _ := m["SSH_KEY"]
 
-		a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: adding entry host=%s, pathPrefix=%s, username=%s, ssh_key=%s", e.Host, e.PathPrefix, e.Username, ssh_key_path))
+		a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: adding entry host=%s, path=%s, username=%s, ssh_key=%s", e.Host, e.Path, e.Username, ssh_key_path))
 
 		if ssh_key_path != "" {
 			ssh_key_path = expandHomeDir(ssh_key_path)

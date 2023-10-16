@@ -135,26 +135,39 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 
 	patch := client.MergeFrom(kd.DeepCopy())
 
-	var credentials []v1beta1.ProjectCredentialsGit
-
-	credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-		Host:       gs1.GitHost(),
-		PathPrefix: ip1.GitRepoName(),
-		SecretRef:  v1beta1.LocalObjectReference{Name: secret2},
-	})
-	credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-		Host:      mainGs.GitHost(),
-		SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-	})
-	// make sure this one is ignored for http based urls
-	credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-		Host:      "*",
-		SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-	})
-
 	if legacyGitSource {
+		var credentials []v1beta1.ProjectCredentialsGitDeprecated
+		credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
+			Host:       gs1.GitHost(),
+			PathPrefix: ip1.GitRepoName(),
+			SecretRef:  v1beta1.LocalObjectReference{Name: secret2},
+		})
+		credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
+			Host:      mainGs.GitHost(),
+			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+		})
+		// make sure this one is ignored for http based urls
+		credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
+			Host:      "*",
+			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+		})
 		kd.Spec.Source.Credentials = credentials
 	} else {
+		var credentials []v1beta1.ProjectCredentialsGit
+		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+			Host:      gs1.GitHost(),
+			Path:      ip1.GitRepoName(),
+			SecretRef: v1beta1.LocalObjectReference{Name: secret2},
+		})
+		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+			Host:      mainGs.GitHost(),
+			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+		})
+		// make sure this one is ignored for http based urls
+		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+			Host:      "*",
+			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+		})
 		kd.Spec.Credentials.Git = credentials
 	}
 

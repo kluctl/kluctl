@@ -274,7 +274,7 @@ type ProjectSource struct {
 	// Credentials specifies a list of secrets with credentials
 	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.
 	// +optional
-	Credentials []ProjectCredentialsGit `json:"credentials,omitempty"`
+	Credentials []ProjectCredentialsGitDeprecated `json:"credentials,omitempty"`
 }
 
 type ProjectSourceGit struct {
@@ -329,10 +329,32 @@ type ProjectCredentialsGit struct {
 	// +required
 	Host string `json:"host,omitempty"`
 
+	// Path specifies the path to be used to filter Git repositories. The path can contain wildcards. These credentials
+	// will only be used for matching Git URLs. If omitted, all repositories are considered to match.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the git repository.
+	// For HTTPS git repositories the Secret must contain 'username' and 'password'
+	// fields.
+	// For SSH git repositories the Secret must contain 'identity'
+	// and 'known_hosts' fields.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsGitDeprecated struct {
+	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
+	// applies to all hosts.
+	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+	// You must always set a proper hostname in that case.
+	// +required
+	Host string `json:"host,omitempty"`
+
 	// PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
 	// this set of credentials.
 	// +optional
-	// TODO deprecate this
 	PathPrefix string `json:"pathPrefix,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for

@@ -83,10 +83,11 @@ spec:
                             be ignored. You must always set a proper hostname in that
                             case.
                           type: string
-                        pathPrefix:
-                          description: PathPrefix specifies the path prefix to be
-                            used to filter source urls. Only urls that have this prefix
-                            will use this set of credentials. TODO deprecate this
+                        path:
+                          description: Path specifies the path to be used to filter
+                            Git repositories. The path can contain wildcards. These
+                            credentials will only be used for matching Git URLs. If
+                            omitted, all repositories are considered to match.
                           type: string
                         secretRef:
                           description: SecretRef specifies the Secret containing authentication
@@ -435,7 +436,7 @@ spec:
                         pathPrefix:
                           description: PathPrefix specifies the path prefix to be
                             used to filter source urls. Only urls that have this prefix
-                            will use this set of credentials. TODO deprecate this
+                            will use this set of credentials.
                           type: string
                         secretRef:
                           description: SecretRef specifies the Secret containing authentication

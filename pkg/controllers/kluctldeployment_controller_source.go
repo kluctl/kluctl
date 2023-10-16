@@ -26,9 +26,9 @@ import (
 type gitRepoSecrets struct {
 	deprecatedSecret bool
 
-	host       string
-	pathPrefix string
-	secret     corev1.Secret
+	host   string
+	path   string
+	secret corev1.Secret
 }
 
 type ociRepoSecrets struct {
@@ -47,9 +47,12 @@ type helmRepoSecrets struct {
 func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
 	var ret []gitRepoSecrets
 
-	loadCredentials := func(deprecatedSecret bool, host string, pathPrefix string, secretName string) error {
+	loadCredentials := func(deprecatedSecret bool, host string, path string, secretName string) error {
 		if host == "" {
 			host = "*"
+		}
+		if path == "" {
+			path = "*"
 		}
 		var secret corev1.Secret
 		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
@@ -59,14 +62,14 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 		ret = append(ret, gitRepoSecrets{
 			deprecatedSecret: deprecatedSecret,
 			host:             host,
-			pathPrefix:       pathPrefix,
+			path:             path,
 			secret:           secret,
 		})
 		return nil
 	}
 
 	for _, c := range credentials.Git {
-		err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
+		err := loadCredentials(false, c.Host, c.Path, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -81,7 +84,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 	if len(source.Credentials) != 0 {
 		status.Deprecation(ctx, "spec.source.credentials", "'spec.source.credentials' is deprecated and will be removed in the next API version bump. Use 'spec.credentials.git' instead")
 		for _, c := range source.Credentials {
-			err := loadCredentials(false, c.Host, c.PathPrefix, c.SecretRef.Name)
+			err := loadCredentials(false, c.Host, c.PathPrefix+"*", c.SecretRef.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -192,9 +195,9 @@ func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecret
 		e := auth.AuthEntry{
 			AllowWildcardHostForHttp: secret.deprecatedSecret,
 
-			Host:       secret.host,
-			PathPrefix: secret.pathPrefix,
-			Username:   "*",
+			Host:     secret.host,
+			Path:     secret.path,
+			Username: "*",
 		}
 
 		if x, ok := secret.secret.Data["username"]; ok {
@@ -330,9 +333,9 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCacheKey(secrets []gitRepoSecre
 		m := json.NewEncoder(h)
 		for _, secret := range secrets {
 			err := m.Encode(map[string]any{
-				"host":       secret.host,
-				"pathPrefix": secret.pathPrefix,
-				"data":       secret.secret.Data,
+				"host": secret.host,
+				"path": secret.path,
+				"data": secret.secret.Data,
 			})
 			if err != nil {
 				return "", err

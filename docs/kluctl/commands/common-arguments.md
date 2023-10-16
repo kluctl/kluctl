@@ -206,8 +206,6 @@ by the OCI includes integration.
 Registry arguments:
   Configure OCI registry authentication.
 
-      --registry-auth stringArray                       Specify auth string to use for OCI authentication. Must be
-                                                        in the form --registry-auth=<registry>/<repo>=<auth>.
       --registry-ca-file stringArray                    Specify CA bundle to use for https verification. Must be
                                                         in the form --registry-ca-file=<registry>/<repo>=<filePath>.
       --registry-cert-file stringArray                  Specify certificate to use for OCI authentication. Must be

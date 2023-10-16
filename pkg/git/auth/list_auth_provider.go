@@ -6,6 +6,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,10 +19,10 @@ type ListAuthProvider struct {
 type AuthEntry struct {
 	AllowWildcardHostForHttp bool
 
-	Host       string
-	PathPrefix string
-	Username   string
-	Password   string
+	Host     string
+	Path     string
+	Username string
+	Password string
 
 	SshKey     []byte
 	KnownHosts []byte
@@ -40,7 +41,7 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 	a.MessageCallbacks.Trace("ListAuthProvider: path=%s, username=%s, scheme=%s", gitUrl.Path, gitUrl.User.Username(), gitUrl.Scheme)
 
 	for _, e := range a.entries {
-		a.MessageCallbacks.Trace("ListAuthProvider: try host=%s, pathPrefix=%s, username=%s", e.Host, e.PathPrefix, e.Username)
+		a.MessageCallbacks.Trace("ListAuthProvider: try host=%s, path=%s, username=%s", e.Host, e.Path, e.Username)
 
 		if !e.AllowWildcardHostForHttp && e.Host == "*" && !gitUrl.IsSsh() {
 			a.MessageCallbacks.Trace("ListAuthProvider: wildcard hosts are not allowed for http urls")
@@ -51,7 +52,7 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 			continue
 		}
 		urlPath := strings.TrimPrefix(gitUrl.Path, "/")
-		if !strings.HasPrefix(urlPath, e.PathPrefix) {
+		if m, _ := filepath.Match(e.Path, urlPath); !m {
 			continue
 		}
 		if e.Username == "" {
