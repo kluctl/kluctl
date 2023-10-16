@@ -10,6 +10,7 @@ type DeploymentItemConfig struct {
 	Path             *string                  `json:"path,omitempty"`
 	Include          *string                  `json:"include,omitempty"`
 	Git              *GitProject              `json:"git,omitempty"`
+	Oci              *OciProject              `json:"oci,omitempty"`
 	Tags             []string                 `json:"tags,omitempty"`
 	Barrier          bool                     `json:"barrier,omitempty"`
 	Message          *string                  `json:"message,omitempty"`
@@ -39,8 +40,11 @@ func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	if s.Git != nil {
 		cnt += 1
 	}
+	if s.Oci != nil {
+		cnt += 1
+	}
 	if cnt > 1 {
-		sl.ReportError(s, "self", "self", "only one of path, include and git can be set at the same time", "")
+		sl.ReportError(s, "self", "self", "only one of path, include, git and oci can be set at the same time", "")
 	}
 	if s.Path == nil && s.WaitReadiness {
 		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")

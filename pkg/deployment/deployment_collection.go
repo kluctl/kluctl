@@ -102,7 +102,7 @@ func (c *DeploymentCollection) collectAllDeployments(project *DeploymentProject,
 			continue
 		}
 
-		if diConfig.Include != nil || diConfig.Git != nil {
+		if diConfig.Include != nil || diConfig.Git != nil || diConfig.Oci != nil {
 			includedProject, ok := project.includes[i]
 			if !ok {
 				panic(fmt.Sprintf("Did not find find index %d in project.includes", i))

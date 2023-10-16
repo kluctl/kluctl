@@ -197,7 +197,7 @@ func (p *DeploymentProject) loadIncludes() error {
 				return err
 			}
 		} else if inc.Git != nil {
-			ge, err := p.ctx.RP.GetEntry(inc.Git.Url)
+			ge, err := p.ctx.GitRP.GetEntry(inc.Git.Url)
 			if err != nil {
 				return err
 			}
@@ -211,6 +211,19 @@ func (p *DeploymentProject) loadIncludes() error {
 				return err
 			}
 			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc.Vars)
+			if err != nil {
+				return err
+			}
+		} else if inc.Oci != nil {
+			oe, err := p.ctx.OciRP.GetEntry(inc.Oci.Url)
+			if err != nil {
+				return err
+			}
+			extractedDir, _, err := oe.GetExtractedDir(inc.Oci.Ref)
+			if err != nil {
+				return err
+			}
+			newProject, err = p.loadLocalInclude(NewSource(extractedDir), inc.Oci.SubDir, inc.Vars)
 			if err != nil {
 				return err
 			}

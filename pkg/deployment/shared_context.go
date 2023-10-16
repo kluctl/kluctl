@@ -13,7 +13,8 @@ type SharedContext struct {
 	Ctx             context.Context
 	K               *k8s.K8sCluster
 	K8sVersion      string
-	RP              *repocache.GitRepoCache
+	GitRP           *repocache.GitRepoCache
+	OciRP           *repocache.OciRepoCache
 	SopsDecrypter   *decryptor.Decryptor
 	VarsLoader      *vars.VarsLoader
 	HelmCredentials helm.HelmCredentialsProvider

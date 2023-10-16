@@ -19,8 +19,9 @@ type LoadedKluctlProject struct {
 	Config  types2.KluctlProject
 	Targets []*types2.Target
 
-	J2 *jinja2.Jinja2
-	RP *repocache.GitRepoCache
+	J2    *jinja2.Jinja2
+	GitRP *repocache.GitRepoCache
+	OciRP *repocache.OciRepoCache
 }
 
 func (c *LoadedKluctlProject) FindTarget(name string) (*types2.Target, error) {

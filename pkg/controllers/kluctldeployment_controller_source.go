@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type gitSecrets struct {
+type repoSecrets struct {
 	deprecatedSecret bool
 
 	host       string
@@ -27,12 +27,12 @@ type gitSecrets struct {
 	secret     corev1.Secret
 }
 
-func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]gitSecrets, error) {
+func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *kluctlv1.ProjectSource, objNs string) ([]repoSecrets, error) {
 	if source == nil {
 		return nil, nil
 	}
 
-	var ret []gitSecrets
+	var ret []repoSecrets
 
 	loadCredentials := func(deprecatedSecret bool, host string, pathPrefix string, secretName string) error {
 		if host == "" {
@@ -43,7 +43,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
-		ret = append(ret, gitSecrets{
+		ret = append(ret, repoSecrets{
 			deprecatedSecret: deprecatedSecret,
 			host:             host,
 			pathPrefix:       pathPrefix,
@@ -71,7 +71,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source *
 	return ret, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecrets []gitSecrets) (*auth.GitAuthProviders, error) {
+func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecrets []repoSecrets) (*auth.GitAuthProviders, error) {
 	log := ctrl.LoggerFrom(ctx)
 	ga := auth.NewDefaultAuthProviders("KLUCTL_GIT", &messages.MessageCallbacks{
 		WarningFn: func(s string) {
@@ -119,7 +119,7 @@ func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecret
 	return ga, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildRepoCacheKey(secrets []gitSecrets) (string, error) {
+func (r *KluctlDeploymentReconciler) buildRepoCacheKey(secrets []repoSecrets) (string, error) {
 	// make sure we use a unique repo cache per set of credentials
 	h := sha256.New()
 	if len(secrets) == 0 {
@@ -141,13 +141,13 @@ func (r *KluctlDeploymentReconciler) buildRepoCacheKey(secrets []gitSecrets) (st
 	return h2, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildRepoCache(ctx context.Context, secrets []gitSecrets) (*repocache.GitRepoCache, error) {
+func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []repoSecrets) (*repocache.GitRepoCache, error) {
 	key, err := r.buildRepoCacheKey(secrets)
 	if err != nil {
 		return nil, err
 	}
 
-	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-repo-cache", key)
+	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-git-cache", key)
 	err = os.MkdirAll(tmpBaseDir, 0o700)
 	if err != nil {
 		return nil, err
@@ -161,5 +161,23 @@ func (r *KluctlDeploymentReconciler) buildRepoCache(ctx context.Context, secrets
 	}
 
 	rc := repocache.NewGitRepoCache(ctx, r.SshPool, ga, nil, 0)
+	return rc, nil
+}
+
+func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []repoSecrets) (*repocache.OciRepoCache, error) {
+	key, err := r.buildRepoCacheKey(secrets)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-oci-cache", key)
+	err = os.MkdirAll(tmpBaseDir, 0o700)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = utils.WithTmpBaseDir(ctx, tmpBaseDir)
+
+	rc := repocache.NewOciRepoCache(ctx, nil, 0)
 	return rc, nil
 }

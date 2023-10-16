@@ -19,7 +19,8 @@ type LoadKluctlProjectArgs struct {
 	ProjectConfig string
 	ExternalArgs  *uo.UnstructuredObject
 
-	RP *repocache.GitRepoCache
+	GitRP *repocache.GitRepoCache
+	OciRP *repocache.OciRepoCache
 
 	AddKeyServersFunc  func(ctx context.Context, d *decryptor.Decryptor) error
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)

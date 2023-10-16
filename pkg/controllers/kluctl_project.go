@@ -47,7 +47,8 @@ type preparedProject struct {
 
 	startTime time.Time
 
-	rp *repocache.GitRepoCache
+	gitRP *repocache.GitRepoCache
+	ociRP *repocache.OciRepoCache
 
 	co         git.CheckoutInfo
 	tmpDir     string
@@ -90,13 +91,18 @@ func prepareProject(ctx context.Context,
 		return nil, err
 	}
 
-	pp.rp, err = r.buildRepoCache(ctx, gitSecrets)
+	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets)
+	if err != nil {
+		return nil, err
+	}
+
+	pp.ociRP, err = r.buildOciRepoCache(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	if doCloneSource {
-		rpEntry, err := pp.rp.GetEntry(pp.obj.Spec.Source.URL)
+		rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.URL)
 		if err != nil {
 			return nil, fmt.Errorf("failed clone source: %w", err)
 		}
@@ -125,9 +131,9 @@ func prepareProject(ctx context.Context,
 
 func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
-	if pp.rp != nil {
-		pp.rp.Clear()
-		pp.rp = nil
+	if pp.gitRP != nil {
+		pp.gitRP.Clear()
+		pp.gitRP = nil
 	}
 }
 
@@ -575,7 +581,8 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 		RepoRoot:     pp.repoDir,
 		ExternalArgs: externalArgs,
 		ProjectDir:   pp.projectDir,
-		RP:           pp.rp,
+		GitRP:        pp.gitRP,
+		OciRP:        pp.ociRP,
 		AddKeyServersFunc: func(ctx context.Context, d *decryptor.Decryptor) error {
 			return pp.addKeyServers(ctx, d)
 		},

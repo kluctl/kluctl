@@ -134,17 +134,22 @@ func (u *GitUrl) Normalize() *GitUrl {
 
 func (u *GitUrl) RepoKey() GitRepoKey {
 	u2 := u.Normalize()
-	path := strings.TrimPrefix(u2.Path, "/")
-	return GitRepoKey{
-		Host: u2.Host,
-		Path: path,
-	}
+	return NewRepoKey(u2.Host, u2.Path)
 }
 
 // +kubebuilder:validation:Type=string
 type GitRepoKey struct {
 	Host string `json:"-"`
 	Path string `json:"-"`
+}
+
+func NewRepoKey(host string, path string) GitRepoKey {
+	path = strings.TrimSuffix(path, "/")
+	path = strings.TrimPrefix(path, "/")
+	return GitRepoKey{
+		Host: host,
+		Path: path,
+	}
 }
 
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)

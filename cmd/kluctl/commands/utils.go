@@ -88,8 +88,11 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 
-	rp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
-	defer rp.Clear()
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
+	defer gitRp.Clear()
+
+	ociRp := repocache.NewOciRepoCache(ctx, nil, projectFlags.GitCacheUpdateInterval)
+	defer gitRp.Clear()
 
 	var externalArgs *uo.UnstructuredObject
 	if argsFlags != nil {
@@ -115,7 +118,8 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ProjectDir:         projectDir,
 		ProjectConfig:      projectFlags.ProjectConfig.String(),
 		ExternalArgs:       externalArgs,
-		RP:                 rp,
+		GitRP:              gitRp,
+		OciRP:              ociRp,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 

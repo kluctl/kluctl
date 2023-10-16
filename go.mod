@@ -83,6 +83,7 @@ require (
 	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97
 	google.golang.org/grpc v1.58.3
 	nhooyr.io/websocket v1.8.7
+	oras.land/oras-go/v2 v2.3.0
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.16.2
 	sigs.k8s.io/kustomize/api v0.14.0
