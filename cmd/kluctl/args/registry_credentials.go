@@ -12,7 +12,6 @@ import (
 type RegistryCredentials struct {
 	RegistryUsername      []string `group:"registry" help:"Specify username to use for OCI authentication. Must be in the form --registry-username=<registry>/<repo>=<username>."`
 	RegistryPassword      []string `group:"registry" help:"Specify password to use for OCI authentication. Must be in the form --registry-password=<registry>/<repo>=<password>."`
-	RegistryAuth          []string `group:"registry" help:"Specify auth string to use for OCI authentication. Must be in the form --registry-auth=<registry>/<repo>=<auth>."`
 	RegistryIdentityToken []string `group:"registry" help:"Specify identity token to use for OCI authentication. Must be in the form --registry-identity-token=<registry>/<repo>=<identity-token>."`
 	RegistryToken         []string `group:"registry" help:"Specify registry token to use for OCI authentication. Must be in the form --registry-token=<registry>/<repo>=<token>."`
 	RegistryCreds         []string `group:"registry" help:"This is a shortcut to --registry-username, --registry-password and --registry-token. It can be specified in two different forms. The first one is --registry-creds=<registry>/<repo>=<username>:<password>, which specifies the username and password for the same registry. The second form is --registry-creds=<registry>/<repo>=<token>, which specifies a JWT token for the specified registry."`
@@ -71,13 +70,6 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 			return nil, err
 		}
 		e.AuthConfig.Password = v
-	}
-	for _, s := range c.RegistryAuth {
-		e, v, err := getEntry(s, true)
-		if err != nil {
-			return nil, err
-		}
-		e.AuthConfig.Auth = v
 	}
 	for _, s := range c.RegistryIdentityToken {
 		e, v, err := getEntry(s, true)

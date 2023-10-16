@@ -240,9 +240,6 @@ func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecret
 		if x, ok := secret.secret.Data["password"]; ok {
 			e.AuthConfig.Password = string(x)
 		}
-		if x, ok := secret.secret.Data["auth"]; ok {
-			e.AuthConfig.Auth = string(x)
-		}
 		if x, ok := secret.secret.Data["identity_token"]; ok {
 			e.AuthConfig.IdentityToken = string(x)
 		}

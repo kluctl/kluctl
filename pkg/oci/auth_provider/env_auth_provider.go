@@ -56,7 +56,6 @@ func (a *OciEnvAuthProvider) FindAuthEntry(ctx context.Context, ociUrl string) (
 			AuthConfig: authn.AuthConfig{
 				Username:      m["USERNAME"],
 				Password:      m["PASSWORD"],
-				Auth:          m["AUTH"],
 				IdentityToken: m["IDENTITY_TOKEN"],
 				RegistryToken: m["TOKEN"],
 			},
