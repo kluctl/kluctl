@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
@@ -53,9 +54,9 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	repoUrl2 := repo2.URL.String() + "/org2/repo2"
 	repoUrl3 := repo3.URL.String() + "/org3/repo3"
 
-	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--creds", "user1:pass1")
-	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--creds", "user2:pass2")
-	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--creds", "user3:pass3")
+	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
+	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
+	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
 
 	p := test_project.NewTestProject(suite.T())
 
@@ -79,7 +80,7 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 			"url": repoUrl3,
 		},
 	}))
-	p.KluctlMust("oci", "push", "--url", repoUrl0, "--creds", "user0:pass0")
+	p.KluctlMust("oci", "push", "--url", repoUrl0, "--registry-creds", fmt.Sprintf("%s=user0:pass0", repo0.URL.Host))
 
 	var key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
 		kd.Spec.Source.Oci = &v1beta1.ProjectSourceOci{

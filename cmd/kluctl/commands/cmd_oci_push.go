@@ -6,20 +6,14 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/google/go-containerregistry/pkg/name"
 	reg "github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth/login"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
 	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 )
@@ -28,10 +22,9 @@ var excludeOCI = append(strings.Split(sourceignore.ExcludeVCS, ","), strings.Spl
 
 type ociPushCmd struct {
 	args.ProjectDir
+	args.RegistryCredentials
 
 	Url        string   `group:"misc" help:"Specifies the artifact URL. This argument is required." required:"true"`
-	Creds      string   `group:"misc" help:"credentials for OCI registry in the format <username>[:<password>] if --provider is generic"`
-	Provider   string   `group:"misc" help:"the OCI provider name, available options are: (generic, aws, azure, gcp)" default:"generic"`
 	IgnorePath []string `group:"misc" help:"set paths to ignore in .gitignore format."`
 	Annotation []string `group:"misc" help:"Set custom OCI annotations in the format '<key>=<value>'"`
 	Output     string   `group:"misc" help:"the format in which the artifact digest should be printed, can be 'json' or 'yaml'"`
@@ -41,8 +34,7 @@ type ociPushCmd struct {
 
 func (cmd *ociPushCmd) Help() string {
 	return `The push command creates a tarball from the current project and uploads the
-artifact to an OCI repository. The command can read the credentials from '~/.docker/config.json' but they can also be
-passed with --creds. It can also login to a supported provider with the --provider flag.`
+artifact to an OCI repository.`
 }
 
 func (cmd *ociPushCmd) Run(ctx context.Context) error {
@@ -50,19 +42,20 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		cmd.IgnorePath = excludeOCI
 	}
 
-	if cmd.Provider != "generic" &&
-		cmd.Provider != "azure" &&
-		cmd.Provider != "aws" &&
-		cmd.Provider != "gcp" {
-		return fmt.Errorf("unknown provider %s", cmd.Provider)
+	if cmd.Timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, cmd.Timeout)
+		defer cancel()
+	}
+
+	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuthProvider.RegisterAuthProvider(x, false)
 	}
 
 	url, err := client.ParseArtifactURL(cmd.Url)
-	if err != nil {
-		return err
-	}
-
-	ref, err := name.ParseReference(url)
 	if err != nil {
 		return err
 	}
@@ -108,50 +101,19 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, cmd.Timeout)
 	defer cancel()
 
-	var auth authn.Authenticator
+	ae, err := ociAuthProvider.FindAuthEntry(ctx, cmd.Url)
+	if err != nil {
+		return err
+	}
+
 	opts := client.DefaultOptions()
-	if cmd.Provider == "generic" && cmd.Creds != "" {
-		status.Info(ctx, "Logging in to registry with credentials")
-		auth, err = client.GetAuthFromCredentials(cmd.Creds)
+
+	if ae != nil {
+		authOpts, err := ae.BuildCraneOptions()
 		if err != nil {
-			return fmt.Errorf("could not login with credentials: %w", err)
+			return err
 		}
-		opts = append(opts, crane.WithAuth(auth))
-	}
-
-	if cmd.Provider != "generic" {
-		status.Info(ctx, "Logging in to registry with provider credentials")
-
-		auth, err = login.NewManager().Login(ctx, url, ref, getProviderLoginOption(cmd.Provider))
-		if err != nil {
-			return fmt.Errorf("error during login with provider: %w", err)
-		}
-		opts = append(opts, crane.WithAuth(auth))
-	}
-
-	if cmd.Timeout != 0 {
-		backoff := remote.Backoff{
-			Duration: 1.0 * time.Second,
-			Factor:   3,
-			Jitter:   0.1,
-			// timeout happens when the cap is exceeded or number of steps is reached
-			// 10 steps is big enough that most reasonable cap(under 30min) will be exceeded before
-			// the number of steps are completed.
-			Steps: 10,
-			Cap:   cmd.Timeout,
-		}
-
-		if auth == nil {
-			auth, err = authn.DefaultKeychain.Resolve(ref.Context())
-			if err != nil {
-				return err
-			}
-		}
-		transportOpts, err := client.WithRetryTransport(ctx, ref, auth, backoff, []string{ref.Context().Scope(transport.PushScope)})
-		if err != nil {
-			return fmt.Errorf("error setting up transport: %w", err)
-		}
-		opts = append(opts, transportOpts, client.WithRetryBackOff(backoff))
+		opts = append(opts, authOpts...)
 	}
 
 	var st *status.StatusContext
@@ -212,17 +174,4 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func getProviderLoginOption(provider string) login.ProviderOptions {
-	var opts login.ProviderOptions
-	switch provider {
-	case "azure":
-		opts.AzureAutoLogin = true
-	case "aws":
-		opts.AwsAutoLogin = true
-	case "gcp":
-		opts.GcpAutoLogin = true
-	}
-	return opts
 }
