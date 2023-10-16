@@ -427,7 +427,7 @@ type Decryption struct {
 type HelmCredentials struct {
 	// SecretRef holds the name of a secret that contains the Helm credentials.
 	// The secret must either contain the fields `credentialsId` which refers to the credentialsId
-	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories or an `url` used
+	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories or an `url` used
 	// to match the credentials found in Kluctl projects helm-chart.yaml files.
 	// The secret can either container basic authentication credentials via `username` and `password` or
 	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while

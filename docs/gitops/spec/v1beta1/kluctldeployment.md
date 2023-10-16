@@ -23,8 +23,9 @@ metadata:
 spec:
   interval: 5m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default
@@ -50,6 +51,14 @@ target definition.
 
 The KluctlDeployment `spec.source` specifies the source repository to be used. Example:
 
+Multiple source types are supported, as described in the following subsections.
+
+#### Git source
+
+Specifies a Git repository to load the project source from.
+
+Example:
+
 ```yaml
 apiVersion: gitops.kluctl.io/v1beta1
 kind: KluctlDeployment
@@ -57,26 +66,67 @@ metadata:
   name: example
 spec:
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: path/to/project
-    credentials:
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: path/to/project
+      ref:
+        branch: my-branch
+  credentials:
+    git:
       - host: github.com
-        pathPrefix: kluctl/
+        path: kluctl/*
         secretRef:
           name: git-credentials
-    ref:
-      branch: my-branch
   ...
 ```
 
 The `url` specifies the git clone url. It can either be a https or a git/ssh url. Git/Ssh url will require a secret
 to be provided with credentials.
 
-The `path` specifies the sub-directory where the Kluctl project is located.
+The `path` specifies the subdirectory where the Kluctl project is located.
 
-The `ref` provides the Git reference to be used. It can either be a branch or a tag.
+The `ref` provides the Git reference to be used. The `ref` field has the same format as in
+[git includes](../../../kluctl/deployments/deployment-yml.md#git-includes).
 
-See [Git authentication](#git-authentication) for details on authentication and the `credentials` field.
+See [Git authentication](#git-authentication) for details on authentication via the `spec.credentials.git` field.
+
+#### OCI source
+
+Specifies a OCI artifact to load the project source from. The artifact must have been pushed via the
+[kluctl oci push](../../../kluctl/commands/oci-push.md) command.
+
+Example:
+
+```yaml
+apiVersion: gitops.kluctl.io/v1beta1
+kind: KluctlDeployment
+metadata:
+  name: example
+spec:
+  source:
+    oci:
+      url: oci://ghcr.io/kluctl/kluctl-examples/simple
+      path: my-subdir
+      ref:
+        tag: latest
+  credentials:
+    oci:
+      - registry: ghcr.io
+        repository: kluctl/**
+        secretRef:
+          name: oci-credentials
+  ...
+```
+
+The `url` specifies the OCI repository url. It must use the `oci://` scheme. It is not allowed to add tags or digests to
+the url. Instead, use the dedicated `ref` field.
+
+The `path` specifies the subdirectory where the Kluctl project is located.
+
+The `ref` provides the Git reference to be used. The `ref` field has the same format as in
+[oci includes](../../../kluctl/deployments/deployment-yml.md#oci-includes).
+
+See [OCI authentication](#oci-registry-authentication) for details on authentication via the `spec.credentials.oci` field.
 
 ### interval
 See [Reconciliation](#reconciliation).
@@ -117,8 +167,9 @@ metadata:
 spec:
   interval: 5m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default
@@ -157,8 +208,9 @@ metadata:
 spec:
   interval: 5m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default
@@ -184,7 +236,8 @@ metadata:
 spec:
   interval: 5m
   source:
-    url: https://example.com
+    git:
+      url: https://example.com
   timeout: 2m
   target: prod
   images:
@@ -308,35 +361,54 @@ metadata:
 spec:
   interval: 10m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: "./microservices-demo/3-templating-and-multi-env/"
   target: prod
   serviceAccountName: prod-service-account
   context: default
 ```
 
-## Git authentication
+## Credentials
+A `KluctlDeployment` can specify multiple sets of credentials for different kind of repositories and registries. These
+are specified through the `spec.credentials` field, which specifies multiple list of credentials.
 
-The `spec.source` can optionally specify `spec.source.credentials` (see [here](#source)), which lists multiple
-sets of credentials for different git hosts.
+### Git authentication
+Git authentication can be specified via `spec.credentials.git`, which is a list of credential configs. Each entry
+specifies information to match Git repositories and a reference to a Kubernetes secret.
 
 Each time the controller needs to access a git repository, it will iterate through this list and pick the first one
 matching.
 
-Each `credentials` entry has the following fields:
+Example:
+
+```yaml
+spec:
+  source:
+    git:
+      url: https://github.com/my-org/my-repo.git
+  credentials:
+    git:
+      - host: github.com
+        path: my-org/*
+        secretRef:
+          name: my-git-secrets
+```
+
+Each entry has the following fields:
 
 `host` is required and specifies the hostname to apply this set of credentials. It can also be set to `*`, meaning that
 it will match all git hosts. `*` will however be ignored for https based urls to avoid leaking credentials.
 
-`pathPrefix` is optional and allows to filter for different path prefixed on the same host. This is for example useful
-when public Git providers are used, for example github.com. For these, you can for example use `my-org/` as prefix to
+`path` is optional and allows to filter for different paths on the same host. This is for example useful
+when public Git providers are used, for example github.com. For these, you can for example use `my-org/*` as pattern to
 tell the controller that it should use this set of credentials only for projects below the `my-org` GitHub organisation.
 
 `secretRef` is required and specifies the name of the secret that contains the actual credentials.
 
 The following authentication types are supported through the referenced secret.
 
-### Basic access authentication
+#### Basic access authentication
 
 To authenticate towards a Git repository over HTTPS using basic access
 authentication (in other words: using a username and password), the referenced
@@ -354,7 +426,7 @@ data:
   password: <BASE64>
 ```
 
-### HTTPS Certificate Authority
+#### HTTPS Certificate Authority
 
 To provide a Certificate Authority to trust while connecting with a Git
 repository over HTTPS, the referenced Secret can contain a `.data.caFile`
@@ -372,7 +444,7 @@ data:
   caFile: <BASE64>
 ```
 
-### SSH authentication
+#### SSH authentication
 
 To authenticate towards a Git repository over SSH, the referenced Secret is
 expected to contain `identity` and `known_hosts` fields. With the respective
@@ -394,50 +466,65 @@ stringData:
     github.com ecdsa-sha2-nistp256 AAAA...
 ```
 
-## Helm Repository authentication
-
+### Helm Repository authentication
 Kluctl allows to [integrate Helm Charts](../../../kluctl/deployments/helm.md) in two different ways.
 One is to [pre-pull charts](../../../kluctl/commands/helm-pull.md) and put them into version control,
 making it unnecessary to pull them at deploy time. This option also means that you don't have to take any special care
 on the controller side.
 
 The other way is to let Kluctl pull Helm Charts at deploy time. In that case, you have to ensure that the controller
-has the necessary access to the Helm repositories. To add credentials for authentication, set the `spec.helmCredentials`
-field to a list of secret references:
+has the necessary access to the Helm repositories.
 
-### Basic access authentication
+Helm Repository authentication can be specified via `spec.credentials.helm`, which is a list of credential configs. Each entry
+specifies information to match Helm repositories and a reference to a Kubernetes secret.
+
+Each time the controller needs to access a Helm repository, it will iterate through this list and pick the first one
+matching.
+
+Example:
 
 ```yaml
-apiVersion: gitops.kluctl.io/v1beta1
-kind: KluctlDeployment
-metadata:
-  name: example
-  namespace: kluctl-system
 spec:
-  interval: 10m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
-  target: prod
-  serviceAccountName: prod-service-account
-  context: default
+    git:
+      url: https://github.com/my-org/my-repo.git
+  credentials:
+    helm:
+      - host: my-repo.com
+        path: some-path/*
+        secretRef:
+          name: my-helm-secrets
+```
 
-  helmCredentials:
-    - secretRef:
-        name: helm-creds
----
+Each entry has the following fields:
+
+`host` is required and specifies the hostname to apply this set of credentials.
+
+`path` is optional and allows to filter for different paths on the same host. The behavior is identical to how
+Git credentials handle it.
+
+`secretRef` is required and specifies the name of the secret that contains the actual credentials.
+
+The following authentication types are supported through the referenced secret.
+
+#### Basic access authentication
+
+To authenticate towards a Helm repository over HTTP/HTTPS using basic access
+authentication (in other words: using a username and password), the referenced
+Secret is expected to contain `.data.username` and `.data.password` values.
+
+```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: helm-creds
+  name: my-helm-creds
   namespace: kluctl-system
 stringData:
-  url: https://example-repo.com
   username: my-user
   password: my-password
 ```
 
-### TLS authentication
+#### TLS authentication
 
 For TLS authentication, see the following example secret:
 
@@ -445,24 +532,115 @@ For TLS authentication, see the following example secret:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: helm-creds
+  name: my-helm-creds
   namespace: kluctl-system
 data:
   certFile: <BASE64>
   keyFile: <BASE64>
-  # NOTE: Can be supplied without the above values
+  # NOTE: The following values can be supplied without the above values and for all other (e.g. basic) authentication types as well
   caFile: <BASE64>
+  insecureSkipTlsVerify: "true" # this field is optional
+  passCredentialsAll: "true" # this field is optional
 ```
 
-### Disabling TLS verification
+`certFile` and `keyFile` optionally specify a client certificate and key pair to use for client certificate based
+authentication. `caFile` specifies a CA bundle to use when TSL/https verification is performed.
 
-In case you need to disable TLS verification (not recommended!), add the key `insecureSkipTlsVerify` with the value
-`"true"` (make sure it's a string, so surround it with `"`).
+If `insecureSkipTlsVerify` is set to `true`, TLS verification is skipped.
 
-### Pass credentials
+If `passCredentialsAll` is set to `true`, Kluctl will pass credentials to all domains. See https://helm.sh/docs/helm/helm_repo_add/ for details. 
 
-To enable passing of credentials to all requests, add the key `passCredentialsAll` with the value `"true"`.
-This will pass the credentials to all requests, even if the hostname changes.
+### OCI registry authentication
+OCI registry authentication can be specified via `spec.credentials.oci`, which is a list of credential configs. Each entry
+specifies information to match OCI registries and a reference to a Kubernetes secret.
+
+Each time the controller needs to access an OCI registry, it will iterate through this list and pick the first one
+matching. This also includes OCI registry usages via the [Helm integration](../../../kluctl/deployments/helm.md).
+
+Example:
+
+```yaml
+spec:
+  source:
+    git:
+      url: https://github.com/my-org/my-repo.git
+  credentials:
+    oci:
+      - registry: docker.com
+        repository: my-org/*
+        secretRef:
+          name: my-oci-secrets
+```
+
+Each entry has the following fields:
+
+`registry` is required and specifies the registry name to apply this set of credentials.
+
+`repository` is optional and allows to filter for different repositories in the same registry. Wildcards can also be used.
+If omitted, all repositories on the specified registry will match.
+
+`secretRef` is required and specifies the name of the secret that contains the actual credentials.
+
+The following authentication types are supported through the referenced secret.
+
+#### Basic access authentication
+To authenticate towards an OCI registry over HTTP/HTTPS using basic access
+authentication (in other words: using a username and password), the referenced
+Secret is expected to contain `.data.username` and `.data.password` values.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-oci-secrets
+  namespace: kluctl-system
+stringData:
+  username: my-user
+  password: my-password
+```
+
+#### Token based authentication
+To authenticate via a bearer token, use specify `.data.token` in the referenced secret.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-oci-secrets
+  namespace: kluctl-system
+stringData:
+  token: my-token
+```
+
+#### TLS authentication
+
+For TLS authentication, see the following example secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-oci-creds
+  namespace: kluctl-system
+data:
+  certFile: <BASE64>
+  keyFile: <BASE64>
+  # NOTE: The following values can be supplied without the above values and for all other (e.g. basic) authentication types as well
+  caFile: <BASE64>
+  insecureSkipTlsVerify: "true" # this field is optional
+  plainHttp: "true" # this field is optional
+```
+
+`certFile` and `keyFile` optionally specify a client certificate and key pair to use for client certificate based
+authentication. `caFile` specifies a CA bundle to use when TSL/https verification is performed.
+
+If `insecureSkipTlsVerify` is set to `true`, TLS verification is skipped.
+
+If `plainHttp` if set to `true`, HTTPS is disabled and HTTP is used instead.
+
+### Deprecated ways of credentials configurations
+Kluctl still supports the deprecated `spec.source.credentials`, `spec.source.secretRef` and `spec.helmCredentials` fields
+in the `v1beta1` api version. These fields are however deprecated and will be removed in the next version bump.
 
 ## Secrets Decryption
 

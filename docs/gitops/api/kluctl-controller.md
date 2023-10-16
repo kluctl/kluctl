@@ -97,7 +97,7 @@ LocalObjectReference
 <td>
 <p>SecretRef holds the name of a secret that contains the Helm credentials.
 The secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
-found in <a href="https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories">https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories</a> or an <code>url</code> used
+found in <a href="https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories">https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories</a> or an <code>url</code> used
 to match the credentials found in Kluctl projects helm-chart.yaml files.
 The secret can either container basic authentication credentials via <code>username</code> and <code>password</code> or
 TLS authentication via <code>certFile</code> and <code>keyFile</code>. <code>caFile</code> can be specified to override the CA to use while
@@ -1381,6 +1381,7 @@ the KluctlDeployment.</p>
 <a href="#gitops.kluctl.io/v1beta1.Decryption">Decryption</a>, 
 <a href="#gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGit">ProjectCredentialsGit</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGitDeprecated">ProjectCredentialsGitDeprecated</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsHelm">ProjectCredentialsHelm</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsOci">ProjectCredentialsOci</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
@@ -1476,7 +1477,71 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectCredentials">ProjectCredentials</a>, 
+<a href="#gitops.kluctl.io/v1beta1.ProjectCredentials">ProjectCredentials</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>host</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Host specifies the hostname that this secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
+applies to all hosts.
+Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+You must always set a proper hostname in that case.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>path</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Path specifies the path to be used to filter Git repositories. The path can contain wildcards. These credentials
+will only be used for matching Git URLs. If omitted, all repositories are considered to match.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>secretRef</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
+LocalObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>SecretRef specifies the Secret containing authentication credentials for
+the git repository.
+For HTTPS git repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
+fields.
+For SSH git repositories the Secret must contain &lsquo;identity&rsquo;
+and &lsquo;known_hosts&rsquo; fields.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ProjectCredentialsGitDeprecated">ProjectCredentialsGitDeprecated
+</h3>
+<p>
+(<em>Appears on:</em>
 <a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
 </p>
 <div class="md-typeset__scrollwrap">
@@ -1513,8 +1578,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
-this set of credentials.
-TODO deprecate this</p>
+this set of credentials.</p>
 </td>
 </tr>
 <tr>
@@ -1767,8 +1831,8 @@ Use spec.credentials.git with a proper Host field instead.</p>
 <td>
 <code>credentials</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGit">
-[]ProjectCredentialsGit
+<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGitDeprecated">
+[]ProjectCredentialsGitDeprecated
 </a>
 </em>
 </td>
