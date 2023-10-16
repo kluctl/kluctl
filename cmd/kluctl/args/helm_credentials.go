@@ -17,6 +17,7 @@ type HelmCredentials struct {
 	HelmCertFile              []string `group:"misc" help:"Specify key to use for Helm Repository authentication. Must be in the form --helm-cert-file=<host>/<path>=<filePath> or in the deprecated form --helm-cert-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 	HelmCAFile                []string `group:"misc" help:"Specify ca bundle certificate to use for Helm Repository authentication. Must be in the form --helm-ca-file=<host>/<path>=<filePath> or in the deprecated form --helm-ca-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
 	HelmInsecureSkipTlsVerify []string `group:"misc" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<host>/<path> or in the deprecated form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmCreds                 []string `group:"misc" help:"This is a shortcut to --helm-username and --helm-password. Must be in the form --helm-creds=<host>/<path>=<username>:<password>, which specifies the username and password for the same repository."`
 }
 
 func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.HelmAuthProvider, error) {
@@ -128,6 +129,18 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 			return nil, err
 		}
 		e.InsecureSkipTLSverify = true
+	}
+	for _, s := range c.HelmCreds {
+		e, v, err := getEntry(s, true)
+		if err != nil {
+			return nil, err
+		}
+		x := strings.SplitN(v, ":", 2)
+		if len(x) != 2 {
+			return nil, fmt.Errorf("format of --helm-creds values must be <host>/<path>=<username>:<password>")
+		}
+		e.Username = x[0]
+		e.Password = x[1]
 	}
 
 	for _, e := range byCredentialId.ListValues() {

@@ -53,6 +53,10 @@ Misc arguments:
                                                         --helm-cert-file=<credentialsId>:<filePath>, where
                                                         <credentialsId> must match the id specified in the
                                                         helm-chart.yaml.
+      --helm-creds stringArray                          This is a shortcut to --helm-username and --helm-password.
+                                                        Must be in the form
+                                                        --helm-creds=<host>/<path>=<username>:<password>, which
+                                                        specifies the username and password for the same repository.
       --helm-insecure-skip-tls-verify stringArray       Controls skipping of TLS verification. Must be in the form
                                                         --helm-insecure-skip-tls-verify=<host>/<path> or in the
                                                         deprecated form
@@ -98,8 +102,16 @@ Misc arguments:
                                                         in the form --registry-ca-file=<registry>/<repo>=<filePath>.
       --registry-cert-file stringArray                  Specify certificate to use for OCI authentication. Must be
                                                         in the form --registry-cert-file=<registry>/<repo>=<filePath>.
-      --registry-identity-token stringArray             Specify auth string to use for OCI authentication. Must be
-                                                        in the form
+      --registry-creds stringArray                      This is a shortcut to --registry-username,
+                                                        --registry-password and --registry-token. It can be
+                                                        specified in two different forms. The first one is
+                                                        --registry-creds=<registry>/<repo>=<username>:<password>,
+                                                        which specifies the username and password for the same
+                                                        registry. The second form is
+                                                        --registry-creds=<registry>/<repo>=<token>, which
+                                                        specifies a JWT token for the specified registry.
+      --registry-identity-token stringArray             Specify identity token to use for OCI authentication. Must
+                                                        be in the form
                                                         --registry-identity-token=<registry>/<repo>=<identity-token>.
       --registry-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
                                                         --registry-insecure-skip-tls-verify=<registry>/<repo>.
@@ -109,8 +121,8 @@ Misc arguments:
                                                         the form --registry-password=<registry>/<repo>=<password>.
       --registry-plain-http stringArray                 Forces the use of http (no TLS). Must be in the form
                                                         --registry-plain-http=<registry>/<repo>.
-      --registry-token stringArray                      Specify auth string to use for OCI authentication. Must be
-                                                        in the form --registry-token=<registry>/<repo>=<token>.
+      --registry-token stringArray                      Specify registry token to use for OCI authentication. Must
+                                                        be in the form --registry-token=<registry>/<repo>=<token>.
       --registry-username stringArray                   Specify username to use for OCI authentication. Must be in
                                                         the form --registry-username=<registry>/<repo>=<username>.
       --render-output-dir string                        Specifies the target directory to render the project into.

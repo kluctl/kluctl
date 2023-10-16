@@ -89,14 +89,14 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// push with invalid creds
-	_, stderr, err = ip1.Kluctl("oci", "push", "--url", repoUrl1, "--creds", "user1:invalid")
+	_, stderr, err = ip1.Kluctl("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:invalid", repo1.URL.Host))
 	assert.ErrorContains(t, err, "401 Unauthorized")
 	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// now with valid creds
-	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--creds", "user1:pass1")
-	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--creds", "user2:pass2")
-	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--creds", "user3:pass3")
+	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
+	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
+	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
 
 	p := test_project.NewTestProject(t)
 

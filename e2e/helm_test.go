@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -191,8 +192,12 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 			if tc.argCredsPath != "" {
 				r += "/" + tc.argCredsPath
 			}
-			ret = append(ret, fmt.Sprintf("--registry-username=%s=%s", r, tc.argUsername))
-			ret = append(ret, fmt.Sprintf("--registry-password=%s=%s", r, tc.argPassword))
+			if (rand.Int() & 1) == 0 {
+				ret = append(ret, fmt.Sprintf("--registry-username=%s=%s", r, tc.argUsername))
+				ret = append(ret, fmt.Sprintf("--registry-password=%s=%s", r, tc.argPassword))
+			} else {
+				ret = append(ret, fmt.Sprintf("--registry-creds=%s=%s:%s", r, tc.argUsername, tc.argPassword))
+			}
 			if !repo.TLSEnabled {
 				ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", r))
 			}
@@ -222,8 +227,12 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 			if tc.argCredsPath != "" {
 				r += "/" + tc.argCredsPath
 			}
-			ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
-			ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
+			if (rand.Int() & 1) == 0 {
+				ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
+				ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
+			} else {
+				ret = append(ret, fmt.Sprintf("--helm-creds=%s=%s:%s", r, tc.argUsername, tc.argPassword))
+			}
 		}
 		if tc.testTLS {
 			if tc.argPassCA {
