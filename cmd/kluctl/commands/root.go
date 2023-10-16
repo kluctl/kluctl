@@ -86,6 +86,8 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
+	{group: "helm", title: "Helm arguments:", description: "Configure Helm authentication."},
+	{group: "registry", title: "Registry arguments:", description: "Configure OCI registry authentication."},
 	{group: "auth", title: "Auth arguments:", description: "Configure authentication."},
 }
 
