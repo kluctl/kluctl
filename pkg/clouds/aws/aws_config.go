@@ -32,7 +32,13 @@ func LoadAwsConfigHelper(ctx context.Context, c client.Client, awsConfig *types.
 		return aws.Config{}, err
 	}
 	if isConfiguredViaEnv(envCfg) {
-		return config.LoadDefaultConfig(context.Background(), optFnsIn...)
+		cfg, err := config.LoadDefaultConfig(context.Background(), optFnsIn...)
+		if err == nil {
+			return cfg, err
+		}
+		if _, ok := err.(config.SharedConfigProfileNotExistError); !ok {
+			return aws.Config{}, nil
+		}
 	}
 
 	var configOpts []func(*config.LoadOptions) error
