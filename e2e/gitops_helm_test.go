@@ -52,7 +52,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 				"password": tc.argPassword,
 			}
 			if !repo.TLSEnabled {
-				m["plain_http"] = "true"
+				m["plainHttp"] = "true"
 			}
 			if tc.argPassCA {
 				m["ca"] = string(repo.ServerCAs)
@@ -92,10 +92,10 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		}
 	}
 
-	// add a fallback secret that enables plain_http in case we have no matching creds
+	// add a fallback secret that enables plainHttp in case we have no matching creds
 	if tc.oci && !repo.TLSEnabled {
 		m := map[string]string{
-			"plain_http": "true",
+			"plainHttp": "true",
 		}
 		name := suite.createGitopsSecret(m)
 		projectCreds.Oci = append(projectCreds.Oci, kluctlv1.ProjectCredentialsOci{

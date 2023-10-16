@@ -253,13 +253,13 @@ func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecret
 		if x, ok := secret.secret.Data["password"]; ok {
 			e.AuthConfig.Password = string(x)
 		}
-		if x, ok := secret.secret.Data["identity_token"]; ok {
+		if x, ok := secret.secret.Data["identityToken"]; ok {
 			e.AuthConfig.IdentityToken = string(x)
 		}
-		if x, ok := secret.secret.Data["registry_token"]; ok {
+		if x, ok := secret.secret.Data["token"]; ok {
 			e.AuthConfig.RegistryToken = string(x)
 		}
-		if x, ok := secret.secret.Data["plain_http"]; ok {
+		if x, ok := secret.secret.Data["plainHttp"]; ok {
 			e.PlainHTTP = utils.ParseBoolOrFalse(string(x))
 		}
 		if x, ok := secret.secret.Data["cert"]; ok {
@@ -277,7 +277,7 @@ func (r *KluctlDeploymentReconciler) buildOciAuth(ctx context.Context, ociSecret
 		} else if x, ok := secret.secret.Data["caFile"]; ok {
 			e.CA = x
 		}
-		if x, ok := secret.secret.Data["insecure_skip_tls_verify"]; ok {
+		if x, ok := secret.secret.Data["insecureSkipTlsVerify"]; ok {
 			e.InsecureSkipTlsVerify = utils.ParseBoolOrFalse(string(x))
 		}
 
