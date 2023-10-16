@@ -82,7 +82,7 @@ func TestAwsConfig(t *testing.T) {
 		{configProfiles: []string{"p1", "p2"}, envProfile: "p1", awsConfigProfile: "p1", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p1"},
 		{configProfiles: []string{"p1", "p2"}, envProfile: "p1", awsConfigProfile: "p2", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p1"},
 		{configProfiles: []string{"p1", "p2"}, envProfile: "p2", awsConfigProfile: "p1", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p2"},
-		{configProfiles: []string{"p1", "p2"}, envProfile: "p3", awsConfigProfile: "p1", expectedProvider: &ec2rolecreds.Provider{}},
+		{configProfiles: []string{"p1", "p2"}, envProfile: "p3", awsConfigProfile: "p1", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p1"},
 		{configProfiles: []string{"p1", "p2"}, envProfile: "p2", awsConfigProfile: "p3", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p2"},
 		{configProfiles: []string{"p1", "p2"}, envProfile: "p2", awsConfigProfile: "p3", argProfile: "p1", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p2"},
 		{configProfiles: []string{"p1", "p2"}, awsConfigProfile: "p3", argProfile: "p1", expectedProvider: &credentials.StaticCredentialsProvider{}, expectedKey: "p1"},
@@ -161,7 +161,7 @@ func TestAwsConfig(t *testing.T) {
 
 			cfg, err := LoadAwsConfigHelper(ctx, c, &awsConfig, argProfile)
 			assert.NoError(t, err)
-			assert.IsType(t, cfg.Credentials, &aws.CredentialsCache{})
+			assert.IsType(t, &aws.CredentialsCache{}, cfg.Credentials)
 
 			cp := cfg.Credentials.(*aws.CredentialsCache)
 			if !cp.IsCredentialsProvider(tc.expectedProvider) {
