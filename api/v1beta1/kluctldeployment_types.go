@@ -454,20 +454,56 @@ type KubeConfig struct {
 	SecretRef SecretKeyReference `json:"secretRef,omitempty"`
 }
 
+type RequestResult struct {
+	// +required
+	RequestValue string `json:"requestValue"`
+
+	// +required
+	StartedTime metav1.Time `json:"startedTime"`
+
+	// +optional
+	FinishedTime *metav1.Time `json:"finishedTime,omitempty"`
+
+	// +required
+	ReconcileId string `json:"reconcileId"`
+
+	// +optional
+	ResultId string `json:"resultId,omitempty"`
+
+	// +optional
+	CommandError string `json:"commandError,omitempty"`
+}
+
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
 type KluctlDeploymentStatus struct {
+	// +optional
+	ReconcileRequestResult *RequestResult `json:"reconcileRequestResult,omitempty"`
+
+	// +optional
+	DeployRequestResult *RequestResult `json:"deployRequestResult,omitempty"`
+
+	// +optional
+	PruneRequestResult *RequestResult `json:"pruneRequestResult,omitempty"`
+
+	// +optional
+	ValidateRequestResult *RequestResult `json:"validateRequestResult,omitempty"`
+
 	// LastHandledReconcileAt holds the value of the most recent
 	// reconcile request value, so a change of the annotation value
 	// can be detected.
+	// DEPRECATED
 	// +optional
 	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
 
+	// DEPRECATED
 	// +optional
 	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
 
+	// DEPRECATED
 	// +optional
 	LastHandledPruneAt string `json:"lastHandledPruneAt,omitempty"`
 
+	// DEPRECATED
 	// +optional
 	LastHandledValidateAt string `json:"lastHandledValidateAt,omitempty"`
 
