@@ -18,6 +18,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	go_container_logs "github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/gops/agent"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	flag "github.com/spf13/pflag"
@@ -73,6 +74,7 @@ type cli struct {
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
 	Webui       webuiCmd       `cmd:"" help:"Kluctl Webui sub-commands"`
+	Oci         ociCmd         `cmd:"" help:"Oci sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -84,6 +86,8 @@ var flagGroups = []groupInfo{
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
+	{group: "helm", title: "Helm arguments:", description: "Configure Helm authentication."},
+	{group: "registry", title: "Registry arguments:", description: "Configure OCI registry authentication."},
 	{group: "auth", title: "Auth arguments:", description: "Configure authentication."},
 }
 
@@ -122,6 +126,10 @@ func redirectLogsAndStderr(ctx context.Context) {
 	klog.SetOutput(lr1)
 	log.SetOutput(lr2)
 	ctrl.SetLogger(klog.NewKlogr())
+
+	go_container_logs.Warn.SetOutput(status.NewLineRedirector(func(line string) {
+		status.Warning(ctx, line)
+	}))
 
 	pr, pw, err := os.Pipe()
 	if err != nil {

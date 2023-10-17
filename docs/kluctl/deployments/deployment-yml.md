@@ -20,6 +20,10 @@ deployments:
 - path: nginx
 - path: my-app
 - include: monitoring
+- git:
+    url: git@github.com/example/example.git
+- oci:
+    url: oci://ghcr.io/kluctl/kluctl-examples/simple
 
 commonLabels:
   my.prefix/target: "{{ target.name }}"
@@ -116,6 +120,51 @@ in the above example. To pass a tag, set the `tag` field instead. To pass a comm
 If `ref` is omitted, the default branch will be checked out.
 
 `subDir` is optional and specifies the sub directory inside the git repository to include.
+
+### OCI includes
+
+Specifies an OCI based artifact to include. The artifact must be pushed to your OCI repository via the
+[`kluctl oci push`](../commands/oci-push.md) command. The artifact is extracted and then included the same way a
+[git include](#git-includes) is included.
+
+Simple example:
+```yaml
+deployments:
+- oci:
+    url: oci://ghcr.io/kluctl/kluctl-examples/simple
+```
+
+The `url` specifies the OCI repository url. It must use the `oci://` scheme. It is not allowed to add tags or digests to
+the url. Instead, use the dedicated `ref` field:
+
+```yaml
+deployments:
+- oci:
+    url: oci://ghcr.io/kluctl/kluctl-examples/simple
+    ref:
+      tag: latest
+```
+
+For digests, use:
+
+```yaml
+deployments:
+- oci:
+    url: oci://ghcr.io/kluctl/kluctl-examples/simple
+    ref:
+      digest: sha256:9ac3ba762c373ebccecb9dd3ac1d8ca091e4bd4a101701ce99e6058c0c74eedc
+```
+
+Subdirectories of the pushed artifact can be specified via `subDir`:
+
+```yaml
+deployments:
+- oci:
+    url: oci://ghcr.io/kluctl/kluctl-examples/simple
+    subDir: my-subdir
+```
+
+See [OCI support](./oci.md) for more details, especially in regard to authentication for private registries.
 
 ### Barriers
 Causes kluctl to wait until all previous kustomize deployments have been applied. This is useful when

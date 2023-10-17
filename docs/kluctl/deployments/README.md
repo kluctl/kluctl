@@ -15,11 +15,12 @@ description: >
 2. [Kustomize Integration](./kustomize.md)
 3. [Container Images](./images.md)
 4. [Helm Integration](./helm.md)
-5. [SOPS Integration](./sops.md)
-6. [Hooks](./hooks.md)
-7. [Readiness](./readiness.md)
-8. [Tags](./tags.md)
-9. [Annotations](./annotations)
+5. [OCI Integration](./oci.md)
+6. [SOPS Integration](./sops.md)
+7. [Hooks](./hooks.md)
+8. [Readiness](./readiness.md)
+9. [Tags](./tags.md)
+10. [Annotations](./annotations)
 
 A deployment project is collection of deployment items and sub-deployments. Deployment items are usually
 [Kustomize](./kustomize.md) deployments, but can also integrate [Helm Charts](./helm.md).

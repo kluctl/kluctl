@@ -15,6 +15,7 @@ type pruneCmd struct {
 	args.ImageFlags
 	args.InclusionFlags
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
@@ -38,6 +39,7 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
 		helmCredentials:      cmd.HelmCredentials,
+		registryCredentials:  cmd.RegistryCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,

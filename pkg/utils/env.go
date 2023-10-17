@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -19,8 +20,13 @@ func ParseEnvBool(name string, def bool) (bool, error) {
 	return def, nil
 }
 
-func parseEnv(prefix string, withIndex bool, withSuffix bool) map[int]map[string]string {
-	ret := make(map[int]map[string]string)
+type EnvSet struct {
+	Index int
+	Map   map[string]string
+}
+
+func parseEnv(prefix string, withIndex bool, withSuffix bool) []EnvSet {
+	envSetMap := make(map[int]map[string]string)
 
 	rs := prefix
 	curGroup := 1
@@ -70,23 +76,34 @@ func parseEnv(prefix string, withIndex bool, withSuffix bool) map[int]map[string
 			suffix = m[suffixGroup]
 		}
 
-		if _, ok := ret[idx]; !ok {
-			ret[idx] = map[string]string{}
+		if _, ok := envSetMap[idx]; !ok {
+			envSetMap[idx] = map[string]string{}
 		}
-		ret[idx][suffix] = v
+		envSetMap[idx][suffix] = v
 	}
+
+	var ret []EnvSet
+	for idx, v := range envSetMap {
+		ret = append(ret, EnvSet{
+			Index: idx,
+			Map:   v,
+		})
+	}
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Index < ret[j].Index
+	})
 	return ret
 }
 
-func ParseEnvConfigSets(prefix string) map[int]map[string]string {
+func ParseEnvConfigSets(prefix string) []EnvSet {
 	return parseEnv(prefix, true, true)
 }
 
 func ParseEnvConfigList(prefix string) map[int]string {
 	ret := make(map[int]string)
 
-	for idx, m := range parseEnv(prefix, true, false) {
-		ret[idx] = m[""]
+	for _, s := range parseEnv(prefix, true, false) {
+		ret[s.Index] = s.Map[""]
 	}
 	return ret
 }

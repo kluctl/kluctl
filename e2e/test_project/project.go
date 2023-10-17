@@ -99,7 +99,14 @@ func (p *TestProject) TestSlug() string {
 	n := p.t.Name()
 	n = xstrings.ToKebabCase(n)
 	n = strings.ReplaceAll(n, "/", "-")
-	return n
+	var x []string
+	for _, y := range strings.Split(n, "-") {
+		if y == "test" {
+			continue
+		}
+		x = append(x, y)
+	}
+	return strings.Join(x, "-")
 }
 
 func (p TestProject) Discriminator(targetName string) string {

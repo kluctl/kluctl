@@ -3,9 +3,20 @@ package e2e
 import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/stretchr/testify/suite"
+	"testing"
 )
 
-func (suite *GitopsTestSuite) TestGitOpsManualDeployment() {
+type GitOpsApprovalTestSuite struct {
+	GitopsTestSuite
+}
+
+func TestGitOpsApproval(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, new(GitOpsApprovalTestSuite))
+}
+
+func (suite *GitOpsApprovalTestSuite) TestGitOpsManualDeployment() {
 	p := test_project.NewTestProject(suite.T())
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 

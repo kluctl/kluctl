@@ -9,28 +9,35 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
+	"time"
 )
 
-func (suite *GitopsTestSuite) getReadiness(obj *kluctlv1.KluctlDeployment) *metav1.Condition {
-	for _, c := range obj.Status.Conditions {
-		if c.Type == meta.ReadyCondition {
-			return &c
-		}
-	}
-	return nil
+type GitOpsErrorsSuite struct {
+	GitopsTestSuite
 }
 
-func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.ConditionStatus, rreason string, rmessage string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
+func TestGitOpsErrors(t *testing.T) {
+	t.Parallel()
+	suite.Run(t, new(GitOpsErrorsSuite))
+}
+
+func (suite *GitOpsErrorsSuite) assertErrors(key client.ObjectKey, rstatus metav1.ConditionStatus, rreason string, rmessage string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
 	g := NewWithT(suite.T())
 
 	var kd kluctlv1.KluctlDeployment
-	err := suite.k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
+	g.Eventually(func() bool {
+		err := suite.k.Client.Get(context.TODO(), key, &kd)
+		g.Expect(err).To(Succeed())
+
+		readiness := suite.getReadiness(&kd)
+		return readiness.Status != metav1.ConditionUnknown
+	}, timeout, time.Second).Should(BeTrue())
 
 	g.Expect(kd.Status.LastDeployResult).ToNot(BeNil())
 
@@ -52,7 +59,9 @@ func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.
 	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{
 		Id: lastDeployResult.Id,
 	})
+	g.Expect(err).To(Succeed())
 	if len(expectedErrors) != 0 || len(expectedWarnings) != 0 {
+		g.Expect(cr).ToNot(BeNil())
 		g.Expect(err).To(Succeed())
 		g.Expect(cr.Errors).To(ConsistOf(expectedErrors))
 		g.Expect(cr.Warnings).To(ConsistOf(expectedWarnings))
@@ -62,7 +71,7 @@ func (suite *GitopsTestSuite) assertErrors(key client.ObjectKey, rstatus metav1.
 	g.Expect(lastDeployResult.Warnings).To(ConsistOf(expectedWarnings))
 }
 
-func (suite *GitopsTestSuite) TestGitOpsErrors() {
+func (suite *GitOpsErrorsSuite) TestGitOpsErrors() {
 	g := NewWithT(suite.T())
 	_ = g
 
@@ -117,7 +126,7 @@ data:
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
 			{
 				Ref:     cm1Ref,
-				Message: "failed to patch test-git-ops-test-git-ops-errors/ConfigMap/cm1: failed to create typed patch object (test-git-ops-test-git-ops-errors/cm1; /v1, Kind=ConfigMap): .data_error: field not declared in schema",
+				Message: "failed to patch git-ops-errors-git-ops-errors/ConfigMap/cm1: failed to create typed patch object (git-ops-errors-git-ops-errors/cm1; /v1, Kind=ConfigMap): .data_error: field not declared in schema",
 			},
 		}, nil)
 		p.UpdateFile("d1/cm1.yaml", func(f string) (string, error) {
@@ -193,28 +202,28 @@ data:
 	suite.Run("non existing git repo", func() {
 		var backup types.GitUrl
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			backup = kd.Spec.Source.URL
-			kd.Spec.Source.URL = *types.ParseGitUrlMust(backup.String() + "/invalid")
+			backup = kd.Spec.Source.Git.URL
+			kd.Spec.Source.Git.URL = *types.ParseGitUrlMust(backup.String() + "/invalid")
 		})
 		suite.waitForReconcile(key)
-		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed clone source: repository not found", nil, nil)
+		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed to clone git source: repository not found", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Source.URL = backup
+			kd.Spec.Source.Git.URL = backup
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})
 	suite.Run("non existing git branch", func() {
 		var backup *types.GitRef
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			backup = kd.Spec.Source.Ref
-			kd.Spec.Source.Ref = &types.GitRef{
+			backup = kd.Spec.Source.Git.Ref
+			kd.Spec.Source.Git.Ref = &types.GitRef{
 				Branch: "invalid",
 			}
 		})
 		suite.waitForReconcile(key)
 		suite.assertErrors(key, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "ref refs/heads/invalid not found", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Source.Ref = backup
+			kd.Spec.Source.Git.Ref = backup
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})

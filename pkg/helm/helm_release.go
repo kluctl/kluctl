@@ -3,6 +3,8 @@ package helm
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,7 +40,7 @@ type Release struct {
 	baseChartsDir string
 }
 
-func NewRelease(projectRoot string, relDirInProject string, configFile string, baseChartsDir string, credentialsProvider HelmCredentialsProvider) (*Release, error) {
+func NewRelease(ctx context.Context, projectRoot string, relDirInProject string, configFile string, baseChartsDir string, helmAuthProvider auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider) (*Release, error) {
 	var config types.HelmChartConfig
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
@@ -72,7 +74,10 @@ func NewRelease(projectRoot string, relDirInProject string, configFile string, b
 	if config.CredentialsId != nil {
 		credentialsId = *config.CredentialsId
 	}
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, credentialsProvider, credentialsId)
+	if credentialsId != "" {
+		status.Deprecation(ctx, "helm-release-credentials-id", "'credentialsId' in helm-chart.yaml is deprecated and support for it will be removed in a future version of Kluctl.")
+	}
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, helmAuthProvider, credentialsId, ociAuthProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +167,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	}
 	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(hr.ConfigFile), "helm-values.yml"))
 
-	cfg, err := buildHelmConfig(k)
+	cfg, err := buildHelmConfig(k, nil)
 	if err != nil {
 		return err
 	}

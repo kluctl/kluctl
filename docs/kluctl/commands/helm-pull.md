@@ -25,3 +25,5 @@ See [helm-integration](../deployments/helm.md) for more details.
 ## Arguments
 The following sets of arguments are available:
 1. [project arguments](./common-arguments.md#project-arguments) (except `-a`)
+1. [helm arguments](./common-arguments.md#helm-arguments)
+1. [registry arguments](./common-arguments.md#registry-arguments)

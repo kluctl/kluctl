@@ -150,6 +150,46 @@ export class DeleteObjectItemConfig {
         this.namespace = source["namespace"];
     }
 }
+export class OciRef {
+    digest?: string;
+    tag?: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.digest = source["digest"];
+        this.tag = source["tag"];
+    }
+}
+export class OciProject {
+    url: string;
+    ref?: OciRef;
+    subDir?: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.url = source["url"];
+        this.ref = this.convertValues(source["ref"], OciRef);
+        this.subDir = source["subDir"];
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (a.slice) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
+}
 export class GitProject {
     url: string;
     ref?: GitRef;
@@ -166,6 +206,7 @@ export class DeploymentItemConfig {
     path?: string;
     include?: string;
     git?: GitProject;
+    oci?: OciProject;
     tags?: string[];
     barrier?: boolean;
     message?: string;
@@ -185,6 +226,7 @@ export class DeploymentItemConfig {
         this.path = source["path"];
         this.include = source["include"];
         this.git = this.convertValues(source["git"], GitProject);
+        this.oci = this.convertValues(source["oci"], OciProject);
         this.tags = source["tags"];
         this.barrier = source["barrier"];
         this.message = source["message"];
@@ -670,11 +712,13 @@ export class TargetKey {
 }
 export class ProjectKey {
     gitRepoKey?: string;
+    ociRepoKey?: string;
     subDir?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.gitRepoKey = source["gitRepoKey"];
+        this.ociRepoKey = source["ociRepoKey"];
         this.subDir = source["subDir"];
     }
 }

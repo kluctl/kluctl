@@ -27,16 +27,16 @@ type GitRepoCache struct {
 	sshPool        *ssh_pool.SshPool
 	updateInterval time.Duration
 
-	repos      map[types.GitRepoKey]*CacheEntry
+	repos      map[types.RepoKey]*GitCacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides []RepoOverride
 
-	cleanupDirs       []string
-	cleeanupDirsMutex sync.Mutex
+	cleanupDirs      []string
+	cleanupDirsMutex sync.Mutex
 }
 
-type CacheEntry struct {
+type GitCacheEntry struct {
 	rp         *GitRepoCache
 	url        types.GitUrl
 	mr         *git.MirroredGitRepo
@@ -55,7 +55,7 @@ type RepoInfo struct {
 }
 
 type RepoOverride struct {
-	RepoKey  types.GitRepoKey
+	RepoKey  types.RepoKey
 	Ref      string
 	Override string
 	IsGroup  bool
@@ -72,14 +72,14 @@ func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProvide
 		sshPool:        sshPool,
 		authProviders:  authProviders,
 		updateInterval: updateInterval,
-		repos:          map[types.GitRepoKey]*CacheEntry{},
+		repos:          map[types.RepoKey]*GitCacheEntry{},
 		repoOverrides:  repoOverrides,
 	}
 }
 
 func (rp *GitRepoCache) Clear() {
-	rp.cleeanupDirsMutex.Lock()
-	defer rp.cleeanupDirsMutex.Unlock()
+	rp.cleanupDirsMutex.Lock()
+	defer rp.cleanupDirsMutex.Unlock()
 
 	for _, p := range rp.cleanupDirs {
 		_ = os.RemoveAll(p)
@@ -87,46 +87,21 @@ func (rp *GitRepoCache) Clear() {
 	rp.cleanupDirs = nil
 }
 
-func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
+func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 	rp.reposMutex.Lock()
 	defer rp.reposMutex.Unlock()
 
-	urlN := url.Normalize()
 	repoKey := url.RepoKey()
 
-	// evaluate overrides
-	for _, ro := range rp.repoOverrides {
-		if ro.RepoKey.Host != urlN.Host {
-			continue
-		}
+	overridePath, err := findRepoOverride(rp.repoOverrides, repoKey)
+	if err != nil {
+		return nil, err
+	}
 
-		var overridePath string
-		if ro.IsGroup {
-			prefix := "/" + ro.RepoKey.Path + "/"
-			if !strings.HasPrefix(urlN.Path, prefix) {
-				continue
-			}
-			relPath := strings.TrimPrefix(urlN.Path, prefix)
-			overridePath = path.Join(ro.Override, relPath)
-		} else {
-			if "/"+ro.RepoKey.Path != urlN.Path {
-				continue
-			}
-			overridePath = ro.Override
-		}
-
-		if st, err := os.Stat(overridePath); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return nil, fmt.Errorf("can not override repo %s with %s: %w", url.String(), overridePath, err)
-		} else if !st.IsDir() {
-			return nil, fmt.Errorf("can not override repo %s. %s is not a directory", url.String(), overridePath)
-		}
-
+	if overridePath != "" {
 		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
 
-		e := &CacheEntry{
+		e := &GitCacheEntry{
 			rp:           rp,
 			url:          url,
 			mr:           nil, // mark as overridden
@@ -143,7 +118,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		e = &CacheEntry{
+		e = &GitCacheEntry{
 			rp:         rp,
 			url:        url,
 			mr:         mr,
@@ -151,14 +126,14 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*CacheEntry, error) {
 		}
 		rp.repos[repoKey] = e
 	}
-	err := e.Update()
+	err = e.Update()
 	if err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-func (e *CacheEntry) Update() error {
+func (e *GitCacheEntry) Update() error {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -207,7 +182,7 @@ func (e *CacheEntry) Update() error {
 	return nil
 }
 
-func (e *CacheEntry) GetRepoInfo() RepoInfo {
+func (e *GitCacheEntry) GetRepoInfo() RepoInfo {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -220,7 +195,7 @@ func (e *CacheEntry) GetRepoInfo() RepoInfo {
 	return info
 }
 
-func (e *CacheEntry) findCommit(ref string) (string, string, error) {
+func (e *GitCacheEntry) findCommit(ref string) (string, string, error) {
 	ref, objectHash, err := e.findRef(ref)
 	if err != nil {
 		return "", "", err
@@ -241,7 +216,7 @@ func (e *CacheEntry) findCommit(ref string) (string, string, error) {
 	}
 }
 
-func (e *CacheEntry) findRef(ref string) (string, string, error) {
+func (e *GitCacheEntry) findRef(ref string) (string, string, error) {
 	switch {
 	case strings.HasPrefix(ref, "refs/heads"), strings.HasPrefix(ref, "refs/tags"):
 		c, ok := e.refs[ref]
@@ -265,7 +240,7 @@ func (e *CacheEntry) findRef(ref string) (string, string, error) {
 	}
 }
 
-func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
+func (e *GitCacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
 	e.updateMutex.Lock()
 	defer e.updateMutex.Unlock()
 
@@ -289,9 +264,9 @@ func (e *CacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, 
 		return "", git.CheckoutInfo{}, err
 	}
 
-	e.rp.cleeanupDirsMutex.Lock()
+	e.rp.cleanupDirsMutex.Lock()
 	e.rp.cleanupDirs = append(e.rp.cleanupDirs, p)
-	e.rp.cleeanupDirsMutex.Unlock()
+	e.rp.cleanupDirsMutex.Unlock()
 
 	if e.mr == nil { // local override exist
 		err = cp.Copy(e.overridePath, p)

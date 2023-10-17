@@ -43,6 +43,10 @@ type KluctlDeploymentSpec struct {
 	// Specifies the project source location
 	Source ProjectSource `json:"source"`
 
+	// Credentials specifies the credentials used when pulling sources
+	// +optional
+	Credentials ProjectCredentials `json:"credentials,omitempty"`
+
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
 	Decryption *Decryption `json:"decryption,omitempty"`
@@ -90,6 +94,7 @@ type KluctlDeploymentSpec struct {
 
 	// HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
 	// Kluctl deployment.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.
 	// +optional
 	HelmCredentials []HelmCredentials `json:"helmCredentials,omitempty"`
 
@@ -235,7 +240,46 @@ func (in KluctlDeploymentSpec) GetRetryInterval() time.Duration {
 }
 
 type ProjectSource struct {
+	// Git specifies a git repository as project source
+	// +optional
+	Git *ProjectSourceGit `json:"git,omitempty"`
+
+	// Oci specifies an OCI repository as project source
+	// +optional
+	Oci *ProjectSourceOci `json:"oci,omitempty"`
+
 	// Url specifies the Git url where the project source is located
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.
+	// +optional
+	URL *types.GitUrl `json:"url,omitempty"`
+
+	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
+	// +optional
+	Ref *types.GitRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// See ProjectSourceCredentials.SecretRef for details
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git
+	// instead.
+	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+	// Use spec.credentials.git with a proper Host field instead.
+	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+
+	// Credentials specifies a list of secrets with credentials
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.
+	// +optional
+	Credentials []ProjectCredentialsGitDeprecated `json:"credentials,omitempty"`
+}
+
+type ProjectSourceGit struct {
+	// URL specifies the Git url where the project source is located. If the given Git repository needs authentication,
+	// use spec.credentials.git to specify those.
 	// +required
 	URL types.GitUrl `json:"url"`
 
@@ -246,39 +290,118 @@ type ProjectSource struct {
 	// Path specifies the sub-directory to be used as project directory
 	// +optional
 	Path string `json:"path,omitempty"`
-
-	// SecretRef specifies the Secret containing authentication credentials for
-	// See GitCredentials.SecretRef for details
-	// DEPRECATED this field is deprecated and will be removed in a future version of the controller. Use Credentials
-	// instead.
-	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
-	// Use Credentials with a proper Host field instead.
-	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
-
-	// Credentials specifies a list of secrets with credentials
-	// +optional
-	Credentials []GitCredentials `json:"credentials,omitempty"`
 }
 
-type GitCredentials struct {
-	// Host specifies the hostname that this git secret applies to. If set to '*', this set of credentials
+type ProjectSourceOci struct {
+	// Url specifies the Git url where the project source is located. If the given OCI repository needs authentication,
+	// use spec.credentials.oci to specify those.
+	// +required
+	URL string `json:"url"`
+
+	// Ref specifies the tag to be used. If omitted, the "latest" tag is used.
+	// +optional
+	Ref *types.OciRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// +optional
+	Path string `json:"path,omitempty"`
+}
+
+type ProjectCredentials struct {
+	// Git specifies a list of git credentials
+	// +optional
+	Git []ProjectCredentialsGit `json:"git,omitempty"`
+
+	// Oci specifies a list of OCI credentials
+	// +optional
+	Oci []ProjectCredentialsOci `json:"oci,omitempty"`
+
+	// Helm specifies a list of Helm credentials
+	// +optional
+	Helm []ProjectCredentialsHelm `json:"helm,omitempty"`
+}
+
+type ProjectCredentialsGit struct {
+	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
 	// applies to all hosts.
 	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
 	// You must always set a proper hostname in that case.
 	// +required
 	Host string `json:"host,omitempty"`
 
-	// PathPrefix specified the path prefix to be used to filter git urls. Only urls that have this prefix will use
+	// Path specifies the path to be used to filter Git repositories. The path can contain wildcards. These credentials
+	// will only be used for matching Git URLs. If omitted, all repositories are considered to match.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the git repository.
+	// For HTTPS git repositories the Secret must contain 'username' and 'password'
+	// fields.
+	// For SSH git repositories the Secret must contain 'identity'
+	// and 'known_hosts' fields.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsGitDeprecated struct {
+	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
+	// applies to all hosts.
+	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+	// You must always set a proper hostname in that case.
+	// +required
+	Host string `json:"host,omitempty"`
+
+	// PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
 	// this set of credentials.
 	// +optional
 	PathPrefix string `json:"pathPrefix,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
 	// the git repository.
-	// For HTTPS repositories the Secret must contain 'username' and 'password'
+	// For HTTPS git repositories the Secret must contain 'username' and 'password'
 	// fields.
-	// For SSH repositories the Secret must contain 'identity'
+	// For SSH git repositories the Secret must contain 'identity'
 	// and 'known_hosts' fields.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsOci struct {
+	// Registry specifies the hostname that this secret applies to.
+	// +required
+	Registry string `json:"registry,omitempty"`
+
+	// Repository specifies the org and repo name in the format 'org-name/repo-name'.
+	// Both 'org-name' and 'repo-name' can be specified as '*', meaning that all names are matched.
+	// +optional
+	Repository string `json:"repository,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the oci repository.
+	// The secret must contain 'username' and 'password'.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsHelm struct {
+	// Host specifies the hostname that this secret applies to.
+	// +required
+	Host string `json:"host"`
+
+	// Path specifies the path to be used to filter Helm urls. The path can contain wildcards. These credentials
+	// will only be used for matching URLs. If omitted, all URLs are considered to match.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the Helm repository.
+	// The secret can either container basic authentication credentials via `username` and `password` or
+	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
+	// contacting the repository.
+	// The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.
+	// `passCredentialsAll: "true"` can be specified to make the controller pass credentials to all requests, even if
+	// the hostname changes in-between.
 	// +required
 	SecretRef LocalObjectReference `json:"secretRef"`
 }
@@ -304,7 +427,7 @@ type Decryption struct {
 type HelmCredentials struct {
 	// SecretRef holds the name of a secret that contains the Helm credentials.
 	// The secret must either contain the fields `credentialsId` which refers to the credentialsId
-	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories or an `url` used
+	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories or an `url` used
 	// to match the credentials found in Kluctl projects helm-chart.yaml files.
 	// The secret can either container basic authentication credentials via `username` and `password` or
 	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while

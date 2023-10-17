@@ -10,9 +10,11 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/results"
@@ -29,7 +31,7 @@ import (
 	"strings"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
 	if err != nil {
 		return fmt.Errorf("creating temporary project directory failed: %w", err)
@@ -64,20 +66,35 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	sshPool := &ssh_pool.SshPool{}
 
-	var repoOverrides []repocache.RepoOverride
+	var gitRepoOverrides []repocache.RepoOverride
+	var ociRepoOverrides []repocache.RepoOverride
 	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(ctx, x, false)
+		ro, err := parseRepoOverride(ctx, x, false, "git", true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-override: %w", err)
 		}
-		repoOverrides = append(repoOverrides, ro)
+		gitRepoOverrides = append(gitRepoOverrides, ro)
 	}
 	for _, x := range projectFlags.LocalGitGroupOverride {
-		ro, err := parseRepoOverride(ctx, x, true)
+		ro, err := parseRepoOverride(ctx, x, true, "git", true)
 		if err != nil {
 			return fmt.Errorf("invalid --local-git-group-override: %w", err)
 		}
-		repoOverrides = append(repoOverrides, ro)
+		gitRepoOverrides = append(gitRepoOverrides, ro)
+	}
+	for _, x := range projectFlags.LocalOciOverride {
+		ro, err := parseRepoOverride(ctx, x, false, "oci", false)
+		if err != nil {
+			return fmt.Errorf("invalid --local-oci-override: %w", err)
+		}
+		ociRepoOverrides = append(ociRepoOverrides, ro)
+	}
+	for _, x := range projectFlags.LocalOciGroupOverride {
+		ro, err := parseRepoOverride(ctx, x, true, "oci", false)
+		if err != nil {
+			return fmt.Errorf("invalid --local-oci-group-override: %w", err)
+		}
+		ociRepoOverrides = append(ociRepoOverrides, ro)
 	}
 
 	messageCallbacks := &messages.MessageCallbacks{
@@ -87,9 +104,24 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
+	ociAuth := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuth := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := helmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuth.RegisterAuthProvider(x, false)
+	}
+	if x, err := registryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuth.RegisterAuthProvider(x, false)
+	}
 
-	rp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
-	defer rp.Clear()
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, gitRepoOverrides, projectFlags.GitCacheUpdateInterval)
+	defer gitRp.Clear()
+
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
+	defer gitRp.Clear()
 
 	var externalArgs *uo.UnstructuredObject
 	if argsFlags != nil {
@@ -115,7 +147,10 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ProjectDir:         projectDir,
 		ProjectConfig:      projectFlags.ProjectConfig.String(),
 		ExternalArgs:       externalArgs,
-		RP:                 rp,
+		GitRP:              gitRp,
+		OciRP:              ociRp,
+		OciAuthProvider:    ociAuth,
+		HelmAuthProvider:   helmAuth,
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 
@@ -134,6 +169,7 @@ type projectTargetCommandArgs struct {
 	imageFlags           args.ImageFlags
 	inclusionFlags       args.InclusionFlags
 	helmCredentials      args.HelmCredentials
+	registryCredentials  args.RegistryCredentials
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
 	commandResultFlags   *args.CommandResultFlags
@@ -155,7 +191,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, &args.helmCredentials, &args.registryCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
@@ -196,7 +232,8 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		ForSeal:            args.forSeal,
 		Images:             images,
 		Inclusion:          inclusion,
-		HelmCredentials:    &args.helmCredentials,
+		OciAuthProvider:    p.LoadArgs.OciAuthProvider,
+		HelmAuthProvider:   p.LoadArgs.HelmAuthProvider,
 		RenderOutputDir:    renderOutputDir,
 	}
 
@@ -298,14 +335,18 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 	}
 }
 
-func parseRepoOverride(ctx context.Context, s string, isGroup bool) (repocache.RepoOverride, error) {
+func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string, allowLegacy bool) (repocache.RepoOverride, error) {
 	sp := strings.SplitN(s, "=", 2)
 	if len(sp) != 2 {
 		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
 	}
 
-	repoKey, err := types.ParseGitRepoKey(sp[0])
+	repoKey, err := types.ParseRepoKey(sp[0], type_)
 	if err != nil {
+		if !allowLegacy {
+			return repocache.RepoOverride{}, err
+		}
+
 		// try as legacy repo key
 		u, err2 := types.ParseGitUrl(sp[0])
 		if err2 != nil {
@@ -318,7 +359,7 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool) (repocache.R
 			x += "/"
 		}
 		x += u.Path
-		repoKey, err2 = types.ParseGitRepoKey(x)
+		repoKey, err2 = types.ParseRepoKey(x, type_)
 		if err2 != nil {
 			// return original error
 			return repocache.RepoOverride{}, err

@@ -15,34 +15,34 @@ type GitCredentialsFileAuthProvider struct {
 	MessageCallbacks messages.MessageCallbacks
 }
 
-func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) AuthMethodAndCA {
+func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error) {
 	if gitUrl.Scheme != "http" && gitUrl.Scheme != "https" {
-		return AuthMethodAndCA{}
+		return AuthMethodAndCA{}, nil
 	}
 	a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: BuildAuth for %s", gitUrl.String())
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		a.MessageCallbacks.Warning("Could not determine home directory: %v", err)
-		return AuthMethodAndCA{}
+		return AuthMethodAndCA{}, err
 	}
 	auth := a.tryBuildAuth(gitUrl, filepath.Join(home, ".git-credentials"))
 	if auth != nil {
-		return *auth
+		return *auth, nil
 	}
 
 	if xdgHome, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgHome != "" {
 		auth = a.tryBuildAuth(gitUrl, filepath.Join(xdgHome, ".git-credentials"))
 		if auth != nil {
-			return *auth
+			return *auth, nil
 		}
 	} else {
 		auth = a.tryBuildAuth(gitUrl, filepath.Join(home, ".config/.git-credentials"))
 		if auth != nil {
-			return *auth
+			return *auth, nil
 		}
 	}
-	return AuthMethodAndCA{}
+	return AuthMethodAndCA{}, nil
 }
 
 func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl types.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {

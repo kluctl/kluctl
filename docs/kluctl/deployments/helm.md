@@ -154,9 +154,9 @@ In case a Helm Chart needs to be updated, you can either do this manually by rep
 value in `helm-chart.yaml` and the calling the [helm-pull](../commands/helm-pull.md) command or by simply invoking
 [helm-update](../commands/helm-update.md) with `--upgrade` and/or `--commit` being set.
 
-## Private Chart Repositories
-It is also possible to use private chart repositories. There are currently two options to provide Helm Repository
-credentials to Kluctl.
+## Private Repositories
+It is also possible to use private chart repositories and private OCI registries. There are multiple options to
+provide credentials to Kluctl.
 
 ### Use `helm repo add --username xxx --password xxx` before
 Kluctl will try to find known repositories that are managed by the Helm CLI and then try to reuse the credentials of
@@ -164,29 +164,50 @@ these. The repositories are identified by the URL of the repository, so it doesn
 added the repository to Helm. The same method can be used for client certificate based authentication (`--key-file`
 in `helm repo add`).
 
-### Use the --username/--password arguments in `kluctl helm-pull`
-See the [helm-pull command](../commands/helm-pull.md). You can control repository credentials
-via `--username`, `--password` and `--key-file`. Each argument must be in the form `credentialsId:value`, where
-the `credentialsId` must match the id specified in the `helm-chart.yaml`. Example:
+### Use `helm registry login --username xxx --password xxx` for OCI registries
+The same as for `helm repo add` applies here, except that authentication entries are matched by hostname.
 
-```yaml
-helmChart:
-  repo: https://raw.githubusercontent.com/example/private-helm-repo/main/
-  credentialsId: private-helm-repo
-  chartName: my-chart
-  chartVersion: 1.2.3
-  releaseName: my-chart
-  namespace: default
-```
 
-When credentialsId is specified, Kluctl will require you to specify `--username=private-helm-repo:my-username` and
-`--password=private-helm-repo:my-password`. You can also specify a client-side certificate instead via
-`--key-file=private-helm-repo:/path/to/cert`.
+### Use `docker login` for OCI registries
+Kluctl tries to use credentials stored in `$HOME/.docker/config.json` as well, so
+[`docker login`](https://docs.docker.com/engine/reference/commandline/login/) will also allow Kluctl to authenticate
+against OCI registries.
 
-Multiple Helm Charts can use the same `credentialsId`.
+### Use the --helm-xxx and --registry-xxx arguments of Kluctl sub-commands
+All [commands](../commands/README.md) that interact with Helm Chart repositories and OCI registries support the
+[helm arguments](../commands/common-arguments.md#helm-arguments) and [registry arguments](../commands/common-arguments.md#registry-arguments)
+to specify authentication per repository and/or OCI registry.
 
-Environment variables can also be used instead of arguments. See
-[Environment Variables](../commands/environment-variables.md) for details.
+⚠️DEPRECATION WARNING ⚠️
+Previous versions (prior to v2.22.0) of Kluctl supported managing Helm credentials via `credentialsId` in `helm-chart.yaml`.
+This is deprecated now and will be removed in the future. Please switch to hostname/registry-name based authentication
+instead. See [helm arguments](../commands/common-arguments.md#helm-arguments) for details.
+
+### Use environment variables to specify authentication
+You can also use environment variables to specify Helm Chart repository authentication. For OCI based registries, see
+[OCI authentication](./oci.md#authentication) for details.
+
+The following environment variables are supported:
+
+1. `KLUCTL_HELM_HOST`: Specifies the host name of the repository to match before the specified credentials are considered.
+2. `KLUCTL_HELM_PATH`: Specifies the path to match before the specified credentials are considered. If omitted, credentials are applied to all matching hosts. Can contain wildcards.
+3. `KLUCTL_HELM_USERNAME`: Specifies the username.
+4. `KLUCTL_HELM_PASSWORD`: Specifies the password.
+5. `KLUCTL_HELM_INSECURE_SKIP_TLS_VERIFY`: If set to `true`, Kluctl will skip TLS verification for matching repositories.
+6. `KLUCTL_HELM_PASS_CREDENTIALS_ALL`: If set to `true`, Kluctl will instruct Helm to pass credentials to all domains. See https://helm.sh/docs/helm/helm_repo_add/ for details.
+7. `KLUCTL_HELM_CERT_FILE`: Specifies the client certificate to use while connecting to the matching repository.
+8. `KLUCTL_HELM_KEY_FILE`: Specifies the client key to use while connecting to the matching repository.
+9. `KLUCTL_HELM_CA_FILE`: Specifies CA bundle to use for TLS/https verification.
+
+Multiple credential sets can be specified by including an index in the environment variable names, e.g.
+`KLUCTL_HELM_1_HOST=host.org`, `KLUCTL_HELM_1_USERNAME=my-user` and `KLUCTL_HELM_1_PASSWORD=my-password` will apply
+the given credential to all repositories with the host `host.org`, while `KLUCTL_HELM_2_HOST=other.org`,
+`KLUCTL_HELM_2_USERNAME=my-other-user` and `KLUCTL_HELM_2_PASSWORD=my-other-password` will apply the other credentials
+to the `other.org` repository.
+
+### Credentials when using the kluctl-controller
+In case you want to use the same Kluctl deployment via the [kluctl-controller](../../gitops/README.md), you have to
+configure Helm and OCI credentials via [`spec.credentials`](../../gitops/spec/v1beta1/kluctldeployment.md#credentials).
 
 ## Templating
 

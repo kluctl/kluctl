@@ -6,14 +6,9 @@ import (
 	"helm.sh/helm/v3/pkg/registry"
 )
 
-func buildHelmConfig(k *k8s.K8sCluster) (*action.Configuration, error) {
-	rc, err := registry.NewClient()
-	if err != nil {
-		return nil, err
-	}
-
+func buildHelmConfig(k *k8s.K8sCluster, registryClient *registry.Client) (*action.Configuration, error) {
 	return &action.Configuration{
 		RESTClientGetter: k,
-		RegistryClient:   rc,
+		RegistryClient:   registryClient,
 	}, nil
 }

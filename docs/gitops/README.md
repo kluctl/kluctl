@@ -76,8 +76,9 @@ metadata:
 spec:
   interval: 10m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: test
   context: default
@@ -98,8 +99,9 @@ metadata:
 spec:
   interval: 10m
   source:
-    url: https://github.com/kluctl/kluctl-examples.git
-    path: "./microservices-demo/3-templating-and-multi-env/"
+    git:
+      url: https://github.com/kluctl/kluctl-examples.git
+      path: "./microservices-demo/3-templating-and-multi-env/"
   timeout: 2m
   target: prod
   context: default

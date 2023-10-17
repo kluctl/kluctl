@@ -11,35 +11,302 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 )
 
-func createHelmOrOciRepo(t *testing.T, charts []test_utils.RepoChart, oci bool, user string, password string) string {
-	if oci {
-		return test_utils.CreateOciRepo(t, charts, user, password)
-	} else {
-		return test_utils.CreateHelmRepo(t, charts, user, password)
-	}
-}
+type helmTestCase struct {
+	path              string
+	name              string
+	oci               bool
+	testAuth          bool
+	testTLS           bool
+	testTLSClientCert bool
+	credsId           string
 
-type testCase struct {
-	name          string
-	oci           bool
-	testAuth      bool
-	credsId       string
-	extraArgs     []string
+	argCredsId   string
+	argCredsHost string
+	argCredsPath string
+	argUsername  string
+	argPassword  string
+
+	argPassCA         bool
+	argPassClientCert bool
+
 	expectedError string
 }
 
-func testHelmPull(t *testing.T, tc testCase, prePull bool) {
-	t.Parallel()
+var helmTests = []helmTestCase{
+	{name: "helm-no-creds"},
+	{name: "oci-no-creds", oci: true},
 
-	k := defaultCluster1
+	// tls tests
+	{
+		name: "helm-tls-missing-ca", testTLS: true,
+		argPassCA:     false,
+		argCredsHost:  "<host>",
+		expectedError: "failed to verify certificate",
+	},
+	{
+		name: "helm-tls-valid-ca", testTLS: true,
+		argPassCA:    true,
+		argCredsHost: "<host>",
+	},
+	{
+		name: "helm-tls-missing-cert", testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: false,
+		argCredsHost:      "<host>",
+		expectedError:     "certificate required",
+	},
+	{
+		name: "helm-tls-valid-cert", testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: true,
+		argCredsHost:      "<host>",
+	},
 
+	{
+		name: "oci-tls-missing-ca", oci: true, testTLS: true,
+		argPassCA:     false,
+		argCredsHost:  "<host>",
+		expectedError: "failed to verify certificate",
+	},
+	{
+		name: "oci-tls-valid-ca", oci: true, testTLS: true,
+		argPassCA:    true,
+		argCredsHost: "<host>",
+	},
+	{
+		name: "oci-tls-missing-cert", oci: true, testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: false,
+		argCredsHost:      "<host>",
+		expectedError:     "certificate required",
+	},
+	{
+		name: "oci-tls-valid-cert", oci: true, testTLS: true, testTLSClientCert: true,
+		argPassCA:         true,
+		argPassClientCert: true,
+		argCredsHost:      "<host>",
+	},
+
+	// deprecated helm credentials flags
+	{
+		name: "dep-helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "dep-helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
+		argCredsId: "test-creds", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "dep-helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
+		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
+	},
+	{
+		name: "dep-oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
+		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments",
+	},
+
+	// new helm credentials flags
+	{
+		name: "helm-creds-missing", oci: false, testAuth: true,
+		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-invalid", oci: false, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-valid", oci: false, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "secret-password",
+	},
+	{
+		name: "helm-creds-missing-path", oci: false, testAuth: true, path: "path1",
+		argCredsHost: "<host>", argCredsPath: "path2", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-invalid-path", oci: false, testAuth: true, path: "path1",
+		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "helm-creds-valid-path", oci: false, testAuth: true, path: "path1",
+		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "secret-password",
+	},
+
+	// oci creds
+	{
+		name: "oci-creds-missing", oci: true, testAuth: true,
+		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-invalid", oci: true, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-valid", oci: true, testAuth: true,
+		argCredsHost: "<host>", argUsername: "test-user", argPassword: "secret-password",
+	},
+	{
+		name: "oci-creds-missing-path", oci: true, testAuth: true,
+		argCredsHost: "<host>", argCredsPath: "test-chart2", argUsername: "test-user", argPassword: "secret-password",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-invalid-path", oci: true, testAuth: true,
+		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "invalid",
+		expectedError: "401 Unauthorized",
+	},
+	{
+		name: "oci-creds-valid-path", oci: true, testAuth: true,
+		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "secret-password",
+	},
+}
+
+func newTmpFile(t *testing.T, b []byte) string {
+	tmp, _ := os.Create(filepath.Join(t.TempDir(), "x.pem"))
+	defer tmp.Close()
+	tmp.Write(b)
+	return tmp.Name()
+}
+
+func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.TestHelmRepo) []string {
+	var ret []string
+	if tc.oci {
+		if tc.argCredsHost != "" {
+			r := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
+			if tc.argCredsPath != "" {
+				r += "/" + tc.argCredsPath
+			}
+			if (rand.Int() & 1) == 0 {
+				ret = append(ret, fmt.Sprintf("--registry-username=%s=%s", r, tc.argUsername))
+				ret = append(ret, fmt.Sprintf("--registry-password=%s=%s", r, tc.argPassword))
+			} else {
+				ret = append(ret, fmt.Sprintf("--registry-creds=%s=%s:%s", r, tc.argUsername, tc.argPassword))
+			}
+			if !repo.TLSEnabled {
+				ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", r))
+			}
+		}
+		if !repo.TLSEnabled {
+			r := repo.URL.Host
+			if tc.argCredsPath != "" {
+				r += "/" + tc.argCredsPath
+			}
+			ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", r))
+		}
+		if tc.testTLS {
+			if tc.argPassCA {
+				ret = append(ret, fmt.Sprintf("--registry-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ServerCAs)))
+			}
+			if tc.argPassClientCert {
+				ret = append(ret, fmt.Sprintf("--registry-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientCert)))
+				ret = append(ret, fmt.Sprintf("--registry-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientKey)))
+			}
+		}
+	} else {
+		if tc.argCredsId != "" {
+			ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
+			ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
+		} else if tc.argCredsHost != "" {
+			r := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
+			if tc.argCredsPath != "" {
+				r += "/" + tc.argCredsPath
+			}
+			if (rand.Int() & 1) == 0 {
+				ret = append(ret, fmt.Sprintf("--helm-username=%s=%s", r, tc.argUsername))
+				ret = append(ret, fmt.Sprintf("--helm-password=%s=%s", r, tc.argPassword))
+			} else {
+				ret = append(ret, fmt.Sprintf("--helm-creds=%s=%s:%s", r, tc.argUsername, tc.argPassword))
+			}
+		}
+		if tc.testTLS {
+			if tc.argPassCA {
+				ret = append(ret, fmt.Sprintf("--helm-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ServerCAs)))
+			}
+			if tc.argPassClientCert {
+				ret = append(ret, fmt.Sprintf("--helm-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientCert)))
+				ret = append(ret, fmt.Sprintf("--helm-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientKey)))
+			}
+		}
+	}
+	// add a fallback that enables plain_http in case we have no matching creds
+	if tc.oci && !repo.TLSEnabled {
+		ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", repo.URL.Host))
+	}
+	return ret
+}
+
+func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, repo *test_utils.TestHelmRepo) {
+	if tc.oci {
+		if tc.argCredsHost != "" {
+			t.Setenv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
+		}
+		if tc.argCredsPath != "" {
+			t.Setenv("KLUCTL_REGISTRY_REPOSITORY", tc.argCredsPath)
+		}
+		if tc.argUsername != "" {
+			t.Setenv("KLUCTL_REGISTRY_USERNAME", tc.argUsername)
+		}
+		if tc.argPassword != "" {
+			t.Setenv("KLUCTL_REGISTRY_PASSWORD", tc.argPassword)
+		}
+		if !repo.TLSEnabled {
+			t.Setenv("KLUCTL_REGISTRY_PLAIN_HTTP", "true")
+		}
+		if tc.argPassCA {
+			t.Setenv("KLUCTL_REGISTRY_CA_FILE", newTmpFile(t, repo.ServerCAs))
+		}
+		if tc.argPassClientCert {
+			t.Setenv("KLUCTL_REGISTRY_CERT_FILE", newTmpFile(t, repo.ClientCert))
+			t.Setenv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.ClientKey))
+		}
+	} else {
+		if tc.argCredsId != "" {
+			t.Setenv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
+		}
+		if tc.argCredsHost != "" {
+			t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
+		}
+		if tc.argCredsPath != "" {
+			t.Setenv("KLUCTL_HELM_PATH", tc.argCredsPath)
+		}
+		if tc.argUsername != "" {
+			t.Setenv("KLUCTL_HELM_USERNAME", tc.argUsername)
+		}
+		if tc.argPassword != "" {
+			t.Setenv("KLUCTL_HELM_PASSWORD", tc.argPassword)
+		}
+		if tc.argPassCA {
+			t.Setenv("KLUCTL_HELM_CA_FILE", newTmpFile(t, repo.ServerCAs))
+		}
+		if tc.argPassClientCert {
+			t.Setenv("KLUCTL_HELM_CERT_FILE", newTmpFile(t, repo.ClientCert))
+			t.Setenv("KLUCTL_HELM_KEY_FILE", newTmpFile(t, repo.ClientKey))
+		}
+	}
+	// add a fallback that enables plain_http in case we have no matching creds
+	if tc.oci && !repo.TLSEnabled {
+		t.Setenv("KLUCTL_REGISTRY_1_HOST", repo.URL.Host)
+		t.Setenv("KLUCTL_REGISTRY_1_PLAIN_HTTP", "true")
+	}
+}
+
+func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool) (*test_project.TestProject, *test_utils.TestHelmRepo, error) {
 	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
@@ -51,12 +318,26 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 		password = "secret-password"
 	}
 
-	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, tc.oci, user, password)
+	repo := &test_utils.TestHelmRepo{
+		TestHttpServer: test_utils.TestHttpServer{
+			Username:               user,
+			Password:               password,
+			NoLoopbackProxyEnabled: true,
+			TLSEnabled:             tc.testTLS,
+			TLSClientCertEnabled:   tc.testTLSClientCert,
+		},
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+		},
+		Oci:  tc.oci,
+		Path: tc.path,
+	}
+	repo.Start(t)
+
+	extraArgs := buildHelmTestExtraArgs(t, tc, repo)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	if tc.testAuth {
 		if tc.credsId != "" {
@@ -69,16 +350,18 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 
 	if prePull {
 		args := []string{"helm-pull"}
-		args = append(args, tc.extraArgs...)
+		args = append(args, extraArgs...)
 
 		_, stderr, err := p.Kluctl(args...)
 		if tc.expectedError != "" {
 			assert.Error(t, err)
 			assert.Contains(t, stderr, tc.expectedError)
-			return
+			return p, repo, err
 		} else {
 			assert.NoError(t, err)
-			assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
+			assert.FileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart1", "0.1.0"))
+
+			p.GitServer().CommitFiles(p.GitRepoName(), []string{".helm-charts"}, true, "helm-pull")
 		}
 	} else {
 		p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
@@ -87,8 +370,30 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 		}, "")
 	}
 
+	return p, repo, nil
+}
+
+func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool) {
+	if !credsViaEnv {
+		t.Parallel()
+	}
+
+	k := defaultCluster1
+	p, repo, err := prepareHelmTestCase(t, k, tc, prePull)
+	if err != nil {
+		if tc.expectedError == "" {
+			assert.Fail(t, "did not expect error")
+		}
+		return
+	}
+
 	args := []string{"deploy", "--yes", "-t", "test"}
-	args = append(args, tc.extraArgs...)
+	if credsViaEnv {
+		buildHelmTestEnvVars(t, tc, repo)
+	} else {
+		args = append(args, buildHelmTestExtraArgs(t, tc, repo)...)
+	}
+
 	_, stderr, err := p.Kluctl(args...)
 	pullMessage := "Pulling Helm Chart test-chart1 with version 0.1.0"
 	if prePull {
@@ -106,27 +411,28 @@ func testHelmPull(t *testing.T, tc testCase, prePull bool) {
 }
 
 func TestHelmPull(t *testing.T) {
-	tests := []testCase{
-		{name: "helm-no-creds"},
-		{name: "helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
-			expectedError: "401 Unauthorized"},
-		{name: "helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
-			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:invalid"},
-			expectedError: "401 Unauthorized"},
-		{name: "helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
-			extraArgs: []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"}},
-		{name: "oci", oci: true},
-		{name: "oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
-			extraArgs:     []string{"--helm-username=test-creds:test-user", "--helm-password=test-creds:secret-password"},
-			expectedError: "OCI charts can currently only be authenticated via registry login and not via cli arguments"},
-	}
-
-	for _, tc := range tests {
+	for _, tc := range helmTests {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			testHelmPull(t, tc, false)
+			testHelmPull(t, tc, false, false)
 		})
-		t.Run(tc.name+"-prepull", func(t *testing.T) {
-			testHelmPull(t, tc, true)
+	}
+}
+
+func TestHelmPrePull(t *testing.T) {
+	for _, tc := range helmTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			testHelmPull(t, tc, true, false)
+		})
+	}
+}
+
+func TestHelmPullCredsViaEnv(t *testing.T) {
+	for _, tc := range helmTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			testHelmPull(t, tc, false, true)
 		})
 	}
 }
@@ -140,16 +446,20 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-		{ChartName: "test-chart1", Version: "0.2.0"},
-	}, oci, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Oci: oci,
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+			{ChartName: "test-chart1", Version: "0.2.0"},
+		},
+	}
+	repo.Start(t)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
 	p.KluctlMust("helm-pull")
-	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
+	assert.FileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart1", "0.1.0"))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ := cm.GetNestedString("data", "version")
@@ -161,8 +471,8 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	}, "")
 
 	p.KluctlMust("helm-pull")
-	assert.NoFileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
-	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.2.0"))
+	assert.NoFileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart1", "0.1.0"))
+	assert.FileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart1", "0.2.0"))
 	p.KluctlMust("deploy", "--yes", "-t", "test")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 	v, _, _ = cm.GetNestedString("data", "version")
@@ -186,17 +496,21 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-		{ChartName: "test-chart1", Version: "0.2.0"},
-		{ChartName: "test-chart2", Version: "0.1.0"},
-		{ChartName: "test-chart2", Version: "0.3.0"},
-	}, oci, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Oci: oci,
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+			{ChartName: "test-chart1", Version: "0.2.0"},
+			{ChartName: "test-chart2", Version: "0.1.0"},
+			{ChartName: "test-chart2", Version: "0.3.0"},
+		},
+	}
+	repo.Start(t)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repo.URL.String(), "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm3", repo.URL.String(), "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
 
 	p.UpdateYaml("helm3/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipUpdate")
@@ -204,8 +518,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	}, "")
 
 	p.KluctlMust("helm-pull")
-	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart1", "0.1.0"))
-	assert.FileExists(t, getChartFile(t, p, repoUrl, "test-chart2", "0.1.0"))
+	assert.FileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart1", "0.1.0"))
+	assert.FileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart2", "0.1.0"))
 
 	if commit {
 		wt, _ := p.GetGitRepo().Worktree()
@@ -235,8 +549,8 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 		assert.Contains(t, stderr, "Committed helm chart test-chart2 with version 0.3.0")
 	}
 
-	pulledVersions1 := listChartVersions(t, p, repoUrl, "test-chart1")
-	pulledVersions2 := listChartVersions(t, p, repoUrl, "test-chart2")
+	pulledVersions1 := listChartVersions(t, p, repo.URL.String(), "test-chart1")
+	pulledVersions2 := listChartVersions(t, p, repo.URL.String(), "test-chart2")
 
 	if upgrade {
 		assert.Equal(t, []string{"0.1.0", "0.2.0"}, pulledVersions1)
@@ -301,19 +615,23 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-		{ChartName: "test-chart1", Version: "0.1.1"},
-		{ChartName: "test-chart1", Version: "0.2.0"},
-		{ChartName: "test-chart1", Version: "1.1.0"},
-		{ChartName: "test-chart1", Version: "1.1.1"},
-		{ChartName: "test-chart1", Version: "1.2.1"},
-	}, oci, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Oci: oci,
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+			{ChartName: "test-chart1", Version: "0.1.1"},
+			{ChartName: "test-chart1", Version: "0.2.0"},
+			{ChartName: "test-chart1", Version: "1.1.0"},
+			{ChartName: "test-chart1", Version: "1.1.1"},
+			{ChartName: "test-chart1", Version: "1.2.1"},
+		},
+	}
+	repo.Start(t)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm2", repoUrl, "test-chart1", "0.1.0", "test-helm2", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repo.URL.String(), "test-chart1", "0.1.0", "test-helm2", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm3", repo.URL.String(), "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), nil)
 
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField("~0.1.0", "helmChart", "updateConstraints")
@@ -364,10 +682,13 @@ func TestHelmValues(t *testing.T) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+			{ChartName: "test-chart2", Version: "0.1.0"},
+		},
+	}
+	repo.Start(t)
 
 	values1 := map[string]any{
 		"data": map[string]any{
@@ -389,9 +710,9 @@ func TestHelmValues(t *testing.T) {
 	}
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
-	p.AddHelmDeployment("helm2", repoUrl, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), values2)
-	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), values3)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
+	p.AddHelmDeployment("helm2", repo.URL.String(), "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), values2)
+	p.AddHelmDeployment("helm3", repo.URL.String(), "test-chart1", "0.1.0", "test-helm3", p.TestSlug(), values3)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
@@ -431,16 +752,19 @@ func TestHelmTemplateChartYaml(t *testing.T) {
 	createNamespace(t, k, p.TestSlug()+"-a")
 	createNamespace(t, k, p.TestSlug()+"-b")
 
-	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-		{ChartName: "test-chart2", Version: "0.1.0"},
-	}, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+			{ChartName: "test-chart2", Version: "0.1.0"},
+		},
+	}
+	repo.Start(t)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm2", repoUrl, "test-chart2", "0.1.0", "test-helm-{{ args.b }}", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm3", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.a }}", nil)
-	p.AddHelmDeployment("helm4", repoUrl, "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.b }}", nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm-{{ args.a }}", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repo.URL.String(), "test-chart2", "0.1.0", "test-helm-{{ args.b }}", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm3", repo.URL.String(), "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.a }}", nil)
+	p.AddHelmDeployment("helm4", repo.URL.String(), "test-chart1", "0.1.0", "test-helm-ns", p.TestSlug()+"-{{ args.b }}", nil)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
@@ -460,12 +784,15 @@ func TestHelmRenderOfflineKubernetes(t *testing.T) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+		},
+	}
+	repo.Start(t)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
 		return nil
@@ -526,16 +853,18 @@ func TestHelmSkipPrePull(t *testing.T) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := createHelmOrOciRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-		{ChartName: "test-chart1", Version: "0.1.1"},
-		{ChartName: "test-chart1", Version: "0.2.0"},
-	}, false, "", "")
-	u, _ := url.Parse(repoUrl)
+	repo := &test_utils.TestHelmRepo{
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+			{ChartName: "test-chart1", Version: "0.1.1"},
+			{ChartName: "test-chart1", Version: "0.2.0"},
+		},
+	}
+	repo.Start(t)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
-	p.AddHelmDeployment("helm2", repoUrl, "test-chart1", "0.1.1", "test-helm2", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
+	p.AddHelmDeployment("helm2", repo.URL.String(), "test-chart1", "0.1.1", "test-helm2", p.TestSlug(), nil)
 
 	p.UpdateYaml("helm2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
@@ -547,8 +876,8 @@ func TestHelmSkipPrePull(t *testing.T) {
 	_, stderr := p.KluctlMust(args...)
 	assert.Contains(t, stderr, "Pulling Chart with version 0.1.0")
 	assert.NotContains(t, stderr, "version 0.1.1")
-	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
-	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", repo.URL.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", repo.URL.Port())))
 
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
@@ -557,8 +886,8 @@ func TestHelmSkipPrePull(t *testing.T) {
 	_, stderr = p.KluctlMust(args...)
 	assert.Contains(t, stderr, "Removing unused Chart with version 0.1.0")
 	assert.NotContains(t, stderr, "version 0.1.1")
-	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
-	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", repo.URL.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", repo.URL.Port())))
 
 	p.UpdateYaml("helm2/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(false, "helmChart", "skipPrePull")
@@ -567,8 +896,8 @@ func TestHelmSkipPrePull(t *testing.T) {
 	_, stderr = p.KluctlMust(args...)
 	assert.Contains(t, stderr, "test-chart1: Pulling Chart with version 0.1.1")
 	assert.NotContains(t, stderr, "version 0.1.0")
-	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
-	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", repo.URL.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", repo.URL.Port())))
 
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(false, "helmChart", "skipPrePull")
@@ -577,8 +906,8 @@ func TestHelmSkipPrePull(t *testing.T) {
 	_, stderr = p.KluctlMust(args...)
 	assert.Contains(t, stderr, "Pulling Chart with version 0.1.0")
 	assert.Contains(t, stderr, "Pulling Chart with version 0.1.1")
-	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
-	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", repo.URL.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", repo.URL.Port())))
 
 	// not try to update+pull
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
@@ -596,9 +925,9 @@ func TestHelmSkipPrePull(t *testing.T) {
 	assert.NotContains(t, stderr, "Pulling Chart with version 0.1.0")
 	assert.NotContains(t, stderr, "Pulling Chart with version 0.1.1")
 	assert.Contains(t, stderr, "Pulling Chart with version 0.2.0")
-	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", u.Port())))
-	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", u.Port())))
-	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.2.0", u.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", repo.URL.Port())))
+	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", repo.URL.Port())))
+	assert.DirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.2.0", repo.URL.Port())))
 }
 
 func getChartDir(t *testing.T, p *test_project.TestProject, url2 string, chartName string, chartVersion string) string {
@@ -608,9 +937,9 @@ func getChartDir(t *testing.T, p *test_project.TestProject, url2 string, chartNa
 	}
 	var dir string
 	if u.Scheme == "oci" {
-		dir = filepath.Join(p.LocalProjectDir(), ".helm-charts", fmt.Sprintf("%s_%s", u.Scheme, u.Hostname()), chartName)
-	} else {
 		dir = filepath.Join(p.LocalProjectDir(), ".helm-charts", fmt.Sprintf("%s_%s_%s", u.Scheme, u.Port(), u.Hostname()), chartName)
+	} else {
+		dir = filepath.Join(p.LocalProjectDir(), ".helm-charts", fmt.Sprintf("%s_%s_%s", u.Scheme, u.Port(), u.Hostname()), u.Path, chartName)
 	}
 	if chartVersion != "" {
 		dir = filepath.Join(dir, chartVersion)
@@ -655,9 +984,12 @@ func TestHelmLookup(t *testing.T) {
 	err := k.Client.Create(context.Background(), &lookupCm)
 	assert.NoError(t, err)
 
-	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
-		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
+	repo := &test_utils.TestHelmRepo{
+		Charts: []test_utils.RepoChart{
+			{ChartName: "test-chart1", Version: "0.1.0"},
+		},
+	}
+	repo.Start(t)
 
 	values1 := map[string]any{
 		"lookup":          true,
@@ -666,7 +998,7 @@ func TestHelmLookup(t *testing.T) {
 	}
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
+	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1)
 
 	p.KluctlMust("helm-pull")
 	p.KluctlMust("deploy", "--yes", "-t", "test")

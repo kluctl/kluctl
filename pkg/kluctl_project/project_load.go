@@ -2,6 +2,8 @@ package kluctl_project
 
 import (
 	"context"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/status"
@@ -19,7 +21,11 @@ type LoadKluctlProjectArgs struct {
 	ProjectConfig string
 	ExternalArgs  *uo.UnstructuredObject
 
-	RP *repocache.GitRepoCache
+	GitRP *repocache.GitRepoCache
+	OciRP *repocache.OciRepoCache
+
+	OciAuthProvider  auth_provider.OciAuthProvider
+	HelmAuthProvider helm_auth.HelmAuthProvider
 
 	AddKeyServersFunc  func(ctx context.Context, d *decryptor.Decryptor) error
 	ClientConfigGetter func(context *string) (*rest.Config, *api.Config, error)

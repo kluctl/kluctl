@@ -21,11 +21,13 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"testing"
 )
 
 var (
@@ -39,6 +41,7 @@ type controllerRunCmd struct {
 
 	Kubeconfig string `group:"misc" help:"Override the kubeconfig to use."`
 	Context    string `group:"misc" help:"Override the context to use."`
+	Namespace  string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
 
 	MetricsBindAddress     string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
 	HealthProbeBindAddress string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
@@ -71,9 +74,15 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	cmd.initScheme()
 
 	metricsRecorder := metrics.NewRecorder()
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+	if cmd.MetricsBindAddress != "0" {
+		metricsRecorder = metrics.NewRecorder()
+		crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+	}
 
 	opts := zap.Options{}
+	if testing.Testing() {
+		opts.Development = true
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	restConfig, err := cmd.loadConfig(cmd.Kubeconfig, cmd.Context)
@@ -88,6 +97,13 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		// Ref: https://github.com/kubernetes/kubernetes/blob/v1.24.0/staging/src/k8s.io/client-go/rest/config.go#L354-L364
 		restConfig.QPS = -1
 		restConfig.Burst = -1
+	}
+
+	var cacheNamespaces map[string]cache.Config
+	if cmd.Namespace != "" {
+		cacheNamespaces = map[string]cache.Config{
+			cmd.Namespace: {},
+		}
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
@@ -109,6 +125,9 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
+		Cache: cache.Options{
+			DefaultNamespaces: cacheNamespaces,
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

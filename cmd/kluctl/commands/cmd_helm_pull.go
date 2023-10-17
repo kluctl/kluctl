@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -16,6 +18,7 @@ import (
 type helmPullCmd struct {
 	args.ProjectDir
 	args.HelmCredentials
+	args.RegistryCredentials
 }
 
 func (cmd *helmPullCmd) Help() string {
@@ -33,16 +36,30 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
 		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
 	}
-	_, err = doHelmPull(ctx, projectDir, &cmd.HelmCredentials, false, true)
+
+	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuthProvider := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuthProvider.RegisterAuthProvider(x, false)
+	}
+
+	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, false, true)
 	return err
 }
 
-func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.HelmCredentials, dryRun bool, force bool) (int, error) {
+func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider, dryRun bool, force bool) (int, error) {
 	actions := 0
 
 	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
 
-	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, helmCredentials)
+	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider)
 	if err != nil {
 		return actions, err
 	}
@@ -123,7 +140,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 	return actions, nil
 }
 
-func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvider helm.HelmCredentialsProvider) ([]*helm.Release, []*helm.Chart, error) {
+func loadHelmReleases(ctx context.Context, projectDir string, baseChartsDir string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider) ([]*helm.Release, []*helm.Chart, error) {
 	var releases []*helm.Release
 	chartsMap := make(map[string]*helm.Chart)
 	err := filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
@@ -137,7 +154,7 @@ func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvid
 			return err
 		}
 
-		hr, err := helm.NewRelease(projectDir, relDir, p, baseChartsDir, credentialsProvider)
+		hr, err := helm.NewRelease(ctx, projectDir, relDir, p, baseChartsDir, helmAuthProvider, ociAuthProvider)
 		if err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sigs.k8s.io/yaml"
+	"sync"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -30,6 +31,8 @@ type TestGitServer struct {
 	authUsername string
 	authPassword string
 	failWhenAuth bool
+
+	cleanupMutex sync.RWMutex
 }
 
 type repoInfo struct {
@@ -76,6 +79,14 @@ func (p *TestGitServer) initGitServer() {
 	p.gitServer = http_server.New(p.baseDir)
 
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		p.cleanupMutex.RLock()
+		defer p.cleanupMutex.RUnlock()
+
+		if p.gitServer == nil {
+			http.Error(writer, "server closed", http.StatusInternalServerError)
+			return
+		}
+
 		username, password, ok := request.BasicAuth()
 		if p.failWhenAuth {
 			if ok {
@@ -109,6 +120,9 @@ func (p *TestGitServer) initGitServer() {
 }
 
 func (p *TestGitServer) Cleanup() {
+	p.cleanupMutex.Lock()
+	defer p.cleanupMutex.Unlock()
+
 	if p.gitHttpServer != nil {
 		_ = p.gitHttpServer.Shutdown(context.Background())
 		p.gitHttpServer = nil

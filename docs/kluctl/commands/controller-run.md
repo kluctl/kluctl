@@ -36,6 +36,7 @@ Misc arguments:
       --leader-elect                       Enable leader election for controller manager. Enabling this will
                                            ensure there is only one active controller manager.
       --metrics-bind-address string        The address the metric endpoint binds to. (default ":8080")
+      --namespace string                   Specify the namespace to watch. If omitted, all namespaces are watched.
 
 ```
 <!-- END SECTION -->

@@ -16,7 +16,8 @@ func LoadKluctlProject(ctx context.Context, args LoadKluctlProjectArgs, tmpDir s
 		LoadTime: time.Now(),
 		TmpDir:   tmpDir,
 		J2:       j2,
-		RP:       args.RP,
+		GitRP:    args.GitRP,
+		OciRP:    args.OciRP,
 	}
 
 	err := p.loadKluctlProject(ctx)

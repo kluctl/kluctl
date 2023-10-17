@@ -1,17 +1,13 @@
 package commands
 
 import (
-	git2 "github.com/go-git/go-git/v5"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -36,7 +32,8 @@ func newCommandResult(targetCtx *kluctl_project.TargetContext, startTime time.Ti
 	r.Deployment = &targetCtx.DeploymentProject.Config
 
 	var err error
-	r.GitInfo, r.ProjectKey, err = buildGitInfo(targetCtx)
+	r.GitInfo, r.ProjectKey, err = git.BuildGitInfo(targetCtx.SharedContext.Ctx,
+		targetCtx.KluctlProject.LoadArgs.RepoRoot, targetCtx.KluctlProject.LoadArgs.ProjectDir)
 	if err != nil {
 		r.Errors = append(r.Errors, result.DeploymentError{
 			Message: err.Error(),
@@ -63,7 +60,8 @@ func newValidateCommandResult(targetCtx *kluctl_project.TargetContext, startTime
 	r.StartTime = metav1.NewTime(startTime)
 	r.EndTime = metav1.Now()
 	var err error
-	_, r.ProjectKey, err = buildGitInfo(targetCtx)
+	_, r.ProjectKey, err = git.BuildGitInfo(targetCtx.SharedContext.Ctx,
+		targetCtx.KluctlProject.LoadArgs.RepoRoot, targetCtx.KluctlProject.LoadArgs.ProjectDir)
 	if err != nil {
 		r.Errors = append(r.Errors, result.DeploymentError{
 			Message: err.Error(),
@@ -121,84 +119,6 @@ func finishValidateResult(r *result.ValidateResult, targetCtx *kluctl_project.Ta
 	r.Errors = append(r.Errors, dew.GetErrorsList()...)
 	r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
 	r.EndTime = metav1.Now()
-}
-
-func buildGitInfo(targetCtx *kluctl_project.TargetContext) (result.GitInfo, result.ProjectKey, error) {
-	var gitInfo result.GitInfo
-	var projectKey result.ProjectKey
-	if targetCtx.KluctlProject.LoadArgs.RepoRoot == "" {
-		return gitInfo, projectKey, nil
-	}
-	if _, err := os.Stat(filepath.Join(targetCtx.KluctlProject.LoadArgs.RepoRoot, ".git")); os.IsNotExist(err) {
-		return gitInfo, projectKey, nil
-	}
-
-	projectDirAbs, err := filepath.Abs(targetCtx.KluctlProject.LoadArgs.ProjectDir)
-	if err != nil {
-		return gitInfo, projectKey, err
-	}
-
-	subDir, err := filepath.Rel(targetCtx.KluctlProject.LoadArgs.RepoRoot, projectDirAbs)
-	if err != nil {
-		return gitInfo, projectKey, err
-	}
-	if subDir == "." {
-		subDir = ""
-	}
-
-	g, err := git2.PlainOpen(targetCtx.KluctlProject.LoadArgs.RepoRoot)
-	if err != nil {
-		return gitInfo, projectKey, err
-	}
-
-	s, err := git.GetWorktreeStatus(targetCtx.SharedContext.Ctx, targetCtx.KluctlProject.LoadArgs.RepoRoot)
-	if err != nil {
-		return gitInfo, projectKey, err
-	}
-
-	head, err := g.Head()
-	if err != nil {
-		return gitInfo, projectKey, err
-	}
-
-	remotes, err := g.Remotes()
-	if err != nil {
-		return gitInfo, projectKey, err
-	}
-
-	var originUrl *types.GitUrl
-	for _, r := range remotes {
-		if r.Config().Name == "origin" {
-			originUrl, err = types.ParseGitUrl(r.Config().URLs[0])
-			if err != nil {
-				return gitInfo, projectKey, err
-			}
-		}
-	}
-
-	var repoKey types.GitRepoKey
-	if originUrl != nil {
-		repoKey = originUrl.RepoKey()
-	}
-
-	gitInfo = result.GitInfo{
-		Url:    originUrl,
-		SubDir: subDir,
-		Commit: head.Hash().String(),
-		Dirty:  !s.IsClean(),
-	}
-	if head.Name().IsBranch() {
-		gitInfo.Ref = &types.GitRef{
-			Branch: head.Name().Short(),
-		}
-	} else if head.Name().IsTag() {
-		gitInfo.Ref = &types.GitRef{
-			Tag: head.Name().Short(),
-		}
-	}
-	projectKey.GitRepoKey = repoKey
-	projectKey.SubDir = subDir
-	return gitInfo, projectKey, nil
 }
 
 func buildClusterInfo(k *k8s2.K8sCluster) (result.ClusterInfo, error) {

@@ -55,7 +55,7 @@ func TestDiffName(t *testing.T) {
 			{Type: "update", JsonPath: "metadata.name", OldValue: &v1.JSON{Raw: []byte("\"cm-1\"")}, NewValue: &v1.JSON{Raw: []byte("\"cm-2\"")}, UnifiedDiff: "-cm-1\n+cm-2"}},
 	}, r.Objects[0].BaseObject)
 	assert.Equal(t, result.BaseObject{
-		Ref:    k8s.ObjectRef{Version: "v1", Kind: "ConfigMap", Name: "cm-1", Namespace: "test-diff-name"},
+		Ref:    k8s.ObjectRef{Version: "v1", Kind: "ConfigMap", Name: "cm-1", Namespace: p.TestSlug()},
 		Orphan: true,
 	}, r.Objects[1].BaseObject)
 
@@ -77,11 +77,11 @@ func TestDiffName(t *testing.T) {
 			{Type: "update", JsonPath: "metadata.name", OldValue: &v1.JSON{Raw: []byte("\"cm-2\"")}, NewValue: &v1.JSON{Raw: []byte("\"cm-3\"")}, UnifiedDiff: "-cm-2\n+cm-3"}},
 	}, r.Objects[0].BaseObject)
 	assert.Equal(t, result.BaseObject{
-		Ref:    k8s.ObjectRef{Version: "v1", Kind: "ConfigMap", Name: "cm-1", Namespace: "test-diff-name"},
+		Ref:    k8s.ObjectRef{Version: "v1", Kind: "ConfigMap", Name: "cm-1", Namespace: p.TestSlug()},
 		Orphan: true,
 	}, r.Objects[1].BaseObject)
 	assert.Equal(t, result.BaseObject{
-		Ref:    k8s.ObjectRef{Version: "v1", Kind: "ConfigMap", Name: "cm-2", Namespace: "test-diff-name"},
+		Ref:    k8s.ObjectRef{Version: "v1", Kind: "ConfigMap", Name: "cm-2", Namespace: p.TestSlug()},
 		Orphan: true,
 	}, r.Objects[2].BaseObject)
 }

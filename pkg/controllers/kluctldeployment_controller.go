@@ -11,6 +11,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -233,27 +234,28 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, patchErr
 	}
 
-	obj.Status.LastPrepareError = ""
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, r.calcTimeout(obj))
-	defer cancel()
-
-	pp, err := prepareProject(timeoutCtx, r, obj, true)
-	if err != nil {
-		return doFailPrepare(err)
-	}
-	defer pp.cleanup()
-
-	patchErr = doProgressingCondition("Loading project and target", true)
-	if patchErr != nil {
-		return nil, patchErr
-	}
-
-	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
-
-	newProjectKey := result.ProjectKey{
-		GitRepoKey: obj.Spec.Source.URL.RepoKey(),
-		SubDir:     path.Clean(obj.Spec.Source.Path),
+	var newProjectKey result.ProjectKey
+	if obj.Spec.Source.Git != nil {
+		newProjectKey = result.ProjectKey{
+			GitRepoKey: obj.Spec.Source.Git.URL.RepoKey(),
+			SubDir:     path.Clean(obj.Spec.Source.Git.Path),
+		}
+	} else if obj.Spec.Source.Oci != nil {
+		repoKey, err := types.NewRepoKeyFromUrl(obj.Spec.Source.Oci.URL)
+		if err != nil {
+			return doFailPrepare(err)
+		}
+		newProjectKey = result.ProjectKey{
+			OciRepoKey: repoKey,
+			SubDir:     path.Clean(obj.Spec.Source.Oci.Path),
+		}
+	} else if obj.Spec.Source.URL != nil {
+		newProjectKey = result.ProjectKey{
+			GitRepoKey: obj.Spec.Source.URL.RepoKey(),
+			SubDir:     path.Clean(obj.Spec.Source.Path),
+		}
+	} else {
+		return doFailPrepare(fmt.Errorf("missing source spec"))
 	}
 	if newProjectKey.SubDir == "." {
 		newProjectKey.SubDir = ""
@@ -267,6 +269,23 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		})
 	}
 	obj.Status.ProjectKey = &newProjectKey
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, r.calcTimeout(obj))
+	defer cancel()
+
+	obj.Status.LastPrepareError = ""
+	pp, err := prepareProject(timeoutCtx, r, obj, true)
+	if err != nil {
+		return doFailPrepare(err)
+	}
+	defer pp.cleanup()
+
+	patchErr = doProgressingCondition("Loading project and target", true)
+	if patchErr != nil {
+		return nil, patchErr
+	}
+
+	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
 
 	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
 	if err != nil {
@@ -717,5 +736,18 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 	internal_metrics.NewKluctlDeleteEnabled(obj.Namespace, obj.Name).Set(deleteEnabled)
 	internal_metrics.NewKluctlDryRunEnabled(obj.Namespace, obj.Name).Set(dryRunEnabled)
 	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Set(deploymentInterval)
-	internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name, obj.Spec.Source.URL.String(), obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
+	if obj.Spec.Source.Git != nil {
+		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Git.URL.String(), obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
+		internal_metrics.NewKluctlGitSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Git.URL.String(), obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
+	} else if obj.Spec.Source.Oci != nil {
+		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
+		internal_metrics.NewKluctlOciSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
+	} else if obj.Spec.Source.URL != nil {
+		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
+			obj.Spec.Source.URL.String(), obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
+	}
 }

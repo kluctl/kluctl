@@ -31,13 +31,21 @@ func FindStrInSlice(a []string, s string) int {
 	return -1
 }
 
-func ParseBoolOrFalse(s *string) bool {
+func ParseBoolOrFalsePtr(s *string) bool {
 	if s == nil {
 		return false
 	}
-	b, err := strconv.ParseBool(*s)
+	return ParseBoolOrFalse(*s)
+}
+
+func ParseBoolOrFalse(s string) bool {
+	return ParseBoolOrDefault(s, false)
+}
+
+func ParseBoolOrDefault(s string, def bool) bool {
+	b, err := strconv.ParseBool(s)
 	if err != nil {
-		return false
+		return def
 	}
 	return b
 }

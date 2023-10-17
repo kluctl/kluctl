@@ -35,7 +35,7 @@ func TestRenderPrintAll(t *testing.T) {
 				"project_name":            p.TestSlug(),
 			},
 			"name":      "cm",
-			"namespace": "test-render-print-all",
+			"namespace": p.TestSlug(),
 		}}}, y)
 }
 

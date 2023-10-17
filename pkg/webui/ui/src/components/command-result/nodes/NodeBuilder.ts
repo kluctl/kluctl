@@ -134,7 +134,7 @@ export class NodeBuilder {
             deploymentItem.renderedObjects?.forEach(renderedObject => {
                 this.buildObjectNode(node!, renderedObject)
             })
-        } else if (deploymentItem.include || deploymentItem.git) {
+        } else if (deploymentItem.include || deploymentItem.git || deploymentItem.oci) {
             node = new DeploymentItemIncludeNodeData(this.commandResult, newId, deploymentItem, deploymentItem.renderedInclude!)
             this.buildVarsSourceCollectionNode(node, deploymentItem.vars)
             if (deploymentItem.renderedInclude) {

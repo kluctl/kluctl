@@ -6,7 +6,8 @@ import { GitIcon, IncludeIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { buildDeploymentItemSummaryProps } from "./DeploymentItemNode";
 import { CardTab } from "../../card/CardTabs";
-import { buildGitRefString } from "../../../api";
+import { buildGitRefString, buildOciRefString } from "../../../api";
+import { Archive } from "@mui/icons-material";
 
 
 export class DeploymentItemIncludeNodeData extends NodeData {
@@ -29,6 +30,13 @@ export class DeploymentItemIncludeNodeData extends NodeData {
                 {name}
                 {this.deploymentItem.git!.subDir && (<><br/>{this.deploymentItem.git!.subDir}</>)}
             </>
+        } else if (this.deploymentItem.oci) {
+            const s = this.deploymentItem.oci!.url.split("/")
+            const name = s[s.length-1]
+            return <>
+                {name}
+                {this.deploymentItem.oci!.subDir && (<><br/>{this.deploymentItem.oci!.subDir}</>)}
+            </>
         } else {
             return "unknown include"
         }
@@ -37,6 +45,8 @@ export class DeploymentItemIncludeNodeData extends NodeData {
     buildIcon(): [React.ReactNode, string] {
         if (this.deploymentItem.git) {
             return [<GitIcon/>, "git"]
+        } else if (this.deploymentItem.oci) {
+            return [<Archive/>, "oci"]
         }
         return [<IncludeIcon />, "include"]
     }
@@ -60,6 +70,11 @@ export class DeploymentItemIncludeNodeData extends NodeData {
             props.push({name: "Url", value: this.deploymentItem.git.url})
             props.push({name: "SubDir", value: this.deploymentItem.git.subDir})
             props.push({name: "Ref", value: buildGitRefString(this.deploymentItem.git.ref)})
+        } else if (this.deploymentItem.oci) {
+            props.push({name: "Type", value: "OciInclude"})
+            props.push({name: "Url", value: this.deploymentItem.oci.url})
+            props.push({name: "SubDir", value: this.deploymentItem.oci.subDir})
+            props.push({name: "Ref", value: buildOciRefString(this.deploymentItem.oci.ref)})
         } else {
             props.push({name: "Type", value: "Unknown"})
         }

@@ -10,7 +10,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
@@ -47,7 +48,11 @@ type preparedProject struct {
 
 	startTime time.Time
 
-	rp *repocache.GitRepoCache
+	gitRP *repocache.GitRepoCache
+	ociRP *repocache.OciRepoCache
+
+	helmAuthProvider helm_auth.HelmAuthProvider
+	ociAuthProvider  auth_provider.OciAuthProvider
 
 	co         git.CheckoutInfo
 	tmpDir     string
@@ -85,29 +90,70 @@ func prepareProject(ctx context.Context,
 
 	pp.tmpDir = tmpDir
 
-	gitSecrets, err := r.getGitSecrets(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
+	gitSecrets, err := r.getGitSecrets(ctx, pp.obj.Spec.Source, pp.obj.Spec.Credentials, obj.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
 
-	pp.rp, err = r.buildRepoCache(ctx, gitSecrets)
+	ociSecrets, err := r.getOciSecrets(ctx, pp.obj.Spec.Credentials, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	helmSecrets, err := r.getHelmSecrets(ctx, pp.obj, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets)
+	if err != nil {
+		return nil, err
+	}
+
+	pp.ociRP, pp.ociAuthProvider, err = r.buildOciRepoCache(ctx, ociSecrets)
+	if err != nil {
+		return nil, err
+	}
+
+	pp.helmAuthProvider, err = r.buildHelmAuth(ctx, helmSecrets)
 	if err != nil {
 		return nil, err
 	}
 
 	if doCloneSource {
-		rpEntry, err := pp.rp.GetEntry(pp.obj.Spec.Source.URL)
-		if err != nil {
-			return nil, fmt.Errorf("failed clone source: %w", err)
-		}
+		if pp.obj.Spec.Source.Git != nil {
+			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.Git.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone git source: %w", err)
+			}
 
-		clonedDir, co, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
-		if err != nil {
-			return nil, err
-		}
+			pp.repoDir, pp.co, err = rpEntry.GetClonedDir(pp.obj.Spec.Source.Git.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else if pp.obj.Spec.Source.Oci != nil {
+			rpEntry, err := pp.ociRP.GetEntry(pp.obj.Spec.Source.Oci.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pull OCI source: %w", err)
+			}
 
-		pp.co = co
-		pp.repoDir = clonedDir
+			pp.repoDir, pp.co, err = rpEntry.GetExtractedDir(pp.obj.Spec.Source.Oci.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else if pp.obj.Spec.Source.URL != nil {
+			rpEntry, err := pp.gitRP.GetEntry(*pp.obj.Spec.Source.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone git source: %w", err)
+			}
+
+			pp.repoDir, pp.co, err = rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("missing source spec")
+		}
 
 		// check kluctl project path exists
 		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.Spec.Source.Path)
@@ -125,9 +171,9 @@ func prepareProject(ctx context.Context,
 
 func (pp *preparedProject) cleanup() {
 	_ = os.RemoveAll(pp.tmpDir)
-	if pp.rp != nil {
-		pp.rp.Clear()
-		pp.rp = nil
+	if pp.gitRP != nil {
+		pp.gitRP.Clear()
+		pp.gitRP = nil
 	}
 }
 
@@ -372,75 +418,6 @@ func (p helmCredentialsProvider) FindCredentials(repoUrl string, credentialsId *
 	return nil
 }
 
-func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (helm.HelmCredentialsProvider, error) {
-	var creds []repo.Entry
-
-	tmpDirBase := filepath.Join(pt.pp.tmpDir, "helm-certs")
-	_ = os.MkdirAll(tmpDirBase, 0o700)
-
-	var writeTmpFilErr error
-	writeTmpFile := func(secretData map[string][]byte, name string) string {
-		b, ok := secretData["certFile"]
-		if ok {
-			tmpFile, err := os.CreateTemp(tmpDirBase, name+"-")
-			if err != nil {
-				writeTmpFilErr = err
-				return ""
-			}
-			defer tmpFile.Close()
-			_, err = tmpFile.Write(b)
-			if err != nil {
-				writeTmpFilErr = err
-			}
-			return tmpFile.Name()
-		}
-		return ""
-	}
-
-	for _, e := range pt.pp.obj.Spec.HelmCredentials {
-		var secret corev1.Secret
-		err := pt.pp.r.Client.Get(ctx, types.NamespacedName{
-			Namespace: pt.pp.obj.GetNamespace(),
-			Name:      e.SecretRef.Name,
-		}, &secret)
-		if err != nil {
-			return nil, err
-		}
-
-		var entry repo.Entry
-
-		credentialsId := string(secret.Data["credentialsId"])
-		url := string(secret.Data["url"])
-		if credentialsId == "" && url == "" {
-			return nil, fmt.Errorf("secret %s must at least contain 'credentialsId' or 'url'", e.SecretRef.Name)
-		}
-		entry.Name = credentialsId
-		entry.URL = url
-		entry.Username = string(secret.Data["username"])
-		entry.Password = string(secret.Data["password"])
-		entry.CertFile = writeTmpFile(secret.Data, "certFile")
-		entry.KeyFile = writeTmpFile(secret.Data, "keyFile")
-		entry.CAFile = writeTmpFile(secret.Data, "caFile")
-		if writeTmpFilErr != nil {
-			return nil, writeTmpFilErr
-		}
-
-		b, _ := secret.Data["insecureSkipTlsVerify"]
-		s := string(b)
-		if utils.ParseBoolOrFalse(&s) {
-			entry.InsecureSkipTLSverify = true
-		}
-		b, _ = secret.Data["passCredentialsAll"]
-		s = string(b)
-		if utils.ParseBoolOrFalse(&s) {
-			entry.PassCredentialsAll = true
-		}
-		creds = append(creds, entry)
-	}
-
-	return helmCredentialsProvider(creds), nil
-}
-
 func (pt *preparedTarget) buildInclusion() *utils.Inclusion {
 	inc := utils.NewInclusion()
 	for _, x := range pt.pp.obj.Spec.IncludeTags {
@@ -575,7 +552,8 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 		RepoRoot:     pp.repoDir,
 		ExternalArgs: externalArgs,
 		ProjectDir:   pp.projectDir,
-		RP:           pp.rp,
+		GitRP:        pp.gitRP,
+		OciRP:        pp.ociRP,
 		AddKeyServersFunc: func(ctx context.Context, d *decryptor.Decryptor) error {
 			return pp.addKeyServers(ctx, d)
 		},
@@ -601,18 +579,16 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	if err != nil {
 		return nil, err
 	}
-	helmCredentials, err := pt.buildHelmCredentials(ctx)
-	if err != nil {
-		return nil, err
-	}
+
 	inclusion := pt.buildInclusion()
 
 	props := kluctl_project.TargetContextParams{
-		DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
-		Images:          images,
-		Inclusion:       inclusion,
-		HelmCredentials: helmCredentials,
-		RenderOutputDir: renderOutputDir,
+		DryRun:           pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
+		Images:           images,
+		Inclusion:        inclusion,
+		HelmAuthProvider: pt.pp.helmAuthProvider,
+		OciAuthProvider:  pt.pp.ociAuthProvider,
+		RenderOutputDir:  renderOutputDir,
 	}
 	if pt.pp.obj.Spec.Target != nil {
 		props.TargetName = *pt.pp.obj.Spec.Target

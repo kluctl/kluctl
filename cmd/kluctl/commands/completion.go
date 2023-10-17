@@ -50,7 +50,7 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 func withProjectForCompletion(ctx context.Context, projectArgs *args.ProjectFlags, argsFlags *args.ArgsFlags, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	// let's not update git caches too often
 	projectArgs.GitCacheUpdateInterval = time.Second * 60
-	return withKluctlProjectFromArgs(ctx, *projectArgs, argsFlags, false, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, *projectArgs, argsFlags, nil, nil, false, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return cb(ctx, p)
 	})
 }
@@ -100,8 +100,8 @@ func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, fo
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
-		var tags utils.OrderedMap
-		var deploymentItemDirs utils.OrderedMap
+		var tags utils.OrderedMap[bool]
+		var deploymentItemDirs utils.OrderedMap[bool]
 		var mutex sync.Mutex
 
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
@@ -155,7 +155,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
-		var images utils.OrderedMap
+		var images utils.OrderedMap[bool]
 		var mutex sync.Mutex
 
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {

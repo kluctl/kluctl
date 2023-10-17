@@ -324,6 +324,9 @@ func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
 	}
 
 	tryDeleteResult := func(secretKey client.ObjectKey, deployment *result.KluctlDeploymentInfo, id string, t string) {
+		if secretKey.Namespace != s.writeNamespace {
+			return
+		}
 		if _, ok := deploymentsMap[*deployment]; ok {
 			return
 		}
@@ -793,7 +796,9 @@ func (s *ResultStoreSecrets) ListKluctlDeployments() ([]WatchKluctlDeploymentEve
 	}
 	ret := make([]WatchKluctlDeploymentEvent, 0, len(l.Items))
 	for _, x := range l.Items {
-		x := x
+		o := x.DeepCopy()
+		o.Kind = kluctlv1.KluctlDeploymentKind
+		o.APIVersion = kluctlv1.GroupVersion.String()
 		ret = append(ret, WatchKluctlDeploymentEvent{
 			ClusterId:  s.clusterId,
 			Deployment: &x,
@@ -816,6 +821,7 @@ func (s *ResultStoreSecrets) WatchKluctlDeployments() (<-chan WatchKluctlDeploym
 		if o == nil {
 			return nil
 		}
+		o = o.DeepCopy()
 		o.Kind = kluctlv1.KluctlDeploymentKind
 		o.APIVersion = kluctlv1.GroupVersion.String()
 		return &WatchKluctlDeploymentEvent{

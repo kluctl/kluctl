@@ -374,7 +374,8 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 
 // envtestProxyGet checks the environment variables KLUCTL_K8S_SERVICE_PROXY_XXX to enable testing of proxy requests with envtest
 func (k *K8sCluster) envtestProxyGet(scheme, namespace, name, port, path string, params map[string]string) (io.ReadCloser, error) {
-	for _, m := range utils.ParseEnvConfigSets("KLUCTL_K8S_SERVICE_PROXY") {
+	for _, s := range utils.ParseEnvConfigSets("KLUCTL_K8S_SERVICE_PROXY") {
+		m := s.Map
 		envApiHost := strings.TrimSuffix(m["API_HOST"], "/")
 		envNamespace := m["SERVICE_NAMESPACE"]
 		envName := m["SERVICE_NAME"]

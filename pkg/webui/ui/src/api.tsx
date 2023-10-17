@@ -2,7 +2,7 @@ import {
     AuthInfo,
     CommandResult,
     CommandResultSummary,
-    ObjectRef,
+    ObjectRef, OciRef,
     ResultObject,
     ShortName,
     ValidateResult
@@ -469,6 +469,20 @@ export function buildGitRefString(ref?: GitRef) {
         return ref.tag
     } else {
         return "<unknown>"
+    }
+}
+
+export function buildOciRefString(ref?: OciRef) {
+    if (!ref) {
+        return "latest"
+    }
+    if (!ref.tag && !ref.digest) {
+        return "latest"
+    }
+    if (ref.tag && ref.digest) {
+        return ref.tag + "@" + ref.digest
+    } else if (ref.tag) {
+        return ref.tag
     }
 }
 

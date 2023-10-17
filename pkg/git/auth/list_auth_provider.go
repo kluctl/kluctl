@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/pkg/git/messages"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"strings"
@@ -18,10 +19,12 @@ type ListAuthProvider struct {
 type AuthEntry struct {
 	AllowWildcardHostForHttp bool
 
-	Host       string
-	PathPrefix string
-	Username   string
-	Password   string
+	Host     string
+	PathGlob glob.Glob
+	PathStr  string
+
+	Username string
+	Password string
 
 	SshKey     []byte
 	KnownHosts []byte
@@ -33,14 +36,14 @@ func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 	a.entries = append(a.entries, e)
 }
 
-func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl) AuthMethodAndCA {
+func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl) (AuthMethodAndCA, error) {
 	gitUrl := gitUrlIn.Normalize()
 
 	a.MessageCallbacks.Trace("ListAuthProvider: BuildAuth for %s", gitUrl.String())
 	a.MessageCallbacks.Trace("ListAuthProvider: path=%s, username=%s, scheme=%s", gitUrl.Path, gitUrl.User.Username(), gitUrl.Scheme)
 
 	for _, e := range a.entries {
-		a.MessageCallbacks.Trace("ListAuthProvider: try host=%s, pathPrefix=%s, username=%s", e.Host, e.PathPrefix, e.Username)
+		a.MessageCallbacks.Trace("ListAuthProvider: try host=%s, path=%s, username=%s", e.Host, e.PathStr, e.Username)
 
 		if !e.AllowWildcardHostForHttp && e.Host == "*" && !gitUrl.IsSsh() {
 			a.MessageCallbacks.Trace("ListAuthProvider: wildcard hosts are not allowed for http urls")
@@ -50,12 +53,11 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 		if e.Host != "*" && e.Host != gitUrl.Host {
 			continue
 		}
-		urlPath := gitUrl.Path
-		if strings.HasPrefix(urlPath, "/") {
-			urlPath = urlPath[1:]
-		}
-		if !strings.HasPrefix(urlPath, e.PathPrefix) {
-			continue
+		if e.PathGlob != nil {
+			urlPath := strings.TrimPrefix(gitUrl.Path, "/")
+			if !e.PathGlob.Match(urlPath) {
+				continue
+			}
 		}
 		if e.Username == "" {
 			continue
@@ -95,7 +97,7 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 					Hash: func() ([]byte, error) {
 						return buildHash(pk.Signer)
 					},
-				}
+				}, nil
 			}
 		} else {
 			if e.Password == "" {
@@ -109,8 +111,8 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 					Password: e.Password,
 				},
 				CABundle: e.CABundle,
-			}
+			}, nil
 		}
 	}
-	return AuthMethodAndCA{}
+	return AuthMethodAndCA{}, nil
 }

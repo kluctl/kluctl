@@ -70,6 +70,8 @@ Project arguments:
                                                but instead use the local directory. This is useful in case you
                                                need to test out changes in external git repositories without
                                                pushing them.
+      --local-oci-group-override stringArray   Same as --local-git-group-override, but for OCI repositories.
+      --local-oci-override stringArray         Same as --local-git-override, but for OCI repositories.
   -c, --project-config existingfile            Location of the .kluctl.yaml config file. Defaults to
                                                $PROJECT/.kluctl.yaml
       --project-dir existingdir                Specify the project directory. Defaults to the current working
@@ -143,6 +145,94 @@ Command Results:
       --keep-validate-results-count int   Configure how many old validate results to keep. (default 2)
       --write-command-result              Enable writing of command results into the cluster. This is enabled by
                                           default. (default true)
+
+```
+<!-- END SECTION -->
+
+## Helm arguments
+
+These arguments mainly control authentication to Helm repositories.
+
+<!-- BEGIN SECTION "deploy" "Helm arguments" true -->
+```
+Helm arguments:
+  Configure Helm authentication.
+
+      --helm-ca-file stringArray                    Specify ca bundle certificate to use for Helm Repository
+                                                    authentication. Must be in the form
+                                                    --helm-ca-file=<host>/<path>=<filePath> or in the deprecated
+                                                    form --helm-ca-file=<credentialsId>:<filePath>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-cert-file stringArray                  Specify key to use for Helm Repository authentication. Must be
+                                                    in the form --helm-cert-file=<host>/<path>=<filePath> or in
+                                                    the deprecated form
+                                                    --helm-cert-file=<credentialsId>:<filePath>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-creds stringArray                      This is a shortcut to --helm-username and --helm-password.
+                                                    Must be in the form
+                                                    --helm-creds=<host>/<path>=<username>:<password>, which
+                                                    specifies the username and password for the same repository.
+      --helm-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
+                                                    --helm-insecure-skip-tls-verify=<host>/<path> or in the
+                                                    deprecated form
+                                                    --helm-insecure-skip-tls-verify=<credentialsId>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-key-file stringArray                   Specify client certificate to use for Helm Repository
+                                                    authentication. Must be in the form
+                                                    --helm-key-file=<host>/<path>=<filePath> or in the deprecated
+                                                    form --helm-key-file=<credentialsId>:<filePath>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-password stringArray                   Specify password to use for Helm Repository authentication.
+                                                    Must be in the form --helm-password=<host>/<path>=<password>
+                                                    or in the deprecated form
+                                                    --helm-password=<credentialsId>:<password>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+      --helm-username stringArray                   Specify username to use for Helm Repository authentication.
+                                                    Must be in the form --helm-username=<host>/<path>=<username>
+                                                    or in the deprecated form
+                                                    --helm-username=<credentialsId>:<username>, where
+                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+
+```
+<!-- END SECTION -->
+
+## Registry arguments
+
+These arguments mainly control authentication to OCI based registries. This is used by the Helm integration and
+by the OCI includes integration.
+
+<!-- BEGIN SECTION "deploy" "Registry arguments" true -->
+```
+Registry arguments:
+  Configure OCI registry authentication.
+
+      --registry-ca-file stringArray                    Specify CA bundle to use for https verification. Must be
+                                                        in the form --registry-ca-file=<registry>/<repo>=<filePath>.
+      --registry-cert-file stringArray                  Specify certificate to use for OCI authentication. Must be
+                                                        in the form --registry-cert-file=<registry>/<repo>=<filePath>.
+      --registry-creds stringArray                      This is a shortcut to --registry-username,
+                                                        --registry-password and --registry-token. It can be
+                                                        specified in two different forms. The first one is
+                                                        --registry-creds=<registry>/<repo>=<username>:<password>,
+                                                        which specifies the username and password for the same
+                                                        registry. The second form is
+                                                        --registry-creds=<registry>/<repo>=<token>, which
+                                                        specifies a JWT token for the specified registry.
+      --registry-identity-token stringArray             Specify identity token to use for OCI authentication. Must
+                                                        be in the form
+                                                        --registry-identity-token=<registry>/<repo>=<identity-token>.
+      --registry-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
+                                                        --registry-insecure-skip-tls-verify=<registry>/<repo>.
+      --registry-key-file stringArray                   Specify key to use for OCI authentication. Must be in the
+                                                        form --registry-key-file=<registry>/<repo>=<filePath>.
+      --registry-password stringArray                   Specify password to use for OCI authentication. Must be in
+                                                        the form --registry-password=<registry>/<repo>=<password>.
+      --registry-plain-http stringArray                 Forces the use of http (no TLS). Must be in the form
+                                                        --registry-plain-http=<registry>/<repo>.
+      --registry-token stringArray                      Specify registry token to use for OCI authentication. Must
+                                                        be in the form --registry-token=<registry>/<repo>=<token>.
+      --registry-username stringArray                   Specify username to use for OCI authentication. Must be in
+                                                        the form --registry-username=<registry>/<repo>=<username>.
 
 ```
 <!-- END SECTION -->

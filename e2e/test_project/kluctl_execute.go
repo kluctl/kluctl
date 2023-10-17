@@ -29,6 +29,9 @@ func KluctlExecute(t *testing.T, ctx context.Context, args ...string) (string, s
 	sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
 		m.Lock()
 		defer m.Unlock()
+		if ctx.Err() != nil {
+			return
+		}
 		t.Log(message)
 		stderrBuf.WriteString(message + "\n")
 	}, true)
