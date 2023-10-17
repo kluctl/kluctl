@@ -73,6 +73,7 @@ type cli struct {
 	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
+	Gitops      gitopsCmd      `cmd:"" help:"GitOps sub-commands"`
 	Webui       webuiCmd       `cmd:"" help:"Kluctl Webui sub-commands"`
 	Oci         ociCmd         `cmd:"" help:"Oci sub-commands"`
 
