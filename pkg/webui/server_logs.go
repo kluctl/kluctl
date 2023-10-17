@@ -39,7 +39,7 @@ func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second)
+	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second, false)
 	if err != nil {
 		_ = gctx.AbortWithError(http.StatusBadRequest, err)
 		return

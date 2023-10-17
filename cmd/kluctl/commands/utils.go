@@ -374,3 +374,28 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string
 		Override: sp[1],
 	}, nil
 }
+
+func buildResultStore(ctx context.Context, restConfig *rest.Config, args args.CommandResultFlags, startCleanup bool) (results.ResultStore, error) {
+	if !args.WriteCommandResult {
+		return nil, nil
+	}
+
+	c, err := client2.NewWithWatch(restConfig, client2.Options{})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, args.CommandResultNamespace, args.KeepCommandResultsCount, args.KeepValidateResultsCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if startCleanup {
+		err = resultStore.StartCleanupOrphans()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return resultStore, nil
+}

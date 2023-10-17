@@ -2,13 +2,20 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/status"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
 type gitopsValidateCmd struct {
 	args.GitOpsArgs
+	args.OutputFlags
+
+	WarningsAsErrors bool `group:"misc" help:"Consider warnings as failures"`
 }
 
 func (cmd *gitopsValidateCmd) Help() string {
@@ -26,6 +33,31 @@ func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 		err := g.patchAnnotation(ctx, &kd, v1beta1.KluctlRequestValidateAnnotation, v)
 		if err != nil {
 			return err
+		}
+
+		rr, err := g.waitForRequestToFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+			return status.ValidateRequestResult
+		})
+		if err != nil {
+			return err
+		}
+		if g.resultStore != nil && rr != nil && rr.ResultId != "" {
+			cmdResult, err := g.resultStore.GetValidateResult(results.GetValidateResultOptions{Id: rr.ResultId})
+			if err != nil {
+				return err
+			}
+			err = outputValidateResult2(ctx, cmd.Output, cmdResult)
+			if err != nil {
+				return err
+			}
+			failed := len(cmdResult.Errors) != 0 || (cmd.WarningsAsErrors && len(cmdResult.Warnings) != 0)
+			if failed {
+				return fmt.Errorf("Validation failed")
+			} else {
+				status.Info(ctx, "Validation succeeded")
+			}
+		} else {
+			status.Info(ctx, "No validation result was returned.")
 		}
 	}
 	return nil

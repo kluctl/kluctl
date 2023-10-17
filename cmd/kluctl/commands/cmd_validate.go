@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"time"
 )
 
@@ -58,7 +59,7 @@ func (cmd *validateCmd) doValidate(ctx *commandCtx, cmd2 *commands.ValidateComma
 		}
 
 		if !failed {
-			_, _ = getStderr(ctx.ctx).WriteString("Validation succeeded\n")
+			status.Info(ctx.ctx, "Validation succeeded")
 			return nil
 		}
 

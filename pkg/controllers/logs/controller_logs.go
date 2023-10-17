@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerNamespace string, kdKey client.ObjectKey, reconcileId string, since time.Duration) (chan string, error) {
+func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerNamespace string, kdKey client.ObjectKey, reconcileId string, since time.Duration, onlyMessage bool) (chan string, error) {
 	pods, err := c.Pods(controllerNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "control-plane=kluctl-controller",
 	})
@@ -71,6 +71,7 @@ func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerName
 		for {
 			select {
 			case <-ctx.Done():
+				close(logCh)
 				return
 			case l := <-rawLineCh:
 				var j map[string]any
@@ -94,7 +95,17 @@ func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerName
 					continue
 				}
 
-				logCh <- l
+				if onlyMessage {
+					x, ok := j["msg"]
+					if ok {
+						s, ok := x.(string)
+						if ok {
+							logCh <- s
+						}
+					}
+				} else {
+					logCh <- l
+				}
 			}
 		}
 	}()

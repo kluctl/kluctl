@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
+	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type gitopsCmd struct {
@@ -27,6 +31,8 @@ type gitopsCmdHelper struct {
 
 	client       client.Client
 	corev1Client *v1.CoreV1Client
+
+	resultStore results.ResultStore
 }
 
 func (g *gitopsCmdHelper) init(ctx context.Context, args args.GitOpsArgs) error {
@@ -50,7 +56,10 @@ func (g *gitopsCmdHelper) init(ctx context.Context, args args.GitOpsArgs) error 
 	if err != nil {
 		return err
 	}
-	g.corev1Client = v1.NewForConfigOrDie(restConfig)
+	g.corev1Client, err = v1.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
 
 	ns := args.Namespace
 	if ns == "" {
@@ -97,6 +106,11 @@ func (g *gitopsCmdHelper) init(ctx context.Context, args args.GitOpsArgs) error 
 		return fmt.Errorf("either name or label selector must be set")
 	}
 
+	g.resultStore, err = buildResultStore(ctx, restConfig, args.CommandResultFlags, false)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -121,6 +135,78 @@ func (g *gitopsCmdHelper) patchAnnotation(ctx context.Context, kd *v1beta1.Kluct
 	s.Success()
 
 	return nil
+}
+
+func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+	s := status.Startf(ctx, "Waiting for controller to start processing the request")
+	defer s.Failed()
+
+	sleep := time.Second * 1
+
+	var rr *v1beta1.RequestResult
+	for {
+		var kd v1beta1.KluctlDeployment
+		err := g.client.Get(ctx, key, &kd)
+		if err != nil {
+			return nil, err
+		}
+
+		rr = getRequestResult(&kd.Status)
+		if rr == nil {
+			time.Sleep(sleep)
+			continue
+		}
+
+		if rr.RequestValue != requestValue {
+			time.Sleep(sleep)
+			continue
+		}
+		break
+	}
+	s.Success()
+
+	status.Infof(ctx, "Watching logs...")
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, "kluctl-system", key, rr.ReconcileId, 60*time.Second, true)
+	if err != nil {
+		return nil, err
+	}
+
+	gh := utils.NewGoHelper(ctx, 0)
+	gh.RunE(func() error {
+		defer func() {
+			// give some extra time for log printing
+			time.Sleep(sleep)
+			cancel()
+		}()
+
+		for {
+			var kd v1beta1.KluctlDeployment
+			err := g.client.Get(ctx, key, &kd)
+			if err != nil {
+				return fmt.Errorf("unexpected error while getting KluctlDeployment status: %w", err)
+			}
+
+			rr = getRequestResult(&kd.Status)
+			if rr == nil {
+				return fmt.Errorf("request result is nil")
+			}
+			if rr.FinishedTime != nil {
+				return nil
+			}
+		}
+	})
+	gh.Run(func() {
+		for l := range logsCh {
+			status.Info(ctx, l)
+		}
+	})
+	gh.Wait()
+
+	return rr, gh.ErrorOrNil()
 }
 
 func init() {

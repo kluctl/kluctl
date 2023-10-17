@@ -4,11 +4,14 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/results"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
 type gitopsPruneCmd struct {
 	args.GitOpsArgs
+	args.OutputFormatFlags
 }
 
 func (cmd *gitopsPruneCmd) Help() string {
@@ -26,6 +29,24 @@ func (cmd *gitopsPruneCmd) Run(ctx context.Context) error {
 		err := g.patchAnnotation(ctx, &kd, v1beta1.KluctlRequestPruneAnnotation, v)
 		if err != nil {
 			return err
+		}
+
+		rr, err := g.waitForRequestToFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+			return status.PruneRequestResult
+		})
+		if err != nil {
+			return err
+		}
+
+		if g.resultStore != nil && rr != nil && rr.ResultId != "" {
+			cmdResult, err := g.resultStore.GetCommandResult(results.GetCommandResultOptions{Id: rr.ResultId, Reduced: true})
+			if err != nil {
+				return err
+			}
+			err = outputCommandResult2(ctx, cmd.OutputFormatFlags, cmdResult)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -222,8 +222,6 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 }
 
 func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
-	status.Flush(ctx.ctx)
-
 	cr.Id = ctx.resultId
 	cr.Command.Initiator = result.CommandInititiator_CommandLine
 
@@ -246,24 +244,36 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 			s.Success()
 		}
 	}
-
-	err := outputHelper(ctx.ctx, flags.OutputFormat, func(format string) (string, error) {
-		return formatCommandResult(cr, format, flags.ShortOutput)
-	})
+	err := outputCommandResult2(ctx.ctx, flags, cr)
 	if err == nil && resultStoreErr != nil {
 		return resultStoreErr
 	}
 	return err
 }
 
-func outputValidateResult(ctx *commandCtx, output []string, vr *result.ValidateResult) error {
-	status.Flush(ctx.ctx)
+func outputCommandResult2(ctx context.Context, flags args.OutputFormatFlags, cr *result.CommandResult) error {
+	status.Flush(ctx)
+	err := outputHelper(ctx, flags.OutputFormat, func(format string) (string, error) {
+		return formatCommandResult(cr, format, flags.ShortOutput)
+	})
+	status.Flush(ctx)
+	return err
+}
 
+func outputValidateResult(ctx *commandCtx, output []string, vr *result.ValidateResult) error {
 	vr.Id = ctx.resultId
 
-	return outputHelper(ctx.ctx, output, func(format string) (string, error) {
+	return outputValidateResult2(ctx.ctx, output, vr)
+}
+
+func outputValidateResult2(ctx context.Context, output []string, vr *result.ValidateResult) error {
+	status.Flush(ctx)
+
+	err := outputHelper(ctx, output, func(format string) (string, error) {
 		return formatValidateResult(vr, format)
 	})
+	status.Flush(ctx)
+	return err
 }
 
 func outputYamlResult(ctx context.Context, output []string, result interface{}, multiDoc bool) error {
