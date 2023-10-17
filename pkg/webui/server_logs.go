@@ -1,15 +1,13 @@
 package webui
 
 import (
-	"bufio"
-	"encoding/json"
+	"context"
 	"github.com/gin-gonic/gin"
-	"io"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
 	"net/http"
 	"nhooyr.io/websocket"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
@@ -37,72 +35,17 @@ func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
 	ctx := conn.CloseRead(gctx)
 
 	controllerNamespace := "kluctl-system"
-	pods, err := s.serverCoreV1Client.Pods(controllerNamespace).List(s.ctx, metav1.ListOptions{
-		LabelSelector: "control-plane=kluctl-controller",
-	})
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second)
 	if err != nil {
 		_ = gctx.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	var streams []io.ReadCloser
-	defer func() {
-		for _, s := range streams {
-			_ = s.Close()
-		}
-	}()
-
-	lineCh := make(chan string)
-
-	for _, pod := range pods.Items {
-		since := int64(60 * 5)
-		rc, err := s.serverCoreV1Client.Pods("kluctl-system").GetLogs(pod.Name, &corev1.PodLogOptions{
-			Follow:       true,
-			SinceSeconds: &since,
-		}).Stream(s.ctx)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			_ = gctx.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
-		streams = append(streams, rc)
-	}
-
-	for _, s := range streams {
-		s := s
-		go func() {
-			sc := bufio.NewScanner(s)
-			for sc.Scan() {
-				l := sc.Text()
-				lineCh <- l
-			}
-		}()
-	}
-
-	for l := range lineCh {
-		var j map[string]any
-		err = json.Unmarshal([]byte(l), &j)
-		if err != nil {
-			continue
-		}
-
-		name := j["name"]
-		namespace := j["namespace"]
-
-		if args.Name != "" && name != args.Name {
-			continue
-		}
-		if args.Namespace != "" && namespace != args.Namespace {
-			continue
-		}
-
-		rid := j["reconcileID"]
-		if args.ReconcileId != "" && rid != args.ReconcileId {
-			continue
-		}
-
+	for l := range logCh {
 		err = conn.Write(ctx, websocket.MessageText, []byte(l))
 		if err != nil {
 			return
