@@ -15,7 +15,7 @@ type gitopsDeployCmd struct {
 	args.GitOpsLogArgs
 	args.GitOpsOverridableArgs `groupOverride:"override"`
 
-	DeployExtraFlags
+	DeployExtraFlags `groupOverride:"override"`
 }
 
 func (cmd *gitopsDeployCmd) Help() string {

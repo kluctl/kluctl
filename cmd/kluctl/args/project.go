@@ -74,12 +74,19 @@ type TargetFlags struct {
 	TargetFlagsBase
 	Context string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
 }
+
+type CommandResultReadOnlyFlags struct {
+	CommandResultNamespace string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
+}
+
+type CommandResultWriteFlags struct {
+	WriteCommandResult       bool `group:"results" help:"Enable writing of command results into the cluster. This is enabled by default." default:"true"`
+	ForceWriteCommandResult  bool `group:"results" help:"Force writing of command results, even if the command is run in dry-run mode."`
+	KeepCommandResultsCount  int  `group:"results" help:"Configure how many old command results to keep." default:"5"`
+	KeepValidateResultsCount int  `group:"results" help:"Configure how many old validate results to keep." default:"2"`
 }
 
 type CommandResultFlags struct {
-	WriteCommandResult       bool   `group:"results" help:"Enable writing of command results into the cluster. This is enabled by default." default:"true"`
-	ForceWriteCommandResult  bool   `group:"results" help:"Force writing of command results, even if the command is run in dry-run mode."`
-	CommandResultNamespace   string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
-	KeepCommandResultsCount  int    `group:"results" help:"Configure how many old command results to keep." default:"5"`
-	KeepValidateResultsCount int    `group:"results" help:"Configure how many old validate results to keep." default:"2"`
+	CommandResultReadOnlyFlags
+	CommandResultWriteFlags
 }

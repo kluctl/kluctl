@@ -148,7 +148,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		SshPool:               sshPool,
 	}
 
-	r.ResultStore, err = buildResultStore(ctx, restConfig, cmd.CommandResultFlags, true)
+	r.ResultStore, err = buildResultStore(ctx, restConfig, cmd.CommandResultReadOnlyFlags, cmd.CommandResultWriteFlags, true)
 	if err != nil {
 		return err
 	}

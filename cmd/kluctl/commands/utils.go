@@ -360,8 +360,8 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string
 	}, nil
 }
 
-func buildResultStore(ctx context.Context, restConfig *rest.Config, args args.CommandResultFlags, startCleanup bool) (results.ResultStore, error) {
-	if !args.WriteCommandResult {
+func buildResultStore(ctx context.Context, restConfig *rest.Config, roArgs args.CommandResultReadOnlyFlags, wArgs args.CommandResultWriteFlags, startCleanup bool) (results.ResultStore, error) {
+	if !wArgs.WriteCommandResult {
 		return nil, nil
 	}
 
@@ -370,7 +370,7 @@ func buildResultStore(ctx context.Context, restConfig *rest.Config, args args.Co
 		return nil, err
 	}
 
-	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, args.CommandResultNamespace, args.KeepCommandResultsCount, args.KeepValidateResultsCount)
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, roArgs.CommandResultNamespace, wArgs.KeepCommandResultsCount, wArgs.KeepValidateResultsCount)
 	if err != nil {
 		return nil, err
 	}
