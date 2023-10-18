@@ -1,15 +1,21 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	flag "github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -30,8 +36,10 @@ type gitopsCmd struct {
 }
 
 type gitopsCmdHelper struct {
-	args           args.GitOpsArgs
-	logsArgs       args.GitOpsLogArgs
+	args            args.GitOpsArgs
+	logsArgs        args.GitOpsLogArgs
+	overridableArgs args.GitOpsOverridableArgs
+
 	noArgsReact    noArgsReact
 	allowSuspended bool
 
@@ -161,7 +169,8 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		g.kds = append(g.kds, kd)
 	}
 
-	g.resultStore, err = buildResultStore(ctx, restConfig, g.args.CommandResultFlags, false)
+	g.resultStore, err = buildResultStore(ctx, restConfig,
+		g.args.CommandResultReadOnlyFlags, args.CommandResultWriteFlags{}, false)
 	if err != nil {
 		return err
 	}
@@ -218,16 +227,24 @@ func (g *gitopsCmdHelper) patchDeploymentStatus(ctx context.Context, key client.
 	return nil
 }
 
-func (g *gitopsCmdHelper) patchAnnotation(ctx context.Context, key client.ObjectKey, name string, value string) error {
-	s := status.Startf(ctx, "Patching KluctlDeployment %s/%s with annotation %s=%s", key.Namespace, key.Name, name, value)
-	defer s.Failed()
-
+func (g *gitopsCmdHelper) patchManualRequest(ctx context.Context, key client.ObjectKey, requestAnnotation string, value string) error {
 	err := g.patchDeployment(ctx, key, func(kd *v1beta1.KluctlDeployment) error {
 		a := kd.GetAnnotations()
 		if a == nil {
 			a = map[string]string{}
 		}
-		a[name] = value
+		a[requestAnnotation] = value
+
+		onetimePatch, err := g.buildOnetimePatch(ctx, kd)
+		if err != nil {
+			return err
+		}
+		if len(onetimePatch) != 0 && !bytes.Equal(onetimePatch, []byte("{}")) {
+			a[v1beta1.KluctlOnetimePatchAnnotation] = string(onetimePatch)
+		} else {
+			delete(a, v1beta1.KluctlOnetimePatchAnnotation)
+		}
+
 		kd.SetAnnotations(a)
 		return nil
 	})
@@ -235,7 +252,119 @@ func (g *gitopsCmdHelper) patchAnnotation(ctx context.Context, key client.Object
 		return err
 	}
 
-	s.Success()
+	return nil
+}
+
+func (g *gitopsCmdHelper) buildOnetimePatch(ctx context.Context, kdIn *v1beta1.KluctlDeployment) ([]byte, error) {
+	cobraCmd := getCobraCommand(ctx)
+	if cobraCmd == nil {
+		panic("no cobra cmd")
+	}
+
+	handleFlag := func(name string, cb func(f *flag.Flag)) {
+		f := cobraCmd.Flag(name)
+		if f == nil {
+			panic(fmt.Sprintf("flag %s not found", name))
+		}
+		if f.Changed {
+			cb(f)
+		}
+	}
+
+	kd := kdIn.DeepCopy()
+
+	handleFlag("dry-run", func(f *flag.Flag) {
+		kd.Spec.DryRun = g.overridableArgs.DryRun
+	})
+	handleFlag("force-apply", func(f *flag.Flag) {
+		kd.Spec.ForceApply = g.overridableArgs.ForceApply
+	})
+	handleFlag("replace-on-error", func(f *flag.Flag) {
+		kd.Spec.ReplaceOnError = g.overridableArgs.ReplaceOnError
+	})
+	handleFlag("force-replace-on-error", func(f *flag.Flag) {
+		kd.Spec.ForceReplaceOnError = g.overridableArgs.ForceReplaceOnError
+	})
+	handleFlag("abort-on-error", func(f *flag.Flag) {
+		kd.Spec.AbortOnError = g.overridableArgs.AbortOnError
+	})
+	handleFlag("no-wait", func(f *flag.Flag) {
+		kd.Spec.NoWait = utils.ParseBoolOrFalse(f.Value.String())
+	})
+	handleFlag("prune", func(f *flag.Flag) {
+		kd.Spec.Prune = utils.ParseBoolOrFalse(f.Value.String())
+	})
+
+	if g.overridableArgs.Target != "" {
+		kd.Spec.Target = &g.overridableArgs.Target
+	}
+	if g.overridableArgs.TargetNameOverride != "" {
+		kd.Spec.TargetNameOverride = &g.overridableArgs.TargetNameOverride
+	}
+	if g.overridableArgs.TargetContext != "" {
+		kd.Spec.Context = &g.overridableArgs.TargetContext
+	}
+
+	fis, err := g.overridableArgs.ImageFlags.LoadFixedImagesFromArgs()
+	if err != nil {
+		return nil, err
+	}
+	kd.Spec.Images = append(kd.Spec.Images, fis...)
+
+	inc, err := g.overridableArgs.InclusionFlags.ParseInclusionFromArgs()
+	if err != nil {
+		return nil, err
+	}
+	kd.Spec.IncludeTags = append(kd.Spec.IncludeTags, inc.GetIncludes("tag")...)
+	kd.Spec.ExcludeTags = append(kd.Spec.ExcludeTags, inc.GetExcludes("tag")...)
+	kd.Spec.IncludeDeploymentDirs = append(kd.Spec.IncludeDeploymentDirs, inc.GetIncludes("deploymentItemDir")...)
+	kd.Spec.ExcludeDeploymentDirs = append(kd.Spec.ExcludeDeploymentDirs, inc.GetExcludes("deploymentItemDir")...)
+
+	err = g.overrideDeploymentArgs(kd)
+	if err != nil {
+		return nil, err
+	}
+
+	kdOrigS, err := yaml.WriteJsonString(kdIn)
+	if err != nil {
+		return nil, err
+	}
+	kdS, err := yaml.WriteJsonString(kd)
+	if err != nil {
+		return nil, err
+	}
+
+	patchB, err := json_patch.CreateMergePatch([]byte(kdOrigS), []byte(kdS))
+	if err != nil {
+		return nil, err
+	}
+
+	return patchB, nil
+}
+
+func (g *gitopsCmdHelper) overrideDeploymentArgs(kd *v1beta1.KluctlDeployment) error {
+	overrideArgs, err := g.overridableArgs.ArgsFlags.LoadArgs()
+	if err != nil {
+		return err
+	}
+	if overrideArgs.IsZero() {
+		return nil
+	}
+
+	newArgs := uo.New()
+	if kd.Spec.Args != nil {
+		x, err := uo.FromString(string(kd.Spec.Args.Raw))
+		if err != nil {
+			return err
+		}
+		newArgs = x
+	}
+	newArgs.Merge(overrideArgs)
+	b, err := yaml.WriteJsonString(newArgs)
+	if err != nil {
+		return err
+	}
+	kd.Spec.Args = &runtime.RawExtension{Raw: []byte(b)}
 
 	return nil
 }

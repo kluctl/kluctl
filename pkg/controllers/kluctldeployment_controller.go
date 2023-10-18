@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	json_patch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
@@ -156,6 +157,50 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return *ctrlResult, nil
 }
 
+func (r *KluctlDeploymentReconciler) applyOnetimePatch(ctx context.Context, obj *kluctlv1.KluctlDeployment) error {
+	if obj.GetAnnotations() == nil {
+		return nil
+	}
+
+	patchStr, ok := obj.GetAnnotations()[kluctlv1.KluctlOnetimePatchAnnotation]
+	if !ok {
+		return nil
+	}
+
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Applying onetime patch", "patch", patchStr)
+
+	objJson, err := yaml.WriteJsonString(obj)
+	if err != nil {
+		return err
+	}
+
+	objJson2, err := json_patch.MergePatch([]byte(objJson), []byte(patchStr))
+	if err != nil {
+		return err
+	}
+
+	var patchedObj kluctlv1.KluctlDeployment
+	err = yaml.ReadYamlBytes(objJson2, &patchedObj)
+	if err != nil {
+		return err
+	}
+
+	ap := client.MergeFrom(patchedObj.DeepCopy())
+	a := patchedObj.GetAnnotations()
+	if a != nil {
+		delete(a, kluctlv1.KluctlOnetimePatchAnnotation)
+		patchedObj.SetAnnotations(a)
+		err = r.Patch(ctx, patchedObj.DeepCopy(), ap, client.FieldOwner(r.ControllerName))
+		if err != nil {
+			return err
+		}
+	}
+
+	*obj = patchedObj
+	return nil
+}
+
 func (r *KluctlDeploymentReconciler) doReconcile(
 	ctx context.Context,
 	obj *kluctlv1.KluctlDeployment,
@@ -210,6 +255,11 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	patchErr := doProgressingCondition("Initializing", true)
 	if patchErr != nil {
 		return nil, patchErr
+	}
+
+	err := r.applyOnetimePatch(ctx, obj)
+	if err != nil {
+		return doFailPrepare(err)
 	}
 
 	oldGeneration := obj.Status.ObservedGeneration
@@ -416,7 +466,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	needDeploy := false
-	needDeployByRequest := false
 	needPrune := false
 	needValidate := false
 	needDriftDetection := true
@@ -430,7 +479,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	} else if curDeployRequest != nil {
 		// explicitly requested a deploy
 		needDeploy = true
-		needDeployByRequest = true
 	} else if oldGeneration != obj.GetGeneration() {
 		// spec has changed
 		needDeploy = true
@@ -490,7 +538,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			return nil, patchErr
 		}
 		var cmdErr error
-		deployResult, cmdErr = pt.kluctlDeployOrPokeImages(ctx, obj.Spec.DeployMode, targetContext, reconcileId, objectsHash, needDeployByRequest)
+		deployResult, cmdErr = pt.kluctlDeployOrPokeImages(ctx, obj.Spec.DeployMode, targetContext, reconcileId, objectsHash, curDeployRequest != nil)
 		err = obj.Status.SetLastDeployResult(deployResult.BuildSummary(), cmdErr)
 		if err != nil {
 			log.Error(err, "Failed to write deploy result")

@@ -14,19 +14,24 @@ import (
 type gitopsValidateCmd struct {
 	args.GitOpsArgs
 	args.GitOpsLogArgs
+	args.GitOpsOverridableArgs
 	args.OutputFlags
 
 	WarningsAsErrors bool `group:"misc" help:"Consider warnings as failures"`
 }
 
 func (cmd *gitopsValidateCmd) Help() string {
-	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced validate. It does this by setting the annotation 'kluctl.io/request-validate' to the current time.`
+	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced validation.
+It does this by setting the annotation 'kluctl.io/request-validate' to the current time.
+
+You can override many deployment relevant fields, see the list of command flags for details.`
 }
 
 func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
-		args:     cmd.GitOpsArgs,
-		logsArgs: cmd.GitOpsLogArgs,
+		args:            cmd.GitOpsArgs,
+		logsArgs:        cmd.GitOpsLogArgs,
+		overridableArgs: cmd.GitOpsOverridableArgs,
 	}
 	err := g.init(ctx)
 	if err != nil {
@@ -34,7 +39,7 @@ func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 	}
 	for _, kd := range g.kds {
 		v := time.Now().Format(time.RFC3339Nano)
-		err := g.patchAnnotation(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestValidateAnnotation, v)
+		err := g.patchManualRequest(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestValidateAnnotation, v)
 		if err != nil {
 			return err
 		}

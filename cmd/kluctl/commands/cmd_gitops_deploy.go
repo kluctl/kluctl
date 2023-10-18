@@ -13,16 +13,23 @@ type gitopsDeployCmd struct {
 	args.GitOpsArgs
 	args.OutputFormatFlags
 	args.GitOpsLogArgs
+	args.GitOpsOverridableArgs `groupOverride:"override"`
+
+	DeployExtraFlags
 }
 
 func (cmd *gitopsDeployCmd) Help() string {
-	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced deployment. It does this by setting the annotation 'kluctl.io/request-deploy' to the current time.`
+	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced deployment.
+It does this by setting the annotation 'kluctl.io/request-deploy' to the current time.
+
+You can override many deployment relevant fields, see the list of command flags for details.`
 }
 
 func (cmd *gitopsDeployCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
-		args:     cmd.GitOpsArgs,
-		logsArgs: cmd.GitOpsLogArgs,
+		args:            cmd.GitOpsArgs,
+		logsArgs:        cmd.GitOpsLogArgs,
+		overridableArgs: cmd.GitOpsOverridableArgs,
 	}
 	err := g.init(ctx)
 	if err != nil {
@@ -30,7 +37,7 @@ func (cmd *gitopsDeployCmd) Run(ctx context.Context) error {
 	}
 	for _, kd := range g.kds {
 		v := time.Now().Format(time.RFC3339Nano)
-		err := g.patchAnnotation(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestDeployAnnotation, v)
+		err := g.patchManualRequest(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestDeployAnnotation, v)
 		if err != nil {
 			return err
 		}

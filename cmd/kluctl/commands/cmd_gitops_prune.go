@@ -13,16 +13,21 @@ type gitopsPruneCmd struct {
 	args.GitOpsArgs
 	args.GitOpsLogArgs
 	args.OutputFormatFlags
+	args.GitOpsOverridableArgs
 }
 
 func (cmd *gitopsPruneCmd) Help() string {
-	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced prune. It does this by setting the annotation 'kluctl.io/request-prune' to the current time.`
+	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced prune.
+It does this by setting the annotation 'kluctl.io/request-prune' to the current time.
+
+You can override many deployment relevant fields, see the list of command flags for details.`
 }
 
 func (cmd *gitopsPruneCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
-		args:     cmd.GitOpsArgs,
-		logsArgs: cmd.GitOpsLogArgs,
+		args:            cmd.GitOpsArgs,
+		logsArgs:        cmd.GitOpsLogArgs,
+		overridableArgs: cmd.GitOpsOverridableArgs,
 	}
 	err := g.init(ctx)
 	if err != nil {
@@ -30,7 +35,7 @@ func (cmd *gitopsPruneCmd) Run(ctx context.Context) error {
 	}
 	for _, kd := range g.kds {
 		v := time.Now().Format(time.RFC3339Nano)
-		err := g.patchAnnotation(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestPruneAnnotation, v)
+		err := g.patchManualRequest(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestPruneAnnotation, v)
 		if err != nil {
 			return err
 		}

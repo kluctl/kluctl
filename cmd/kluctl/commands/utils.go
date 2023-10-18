@@ -21,7 +21,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -123,23 +122,9 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
-	var externalArgs *uo.UnstructuredObject
-	if argsFlags != nil {
-		optionArgs, err := deployment.ParseArgs(argsFlags.Arg)
-		if err != nil {
-			return err
-		}
-		externalArgs, err = deployment.ConvertArgsToVars(optionArgs, true)
-		if err != nil {
-			return err
-		}
-		for _, a := range argsFlags.ArgsFromFile {
-			optionArgs2, err := uo.FromFile(a)
-			if err != nil {
-				return err
-			}
-			externalArgs.Merge(optionArgs2)
-		}
+	externalArgs, err := argsFlags.LoadArgs()
+	if err != nil {
+		return err
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{

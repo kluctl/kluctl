@@ -275,7 +275,7 @@ func Main() {
 			return ctx, err
 		}
 
-		ctx = initStatusHandlerAndPrompts(ctx, flags.Debug, flags.NoColor)
+		ctx = initStatusHandlerAndPrompts(ctxIn, flags.Debug, flags.NoColor)
 		didSetupStatusHandler = true
 
 		if cmd.Parent() == nil || (cmd.Name() != "run" && cmd.Parent().Name() != "controller") {
@@ -314,6 +314,16 @@ func Main() {
 	}
 }
 
+type cobraCmdContextKey struct{}
+
+func getCobraCommand(ctx context.Context) *cobra.Command {
+	v := ctx.Value(cobraCmdContextKey{})
+	if x, ok := v.(*cobra.Command); ok {
+		return x
+	}
+	return nil
+}
+
 func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags *GlobalFlags) (context.Context, error)) error {
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
@@ -333,6 +343,11 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	rootCmd.SilenceErrors = true
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		ctx = context.WithValue(ctx, cobraCmdContextKey{}, cmd)
+		for c := cmd; c != nil; c = c.Parent() {
+			c.SetContext(ctx)
+		}
+
 		if preRun != nil {
 			ctx, err = preRun(ctx, cmd, &root.GlobalFlags)
 			if ctx != nil {

@@ -37,6 +37,11 @@ const (
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
 	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
 	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
+
+	// KluctlOnetimePatchAnnotation can be set to apply a onetime json-patch to the KluctlDeployment in the next
+	// reconciliation loop. The patched KluctlDeployment is in-memory only and not persisted. The annotation is removed
+	// immediately after it is read.
+	KluctlOnetimePatchAnnotation = "kluctl.io/gitops-onetime-patch"
 )
 
 type KluctlDeploymentSpec struct {

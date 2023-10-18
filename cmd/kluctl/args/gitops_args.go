@@ -21,3 +21,16 @@ type GitOpsLogArgs struct {
 	LogGroupingTime time.Duration `group:"misc" help:"Logs are by default grouped by time passed, meaning that they are printed in batches to make reading them easier. This argument allows to modify the grouping time." default:"1s"`
 	LogTime         bool          `group:"misc" help:"If enabled, adds timestamps to log lines"`
 }
+
+type GitOpsOverridableArgs struct {
+	TargetFlagsBase
+	ArgsFlags
+	ImageFlags
+	InclusionFlags
+	DryRunFlags
+	ForceApplyFlags
+	ReplaceOnErrorFlags
+	AbortOnErrorFlags
+
+	TargetContext string `group:"override" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
+}
