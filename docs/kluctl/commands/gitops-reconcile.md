@@ -26,11 +26,16 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --context string          Override the context to use.
-  -l, --label-selector string   If specified, KluctlDeployments are searched and filtered by this label selector.
-      --name string             Specifies the name of the KluctlDeployment.
-  -n, --namespace string        Specifies the namespace of the KluctlDeployment. If omitted, the current namespace
-                                from your kubeconfig is used.
+      --context string               Override the context to use.
+  -l, --label-selector string        If specified, KluctlDeployments are searched and filtered by this label selector.
+      --log-grouping-time duration   Logs are by default grouped by time passed, meaning that they are printed in
+                                     batches to make reading them easier. This argument allows to modify the
+                                     grouping time. (default 1s)
+      --log-since duration           Show logs since this time. (default 1m0s)
+      --log-time                     If enabled, adds timestamps to log lines
+      --name string                  Specifies the name of the KluctlDeployment.
+  -n, --namespace string             Specifies the namespace of the KluctlDeployment. If omitted, the current
+                                     namespace from your kubeconfig is used.
 
 ```
 <!-- END SECTION -->

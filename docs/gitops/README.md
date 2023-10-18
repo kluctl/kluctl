@@ -30,6 +30,17 @@ As an example, arguments passed via `-a arg=value` can be passed to the custom r
 The same applies to options like `--dry-run`, which equals to `spec.dryRun: true` in the custom resource. Check the
 documentation of [`KluctlDeployment`](spec/v1beta1/kluctldeployment.md#spec-fields) for more such options.
 
+## GitOps Commands
+
+Kluctl GitOps deployments can be controlled via the Kluctl CLI interface, e.g. with
+`kluctl gitops deploy --namespace my-ns --name my-deployment`, which will trigger a deployment and wait for it to finish.
+
+See [commands](../kluctl/commands/README.md) for more details.
+
+## Kluctl Webui
+
+The same deployments can also be controlled and monitored via the [Kluctl Webui](../webui/README.md).
+
 ## Installation
 
 Installation instructions can be found [here](./installation.md)
@@ -43,6 +54,7 @@ The reconciliation process consists of multiple steps which are constantly repea
 - **deploy** the specified target via [kluctl deploy](../kluctl/commands/deploy.md) if the rendered resources changed
 - **prune** orphaned objects via [kluctl prune](../kluctl/commands/prune.md)
 - **validate** the deployment status via [kluctl validate](../kluctl/commands/validate.md)
+- **drift-detection** is performed to allow the [Kluctl Webui](../webui/README.md) to show drift.
 
 Reconciliation is performed on a configurable [interval](spec/v1beta1/kluctldeployment.md#interval). A single
 reconciliation iteration will first clone and prepare the project. Only when the rendered resources indicate a change
