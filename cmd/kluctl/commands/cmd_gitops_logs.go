@@ -24,7 +24,7 @@ func (cmd *gitopsLogsCmd) Run(ctx context.Context) error {
 		args:     cmd.GitOpsArgs,
 		logsArgs: cmd.GitOpsLogArgs,
 	}
-	err := g.init(ctx, true)
+	err := g.init(ctx, noArgsNoDeployments)
 	if err != nil {
 		return err
 	}

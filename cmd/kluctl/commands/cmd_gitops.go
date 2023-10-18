@@ -20,6 +20,8 @@ import (
 )
 
 type gitopsCmd struct {
+	Suspend   GitopsSuspendCmd   `cmd:"" help:"Suspend a GitOps deployment"`
+	Resume    gitopsResumeCmd    `cmd:"" help:"Resume a GitOps deployment"`
 	Reconcile gitopsReconcileCmd `cmd:"" help:"Trigger a GitOps reconciliation"`
 	Deploy    gitopsDeployCmd    `cmd:"" help:"Trigger a GitOps deployment"`
 	Prune     gitopsPruneCmd     `cmd:"" help:"Trigger a GitOps prune"`
@@ -53,7 +55,18 @@ type logsBuf struct {
 	lines         []logs.LogLine
 }
 
-func (g *gitopsCmdHelper) init(ctx context.Context, allowNoArgs bool) error {
+type noArgsReact int
+
+const (
+	noArgsForbid noArgsReact = iota
+	noArgsNoDeployments
+	noArgsAllDeployments
+)
+
+func (g *gitopsCmdHelper) init(ctx context.Context, noArgs noArgsReact) error {
+	s := status.Startf(ctx, "Initializing")
+	defer s.Failed()
+
 	g.logsBufs = map[logsKey]*logsBuf{}
 
 	configOverrides := &clientcmd.ConfigOverrides{
@@ -122,7 +135,16 @@ func (g *gitopsCmdHelper) init(ctx context.Context, allowNoArgs bool) error {
 			return err
 		}
 		g.kds = append(g.kds, l.Items...)
-	} else if !allowNoArgs {
+	} else if noArgs == noArgsNoDeployments {
+		// do nothing
+	} else if noArgs == noArgsAllDeployments {
+		var l v1beta1.KluctlDeploymentList
+		err = g.client.List(ctx, &l, opts...)
+		if err != nil {
+			return err
+		}
+		g.kds = append(g.kds, l.Items...)
+	} else {
 		return fmt.Errorf("either name or label selector must be set")
 	}
 
@@ -131,23 +153,71 @@ func (g *gitopsCmdHelper) init(ctx context.Context, allowNoArgs bool) error {
 		return err
 	}
 
+	s.Success()
+
 	return nil
 }
 
-func (g *gitopsCmdHelper) patchAnnotation(ctx context.Context, kd *v1beta1.KluctlDeployment, name string, value string) error {
-	s := status.Startf(ctx, "Patching KluctlDeployment %s/%s with annotation %s=%s", kd.Namespace, kd.Name, name, value)
+func (g *gitopsCmdHelper) patchDeployment(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error) error {
+	s := status.Startf(ctx, "Patching KluctlDeployment %s/%s", key.Namespace, key.Name)
 	defer s.Failed()
 
-	patch := client.MergeFrom(kd.DeepCopy())
-
-	a := kd.GetAnnotations()
-	if a == nil {
-		a = map[string]string{}
+	var kd v1beta1.KluctlDeployment
+	err := g.client.Get(ctx, key, &kd)
+	if err != nil {
+		return err
 	}
-	a[name] = value
-	kd.SetAnnotations(a)
 
-	err := g.client.Patch(ctx, kd, patch, client.FieldOwner("kluctl"))
+	patch := client.MergeFrom(kd.DeepCopy())
+	err = cb(&kd)
+	if err != nil {
+		return err
+	}
+
+	err = g.client.Patch(ctx, &kd, patch, client.FieldOwner("kluctl"))
+	if err != nil {
+		return err
+	}
+
+	s.Success()
+
+	return nil
+}
+
+func (g *gitopsCmdHelper) patchDeploymentStatus(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error) error {
+	var kd v1beta1.KluctlDeployment
+	err := g.client.Get(ctx, key, &kd)
+	if err != nil {
+		return err
+	}
+
+	patch := client.MergeFrom(kd.DeepCopy())
+	err = cb(&kd)
+	if err != nil {
+		return err
+	}
+
+	err = g.client.Status().Patch(ctx, &kd, patch, client.FieldOwner("kluctl"))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *gitopsCmdHelper) patchAnnotation(ctx context.Context, key client.ObjectKey, name string, value string) error {
+	s := status.Startf(ctx, "Patching KluctlDeployment %s/%s with annotation %s=%s", key.Namespace, key.Name, name, value)
+	defer s.Failed()
+
+	err := g.patchDeployment(ctx, key, func(kd *v1beta1.KluctlDeployment) error {
+		a := kd.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+		}
+		a[name] = value
+		kd.SetAnnotations(a)
+		return nil
+	})
 	if err != nil {
 		return err
 	}

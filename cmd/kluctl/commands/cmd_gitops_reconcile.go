@@ -22,13 +22,13 @@ func (cmd *gitopsReconcileCmd) Run(ctx context.Context) error {
 		args:     cmd.GitOpsArgs,
 		logsArgs: cmd.GitOpsLogArgs,
 	}
-	err := g.init(ctx, false)
+	err := g.init(ctx, noArgsForbid)
 	if err != nil {
 		return err
 	}
 	for _, kd := range g.kds {
 		v := time.Now().Format(time.RFC3339Nano)
-		err := g.patchAnnotation(ctx, &kd, v1beta1.KluctlRequestReconcileAnnotation, v)
+		err := g.patchAnnotation(ctx, client.ObjectKeyFromObject(&kd), v1beta1.KluctlRequestReconcileAnnotation, v)
 		if err != nil {
 			return err
 		}
