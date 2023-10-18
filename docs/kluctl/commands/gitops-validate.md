@@ -14,7 +14,7 @@ description: >
 Usage: kluctl gitops validate [flags]
 
 Trigger a GitOps validate
-This command will trigger an existing KluctlDeployment to perform a reconciliation loop. It does this by setting the annotation 'kluctl.io/request-validate' to the current time.
+This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced validate. It does this by setting the annotation 'kluctl.io/request-validate' to the current time.
 
 <!-- END SECTION -->
 

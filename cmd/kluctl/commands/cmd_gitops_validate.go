@@ -20,7 +20,7 @@ type gitopsValidateCmd struct {
 }
 
 func (cmd *gitopsValidateCmd) Help() string {
-	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop. It does this by setting the annotation 'kluctl.io/request-validate' to the current time.`
+	return `This command will trigger an existing KluctlDeployment to perform a reconciliation loop with a forced validate. It does this by setting the annotation 'kluctl.io/request-validate' to the current time.`
 }
 
 func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
