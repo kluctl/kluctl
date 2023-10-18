@@ -13,6 +13,7 @@ import (
 
 type gitopsValidateCmd struct {
 	args.GitOpsArgs
+	args.GitOpsLogArgs
 	args.OutputFlags
 
 	WarningsAsErrors bool `group:"misc" help:"Consider warnings as failures"`
@@ -23,8 +24,11 @@ func (cmd *gitopsValidateCmd) Help() string {
 }
 
 func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
-	var g gitopsCmdHelper
-	err := g.init(ctx, cmd.GitOpsArgs)
+	g := gitopsCmdHelper{
+		args:     cmd.GitOpsArgs,
+		logsArgs: cmd.GitOpsLogArgs,
+	}
+	err := g.init(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -35,7 +39,7 @@ func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 			return err
 		}
 
-		rr, err := g.waitForRequestToFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
 			return status.ValidateRequestResult
 		})
 		if err != nil {

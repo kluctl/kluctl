@@ -10,10 +10,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sync/atomic"
 	"time"
 )
 
-func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerNamespace string, kdKey client.ObjectKey, reconcileId string, since time.Duration, onlyMessage bool) (chan string, error) {
+type LogLine struct {
+	Level       string    `json:"level"`
+	Timestamp   time.Time `json:"ts"`
+	Msg         string    `json:"msg"`
+	Name        string    `json:"name"`
+	Namespace   string    `json:"namespace"`
+	ReconcileID string    `json:"reconcileID"`
+}
+
+func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerNamespace string, kdKey client.ObjectKey, reconcileId string, since time.Duration, follow bool) (chan LogLine, error) {
 	pods, err := c.Pods(controllerNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "control-plane=kluctl-controller",
 	})
@@ -39,7 +49,7 @@ func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerName
 	for _, pod := range pods.Items {
 		since2 := int64(since.Seconds())
 		rc, err := c.Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-			Follow:       true,
+			Follow:       follow,
 			SinceSeconds: &since2,
 		}).Stream(ctx)
 		if err != nil {
@@ -51,6 +61,7 @@ func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerName
 		streams = append(streams, rc)
 	}
 
+	var closedCount atomic.Int32
 	rawLineCh := make(chan string)
 	for _, s := range streams {
 		s := s
@@ -60,12 +71,16 @@ func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerName
 				l := sc.Text()
 				rawLineCh <- l
 			}
+			closedCount.Add(1)
+			if closedCount.Load() == int32(len(streams)) {
+				close(rawLineCh)
+			}
 		}()
 	}
 
 	ok = true
 
-	logCh := make(chan string)
+	logCh := make(chan LogLine)
 	go func() {
 		defer cleanupStreams()
 		for {
@@ -73,39 +88,29 @@ func WatchControllerLogs(ctx context.Context, c *v1.CoreV1Client, controllerName
 			case <-ctx.Done():
 				close(logCh)
 				return
-			case l := <-rawLineCh:
-				var j map[string]any
-				err = json.Unmarshal([]byte(l), &j)
+			case l, ok := <-rawLineCh:
+				if !ok {
+					close(logCh)
+					return
+				}
+				var ll LogLine
+				err = json.Unmarshal([]byte(l), &ll)
 				if err != nil {
 					continue
 				}
 
-				name := j["name"]
-				namespace := j["namespace"]
-
-				if kdKey.Name != "" && name != kdKey.Name {
+				if kdKey.Name != "" && ll.Name != kdKey.Name {
 					continue
 				}
-				if kdKey.Namespace != "" && namespace != kdKey.Namespace {
+				if kdKey.Namespace != "" && ll.Namespace != kdKey.Namespace {
 					continue
 				}
 
-				rid := j["reconcileID"]
-				if reconcileId != "" && rid != reconcileId {
+				if reconcileId != "" && ll.ReconcileID != reconcileId {
 					continue
 				}
 
-				if onlyMessage {
-					x, ok := j["msg"]
-					if ok {
-						s, ok := x.(string)
-						if ok {
-							logCh <- s
-						}
-					}
-				} else {
-					logCh <- l
-				}
+				logCh <- ll
 			}
 		}
 	}()

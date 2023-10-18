@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sync"
 	"time"
 )
 
@@ -26,18 +27,36 @@ type gitopsCmd struct {
 }
 
 type gitopsCmdHelper struct {
-	args args.GitOpsArgs
-	kds  []v1beta1.KluctlDeployment
+	args     args.GitOpsArgs
+	logsArgs args.GitOpsLogArgs
+
+	kds []v1beta1.KluctlDeployment
 
 	client       client.Client
 	corev1Client *v1.CoreV1Client
 
 	resultStore results.ResultStore
+
+	logsMutex          sync.Mutex
+	logsBufs           map[logsKey]*logsBuf
+	lastFlushedLogsKey *logsKey
 }
 
-func (g *gitopsCmdHelper) init(ctx context.Context, args args.GitOpsArgs) error {
+type logsKey struct {
+	objectKey   client.ObjectKey
+	reconcileId string
+}
+
+type logsBuf struct {
+	lastFlushTime time.Time
+	lines         []logs.LogLine
+}
+
+func (g *gitopsCmdHelper) init(ctx context.Context, allowNoArgs bool) error {
+	g.logsBufs = map[logsKey]*logsBuf{}
+
 	configOverrides := &clientcmd.ConfigOverrides{
-		CurrentContext: args.Context,
+		CurrentContext: g.args.Context,
 	}
 	var err error
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
@@ -61,28 +80,28 @@ func (g *gitopsCmdHelper) init(ctx context.Context, args args.GitOpsArgs) error 
 		return err
 	}
 
-	ns := args.Namespace
+	ns := g.args.Namespace
 	if ns == "" {
 		ns = defaultNs
 	}
 
 	var opts []client.ListOption
-	if args.Name != "" {
+	if g.args.Name != "" {
 		if ns == "" {
 			return fmt.Errorf("no namespace specified")
 		}
-		if args.LabelSelector != "" {
+		if g.args.LabelSelector != "" {
 			return fmt.Errorf("either name or label selector must be set, not both")
 		}
 
 		var kd v1beta1.KluctlDeployment
-		err = g.client.Get(ctx, client.ObjectKey{Name: args.Name, Namespace: ns}, &kd)
+		err = g.client.Get(ctx, client.ObjectKey{Name: g.args.Name, Namespace: ns}, &kd)
 		if err != nil {
 			return err
 		}
 		g.kds = append(g.kds, kd)
-	} else if args.LabelSelector != "" {
-		label, err := metav1.ParseToLabelSelector(args.LabelSelector)
+	} else if g.args.LabelSelector != "" {
+		label, err := metav1.ParseToLabelSelector(g.args.LabelSelector)
 		if err != nil {
 			return err
 		}
@@ -102,11 +121,11 @@ func (g *gitopsCmdHelper) init(ctx context.Context, args args.GitOpsArgs) error 
 			return err
 		}
 		g.kds = append(g.kds, l.Items...)
-	} else {
+	} else if !allowNoArgs {
 		return fmt.Errorf("either name or label selector must be set")
 	}
 
-	g.resultStore, err = buildResultStore(ctx, restConfig, args.CommandResultFlags, false)
+	g.resultStore, err = buildResultStore(ctx, restConfig, g.args.CommandResultFlags, false)
 	if err != nil {
 		return err
 	}
@@ -137,7 +156,7 @@ func (g *gitopsCmdHelper) patchAnnotation(ctx context.Context, kd *v1beta1.Kluct
 	return nil
 }
 
-func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+func (g *gitopsCmdHelper) waitForRequestToStart(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
 	s := status.Startf(ctx, "Waiting for controller to start processing the request")
 	defer s.Failed()
 
@@ -164,49 +183,162 @@ func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client
 		break
 	}
 	s.Success()
+	return rr, nil
+}
 
-	status.Infof(ctx, "Watching logs...")
+func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client.ObjectKey, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+	sleep := time.Second * 1
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	var rr *v1beta1.RequestResult
+	for {
+		var kd v1beta1.KluctlDeployment
+		err := g.client.Get(ctx, key, &kd)
+		if err != nil {
+			return nil, err
+		}
 
-	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, "kluctl-system", key, rr.ReconcileId, 60*time.Second, true)
+		rr = getRequestResult(&kd.Status)
+		if rr == nil {
+			time.Sleep(sleep)
+			continue
+		}
+
+		if rr.EndTime == nil {
+			time.Sleep(sleep)
+			continue
+		}
+		break
+	}
+	return rr, nil
+}
+
+func (g *gitopsCmdHelper) waitForRequestToStartAndFinish(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+	rr, err := g.waitForRequestToStart(ctx, key, requestValue, getRequestResult)
 	if err != nil {
 		return nil, err
 	}
 
+	stopCh := make(chan struct{})
+
 	gh := utils.NewGoHelper(ctx, 0)
 	gh.RunE(func() error {
 		defer func() {
-			// give some extra time for log printing
-			time.Sleep(sleep)
-			cancel()
+			close(stopCh)
 		}()
-
-		for {
-			var kd v1beta1.KluctlDeployment
-			err := g.client.Get(ctx, key, &kd)
-			if err != nil {
-				return fmt.Errorf("unexpected error while getting KluctlDeployment status: %w", err)
-			}
-
-			rr = getRequestResult(&kd.Status)
-			if rr == nil {
-				return fmt.Errorf("request result is nil")
-			}
-			if rr.EndTime != nil {
-				return nil
-			}
-		}
+		var err error
+		rr, err = g.waitForRequestToFinish(ctx, key, getRequestResult)
+		return err
 	})
-	gh.Run(func() {
-		for l := range logsCh {
-			status.Info(ctx, l)
-		}
+	gh.RunE(func() error {
+		return g.watchLogs(ctx, stopCh, key, true, "")
 	})
 	gh.Wait()
 
-	return rr, gh.ErrorOrNil()
+	if gh.ErrorOrNil() != nil {
+		return nil, gh.ErrorOrNil()
+	}
+	return rr, nil
+}
+
+func (g *gitopsCmdHelper) watchLogs(ctx context.Context, stopCh chan struct{}, key client.ObjectKey, follow bool, reconcileId string) error {
+	if key == (client.ObjectKey{}) {
+		status.Infof(ctx, "Watching logs...")
+	} else {
+		status.Infof(ctx, "Watching logs for %s/%s...", key.Namespace, key.Name)
+	}
+
+	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, "kluctl-system", key, reconcileId, g.logsArgs.LogSince, follow)
+	if err != nil {
+		return err
+	}
+
+	timeout := g.logsArgs.LogGroupingTime
+	timeoutCh := time.After(timeout)
+	for {
+		select {
+		case <-ctx.Done():
+			g.flushLogLines(ctx, true)
+			return ctx.Err()
+		case <-stopCh:
+			g.flushLogLines(ctx, true)
+			return nil
+		case <-timeoutCh:
+			g.flushLogLines(ctx, true)
+			timeoutCh = time.After(timeout)
+		case l, ok := <-logsCh:
+			if !ok {
+				g.flushLogLines(ctx, true)
+				return nil
+			}
+			g.handleLogLine(ctx, l)
+		}
+	}
+}
+
+func (g *gitopsCmdHelper) handleLogLine(ctx context.Context, logLine logs.LogLine) {
+	g.logsMutex.Lock()
+	defer g.logsMutex.Unlock()
+
+	lk := logsKey{
+		objectKey:   client.ObjectKey{Name: logLine.Name, Namespace: logLine.Namespace},
+		reconcileId: logLine.ReconcileID,
+	}
+
+	lb := g.logsBufs[lk]
+	if lb == nil {
+		lb = &logsBuf{}
+		g.logsBufs[lk] = lb
+	}
+	lb.lines = append(lb.lines, logLine)
+
+	hasOther := false
+	for k, x := range g.logsBufs {
+		if k != lk && len(x.lines) != 0 {
+			hasOther = true
+			break
+		}
+	}
+	if !hasOther && (g.lastFlushedLogsKey == nil || *g.lastFlushedLogsKey == lk) {
+		g.flushLogLines(ctx, false)
+	}
+}
+
+func (g *gitopsCmdHelper) flushLogLines(ctx context.Context, needLock bool) {
+	if needLock {
+		g.logsMutex.Lock()
+		defer g.logsMutex.Unlock()
+	}
+
+	for lk, lb := range g.logsBufs {
+		lk := lk
+		if len(lb.lines) == 0 {
+			if time.Now().After(lb.lastFlushTime.Add(5 * time.Second)) {
+				delete(g.logsBufs, lk)
+			}
+			continue
+		}
+		if g.lastFlushedLogsKey == nil || *g.lastFlushedLogsKey != lk {
+			g.lastFlushedLogsKey = &lk
+			lb.lastFlushTime = time.Now()
+			if lk.reconcileId == "" {
+				status.Info(ctx, "Showing general controller logs")
+			} else {
+				status.Infof(ctx, "Showing logs for %s/%s and reconciliation ID %s", lk.objectKey.Namespace, lk.objectKey.Name, lk.reconcileId)
+			}
+			status.Flush(ctx)
+		}
+
+		for _, l := range lb.lines {
+			var s string
+			if g.logsArgs.LogTime {
+				s = fmt.Sprintf("%s: %s\n", l.Timestamp.Format(time.RFC3339), s)
+			} else {
+				s = l.Msg + "\n"
+			}
+			_, _ = getStdout(ctx).WriteString(s)
+		}
+		lb.lines = lb.lines[0:0]
+	}
 }
 
 func init() {

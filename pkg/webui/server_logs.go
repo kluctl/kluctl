@@ -2,6 +2,7 @@ package webui
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
 	"net/http"
@@ -39,14 +40,19 @@ func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second, false)
+	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second, true)
 	if err != nil {
 		_ = gctx.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
 	for l := range logCh {
-		err = conn.Write(ctx, websocket.MessageText, []byte(l))
+		var b []byte
+		b, err = json.Marshal(&l)
+		if err != nil {
+			return
+		}
+		err = conn.Write(ctx, websocket.MessageText, b)
 		if err != nil {
 			return
 		}

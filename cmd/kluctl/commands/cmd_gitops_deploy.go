@@ -12,6 +12,7 @@ import (
 type gitopsDeployCmd struct {
 	args.GitOpsArgs
 	args.OutputFormatFlags
+	args.GitOpsLogArgs
 }
 
 func (cmd *gitopsDeployCmd) Help() string {
@@ -19,8 +20,11 @@ func (cmd *gitopsDeployCmd) Help() string {
 }
 
 func (cmd *gitopsDeployCmd) Run(ctx context.Context) error {
-	var g gitopsCmdHelper
-	err := g.init(ctx, cmd.GitOpsArgs)
+	g := gitopsCmdHelper{
+		args:     cmd.GitOpsArgs,
+		logsArgs: cmd.GitOpsLogArgs,
+	}
+	err := g.init(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -31,7 +35,7 @@ func (cmd *gitopsDeployCmd) Run(ctx context.Context) error {
 			return err
 		}
 
-		rr, err := g.waitForRequestToFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
 			return status.DeployRequestResult
 		})
 		if err != nil {
