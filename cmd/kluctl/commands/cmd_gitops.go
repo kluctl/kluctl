@@ -24,6 +24,7 @@ type gitopsCmd struct {
 	Deploy    gitopsDeployCmd    `cmd:"" help:"Trigger a GitOps deployment"`
 	Prune     gitopsPruneCmd     `cmd:"" help:"Trigger a GitOps prune"`
 	Validate  gitopsValidateCmd  `cmd:"" help:"Trigger a GitOps validate"`
+	Logs      gitopsLogsCmd      `cmd:"" help:"Show logs from controller"`
 }
 
 type gitopsCmdHelper struct {
