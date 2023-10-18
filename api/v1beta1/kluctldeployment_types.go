@@ -459,10 +459,10 @@ type RequestResult struct {
 	RequestValue string `json:"requestValue"`
 
 	// +required
-	StartedTime metav1.Time `json:"startedTime"`
+	StartTime metav1.Time `json:"startTime"`
 
 	// +optional
-	FinishedTime *metav1.Time `json:"finishedTime,omitempty"`
+	EndTime *metav1.Time `json:"endTime,omitempty"`
 
 	// +required
 	ReconcileId string `json:"reconcileId"`

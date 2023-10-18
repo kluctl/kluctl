@@ -48,10 +48,10 @@ export function buildReconcilingState(ts: TargetSummary): ReconcilingState | und
 
     return {
         suspended: ts.kd.deployment.spec.suspend,
-        requestedReconcile: requestReconcile && !ts.kd.deployment.status?.reconcileRequestResult?.finishedTime && requestReconcile,
-        requestedValidate: requestValidate && !ts.kd.deployment.status?.validateRequestResult?.finishedTime && requestValidate,
-        requestedDeploy: requestDeploy && !ts.kd.deployment.status?.deployRequestResult?.finishedTime && requestDeploy,
-        requestedPrune: requestPrune && !ts.kd.deployment.status?.pruneRequestResult?.finishedTime && requestPrune,
+        requestedReconcile: requestReconcile && !ts.kd.deployment.status?.reconcileRequestResult?.endTime && requestReconcile,
+        requestedValidate: requestValidate && !ts.kd.deployment.status?.validateRequestResult?.endTime && requestValidate,
+        requestedDeploy: requestDeploy && !ts.kd.deployment.status?.deployRequestResult?.endTime && requestDeploy,
+        requestedPrune: requestPrune && !ts.kd.deployment.status?.pruneRequestResult?.endTime && requestPrune,
         statusExists: !!ts.kd.deployment.status,
         readyCondition: readyCondition,
         reconcilingCondition: reconcilingCondition,

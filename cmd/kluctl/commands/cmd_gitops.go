@@ -194,7 +194,7 @@ func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client
 			if rr == nil {
 				return fmt.Errorf("request result is nil")
 			}
-			if rr.FinishedTime != nil {
+			if rr.EndTime != nil {
 				return nil
 			}
 		}

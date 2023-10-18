@@ -2042,7 +2042,7 @@ string
 </tr>
 <tr>
 <td>
-<code>startedTime</code><br>
+<code>startTime</code><br>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
 Kubernetes meta/v1.Time
@@ -2054,7 +2054,7 @@ Kubernetes meta/v1.Time
 </tr>
 <tr>
 <td>
-<code>finishedTime</code><br>
+<code>endTime</code><br>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
 Kubernetes meta/v1.Time

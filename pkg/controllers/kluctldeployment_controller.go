@@ -226,8 +226,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			t := metav1.Now()
 			rr = &kluctlv1.RequestResult{
 				RequestValue: v,
-				StartedTime:  t,
-				FinishedTime: &t,
+				StartTime:    t,
+				EndTime:      &t,
 				ReconcileId:  "unknown",
 			}
 			err := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
@@ -242,7 +242,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if rr == nil || rr.RequestValue != v {
 			rr = &kluctlv1.RequestResult{
 				RequestValue: v,
-				StartedTime:  metav1.Now(),
+				StartTime:    metav1.Now(),
 				ReconcileId:  reconcileId,
 			}
 			err := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
@@ -261,7 +261,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			return nil
 		}
 		t := metav1.Now()
-		rr.FinishedTime = &t
+		rr.EndTime = &t
 		rr.ResultId = resultId
 		if commandErr != nil {
 			rr.CommandError = commandErr.Error()

@@ -670,7 +670,7 @@ spec:
                 properties:
                   commandError:
                     type: string
-                  finishedTime:
+                  endTime:
                     format: date-time
                     type: string
                   reconcileId:
@@ -679,13 +679,13 @@ spec:
                     type: string
                   resultId:
                     type: string
-                  startedTime:
+                  startTime:
                     format: date-time
                     type: string
                 required:
                 - reconcileId
                 - requestValue
-                - startedTime
+                - startTime
                 type: object
               lastDeployError:
                 type: string
@@ -752,7 +752,7 @@ spec:
                 properties:
                   commandError:
                     type: string
-                  finishedTime:
+                  endTime:
                     format: date-time
                     type: string
                   reconcileId:
@@ -761,19 +761,19 @@ spec:
                     type: string
                   resultId:
                     type: string
-                  startedTime:
+                  startTime:
                     format: date-time
                     type: string
                 required:
                 - reconcileId
                 - requestValue
-                - startedTime
+                - startTime
                 type: object
               reconcileRequestResult:
                 properties:
                   commandError:
                     type: string
-                  finishedTime:
+                  endTime:
                     format: date-time
                     type: string
                   reconcileId:
@@ -782,13 +782,13 @@ spec:
                     type: string
                   resultId:
                     type: string
-                  startedTime:
+                  startTime:
                     format: date-time
                     type: string
                 required:
                 - reconcileId
                 - requestValue
-                - startedTime
+                - startTime
                 type: object
               targetKey:
                 properties:
@@ -805,7 +805,7 @@ spec:
                 properties:
                   commandError:
                     type: string
-                  finishedTime:
+                  endTime:
                     format: date-time
                     type: string
                   reconcileId:
@@ -814,13 +814,13 @@ spec:
                     type: string
                   resultId:
                     type: string
-                  startedTime:
+                  startTime:
                     format: date-time
                     type: string
                 required:
                 - reconcileId
                 - requestValue
-                - startedTime
+                - startTime
                 type: object
             type: object
         type: object

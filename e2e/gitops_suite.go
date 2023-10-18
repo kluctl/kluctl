@@ -160,7 +160,7 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
 		var kd kluctlv1.KluctlDeployment
 		err := suite.k.Client.Get(context.TODO(), key, &kd)
 		g.Expect(err).To(Succeed())
-		return kd.Status.ReconcileRequestResult != nil && kd.Status.ReconcileRequestResult.RequestValue == reconcileId && kd.Status.ReconcileRequestResult.FinishedTime == nil
+		return kd.Status.ReconcileRequestResult != nil && kd.Status.ReconcileRequestResult.RequestValue == reconcileId && kd.Status.ReconcileRequestResult.EndTime == nil
 	}, timeout, time.Second).Should(BeTrue())
 }
 
@@ -172,7 +172,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 	g.Eventually(func() bool {
 		var kd kluctlv1.KluctlDeployment
 		_ = suite.k.Client.Get(context.Background(), key, &kd)
-		return kd.Status.ReconcileRequestResult != nil && kd.Status.ReconcileRequestResult.RequestValue == reconcileId && kd.Status.ReconcileRequestResult.FinishedTime == nil && kd.Status.ObservedCommit == commit
+		return kd.Status.ReconcileRequestResult != nil && kd.Status.ReconcileRequestResult.RequestValue == reconcileId && kd.Status.ReconcileRequestResult.EndTime == nil && kd.Status.ObservedCommit == commit
 	}, timeout, time.Second).Should(BeTrue())
 }
 
