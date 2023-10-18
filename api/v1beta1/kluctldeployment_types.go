@@ -647,6 +647,7 @@ func (s *KluctlDeploymentStatus) GetDriftDetectionResult() (*result.DriftDetecti
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Suspend",type="boolean",JSONPath=".spec.suspend",description=""
 //+kubebuilder:printcolumn:name="DryRun",type="boolean",JSONPath=".spec.dryRun",description=""
 //+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.commandInfo.endTime",description=""
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""

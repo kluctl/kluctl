@@ -15,6 +15,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.suspend
+      name: Suspend
+      type: boolean
     - jsonPath: .spec.dryRun
       name: DryRun
       type: boolean
