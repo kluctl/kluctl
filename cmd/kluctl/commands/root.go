@@ -347,14 +347,5 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		return nil
 	}
 
-	err = rootCmd.Execute()
-	if err != nil {
-		if status.FromContext(ctx) != nil {
-			status.Error(ctx, err.Error())
-		} else {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		}
-		return err
-	}
-	return nil
+	return rootCmd.Execute()
 }
