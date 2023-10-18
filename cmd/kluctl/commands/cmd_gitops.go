@@ -30,8 +30,10 @@ type gitopsCmd struct {
 }
 
 type gitopsCmdHelper struct {
-	args     args.GitOpsArgs
-	logsArgs args.GitOpsLogArgs
+	args           args.GitOpsArgs
+	logsArgs       args.GitOpsLogArgs
+	noArgsReact    noArgsReact
+	allowSuspended bool
 
 	kds []v1beta1.KluctlDeployment
 
@@ -63,7 +65,7 @@ const (
 	noArgsAllDeployments
 )
 
-func (g *gitopsCmdHelper) init(ctx context.Context, noArgs noArgsReact) error {
+func (g *gitopsCmdHelper) init(ctx context.Context) error {
 	s := status.Startf(ctx, "Initializing")
 	defer s.Failed()
 
@@ -99,7 +101,7 @@ func (g *gitopsCmdHelper) init(ctx context.Context, noArgs noArgsReact) error {
 		ns = defaultNs
 	}
 
-	var opts []client.ListOption
+	var kds []v1beta1.KluctlDeployment
 	if g.args.Name != "" {
 		if ns == "" {
 			return fmt.Errorf("no namespace specified")
@@ -113,7 +115,7 @@ func (g *gitopsCmdHelper) init(ctx context.Context, noArgs noArgsReact) error {
 		if err != nil {
 			return err
 		}
-		g.kds = append(g.kds, kd)
+		kds = append(kds, kd)
 	} else if g.args.LabelSelector != "" {
 		label, err := metav1.ParseToLabelSelector(g.args.LabelSelector)
 		if err != nil {
@@ -124,6 +126,7 @@ func (g *gitopsCmdHelper) init(ctx context.Context, noArgs noArgsReact) error {
 			return err
 		}
 
+		var opts []client.ListOption
 		opts = append(opts, client.MatchingLabelsSelector{Selector: sel})
 		if ns != "" {
 			opts = append(opts, client.InNamespace(ns))
@@ -134,18 +137,28 @@ func (g *gitopsCmdHelper) init(ctx context.Context, noArgs noArgsReact) error {
 		if err != nil {
 			return err
 		}
-		g.kds = append(g.kds, l.Items...)
-	} else if noArgs == noArgsNoDeployments {
+		kds = append(kds, l.Items...)
+	} else if g.noArgsReact == noArgsNoDeployments {
 		// do nothing
-	} else if noArgs == noArgsAllDeployments {
+	} else if g.noArgsReact == noArgsAllDeployments {
 		var l v1beta1.KluctlDeploymentList
-		err = g.client.List(ctx, &l, opts...)
+		err = g.client.List(ctx, &l)
 		if err != nil {
 			return err
 		}
-		g.kds = append(g.kds, l.Items...)
+		kds = append(kds, l.Items...)
 	} else {
 		return fmt.Errorf("either name or label selector must be set")
+	}
+
+	for _, kd := range kds {
+		if kd.Spec.Suspend {
+			if !g.allowSuspended {
+				status.Warningf(ctx, "Skipping suspended deployment %s/%s", kd.Namespace, kd.Name)
+				continue
+			}
+		}
+		g.kds = append(g.kds, kd)
 	}
 
 	g.resultStore, err = buildResultStore(ctx, restConfig, g.args.CommandResultFlags, false)

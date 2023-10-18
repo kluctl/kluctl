@@ -32,14 +32,14 @@ func (cmd *GitopsSuspendCmd) Help() string {
 
 func (cmd *GitopsSuspendCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
-		args:     cmd.GitOpsArgs,
-		logsArgs: cmd.GitOpsLogArgs,
+		args:           cmd.GitOpsArgs,
+		logsArgs:       cmd.GitOpsLogArgs,
+		allowSuspended: true,
 	}
-	na := noArgsForbid
 	if cmd.All {
-		na = noArgsAllDeployments
+		g.noArgsReact = noArgsAllDeployments
 	}
-	err := g.init(ctx, na)
+	err := g.init(ctx)
 	if err != nil {
 		return err
 	}

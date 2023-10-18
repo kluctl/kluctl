@@ -22,7 +22,7 @@ func (cmd *gitopsReconcileCmd) Run(ctx context.Context) error {
 		args:     cmd.GitOpsArgs,
 		logsArgs: cmd.GitOpsLogArgs,
 	}
-	err := g.init(ctx, noArgsForbid)
+	err := g.init(ctx)
 	if err != nil {
 		return err
 	}
