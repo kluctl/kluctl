@@ -129,6 +129,8 @@ func (suite *GitopsTestSuite) startController() {
 func (suite *GitopsTestSuite) triggerReconcile(key client.ObjectKey) string {
 	reconcileId := fmt.Sprintf("%d", rand.Int63())
 
+	suite.T().Logf("%s: triggerReconcile", reconcileId)
+
 	suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 		a := kd.GetAnnotations()
 		if a == nil {
@@ -145,11 +147,21 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
 
 	reconcileId := suite.triggerReconcile(key)
 
+	suite.T().Logf("%s: waiting for reconcile to finish", reconcileId)
+
 	g.Eventually(func() bool {
 		var kd kluctlv1.KluctlDeployment
 		err := suite.k.Client.Get(context.TODO(), key, &kd)
 		g.Expect(err).To(Succeed())
-		return kd.Status.ReconcileRequestResult != nil && kd.Status.ReconcileRequestResult.RequestValue == reconcileId && kd.Status.ReconcileRequestResult.EndTime != nil
+		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
+			suite.T().Logf("%s: request processing not started yet", reconcileId)
+			return false
+		}
+		if kd.Status.ReconcileRequestResult.EndTime == nil {
+			suite.T().Logf("%s: request processing not finished yet", reconcileId)
+			return false
+		}
+		return true
 	}, timeout, time.Second).Should(BeTrue())
 }
 
@@ -158,10 +170,25 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 
 	reconcileId := suite.triggerReconcile(key)
 
+	suite.T().Logf("%s: waiting for commit %s", reconcileId, commit)
+
 	g.Eventually(func() bool {
 		var kd kluctlv1.KluctlDeployment
-		_ = suite.k.Client.Get(context.Background(), key, &kd)
-		return kd.Status.ReconcileRequestResult != nil && kd.Status.ReconcileRequestResult.RequestValue == reconcileId && kd.Status.ReconcileRequestResult.EndTime != nil && kd.Status.ObservedCommit == commit
+		err := suite.k.Client.Get(context.Background(), key, &kd)
+		g.Expect(err).To(Succeed())
+		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
+			suite.T().Logf("%s: request processing not started yet", reconcileId)
+			return false
+		}
+		if kd.Status.ReconcileRequestResult.EndTime == nil {
+			suite.T().Logf("%s: request processing not finished yet", reconcileId)
+			return false
+		}
+		if kd.Status.ObservedCommit != commit {
+			suite.T().Logf("%s: commit %s does mot match %s", reconcileId, kd.Status.ObservedCommit, commit)
+			return false
+		}
+		return true
 	}, timeout, time.Second).Should(BeTrue())
 }
 
