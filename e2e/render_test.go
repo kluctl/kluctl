@@ -55,7 +55,7 @@ func TestRenderNoKubeconfig(t *testing.T) {
 	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField("context1", "context")
 	})
-	_, stderr, _ = p.Kluctl("render", "-t", "test", "--print-all")
-	assert.Contains(t, stderr, "context \"context1\" does not exist")
+	_, stderr, err := p.Kluctl("render", "-t", "test", "--print-all")
+	assert.ErrorContains(t, err, "context \"context1\" does not exist")
 
 }

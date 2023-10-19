@@ -76,9 +76,8 @@ func TestGetImageNotFound(t *testing.T) {
 
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 
-	_, stderr, err := p.Kluctl("deploy", "-y", "-t", "test")
-	assert.Error(t, err)
-	assert.Contains(t, stderr, "failed to find fixed image for i1")
+	_, _, err := p.Kluctl("deploy", "-y", "-t", "test")
+	assert.ErrorContains(t, err, "failed to find fixed image for i1")
 }
 
 func TestGetImageArg(t *testing.T) {

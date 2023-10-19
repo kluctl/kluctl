@@ -84,14 +84,12 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	repoUrl3 := repo3.URL.String() + "/org3/repo3"
 
 	// push with no creds
-	_, stderr, err := ip1.Kluctl("oci", "push", "--url", repoUrl1)
+	_, _, err := ip1.Kluctl("oci", "push", "--url", repoUrl1)
 	assert.ErrorContains(t, err, "401 Unauthorized")
-	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// push with invalid creds
-	_, stderr, err = ip1.Kluctl("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:invalid", repo1.URL.Host))
+	_, _, err = ip1.Kluctl("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:invalid", repo1.URL.Host))
 	assert.ErrorContains(t, err, "401 Unauthorized")
-	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// now with valid creds
 	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
@@ -122,9 +120,8 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	}))
 
 	// deploy with no auth
-	_, stderr, err = p.Kluctl("deploy", "--yes", "-t", "test")
+	_, _, err = p.Kluctl("deploy", "--yes", "-t", "test")
 	assert.ErrorContains(t, err, "401 Unauthorized")
-	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// deploy with some invalid creds
 	t.Setenv("KLUCTL_REGISTRY_1_HOST", repo1.URL.Host)
@@ -134,9 +131,8 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	t.Setenv("KLUCTL_REGISTRY_2_REPOSITORY", fmt.Sprintf("%s/org2/repo2", repo2.URL.Host))
 	t.Setenv("KLUCTL_REGISTRY_2_USERNAME", "user2")
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "invalid")
-	_, stderr, err = p.Kluctl("deploy", "--yes", "-t", "test")
+	_, _, err = p.Kluctl("deploy", "--yes", "-t", "test")
 	assert.ErrorContains(t, err, "401 Unauthorized")
-	assert.Contains(t, stderr, "401 Unauthorized")
 
 	// deploy with valid creds
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "pass2")

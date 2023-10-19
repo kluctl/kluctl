@@ -89,9 +89,8 @@ func assertValidate(t *testing.T, p *test_project.TestProject, succeed bool) (st
 		assert.NotContains(t, stdout, fmt.Sprintf("%s/Deployment/d1: readyReplicas field not in status or empty", p.TestSlug()))
 		assert.NotContains(t, stderr, "Validation failed")
 	} else {
-		assert.Error(t, err)
+		assert.ErrorContains(t, err, "Validation failed")
 		assert.Contains(t, stdout, fmt.Sprintf("%s/Deployment/d1: readyReplicas field not in status or empty", p.TestSlug()))
-		assert.Contains(t, stderr, "Validation failed")
 	}
 
 	return stdout, stderr

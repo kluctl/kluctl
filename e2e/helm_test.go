@@ -402,8 +402,7 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 		assert.Contains(t, stderr, pullMessage)
 	}
 	if tc.expectedError != "" {
-		assert.Error(t, err)
-		assert.Contains(t, stderr, tc.expectedError)
+		assert.ErrorContains(t, err, tc.expectedError)
 	} else {
 		assert.NoError(t, err)
 		assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
