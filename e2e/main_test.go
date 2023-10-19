@@ -1,11 +1,23 @@
 package e2e
 
 import (
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
 	"os"
 	"testing"
 )
 
+func isCallKluctl() bool {
+	return os.Getenv("CALL_KLUCTL") == "true"
+}
+
 func TestMain(m *testing.M) {
+	// We use the TestMail to run kluctl even though the test executable was invoked
+	// This is clearly a hack, but it avoids the requirement to have a kluctl executable pre-built
+	if isCallKluctl() {
+		commands.Main()
+		os.Exit(0)
+	}
+
 	tmpFile1, err := os.CreateTemp("", "")
 	if err != nil {
 		panic(err)

@@ -20,7 +20,7 @@ var gitopsCluster = test_utils.CreateEnvTestCluster("gitops")
 var mergedKubeconfig string
 
 func init() {
-	if isCallKluctlHack() {
+	if isCallKluctl() {
 		return
 	}
 
