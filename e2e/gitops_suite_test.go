@@ -20,7 +20,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	runtime2 "runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -53,10 +52,6 @@ type GitopsTestSuite struct {
 }
 
 func (suite *GitopsTestSuite) SetupSuite() {
-	if runtime2.GOOS == "windows" {
-		suite.T().Skip("skipping gitops tests on windows")
-	}
-
 	suite.k = gitopsCluster
 
 	n := suite.T().Name()
