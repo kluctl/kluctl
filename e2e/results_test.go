@@ -49,7 +49,7 @@ func TestWriteResult(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rs, err := results.NewResultStoreSecrets(ctx, k.RESTConfig(), k.Client, "kluctl-results", 0, 0)
+	rs, err := results.NewResultStoreSecrets(ctx, k.RESTConfig(), k.Client, false, "kluctl-results", 0, 0)
 	assert.NoError(t, err)
 
 	opts := results.ListResultSummariesOptions{

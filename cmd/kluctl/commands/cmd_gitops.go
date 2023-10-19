@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -95,7 +96,14 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		return err
 	}
 
-	g.client, err = client.NewWithWatch(restConfig, client.Options{})
+	_, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, restConfig)
+	if err != nil {
+		return err
+	}
+
+	g.client, err = client.NewWithWatch(restConfig, client.Options{
+		Mapper: mapper,
+	})
 	if err != nil {
 		return err
 	}
@@ -169,8 +177,7 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		g.kds = append(g.kds, kd)
 	}
 
-	g.resultStore, err = buildResultStore(ctx, restConfig,
-		g.args.CommandResultReadOnlyFlags, args.CommandResultWriteFlags{}, false)
+	g.resultStore, err = buildResultStoreRO(ctx, restConfig, mapper, &g.args.CommandResultReadOnlyFlags)
 	if err != nil {
 		return err
 	}

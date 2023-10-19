@@ -245,7 +245,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 		s.Success()
 
-		resultStore, err = initStores(ctx, clientConfig, mapper, args.commandResultFlags)
+		resultStore, err = buildResultStoreRW(ctx, clientConfig, mapper, args.commandResultFlags, false)
 		if err != nil {
 			return err
 		}
@@ -271,26 +271,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	return cb(cmdCtx)
-}
-
-func initStores(ctx context.Context, clientConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags) (results.ResultStore, error) {
-	if flags == nil || !flags.WriteCommandResult {
-		return nil, nil
-	}
-
-	client, err := client2.New(clientConfig, client2.Options{
-		Mapper: mapper,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	resultStore, err := results.NewResultStoreSecrets(ctx, clientConfig, client, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
-	if err != nil {
-		return nil, err
-	}
-
-	return resultStore, nil
 }
 
 func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
@@ -360,17 +340,39 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string
 	}, nil
 }
 
-func buildResultStore(ctx context.Context, restConfig *rest.Config, roArgs args.CommandResultReadOnlyFlags, wArgs args.CommandResultWriteFlags, startCleanup bool) (results.ResultStore, error) {
-	if !wArgs.WriteCommandResult {
+func buildResultStoreRO(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultReadOnlyFlags) (results.ResultStore, error) {
+	if flags == nil {
 		return nil, nil
 	}
 
-	c, err := client2.NewWithWatch(restConfig, client2.Options{})
+	c, err := client2.NewWithWatch(restConfig, client2.Options{
+		Mapper: mapper,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, roArgs.CommandResultNamespace, wArgs.KeepCommandResultsCount, wArgs.KeepValidateResultsCount)
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, false, flags.CommandResultNamespace, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultStore, nil
+}
+
+func buildResultStoreRW(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags, startCleanup bool) (results.ResultStore, error) {
+	if flags == nil || !flags.WriteCommandResult {
+		return nil, nil
+	}
+
+	c, err := client2.NewWithWatch(restConfig, client2.Options{
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, true, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
 	if err != nil {
 		return nil, err
 	}

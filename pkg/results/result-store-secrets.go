@@ -36,6 +36,7 @@ type ResultStoreSecrets struct {
 	validateResultsCache cache.Cache
 	clusterId            string
 
+	allowWrite               bool
 	writeNamespace           string
 	keepCommandResultsCount  int
 	keepValidateResultsCount int
@@ -43,7 +44,7 @@ type ResultStoreSecrets struct {
 	mutex sync.Mutex
 }
 
-func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ client.Client, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
+func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ client.Client, allowWrite bool, writeNamespace string, keepCommandResultsCount int, keepValidateResultsCount int) (*ResultStoreSecrets, error) {
 	clusterId, err := k8s.GetClusterId(ctx, client_)
 	if err != nil {
 		return nil, err
@@ -73,6 +74,7 @@ func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ cli
 	s := &ResultStoreSecrets{
 		ctx:                      ctx,
 		client:                   client_,
+		allowWrite:               allowWrite,
 		writeNamespace:           writeNamespace,
 		cache:                    c1,
 		clusterId:                clusterId,
@@ -115,6 +117,9 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 	if s.writeNamespace == "" {
 		return fmt.Errorf("missing writeNamespace")
 	}
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
 	var ns corev1.Namespace
 	err := s.client.Get(s.ctx, client.ObjectKey{Name: s.writeNamespace}, &ns)
 	if err != nil && errors.IsNotFound(err) {
@@ -135,6 +140,10 @@ func (s *ResultStoreSecrets) ensureWriteNamespace() error {
 }
 
 func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+
 	err := s.ensureWriteNamespace()
 	if err != nil {
 		return err
@@ -210,6 +219,10 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 }
 
 func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+
 	err := s.ensureWriteNamespace()
 	if err != nil {
 		return err
@@ -275,6 +288,10 @@ func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) erro
 }
 
 func (s *ResultStoreSecrets) cleanupOldCommandResults(project result.ProjectKey, target result.TargetKey) error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+
 	results, err := s.ListCommandResultSummaries(ListResultSummariesOptions{
 		ProjectFilter: &project,
 	})
@@ -304,6 +321,10 @@ func (s *ResultStoreSecrets) cleanupOldCommandResults(project result.ProjectKey,
 }
 
 func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+
 	commandResults, err := s.doListCommandResultSummaries(ListResultSummariesOptions{})
 	if err != nil {
 		return err
@@ -360,6 +381,10 @@ func (s *ResultStoreSecrets) cleanupOrphanedResults() error {
 }
 
 func (s *ResultStoreSecrets) StartCleanupOrphans() error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+
 	ch, _, err := s.WatchKluctlDeployments()
 	if err != nil {
 		return err
