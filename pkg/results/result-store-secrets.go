@@ -826,7 +826,7 @@ func (s *ResultStoreSecrets) ListKluctlDeployments() ([]WatchKluctlDeploymentEve
 		o.APIVersion = kluctlv1.GroupVersion.String()
 		ret = append(ret, WatchKluctlDeploymentEvent{
 			ClusterId:  s.clusterId,
-			Deployment: &x,
+			Deployment: o,
 		})
 	}
 	return ret, nil
