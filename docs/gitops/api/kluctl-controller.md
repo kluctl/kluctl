@@ -1111,6 +1111,58 @@ There are two ways to use this value properly.
 <tbody>
 <tr>
 <td>
+<code>reconcileRequestResult</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.RequestResult">
+RequestResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>deployRequestResult</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.RequestResult">
+RequestResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>pruneRequestResult</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.RequestResult">
+RequestResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>validateRequestResult</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.RequestResult">
+RequestResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>lastHandledReconcileAt</code><br>
 <em>
 string
@@ -1120,7 +1172,8 @@ string
 <em>(Optional)</em>
 <p>LastHandledReconcileAt holds the value of the most recent
 reconcile request value, so a change of the annotation value
-can be detected.</p>
+can be detected.
+DEPRECATED</p>
 </td>
 </tr>
 <tr>
@@ -1132,6 +1185,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>DEPRECATED</p>
 </td>
 </tr>
 <tr>
@@ -1143,6 +1197,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>DEPRECATED</p>
 </td>
 </tr>
 <tr>
@@ -1154,6 +1209,7 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+<p>DEPRECATED</p>
 </td>
 </tr>
 <tr>
@@ -1952,6 +2008,93 @@ string
 <td>
 <em>(Optional)</em>
 <p>Path specifies the sub-directory to be used as project directory</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.RequestResult">RequestResult
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.KluctlDeploymentStatus">KluctlDeploymentStatus</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>requestValue</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>startTime</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>endTime</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>reconcileId</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resultId</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>commandError</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 </tbody>

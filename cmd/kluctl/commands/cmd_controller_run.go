@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,7 +21,6 @@ import (
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -150,21 +148,9 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		SshPool:               sshPool,
 	}
 
-	if cmd.WriteCommandResult {
-		c, err := client.NewWithWatch(restConfig, client.Options{})
-		if err != nil {
-			return err
-		}
-		resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount, cmd.KeepValidateResultsCount)
-		if err != nil {
-			return err
-		}
-		r.ResultStore = resultStore
-
-		err = resultStore.StartCleanupOrphans()
-		if err != nil {
-			return err
-		}
+	r.ResultStore, err = buildResultStoreRW(ctx, restConfig, mgr.GetRESTMapper(), &cmd.CommandResultFlags, true)
+	if err != nil {
+		return err
 	}
 
 	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{

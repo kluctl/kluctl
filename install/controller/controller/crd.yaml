@@ -15,6 +15,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.suspend
+      name: Suspend
+      type: boolean
     - jsonPath: .spec.dryRun
       name: DryRun
       type: boolean
@@ -666,6 +669,27 @@ spec:
                   - type
                   type: object
                 type: array
+              deployRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  requestValue:
+                    type: string
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - requestValue
+                - startTime
+                type: object
               lastDeployError:
                 type: string
               lastDeployResult:
@@ -685,15 +709,18 @@ spec:
                   that describes the drift optional
                 type: string
               lastHandledDeployAt:
+                description: DEPRECATED
                 type: string
               lastHandledPruneAt:
+                description: DEPRECATED
                 type: string
               lastHandledReconcileAt:
                 description: LastHandledReconcileAt holds the value of the most recent
                   reconcile request value, so a change of the annotation value can
-                  be detected.
+                  be detected. DEPRECATED
                 type: string
               lastHandledValidateAt:
+                description: DEPRECATED
                 type: string
               lastManualObjectsHash:
                 type: string
@@ -724,6 +751,48 @@ spec:
                   subDir:
                     type: string
                 type: object
+              pruneRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  requestValue:
+                    type: string
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - requestValue
+                - startTime
+                type: object
+              reconcileRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  requestValue:
+                    type: string
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - requestValue
+                - startTime
+                type: object
               targetKey:
                 properties:
                   clusterId:
@@ -734,6 +803,27 @@ spec:
                     type: string
                 required:
                 - clusterId
+                type: object
+              validateRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  requestValue:
+                    type: string
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - requestValue
+                - startTime
                 type: object
             type: object
         type: object

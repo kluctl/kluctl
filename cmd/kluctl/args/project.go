@@ -1,6 +1,8 @@
 package args
 
 import (
+	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"path/filepath"
 	"time"
@@ -39,16 +41,52 @@ type ArgsFlags struct {
 	ArgsFromFile []string `group:"project" help:"Loads a yaml file and makes it available as arguments, meaning that they will be available thought the global 'args' variable."`
 }
 
-type TargetFlags struct {
+func (a *ArgsFlags) LoadArgs() (*uo.UnstructuredObject, error) {
+	if a == nil {
+		return uo.New(), nil
+	}
+
+	var args *uo.UnstructuredObject
+	optionArgs, err := deployment.ParseArgs(a.Arg)
+	if err != nil {
+		return nil, err
+	}
+	args, err = deployment.ConvertArgsToVars(optionArgs, true)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range a.ArgsFromFile {
+		optionArgs2, err := uo.FromFile(a)
+		if err != nil {
+			return nil, err
+		}
+		args.Merge(optionArgs2)
+	}
+	return args, nil
+}
+
+type TargetFlagsBase struct {
 	Target             string `group:"project" short:"t" help:"Target name to run command for. Target must exist in .kluctl.yaml."`
 	TargetNameOverride string `group:"project" short:"T" help:"Overrides the target name. If -t is used at the same time, then the target will be looked up based on -t <name> and then renamed to the value of -T. If no target is specified via -t, then the no-name target is renamed to the value of -T."`
-	Context            string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
+}
+
+type TargetFlags struct {
+	TargetFlagsBase
+	Context string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
+}
+
+type CommandResultReadOnlyFlags struct {
+	CommandResultNamespace string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
+}
+
+type CommandResultWriteFlags struct {
+	WriteCommandResult       bool `group:"results" help:"Enable writing of command results into the cluster. This is enabled by default." default:"true"`
+	ForceWriteCommandResult  bool `group:"results" help:"Force writing of command results, even if the command is run in dry-run mode."`
+	KeepCommandResultsCount  int  `group:"results" help:"Configure how many old command results to keep." default:"5"`
+	KeepValidateResultsCount int  `group:"results" help:"Configure how many old validate results to keep." default:"2"`
 }
 
 type CommandResultFlags struct {
-	WriteCommandResult       bool   `group:"results" help:"Enable writing of command results into the cluster. This is enabled by default." default:"true"`
-	ForceWriteCommandResult  bool   `group:"results" help:"Force writing of command results, even if the command is run in dry-run mode."`
-	CommandResultNamespace   string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
-	KeepCommandResultsCount  int    `group:"results" help:"Configure how many old command results to keep." default:"5"`
-	KeepValidateResultsCount int    `group:"results" help:"Configure how many old validate results to keep." default:"2"`
+	CommandResultReadOnlyFlags
+	CommandResultWriteFlags
 }

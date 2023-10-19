@@ -3,11 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type webuiCmd struct {
@@ -66,12 +67,12 @@ func createResultStores(ctx context.Context, k8sContexts []string, allContexts b
 				return err
 			}
 
-			client, err := client.NewWithWatch(config, client.Options{})
+			_, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, config)
 			if err != nil {
 				return err
 			}
 
-			store, err := results.NewResultStoreSecrets(ctx, config, client, "", 0, 0)
+			store, err := buildResultStoreRO(ctx, config, mapper, &args.CommandResultReadOnlyFlags{})
 			if err != nil {
 				return err
 			}

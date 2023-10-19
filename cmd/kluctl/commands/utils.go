@@ -21,7 +21,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -123,23 +122,9 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
-	var externalArgs *uo.UnstructuredObject
-	if argsFlags != nil {
-		optionArgs, err := deployment.ParseArgs(argsFlags.Arg)
-		if err != nil {
-			return err
-		}
-		externalArgs, err = deployment.ConvertArgsToVars(optionArgs, true)
-		if err != nil {
-			return err
-		}
-		for _, a := range argsFlags.ArgsFromFile {
-			optionArgs2, err := uo.FromFile(a)
-			if err != nil {
-				return err
-			}
-			externalArgs.Merge(optionArgs2)
-		}
+	externalArgs, err := argsFlags.LoadArgs()
+	if err != nil {
+		return err
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -260,7 +245,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 		s.Success()
 
-		resultStore, err = initStores(ctx, clientConfig, mapper, args.commandResultFlags)
+		resultStore, err = buildResultStoreRW(ctx, clientConfig, mapper, args.commandResultFlags, false)
 		if err != nil {
 			return err
 		}
@@ -286,26 +271,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	}
 
 	return cb(cmdCtx)
-}
-
-func initStores(ctx context.Context, clientConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags) (results.ResultStore, error) {
-	if flags == nil || !flags.WriteCommandResult {
-		return nil, nil
-	}
-
-	client, err := client2.New(clientConfig, client2.Options{
-		Mapper: mapper,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	resultStore, err := results.NewResultStoreSecrets(ctx, clientConfig, client, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
-	if err != nil {
-		return nil, err
-	}
-
-	return resultStore, nil
 }
 
 func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
@@ -373,4 +338,51 @@ func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string
 		IsGroup:  isGroup,
 		Override: sp[1],
 	}, nil
+}
+
+func buildResultStoreRO(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultReadOnlyFlags) (results.ResultStore, error) {
+	if flags == nil {
+		return nil, nil
+	}
+
+	c, err := client2.NewWithWatch(restConfig, client2.Options{
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, false, flags.CommandResultNamespace, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultStore, nil
+}
+
+func buildResultStoreRW(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags, startCleanup bool) (results.ResultStore, error) {
+	if flags == nil || !flags.WriteCommandResult {
+		return nil, nil
+	}
+
+	c, err := client2.NewWithWatch(restConfig, client2.Options{
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, true, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if startCleanup {
+		err = resultStore.StartCleanupOrphans()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return resultStore, nil
 }

@@ -28,10 +28,14 @@ type deployCmd struct {
 	args.RenderOutputDirFlags
 	args.CommandResultFlags
 
-	NoWait bool `group:"misc" help:"Don't wait for objects readiness'"`
-	Prune  bool `group:"misc" help:"Prune orphaned objects directly after deploying. See the help for the 'prune' sub-command for details.'"`
+	DeployExtraFlags
 
 	internal bool
+}
+
+type DeployExtraFlags struct {
+	NoWait bool `group:"misc" help:"Don't wait for objects readiness."`
+	Prune  bool `group:"misc" help:"Prune orphaned objects directly after deploying. See the help for the 'prune' sub-command for details."`
 }
 
 func (cmd *deployCmd) Help() string {

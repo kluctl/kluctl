@@ -37,6 +37,11 @@ const (
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
 	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
 	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
+
+	// KluctlOnetimePatchAnnotation can be set to apply a onetime json-patch to the KluctlDeployment in the next
+	// reconciliation loop. The patched KluctlDeployment is in-memory only and not persisted. The annotation is removed
+	// immediately after it is read.
+	KluctlOnetimePatchAnnotation = "kluctl.io/gitops-onetime-patch"
 )
 
 type KluctlDeploymentSpec struct {
@@ -454,20 +459,56 @@ type KubeConfig struct {
 	SecretRef SecretKeyReference `json:"secretRef,omitempty"`
 }
 
+type RequestResult struct {
+	// +required
+	RequestValue string `json:"requestValue"`
+
+	// +required
+	StartTime metav1.Time `json:"startTime"`
+
+	// +optional
+	EndTime *metav1.Time `json:"endTime,omitempty"`
+
+	// +required
+	ReconcileId string `json:"reconcileId"`
+
+	// +optional
+	ResultId string `json:"resultId,omitempty"`
+
+	// +optional
+	CommandError string `json:"commandError,omitempty"`
+}
+
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
 type KluctlDeploymentStatus struct {
+	// +optional
+	ReconcileRequestResult *RequestResult `json:"reconcileRequestResult,omitempty"`
+
+	// +optional
+	DeployRequestResult *RequestResult `json:"deployRequestResult,omitempty"`
+
+	// +optional
+	PruneRequestResult *RequestResult `json:"pruneRequestResult,omitempty"`
+
+	// +optional
+	ValidateRequestResult *RequestResult `json:"validateRequestResult,omitempty"`
+
 	// LastHandledReconcileAt holds the value of the most recent
 	// reconcile request value, so a change of the annotation value
 	// can be detected.
+	// DEPRECATED
 	// +optional
 	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
 
+	// DEPRECATED
 	// +optional
 	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
 
+	// DEPRECATED
 	// +optional
 	LastHandledPruneAt string `json:"lastHandledPruneAt,omitempty"`
 
+	// DEPRECATED
 	// +optional
 	LastHandledValidateAt string `json:"lastHandledValidateAt,omitempty"`
 
@@ -611,6 +652,7 @@ func (s *KluctlDeploymentStatus) GetDriftDetectionResult() (*result.DriftDetecti
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Suspend",type="boolean",JSONPath=".spec.suspend",description=""
 //+kubebuilder:printcolumn:name="DryRun",type="boolean",JSONPath=".spec.dryRun",description=""
 //+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.commandInfo.endTime",description=""
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""

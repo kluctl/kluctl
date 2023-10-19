@@ -92,8 +92,16 @@ test-unit: envtest ## Run unit tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
 
 .PHONY: test-e2e
-test-e2e: envtest ## Run e2e tests.
+test-e2e: envtest ## Run all e2e tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -timeout 15m -coverprofile cover.out -test.v
+
+.PHONY: test-e2e-non-gitops
+test-e2e-non-gitops: envtest ## Run non-gitops e2e tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -timeout 15m -coverprofile cover.out -test.v -skip 'TestGitOps.*'
+
+.PHONY: test-e2e-gitops
+test-e2e-gitops: envtest ## Run gitops e2e tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -timeout 15m -coverprofile cover.out -test.v -run 'TestGitOps.*'
 
 replace-commands-help: ## Replace commands help in docs
 	go run ./internal/replace-commands-help --docs-dir ./docs/kluctl/commands

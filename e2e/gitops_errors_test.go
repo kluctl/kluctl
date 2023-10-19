@@ -51,7 +51,7 @@ func (suite *GitOpsErrorsSuite) assertErrors(key client.ObjectKey, rstatus metav
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, "", 0, 0)
+	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, false, "", 0, 0)
 	g.Expect(err).To(Succeed())
 
 	lastDeployResult, err := kd.Status.GetLastDeployResult()

@@ -73,6 +73,7 @@ type cli struct {
 	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
+	Gitops      gitopsCmd      `cmd:"" help:"GitOps sub-commands"`
 	Webui       webuiCmd       `cmd:"" help:"Kluctl Webui sub-commands"`
 	Oci         ociCmd         `cmd:"" help:"Oci sub-commands"`
 
@@ -84,8 +85,11 @@ var flagGroups = []groupInfo{
 	{group: "project", title: "Project arguments:", description: "Define where and how to load the kluctl project and its components from."},
 	{group: "images", title: "Image arguments:", description: "Control fixed images and update behaviour."},
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
+	{group: "gitops", title: "GitOps arguments:", description: "Specify gitops flags."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
+	{group: "logs", title: "Log arguments:", description: "Configure logging."},
+	{group: "override", title: "GitOps overrides:", description: "Override settings for GitOps deployments."},
 	{group: "helm", title: "Helm arguments:", description: "Configure Helm authentication."},
 	{group: "registry", title: "Registry arguments:", description: "Configure OCI registry authentication."},
 	{group: "auth", title: "Auth arguments:", description: "Configure authentication."},
@@ -274,7 +278,7 @@ func Main() {
 			return ctx, err
 		}
 
-		ctx = initStatusHandlerAndPrompts(ctx, flags.Debug, flags.NoColor)
+		ctx = initStatusHandlerAndPrompts(ctxIn, flags.Debug, flags.NoColor)
 		didSetupStatusHandler = true
 
 		if cmd.Parent() == nil || (cmd.Name() != "run" && cmd.Parent().Name() != "controller") {
@@ -313,6 +317,16 @@ func Main() {
 	}
 }
 
+type cobraCmdContextKey struct{}
+
+func getCobraCommand(ctx context.Context) *cobra.Command {
+	v := ctx.Value(cobraCmdContextKey{})
+	if x, ok := v.(*cobra.Command); ok {
+		return x
+	}
+	return nil
+}
+
 func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags *GlobalFlags) (context.Context, error)) error {
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
@@ -332,6 +346,11 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	rootCmd.SilenceErrors = true
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		ctx = context.WithValue(ctx, cobraCmdContextKey{}, cmd)
+		for c := cmd; c != nil; c = c.Parent() {
+			c.SetContext(ctx)
+		}
+
 		if preRun != nil {
 			ctx, err = preRun(ctx, cmd, &root.GlobalFlags)
 			if ctx != nil {
@@ -346,14 +365,5 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		return nil
 	}
 
-	err = rootCmd.Execute()
-	if err != nil {
-		if status.FromContext(ctx) != nil {
-			status.Error(ctx, err.Error())
-		} else {
-			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
-		}
-		return err
-	}
-	return nil
+	return rootCmd.Execute()
 }
