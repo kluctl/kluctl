@@ -13,6 +13,9 @@ updates:
       golang-x:
         patterns:
           - "golang.org/x/*"
+      k8s-io:
+        patterns:
+          - "k8s.io/*"
       aws-sdk:
         patterns:
           - "*aws-sdk*"
