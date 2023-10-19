@@ -49,7 +49,6 @@ type GitopsTestSuite struct {
 	gitopsNamespace        string
 	gitopsResultsNamespace string
 	gitopsSecretIdx        int
-	deployments            []client.ObjectKey
 	deletedDeployments     []client.ObjectKey
 }
 
@@ -92,11 +91,6 @@ func (suite *GitopsTestSuite) TearDownSuite() {
 }
 
 func (suite *GitopsTestSuite) TearDownTest() {
-	for _, key := range suite.deployments {
-		suite.deleteKluctlDeployment(key)
-	}
-
-	suite.deployments = nil
 }
 
 func (suite *GitopsTestSuite) startController() {
@@ -219,7 +213,9 @@ func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProjec
 	}
 
 	key := client.ObjectKeyFromObject(kluctlDeployment)
-	suite.deployments = append(suite.deployments, key)
+	suite.T().Cleanup(func() {
+		suite.deleteKluctlDeployment(key)
+	})
 	return key
 }
 
