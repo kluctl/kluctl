@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,11 +39,14 @@ func (cmd *gitopsReconcileCmd) Run(ctx context.Context) error {
 			return err
 		}
 
-		_, err = g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
 			return status.ReconcileRequestResult
 		})
 		if err != nil {
 			return err
+		}
+		if rr.CommandError != "" {
+			return fmt.Errorf("%s", rr.CommandError)
 		}
 	}
 	return nil

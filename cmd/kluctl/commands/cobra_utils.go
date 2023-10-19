@@ -140,9 +140,6 @@ func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}
 		}
 
 		groupOverride2, _ := f.Tag.Lookup("groupOverride")
-		if groupOverride2 != "" {
-			fmt.Sprintf("")
-		}
 		if groupOverride2 == "" {
 			groupOverride2 = groupOverride
 		}

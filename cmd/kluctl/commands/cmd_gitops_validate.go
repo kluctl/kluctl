@@ -68,6 +68,9 @@ func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 		} else {
 			status.Info(ctx, "No validation result was returned.")
 		}
+		if rr.CommandError != "" {
+			return fmt.Errorf("%s", rr.CommandError)
+		}
 	}
 	return nil
 }

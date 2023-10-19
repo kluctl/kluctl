@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/results"
@@ -58,6 +59,9 @@ func (cmd *gitopsDeployCmd) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+		}
+		if rr.CommandError != "" {
+			return fmt.Errorf("%s", rr.CommandError)
 		}
 	}
 	return nil

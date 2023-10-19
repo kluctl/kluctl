@@ -426,12 +426,14 @@ func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client
 }
 
 func (g *gitopsCmdHelper) waitForRequestToStartAndFinish(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
-	rr, err := g.waitForRequestToStart(ctx, key, requestValue, getRequestResult)
+	rrStarted, err := g.waitForRequestToStart(ctx, key, requestValue, getRequestResult)
 	if err != nil {
 		return nil, err
 	}
 
 	stopCh := make(chan struct{})
+
+	var rrFinished *v1beta1.RequestResult
 
 	gh := utils.NewGoHelper(ctx, 0)
 	gh.RunE(func() error {
@@ -439,18 +441,19 @@ func (g *gitopsCmdHelper) waitForRequestToStartAndFinish(ctx context.Context, ke
 			close(stopCh)
 		}()
 		var err error
-		rr, err = g.waitForRequestToFinish(ctx, key, getRequestResult)
+		rrFinished, err = g.waitForRequestToFinish(ctx, key, getRequestResult)
 		return err
 	})
 	gh.RunE(func() error {
-		return g.watchLogs(ctx, stopCh, key, true, "")
+		return g.watchLogs(ctx, stopCh, key, true, rrStarted.ReconcileId)
 	})
 	gh.Wait()
 
 	if gh.ErrorOrNil() != nil {
 		return nil, gh.ErrorOrNil()
 	}
-	return rr, nil
+
+	return rrFinished, nil
 }
 
 func (g *gitopsCmdHelper) watchLogs(ctx context.Context, stopCh chan struct{}, key client.ObjectKey, follow bool, reconcileId string) error {

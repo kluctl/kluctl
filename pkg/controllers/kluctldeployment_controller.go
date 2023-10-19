@@ -360,6 +360,27 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return doFailPrepare(err)
 	}
 
+	origDoFailPrepare := doFailPrepare
+	doFailPrepare = func(errIn error) (*ctrl.Result, error) {
+		err = finishHandleRequest(curReconcileRequest, "", errIn, setReconcileRequestResult)
+		if err != nil {
+			return nil, err
+		}
+		err = finishHandleRequest(curDeployRequest, "", errIn, setDeployRequestResult)
+		if err != nil {
+			return nil, err
+		}
+		err = finishHandleRequest(curPruneRequest, "", errIn, setPruneRequestResult)
+		if err != nil {
+			return nil, err
+		}
+		err = finishHandleRequest(curValidateRequest, "", errIn, setValidateRequestResult)
+		if err != nil {
+			return nil, err
+		}
+		return origDoFailPrepare(errIn)
+	}
+
 	obj.Status.LastHandledReconcileAt = ""
 	obj.Status.LastHandledDeployAt = ""
 	obj.Status.LastHandledPruneAt = ""
