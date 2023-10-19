@@ -24,7 +24,7 @@ func TestGitOpsFieldManager(t *testing.T) {
 	suite.Run(t, new(GitOpsFieldManagerTestSuite))
 }
 
-func (suite *GitopsTestSuite) TestFieldManager() {
+func (suite *GitOpsFieldManagerTestSuite) TestFieldManager() {
 	g := NewWithT(suite.T())
 
 	p := test_project.NewTestProject(suite.T())
