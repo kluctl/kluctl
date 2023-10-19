@@ -214,13 +214,18 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	// keep old status until we're doing real work (deploying, validating, ...)
 	oldReadyCondition := apimeta.FindStatusCondition(obj.GetConditions(), meta.ReadyCondition)
 
-	doFail := func(reason string, err error) (*ctrl.Result, error) {
-		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
-		patchErr := r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
-			setReadinessCondition(c, metav1.ConditionFalse, reason, err.Error(), obj.Generation)
+	doReadyCondition := func(status metav1.ConditionStatus, reason, message string) error {
+		log.Info(fmt.Sprintf("updating readiness condition: status=%s, reason=%s, message=%s", status, reason, message))
+		return r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
+			setReadinessCondition(c, status, reason, message, obj.Generation)
 			apimeta.RemoveStatusCondition(c, meta.ReconcilingCondition)
 			return nil
 		})
+	}
+
+	doFail := func(reason string, err error) (*ctrl.Result, error) {
+		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
+		patchErr := doReadyCondition(metav1.ConditionFalse, reason, err.Error())
 		if patchErr != nil {
 			err = multierror.Append(err, patchErr)
 		}
@@ -233,6 +238,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	doProgressingCondition := func(message string, keepOldReadyStatus bool) error {
+		log.Info("progressing: " + message)
 		return r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
 			if keepOldReadyStatus && oldReadyCondition != nil {
 				setReadinessCondition(c, oldReadyCondition.Status, oldReadyCondition.Reason, oldReadyCondition.Message, obj.Generation)
@@ -240,14 +246,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 				setReadinessCondition(c, metav1.ConditionUnknown, meta.ProgressingReason, "Reconciliation in progress", obj.Generation)
 			}
 			setReconcilingCondition(c, metav1.ConditionTrue, meta.ProgressingReason, message, obj.Generation)
-			return nil
-		})
-	}
-
-	doReadyCondition := func(status metav1.ConditionStatus, reason, message string) error {
-		return r.patchCondition(ctx, key, func(c *[]metav1.Condition) error {
-			setReadinessCondition(c, status, reason, message, obj.Generation)
-			apimeta.RemoveStatusCondition(c, meta.ReconcilingCondition)
 			return nil
 		})
 	}
