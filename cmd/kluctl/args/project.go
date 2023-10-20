@@ -25,15 +25,12 @@ func (a ProjectDir) GetProjectDir() (string, error) {
 
 type ProjectFlags struct {
 	ProjectDir
+	SourceOverrides
 
 	ProjectConfig ExistingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
 
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`
 	GitCacheUpdateInterval time.Duration `group:"project" help:"Specify the time to wait between git cache updates. Defaults to not wait at all and always updating caches."`
-	LocalGitOverride       []string      `group:"project" help:"Specify a single repository local git override in the form of 'github.com/my-org/my-repo=/local/path/to/override'. This will cause kluctl to not use git to clone for the specified repository but instead use the local directory. This is useful in case you need to test out changes in external git repositories without pushing them."`
-	LocalGitGroupOverride  []string      `group:"project" help:"Same as --local-git-override, but for a whole group prefix instead of a single repository. All repositories that have the given prefix will be overridden with the given local path and the repository suffix appended. For example, 'gitlab.com/some-org/sub-org=/local/path/to/my-forks' will override all repositories below 'gitlab.com/some-org/sub-org/' with the repositories found in '/local/path/to/my-forks'. It will however only perform an override if the given repository actually exists locally and otherwise revert to the actual (non-overridden) repository."`
-	LocalOciOverride       []string      `group:"project" help:"Same as --local-git-override, but for OCI repositories."`
-	LocalOciGroupOverride  []string      `group:"project" help:"Same as --local-git-group-override, but for OCI repositories."`
 }
 
 type ArgsFlags struct {

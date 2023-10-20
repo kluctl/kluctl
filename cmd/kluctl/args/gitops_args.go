@@ -25,6 +25,7 @@ type GitOpsLogArgs struct {
 }
 
 type GitOpsOverridableArgs struct {
+	SourceOverrides
 	TargetFlagsBase
 	ArgsFlags
 	ImageFlags

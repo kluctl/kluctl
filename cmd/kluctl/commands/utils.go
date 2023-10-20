@@ -19,7 +19,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
@@ -27,7 +26,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
@@ -65,35 +63,9 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	sshPool := &ssh_pool.SshPool{}
 
-	var gitRepoOverrides []repocache.RepoOverride
-	var ociRepoOverrides []repocache.RepoOverride
-	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(ctx, x, false, "git", true)
-		if err != nil {
-			return fmt.Errorf("invalid --local-git-override: %w", err)
-		}
-		gitRepoOverrides = append(gitRepoOverrides, ro)
-	}
-	for _, x := range projectFlags.LocalGitGroupOverride {
-		ro, err := parseRepoOverride(ctx, x, true, "git", true)
-		if err != nil {
-			return fmt.Errorf("invalid --local-git-group-override: %w", err)
-		}
-		gitRepoOverrides = append(gitRepoOverrides, ro)
-	}
-	for _, x := range projectFlags.LocalOciOverride {
-		ro, err := parseRepoOverride(ctx, x, false, "oci", false)
-		if err != nil {
-			return fmt.Errorf("invalid --local-oci-override: %w", err)
-		}
-		ociRepoOverrides = append(ociRepoOverrides, ro)
-	}
-	for _, x := range projectFlags.LocalOciGroupOverride {
-		ro, err := parseRepoOverride(ctx, x, true, "oci", false)
-		if err != nil {
-			return fmt.Errorf("invalid --local-oci-group-override: %w", err)
-		}
-		ociRepoOverrides = append(ociRepoOverrides, ro)
+	gitRepoOverrides, ociRepoOverrides, err := projectFlags.SourceOverrides.ParseOverrides(ctx)
+	if err != nil {
+		return err
 	}
 
 	messageCallbacks := &messages.MessageCallbacks{
@@ -298,46 +270,6 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 		}
 		return restConfig, &rawConfig, nil
 	}
-}
-
-func parseRepoOverride(ctx context.Context, s string, isGroup bool, type_ string, allowLegacy bool) (repocache.RepoOverride, error) {
-	sp := strings.SplitN(s, "=", 2)
-	if len(sp) != 2 {
-		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
-	}
-
-	repoKey, err := types.ParseRepoKey(sp[0], type_)
-	if err != nil {
-		if !allowLegacy {
-			return repocache.RepoOverride{}, err
-		}
-
-		// try as legacy repo key
-		u, err2 := types.ParseGitUrl(sp[0])
-		if err2 != nil {
-			// return original error
-			return repocache.RepoOverride{}, err
-		}
-
-		x := u.Host
-		if !strings.HasPrefix(u.Path, "/") {
-			x += "/"
-		}
-		x += u.Path
-		repoKey, err2 = types.ParseRepoKey(x, type_)
-		if err2 != nil {
-			// return original error
-			return repocache.RepoOverride{}, err
-		}
-
-		status.Deprecation(ctx, "old-repo-override", "Passing --local-git-override/--local-git-override-group in the example.com:path form is deprecated and will not be supported in future versions of Kluctl. Please use the example.com/path form.")
-	}
-
-	return repocache.RepoOverride{
-		RepoKey:  repoKey,
-		IsGroup:  isGroup,
-		Override: sp[1],
-	}, nil
 }
 
 func buildResultStoreRO(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultReadOnlyFlags) (results.ResultStore, error) {
