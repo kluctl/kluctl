@@ -10,17 +10,22 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	flag "github.com/spf13/pflag"
+	v12 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"math/rand"
+	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 	"time"
@@ -46,8 +51,12 @@ type gitopsCmdHelper struct {
 
 	kds []v1beta1.KluctlDeployment
 
+	restConfig   *rest.Config
 	client       client.Client
 	corev1Client *v1.CoreV1Client
+
+	soResolver *sourceoverride.Manager
+	soClient   *sourceoverride.ProxyClientCli
 
 	resultStore results.ResultStore
 
@@ -95,6 +104,8 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	g.restConfig = restConfig
 
 	_, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, restConfig)
 	if err != nil {
@@ -178,6 +189,11 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 	}
 
 	g.resultStore, err = buildResultStoreRO(ctx, restConfig, mapper, &g.args.CommandResultReadOnlyFlags)
+	if err != nil {
+		return err
+	}
+
+	err = g.initSourceOverrides(ctx)
 	if err != nil {
 		return err
 	}
@@ -330,6 +346,24 @@ func (g *gitopsCmdHelper) buildOnetimePatch(ctx context.Context, kdIn *v1beta1.K
 	err = g.overrideDeploymentArgs(kd)
 	if err != nil {
 		return nil, err
+	}
+
+	var proxyUrl *url.URL
+	if len(g.soResolver.Overrides) != 0 {
+		if g.soClient == nil {
+			return nil, fmt.Errorf("local source overrides present but no connection to source override proxy established")
+		}
+		proxyUrl, err = g.soClient.BuildProxyUrl()
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, ro := range g.soResolver.Overrides {
+		kd.Spec.SourceOverrides = append(kd.Spec.SourceOverrides, v1beta1.SourceOverride{
+			RepoKey: ro.RepoKey,
+			Url:     proxyUrl.String(),
+			IsGroup: ro.IsGroup,
+		})
 	}
 
 	kdOrigS, err := yaml.WriteJsonString(kdIn)
@@ -562,6 +596,62 @@ func (g *gitopsCmdHelper) flushLogLines(ctx context.Context, needLock bool) {
 		}
 		lb.lines = lb.lines[0:0]
 	}
+}
+
+func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
+	var err error
+	g.soResolver, err = g.overridableArgs.SourceOverrides.ParseOverrides(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(g.soResolver.Overrides) == 0 {
+		return nil
+	}
+
+	controllerNamespace := "kluctl-system"
+	pods, err := g.corev1Client.Pods(controllerNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "control-plane=kluctl-controller",
+	})
+	if err != nil {
+		return err
+	}
+	var pod *v12.Pod
+	if len(pods.Items) > 0 {
+		pod = &pods.Items[rand.Int()%len(pods.Items)]
+	}
+
+	soClient, err := sourceoverride.NewClientCli(ctx, g.soResolver)
+	if err != nil {
+		return err
+	}
+
+	if pod != nil {
+		err = soClient.ConnectToPod(g.restConfig, *pod)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = soClient.Connect("localhost:8082")
+		if err != nil {
+			return err
+		}
+	}
+	g.soClient = soClient
+
+	err = g.soClient.Handshake()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		err := soClient.Start()
+		if err != nil {
+			status.Error(ctx, err.Error())
+		}
+	}()
+
+	return nil
 }
 
 func init() {

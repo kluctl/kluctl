@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
-type Client interface {
-	ResolveOverride(ctx context.Context, repoKey types.RepoKey) (*RepoOverride, string, error)
+type Resolver interface {
+	ResolveOverride(ctx context.Context, repoKey types.RepoKey) (string, error)
 }
 
 type RepoOverride struct {
@@ -19,50 +21,66 @@ type RepoOverride struct {
 	IsGroup  bool          `json:"isGroup"`
 }
 
+func (ro *RepoOverride) Match(repoKey types.RepoKey) (string, bool) {
+	if ro.RepoKey.Type != repoKey.Type {
+		return "", false
+	}
+	if ro.RepoKey.Host != repoKey.Host {
+		return "", false
+	}
+
+	var overridePath string
+	if ro.IsGroup {
+		prefix := ro.RepoKey.Path + "/"
+		if !strings.HasPrefix(repoKey.Path, prefix) {
+			return "", false
+		}
+		relPath := strings.TrimPrefix(repoKey.Path, prefix)
+		overridePath = path.Join(ro.Override, relPath)
+	} else {
+		if ro.RepoKey.Path != repoKey.Path {
+			return "", false
+		}
+		overridePath = ro.Override
+	}
+
+	return overridePath, true
+}
+
 type Manager struct {
-	repoOverrides []RepoOverride
+	Overrides []RepoOverride
 }
 
 func NewManager(overrides []RepoOverride) *Manager {
 	return &Manager{
-		repoOverrides: overrides,
+		Overrides: overrides,
 	}
 }
 
-func (m *Manager) ResolveOverride(ctx context.Context, repoKey types.RepoKey) (*RepoOverride, string, error) {
-	for _, ro := range m.repoOverrides {
-		if ro.RepoKey.Type != repoKey.Type {
-			continue
-		}
-		if ro.RepoKey.Host != repoKey.Host {
+func (m *Manager) ResolveOverride(ctx context.Context, repoKey types.RepoKey) (string, error) {
+	for _, ro := range m.Overrides {
+		overridePath, ok := ro.Match(repoKey)
+		if !ok {
 			continue
 		}
 
-		var overridePath string
-		if ro.IsGroup {
-			prefix := ro.RepoKey.Path + "/"
-			if !strings.HasPrefix(repoKey.Path, prefix) {
-				continue
-			}
-			relPath := strings.TrimPrefix(repoKey.Path, prefix)
-			overridePath = path.Join(ro.Override, relPath)
-		} else {
-			if ro.RepoKey.Path != repoKey.Path {
-				continue
-			}
-			overridePath = ro.Override
-		}
+		overridePath = filepath.FromSlash(overridePath)
 
 		if st, err := os.Stat(overridePath); err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, "", fmt.Errorf("can not override repo %s with %s: %w", repoKey.String(), overridePath, err)
+			return "", fmt.Errorf("can not override repo %s with %s: %w", repoKey.String(), overridePath, err)
 		} else if !st.IsDir() {
-			return nil, "", fmt.Errorf("can not override repo %s. %s is not a directory", repoKey.String(), overridePath)
+			return "", fmt.Errorf("can not override repo %s. %s is not a directory", repoKey.String(), overridePath)
 		}
 
-		return &ro, overridePath, nil
+		err := utils.CheckInDir(ro.Override, overridePath)
+		if err != nil {
+			return "", fmt.Errorf("can not override repo %s with %s: %w", repoKey.String(), overridePath, err)
+		}
+
+		return overridePath, nil
 	}
-	return nil, "", nil
+	return "", nil
 }

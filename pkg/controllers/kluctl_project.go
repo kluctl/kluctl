@@ -16,6 +16,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
@@ -58,6 +59,8 @@ type preparedProject struct {
 	tmpDir     string
 	repoDir    string
 	projectDir string
+
+	soClients []*sourceoverride.ProxyClientController
 }
 
 type preparedTarget struct {
@@ -90,6 +93,17 @@ func prepareProject(ctx context.Context,
 
 	pp.tmpDir = tmpDir
 
+	pp.soClients, err = r.buildSourceOverridesClients(ctx, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	var resolvers []sourceoverride.Resolver
+	for _, x := range pp.soClients {
+		resolvers = append(resolvers, x)
+	}
+	resolver := sourceoverride.NewChainedResolver(resolvers)
+
 	gitSecrets, err := r.getGitSecrets(ctx, pp.obj.Spec.Source, pp.obj.Spec.Credentials, obj.GetNamespace())
 	if err != nil {
 		return nil, err
@@ -105,12 +119,12 @@ func prepareProject(ctx context.Context,
 		return nil, err
 	}
 
-	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets)
+	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets, resolver)
 	if err != nil {
 		return nil, err
 	}
 
-	pp.ociRP, pp.ociAuthProvider, err = r.buildOciRepoCache(ctx, ociSecrets)
+	pp.ociRP, pp.ociAuthProvider, err = r.buildOciRepoCache(ctx, ociSecrets, resolver)
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +188,10 @@ func (pp *preparedProject) cleanup() {
 	if pp.gitRP != nil {
 		pp.gitRP.Clear()
 		pp.gitRP = nil
+	}
+	for _, c := range pp.soClients {
+		_ = c.Close()
+		c.Cleanup()
 	}
 }
 

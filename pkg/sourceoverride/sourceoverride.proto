@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+option go_package = "github.com/kluctl/kluctl/v2/pkg/sourceoverride";
+
+package sourceoverride;
+
+service Proxy {
+  rpc ProxyStream(stream ProxyResponse) returns (stream ProxyRequest) {}
+  rpc ResolveOverride(ProxyRequest) returns (ResolveOverrideResponse) {}
+}
+
+message ProxyResponse {
+  optional Auth auth = 1;
+  optional ResolveOverrideResponse response = 2;
+}
+
+message ProxyRequest {
+  optional string authError = 1;
+  string serverId = 2;
+  optional ResolveOverrideRequest request = 3;
+}
+
+message Auth {
+  string serverId = 1;
+}
+
+message ResolveOverrideRequest {
+  string repoKey = 1;
+}
+
+message ResolveOverrideResponse {
+  optional string error = 1;
+  optional bytes artifact = 2;
+}

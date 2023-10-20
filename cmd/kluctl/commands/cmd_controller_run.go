@@ -7,6 +7,8 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,10 +43,12 @@ type controllerRunCmd struct {
 	Context    string `group:"misc" help:"Override the context to use."`
 	Namespace  string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
 
-	MetricsBindAddress     string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
-	HealthProbeBindAddress string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
-	LeaderElect            bool   `group:"misc" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
-	Concurrency            int    `group:"misc" help:"Configures how many KluctlDeployments can be be reconciled concurrently." default:"4"`
+	MetricsBindAddress        string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
+	HealthProbeBindAddress    string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
+	SourceOverrideBindAddress string `group:"misc" help:"The address the source override manager endpoint binds to." default:":8082"`
+
+	LeaderElect bool `group:"misc" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	Concurrency int  `group:"misc" help:"Configures how many KluctlDeployments can be be reconciled concurrently." default:"4"`
 
 	DefaultServiceAccount string `group:"misc" help:"Default service account used for impersonation."`
 	DryRun                bool   `group:"misc" help:"Run all deployments in dryRun=true mode."`
@@ -135,6 +139,18 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	eventRecorder := mgr.GetEventRecorderFor(controllerName)
 
 	sshPool := &ssh_pool.SshPool{}
+
+	var soProxyServer *sourceoverride.ProxyServerImpl
+	if cmd.SourceOverrideBindAddress != "0" {
+		soProxyServer = sourceoverride.NewProxyServerImpl(ctx)
+		go func() {
+			err = soProxyServer.Start(cmd.SourceOverrideBindAddress)
+			if err != nil {
+				status.Error(ctx, err.Error())
+			}
+		}()
+		defer soProxyServer.Stop()
+	}
 
 	r := controllers.KluctlDeploymentReconciler{
 		ControllerName:        controllerName,

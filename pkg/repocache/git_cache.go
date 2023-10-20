@@ -31,7 +31,7 @@ type GitRepoCache struct {
 	repos      map[types.RepoKey]*GitCacheEntry
 	reposMutex sync.Mutex
 
-	repoOverrides sourceoverride.Client
+	repoOverrides sourceoverride.Resolver
 
 	cleanupDirs      []string
 	cleanupDirsMutex sync.Mutex
@@ -60,7 +60,7 @@ type clonedDir struct {
 	info git.CheckoutInfo
 }
 
-func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, repoOverrides sourceoverride.Client, updateInterval time.Duration) *GitRepoCache {
+func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, repoOverrides sourceoverride.Resolver, updateInterval time.Duration) *GitRepoCache {
 	return &GitRepoCache{
 		ctx:            ctx,
 		sshPool:        sshPool,
@@ -90,7 +90,7 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 	var overridePath string
 	var err error
 	if rp.repoOverrides != nil {
-		_, overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
+		overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
 		if err != nil {
 			return nil, err
 		}

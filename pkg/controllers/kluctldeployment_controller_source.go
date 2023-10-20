@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"slices"
 	"strings"
 )
 
@@ -47,23 +46,53 @@ type helmRepoSecrets struct {
 	secret        corev1.Secret
 }
 
-func (r *KluctlDeploymentReconciler) buildRepoOverrides(ctx context.Context, obj *kluctlv1.KluctlDeployment) ([]sourceoverride.RepoOverride, error) {
-	var ret []sourceoverride.RepoOverride
+func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Context, obj *kluctlv1.KluctlDeployment) ([]*sourceoverride.ProxyClientController, error) {
+	cleanup := true
+	m := map[string]*sourceoverride.ProxyClientController{}
+
+	defer func() {
+		if cleanup {
+			for _, c := range m {
+				_ = c.Close()
+				c.Cleanup()
+			}
+		}
+	}()
+
 	for _, x := range obj.Spec.SourceOverrides {
+		if _, ok := m[x.Url]; ok {
+			continue
+		}
+
 		u, err := url.Parse(x.Url)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse source override: %w", err)
+			return nil, fmt.Errorf("failed to parse override url: %w", err)
 		}
-		if slices.Index(kluctlv1.SourceOverrideSchemes, u.Scheme) == -1 {
-			return nil, fmt.Errorf("invalid scheme in source override url")
+
+		if u.Scheme != kluctlv1.SourceOverrideScheme {
+			return nil, fmt.Errorf("unsupported source override url scheme: %s", u.Scheme)
 		}
-		ret = append(ret, sourceoverride.RepoOverride{
-			RepoKey:  x.RepoKey,
-			Override: u.String(),
-			IsGroup:  x.IsGroup,
-		})
+
+		serverId := strings.TrimPrefix(u.Path, "/")
+
+		c, err := sourceoverride.NewClientController(serverId, x.RepoKey, x.IsGroup)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create source override client: %w", err)
+		}
+
+		err = c.Connect(ctx, u.Host)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create source override client: %w", err)
+		}
+
+		m[x.Url] = c
 	}
-	return ret, nil
+	var l []*sourceoverride.ProxyClientController
+	for _, c := range m {
+		l = append(l, c)
+	}
+	cleanup = false
+	return l, nil
 }
 
 func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
@@ -407,7 +436,7 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCacheKey(secrets []ociRepoSecre
 	return h2, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets, soClient sourceoverride.Client) (*repocache.GitRepoCache, error) {
+func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets, soClient sourceoverride.Resolver) (*repocache.GitRepoCache, error) {
 	key, err := r.buildGitRepoCacheKey(secrets)
 	if err != nil {
 		return nil, err
@@ -430,7 +459,7 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 	return rc, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets, soClient sourceoverride.Client) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
+func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets, soClient sourceoverride.Resolver) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
 	key, err := r.buildOciRepoCacheKey(secrets)
 	if err != nil {
 		return nil, nil, err

@@ -31,7 +31,7 @@ type OciRepoCache struct {
 	repos      map[types.RepoKey]*OciCacheEntry
 	reposMutex sync.Mutex
 
-	repoOverrides sourceoverride.Client
+	repoOverrides sourceoverride.Resolver
 
 	cleanupDirs      []string
 	cleanupDirsMutex sync.Mutex
@@ -48,7 +48,7 @@ type OciCacheEntry struct {
 	overridePath string
 }
 
-func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthProvider, repoOverrides sourceoverride.Client, updateInterval time.Duration) *OciRepoCache {
+func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthProvider, repoOverrides sourceoverride.Resolver, updateInterval time.Duration) *OciRepoCache {
 	return &OciRepoCache{
 		ctx:             ctx,
 		updateInterval:  updateInterval,
@@ -84,7 +84,7 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 
 	var overridePath string
 	if rp.repoOverrides != nil {
-		_, overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
+		overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
 		if err != nil {
 			return nil, err
 		}
