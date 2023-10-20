@@ -63,7 +63,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	sshPool := &ssh_pool.SshPool{}
 
-	gitRepoOverrides, ociRepoOverrides, err := projectFlags.SourceOverrides.ParseOverrides(ctx)
+	sourceOverrides, err := projectFlags.SourceOverrides.ParseOverrides(ctx)
 	if err != nil {
 		return err
 	}
@@ -88,10 +88,10 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ociAuth.RegisterAuthProvider(x, false)
 	}
 
-	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, gitRepoOverrides, projectFlags.GitCacheUpdateInterval)
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, sourceOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
-	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, ociRepoOverrides, projectFlags.GitCacheUpdateInterval)
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, sourceOverrides, projectFlags.GitCacheUpdateInterval)
 	defer gitRp.Clear()
 
 	externalArgs, err := argsFlags.LoadArgs()
