@@ -13,6 +13,7 @@ import (
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,7 @@ import (
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"slices"
 	"strings"
 )
 
@@ -43,6 +45,25 @@ type helmRepoSecrets struct {
 	host          string
 	path          string
 	secret        corev1.Secret
+}
+
+func (r *KluctlDeploymentReconciler) buildRepoOverrides(ctx context.Context, obj *kluctlv1.KluctlDeployment) ([]sourceoverride.RepoOverride, error) {
+	var ret []sourceoverride.RepoOverride
+	for _, x := range obj.Spec.SourceOverrides {
+		u, err := url.Parse(x.Url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse source override: %w", err)
+		}
+		if slices.Index(kluctlv1.SourceOverrideSchemes, u.Scheme) == -1 {
+			return nil, fmt.Errorf("invalid scheme in source override url")
+		}
+		ret = append(ret, sourceoverride.RepoOverride{
+			RepoKey:  x.RepoKey,
+			Override: u.String(),
+			IsGroup:  x.IsGroup,
+		})
+	}
+	return ret, nil
 }
 
 func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
@@ -386,7 +407,7 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCacheKey(secrets []ociRepoSecre
 	return h2, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets) (*repocache.GitRepoCache, error) {
+func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets, soClient sourceoverride.Client) (*repocache.GitRepoCache, error) {
 	key, err := r.buildGitRepoCacheKey(secrets)
 	if err != nil {
 		return nil, err
@@ -405,11 +426,11 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 		return nil, err
 	}
 
-	rc := repocache.NewGitRepoCache(ctx, r.SshPool, ga, nil, 0)
+	rc := repocache.NewGitRepoCache(ctx, r.SshPool, ga, soClient, 0)
 	return rc, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
+func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets, soClient sourceoverride.Client) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
 	key, err := r.buildOciRepoCacheKey(secrets)
 	if err != nil {
 		return nil, nil, err
@@ -428,6 +449,6 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secr
 		return nil, nil, err
 	}
 
-	rc := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, 0)
+	rc := repocache.NewOciRepoCache(ctx, ociAuthProvider, soClient, 0)
 	return rc, ociAuthProvider, nil
 }

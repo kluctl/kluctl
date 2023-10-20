@@ -166,6 +166,20 @@ ProjectSource
 </tr>
 <tr>
 <td>
+<code>sourceOverrides</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.SourceOverride">
+[]SourceOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies source overrides</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>credentials</code><br>
 <em>
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentials">
@@ -648,6 +662,20 @@ ProjectSource
 </td>
 <td>
 <p>Specifies the project source location</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>sourceOverrides</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.SourceOverride">
+[]SourceOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies source overrides</p>
 </td>
 </tr>
 <tr>
@@ -2174,6 +2202,57 @@ string
 <td>
 <em>(Optional)</em>
 <p>Key in the Secret, when not specified an implementation-specific default key is used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.SourceOverride">SourceOverride
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>repoKey</code><br>
+<em>
+github.com/kluctl/kluctl/v2/pkg/types.RepoKey
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>url</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>isGroup</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 </tbody>

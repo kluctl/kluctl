@@ -42,11 +42,17 @@ const (
 	// reconciliation loop. The patched KluctlDeployment is in-memory only and not persisted. The annotation is removed
 	// immediately after it is read.
 	KluctlOnetimePatchAnnotation = "kluctl.io/gitops-onetime-patch"
+
+	SourceOverrideScheme = "grpc+source-override"
 )
 
 type KluctlDeploymentSpec struct {
 	// Specifies the project source location
 	Source ProjectSource `json:"source"`
+
+	// Specifies source overrides
+	// +optional
+	SourceOverrides []SourceOverride `json:"sourceOverrides,omitempty"`
 
 	// Credentials specifies the credentials used when pulling sources
 	// +optional
@@ -310,6 +316,15 @@ type ProjectSourceOci struct {
 	// Path specifies the sub-directory to be used as project directory
 	// +optional
 	Path string `json:"path,omitempty"`
+}
+
+type SourceOverride struct {
+	// +required
+	RepoKey types.RepoKey `json:"repoKey"`
+	// +required
+	Url string `json:"url"`
+	// +optional
+	IsGroup bool `json:"isGroup,omitempty"`
 }
 
 type ProjectCredentials struct {

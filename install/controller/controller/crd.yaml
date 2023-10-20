@@ -559,6 +559,21 @@ spec:
                       in the next API version bump. Use spec.git.url instead.
                     type: string
                 type: object
+              sourceOverrides:
+                description: Specifies source overrides
+                items:
+                  properties:
+                    isGroup:
+                      type: boolean
+                    repoKey:
+                      type: string
+                    url:
+                      type: string
+                  required:
+                  - repoKey
+                  - url
+                  type: object
+                type: array
               suspend:
                 description: This flag tells the controller to suspend subsequent
                   kluctl executions, it does not apply to already started executions.
