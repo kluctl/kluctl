@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
@@ -110,4 +112,15 @@ func parsePorcelainStatus(out string) (git.Status, error) {
 		ret[path] = &fs
 	}
 	return ret, nil
+}
+
+func LoadGitignore(p string) ([]gitignore.Pattern, error) {
+	p = filepath.Clean(p)
+	domain := strings.Split(p, string(filepath.Separator))
+	ignorePatterns, err := sourceignore.LoadIgnorePatterns(p, domain, ".gitignore")
+	if err != nil {
+		return nil, err
+	}
+	ignorePatterns = append(ignorePatterns, sourceignore.ReadPatterns(strings.NewReader(".git"), domain)...)
+	return ignorePatterns, nil
 }

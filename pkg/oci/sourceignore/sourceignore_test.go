@@ -242,7 +242,7 @@ func TestLoadExcludePatterns(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := LoadIgnorePatterns(tt.dir, tt.domain)
+			got, err := LoadIgnorePatterns(tt.dir, tt.domain, IgnoreFile)
 			if err != nil {
 				t.Error(err)
 				return

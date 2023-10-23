@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"io"
 	"os"
 	"path/filepath"
@@ -31,7 +32,7 @@ import (
 
 // Diff compares the files included in an OCI image with the local files in the given path
 // and returns an error if the contents is different
-func (c *Client) Diff(ctx context.Context, url, dir string, ignorePaths []string) error {
+func (c *Client) Diff(ctx context.Context, url, dir string, ignorePatterns []gitignore.Pattern) error {
 	_, err := name.ParseReference(url)
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
@@ -45,7 +46,7 @@ func (c *Client) Diff(ctx context.Context, url, dir string, ignorePaths []string
 
 	tmpFile := filepath.Join(tmpBuildDir, "artifact.tgz")
 
-	if err := c.Build(tmpFile, dir, ignorePaths); err != nil {
+	if err := c.Build(tmpFile, dir, ignorePatterns); err != nil {
 		return fmt.Errorf("building artifact failed: %w", err)
 	}
 
