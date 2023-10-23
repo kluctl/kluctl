@@ -38,6 +38,7 @@ type WatchKluctlDeploymentEvent struct {
 type ResultStore interface {
 	WriteCommandResult(cr *result.CommandResult) error
 	WriteValidateResult(vr *result.ValidateResult) error
+	DeleteCommandResult(rsId string) error
 
 	ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error)
 	WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)

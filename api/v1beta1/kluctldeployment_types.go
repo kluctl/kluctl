@@ -34,6 +34,7 @@ const (
 	KluctlDeployPokeImages = "poke-images"
 
 	KluctlRequestReconcileAnnotation = "kluctl.io/request-reconcile"
+	KluctlRequestDiffAnnotation      = "kluctl.io/request-diff"
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
 	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
 	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
@@ -500,6 +501,9 @@ type KluctlDeploymentStatus struct {
 	ReconcileRequestResult *RequestResult `json:"reconcileRequestResult,omitempty"`
 
 	// +optional
+	DiffRequestResult *RequestResult `json:"diffRequestResult,omitempty"`
+
+	// +optional
 	DeployRequestResult *RequestResult `json:"deployRequestResult,omitempty"`
 
 	// +optional
@@ -552,11 +556,18 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	LastPrepareError string `json:"lastPrepareError,omitempty"`
 	// +optional
+	LastDiffError string `json:"lastDiffError,omitempty"`
+	// +optional
 	LastDeployError string `json:"lastDeployError,omitempty"`
 	// +optional
 	LastValidateError string `json:"lastValidateError,omitempty"`
 	// +optional
 	LastDriftDetectionError string `json:"lastDriftDetectionError,omitempty"`
+
+	// LastDiffResult is the result summary of the last diff command
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	LastDiffResult *runtime.RawExtension `json:"lastDiffResult,omitempty"`
 
 	// LastDeployResult is the result summary of the last deploy command
 	// +optional
@@ -574,6 +585,23 @@ type KluctlDeploymentStatus struct {
 	// LastDriftDetectionResultMessage contains a short message that describes the drift
 	// optional
 	LastDriftDetectionResultMessage string `json:"lastDriftDetectionResultMessage,omitempty"`
+}
+
+func (s *KluctlDeploymentStatus) SetLastDiffResult(crs *result.CommandResultSummary, err error) error {
+	s.LastDiffError = ""
+	if err != nil {
+		s.LastDiffError = err.Error()
+	}
+	if crs == nil {
+		s.LastDiffResult = nil
+	} else {
+		b, err := yaml.WriteJsonString(crs)
+		if err != nil {
+			return err
+		}
+		s.LastDiffResult = &runtime.RawExtension{Raw: []byte(b)}
+	}
+	return nil
 }
 
 func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary, err error) error {

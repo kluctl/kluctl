@@ -1152,6 +1152,19 @@ RequestResult
 </tr>
 <tr>
 <td>
+<code>diffRequestResult</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.RequestResult">
+RequestResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>deployRequestResult</code><br>
 <em>
 <a href="#gitops.kluctl.io/v1beta1.RequestResult">
@@ -1333,6 +1346,17 @@ string
 </tr>
 <tr>
 <td>
+<code>lastDiffError</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
 <code>lastDeployError</code><br>
 <em>
 string
@@ -1362,6 +1386,18 @@ string
 </td>
 <td>
 <em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>lastDiffResult</code><br>
+<em>
+k8s.io/apimachinery/pkg/runtime.RawExtension
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>LastDiffResult is the result summary of the last diff command</p>
 </td>
 </tr>
 <tr>

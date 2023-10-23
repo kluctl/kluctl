@@ -833,9 +833,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, resourceVersions map[k8s.ObjectRef]string) (*result.CommandResult, error) {
-	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
-	defer timer.ObserveDuration()
+func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, resourceVersions map[k8s.ObjectRef]string, writeCmdResult bool) (*result.CommandResult, error) {
 	cmd := commands.NewDiffCommand(targetContext)
 	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
 	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
@@ -847,7 +845,10 @@ func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_
 	if err != nil {
 		return cmdResult, err
 	}
-	return cmdResult, nil
+	if writeCmdResult {
+		err = pt.writeCommandResult(ctx, cmdResult, "diff", true)
+	}
+	return cmdResult, err
 }
 
 func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult, crId string, objectsHash string) (*result.ValidateResult, error) {

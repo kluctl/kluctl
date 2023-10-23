@@ -323,6 +323,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	setReconcileRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
 		status.ReconcileRequestResult = requestResult
 	}
+	setDiffRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
+		status.DiffRequestResult = requestResult
+	}
 	setDeployRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
 		status.DeployRequestResult = requestResult
 	}
@@ -335,6 +338,12 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	curReconcileRequest, err := startHandleRequest(obj.Status.ReconcileRequestResult, kluctlv1.KluctlRequestReconcileAnnotation, setReconcileRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
 		return status.LastHandledReconcileAt
+	})
+	if err != nil {
+		return doFailPrepare(err)
+	}
+	curDiffRequest, err := startHandleRequest(obj.Status.DiffRequestResult, kluctlv1.KluctlRequestDiffAnnotation, setDiffRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
+		return ""
 	})
 	if err != nil {
 		return doFailPrepare(err)
@@ -366,6 +375,10 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			retErr = multierror.Append(retErr, err)
 		}
 		err = finishHandleRequest(curReconcileRequest, "", errIn, setReconcileRequestResult)
+		if err != nil {
+			retErr = multierror.Append(retErr, err)
+		}
+		err = finishHandleRequest(curDiffRequest, "", errIn, setDiffRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
@@ -489,10 +502,16 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return doFailPrepare(err)
 	}
 
+	needDiff := false
 	needDeploy := false
 	needPrune := false
 	needValidate := false
 	needDriftDetection := true
+
+	if curDiffRequest != nil {
+		// explicitly requested a diff
+		needDiff = true
+	}
 
 	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
 		// either never deployed or source code changed
@@ -554,6 +573,24 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 	obj.Status.LastObjectsHash = objectsHash
 	obj.Status.LastManualObjectsHash = obj.Spec.ManualObjectsHash
+
+	if needDiff {
+		patchErr = doProgressingCondition("Performing diff", false)
+		if patchErr != nil {
+			return nil, patchErr
+		}
+
+		diffResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash, nil, true)
+		err = obj.Status.SetLastDiffResult(diffResult.BuildSummary(), cmdErr)
+		if err != nil {
+			log.Error(err, "Failed to write diff result")
+		}
+
+		err = finishHandleRequest(curDiffRequest, diffResult.Id, cmdErr, setDiffRequestResult)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	var deployResult *result.CommandResult
 	if needDeploy {
@@ -626,7 +663,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 
 		resourceVersions := r.getResourceVersions(key)
 
-		diffResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash, resourceVersions)
+		diffResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash, resourceVersions, false)
 		driftDetectionResult := diffResult.BuildDriftDetectionResult()
 		err = obj.Status.SetLastDriftDetectionResult(driftDetectionResult, cmdErr)
 		if err != nil {

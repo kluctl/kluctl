@@ -17,6 +17,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	flag "github.com/spf13/pflag"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -35,6 +37,7 @@ type gitopsCmd struct {
 	Suspend   GitopsSuspendCmd   `cmd:"" help:"Suspend a GitOps deployment"`
 	Resume    gitopsResumeCmd    `cmd:"" help:"Resume a GitOps deployment"`
 	Reconcile gitopsReconcileCmd `cmd:"" help:"Trigger a GitOps reconciliation"`
+	Diff      gitopsDiffCmd      `cmd:"" help:"Trigger a GitOps diff"`
 	Deploy    gitopsDeployCmd    `cmd:"" help:"Trigger a GitOps deployment"`
 	Prune     gitopsPruneCmd     `cmd:"" help:"Trigger a GitOps prune"`
 	Validate  gitopsValidateCmd  `cmd:"" help:"Trigger a GitOps validate"`
@@ -52,6 +55,7 @@ type gitopsCmdHelper struct {
 	kds []v1beta1.KluctlDeployment
 
 	restConfig   *rest.Config
+	restMapper   meta.RESTMapper
 	client       client.Client
 	corev1Client *v1.CoreV1Client
 
@@ -105,12 +109,13 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		return err
 	}
 
-	g.restConfig = restConfig
-
 	_, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, restConfig)
 	if err != nil {
 		return err
 	}
+
+	g.restConfig = restConfig
+	g.restMapper = mapper
 
 	g.client, err = client.NewWithWatch(restConfig, client.Options{
 		Mapper: mapper,
@@ -229,6 +234,37 @@ func (g *gitopsCmdHelper) patchDeployment(ctx context.Context, key client.Object
 	return nil
 }
 
+func (g *gitopsCmdHelper) updateDeploymentStatus(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error, retries int) error {
+	s := status.Startf(ctx, "Updating KluctlDeployment %s/%s", key.Namespace, key.Name)
+	defer s.Failed()
+
+	var lastErr error
+	for i := 0; i < retries; i++ {
+		var kd v1beta1.KluctlDeployment
+		err := g.client.Get(ctx, key, &kd)
+		if err != nil {
+			return err
+		}
+
+		err = cb(&kd)
+		if err != nil {
+			return err
+		}
+
+		err = g.client.Status().Update(ctx, &kd, client.FieldOwner("kluctl"))
+		lastErr = err
+		if err != nil {
+			if !errors.IsConflict(err) {
+				return err
+			}
+		}
+		s.Success()
+		return nil
+	}
+
+	return lastErr
+}
+
 func (g *gitopsCmdHelper) patchDeploymentStatus(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error) error {
 	var kd v1beta1.KluctlDeployment
 	err := g.client.Get(ctx, key, &kd)
@@ -287,7 +323,7 @@ func (g *gitopsCmdHelper) buildOnetimePatch(ctx context.Context, kdIn *v1beta1.K
 	handleFlag := func(name string, cb func(f *flag.Flag)) {
 		f := cobraCmd.Flag(name)
 		if f == nil {
-			panic(fmt.Sprintf("flag %s not found", name))
+			return
 		}
 		if f.Changed {
 			cb(f)

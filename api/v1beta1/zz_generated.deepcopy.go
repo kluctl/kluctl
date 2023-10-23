@@ -240,6 +240,11 @@ func (in *KluctlDeploymentStatus) DeepCopyInto(out *KluctlDeploymentStatus) {
 		*out = new(RequestResult)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DiffRequestResult != nil {
+		in, out := &in.DiffRequestResult, &out.DiffRequestResult
+		*out = new(RequestResult)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.DeployRequestResult != nil {
 		in, out := &in.DeployRequestResult, &out.DeployRequestResult
 		*out = new(RequestResult)
@@ -276,6 +281,11 @@ func (in *KluctlDeploymentStatus) DeepCopyInto(out *KluctlDeploymentStatus) {
 		in, out := &in.LastManualObjectsHash, &out.LastManualObjectsHash
 		*out = new(string)
 		**out = **in
+	}
+	if in.LastDiffResult != nil {
+		in, out := &in.LastDiffResult, &out.LastDiffResult
+		*out = new(runtime.RawExtension)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.LastDeployResult != nil {
 		in, out := &in.LastDeployResult, &out.LastDeployResult

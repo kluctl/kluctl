@@ -23,6 +23,7 @@ func (ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 	}
 
 	return check(kluctlv1.KluctlRequestReconcileAnnotation) ||
+		check(kluctlv1.KluctlRequestDiffAnnotation) ||
 		check(kluctlv1.KluctlRequestDeployAnnotation) ||
 		check(kluctlv1.KluctlRequestPruneAnnotation) ||
 		check(kluctlv1.KluctlRequestValidateAnnotation)

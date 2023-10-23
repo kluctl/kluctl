@@ -705,10 +705,38 @@ spec:
                 - requestValue
                 - startTime
                 type: object
+              diffRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  requestValue:
+                    type: string
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - requestValue
+                - startTime
+                type: object
               lastDeployError:
                 type: string
               lastDeployResult:
                 description: LastDeployResult is the result summary of the last deploy
+                  command
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              lastDiffError:
+                type: string
+              lastDiffResult:
+                description: LastDiffResult is the result summary of the last diff
                   command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true

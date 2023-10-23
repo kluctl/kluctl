@@ -218,6 +218,26 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 	return nil
 }
 
+func (s *ResultStoreSecrets) DeleteCommandResult(rsId string) error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+	if rsId == "" {
+		return fmt.Errorf("empty rsId is not allowed")
+	}
+
+	var tmp corev1.Secret
+	err := s.client.DeleteAllOf(s.ctx, &tmp,
+		client.InNamespace(s.writeNamespace),
+		client.MatchingLabels{
+			"kluctl.io/command-result-id": rsId,
+		})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) error {
 	if !s.allowWrite {
 		return fmt.Errorf("result store is read-only")
