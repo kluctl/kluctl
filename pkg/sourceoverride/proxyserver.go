@@ -42,10 +42,13 @@ type wrappedRequest struct {
 }
 
 func NewProxyServerImpl(ctx context.Context) *ProxyServerImpl {
-	return &ProxyServerImpl{
+	m := &ProxyServerImpl{
 		ctx:         ctx,
 		connections: map[string]*ProxyConnection{},
 	}
+	m.grpcServer = grpc.NewServer(grpc.MaxRecvMsgSize(maxMsgSize))
+	RegisterProxyServer(m.grpcServer, m)
+	return m
 }
 
 func (m *ProxyServerImpl) Start(addr string) error {
@@ -53,8 +56,6 @@ func (m *ProxyServerImpl) Start(addr string) error {
 	if err != nil {
 		return err
 	}
-	m.grpcServer = grpc.NewServer(grpc.MaxRecvMsgSize(maxMsgSize))
-	RegisterProxyServer(m.grpcServer, m)
 
 	err = m.grpcServer.Serve(is)
 	if err != nil {
