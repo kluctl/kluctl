@@ -11,6 +11,7 @@ import (
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
@@ -49,6 +50,7 @@ type preparedProject struct {
 
 	startTime time.Time
 
+	j2    *jinja2.Jinja2
 	gitRP *repocache.GitRepoCache
 	ociRP *repocache.OciRepoCache
 
@@ -72,18 +74,13 @@ func prepareProject(ctx context.Context,
 	obj *kluctlv1.KluctlDeployment,
 	doCloneSource bool) (*preparedProject, error) {
 
+	cleanup := true
+
 	pp := &preparedProject{
 		r:         r,
 		obj:       obj,
 		startTime: time.Now(),
 	}
-
-	// create tmp dir
-	tmpDir, err := os.MkdirTemp("", obj.GetName()+"-")
-	if err != nil {
-		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
-	}
-	cleanup := true
 	defer func() {
 		if !cleanup {
 			return
@@ -91,7 +88,17 @@ func prepareProject(ctx context.Context,
 		pp.cleanup()
 	}()
 
-	pp.tmpDir = tmpDir
+	var err error
+	pp.j2, err = kluctl_jinja2.NewKluctlJinja2(true)
+	if err != nil {
+		return nil, err
+	}
+
+	// create tmp dir
+	pp.tmpDir, err = os.MkdirTemp("", obj.GetName()+"-")
+	if err != nil {
+		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
+	}
 
 	pp.soClients, err = r.buildSourceOverridesClients(ctx, obj)
 	if err != nil {
@@ -184,7 +191,9 @@ func prepareProject(ctx context.Context,
 }
 
 func (pp *preparedProject) cleanup() {
-	_ = os.RemoveAll(pp.tmpDir)
+	if pp.tmpDir != "" {
+		_ = os.RemoveAll(pp.tmpDir)
+	}
 	if pp.gitRP != nil {
 		pp.gitRP.Clear()
 		pp.gitRP = nil
@@ -192,6 +201,9 @@ func (pp *preparedProject) cleanup() {
 	for _, c := range pp.soClients {
 		_ = c.Close()
 		c.Cleanup()
+	}
+	if pp.j2 != nil {
+		pp.j2.Close()
 	}
 }
 
@@ -555,7 +567,7 @@ func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context,
 	return nil
 }
 
-func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTarget, j2 *jinja2.Jinja2) (*kluctl_project.LoadedKluctlProject, error) {
+func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTarget) (*kluctl_project.LoadedKluctlProject, error) {
 	var err error
 
 	var externalArgs *uo.UnstructuredObject
@@ -580,7 +592,7 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), pp.j2)
 	if err != nil {
 		return nil, err
 	}

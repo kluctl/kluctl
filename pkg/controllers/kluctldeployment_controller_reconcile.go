@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -74,4 +75,24 @@ func (r *KluctlDeploymentReconciler) finishHandleManualRequest(ctx context.Conte
 		setResult(status, rr)
 		return nil
 	})
+}
+
+func (r *KluctlDeploymentReconciler) prepareProjectAndTarget(ctx context.Context, obj *kluctlv1.KluctlDeployment) (*preparedProject, *preparedTarget, *kluctl_project.TargetContext, error) {
+	pp, err := prepareProject(ctx, r, obj, true)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	pt := pp.newTarget()
+
+	lp, err := pp.loadKluctlProject(ctx, pt)
+	if err != nil {
+		return pp, pt, nil, err
+	}
+
+	targetContext, err := pt.loadTarget(ctx, lp)
+	if err != nil {
+		return pp, pt, nil, err
+	}
+	return pp, pt, targetContext, err
 }

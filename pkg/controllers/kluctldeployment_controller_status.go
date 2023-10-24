@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
@@ -106,6 +107,32 @@ func (r *KluctlDeploymentReconciler) patchProjectKey(ctx context.Context, obj *k
 		}
 	}
 	obj.Status.ProjectKey = &newProjectKey
+	return nil
+}
+
+func (r *KluctlDeploymentReconciler) patchTargetKey(ctx context.Context, obj *kluctlv1.KluctlDeployment, targetContext *kluctl_project.TargetContext) error {
+	key := client.ObjectKeyFromObject(obj)
+
+	clusterId, err := targetContext.SharedContext.K.GetClusterId()
+	if err != nil {
+		return err
+	}
+	newTargetKey := result.TargetKey{
+		TargetName:    targetContext.Target.Name,
+		Discriminator: targetContext.Target.Discriminator,
+		ClusterId:     clusterId,
+	}
+	// we patch the targetKey immediately so that the webui knows it asap
+	if obj.Status.TargetKey == nil || *obj.Status.TargetKey != newTargetKey {
+		patchErr := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
+			status.TargetKey = &newTargetKey
+			return nil
+		})
+		if patchErr != nil {
+			return patchErr
+		}
+	}
+	obj.Status.TargetKey = &newTargetKey
 	return nil
 }
 

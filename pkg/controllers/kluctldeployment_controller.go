@@ -9,7 +9,6 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -271,11 +270,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	}
 
 	finishAllRequestsWithError := func(errIn error) error {
-		retErr := errIn
-		err := r.patchFailPrepare(ctx, obj, errIn)
-		if err != nil {
-			retErr = multierror.Append(retErr, err)
-		}
+		retErr := r.patchFailPrepare(ctx, obj, errIn)
 		err = r.finishHandleManualRequest(ctx, obj, curReconcileRequest, "", errIn, setReconcileRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
@@ -304,7 +299,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj.Status.LastHandledPruneAt = ""
 	obj.Status.LastHandledValidateAt = ""
 
-	patchErr = r.patchProgressingCondition(ctx, obj, "Preparing project", true)
+	patchErr = r.patchProgressingCondition(ctx, obj, "Loading project and target", true)
 	if patchErr != nil {
 		return nil, patchErr
 	}
@@ -318,52 +313,16 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	defer cancel()
 
 	obj.Status.LastPrepareError = ""
-	pp, err := prepareProject(timeoutCtx, r, obj, true)
-	if err != nil {
-		return nil, finishAllRequestsWithError(err)
+	pp, pt, targetContext, err := r.prepareProjectAndTarget(timeoutCtx, obj)
+	if pp != nil {
+		obj.Status.ObservedCommit = pp.co.CheckedOutCommit
+		defer pp.cleanup()
 	}
-	defer pp.cleanup()
-
-	patchErr = r.patchProgressingCondition(ctx, obj, "Loading project and target", true)
-	if patchErr != nil {
-		return nil, patchErr
-	}
-
-	obj.Status.ObservedCommit = pp.co.CheckedOutCommit
-
-	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
-	if err != nil {
-		return nil, finishAllRequestsWithError(err)
-	}
-	defer j2.Close()
-
-	pt := pp.newTarget()
-
-	lp, err := pp.loadKluctlProject(timeoutCtx, pt, j2)
 	if err != nil {
 		return nil, finishAllRequestsWithError(err)
 	}
 
-	targetContext, err := pt.loadTarget(timeoutCtx, lp)
-	if targetContext != nil {
-		clusterId, err := targetContext.SharedContext.K.GetClusterId()
-		if err != nil {
-			return nil, finishAllRequestsWithError(err)
-		}
-		newTargetKey := result.TargetKey{
-			TargetName:    targetContext.Target.Name,
-			Discriminator: targetContext.Target.Discriminator,
-			ClusterId:     clusterId,
-		}
-		// we patch the targetKey immediately so that the webui knows it asap
-		if obj.Status.TargetKey == nil || *obj.Status.TargetKey != newTargetKey {
-			patchErr = r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-				status.TargetKey = &newTargetKey
-				return nil
-			})
-		}
-		obj.Status.TargetKey = &newTargetKey
-	}
+	err = r.patchTargetKey(ctx, obj, targetContext)
 	if err != nil {
 		return nil, finishAllRequestsWithError(err)
 	}
