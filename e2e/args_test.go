@@ -122,11 +122,11 @@ func TestArgsFromEnv(t *testing.T) {
 	k := defaultCluster1
 
 	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
-	p.AddExtraEnv("KLUCTL_ARG=a=a")
-	p.AddExtraEnv("KLUCTL_ARG_1=b=b")
-	p.AddExtraEnv(`KLUCTL_ARG_2=c={"nested":{"nested2":"c"}}`)
-	p.AddExtraEnv("KLUCTL_ARG_3=d=true")
-	p.AddExtraEnv("KLUCTL_ARG_4=e='true'")
+	p.SetEnv("KLUCTL_ARG", "a=a")
+	p.SetEnv("KLUCTL_ARG_1", "b=b")
+	p.SetEnv("KLUCTL_ARG_2", `c={"nested":{"nested2":"c"}}`)
+	p.SetEnv("KLUCTL_ARG_3", "d=true")
+	p.SetEnv("KLUCTL_ARG_4", "e='true'")
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -157,8 +157,8 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 	k := defaultCluster1
 
 	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
-	p.AddExtraEnv("KLUCTL_ARG_1=a=a")
-	p.AddExtraEnv("KLUCTL_ARG_2=c=c")
+	p.SetEnv("KLUCTL_ARG_1", "a=a")
+	p.SetEnv("KLUCTL_ARG_2", "c=c")
 
 	createNamespace(t, k, p.TestSlug())
 

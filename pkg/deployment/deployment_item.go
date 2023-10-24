@@ -37,7 +37,7 @@ type DeploymentItem struct {
 	WaitReadiness bool
 
 	Objects []*uo.UnstructuredObject
-	Tags    *utils.OrderedMap[bool]
+	Tags    *utils.OrderedMap[string, bool]
 
 	RenderedSourceRootDir string
 	RelToSourceItemDir    string

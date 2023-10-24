@@ -7,6 +7,7 @@ import (
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	registry2 "helm.sh/helm/v3/pkg/registry"
@@ -23,7 +24,7 @@ import (
 type TestProject struct {
 	t *testing.T
 
-	extraEnv   []string
+	extraEnv   utils.OrderedMap[string, string]
 	useProcess bool
 	bare       bool
 
@@ -91,6 +92,10 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	return p
 }
 
+func (p *TestProject) IsUseProcess() bool {
+	return p.useProcess
+}
+
 func (p *TestProject) GitServer() *git2.TestGitServer {
 	return p.gitServer
 }
@@ -109,15 +114,15 @@ func (p *TestProject) TestSlug() string {
 	return strings.Join(x, "-")
 }
 
-func (p TestProject) Discriminator(targetName string) string {
+func (p *TestProject) Discriminator(targetName string) string {
 	if targetName == "" {
 		targetName = "no-name"
 	}
 	return fmt.Sprintf("%s-%s", p.TestSlug(), targetName)
 }
 
-func (p *TestProject) AddExtraEnv(e string) {
-	p.extraEnv = append(p.extraEnv, e)
+func (p *TestProject) SetEnv(k string, v string) {
+	p.extraEnv.Set(k, v)
 }
 
 func (p *TestProject) UpdateKluctlYaml(update func(o *uo.UnstructuredObject) error) {
@@ -456,7 +461,9 @@ func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
 	args = append(args, "--debug")
 
 	env := os.Environ()
-	env = append(env, p.extraEnv...)
+	p.extraEnv.ForEach(func(k string, v string) {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	})
 
 	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
 	env = append(env, "CALL_KLUCTL=true")
@@ -487,7 +494,7 @@ func (p *TestProject) KluctlProcessMust(argsIn ...string) (string, string) {
 }
 
 func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
-	if len(p.extraEnv) != 0 {
+	if p.extraEnv.Len() != 0 {
 		p.t.Fatal("extraEnv is only supported in KluctlProcess(...)")
 	}
 

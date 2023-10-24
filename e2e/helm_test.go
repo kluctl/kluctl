@@ -251,63 +251,71 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 	return ret
 }
 
-func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, repo *test_utils.TestHelmRepo) {
+func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, p *test_project.TestProject, repo *test_utils.TestHelmRepo) {
+	setEnv := func(k string, v string) {
+		if p.IsUseProcess() {
+			p.SetEnv(k, v)
+		} else {
+			t.Setenv(k, v)
+		}
+	}
+
 	if tc.oci {
 		if tc.argCredsHost != "" {
-			t.Setenv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
+			setEnv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
 		}
 		if tc.argCredsPath != "" {
-			t.Setenv("KLUCTL_REGISTRY_REPOSITORY", tc.argCredsPath)
+			setEnv("KLUCTL_REGISTRY_REPOSITORY", tc.argCredsPath)
 		}
 		if tc.argUsername != "" {
-			t.Setenv("KLUCTL_REGISTRY_USERNAME", tc.argUsername)
+			setEnv("KLUCTL_REGISTRY_USERNAME", tc.argUsername)
 		}
 		if tc.argPassword != "" {
-			t.Setenv("KLUCTL_REGISTRY_PASSWORD", tc.argPassword)
+			setEnv("KLUCTL_REGISTRY_PASSWORD", tc.argPassword)
 		}
 		if !repo.TLSEnabled {
-			t.Setenv("KLUCTL_REGISTRY_PLAIN_HTTP", "true")
+			setEnv("KLUCTL_REGISTRY_PLAIN_HTTP", "true")
 		}
 		if tc.argPassCA {
-			t.Setenv("KLUCTL_REGISTRY_CA_FILE", newTmpFile(t, repo.ServerCAs))
+			setEnv("KLUCTL_REGISTRY_CA_FILE", newTmpFile(t, repo.ServerCAs))
 		}
 		if tc.argPassClientCert {
-			t.Setenv("KLUCTL_REGISTRY_CERT_FILE", newTmpFile(t, repo.ClientCert))
-			t.Setenv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.ClientKey))
+			setEnv("KLUCTL_REGISTRY_CERT_FILE", newTmpFile(t, repo.ClientCert))
+			setEnv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.ClientKey))
 		}
 	} else {
 		if tc.argCredsId != "" {
-			t.Setenv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
+			setEnv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
 		}
 		if tc.argCredsHost != "" {
-			t.Setenv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
+			setEnv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
 		}
 		if tc.argCredsPath != "" {
-			t.Setenv("KLUCTL_HELM_PATH", tc.argCredsPath)
+			setEnv("KLUCTL_HELM_PATH", tc.argCredsPath)
 		}
 		if tc.argUsername != "" {
-			t.Setenv("KLUCTL_HELM_USERNAME", tc.argUsername)
+			setEnv("KLUCTL_HELM_USERNAME", tc.argUsername)
 		}
 		if tc.argPassword != "" {
-			t.Setenv("KLUCTL_HELM_PASSWORD", tc.argPassword)
+			setEnv("KLUCTL_HELM_PASSWORD", tc.argPassword)
 		}
 		if tc.argPassCA {
-			t.Setenv("KLUCTL_HELM_CA_FILE", newTmpFile(t, repo.ServerCAs))
+			setEnv("KLUCTL_HELM_CA_FILE", newTmpFile(t, repo.ServerCAs))
 		}
 		if tc.argPassClientCert {
-			t.Setenv("KLUCTL_HELM_CERT_FILE", newTmpFile(t, repo.ClientCert))
-			t.Setenv("KLUCTL_HELM_KEY_FILE", newTmpFile(t, repo.ClientKey))
+			setEnv("KLUCTL_HELM_CERT_FILE", newTmpFile(t, repo.ClientCert))
+			setEnv("KLUCTL_HELM_KEY_FILE", newTmpFile(t, repo.ClientKey))
 		}
 	}
 	// add a fallback that enables plain_http in case we have no matching creds
 	if tc.oci && !repo.TLSEnabled {
-		t.Setenv("KLUCTL_REGISTRY_1_HOST", repo.URL.Host)
-		t.Setenv("KLUCTL_REGISTRY_1_PLAIN_HTTP", "true")
+		setEnv("KLUCTL_REGISTRY_1_HOST", repo.URL.Host)
+		setEnv("KLUCTL_REGISTRY_1_PLAIN_HTTP", "true")
 	}
 }
 
-func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool) (*test_project.TestProject, *test_utils.TestHelmRepo, error) {
-	p := test_project.NewTestProject(t)
+func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool, useProcess bool) (*test_project.TestProject, *test_utils.TestHelmRepo, error) {
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(useProcess))
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -374,12 +382,17 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 }
 
 func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool) {
-	if !credsViaEnv {
+	useProcess := credsViaEnv
+
+	// uncomment this if you want to debug this when credsViaEnv==true
+	// useProcess = false
+
+	if !credsViaEnv || useProcess {
 		t.Parallel()
 	}
 
 	k := defaultCluster1
-	p, repo, err := prepareHelmTestCase(t, k, tc, prePull)
+	p, repo, err := prepareHelmTestCase(t, k, tc, prePull, useProcess)
 	if err != nil {
 		if tc.expectedError == "" {
 			assert.Fail(t, "did not expect error")
@@ -389,7 +402,7 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 
 	args := []string{"deploy", "--yes", "-t", "test"}
 	if credsViaEnv {
-		buildHelmTestEnvVars(t, tc, repo)
+		buildHelmTestEnvVars(t, tc, p, repo)
 	} else {
 		args = append(args, buildHelmTestExtraArgs(t, tc, repo)...)
 	}
@@ -402,7 +415,11 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 		assert.Contains(t, stderr, pullMessage)
 	}
 	if tc.expectedError != "" {
-		assert.ErrorContains(t, err, tc.expectedError)
+		if useProcess {
+			assert.Contains(t, stderr, tc.expectedError)
+		} else {
+			assert.ErrorContains(t, err, tc.expectedError)
+		}
 	} else {
 		assert.NoError(t, err)
 		assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")

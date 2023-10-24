@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"fmt"
 	"github.com/getsops/sops/v3/age"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
@@ -13,7 +12,7 @@ import (
 
 func setSopsKey(p *test_project.TestProject) {
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
-	p.AddExtraEnv(fmt.Sprintf("%s=%s", age.SopsAgeKeyEnv, string(key)))
+	p.SetEnv(age.SopsAgeKeyEnv, string(key))
 }
 
 func TestSopsVars(t *testing.T) {

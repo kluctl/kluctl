@@ -340,8 +340,8 @@ func (p *DeploymentProject) getOverrideNamespace() *string {
 	return nil
 }
 
-func (p *DeploymentProject) getTags() *utils.OrderedMap[bool] {
-	var tags utils.OrderedMap[bool]
+func (p *DeploymentProject) getTags() *utils.OrderedMap[string, bool] {
+	var tags utils.OrderedMap[string, bool]
 	for _, e := range p.getParents() {
 		if e.inc != nil {
 			tags.SetMultiple(e.inc.Tags, true)
