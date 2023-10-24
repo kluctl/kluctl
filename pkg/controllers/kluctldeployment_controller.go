@@ -12,7 +12,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -24,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	kuberecorder "k8s.io/client-go/tools/record"
-	"path"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -350,41 +348,10 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return nil, patchErr
 	}
 
-	var newProjectKey result.ProjectKey
-	if obj.Spec.Source.Git != nil {
-		newProjectKey = result.ProjectKey{
-			GitRepoKey: obj.Spec.Source.Git.URL.RepoKey(),
-			SubDir:     path.Clean(obj.Spec.Source.Git.Path),
-		}
-	} else if obj.Spec.Source.Oci != nil {
-		repoKey, err := types.NewRepoKeyFromUrl(obj.Spec.Source.Oci.URL)
-		if err != nil {
-			return doFailPrepare(err)
-		}
-		newProjectKey = result.ProjectKey{
-			OciRepoKey: repoKey,
-			SubDir:     path.Clean(obj.Spec.Source.Oci.Path),
-		}
-	} else if obj.Spec.Source.URL != nil {
-		newProjectKey = result.ProjectKey{
-			GitRepoKey: obj.Spec.Source.URL.RepoKey(),
-			SubDir:     path.Clean(obj.Spec.Source.Path),
-		}
-	} else {
-		return doFailPrepare(fmt.Errorf("missing source spec"))
+	err = r.patchProjectKey(ctx, obj)
+	if err != nil {
+		return doFailPrepare(err)
 	}
-	if newProjectKey.SubDir == "." {
-		newProjectKey.SubDir = ""
-	}
-
-	// we patch the projectKey immediately so that the webui knows it asap
-	if obj.Status.ProjectKey == nil || *obj.Status.ProjectKey != newProjectKey {
-		patchErr = r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-			status.ProjectKey = &newProjectKey
-			return nil
-		})
-	}
-	obj.Status.ProjectKey = &newProjectKey
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, r.calcTimeout(obj))
 	defer cancel()
