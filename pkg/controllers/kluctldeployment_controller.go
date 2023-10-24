@@ -263,63 +263,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	oldGeneration := obj.Status.ObservedGeneration
 	obj.Status.ObservedGeneration = obj.GetGeneration()
 
-	startHandleRequest := func(rr *kluctlv1.RequestResult, requestAnnotation string, setResult func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult), getLegacyOldValue func(status *kluctlv1.KluctlDeploymentStatus) string) (*kluctlv1.RequestResult, error) {
-		v, _ := obj.GetAnnotations()[requestAnnotation]
-		if v == "" {
-			return nil, nil
-		}
-		if rr == nil && getLegacyOldValue(&obj.Status) == v {
-			// legacy value in status is still present, and we never executed the new request status handling
-			// ensure that we don't accidentally re-process the request
-			t := metav1.Now()
-			rr = &kluctlv1.RequestResult{
-				RequestValue: v,
-				StartTime:    t,
-				EndTime:      &t,
-				ReconcileId:  "unknown",
-			}
-			err := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-				setResult(status, rr)
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-			return nil, nil
-		}
-		if rr == nil || rr.RequestValue != v {
-			rr = &kluctlv1.RequestResult{
-				RequestValue: v,
-				StartTime:    metav1.Now(),
-				ReconcileId:  reconcileId,
-			}
-			err := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-				setResult(status, rr)
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-			return rr, nil
-		}
-		return nil, nil
-	}
-	finishHandleRequest := func(rr *kluctlv1.RequestResult, resultId string, commandErr error, setResult func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult)) error {
-		if rr == nil {
-			return nil
-		}
-		t := metav1.Now()
-		rr.EndTime = &t
-		rr.ResultId = resultId
-		if commandErr != nil {
-			rr.CommandError = commandErr.Error()
-		}
-		return r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-			setResult(status, rr)
-			return nil
-		})
-	}
-
 	setReconcileRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
 		status.ReconcileRequestResult = requestResult
 	}
@@ -336,31 +279,31 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		status.ValidateRequestResult = requestResult
 	}
 
-	curReconcileRequest, err := startHandleRequest(obj.Status.ReconcileRequestResult, kluctlv1.KluctlRequestReconcileAnnotation, setReconcileRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
+	curReconcileRequest, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.ReconcileRequestResult, kluctlv1.KluctlRequestReconcileAnnotation, setReconcileRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
 		return status.LastHandledReconcileAt
 	})
 	if err != nil {
 		return doFailPrepare(err)
 	}
-	curDiffRequest, err := startHandleRequest(obj.Status.DiffRequestResult, kluctlv1.KluctlRequestDiffAnnotation, setDiffRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
+	curDiffRequest, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.DiffRequestResult, kluctlv1.KluctlRequestDiffAnnotation, setDiffRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
 		return ""
 	})
 	if err != nil {
 		return doFailPrepare(err)
 	}
-	curDeployRequest, err := startHandleRequest(obj.Status.DeployRequestResult, kluctlv1.KluctlRequestDeployAnnotation, setDeployRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
+	curDeployRequest, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.DeployRequestResult, kluctlv1.KluctlRequestDeployAnnotation, setDeployRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
 		return status.LastHandledDeployAt
 	})
 	if err != nil {
 		return doFailPrepare(err)
 	}
-	curPruneRequest, err := startHandleRequest(obj.Status.PruneRequestResult, kluctlv1.KluctlRequestPruneAnnotation, setPruneRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
+	curPruneRequest, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.PruneRequestResult, kluctlv1.KluctlRequestPruneAnnotation, setPruneRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
 		return status.LastHandledPruneAt
 	})
 	if err != nil {
 		return doFailPrepare(err)
 	}
-	curValidateRequest, err := startHandleRequest(obj.Status.ValidateRequestResult, kluctlv1.KluctlRequestValidateAnnotation, setValidateRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
+	curValidateRequest, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.ValidateRequestResult, kluctlv1.KluctlRequestValidateAnnotation, setValidateRequestResult, func(status *kluctlv1.KluctlDeploymentStatus) string {
 		return status.LastHandledValidateAt
 	})
 	if err != nil {
@@ -374,23 +317,23 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
-		err = finishHandleRequest(curReconcileRequest, "", errIn, setReconcileRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curReconcileRequest, "", errIn, setReconcileRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
-		err = finishHandleRequest(curDiffRequest, "", errIn, setDiffRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curDiffRequest, "", errIn, setDiffRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
-		err = finishHandleRequest(curDeployRequest, "", errIn, setDeployRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curDeployRequest, "", errIn, setDeployRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
-		err = finishHandleRequest(curPruneRequest, "", errIn, setPruneRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curPruneRequest, "", errIn, setPruneRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
-		err = finishHandleRequest(curValidateRequest, "", errIn, setValidateRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curValidateRequest, "", errIn, setValidateRequestResult)
 		if err != nil {
 			retErr = multierror.Append(retErr, err)
 		}
@@ -586,7 +529,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			log.Error(err, "Failed to write diff result")
 		}
 
-		err = finishHandleRequest(curDiffRequest, diffResult.Id, cmdErr, setDiffRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curDiffRequest, diffResult.Id, cmdErr, setDiffRequestResult)
 		if err != nil {
 			return nil, err
 		}
@@ -612,7 +555,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			r.updateResourceVersions(key, deployResult.Objects, nil)
 		}
 
-		err = finishHandleRequest(curDeployRequest, deployResult.Id, cmdErr, setDeployRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curDeployRequest, deployResult.Id, cmdErr, setDeployRequestResult)
 		if err != nil {
 			return nil, err
 		}
@@ -632,7 +575,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		// force full drift detection
 		r.updateResourceVersions(key, nil, nil)
 
-		err = finishHandleRequest(curPruneRequest, pruneResult.Id, cmdErr, setPruneRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curPruneRequest, pruneResult.Id, cmdErr, setPruneRequestResult)
 		if err != nil {
 			return nil, err
 		}
@@ -649,7 +592,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 			log.Error(err, "Failed to write validate result")
 		}
 
-		err = finishHandleRequest(curValidateRequest, validateResult.Id, cmdErr, setValidateRequestResult)
+		err = r.finishHandleManualRequest(ctx, obj, curValidateRequest, validateResult.Id, cmdErr, setValidateRequestResult)
 		if err != nil {
 			return nil, err
 		}
@@ -685,7 +628,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
 		err = fmt.Errorf(finalStatus)
 
-		patchErr = finishHandleRequest(curReconcileRequest, "", err, setReconcileRequestResult)
+		patchErr = r.finishHandleManualRequest(ctx, obj, curReconcileRequest, "", err, setReconcileRequestResult)
 		if patchErr != nil {
 			err = multierror.Append(err, patchErr)
 			return nil, err
@@ -699,7 +642,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return &ctrlResult, err
 	}
 
-	patchErr = finishHandleRequest(curReconcileRequest, "", nil, setReconcileRequestResult)
+	patchErr = r.finishHandleManualRequest(ctx, obj, curReconcileRequest, "", nil, setReconcileRequestResult)
 	if patchErr != nil {
 		return nil, patchErr
 	}
