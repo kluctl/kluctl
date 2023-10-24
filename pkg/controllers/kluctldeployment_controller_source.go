@@ -103,7 +103,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 			host = "*"
 		}
 		var secret corev1.Secret
-		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
@@ -147,7 +147,7 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credenti
 
 	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
 		var secret corev1.Secret
-		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
@@ -174,7 +174,7 @@ func (r *KluctlDeploymentReconciler) getHelmSecrets(ctx context.Context, obj *kl
 
 	loadCredentials := func(host string, path string, secretName string) error {
 		var secret corev1.Secret
-		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}

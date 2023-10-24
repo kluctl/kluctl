@@ -130,7 +130,7 @@ func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client
 			return false, err
 		}
 
-		err = r.Status().Patch(ctx, &latest, statusPatch, client.FieldOwner(r.ControllerName))
+		err = r.Client.Status().Patch(ctx, &latest, statusPatch, client.FieldOwner(r.ControllerName))
 		if err != nil {
 			if errors.IsConflict(err) {
 				// retry

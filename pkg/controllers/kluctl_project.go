@@ -245,7 +245,7 @@ func (pt *preparedTarget) getKubeconfigFromSecret(ctx context.Context) ([]byte, 
 	}
 
 	var secret corev1.Secret
-	if err := pt.pp.r.Get(ctx, secretName, &secret); err != nil {
+	if err := pt.pp.r.Client.Get(ctx, secretName, &secret); err != nil {
 		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
@@ -510,7 +510,7 @@ func (pp *preparedProject) addSecretBasedKeyServers(ctx context.Context, d *decr
 	}
 
 	var secret corev1.Secret
-	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
+	if err := pp.r.Client.Get(ctx, secretName, &secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return err
 		}

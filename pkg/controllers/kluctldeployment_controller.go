@@ -31,8 +31,8 @@ import (
 )
 
 type KluctlDeploymentReconciler struct {
-	client.Client
 	RestConfig            *rest.Config
+	Client                client.Client
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
 	MetricsRecorder       *metrics.Recorder
@@ -72,7 +72,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}, false))
 
 	obj := &kluctlv1.KluctlDeployment{}
-	if err := r.Get(ctx, req.NamespacedName, obj); err != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, obj); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -89,7 +89,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if !controllerutil.ContainsFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer) {
 		patch := client.MergeFrom(obj.DeepCopy())
 		controllerutil.AddFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer)
-		if err := r.Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
+		if err := r.Client.Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 			log.Error(err, "unable to register finalizer")
 			return ctrl.Result{}, err
 		}
@@ -120,7 +120,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// now patch all the other changes to the status
-	if err := r.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
+	if err := r.Client.Status().Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -187,7 +187,7 @@ func (r *KluctlDeploymentReconciler) applyOnetimePatch(ctx context.Context, obj 
 	if a != nil {
 		delete(a, kluctlv1.KluctlOnetimePatchAnnotation)
 		patchedObj.SetAnnotations(a)
-		err = r.Patch(ctx, patchedObj.DeepCopy(), ap, client.FieldOwner(r.ControllerName))
+		err = r.Client.Patch(ctx, patchedObj.DeepCopy(), ap, client.FieldOwner(r.ControllerName))
 		if err != nil {
 			return err
 		}
@@ -766,7 +766,7 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 	// Remove our finalizer from the list and update it
 	patch := client.MergeFrom(obj.DeepCopy())
 	controllerutil.RemoveFinalizer(obj, kluctlv1.KluctlDeploymentFinalizer)
-	if err := r.Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
+	if err := r.Client.Patch(ctx, obj, patch, client.FieldOwner(r.ControllerName)); err != nil {
 		return ctrl.Result{}, err
 	}
 
