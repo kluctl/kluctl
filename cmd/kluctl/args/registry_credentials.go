@@ -11,18 +11,18 @@ import (
 )
 
 type RegistryCredentials struct {
-	RegistryUsername      []string `group:"registry" help:"Specify username to use for OCI authentication. Must be in the form --registry-username=<registry>/<repo>=<username>."`
-	RegistryPassword      []string `group:"registry" help:"Specify password to use for OCI authentication. Must be in the form --registry-password=<registry>/<repo>=<password>."`
-	RegistryIdentityToken []string `group:"registry" help:"Specify identity token to use for OCI authentication. Must be in the form --registry-identity-token=<registry>/<repo>=<identity-token>."`
-	RegistryToken         []string `group:"registry" help:"Specify registry token to use for OCI authentication. Must be in the form --registry-token=<registry>/<repo>=<token>."`
-	RegistryCreds         []string `group:"registry" help:"This is a shortcut to --registry-username, --registry-password and --registry-token. It can be specified in two different forms. The first one is --registry-creds=<registry>/<repo>=<username>:<password>, which specifies the username and password for the same registry. The second form is --registry-creds=<registry>/<repo>=<token>, which specifies a JWT token for the specified registry."`
+	RegistryUsername      []string `group:"registry" skipenv:"true" help:"Specify username to use for OCI authentication. Must be in the form --registry-username=<registry>/<repo>=<username>."`
+	RegistryPassword      []string `group:"registry" skipenv:"true" help:"Specify password to use for OCI authentication. Must be in the form --registry-password=<registry>/<repo>=<password>."`
+	RegistryIdentityToken []string `group:"registry" skipenv:"true" help:"Specify identity token to use for OCI authentication. Must be in the form --registry-identity-token=<registry>/<repo>=<identity-token>."`
+	RegistryToken         []string `group:"registry" skipenv:"true" help:"Specify registry token to use for OCI authentication. Must be in the form --registry-token=<registry>/<repo>=<token>."`
+	RegistryCreds         []string `group:"registry" skipenv:"true" help:"This is a shortcut to --registry-username, --registry-password and --registry-token. It can be specified in two different forms. The first one is --registry-creds=<registry>/<repo>=<username>:<password>, which specifies the username and password for the same registry. The second form is --registry-creds=<registry>/<repo>=<token>, which specifies a JWT token for the specified registry."`
 
-	RegistryKeyFile  []string `group:"registry" help:"Specify key to use for OCI authentication. Must be in the form --registry-key-file=<registry>/<repo>=<filePath>."`
-	RegistryCertFile []string `group:"registry" help:"Specify certificate to use for OCI authentication. Must be in the form --registry-cert-file=<registry>/<repo>=<filePath>."`
-	RegistryCAFile   []string `group:"registry" help:"Specify CA bundle to use for https verification. Must be in the form --registry-ca-file=<registry>/<repo>=<filePath>."`
+	RegistryKeyFile  []string `group:"registry" skipenv:"true" help:"Specify key to use for OCI authentication. Must be in the form --registry-key-file=<registry>/<repo>=<filePath>."`
+	RegistryCertFile []string `group:"registry" skipenv:"true" help:"Specify certificate to use for OCI authentication. Must be in the form --registry-cert-file=<registry>/<repo>=<filePath>."`
+	RegistryCAFile   []string `group:"registry" skipenv:"true" help:"Specify CA bundle to use for https verification. Must be in the form --registry-ca-file=<registry>/<repo>=<filePath>."`
 
-	RegistryPlainHttp             []string `group:"registry" help:"Forces the use of http (no TLS). Must be in the form --registry-plain-http=<registry>/<repo>."`
-	RegistryInsecureSkipTlsVerify []string `group:"registry" help:"Controls skipping of TLS verification. Must be in the form --registry-insecure-skip-tls-verify=<registry>/<repo>."`
+	RegistryPlainHttp             []string `group:"registry" skipenv:"true" help:"Forces the use of http (no TLS). Must be in the form --registry-plain-http=<registry>/<repo>."`
+	RegistryInsecureSkipTlsVerify []string `group:"registry" skipenv:"true" help:"Controls skipping of TLS verification. Must be in the form --registry-insecure-skip-tls-verify=<registry>/<repo>."`
 }
 
 func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provider.OciAuthProvider, error) {
@@ -31,7 +31,7 @@ func (c *RegistryCredentials) BuildAuthProvider(ctx context.Context) (auth_provi
 		return la, nil
 	}
 
-	var byRegistryAndRepo utils.OrderedMap[*auth_provider.AuthEntry]
+	var byRegistryAndRepo utils.OrderedMap[string, *auth_provider.AuthEntry]
 
 	getEntry := func(s string, expectValue bool) (*auth_provider.AuthEntry, string, error) {
 		x := strings.SplitN(s, "=", 2)

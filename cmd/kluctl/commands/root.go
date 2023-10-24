@@ -243,7 +243,7 @@ func (c *cli) Run(ctx context.Context) error {
 	return flag.ErrHelp
 }
 
-func initViper(ctx context.Context) {
+func initViper() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("/etc/kluctl/")
@@ -260,16 +260,10 @@ func Main() {
 	colorable.EnableColorsStdout(nil)
 	ctx := context.Background()
 
-	initViper(ctx)
-
 	didSetupStatusHandler := false
 
 	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags *GlobalFlags) (context.Context, error) {
 		err := setupGops(flags)
-		if err != nil {
-			return ctx, err
-		}
-		err = copyViperValuesToCobraCmd(cmd)
 		if err != nil {
 			return ctx, err
 		}
@@ -351,6 +345,11 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 			c.SetContext(ctx)
 		}
 
+		err = copyViperValuesToCobraCmd(cmd)
+		if err != nil {
+			return err
+		}
+
 		if preRun != nil {
 			ctx, err = preRun(ctx, cmd, &root.GlobalFlags)
 			if ctx != nil {
@@ -366,4 +365,8 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	}
 
 	return rootCmd.Execute()
+}
+
+func init() {
+	initViper()
 }
