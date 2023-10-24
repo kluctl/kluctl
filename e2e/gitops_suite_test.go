@@ -161,6 +161,7 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
 			suite.T().Logf("%s: request processing not finished yet", reconcileId)
 			return false
 		}
+		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
 }
