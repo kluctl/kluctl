@@ -188,6 +188,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 			suite.T().Logf("%s: commit %s does mot match %s", reconcileId, kd.Status.ObservedCommit, commit)
 			return false
 		}
+		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
 }
