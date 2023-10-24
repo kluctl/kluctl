@@ -118,6 +118,7 @@ func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client
 
 	return wait.ExponentialBackoff(backoff, func() (bool, error) {
 		var latest kluctlv1.KluctlDeployment
+		// we're not using r.ApiReader here because the patch+optimistic-lock already prevents us from updating an outdated object
 		err := r.Client.Get(ctx, key, &latest)
 		if err != nil {
 			return false, err

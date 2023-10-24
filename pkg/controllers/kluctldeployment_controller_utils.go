@@ -41,7 +41,7 @@ func (r *KluctlDeploymentReconciler) recordReadiness(ctx context.Context, obj *k
 
 	// make sure we use the latest conditions
 	var latest kluctlv1.KluctlDeployment
-	err := r.Client.Get(ctx, client.ObjectKeyFromObject(obj), &latest)
+	err := r.ApiReader.Get(ctx, client.ObjectKeyFromObject(obj), &latest)
 	if err != nil {
 		return
 	}

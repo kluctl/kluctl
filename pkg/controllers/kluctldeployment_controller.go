@@ -33,6 +33,7 @@ import (
 type KluctlDeploymentReconciler struct {
 	RestConfig            *rest.Config
 	Client                client.Client
+	ApiReader             client.Reader
 	Scheme                *runtime.Scheme
 	EventRecorder         kuberecorder.EventRecorder
 	MetricsRecorder       *metrics.Recorder
@@ -72,7 +73,9 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}, false))
 
 	obj := &kluctlv1.KluctlDeployment{}
-	if err := r.Client.Get(ctx, req.NamespacedName, obj); err != nil {
+	// we must use ApiReader here to ensure that we don't get stale objects from the cache, which can easily happen
+	// if the previous reconciliation loop modified the object itself
+	if err := r.ApiReader.Get(ctx, req.NamespacedName, obj); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 

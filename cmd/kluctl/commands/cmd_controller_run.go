@@ -157,6 +157,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		DefaultServiceAccount: cmd.DefaultServiceAccount,
 		DryRun:                cmd.DryRun,
 		RestConfig:            restConfig,
+		ApiReader:             mgr.GetAPIReader(),
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         eventRecorder,
