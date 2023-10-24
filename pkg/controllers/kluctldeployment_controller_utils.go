@@ -4,10 +4,8 @@ import (
 	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -96,44 +94,4 @@ func (r *KluctlDeploymentReconciler) recordDuration(ctx context.Context, obj *kl
 	}
 
 	r.MetricsRecorder.RecordDuration(*objRef, startTime)
-}
-
-func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client.ObjectKey, updateStatus func(status *kluctlv1.KluctlDeploymentStatus) error) error {
-	backoff := wait.Backoff{
-		Steps:    5,
-		Duration: 100 * time.Millisecond,
-		Jitter:   1.0,
-	}
-
-	return wait.ExponentialBackoff(backoff, func() (bool, error) {
-		var latest kluctlv1.KluctlDeployment
-		err := r.Client.Get(ctx, key, &latest)
-		if err != nil {
-			return false, err
-		}
-
-		statusPatch := client.MergeFromWithOptions(latest.DeepCopy(), client.MergeFromWithOptimisticLock{})
-
-		err = updateStatus(&latest.Status)
-		if err != nil {
-			return false, err
-		}
-
-		err = r.Status().Patch(ctx, &latest, statusPatch, client.FieldOwner(r.ControllerName))
-		if err != nil {
-			if errors.IsConflict(err) {
-				// retry
-				return false, nil
-			}
-			return false, err
-		}
-
-		return true, nil
-	})
-}
-
-func (r *KluctlDeploymentReconciler) patchCondition(ctx context.Context, key client.ObjectKey, updateConditions func(c *[]metav1.Condition) error) error {
-	return r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-		return updateConditions(&status.Conditions)
-	})
 }
