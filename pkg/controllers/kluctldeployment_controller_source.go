@@ -448,7 +448,7 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 		return nil, err
 	}
 
-	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-git-cache", key)
+	tmpBaseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kluctl-controller-git-cache", key)
 	err = os.MkdirAll(tmpBaseDir, 0o700)
 	if err != nil {
 		return nil, err
@@ -471,7 +471,7 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secr
 		return nil, nil, err
 	}
 
-	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-oci-cache", key)
+	tmpBaseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kluctl-controller-oci-cache", key)
 	err = os.MkdirAll(tmpBaseDir, 0o700)
 	if err != nil {
 		return nil, nil, err
