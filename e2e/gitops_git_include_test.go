@@ -3,7 +3,7 @@ package e2e
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
-	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/suite"

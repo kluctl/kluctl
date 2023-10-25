@@ -6,13 +6,12 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
-	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func prepareIncludeProject(t *testing.T, prefix string, subDir string, gitServer *git2.TestGitServer) *test_project.TestProject {
+func prepareIncludeProject(t *testing.T, prefix string, subDir string, gitServer *test_utils.TestGitServer) *test_project.TestProject {
 	p := test_project.NewTestProject(t,
 		test_project.WithGitSubDir(subDir),
 		test_project.WithGitServer(gitServer),
@@ -25,7 +24,7 @@ func prepareIncludeProject(t *testing.T, prefix string, subDir string, gitServer
 	return p
 }
 
-func prepareGitIncludeTest(t *testing.T, k *test_utils.EnvTestCluster, mainGs *git2.TestGitServer, gs1 *git2.TestGitServer, gs2 *git2.TestGitServer) (*test_project.TestProject, *test_project.TestProject, *test_project.TestProject) {
+func prepareGitIncludeTest(t *testing.T, k *test_utils.EnvTestCluster, mainGs *test_utils.TestGitServer, gs1 *test_utils.TestGitServer, gs2 *test_utils.TestGitServer) (*test_project.TestProject, *test_project.TestProject, *test_project.TestProject) {
 	p := test_project.NewTestProject(t, test_project.WithGitServer(mainGs))
 	ip1 := prepareIncludeProject(t, "include1", "", gs1)
 	ip2 := prepareIncludeProject(t, "include2", "subDir", gs2)

@@ -1,9 +1,10 @@
-package git
+package test_utils
 
 import (
 	"context"
 	"fmt"
 	config2 "github.com/go-git/go-git/v5/config"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
 	"log"
 	"net"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/jinzhu/copier"
-	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
 )
 
 type TestGitServer struct {

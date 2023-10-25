@@ -4,7 +4,6 @@ import (
 	"fmt"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
-	git2 "github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -28,7 +27,7 @@ type preparedSourceOverrideTest struct {
 	override2        string
 }
 
-func prepareLocalSourceOverrideTest(t *testing.T, k *test_utils.EnvTestCluster, gs *git2.TestGitServer, oci bool) preparedSourceOverrideTest {
+func prepareLocalSourceOverrideTest(t *testing.T, k *test_utils.EnvTestCluster, gs *test_utils.TestGitServer, oci bool) preparedSourceOverrideTest {
 	p := test_project.NewTestProject(t, test_project.WithGitServer(gs))
 	ip1 := prepareIncludeProject(t, "include1", "", gs)
 	ip2 := prepareIncludeProject(t, "include2", "subDir", gs)
@@ -131,7 +130,7 @@ func TestGitGroup(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
-	gs := git2.NewTestGitServer(t)
+	gs := test_utils.NewTestGitServer(t)
 	pt := prepareLocalSourceOverrideTest(t, k, gs, false)
 
 	u1, _ := types.ParseGitUrl(pt.p.GitServer().GitUrl() + "/repos")

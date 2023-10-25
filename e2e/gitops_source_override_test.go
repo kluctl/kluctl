@@ -3,7 +3,7 @@ package e2e
 import (
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -41,7 +41,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) assertOverridesDidHappen(key client
 }
 
 func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
-	gs := git.NewTestGitServer(suite.T())
+	gs := test_utils.NewTestGitServer(suite.T())
 	pt := prepareLocalSourceOverrideTest(suite.T(), suite.k, gs, false)
 	pt.p.SetSkipProjectDirArg(true)
 
