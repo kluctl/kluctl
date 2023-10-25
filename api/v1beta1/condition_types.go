@@ -17,9 +17,17 @@ limitations under the License.
 package v1beta1
 
 const (
+	// DiffFailedReason represents the fact that the
+	// kluctl diff command failed.
+	DiffFailedReason string = "DiffFailed"
+
 	// DeployFailedReason represents the fact that the
 	// kluctl deploy command failed.
 	DeployFailedReason string = "DeployFailed"
+
+	// PruneFailedReason represents the fact that the
+	// kluctl prune command failed.
+	PruneFailedReason string = "PruneFailed"
 
 	// ValidateFailedReason represents the fact that the
 	// validate of the KluctlDeployment failed.
