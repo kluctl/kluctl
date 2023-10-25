@@ -7,12 +7,8 @@ import (
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	git2 "github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	cp "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
-	"path/filepath"
 	"testing"
 )
 
@@ -223,82 +219,4 @@ func TestGitIncludeRef(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "tag4")
 	assertConfigMapExists(t, k, p.TestSlug(), "tag5")
 	assertConfigMapExists(t, k, p.TestSlug(), "commit6")
-}
-
-func TestLocalGitOverride(t *testing.T) {
-	t.Parallel()
-
-	k := defaultCluster1
-	p, ip1, ip2 := prepareGitIncludeTest(t, k, nil, nil, nil)
-
-	override1 := t.TempDir()
-	err := cp.Copy(ip1.LocalRepoDir(), override1)
-	assert.NoError(t, err)
-
-	override2 := t.TempDir()
-	err = cp.Copy(ip2.LocalRepoDir(), override2)
-	assert.NoError(t, err)
-
-	cm, err := uo.FromFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o1", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"), cm)
-
-	cm, err = uo.FromFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o2", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
-
-	u1, _ := types.ParseGitUrl(ip1.GitUrl())
-	u2, _ := types.ParseGitUrl(ip2.GitUrl())
-	k1 := u1.RepoKey().String()
-	k2 := u2.RepoKey().String()
-
-	p.KluctlMust("deploy", "--yes", "-t", "test",
-		"--local-git-override", fmt.Sprintf("%s=%s", k1, override1),
-		"--local-git-override", fmt.Sprintf("%s=%s", k2, override2),
-	)
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
-	assertNestedFieldEquals(t, cm, "o1", "data", "a")
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
-	assertNestedFieldEquals(t, cm, "o2", "data", "a")
-}
-
-func TestLocalGitGroupOverride(t *testing.T) {
-	t.Parallel()
-
-	k := defaultCluster1
-	gs := git2.NewTestGitServer(t)
-	p, ip1, ip2 := prepareGitIncludeTest(t, k, gs, gs, gs)
-
-	overrideGroupDir := t.TempDir()
-
-	override1 := filepath.Join(overrideGroupDir, "include1")
-	err := cp.Copy(ip1.LocalRepoDir(), override1)
-	assert.NoError(t, err)
-
-	override2 := filepath.Join(overrideGroupDir, "include2")
-	err = cp.Copy(ip2.LocalRepoDir(), override2)
-	assert.NoError(t, err)
-
-	cm, err := uo.FromFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o1", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"), cm)
-
-	cm, err = uo.FromFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o2", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
-
-	u1, _ := types.ParseGitUrl(p.GitServer().GitUrl() + "/repos")
-	k1 := u1.RepoKey().String()
-
-	p.KluctlMust("deploy", "--yes", "-t", "test",
-		"--local-git-group-override", fmt.Sprintf("%s=%s", k1, overrideGroupDir),
-	)
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
-	assertNestedFieldEquals(t, cm, "o1", "data", "a")
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
-	assertNestedFieldEquals(t, cm, "o2", "data", "a")
 }

@@ -28,28 +28,6 @@ func TestGitOpsManualRequests(t *testing.T) {
 	suite.Run(t, new(GitOpsManualRequestsSuite))
 }
 
-func (suite *GitOpsManualRequestsSuite) assertNoChanges(resultId string) {
-	cr := suite.getCommandResult(resultId)
-	assert.NotNil(suite.T(), cr)
-
-	sum := cr.BuildSummary()
-	assert.Zero(suite.T(), sum.NewObjects)
-	assert.Zero(suite.T(), sum.ChangedObjects)
-	assert.Zero(suite.T(), sum.OrphanObjects)
-	assert.Zero(suite.T(), sum.DeletedObjects)
-}
-
-func (suite *GitOpsManualRequestsSuite) assertChanges(resultId string, new int, changed int, orphan int, deleted int) {
-	cr := suite.getCommandResult(resultId)
-	assert.NotNil(suite.T(), cr)
-
-	sum := cr.BuildSummary()
-	assert.Equal(suite.T(), new, sum.NewObjects)
-	assert.Equal(suite.T(), changed, sum.ChangedObjects)
-	assert.Equal(suite.T(), orphan, sum.OrphanObjects)
-	assert.Equal(suite.T(), deleted, sum.DeletedObjects)
-}
-
 func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	g := NewWithT(suite.T())
 
@@ -244,8 +222,6 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 }
 
 func (suite *GitOpsManualRequestsSuite) TestOverrides() {
-	//g := NewWithT(suite.T())
-
 	p := test_project.NewTestProject(suite.T(), test_project.WithSkipProjectDirArg(true))
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
@@ -257,6 +233,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	p.UpdateYaml("d1/configmap-cm1.yml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField("v1", "data", "k1")
 		_ = o.SetNestedField("{{ args.a }}", "data", "k2")
+		_ = o.SetNestedField(`{{ get_var("args.b", "na") }}`, "data", "k3")
 		return nil
 	}, "")
 
@@ -269,6 +246,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 		cm1 := assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm1")
 		assertNestedFieldEquals(suite.T(), cm1, "v1", "data", "k1")
 		assertNestedFieldEquals(suite.T(), cm1, "v1", "data", "k2")
+		assertNestedFieldEquals(suite.T(), cm1, "na", "data", "k3")
 	})
 
 	suite.Run("suspending the deployment", func() {
@@ -376,7 +354,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	})
 
 	p.UpdateYaml("d1/configmap-cm1.yml", func(o *uo.UnstructuredObject) error {
-		_ = o.SetNestedField("v1", "data", "k3")
+		_ = o.SetNestedField("v1", "data", "k4")
 		return nil
 	}, "")
 	addConfigMapDeployment(p, "d3", nil, resourceOpts{
@@ -404,5 +382,30 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 
 		suite.assertChanges(kd.Status.DeployRequestResult.ResultId, 1, 0, 0, 0)
 		assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm3")
+	})
+
+	p.UpdateTarget("target2", func(target *uo.UnstructuredObject) {
+		_ = target.SetNestedField("via_target", "args", "b")
+	})
+
+	suite.Run("deploy with overridden target", func() {
+		// first, deploy without overrides
+		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		cm1 := assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm1")
+		assertNestedFieldEquals(suite.T(), cm1, "na", "data", "k3")
+
+		// now with override
+		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--target", "target2")
+
+		kd := suite.getKluctlDeployment(key)
+		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
+		assert.NotEmpty(suite.T(), kd.Status.DeployRequestResult.ResultId)
+
+		suite.assertChanges(kd.Status.DeployRequestResult.ResultId, 0, 2, 0, 0)
+		cm1 = assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm1")
+		cm3 := assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm3")
+		assertNestedFieldEquals(suite.T(), cm1, p.TestSlug()+"-target2", "metadata", "labels", "kluctl.io/discriminator")
+		assertNestedFieldEquals(suite.T(), cm3, p.TestSlug()+"-target2", "metadata", "labels", "kluctl.io/discriminator")
+		assertNestedFieldEquals(suite.T(), cm1, "via_target", "data", "k3")
 	})
 }

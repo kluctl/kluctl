@@ -10,6 +10,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	cp "github.com/otiai10/copy"
+	"github.com/stretchr/testify/assert"
 	registry2 "helm.sh/helm/v3/pkg/registry"
 	"net/url"
 	"os"
@@ -456,6 +458,16 @@ func (p *TestProject) GetGitWorktree() *git.Worktree {
 		p.t.Fatal(err)
 	}
 	return wt
+}
+
+func (p *TestProject) CopyProjectSource() string {
+	return p.CopyProjectSourceTo(p.t.TempDir())
+}
+
+func (p *TestProject) CopyProjectSourceTo(dst string) string {
+	err := cp.Copy(p.LocalRepoDir(), dst)
+	assert.NoError(p.t, err)
+	return dst
 }
 
 func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
