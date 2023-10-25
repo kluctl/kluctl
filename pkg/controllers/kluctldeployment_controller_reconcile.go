@@ -14,12 +14,11 @@ import (
 	"time"
 )
 
-type setResultCallback func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult)
-type getLegacyOldValueCallback func(status *kluctlv1.KluctlDeploymentStatus) string
+type getResultPtrCallback func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string)
 
 func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Context,
-	obj *kluctlv1.KluctlDeployment, reconcileId string, rr *kluctlv1.RequestResult,
-	requestAnnotation string, setResult setResultCallback, getLegacyOldValue getLegacyOldValueCallback,
+	obj *kluctlv1.KluctlDeployment, reconcileId string,
+	requestAnnotation string, getResultPtr getResultPtrCallback,
 ) (*kluctlv1.RequestResult, error) {
 	key := client.ObjectKeyFromObject(obj)
 
@@ -27,7 +26,11 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 	if v == "" {
 		return nil, nil
 	}
-	if rr == nil && getLegacyOldValue(&obj.Status) == v {
+
+	resultPtr, legacyValue := getResultPtr(&obj.Status)
+	rr := *resultPtr
+
+	if rr == nil && legacyValue == v {
 		// legacy value in status is still present, and we never executed the new request status handling
 		// ensure that we don't accidentally re-process the request
 		t := metav1.Now()
@@ -38,7 +41,8 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 			ReconcileId:  "unknown",
 		}
 		err := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-			setResult(status, rr)
+			resultPtr, _ := getResultPtr(status)
+			*resultPtr = rr
 			return nil
 		})
 		if err != nil {
@@ -53,7 +57,8 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 			ReconcileId:  reconcileId,
 		}
 		err := r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-			setResult(status, rr)
+			resultPtr, _ := getResultPtr(status)
+			*resultPtr = rr
 			return nil
 		})
 		if err != nil {
@@ -65,12 +70,13 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 }
 
 func (r *KluctlDeploymentReconciler) finishHandleManualRequest(ctx context.Context,
-	obj *kluctlv1.KluctlDeployment, rr *kluctlv1.RequestResult, resultId string, commandErr error, setResult setResultCallback) error {
+	obj *kluctlv1.KluctlDeployment, rr *kluctlv1.RequestResult, resultId string, commandErr error, getResultPtr getResultPtrCallback) error {
 	key := client.ObjectKeyFromObject(obj)
 
 	if rr == nil {
 		return nil
 	}
+
 	t := metav1.Now()
 	rr.EndTime = &t
 	rr.ResultId = resultId
@@ -78,7 +84,8 @@ func (r *KluctlDeploymentReconciler) finishHandleManualRequest(ctx context.Conte
 		rr.CommandError = commandErr.Error()
 	}
 	return r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-		setResult(status, rr)
+		resultPtr, _ := getResultPtr(status)
+		*resultPtr = rr
 		return nil
 	})
 }
@@ -109,10 +116,10 @@ type reconcileCallback func(targetContext *kluctl_project.TargetContext,
 func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context, timeoutCtx context.Context,
 	obj *kluctlv1.KluctlDeployment, reconcileId string,
 	commandName string, annotationName string,
-	setResult setResultCallback, getLegacyOldValue getLegacyOldValueCallback, force bool,
+	getResultPtr getResultPtrCallback, force bool,
 	reconcileRequest reconcileCallback,
 ) (bool, error) {
-	req, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.DiffRequestResult, annotationName, setResult, getLegacyOldValue)
+	req, err := r.startHandleManualRequest(ctx, obj, reconcileId, annotationName, getResultPtr)
 	if err != nil {
 		return false, r.patchFailPrepare(ctx, obj, err)
 	}
@@ -125,7 +132,7 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 		if err2 != nil {
 			err = multierror.Append(err, err2)
 		}
-		err2 = r.finishHandleManualRequest(ctx, obj, req, resultId, err, setResult)
+		err2 = r.finishHandleManualRequest(ctx, obj, req, resultId, err, getResultPtr)
 		if err2 != nil {
 			err = multierror.Append(err, err2)
 		}
@@ -161,7 +168,7 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 		resultId = x.Id
 	}
 
-	err = r.finishHandleManualRequest(ctx, obj, req, resultId, cmdErr, setResult)
+	err = r.finishHandleManualRequest(ctx, obj, req, resultId, cmdErr, getResultPtr)
 	if err != nil {
 		if cmdErr != nil {
 			err = multierror.Append(err, cmdErr)
@@ -212,16 +219,13 @@ func (r *KluctlDeploymentReconciler) reconcileDiffRequest(ctx context.Context, t
 	obj *kluctlv1.KluctlDeployment, reconcileId string) (bool, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	setRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
-		status.DiffRequestResult = requestResult
-	}
-	getLegacyOldValue := func(status *kluctlv1.KluctlDeploymentStatus) string {
-		return ""
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+		return &status.DiffRequestResult, ""
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
 		"diff", kluctlv1.KluctlRequestDiffAnnotation,
-		setRequestResult, getLegacyOldValue, false,
+		getResultPtr, false,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash, nil, true)
 			err := obj.Status.SetLastDiffResult(cmdResult.BuildSummary(), cmdErr)
@@ -240,16 +244,13 @@ func (r *KluctlDeploymentReconciler) reconcileDeployRequest(ctx context.Context,
 		obj.Status.LastHandledDeployAt = ""
 	}()
 
-	setRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
-		status.DeployRequestResult = requestResult
-	}
-	getLegacyOldValue := func(status *kluctlv1.KluctlDeploymentStatus) string {
-		return status.LastHandledDeployAt
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+		return &status.DeployRequestResult, status.LastHandledDeployAt
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
 		obj.Spec.DeployMode, kluctlv1.KluctlRequestDeployAnnotation,
-		setRequestResult, getLegacyOldValue, false,
+		getResultPtr, false,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlDeployOrPokeImages(ctx, obj.Spec.DeployMode, targetContext, reconcileId, objectsHash, true)
 			err := obj.Status.SetLastDeployResult(cmdResult.BuildSummary(), cmdErr)
@@ -268,16 +269,13 @@ func (r *KluctlDeploymentReconciler) reconcilePruneRequest(ctx context.Context, 
 		obj.Status.LastHandledPruneAt = ""
 	}()
 
-	setRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
-		status.PruneRequestResult = requestResult
-	}
-	getLegacyOldValue := func(status *kluctlv1.KluctlDeploymentStatus) string {
-		return status.LastHandledPruneAt
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+		return &status.PruneRequestResult, status.LastHandledPruneAt
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
 		"prune", kluctlv1.KluctlRequestPruneAnnotation,
-		setRequestResult, getLegacyOldValue, false,
+		getResultPtr, false,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlPrune(ctx, targetContext, reconcileId, objectsHash, true)
 			err := obj.Status.SetLastDeployResult(cmdResult.BuildSummary(), cmdErr)
@@ -296,16 +294,13 @@ func (r *KluctlDeploymentReconciler) reconcileValidateRequest(ctx context.Contex
 		obj.Status.LastHandledValidateAt = ""
 	}()
 
-	setRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
-		status.ValidateRequestResult = requestResult
-	}
-	getLegacyOldValue := func(status *kluctlv1.KluctlDeploymentStatus) string {
-		return status.LastHandledValidateAt
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+		return &status.ValidateRequestResult, status.LastHandledValidateAt
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
 		"validate", kluctlv1.KluctlRequestValidateAnnotation,
-		setRequestResult, getLegacyOldValue, false,
+		getResultPtr, false,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlValidate(ctx, targetContext, nil, reconcileId, objectsHash)
 			err := obj.Status.SetLastValidateResult(cmdResult, cmdErr)
@@ -324,11 +319,8 @@ func (r *KluctlDeploymentReconciler) reconcileFullRequest(ctx context.Context, t
 		obj.Status.ObservedGeneration = obj.GetGeneration()
 	}()
 
-	setRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
-		status.ReconcileRequestResult = requestResult
-	}
-	getLegacyOldValue := func(status *kluctlv1.KluctlDeploymentStatus) string {
-		return status.LastHandledReconcileAt
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+		return &status.ReconcileRequestResult, status.LastHandledReconcileAt
 	}
 
 	forceReconcile := true
@@ -339,7 +331,7 @@ func (r *KluctlDeploymentReconciler) reconcileFullRequest(ctx context.Context, t
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
 		"reconcile", kluctlv1.KluctlRequestReconcileAnnotation,
-		setRequestResult, getLegacyOldValue, forceReconcile,
+		getResultPtr, forceReconcile,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			return r.reconcileFullRequest2(ctx, timeoutCtx, obj, reconcileId, targetContext, pt, reconcileId, objectsHash)
 		})
