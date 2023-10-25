@@ -21,10 +21,9 @@ func (cmd *gitopsLogsCmd) Help() string {
 
 func (cmd *gitopsLogsCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
-		args:           cmd.GitOpsArgs,
-		logsArgs:       cmd.GitOpsLogArgs,
-		noArgsReact:    noArgsNoDeployments,
-		allowSuspended: true,
+		args:        cmd.GitOpsArgs,
+		logsArgs:    cmd.GitOpsLogArgs,
+		noArgsReact: noArgsNoDeployments,
 	}
 	err := g.init(ctx)
 	if err != nil {

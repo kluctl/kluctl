@@ -331,9 +331,15 @@ func (r *KluctlDeploymentReconciler) reconcileFullRequest(ctx context.Context, t
 		return status.LastHandledReconcileAt
 	}
 
+	forceReconcile := true
+	if obj.Spec.Suspend {
+		// suspend disables forces reconciliation on every request. It still allows reconciliation via manual requests.
+		forceReconcile = false
+	}
+
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
 		"reconcile", kluctlv1.KluctlRequestReconcileAnnotation,
-		setRequestResult, getLegacyOldValue, true,
+		setRequestResult, getLegacyOldValue, forceReconcile,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			return r.reconcileFullRequest2(ctx, timeoutCtx, obj, reconcileId, targetContext, pt, reconcileId, objectsHash)
 		})

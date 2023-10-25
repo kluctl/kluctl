@@ -102,12 +102,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.finalize(ctx, obj)
 	}
 
-	// Return early if the KluctlDeployment is suspended.
-	if obj.Spec.Suspend {
-		log.Info("Reconciliation is suspended for this object")
-		return ctrl.Result{}, nil
-	}
-
 	patchObj := obj.DeepCopy()
 	patch := client.MergeFrom(patchObj)
 
@@ -203,6 +197,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	obj *kluctlv1.KluctlDeployment,
 	reconcileId string) (*ctrl.Result, error) {
 
+	log := ctrl.LoggerFrom(ctx)
+
 	r.exportDeploymentObjectToProm(obj)
 
 	patchErr := r.patchProgressingCondition(ctx, obj, "Initializing", true)
@@ -221,6 +217,10 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	err = r.applyOnetimePatch(ctx, obj)
 	if err != nil {
 		return nil, r.patchFailPrepare(ctx, obj, err)
+	}
+
+	if obj.Spec.Suspend {
+		log.Info("Reconciliation is suspended for this object, only allowing manual requests to be processed")
 	}
 
 	processed, err := r.reconcileManualRequests(ctx, timeoutCtx, obj, reconcileId)

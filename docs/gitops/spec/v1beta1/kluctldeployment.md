@@ -310,7 +310,8 @@ all rendered objects.
 To enforce periodic full deployments even if nothing has changed, `spec.deployInterval` can be used to specify an
 interval at which forced deployments must be performed by the controller.
 
-The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`.
+The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`. Suspension will however not
+prevent manual reconciliation requests via the `kluctl gitops` sub-commands.
 
 The controller can be told to reconcile the KluctlDeployment outside of the specified interval
 by annotating the KluctlDeployment object with `kluctl.io/request-reconcile`.

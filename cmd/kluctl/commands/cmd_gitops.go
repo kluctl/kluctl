@@ -49,8 +49,7 @@ type gitopsCmdHelper struct {
 	logsArgs        args.GitOpsLogArgs
 	overridableArgs args.GitOpsOverridableArgs
 
-	noArgsReact    noArgsReact
-	allowSuspended bool
+	noArgsReact noArgsReact
 
 	kds []v1beta1.KluctlDeployment
 
@@ -133,7 +132,6 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		ns = defaultNs
 	}
 
-	var kds []v1beta1.KluctlDeployment
 	if g.args.Name != "" {
 		if ns == "" {
 			return fmt.Errorf("no namespace specified")
@@ -147,7 +145,7 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		kds = append(kds, kd)
+		g.kds = append(g.kds, kd)
 	} else if g.args.LabelSelector != "" {
 		label, err := metav1.ParseToLabelSelector(g.args.LabelSelector)
 		if err != nil {
@@ -169,7 +167,7 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		kds = append(kds, l.Items...)
+		g.kds = append(g.kds, l.Items...)
 	} else if g.noArgsReact == noArgsNoDeployments {
 		// do nothing
 	} else if g.noArgsReact == noArgsAllDeployments {
@@ -178,19 +176,9 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		kds = append(kds, l.Items...)
+		g.kds = append(g.kds, l.Items...)
 	} else {
 		return fmt.Errorf("either name or label selector must be set")
-	}
-
-	for _, kd := range kds {
-		if kd.Spec.Suspend {
-			if !g.allowSuspended {
-				status.Warningf(ctx, "Skipping suspended deployment %s/%s", kd.Namespace, kd.Name)
-				continue
-			}
-		}
-		g.kds = append(g.kds, kd)
 	}
 
 	g.resultStore, err = buildResultStoreRO(ctx, restConfig, mapper, &g.args.CommandResultReadOnlyFlags)
