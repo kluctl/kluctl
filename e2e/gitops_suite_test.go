@@ -169,6 +169,11 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) *kluctlv1.K
 			suite.T().Logf("%s: request processing not finished yet", reconcileId)
 			return false
 		}
+		readinessCondition := suite.getReadiness(kd)
+		if readinessCondition == nil || readinessCondition.Status == metav1.ConditionUnknown {
+			suite.T().Logf("%s: readiness status == unknown", reconcileId)
+			return false
+		}
 		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
@@ -195,6 +200,11 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 		}
 		if kd.Status.ObservedCommit != commit {
 			suite.T().Logf("%s: commit %s does mot match %s", reconcileId, kd.Status.ObservedCommit, commit)
+			return false
+		}
+		readinessCondition := suite.getReadiness(kd)
+		if readinessCondition == nil || readinessCondition.Status == metav1.ConditionUnknown {
+			suite.T().Logf("%s: readiness status == unknown", reconcileId)
 			return false
 		}
 		suite.T().Logf("%s: finished waiting", reconcileId)
@@ -304,7 +314,7 @@ func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
 func (suite *GitopsTestSuite) createGitopsSecret(m map[string]string) string {
 	g := NewWithT(suite.T())
 
-	name := fmt.Sprintf("gitops-seceet-%d", suite.gitopsSecretIdx)
+	name := fmt.Sprintf("gitops-secret-%d", suite.gitopsSecretIdx)
 	suite.gitopsSecretIdx++
 
 	mb := map[string][]byte{}

@@ -87,9 +87,7 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 		}
 	})
 	suite.Run("fail without authentication", func() {
-		suite.waitForCommit(key, "")
-
-		kd := suite.getKluctlDeploymentAllowNil(key)
+		kd := suite.waitForCommit(key, "")
 
 		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())

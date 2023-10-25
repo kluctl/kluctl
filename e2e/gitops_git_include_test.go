@@ -66,9 +66,7 @@ func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 	})
 
 	suite.Run("retry with authentication", func() {
-		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-
-		kd := suite.getKluctlDeployment(key)
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
 		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
@@ -156,9 +154,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 	})
 
 	suite.Run("retry with authentication", func() {
-		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-
-		kd := suite.getKluctlDeploymentAllowNil(key)
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
 		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())

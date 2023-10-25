@@ -115,9 +115,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		kd.Spec.Credentials = projectCreds
 	})
 
-	suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-
-	kd := suite.getKluctlDeploymentAllowNil(key)
+	kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
 	readinessCondition := suite.getReadiness(kd)
 	g.Expect(readinessCondition).ToNot(BeNil())
