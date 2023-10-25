@@ -108,6 +108,9 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
+		BaseContext: func() context.Context {
+			return ctx
+		},
 		Scheme: cmd.scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: cmd.MetricsBindAddress,
