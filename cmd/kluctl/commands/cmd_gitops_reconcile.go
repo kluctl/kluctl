@@ -13,6 +13,8 @@ type gitopsReconcileCmd struct {
 	args.GitOpsArgs
 	args.GitOpsLogArgs
 	args.GitOpsOverridableArgs
+
+	DeployExtraFlags `groupOverride:"override"`
 }
 
 func (cmd *gitopsReconcileCmd) Help() string {
