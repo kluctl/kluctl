@@ -101,6 +101,10 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	return p
 }
 
+func (p *TestProject) SetSkipProjectDirArg(b bool) {
+	p.skipProjectDirArg = b
+}
+
 func (p *TestProject) IsUseProcess() bool {
 	return p.useProcess
 }

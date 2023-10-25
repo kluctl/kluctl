@@ -21,11 +21,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"sync"
+	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -46,7 +49,8 @@ type GitopsTestSuite struct {
 
 	k *test_utils.EnvTestCluster
 
-	cancelController context.CancelFunc
+	sourceOverridePort int
+	cancelController   context.CancelFunc
 
 	gitopsNamespace        string
 	gitopsResultsNamespace string
@@ -89,12 +93,34 @@ func (suite *GitopsTestSuite) TearDownSuite() {
 func (suite *GitopsTestSuite) TearDownTest() {
 }
 
+var portMutex sync.Mutex
+
+func getFreePort(t *testing.T) int {
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	port := l.Addr().(*net.TCPAddr).Port
+	return port
+}
+
 func (suite *GitopsTestSuite) startController() {
 	tmpKubeconfig := filepath.Join(suite.T().TempDir(), "kubeconfig")
 	err := os.WriteFile(tmpKubeconfig, suite.k.Kubeconfig, 0o600)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
+
+	portMutex.Lock()
+	go func() {
+		// make sure we don't call getFreePort() too fast
+		time.Sleep(1 * time.Second)
+		portMutex.Unlock()
+	}()
+
+	suite.sourceOverridePort = getFreePort(suite.T())
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	args := []string{
@@ -110,6 +136,7 @@ func (suite *GitopsTestSuite) startController() {
 		suite.gitopsNamespace + "-results",
 		"--metrics-bind-address=0",
 		"--health-probe-bind-address=0",
+		fmt.Sprintf("--source-override-bind-address=localhost:%d", suite.sourceOverridePort),
 	}
 	done := make(chan struct{})
 	go func() {
@@ -351,4 +378,26 @@ func (suite *GitopsTestSuite) getValidateResult(id string) *result.ValidateResul
 		return nil
 	}
 	return vr
+}
+
+func (suite *GitopsTestSuite) assertNoChanges(resultId string) {
+	cr := suite.getCommandResult(resultId)
+	assert.NotNil(suite.T(), cr)
+
+	sum := cr.BuildSummary()
+	assert.Zero(suite.T(), sum.NewObjects)
+	assert.Zero(suite.T(), sum.ChangedObjects)
+	assert.Zero(suite.T(), sum.OrphanObjects)
+	assert.Zero(suite.T(), sum.DeletedObjects)
+}
+
+func (suite *GitopsTestSuite) assertChanges(resultId string, new int, changed int, orphan int, deleted int) {
+	cr := suite.getCommandResult(resultId)
+	assert.NotNil(suite.T(), cr)
+
+	sum := cr.BuildSummary()
+	assert.Equal(suite.T(), new, sum.NewObjects)
+	assert.Equal(suite.T(), changed, sum.ChangedObjects)
+	assert.Equal(suite.T(), orphan, sum.OrphanObjects)
+	assert.Equal(suite.T(), deleted, sum.DeletedObjects)
 }
