@@ -196,30 +196,30 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 	return nil
 }
 
-func (g *gitopsCmdHelper) patchDeployment(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error) error {
+func (g *gitopsCmdHelper) patchDeployment(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error) (*v1beta1.KluctlDeployment, error) {
 	s := status.Startf(ctx, "Patching KluctlDeployment %s/%s", key.Namespace, key.Name)
 	defer s.Failed()
 
 	var kd v1beta1.KluctlDeployment
 	err := g.client.Get(ctx, key, &kd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	patch := client.MergeFrom(kd.DeepCopy())
 	err = cb(&kd)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = g.client.Patch(ctx, &kd, patch, client.FieldOwner("kluctl"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	s.Success()
 
-	return nil
+	return &kd, nil
 }
 
 func (g *gitopsCmdHelper) updateDeploymentStatus(ctx context.Context, key client.ObjectKey, cb func(kd *v1beta1.KluctlDeployment) error, retries int) error {
@@ -275,7 +275,7 @@ func (g *gitopsCmdHelper) patchDeploymentStatus(ctx context.Context, key client.
 }
 
 func (g *gitopsCmdHelper) patchManualRequest(ctx context.Context, key client.ObjectKey, requestAnnotation string, value string) error {
-	err := g.patchDeployment(ctx, key, func(kd *v1beta1.KluctlDeployment) error {
+	_, err := g.patchDeployment(ctx, key, func(kd *v1beta1.KluctlDeployment) error {
 		a := kd.GetAnnotations()
 		if a == nil {
 			a = map[string]string{}

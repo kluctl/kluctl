@@ -4,7 +4,9 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type GitopsSuspendCmd struct {
@@ -43,7 +45,7 @@ func (cmd *GitopsSuspendCmd) Run(ctx context.Context) error {
 		return err
 	}
 	for _, kd := range g.kds {
-		err = g.patchDeployment(ctx, client.ObjectKeyFromObject(&kd), func(kd *v1beta1.KluctlDeployment) error {
+		patchedKd, err := g.patchDeployment(ctx, client.ObjectKeyFromObject(&kd), func(kd *v1beta1.KluctlDeployment) error {
 			if cmd.forResume {
 				kd.Spec.Suspend = false
 			} else {
@@ -51,6 +53,31 @@ func (cmd *GitopsSuspendCmd) Run(ctx context.Context) error {
 			}
 			return nil
 		})
+		if err != nil {
+			return err
+		}
+		err = func() error {
+			st := status.Startf(ctx, "Waiting for final reconciliation loop to finish")
+			defer st.Failed()
+
+			tick := time.NewTicker(time.Second)
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-tick.C:
+					var kd2 v1beta1.KluctlDeployment
+					err := g.client.Get(ctx, client.ObjectKeyFromObject(&kd), &kd2)
+					if err != nil {
+						return err
+					}
+					if kd2.Status.ObservedGeneration >= patchedKd.Generation {
+						st.Success()
+						return nil
+					}
+				}
+			}
+		}()
 		if err != nil {
 			return err
 		}
