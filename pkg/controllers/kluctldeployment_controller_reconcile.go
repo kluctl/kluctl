@@ -279,7 +279,7 @@ func (r *KluctlDeploymentReconciler) reconcilePruneRequest(ctx context.Context, 
 		"prune", kluctlv1.KluctlRequestPruneAnnotation,
 		setRequestResult, getLegacyOldValue, false,
 		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
-			cmdResult, cmdErr := pt.kluctlPrune(ctx, targetContext, reconcileId, objectsHash)
+			cmdResult, cmdErr := pt.kluctlPrune(ctx, targetContext, reconcileId, objectsHash, true)
 			err := obj.Status.SetLastDeployResult(cmdResult.BuildSummary(), cmdErr)
 			if err != nil {
 				log.Error(err, "Failed to write prune result")

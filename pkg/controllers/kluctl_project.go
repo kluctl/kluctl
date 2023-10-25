@@ -828,7 +828,7 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPruneCommand("", targetContext, false)
@@ -841,7 +841,7 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdResult, "prune", false)
+	err = pt.writeCommandResult(ctx, cmdResult, "prune", triggeredByRequest)
 	return cmdResult, err
 }
 
