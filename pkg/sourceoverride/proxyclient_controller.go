@@ -13,9 +13,8 @@ import (
 )
 
 type ProxyClientController struct {
-	serverId string
-	repoKey  types.RepoKey
-	isGroup  bool
+	serverId       string
+	knownOverrides []RepoOverride
 
 	grpcConn *grpc.ClientConn
 	smClient ProxyClient
@@ -23,13 +22,15 @@ type ProxyClientController struct {
 	cache utils.ThreadSafeCache[types.RepoKey, string]
 }
 
-func NewClientController(serverId string, repoKey types.RepoKey, isGroup bool) (*ProxyClientController, error) {
+func NewClientController(serverId string) (*ProxyClientController, error) {
 	s := &ProxyClientController{
 		serverId: serverId,
-		repoKey:  repoKey,
-		isGroup:  isGroup,
 	}
 	return s, nil
+}
+
+func (c *ProxyClientController) AddKnownOverride(ro RepoOverride) {
+	c.knownOverrides = append(c.knownOverrides, ro)
 }
 
 func (c *ProxyClientController) Close() error {
@@ -57,11 +58,14 @@ func (c *ProxyClientController) Connect(ctx context.Context, target string) erro
 }
 
 func (c *ProxyClientController) ResolveOverride(ctx context.Context, repoKey types.RepoKey) (string, error) {
-	tmp := RepoOverride{
-		RepoKey: c.repoKey,
-		IsGroup: c.isGroup,
+	anyMatch := false
+	for _, ro := range c.knownOverrides {
+		if _, ok := ro.Match(repoKey); ok {
+			anyMatch = true
+			break
+		}
 	}
-	if _, ok := tmp.Match(repoKey); !ok {
+	if !anyMatch {
 		return "", nil
 	}
 

@@ -59,12 +59,15 @@ func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Con
 		}
 	}()
 
-	for _, x := range obj.Spec.SourceOverrides {
-		if _, ok := m[x.Url]; ok {
-			continue
-		}
+	byUrl := map[string][]kluctlv1.SourceOverride{}
+	var l []*sourceoverride.ProxyClientController
 
-		u, err := url.Parse(x.Url)
+	for _, so := range obj.Spec.SourceOverrides {
+		byUrl[so.Url] = append(byUrl[so.Url], so)
+	}
+
+	for urlStr, sos := range byUrl {
+		u, err := url.Parse(urlStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse override url: %w", err)
 		}
@@ -75,9 +78,16 @@ func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Con
 
 		serverId := strings.TrimPrefix(u.Path, "/")
 
-		c, err := sourceoverride.NewClientController(serverId, x.RepoKey, x.IsGroup)
+		c, err := sourceoverride.NewClientController(serverId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create source override client: %w", err)
+		}
+
+		for _, so := range sos {
+			c.AddKnownOverride(sourceoverride.RepoOverride{
+				RepoKey: so.RepoKey,
+				IsGroup: so.IsGroup,
+			})
 		}
 
 		err = c.Connect(ctx, u.Host)
@@ -85,10 +95,6 @@ func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Con
 			return nil, fmt.Errorf("failed to create source override client: %w", err)
 		}
 
-		m[x.Url] = c
-	}
-	var l []*sourceoverride.ProxyClientController
-	for _, c := range m {
 		l = append(l, c)
 	}
 	cleanup = false
