@@ -29,11 +29,14 @@ The following arguments are available:
 GitOps arguments:
   Specify gitops flags.
 
-      --context string          Override the context to use.
-  -l, --label-selector string   If specified, KluctlDeployments are searched and filtered by this label selector.
-      --name string             Specifies the name of the KluctlDeployment.
-  -n, --namespace string        Specifies the namespace of the KluctlDeployment. If omitted, the current namespace
-                                from your kubeconfig is used.
+      --context string                   Override the context to use.
+  -l, --label-selector string            If specified, KluctlDeployments are searched and filtered by this label
+                                         selector.
+      --local-source-override-port int   Specifies the local port to which the source-override client should
+                                         connect to when running the controller locally.
+      --name string                      Specifies the name of the KluctlDeployment.
+  -n, --namespace string                 Specifies the namespace of the KluctlDeployment. If omitted, the current
+                                         namespace from your kubeconfig is used.
 
 ```
 <!-- END SECTION -->
@@ -79,6 +82,9 @@ Log arguments:
 GitOps overrides:
   Override settings for GitOps deployments.
 
+      --no-wait                 Don't wait for objects readiness.
+      --prune                   Prune orphaned objects directly after deploying. See the help for the 'prune'
+                                sub-command for details.
       --target-context string   Overrides the context name specified in the target. If the selected target does
                                 not specify a context or the no-name target is used, --context will override the
                                 currently active context.
