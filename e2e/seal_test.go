@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/bitnami-labs/sealed-secrets/pkg/crypto"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/e2e/test_resources"
 	"github.com/kluctl/kluctl/v2/pkg/seal"
@@ -58,10 +59,7 @@ func startCertServer() (*certServer, error) {
 	certbytes = append(certbytes, pem.EncodeToMemory(&pem.Block{Type: certUtil.CertificateBlockType, Bytes: cert.Raw})...)
 	keybytes := pem.EncodeToMemory(&pem.Block{Type: keyutil.RSAPrivateKeyBlockType, Bytes: x509.MarshalPKCS1PrivateKey(key)})
 	_ = keybytes
-	l, err := net.Listen("tcp", "")
-	if err != nil {
-		return nil, err
-	}
+	l := port_tool.NewListenerWithUniquePort("127.0.0.1")
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/cert.pem", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

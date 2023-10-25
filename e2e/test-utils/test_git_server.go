@@ -5,7 +5,7 @@ import (
 	"fmt"
 	config2 "github.com/go-git/go-git/v5/config"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
-	"log"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"net"
 	"net/http"
 	"os"
@@ -33,12 +33,6 @@ type TestGitServer struct {
 	failWhenAuth bool
 
 	cleanupMutex sync.RWMutex
-}
-
-type repoInfo struct {
-	repoName string
-	username string
-	password string
 }
 
 type TestGitServerOpt func(*TestGitServer)
@@ -107,10 +101,7 @@ func (p *TestGitServer) initGitServer() {
 		Handler: handler,
 	}
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ln := port_tool.NewListenerWithUniquePort("127.0.0.1")
 	a := ln.Addr().(*net.TCPAddr)
 	p.gitServerPort = a.Port
 

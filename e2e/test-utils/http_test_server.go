@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"github.com/docker/go-connections/proxy"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"math/big"
 	"net"
 	"net/http"
@@ -54,9 +54,12 @@ func (s *TestHttpServer) Start(t *testing.T, h http.Handler) {
 		h.ServeHTTP(writer, request)
 	})
 
-	if s.TLSEnabled {
-		s.Server = httptest.NewUnstartedServer(authH)
+	s.Server = &httptest.Server{
+		Listener: port_tool.NewListenerWithUniquePort("127.0.0.1"),
+		Config:   &http.Server{Handler: authH},
+	}
 
+	if s.TLSEnabled {
 		s.Server.TLS = &tls.Config{
 			Certificates: []tls.Certificate{*serverCert},
 		}
@@ -76,7 +79,7 @@ func (s *TestHttpServer) Start(t *testing.T, h http.Handler) {
 
 		s.Server.StartTLS()
 	} else {
-		s.Server = httptest.NewServer(authH)
+		s.Server.Start()
 	}
 
 	transport := s.Server.Client().Transport.(*http.Transport)
@@ -103,10 +106,14 @@ func (s *TestHttpServer) startTLSProxy(t *testing.T) {
 	frontendAddr := &net.TCPAddr{IP: nonLoopbackIp}
 	backendAddr := &net.TCPAddr{IP: localhostIp, Port: int(port)}
 
-	p, err := proxy.NewTCPProxy(frontendAddr, backendAddr)
+	l := port_tool.NewListenerWithUniquePort(frontendAddr.IP.String())
+	p, err := NewTCPProxy(l, backendAddr)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		p.Close()
+	})
 
 	u.Host = p.FrontendAddr().String()
 	s.Server.URL = u.String()
@@ -114,10 +121,6 @@ func (s *TestHttpServer) startTLSProxy(t *testing.T) {
 	go func() {
 		p.Run()
 	}()
-
-	t.Cleanup(func() {
-		p.Close()
-	})
 }
 
 func findNonLoopbackIp() net.IP {

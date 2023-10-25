@@ -7,6 +7,7 @@ import (
 	"github.com/huandu/xstrings"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
@@ -21,14 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-	"sync"
-	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -93,19 +91,6 @@ func (suite *GitopsTestSuite) TearDownSuite() {
 func (suite *GitopsTestSuite) TearDownTest() {
 }
 
-var portMutex sync.Mutex
-
-func getFreePort(t *testing.T) int {
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-
-	port := l.Addr().(*net.TCPAddr).Port
-	return port
-}
-
 func (suite *GitopsTestSuite) startController() {
 	tmpKubeconfig := filepath.Join(suite.T().TempDir(), "kubeconfig")
 	err := os.WriteFile(tmpKubeconfig, suite.k.Kubeconfig, 0o600)
@@ -113,14 +98,7 @@ func (suite *GitopsTestSuite) startController() {
 		suite.T().Fatal(err)
 	}
 
-	portMutex.Lock()
-	go func() {
-		// make sure we don't call getFreePort() too fast
-		time.Sleep(1 * time.Second)
-		portMutex.Unlock()
-	}()
-
-	suite.sourceOverridePort = getFreePort(suite.T())
+	suite.sourceOverridePort = port_tool.NextFreePort("127.0.0.1")
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	args := []string{
