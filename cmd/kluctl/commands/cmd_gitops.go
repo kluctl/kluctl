@@ -656,7 +656,10 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 			return err
 		}
 	} else {
-		err = soClient.Connect("localhost:8082")
+		if g.args.LocalSourceOverridePort == 0 {
+			return nil
+		}
+		err = soClient.Connect(fmt.Sprintf("localhost:%d", g.args.LocalSourceOverridePort))
 		if err != nil {
 			return err
 		}

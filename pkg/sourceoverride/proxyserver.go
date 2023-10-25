@@ -21,7 +21,9 @@ type ProxyServerImpl struct {
 
 	mutex       sync.Mutex
 	connections map[string]*ProxyConnection
-	grpcServer  *grpc.Server
+
+	listener   net.Listener
+	grpcServer *grpc.Server
 }
 
 type ProxyConnection struct {
@@ -51,18 +53,17 @@ func NewProxyServerImpl(ctx context.Context) *ProxyServerImpl {
 	return m
 }
 
-func (m *ProxyServerImpl) Start(addr string) error {
+func (m *ProxyServerImpl) Listen(addr string) (net.Addr, error) {
 	is, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	m.listener = is
+	return is.Addr(), nil
+}
 
-	err = m.grpcServer.Serve(is)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (m *ProxyServerImpl) Serve() error {
+	return m.grpcServer.Serve(m.listener)
 }
 
 func (m *ProxyServerImpl) Stop() {

@@ -8,7 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -143,11 +142,12 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	var soProxyServer *sourceoverride.ProxyServerImpl
 	if cmd.SourceOverrideBindAddress != "0" {
 		soProxyServer = sourceoverride.NewProxyServerImpl(ctx)
+		_, err := soProxyServer.Listen(cmd.SourceOverrideBindAddress)
+		if err != nil {
+			return err
+		}
 		go func() {
-			err = soProxyServer.Start(cmd.SourceOverrideBindAddress)
-			if err != nil {
-				status.Error(ctx, err.Error())
-			}
+			_ = soProxyServer.Serve()
 		}()
 		defer soProxyServer.Stop()
 	}
