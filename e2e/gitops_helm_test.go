@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	. "github.com/onsi/gomega"
@@ -118,11 +117,9 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 
 	suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
-	var kd kluctlv1.KluctlDeployment
-	err = suite.k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
+	kd := suite.getKluctlDeploymentAllowNil(key)
 
-	readinessCondition := suite.getReadiness(&kd)
+	readinessCondition := suite.getReadiness(kd)
 	g.Expect(readinessCondition).ToNot(BeNil())
 
 	if tc.expectedError == "" {

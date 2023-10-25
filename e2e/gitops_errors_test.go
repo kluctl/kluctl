@@ -30,18 +30,16 @@ func TestGitOpsErrors(t *testing.T) {
 func (suite *GitOpsErrorsSuite) assertErrors(key client.ObjectKey, rstatus metav1.ConditionStatus, rreason string, rmessage string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
 	g := NewWithT(suite.T())
 
-	var kd kluctlv1.KluctlDeployment
+	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		err := suite.k.Client.Get(context.TODO(), key, &kd)
-		g.Expect(err).To(Succeed())
-
-		readiness := suite.getReadiness(&kd)
+		kd = suite.getKluctlDeployment(key)
+		readiness := suite.getReadiness(kd)
 		return readiness.Status != metav1.ConditionUnknown
 	}, timeout, time.Second).Should(BeTrue())
 
 	g.Expect(kd.Status.LastDeployResult).ToNot(BeNil())
 
-	readinessCondition := suite.getReadiness(&kd)
+	readinessCondition := suite.getReadiness(kd)
 	g.Expect(readinessCondition).ToNot(BeNil())
 
 	g.Expect(readinessCondition.Status).To(Equal(rstatus))

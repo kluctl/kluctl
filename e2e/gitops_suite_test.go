@@ -71,9 +71,7 @@ func (suite *GitopsTestSuite) TearDownSuite() {
 
 	g.Eventually(func() bool {
 		for _, key := range suite.deletedDeployments {
-			var kd kluctlv1.KluctlDeployment
-			err := suite.k.Client.Get(context.TODO(), key, &kd)
-			if err == nil {
+			if suite.getKluctlDeploymentAllowNil(key) != nil {
 				return false
 			}
 		}
@@ -149,10 +147,9 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) *kluctlv1.K
 
 	suite.T().Logf("%s: waiting for reconcile to finish", reconcileId)
 
-	var kd kluctlv1.KluctlDeployment
+	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		err := suite.k.Client.Get(context.TODO(), key, &kd)
-		g.Expect(err).To(Succeed())
+		kd = suite.getKluctlDeployment(key)
 		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
 			suite.T().Logf("%s: request processing not started yet", reconcileId)
 			return false
@@ -164,7 +161,7 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) *kluctlv1.K
 		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
-	return &kd
+	return kd
 }
 
 func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string) *kluctlv1.KluctlDeployment {
@@ -174,10 +171,9 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 
 	suite.T().Logf("%s: waiting for commit %s", reconcileId, commit)
 
-	var kd kluctlv1.KluctlDeployment
+	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
+		kd = suite.getKluctlDeployment(key)
 		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
 			suite.T().Logf("%s: request processing not started yet", reconcileId)
 			return false
@@ -193,7 +189,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
-	return &kd
+	return kd
 }
 
 func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
@@ -245,21 +241,39 @@ func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProjec
 	return key
 }
 
+func (suite *GitopsTestSuite) getKluctlDeploymentAllowNil(key client.ObjectKey) *kluctlv1.KluctlDeployment {
+	var kd kluctlv1.KluctlDeployment
+	err := suite.k.Client.Get(context.TODO(), key, &kd)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		suite.T().Fatal(err)
+	}
+	return &kd
+}
+
+func (suite *GitopsTestSuite) getKluctlDeployment(key client.ObjectKey) *kluctlv1.KluctlDeployment {
+	kd := suite.getKluctlDeploymentAllowNil(key)
+	if kd == nil {
+		suite.T().Fatal(fmt.Sprintf("KluctlDeployment %s not found", key.String()))
+	}
+	return kd
+}
+
 func (suite *GitopsTestSuite) updateKluctlDeployment(key client.ObjectKey, update func(kd *kluctlv1.KluctlDeployment)) *kluctlv1.KluctlDeployment {
 	g := NewWithT(suite.T())
 
-	var kd kluctlv1.KluctlDeployment
-	err := suite.k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
+	kd := suite.getKluctlDeployment(key)
 
 	patch := client.MergeFrom(kd.DeepCopy())
 
-	update(&kd)
+	update(kd)
 
-	err = suite.k.Client.Patch(context.TODO(), &kd, patch, client.FieldOwner("kubectl"))
+	err := suite.k.Client.Patch(context.TODO(), kd, patch, client.FieldOwner("kubectl"))
 	g.Expect(err).To(Succeed())
 
-	return &kd
+	return kd
 }
 
 func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
