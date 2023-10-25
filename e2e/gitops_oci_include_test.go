@@ -153,13 +153,9 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	g.Expect(err).To(Succeed())
 
 	suite.Run("retry with authentication", func() {
-		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
-
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionTrue))
 	})

@@ -142,15 +142,15 @@ func (suite *GitopsTestSuite) triggerReconcile(key client.ObjectKey) string {
 	return reconcileId
 }
 
-func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
+func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) *kluctlv1.KluctlDeployment {
 	g := gomega.NewWithT(suite.T())
 
 	reconcileId := suite.triggerReconcile(key)
 
 	suite.T().Logf("%s: waiting for reconcile to finish", reconcileId)
 
+	var kd kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		var kd kluctlv1.KluctlDeployment
 		err := suite.k.Client.Get(context.TODO(), key, &kd)
 		g.Expect(err).To(Succeed())
 		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
@@ -164,17 +164,18 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
 		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
+	return &kd
 }
 
-func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string) {
+func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string) *kluctlv1.KluctlDeployment {
 	g := gomega.NewWithT(suite.T())
 
 	reconcileId := suite.triggerReconcile(key)
 
 	suite.T().Logf("%s: waiting for commit %s", reconcileId, commit)
 
+	var kd kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		var kd kluctlv1.KluctlDeployment
 		err := suite.k.Client.Get(context.Background(), key, &kd)
 		g.Expect(err).To(Succeed())
 		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
@@ -192,6 +193,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
+	return &kd
 }
 
 func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
