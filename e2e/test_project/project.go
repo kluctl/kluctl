@@ -24,9 +24,10 @@ import (
 type TestProject struct {
 	t *testing.T
 
-	extraEnv   utils.OrderedMap[string, string]
-	useProcess bool
-	bare       bool
+	extraEnv          utils.OrderedMap[string, string]
+	useProcess        bool
+	skipProjectDirArg bool
+	bare              bool
 
 	gitServer   *git2.TestGitServer
 	gitRepoName string
@@ -62,6 +63,12 @@ func WithGitSubDir(subDir string) TestProjectOption {
 func WithBareProject() TestProjectOption {
 	return func(p *TestProject) {
 		p.bare = true
+	}
+}
+
+func WithSkipProjectDirArg(b bool) TestProjectOption {
+	return func(p *TestProject) {
+		p.skipProjectDirArg = b
 	}
 }
 
@@ -499,7 +506,9 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 	}
 
 	var args []string
-	args = append(args, "--project-dir", p.LocalProjectDir())
+	if !p.skipProjectDirArg {
+		args = append(args, "--project-dir", p.LocalProjectDir())
+	}
 	args = append(args, argsIn...)
 
 	return KluctlExecute(p.t, context.Background(), args...)

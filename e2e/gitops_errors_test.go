@@ -1,10 +1,8 @@
 package e2e
 
 import (
-	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
-	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -46,19 +44,12 @@ func (suite *GitOpsErrorsSuite) assertErrors(key client.ObjectKey, rstatus metav
 	g.Expect(readinessCondition.Reason).To(Equal(rreason))
 	g.Expect(readinessCondition.Message).To(ContainSubstring(rmessage))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, false, "", 0, 0)
-	g.Expect(err).To(Succeed())
-
 	lastDeployResult, err := kd.Status.GetLastDeployResult()
 	g.Expect(err).To(Succeed())
-	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{
-		Id: lastDeployResult.Id,
-	})
+
 	g.Expect(err).To(Succeed())
 	if len(expectedErrors) != 0 || len(expectedWarnings) != 0 {
+		cr := suite.getCommandResult(lastDeployResult.Id)
 		g.Expect(cr).ToNot(BeNil())
 		g.Expect(err).To(Succeed())
 		g.Expect(cr.Errors).To(ConsistOf(expectedErrors))

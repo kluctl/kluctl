@@ -8,9 +8,12 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/results"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -320,4 +323,32 @@ func (suite *GitopsTestSuite) getReadiness(obj *kluctlv1.KluctlDeployment) *meta
 		}
 	}
 	return nil
+}
+
+func (suite *GitopsTestSuite) getCommandResult(id string) *result.CommandResult {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, false, "", 0, 0)
+	assert.NoError(suite.T(), err)
+
+	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{Id: id})
+	if err != nil {
+		return nil
+	}
+	return cr
+}
+
+func (suite *GitopsTestSuite) getValidateResult(id string) *result.ValidateResult {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, false, "", 0, 0)
+	assert.NoError(suite.T(), err)
+
+	vr, err := rs.GetValidateResult(results.GetValidateResultOptions{Id: id})
+	if err != nil {
+		return nil
+	}
+	return vr
 }
