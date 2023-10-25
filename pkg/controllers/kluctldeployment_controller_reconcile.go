@@ -7,9 +7,11 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type setResultCallback func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult)
@@ -102,19 +104,19 @@ func (r *KluctlDeploymentReconciler) prepareProjectAndTarget(ctx context.Context
 }
 
 type reconcileCallback func(targetContext *kluctl_project.TargetContext,
-	pt *preparedTarget, reconcileID string, objectsHash string) (any, error)
+	pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error)
 
 func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context, timeoutCtx context.Context,
 	obj *kluctlv1.KluctlDeployment, reconcileId string,
-	commandName string, annotationName string, failReason string,
-	setResult setResultCallback, getLegacyOldValue getLegacyOldValueCallback,
+	commandName string, annotationName string,
+	setResult setResultCallback, getLegacyOldValue getLegacyOldValueCallback, force bool,
 	reconcileRequest reconcileCallback,
 ) (bool, error) {
 	req, err := r.startHandleManualRequest(ctx, obj, reconcileId, obj.Status.DiffRequestResult, annotationName, setResult, getLegacyOldValue)
 	if err != nil {
 		return false, r.patchFailPrepare(ctx, obj, err)
 	}
-	if req == nil {
+	if req == nil && !force {
 		return false, nil
 	}
 
@@ -149,7 +151,7 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 		return doError("", err)
 	}
 
-	cmdResult, cmdErr := reconcileRequest(targetContext, pt, reconcileId, objectsHash)
+	cmdResult, failReason, cmdErr := reconcileRequest(targetContext, pt, reconcileId, objectsHash)
 
 	resultId := ""
 	if x, ok := cmdResult.(*result.CommandResult); ok {
@@ -218,15 +220,15 @@ func (r *KluctlDeploymentReconciler) reconcileDiffRequest(ctx context.Context, t
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
-		"diff", kluctlv1.KluctlRequestDiffAnnotation, kluctlv1.DiffFailedReason,
-		setRequestResult, getLegacyOldValue,
-		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, error) {
+		"diff", kluctlv1.KluctlRequestDiffAnnotation,
+		setRequestResult, getLegacyOldValue, false,
+		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlDiff(ctx, targetContext, reconcileId, objectsHash, nil, true)
 			err := obj.Status.SetLastDiffResult(cmdResult.BuildSummary(), cmdErr)
 			if err != nil {
 				log.Error(err, "Failed to write diff result")
 			}
-			return cmdResult, err
+			return cmdResult, kluctlv1.DiffFailedReason, err
 		})
 }
 
@@ -246,15 +248,15 @@ func (r *KluctlDeploymentReconciler) reconcileDeployRequest(ctx context.Context,
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
-		obj.Spec.DeployMode, kluctlv1.KluctlRequestDeployAnnotation, kluctlv1.DeployFailedReason,
-		setRequestResult, getLegacyOldValue,
-		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, error) {
+		obj.Spec.DeployMode, kluctlv1.KluctlRequestDeployAnnotation,
+		setRequestResult, getLegacyOldValue, false,
+		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlDeployOrPokeImages(ctx, obj.Spec.DeployMode, targetContext, reconcileId, objectsHash, true)
 			err := obj.Status.SetLastDeployResult(cmdResult.BuildSummary(), cmdErr)
 			if err != nil {
 				log.Error(err, "Failed to write deploy result")
 			}
-			return cmdResult, err
+			return cmdResult, kluctlv1.DeployFailedReason, err
 		})
 }
 
@@ -274,15 +276,15 @@ func (r *KluctlDeploymentReconciler) reconcilePruneRequest(ctx context.Context, 
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
-		"prune", kluctlv1.KluctlRequestPruneAnnotation, kluctlv1.PruneFailedReason,
-		setRequestResult, getLegacyOldValue,
-		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, error) {
+		"prune", kluctlv1.KluctlRequestPruneAnnotation,
+		setRequestResult, getLegacyOldValue, false,
+		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlPrune(ctx, targetContext, reconcileId, objectsHash)
 			err := obj.Status.SetLastDeployResult(cmdResult.BuildSummary(), cmdErr)
 			if err != nil {
 				log.Error(err, "Failed to write prune result")
 			}
-			return cmdResult, err
+			return cmdResult, kluctlv1.PruneFailedReason, err
 		})
 }
 
@@ -302,14 +304,156 @@ func (r *KluctlDeploymentReconciler) reconcileValidateRequest(ctx context.Contex
 	}
 
 	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
-		"validate", kluctlv1.KluctlRequestValidateAnnotation, kluctlv1.ValidateFailedReason,
-		setRequestResult, getLegacyOldValue,
-		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, error) {
+		"validate", kluctlv1.KluctlRequestValidateAnnotation,
+		setRequestResult, getLegacyOldValue, false,
+		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
 			cmdResult, cmdErr := pt.kluctlValidate(ctx, targetContext, nil, reconcileId, objectsHash)
 			err := obj.Status.SetLastValidateResult(cmdResult, cmdErr)
 			if err != nil {
 				log.Error(err, "Failed to write validate result")
 			}
-			return cmdResult, err
+			return cmdResult, kluctlv1.ValidateFailedReason, err
 		})
+}
+
+func (r *KluctlDeploymentReconciler) reconcileFullRequest(ctx context.Context, timeoutCtx context.Context,
+	obj *kluctlv1.KluctlDeployment, reconcileId string) (bool, error) {
+
+	defer func() {
+		obj.Status.LastHandledReconcileAt = ""
+		obj.Status.ObservedGeneration = obj.GetGeneration()
+	}()
+
+	setRequestResult := func(status *kluctlv1.KluctlDeploymentStatus, requestResult *kluctlv1.RequestResult) {
+		status.ReconcileRequestResult = requestResult
+	}
+	getLegacyOldValue := func(status *kluctlv1.KluctlDeploymentStatus) string {
+		return status.LastHandledReconcileAt
+	}
+
+	return r.reconcileManualRequest(ctx, timeoutCtx, obj, reconcileId,
+		"reconcile", kluctlv1.KluctlRequestReconcileAnnotation,
+		setRequestResult, getLegacyOldValue, true,
+		func(targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
+			return r.reconcileFullRequest2(ctx, timeoutCtx, obj, reconcileId, targetContext, pt, reconcileId, objectsHash)
+		})
+}
+
+func (r *KluctlDeploymentReconciler) reconcileFullRequest2(ctx context.Context, timeoutCtx context.Context,
+	obj *kluctlv1.KluctlDeployment, reconcileId string, targetContext *kluctl_project.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
+	key := client.ObjectKeyFromObject(obj)
+	log := ctrl.LoggerFrom(ctx)
+
+	err := r.patchTargetKey(ctx, obj, targetContext)
+	if err != nil {
+		return nil, kluctlv1.PrepareFailedReason, err
+	}
+
+	needDeploy := false
+	needValidate := false
+	needDriftDetection := true
+
+	if obj.Status.LastDeployResult == nil || obj.Status.LastObjectsHash != objectsHash {
+		// either never deployed or source code changed
+		needDeploy = true
+	} else if obj.Spec.Manual && !utils.StrPtrEquals(obj.Status.LastManualObjectsHash, obj.Spec.ManualObjectsHash) {
+		// approval hash was changed
+		needDeploy = true
+	} else if obj.Status.ObservedGeneration != obj.GetGeneration() {
+		// spec has changed
+		needDeploy = true
+	} else {
+		// was deployed before, let's check if we need to do periodic deployments
+		nextDeployTime := r.nextDeployTime(obj)
+		if nextDeployTime != nil {
+			needDeploy = nextDeployTime.Before(time.Now())
+		}
+	}
+
+	if needDeploy && obj.Spec.Manual {
+		log.Info("checking manual object hash")
+		if obj.Spec.ManualObjectsHash == nil || *obj.Spec.ManualObjectsHash != objectsHash {
+			log.Info("deployment is not approved", "manualObjectsHash", obj.Spec.ManualObjectsHash, "objectsHash", objectsHash)
+			needDeploy = false
+		} else {
+			log.Info("deployment is approved", "objectsHash", objectsHash)
+		}
+	}
+
+	if obj.Spec.Validate {
+		if obj.Status.LastValidateResult == nil || needDeploy {
+			// either never validated before or a deployment requested (which required re-validation)
+			needValidate = true
+		} else {
+			nextValidateTime := r.nextValidateTime(obj)
+			if nextValidateTime != nil {
+				needValidate = nextValidateTime.Before(time.Now())
+			}
+		}
+	} else {
+		obj.Status.LastValidateResult = nil
+		obj.Status.LastValidateError = ""
+	}
+
+	if !needDeploy && obj.Status.LastObjectsHash != objectsHash {
+		// force full drift detection as we can't know which objects changed in-between
+		r.updateResourceVersions(key, nil, nil)
+	}
+
+	obj.Status.LastObjectsHash = objectsHash
+	obj.Status.LastManualObjectsHash = obj.Spec.ManualObjectsHash
+
+	var deployResult *result.CommandResult
+	if needDeploy {
+		err := r.patchProgressingCondition(ctx, obj, fmt.Sprintf("Performing kluctl %s", obj.Spec.DeployMode), false)
+		if err != nil {
+			return nil, kluctlv1.DeployFailedReason, err
+		}
+
+		var cmdErr error
+		deployResult, cmdErr = pt.kluctlDeployOrPokeImages(timeoutCtx, obj.Spec.DeployMode, targetContext, reconcileId, objectsHash, false)
+		err = obj.Status.SetLastDeployResult(deployResult.BuildSummary(), cmdErr)
+		if err != nil {
+			log.Error(err, "Failed to write deploy result")
+		}
+
+		if obj.Spec.DryRun {
+			// force full drift detection (otherwise we'd see the dry-run applied changes as non-drifted)
+			r.updateResourceVersions(key, nil, nil)
+		} else {
+			r.updateResourceVersions(key, deployResult.Objects, nil)
+		}
+	}
+
+	if needValidate {
+		err := r.patchProgressingCondition(ctx, obj, "Performing kluctl validate", false)
+		if err != nil {
+			return nil, kluctlv1.ValidateFailedReason, err
+		}
+		validateResult, cmdErr := pt.kluctlValidate(timeoutCtx, targetContext, deployResult, reconcileId, objectsHash)
+		err = obj.Status.SetLastValidateResult(validateResult, cmdErr)
+		if err != nil {
+			log.Error(err, "Failed to write validate result")
+		}
+	}
+
+	if needDriftDetection {
+		err := r.patchProgressingCondition(ctx, obj, "Performing drift detection", false)
+		if err != nil {
+			return nil, kluctlv1.DiffFailedReason, err
+		}
+
+		resourceVersions := r.getResourceVersions(key)
+
+		diffResult, cmdErr := pt.kluctlDiff(timeoutCtx, targetContext, reconcileId, objectsHash, resourceVersions, false)
+		driftDetectionResult := diffResult.BuildDriftDetectionResult()
+		err = obj.Status.SetLastDriftDetectionResult(driftDetectionResult, cmdErr)
+		if err != nil {
+			log.Error(err, "Failed to write drift detection result")
+		}
+
+		r.updateResourceVersions(key, diffResult.Objects, driftDetectionResult.Objects)
+	}
+
+	return nil, "", nil
 }
