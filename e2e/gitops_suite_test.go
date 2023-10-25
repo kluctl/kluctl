@@ -118,7 +118,10 @@ func (suite *GitopsTestSuite) startController() {
 	}
 	done := make(chan struct{})
 	go func() {
-		_, _, err := test_project.KluctlExecute(suite.T(), ctx, args...)
+		logFn := func(args ...any) {
+			suite.T().Log(args...)
+		}
+		_, _, err := test_project.KluctlExecute(suite.T(), ctx, logFn, args...)
 		if err != nil {
 			suite.T().Error(err)
 		}

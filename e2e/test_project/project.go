@@ -527,7 +527,7 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 	}
 	args = append(args, argsIn...)
 
-	return KluctlExecute(p.t, context.Background(), args...)
+	return KluctlExecute(p.t, context.Background(), p.t.Log, args...)
 }
 
 func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
