@@ -74,6 +74,8 @@ spec:
         ports:
         - containerPort: 8080
           name: metrics
+        - containerPort: 8082
+          name: source-override
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
