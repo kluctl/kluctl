@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
@@ -98,7 +98,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Examine if the object is under deletion
 	if !obj.GetDeletionTimestamp().IsZero() {
-		return r.finalize(ctx, obj)
+		return r.finalize(ctx, obj, reconcileID)
 	}
 
 	patchObj := obj.DeepCopy()
@@ -254,18 +254,51 @@ func (r *KluctlDeploymentReconciler) updateResourceVersions(key client.ObjectKey
 	r.resourceVersionsMap[key] = newMap
 }
 
-func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (finalStatus string, reason string) {
-	log := ctrl.LoggerFrom(ctx)
-
-	if obj.Status.LastDeployError != "" {
-		finalStatus = obj.Status.LastDeployError
-		reason = kluctlv1.DeployFailedReason
-		return
-	} else if obj.Status.LastValidateError != "" {
-		finalStatus = obj.Status.LastValidateError
-		reason = kluctlv1.ValidateFailedReason
-		return
+func (r *KluctlDeploymentReconciler) buildErrorFromResult(errors_ []result.DeploymentError, warnings []result.DeploymentError, commandName string) error {
+	if len(errors_) == 0 {
+		return nil
 	}
+	return errors.New(r.buildBaseResultMessage(errors_, warnings, commandName))
+}
+
+func (r *KluctlDeploymentReconciler) buildBaseResultMessage(errors []result.DeploymentError, warnings []result.DeploymentError, commandName string) string {
+	var msg string
+	if len(errors) != 0 {
+		if len(warnings) != 0 {
+			msg = fmt.Sprintf("%s failed with %d errors and %d warnings.", commandName, len(errors), len(warnings))
+		} else {
+			msg = fmt.Sprintf("%s failed with %d errors.", commandName, len(errors))
+		}
+	} else if len(warnings) != 0 {
+		msg = fmt.Sprintf("%s succeeded with %d warnings.", commandName, len(warnings))
+	} else {
+		msg = fmt.Sprintf("%s succeeded.", commandName)
+	}
+	return msg
+}
+
+func (r *KluctlDeploymentReconciler) buildResultMessage(summary *result.CommandResultSummary, commandName string) string {
+	msg := r.buildBaseResultMessage(summary.Errors, summary.Warnings, commandName)
+	if summary.NewObjects != 0 {
+		msg += fmt.Sprintf(" %d new objects.", summary.NewObjects)
+	}
+	if summary.ChangedObjects != 0 {
+		msg += fmt.Sprintf(" %d changed objects.", summary.ChangedObjects)
+	}
+	if summary.AppliedHookObjects != 0 {
+		msg += fmt.Sprintf(" %d hooks run.", summary.AppliedHookObjects)
+	}
+	if summary.DeletedObjects != 0 {
+		msg += fmt.Sprintf(" %d deleted objects.", summary.DeletedObjects)
+	}
+	if summary.OrphanObjects != 0 {
+		msg += fmt.Sprintf(" %d orphan objects.", summary.OrphanObjects)
+	}
+	return msg
+}
+
+func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (string, string) {
+	log := ctrl.LoggerFrom(ctx)
 
 	var lastDeployResult *result.CommandResultSummary
 	var lastValidateResult *result.ValidateResult
@@ -282,45 +315,26 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 		}
 	}
 
-	deployOk := lastDeployResult != nil && len(lastDeployResult.Errors) == 0
-	validateOk := lastValidateResult != nil && len(lastValidateResult.Errors) == 0 && lastValidateResult.Ready
-
-	if !obj.Spec.Validate {
-		validateOk = true
+	if lastDeployResult == nil {
+		return "deployment status unknown", kluctlv1.DeployFailedReason
 	}
 
-	if obj.Status.LastDeployResult != nil {
-		finalStatus += "deploy: "
-		if deployOk {
-			finalStatus += "ok"
-		} else {
-			finalStatus += "failed"
+	msg := r.buildResultMessage(lastDeployResult, "deploy")
+	if obj.Spec.Validate {
+		if lastValidateResult == nil {
+			return msg + " Validation status unknown.", kluctlv1.ValidateFailedReason
 		}
-	}
-	if obj.Spec.Validate && obj.Status.LastValidateResult != nil {
-		if finalStatus != "" {
-			finalStatus += ", "
-		}
-		finalStatus += "validate: "
-		if validateOk {
-			finalStatus += "ok"
-		} else {
-			finalStatus += "failed"
-		}
+		msg += " " + r.buildBaseResultMessage(lastValidateResult.Errors, lastDeployResult.Warnings, "validate")
 	}
 
-	if deployOk {
-		if validateOk {
-			reason = kluctlv1.ReconciliationSucceededReason
-		} else {
-			reason = kluctlv1.ValidateFailedReason
-			return
-		}
-	} else {
-		reason = kluctlv1.DeployFailedReason
-		return
+	if len(lastDeployResult.Errors) != 0 {
+		return msg, kluctlv1.DeployFailedReason
 	}
-	return
+	if lastValidateResult != nil && len(lastValidateResult.Errors) != 0 {
+		return msg, kluctlv1.ValidateFailedReason
+	}
+
+	return msg, kluctlv1.ReconciliationSucceededReason
 }
 
 func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment) time.Duration {
@@ -397,8 +411,8 @@ func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeploy
 	return &t
 }
 
-func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) (ctrl.Result, error) {
-	r.doFinalize(ctx, obj)
+func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1.KluctlDeployment, reconcileId string) (ctrl.Result, error) {
+	r.doFinalize(ctx, obj, reconcileId)
 
 	r.mutex.Lock()
 	delete(r.resourceVersionsMap, client.ObjectKeyFromObject(obj))
@@ -415,7 +429,7 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 	return ctrl.Result{}, nil
 }
 
-func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctlv1.KluctlDeployment) {
+func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctlv1.KluctlDeployment, reconcileId string) {
 	log := ctrl.LoggerFrom(ctx)
 
 	if !obj.Spec.Delete || obj.Spec.Suspend {
@@ -437,9 +451,16 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 
 	pt := pp.newTarget()
 
-	commandResultId := uuid.NewString()
-
-	_, _ = pt.kluctlDelete(ctx, obj.Status.TargetKey.Discriminator, commandResultId)
+	cmdResult, err := pt.kluctlDelete(ctx, obj.Status.TargetKey.Discriminator)
+	if err != nil {
+		log.Error(err, "delete failed with an error")
+	}
+	if cmdResult != nil {
+		err = pt.writeCommandResult(ctx, cmdResult, nil, "delete", reconcileId, "", false)
+		if err != nil {
+			log.Error(err, "delete write delete command result")
+		}
+	}
 }
 
 func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.KluctlDeployment) {

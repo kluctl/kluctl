@@ -206,6 +206,19 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 			err := suite.k.Client.Get(context.Background(), client.ObjectKey{Name: "cm1", Namespace: p.TestSlug()}, &cm1)
 			return errors.IsNotFound(err)
 		}, 5*time.Second, time.Second).Should(BeTrue())
+
+		// ensure source is changed
+		p.UpdateYaml("d1/configmap-cm1.yml", func(o *uo.UnstructuredObject) error {
+			_ = o.SetNestedField("v3", "data", "k")
+			return nil
+		}, "")
+
+		// and it should still not reconcile
+		g.Consistently(func() bool {
+			var cm1 corev1.ConfigMap
+			err := suite.k.Client.Get(context.Background(), client.ObjectKey{Name: "cm1", Namespace: p.TestSlug()}, &cm1)
+			return errors.IsNotFound(err)
+		}, 5*time.Second, time.Second).Should(BeTrue())
 	})
 
 	suite.Run("run manual reconcile", func() {

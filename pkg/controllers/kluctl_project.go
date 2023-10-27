@@ -657,7 +657,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	return targetContext, nil
 }
 
-func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *result.CommandResult, reconcileId string, objectsHash string) error {
+func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *result.CommandResult, rr *kluctlv1.ManualRequestResult, reconcileId string, objectsHash string) error {
 	if cmdResult == nil {
 		// this might happen if something has gone so wrong that nothing succeeded
 		return nil
@@ -671,6 +671,10 @@ func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *r
 		Namespace: pt.pp.obj.Namespace,
 	}
 	cmdResult.RenderedObjectsHash = objectsHash
+
+	if rr != nil && rr.Request.OverridesPatch != nil {
+		cmdResult.OverridesPatch = uo.FromStringMust(string(rr.Request.OverridesPatch.Raw))
+	}
 
 	var err error
 	cmdResult.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
@@ -686,14 +690,17 @@ func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *r
 	return nil
 }
 
-func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdResult *result.CommandResult, commandName string, forceStore bool) error {
+func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdResult *result.CommandResult, rr *kluctlv1.ManualRequestResult, commandName string, reconcileId string, objectsHash string, forceStore bool) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	if cmdResult == nil {
 		return fmt.Errorf("command result is nil, which should not happen")
 	}
 
-	var err error
+	err := pt.addCommandResultInfo(ctx, cmdResult, rr, reconcileId, objectsHash)
+	if err != nil {
+		return err
+	}
 
 	summary := cmdResult.BuildSummary()
 	needStore := summary.NewObjects != 0 ||
@@ -720,40 +727,13 @@ func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdResult *res
 	log.Info(fmt.Sprintf("command finished with %d errors and %d warnings", len(cmdResult.Errors), len(cmdResult.Warnings)))
 	defer pt.exportCommandResultMetricsToProm(summary)
 
-	msg := fmt.Sprintf("%s succeeded.", commandName)
-	if summary.NewObjects != 0 {
-		msg += fmt.Sprintf(" %d new objects.", summary.NewObjects)
-	}
-	if summary.ChangedObjects != 0 {
-		msg += fmt.Sprintf(" %d changed objects.", summary.ChangedObjects)
-	}
-	if summary.AppliedHookObjects != 0 {
-		msg += fmt.Sprintf(" %d hooks run.", summary.AppliedHookObjects)
-	}
-	if summary.DeletedObjects != 0 {
-		msg += fmt.Sprintf(" %d deleted objects.", summary.DeletedObjects)
-	}
-	if summary.OrphanObjects != 0 {
-		msg += fmt.Sprintf(" %d orphan objects.", summary.OrphanObjects)
-	}
-	if len(cmdResult.Errors) != 0 {
-		msg += fmt.Sprintf(" %d errors.", len(cmdResult.Errors))
-	}
-	if len(cmdResult.Warnings) != 0 {
-		msg += fmt.Sprintf(" %d warnings.", len(cmdResult.Warnings))
-	}
+	msg := pt.pp.r.buildResultMessage(summary, commandName)
+	pt.pp.r.event(ctx, pt.pp.obj, len(cmdResult.Errors) != 0, msg, nil)
 
-	warning := false
-	if len(cmdResult.Errors) != 0 {
-		warning = true
-		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
-	}
-	pt.pp.r.event(ctx, pt.pp.obj, warning, msg, nil)
-
-	return err
+	return nil
 }
 
-func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResult *result.ValidateResult, reconcileId string, objectsHash string) error {
+func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResult *result.ValidateResult, rr *kluctlv1.ManualRequestResult, reconcileId string, objectsHash string) error {
 	log := ctrl.LoggerFrom(ctx)
 
 	if validateResult == nil {
@@ -767,6 +747,10 @@ func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResul
 		Namespace: pt.pp.obj.Namespace,
 	}
 	validateResult.RenderedObjectsHash = objectsHash
+
+	if rr != nil && rr.Request.OverridesPatch != nil {
+		validateResult.OverridesPatch = uo.FromStringMust(string(rr.Request.OverridesPatch.Raw))
+	}
 
 	var err error
 	validateResult.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
@@ -785,17 +769,17 @@ func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResul
 	return nil
 }
 
-func (pt *preparedTarget) kluctlDeployOrPokeImages(ctx context.Context, deployMode string, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeployOrPokeImages(deployMode string, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
 	if deployMode == kluctlv1.KluctlDeployModeFull {
-		return pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash)
+		return pt.kluctlDeploy(targetContext), nil
 	} else if deployMode == kluctlv1.KluctlDeployPokeImages {
-		return pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash)
+		return pt.kluctlPokeImages(targetContext), nil
 	} else {
 		return nil, fmt.Errorf("deployMode '%s' not supported", deployMode)
 	}
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeploy(targetContext *kluctl_project.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext)
@@ -809,43 +793,31 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.WaitPrune = false
 
 	cmdResult := cmd.Run(nil)
-	err := pt.addCommandResultInfo(ctx, cmdResult, reconcileId, objectsHash)
-	if err != nil {
-		return cmdResult, err
-	}
-	return cmdResult, nil
+	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPokeImages(targetContext *kluctl_project.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext)
 
 	cmdResult := cmd.Run()
-	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
-	if err != nil {
-		return cmdResult, err
-	}
-	return cmdResult, nil
+	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPrune(targetContext *kluctl_project.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPruneCommand("", targetContext, false)
 
 	cmdResult := cmd.Run(func(refs []k8s.ObjectRef) error {
-		pt.printDeletedRefs(ctx, refs)
+		pt.printDeletedRefs(targetContext.SharedContext.Ctx, refs)
 		return nil
 	})
-	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
-	if err != nil {
-		return cmdResult, err
-	}
-	return cmdResult, nil
+	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, resourceVersions map[k8s.ObjectRef]string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDiff(targetContext *kluctl_project.TargetContext, resourceVersions map[k8s.ObjectRef]string) *result.CommandResult {
 	cmd := commands.NewDiffCommand(targetContext)
 	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
 	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
@@ -853,24 +825,20 @@ func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_
 	cmd.SkipResourceVersions = resourceVersions
 
 	cmdResult := cmd.Run()
-	err := pt.addCommandResultInfo(ctx, cmdResult, crId, objectsHash)
-	if err != nil {
-		return cmdResult, err
-	}
-	return cmdResult, err
+	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult) (*result.ValidateResult, error) {
+func (pt *preparedTarget) kluctlValidate(targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult) *result.ValidateResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
 	cmd := commands.NewValidateCommand(targetContext.Target.Discriminator, targetContext, cmdResult)
 
-	validateResult := cmd.Run(ctx)
-	return validateResult, nil
+	validateResult := cmd.Run(targetContext.SharedContext.Ctx)
+	return validateResult
 }
 
-func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string, crId string) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string) (*result.CommandResult, error) {
 	if !pt.pp.obj.Spec.Delete {
 		return nil, nil
 	}
@@ -912,11 +880,6 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	cmdResult.TargetKey.Discriminator = discriminator
 	cmdResult.TargetKey.ClusterId = cmdResult.ClusterInfo.ClusterId
 
-	err = pt.addCommandResultInfo(ctx, cmdResult, crId, "")
-	if err != nil {
-		return cmdResult, err
-	}
-	err = pt.writeCommandResult(ctx, cmdResult, "delete", false)
 	return cmdResult, err
 }
 

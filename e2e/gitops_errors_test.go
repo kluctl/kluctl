@@ -229,7 +229,7 @@ data:
 			return nil
 		})
 		kd = suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-		suite.assertErrors(kd, metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, "deploy: ok", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, "deploy succeeded", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Prune = false
 		})

@@ -492,25 +492,6 @@ type KluctlDeploymentStatus struct {
 	// +optional
 	ValidateRequestResult *ManualRequestResult `json:"validateRequestResult,omitempty"`
 
-	// LastHandledReconcileAt holds the value of the most recent
-	// reconcile request value, so a change of the annotation value
-	// can be detected.
-	// DEPRECATED
-	// +optional
-	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
-
-	// DEPRECATED
-	// +optional
-	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
-
-	// DEPRECATED
-	// +optional
-	LastHandledPruneAt string `json:"lastHandledPruneAt,omitempty"`
-
-	// DEPRECATED
-	// +optional
-	LastHandledValidateAt string `json:"lastHandledValidateAt,omitempty"`
-
 	// ObservedGeneration is the last reconciled generation.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -535,14 +516,6 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	LastPrepareError string `json:"lastPrepareError,omitempty"`
-	// +optional
-	LastDiffError string `json:"lastDiffError,omitempty"`
-	// +optional
-	LastDeployError string `json:"lastDeployError,omitempty"`
-	// +optional
-	LastValidateError string `json:"lastValidateError,omitempty"`
-	// +optional
-	LastDriftDetectionError string `json:"lastDriftDetectionError,omitempty"`
 
 	// LastDiffResult is the result summary of the last diff command
 	// +optional
@@ -567,74 +540,41 @@ type KluctlDeploymentStatus struct {
 	LastDriftDetectionResultMessage string `json:"lastDriftDetectionResultMessage,omitempty"`
 }
 
-func (s *KluctlDeploymentStatus) SetLastDiffResult(crs *result.CommandResultSummary, err error) error {
-	s.LastDiffError = ""
-	if err != nil {
-		s.LastDiffError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastDiffResult(crs *result.CommandResultSummary) {
 	if crs == nil {
 		s.LastDiffResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastDiffResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
 }
 
-func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary, err error) error {
-	s.LastDeployError = ""
-	if err != nil {
-		s.LastDeployError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary) {
 	if crs == nil {
 		s.LastDeployResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastDeployResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
 }
 
-func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult, err error) error {
-	s.LastValidateError = ""
-	if err != nil {
-		s.LastValidateError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult) {
 	if crs == nil {
 		s.LastValidateResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastValidateResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
 }
 
-func (s *KluctlDeploymentStatus) SetLastDriftDetectionResult(dr *result.DriftDetectionResult, err error) error {
-	s.LastDriftDetectionError = ""
-	s.LastDriftDetectionResultMessage = ""
-	if err != nil {
-		s.LastDriftDetectionError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastDriftDetectionResult(dr *result.DriftDetectionResult) {
 	if dr == nil {
 		s.LastDriftDetectionResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(dr)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(dr)
 		s.LastDriftDetectionResult = &runtime.RawExtension{Raw: []byte(b)}
 		s.LastDriftDetectionResultMessage = dr.BuildShortMessage()
 	}
-	return nil
 }
 
 func (s *KluctlDeploymentStatus) GetLastDeployResult() (*result.CommandResultSummary, error) {

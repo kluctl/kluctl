@@ -746,22 +746,16 @@ spec:
                 - request
                 - startTime
                 type: object
-              lastDeployError:
-                type: string
               lastDeployResult:
                 description: LastDeployResult is the result summary of the last deploy
                   command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              lastDiffError:
-                type: string
               lastDiffResult:
                 description: LastDiffResult is the result summary of the last diff
                   command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              lastDriftDetectionError:
-                type: string
               lastDriftDetectionResult:
                 description: LastDriftDetectionResult is the result of the last drift
                   detection command optional
@@ -771,27 +765,11 @@ spec:
                 description: LastDriftDetectionResultMessage contains a short message
                   that describes the drift optional
                 type: string
-              lastHandledDeployAt:
-                description: DEPRECATED
-                type: string
-              lastHandledPruneAt:
-                description: DEPRECATED
-                type: string
-              lastHandledReconcileAt:
-                description: LastHandledReconcileAt holds the value of the most recent
-                  reconcile request value, so a change of the annotation value can
-                  be detected. DEPRECATED
-                type: string
-              lastHandledValidateAt:
-                description: DEPRECATED
-                type: string
               lastManualObjectsHash:
                 type: string
               lastObjectsHash:
                 type: string
               lastPrepareError:
-                type: string
-              lastValidateError:
                 type: string
               lastValidateResult:
                 description: LastValidateResult is the result summary of the last

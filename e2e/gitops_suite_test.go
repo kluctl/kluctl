@@ -13,6 +13,7 @@ import (
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -145,7 +146,10 @@ func (suite *GitopsTestSuite) triggerReconcile(key client.ObjectKey) string {
 		if a == nil {
 			a = map[string]string{}
 		}
-		a[kluctlv1.KluctlRequestReconcileAnnotation] = reconcileId
+		mr := kluctlv1.ManualRequest{
+			RequestValue: reconcileId,
+		}
+		a[kluctlv1.KluctlRequestReconcileAnnotation] = yaml.WriteJsonStringMust(&mr)
 		kd.SetAnnotations(a)
 	})
 	return reconcileId
@@ -161,7 +165,7 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) *kluctlv1.K
 	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
 		kd = suite.getKluctlDeployment(key)
-		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
+		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.Request.RequestValue != reconcileId {
 			suite.T().Logf("%s: request processing not started yet", reconcileId)
 			return false
 		}
@@ -190,7 +194,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
 		kd = suite.getKluctlDeployment(key)
-		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
+		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.Request.RequestValue != reconcileId {
 			suite.T().Logf("%s: request processing not started yet", reconcileId)
 			return false
 		}
