@@ -475,42 +475,22 @@ type KubeConfig struct {
 	SecretRef SecretKeyReference `json:"secretRef,omitempty"`
 }
 
-type RequestResult struct {
-	// +required
-	RequestValue string `json:"requestValue"`
-
-	// +required
-	StartTime metav1.Time `json:"startTime"`
-
-	// +optional
-	EndTime *metav1.Time `json:"endTime,omitempty"`
-
-	// +required
-	ReconcileId string `json:"reconcileId"`
-
-	// +optional
-	ResultId string `json:"resultId,omitempty"`
-
-	// +optional
-	CommandError string `json:"commandError,omitempty"`
-}
-
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
 type KluctlDeploymentStatus struct {
 	// +optional
-	ReconcileRequestResult *RequestResult `json:"reconcileRequestResult,omitempty"`
+	ReconcileRequestResult *ManualRequestResult `json:"reconcileRequestResult,omitempty"`
 
 	// +optional
-	DiffRequestResult *RequestResult `json:"diffRequestResult,omitempty"`
+	DiffRequestResult *ManualRequestResult `json:"diffRequestResult,omitempty"`
 
 	// +optional
-	DeployRequestResult *RequestResult `json:"deployRequestResult,omitempty"`
+	DeployRequestResult *ManualRequestResult `json:"deployRequestResult,omitempty"`
 
 	// +optional
-	PruneRequestResult *RequestResult `json:"pruneRequestResult,omitempty"`
+	PruneRequestResult *ManualRequestResult `json:"pruneRequestResult,omitempty"`
 
 	// +optional
-	ValidateRequestResult *RequestResult `json:"validateRequestResult,omitempty"`
+	ValidateRequestResult *ManualRequestResult `json:"validateRequestResult,omitempty"`
 
 	// LastHandledReconcileAt holds the value of the most recent
 	// reconcile request value, so a change of the annotation value

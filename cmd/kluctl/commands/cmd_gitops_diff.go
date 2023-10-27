@@ -42,7 +42,7 @@ func (cmd *gitopsDiffCmd) Run(ctx context.Context) error {
 			return err
 		}
 
-		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.ManualRequestResult {
 			return status.DiffRequestResult
 		})
 		if err != nil {
@@ -71,7 +71,7 @@ func (cmd *gitopsDiffCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-func (cmd *gitopsDiffCmd) cleanupDiffResult(ctx context.Context, g *gitopsCmdHelper, kd *v1beta1.KluctlDeployment, rr *v1beta1.RequestResult) error {
+func (cmd *gitopsDiffCmd) cleanupDiffResult(ctx context.Context, g *gitopsCmdHelper, kd *v1beta1.KluctlDeployment, rr *v1beta1.ManualRequestResult) error {
 	flags := args.CommandResultFlags{
 		CommandResultReadOnlyFlags: cmd.CommandResultReadOnlyFlags,
 		CommandResultWriteFlags: args.CommandResultWriteFlags{

@@ -41,7 +41,7 @@ func (cmd *gitopsReconcileCmd) Run(ctx context.Context) error {
 			return err
 		}
 
-		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.ManualRequestResult {
 			return status.ReconcileRequestResult
 		})
 		if err != nil {

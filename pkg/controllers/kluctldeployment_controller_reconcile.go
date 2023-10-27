@@ -14,12 +14,12 @@ import (
 	"time"
 )
 
-type getResultPtrCallback func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string)
+type getResultPtrCallback func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.ManualRequestResult, string)
 
 func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Context,
 	obj *kluctlv1.KluctlDeployment, reconcileId string,
 	requestAnnotation string, getResultPtr getResultPtrCallback,
-) (*kluctlv1.RequestResult, error) {
+) (*kluctlv1.ManualRequestResult, error) {
 	key := client.ObjectKeyFromObject(obj)
 
 	v, _ := obj.GetAnnotations()[requestAnnotation]
@@ -34,7 +34,7 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 		// legacy value in status is still present, and we never executed the new request status handling
 		// ensure that we don't accidentally re-process the request
 		t := metav1.Now()
-		rr = &kluctlv1.RequestResult{
+		rr = &kluctlv1.ManualRequestResult{
 			RequestValue: v,
 			StartTime:    t,
 			EndTime:      &t,
@@ -51,7 +51,7 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 		return nil, nil
 	}
 	if rr == nil || rr.RequestValue != v {
-		rr = &kluctlv1.RequestResult{
+		rr = &kluctlv1.ManualRequestResult{
 			RequestValue: v,
 			StartTime:    metav1.Now(),
 			ReconcileId:  reconcileId,
@@ -70,7 +70,7 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 }
 
 func (r *KluctlDeploymentReconciler) finishHandleManualRequest(ctx context.Context,
-	obj *kluctlv1.KluctlDeployment, rr *kluctlv1.RequestResult, resultId string, commandErr error, getResultPtr getResultPtrCallback) error {
+	obj *kluctlv1.KluctlDeployment, rr *kluctlv1.ManualRequestResult, resultId string, commandErr error, getResultPtr getResultPtrCallback) error {
 	key := client.ObjectKeyFromObject(obj)
 
 	if rr == nil {
@@ -221,7 +221,7 @@ func (r *KluctlDeploymentReconciler) reconcileDiffRequest(ctx context.Context, t
 	obj *kluctlv1.KluctlDeployment, reconcileId string) (bool, error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.ManualRequestResult, string) {
 		return &status.DiffRequestResult, ""
 	}
 
@@ -246,7 +246,7 @@ func (r *KluctlDeploymentReconciler) reconcileDeployRequest(ctx context.Context,
 		obj.Status.LastHandledDeployAt = ""
 	}()
 
-	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.ManualRequestResult, string) {
 		return &status.DeployRequestResult, status.LastHandledDeployAt
 	}
 
@@ -271,7 +271,7 @@ func (r *KluctlDeploymentReconciler) reconcilePruneRequest(ctx context.Context, 
 		obj.Status.LastHandledPruneAt = ""
 	}()
 
-	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.ManualRequestResult, string) {
 		return &status.PruneRequestResult, status.LastHandledPruneAt
 	}
 
@@ -296,7 +296,7 @@ func (r *KluctlDeploymentReconciler) reconcileValidateRequest(ctx context.Contex
 		obj.Status.LastHandledValidateAt = ""
 	}()
 
-	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.ManualRequestResult, string) {
 		return &status.ValidateRequestResult, status.LastHandledValidateAt
 	}
 
@@ -321,7 +321,7 @@ func (r *KluctlDeploymentReconciler) reconcileFullRequest(ctx context.Context, t
 		obj.Status.ObservedGeneration = obj.GetGeneration()
 	}()
 
-	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.RequestResult, string) {
+	getResultPtr := func(status *kluctlv1.KluctlDeploymentStatus) (**kluctlv1.ManualRequestResult, string) {
 		return &status.ReconcileRequestResult, status.LastHandledReconcileAt
 	}
 

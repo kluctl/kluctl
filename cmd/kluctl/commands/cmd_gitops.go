@@ -434,13 +434,13 @@ func (g *gitopsCmdHelper) overrideDeploymentArgs(kd *v1beta1.KluctlDeployment) e
 	return nil
 }
 
-func (g *gitopsCmdHelper) waitForRequestToStart(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+func (g *gitopsCmdHelper) waitForRequestToStart(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.ManualRequestResult) (*v1beta1.ManualRequestResult, error) {
 	s := status.Startf(ctx, "Waiting for controller to start processing the request")
 	defer s.Failed()
 
 	sleep := time.Second * 1
 
-	var rr *v1beta1.RequestResult
+	var rr *v1beta1.ManualRequestResult
 	for {
 		var kd v1beta1.KluctlDeployment
 		err := g.client.Get(ctx, key, &kd)
@@ -464,10 +464,10 @@ func (g *gitopsCmdHelper) waitForRequestToStart(ctx context.Context, key client.
 	return rr, nil
 }
 
-func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client.ObjectKey, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client.ObjectKey, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.ManualRequestResult) (*v1beta1.ManualRequestResult, error) {
 	sleep := time.Second * 1
 
-	var rr *v1beta1.RequestResult
+	var rr *v1beta1.ManualRequestResult
 	for {
 		var kd v1beta1.KluctlDeployment
 		err := g.client.Get(ctx, key, &kd)
@@ -490,7 +490,7 @@ func (g *gitopsCmdHelper) waitForRequestToFinish(ctx context.Context, key client
 	return rr, nil
 }
 
-func (g *gitopsCmdHelper) waitForRequestToStartAndFinish(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult) (*v1beta1.RequestResult, error) {
+func (g *gitopsCmdHelper) waitForRequestToStartAndFinish(ctx context.Context, key client.ObjectKey, requestValue string, getRequestResult func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.ManualRequestResult) (*v1beta1.ManualRequestResult, error) {
 	rrStarted, err := g.waitForRequestToStart(ctx, key, requestValue, getRequestResult)
 	if err != nil {
 		return nil, err
@@ -498,7 +498,7 @@ func (g *gitopsCmdHelper) waitForRequestToStartAndFinish(ctx context.Context, ke
 
 	stopCh := make(chan struct{})
 
-	var rrFinished *v1beta1.RequestResult
+	var rrFinished *v1beta1.ManualRequestResult
 
 	gh := utils.NewGoHelper(ctx, 0)
 	gh.RunE(func() error {
