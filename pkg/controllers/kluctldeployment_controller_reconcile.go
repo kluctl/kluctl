@@ -127,6 +127,8 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 		return false, nil
 	}
 
+	obj.Status.LastPrepareError = ""
+
 	doError := func(resultId string, err error) (bool, error) {
 		err2 := r.patchFailPrepare(ctx, obj, err)
 		if err2 != nil {
