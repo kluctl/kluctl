@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	json_patch "github.com/evanphx/json-patch"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
@@ -148,50 +147,6 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return *ctrlResult, nil
 }
 
-func (r *KluctlDeploymentReconciler) applyOnetimePatch(ctx context.Context, obj *kluctlv1.KluctlDeployment) error {
-	if obj.GetAnnotations() == nil {
-		return nil
-	}
-
-	patchStr, ok := obj.GetAnnotations()[kluctlv1.KluctlOnetimePatchAnnotation]
-	if !ok {
-		return nil
-	}
-
-	log := ctrl.LoggerFrom(ctx)
-	log.Info("Applying onetime patch", "patch", patchStr)
-
-	objJson, err := yaml.WriteJsonString(obj)
-	if err != nil {
-		return err
-	}
-
-	objJson2, err := json_patch.MergePatch([]byte(objJson), []byte(patchStr))
-	if err != nil {
-		return err
-	}
-
-	var patchedObj kluctlv1.KluctlDeployment
-	err = yaml.ReadYamlBytes(objJson2, &patchedObj)
-	if err != nil {
-		return err
-	}
-
-	ap := client.MergeFrom(patchedObj.DeepCopy())
-	a := patchedObj.GetAnnotations()
-	if a != nil {
-		delete(a, kluctlv1.KluctlOnetimePatchAnnotation)
-		patchedObj.SetAnnotations(a)
-		err = r.Client.Patch(ctx, patchedObj.DeepCopy(), ap, client.FieldOwner(r.ControllerName))
-		if err != nil {
-			return err
-		}
-	}
-
-	*obj = patchedObj
-	return nil
-}
-
 func (r *KluctlDeploymentReconciler) doReconcile(
 	ctx context.Context,
 	obj *kluctlv1.KluctlDeployment,
@@ -210,11 +165,6 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	defer cancel()
 
 	err := r.patchProjectKey(ctx, obj)
-	if err != nil {
-		return nil, r.patchFailPrepare(ctx, obj, err)
-	}
-
-	err = r.applyOnetimePatch(ctx, obj)
 	if err != nil {
 		return nil, r.patchFailPrepare(ctx, obj, err)
 	}

@@ -1,10 +1,22 @@
 package v1beta1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
+// ManualRequest is used in json form inside the manual request annotations
+type ManualRequest struct {
+	// +required
+	RequestValue string `json:"requestValue"`
+
+	// +optional
+	OverridesPatch *runtime.RawExtension `json:"overridesPatch,omitempty"`
+}
 
 type ManualRequestResult struct {
 	// +required
-	RequestValue string `json:"requestValue"`
+	Request ManualRequest `json:"request"`
 
 	// +required
 	StartTime metav1.Time `json:"startTime"`

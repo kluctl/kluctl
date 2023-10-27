@@ -136,7 +136,7 @@ func (r *KluctlDeploymentReconciler) patchTargetKey(ctx context.Context, obj *kl
 	return nil
 }
 
-func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client.ObjectKey, updateStatus func(status *kluctlv1.KluctlDeploymentStatus) error) error {
+func (r *KluctlDeploymentReconciler) patch(ctx context.Context, key client.ObjectKey, patchStatus bool, update func(obj *kluctlv1.KluctlDeployment) error) error {
 	backoff := wait.Backoff{
 		Steps:    5,
 		Duration: 100 * time.Millisecond,
@@ -151,14 +151,18 @@ func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client
 			return false, err
 		}
 
-		statusPatch := client.MergeFromWithOptions(latest.DeepCopy(), client.MergeFromWithOptimisticLock{})
+		patch := client.MergeFromWithOptions(latest.DeepCopy(), client.MergeFromWithOptimisticLock{})
 
-		err = updateStatus(&latest.Status)
+		err = update(&latest)
 		if err != nil {
 			return false, err
 		}
 
-		err = r.Client.Status().Patch(ctx, &latest, statusPatch, client.FieldOwner(r.ControllerName))
+		if patchStatus {
+			err = r.Client.Status().Patch(ctx, &latest, patch, client.FieldOwner(r.ControllerName))
+		} else {
+			err = r.Client.Patch(ctx, &latest, patch, client.FieldOwner(r.ControllerName))
+		}
 		if err != nil {
 			if errors.IsConflict(err) {
 				// retry
@@ -168,6 +172,12 @@ func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client
 		}
 
 		return true, nil
+	})
+}
+
+func (r *KluctlDeploymentReconciler) patchStatus(ctx context.Context, key client.ObjectKey, updateStatus func(status *kluctlv1.KluctlDeploymentStatus) error) error {
+	return r.patch(ctx, key, true, func(obj *kluctlv1.KluctlDeployment) error {
+		return updateStatus(&obj.Status)
 	})
 }
 

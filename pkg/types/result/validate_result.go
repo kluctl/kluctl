@@ -2,6 +2,7 @@ package result
 
 import (
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,18 +13,19 @@ type ValidateResultEntry struct {
 }
 
 type ValidateResult struct {
-	Id                  string                `json:"id"`
-	ReconcileId         string                `json:"reconcileId"`
-	ProjectKey          ProjectKey            `json:"projectKey"`
-	TargetKey           TargetKey             `json:"targetKey"`
-	KluctlDeployment    *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
-	RenderedObjectsHash string                `json:"renderedObjectsHash,omitempty"`
-	StartTime           metav1.Time           `json:"startTime"`
-	EndTime             metav1.Time           `json:"endTime"`
-	Ready               bool                  `json:"ready"`
-	Warnings            []DeploymentError     `json:"warnings,omitempty"`
-	Errors              []DeploymentError     `json:"errors,omitempty"`
-	Results             []ValidateResultEntry `json:"results,omitempty"`
+	Id                  string                 `json:"id"`
+	ReconcileId         string                 `json:"reconcileId"`
+	ProjectKey          ProjectKey             `json:"projectKey"`
+	TargetKey           TargetKey              `json:"targetKey"`
+	KluctlDeployment    *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
+	OverridesPatch      *uo.UnstructuredObject `json:"overridesPatch,omitempty"`
+	RenderedObjectsHash string                 `json:"renderedObjectsHash,omitempty"`
+	StartTime           metav1.Time            `json:"startTime"`
+	EndTime             metav1.Time            `json:"endTime"`
+	Ready               bool                   `json:"ready"`
+	Warnings            []DeploymentError      `json:"warnings,omitempty"`
+	Errors              []DeploymentError      `json:"errors,omitempty"`
+	Results             []ValidateResultEntry  `json:"results,omitempty"`
 }
 
 type ValidateResultSummary struct {

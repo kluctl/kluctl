@@ -730,6 +730,7 @@ export class CommandResult {
     target: Target;
     command?: CommandInfo;
     kluctlDeployment?: KluctlDeploymentInfo;
+    overridesPatch?: any;
     gitInfo?: GitInfo;
     clusterInfo: ClusterInfo;
     deployment?: DeploymentProjectConfig;
@@ -748,6 +749,7 @@ export class CommandResult {
         this.target = this.convertValues(source["target"], Target);
         this.command = this.convertValues(source["command"], CommandInfo);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
+        this.overridesPatch = source["overridesPatch"];
         this.gitInfo = this.convertValues(source["gitInfo"], GitInfo);
         this.clusterInfo = this.convertValues(source["clusterInfo"], ClusterInfo);
         this.deployment = this.convertValues(source["deployment"], DeploymentProjectConfig);
@@ -878,6 +880,7 @@ export class ValidateResult {
     projectKey: ProjectKey;
     targetKey: TargetKey;
     kluctlDeployment?: KluctlDeploymentInfo;
+    overridesPatch?: any;
     renderedObjectsHash?: string;
     startTime: string;
     endTime: string;
@@ -893,6 +896,7 @@ export class ValidateResult {
         this.projectKey = this.convertValues(source["projectKey"], ProjectKey);
         this.targetKey = this.convertValues(source["targetKey"], TargetKey);
         this.kluctlDeployment = this.convertValues(source["kluctlDeployment"], KluctlDeploymentInfo);
+        this.overridesPatch = source["overridesPatch"];
         this.renderedObjectsHash = source["renderedObjectsHash"];
         this.startTime = source["startTime"];
         this.endTime = source["endTime"];

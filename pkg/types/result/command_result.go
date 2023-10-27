@@ -134,6 +134,7 @@ type CommandResult struct {
 	Target           types.Target                   `json:"target"`
 	Command          CommandInfo                    `json:"command,omitempty"`
 	KluctlDeployment *KluctlDeploymentInfo          `json:"kluctlDeployment,omitempty"`
+	OverridesPatch   *uo.UnstructuredObject         `json:"overridesPatch,omitempty"`
 	GitInfo          GitInfo                        `json:"gitInfo,omitempty"`
 	ClusterInfo      ClusterInfo                    `json:"clusterInfo"`
 	Deployment       *types.DeploymentProjectConfig `json:"deployment,omitempty"`

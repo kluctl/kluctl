@@ -785,17 +785,17 @@ func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResul
 	return nil
 }
 
-func (pt *preparedTarget) kluctlDeployOrPokeImages(ctx context.Context, deployMode string, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string, needDeployByRequest bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeployOrPokeImages(ctx context.Context, deployMode string, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string) (*result.CommandResult, error) {
 	if deployMode == kluctlv1.KluctlDeployModeFull {
-		return pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
+		return pt.kluctlDeploy(ctx, targetContext, reconcileId, objectsHash)
 	} else if deployMode == kluctlv1.KluctlDeployPokeImages {
-		return pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash, needDeployByRequest)
+		return pt.kluctlPokeImages(ctx, targetContext, reconcileId, objectsHash)
 	} else {
 		return nil, fmt.Errorf("deployMode '%s' not supported", deployMode)
 	}
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext, reconcileId string, objectsHash string) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext)
@@ -813,11 +813,10 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdResult, "deploy", triggeredByRequest)
-	return cmdResult, err
+	return cmdResult, nil
 }
 
-func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext)
@@ -827,11 +826,10 @@ func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *k
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdResult, "poke-images", triggeredByRequest)
-	return cmdResult, err
+	return cmdResult, nil
 }
 
-func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, triggeredByRequest bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string) (*result.CommandResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPruneCommand("", targetContext, false)
@@ -844,11 +842,10 @@ func (pt *preparedTarget) kluctlPrune(ctx context.Context, targetContext *kluctl
 	if err != nil {
 		return cmdResult, err
 	}
-	err = pt.writeCommandResult(ctx, cmdResult, "prune", triggeredByRequest)
-	return cmdResult, err
+	return cmdResult, nil
 }
 
-func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, resourceVersions map[k8s.ObjectRef]string, writeCmdResult bool) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_project.TargetContext, crId string, objectsHash string, resourceVersions map[k8s.ObjectRef]string) (*result.CommandResult, error) {
 	cmd := commands.NewDiffCommand(targetContext)
 	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
 	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
@@ -860,21 +857,17 @@ func (pt *preparedTarget) kluctlDiff(ctx context.Context, targetContext *kluctl_
 	if err != nil {
 		return cmdResult, err
 	}
-	if writeCmdResult {
-		err = pt.writeCommandResult(ctx, cmdResult, "diff", true)
-	}
 	return cmdResult, err
 }
 
-func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult, crId string, objectsHash string) (*result.ValidateResult, error) {
+func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult) (*result.ValidateResult, error) {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
 	cmd := commands.NewValidateCommand(targetContext.Target.Discriminator, targetContext, cmdResult)
 
 	validateResult := cmd.Run(ctx)
-	err := pt.writeValidateResult(ctx, validateResult, crId, objectsHash)
-	return validateResult, err
+	return validateResult, nil
 }
 
 func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string, crId string) (*result.CommandResult, error) {

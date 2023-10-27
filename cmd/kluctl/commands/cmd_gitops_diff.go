@@ -89,7 +89,7 @@ func (cmd *gitopsDiffCmd) cleanupDiffResult(ctx context.Context, g *gitopsCmdHel
 	}
 
 	err = g.updateDeploymentStatus(ctx, client.ObjectKeyFromObject(kd), func(kd *v1beta1.KluctlDeployment) error {
-		if kd.Status.DiffRequestResult == nil || kd.Status.DiffRequestResult.RequestValue != rr.RequestValue {
+		if kd.Status.DiffRequestResult == nil || kd.Status.DiffRequestResult.Request.RequestValue != rr.Request.RequestValue {
 			return nil
 		}
 		kd.Status.LastDiffResult = nil

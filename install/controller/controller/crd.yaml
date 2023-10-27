@@ -693,8 +693,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -702,7 +712,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
               diffRequestResult:
@@ -714,8 +724,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -723,7 +743,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
               lastDeployError:
@@ -803,8 +823,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -812,7 +842,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
               reconcileRequestResult:
@@ -824,8 +854,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -833,7 +873,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
               targetKey:
@@ -856,8 +896,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -865,7 +915,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
             type: object

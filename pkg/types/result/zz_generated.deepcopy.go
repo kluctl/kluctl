@@ -171,6 +171,10 @@ func (in *CommandResult) DeepCopyInto(out *CommandResult) {
 		*out = new(KluctlDeploymentInfo)
 		**out = **in
 	}
+	if in.OverridesPatch != nil {
+		in, out := &in.OverridesPatch, &out.OverridesPatch
+		*out = (*in).DeepCopy()
+	}
 	in.GitInfo.DeepCopyInto(&out.GitInfo)
 	out.ClusterInfo = in.ClusterInfo
 	if in.Deployment != nil {
@@ -491,6 +495,10 @@ func (in *ValidateResult) DeepCopyInto(out *ValidateResult) {
 		in, out := &in.KluctlDeployment, &out.KluctlDeployment
 		*out = new(KluctlDeploymentInfo)
 		**out = **in
+	}
+	if in.OverridesPatch != nil {
+		in, out := &in.OverridesPatch, &out.OverridesPatch
+		*out = (*in).DeepCopy()
 	}
 	in.StartTime.DeepCopyInto(&out.StartTime)
 	in.EndTime.DeepCopyInto(&out.EndTime)

@@ -276,21 +276,28 @@ func (g *gitopsCmdHelper) patchDeploymentStatus(ctx context.Context, key client.
 
 func (g *gitopsCmdHelper) patchManualRequest(ctx context.Context, key client.ObjectKey, requestAnnotation string, value string) error {
 	_, err := g.patchDeployment(ctx, key, func(kd *v1beta1.KluctlDeployment) error {
+		overridePatch, err := g.buildOverridePatch(ctx, kd)
+		if err != nil {
+			return err
+		}
+
+		mr := v1beta1.ManualRequest{
+			RequestValue: value,
+		}
+		if len(overridePatch) != 0 && !bytes.Equal(overridePatch, []byte("{}")) {
+			mr.OverridesPatch = &runtime.RawExtension{Raw: overridePatch}
+		}
+
+		mrJson, err := yaml.WriteJsonString(&mr)
+		if err != nil {
+			return err
+		}
+
 		a := kd.GetAnnotations()
 		if a == nil {
 			a = map[string]string{}
 		}
-		a[requestAnnotation] = value
-
-		onetimePatch, err := g.buildOnetimePatch(ctx, kd)
-		if err != nil {
-			return err
-		}
-		if len(onetimePatch) != 0 && !bytes.Equal(onetimePatch, []byte("{}")) {
-			a[v1beta1.KluctlOnetimePatchAnnotation] = string(onetimePatch)
-		} else {
-			delete(a, v1beta1.KluctlOnetimePatchAnnotation)
-		}
+		a[requestAnnotation] = mrJson
 
 		kd.SetAnnotations(a)
 		return nil
@@ -302,7 +309,7 @@ func (g *gitopsCmdHelper) patchManualRequest(ctx context.Context, key client.Obj
 	return nil
 }
 
-func (g *gitopsCmdHelper) buildOnetimePatch(ctx context.Context, kdIn *v1beta1.KluctlDeployment) ([]byte, error) {
+func (g *gitopsCmdHelper) buildOverridePatch(ctx context.Context, kdIn *v1beta1.KluctlDeployment) ([]byte, error) {
 	cobraCmd := getCobraCommand(ctx)
 	if cobraCmd == nil {
 		panic("no cobra cmd")
@@ -454,7 +461,7 @@ func (g *gitopsCmdHelper) waitForRequestToStart(ctx context.Context, key client.
 			continue
 		}
 
-		if rr.RequestValue != requestValue {
+		if rr.Request.RequestValue != requestValue {
 			time.Sleep(sleep)
 			continue
 		}

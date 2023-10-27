@@ -32,18 +32,18 @@ const (
 
 	KluctlDeployModeFull   = "full-deploy"
 	KluctlDeployPokeImages = "poke-images"
+)
 
+// The following annotations are set by the CLI (gitops sub-commands) and the webui. The values contains a JSON serialized
+// ManualRequest
+const (
 	KluctlRequestReconcileAnnotation = "kluctl.io/request-reconcile"
 	KluctlRequestDiffAnnotation      = "kluctl.io/request-diff"
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
 	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
 	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
 
-	// KluctlOnetimePatchAnnotation can be set to apply a onetime json-patch to the KluctlDeployment in the next
-	// reconciliation loop. The patched KluctlDeployment is in-memory only and not persisted. The annotation is removed
-	// immediately after it is read.
-	KluctlOnetimePatchAnnotation = "kluctl.io/gitops-onetime-patch"
-
+	// SourceOverrideScheme is used when source overrides are setup via the CLI
 	SourceOverrideScheme = "grpc+source-override"
 )
 
