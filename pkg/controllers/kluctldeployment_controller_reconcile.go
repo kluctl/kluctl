@@ -29,15 +29,6 @@ func (r *KluctlDeploymentReconciler) startHandleManualRequest(ctx context.Contex
 
 	log := ctrl.LoggerFrom(ctx)
 
-	old, _ := getResultPtr(&obj.Status)
-	if *old != nil && (*old).Request.RequestValue == "" {
-		r.patchStatus(ctx, key, func(status *kluctlv1.KluctlDeploymentStatus) error {
-			resultPtr, _ := getResultPtr(status)
-			*resultPtr = nil
-			return nil
-		})
-	}
-
 	v, _ := obj.GetAnnotations()[requestAnnotation]
 	if v == "" {
 		return nil, nil

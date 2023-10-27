@@ -352,6 +352,9 @@ func (r *KluctlDeploymentReconciler) nextReconcileTime(obj *kluctlv1.KluctlDeplo
 }
 
 func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+	if obj.Spec.Suspend {
+		return nil
+	}
 	if obj.Status.LastDeployResult == nil {
 		// was never deployed before. Return early.
 		return nil
@@ -372,6 +375,9 @@ func (r *KluctlDeploymentReconciler) nextDeployTime(obj *kluctlv1.KluctlDeployme
 }
 
 func (r *KluctlDeploymentReconciler) nextValidateTime(obj *kluctlv1.KluctlDeployment) *time.Time {
+	if obj.Spec.Suspend {
+		return nil
+	}
 	if obj.Status.LastValidateResult == nil {
 		// was never validated before. Return early.
 		return nil
