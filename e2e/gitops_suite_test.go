@@ -54,7 +54,6 @@ type GitopsTestSuite struct {
 	gitopsNamespace        string
 	gitopsResultsNamespace string
 	gitopsSecretIdx        int
-	deletedDeployments     []client.ObjectKey
 }
 
 func (suite *GitopsTestSuite) SetupSuite() {
@@ -73,17 +72,6 @@ func (suite *GitopsTestSuite) SetupSuite() {
 }
 
 func (suite *GitopsTestSuite) TearDownSuite() {
-	g := NewWithT(suite.T())
-
-	g.Eventually(func() bool {
-		for _, key := range suite.deletedDeployments {
-			if suite.getKluctlDeploymentAllowNil(key) != nil {
-				return false
-			}
-		}
-		return true
-	}, timeout, time.Second).Should(BeTrue())
-
 	if suite.cancelController != nil {
 		suite.cancelController()
 	}
@@ -304,6 +292,8 @@ func (suite *GitopsTestSuite) updateKluctlDeployment(key client.ObjectKey, updat
 func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
 	g := NewWithT(suite.T())
 
+	suite.T().Logf("Deleting KluctlDeployment %s", key.String())
+
 	var kd kluctlv1.KluctlDeployment
 	kd.Name = key.Name
 	kd.Namespace = key.Namespace
@@ -312,7 +302,14 @@ func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
 		g.Expect(err).To(Succeed())
 	}
 
-	suite.deletedDeployments = append(suite.deletedDeployments, key)
+	g.Eventually(func() bool {
+		if suite.getKluctlDeploymentAllowNil(key) != nil {
+			return false
+		}
+		return true
+	}, timeout, time.Second).Should(BeTrue())
+
+	suite.T().Logf("KluctlDeployment %s has vanished", key.String())
 }
 
 func (suite *GitopsTestSuite) createGitopsSecret(m map[string]string) string {
