@@ -76,7 +76,7 @@ func TestGetImageNotFound(t *testing.T) {
 
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 
-	_, _, err := p.Kluctl("deploy", "-y", "-t", "test")
+	_, _, err := p.Kluctl(t, "deploy", "-y", "-t", "test")
 	assert.ErrorContains(t, err, "failed to find fixed image for i1")
 }
 
@@ -94,7 +94,7 @@ func TestGetImageArg(t *testing.T) {
 
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 
-	p.KluctlMust("deploy", "-y", "-t", "test", "--fixed-image", "i1=i1:arg")
+	p.KluctlMust(t, "deploy", "-y", "-t", "test", "--fixed-image", "i1=i1:arg")
 	assertImage(t, k, p, "d1", "c1", "i1:arg")
 }
 
@@ -131,7 +131,7 @@ func TestGetImageVars(t *testing.T) {
 
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 
-	p.KluctlMust("deploy", "-y", "-t", "test")
+	p.KluctlMust(t, "deploy", "-y", "-t", "test")
 	assertImage(t, k, p, "d1", "c1", "i1:vars")
 }
 
@@ -154,7 +154,7 @@ func TestGetImageMixed(t *testing.T) {
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 	addGetImageDeployment(p, "d2", "c2", `{{ images.get_image("i2") }}`)
 
-	p.KluctlMust("deploy", "-y", "-t", "test", "--fixed-image", "i1=i1:arg")
+	p.KluctlMust(t, "deploy", "-y", "-t", "test", "--fixed-image", "i1=i1:arg")
 	assertImage(t, k, p, "d1", "c1", "i1:arg")
 	assertImage(t, k, p, "d2", "c2", "i2:vars")
 }
@@ -179,7 +179,7 @@ func TestGetImageByDeployment(t *testing.T) {
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 	addGetImageDeployment(p, "d2", "c2", `{{ images.get_image("i1") }}`)
 
-	p.KluctlMust("deploy", "-y", "-t", "test")
+	p.KluctlMust(t, "deploy", "-y", "-t", "test")
 	assertImage(t, k, p, "d1", "c1", "i1:vars1")
 	assertImage(t, k, p, "d2", "c2", "i1:vars2")
 }
@@ -204,7 +204,7 @@ func TestGetImageByContainer(t *testing.T) {
 	addGetImageDeployment(p, "d1", "c1", `{{ images.get_image("i1") }}`)
 	addGetImageDeployment(p, "d2", "c2", `{{ images.get_image("i1") }}`)
 
-	p.KluctlMust("deploy", "-y", "-t", "test")
+	p.KluctlMust(t, "deploy", "-y", "-t", "test")
 	assertImage(t, k, p, "d1", "c1", "i1:vars1")
 	assertImage(t, k, p, "d2", "c2", "i1:vars2")
 }
@@ -231,7 +231,7 @@ func TestGetImageRegex(t *testing.T) {
 	addGetImageDeployment(p, "d3", "c1", `{{ images.get_image("j1") }}`)
 	addGetImageDeployment(p, "d4", "c2", `{{ images.get_image("j2") }}`)
 
-	p.KluctlMust("deploy", "-y", "-t", "test")
+	p.KluctlMust(t, "deploy", "-y", "-t", "test")
 	assertImage(t, k, p, "d1", "c1", "i1:x")
 	assertImage(t, k, p, "d2", "c2", "i1:x")
 	assertImage(t, k, p, "d3", "c1", "i1:y")

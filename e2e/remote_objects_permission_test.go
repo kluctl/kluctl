@@ -47,7 +47,7 @@ roleRef:
 		{Name: "rbac.yaml", Content: rbac},
 	}, nil)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertSecretExists(t, k, p.TestSlug(), "secret")
 
@@ -56,7 +56,7 @@ roleRef:
 
 	setKubeconfigString(t, kc)
 
-	stdout, _, err := p.Kluctl("deploy", "--yes", "-t", "test", "--write-command-result=false")
+	stdout, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test", "--write-command-result=false")
 	assert.Error(t, err)
 	assert.Contains(t, stdout, "at least one permission error was encountered while gathering objects by discriminator labels")
 }

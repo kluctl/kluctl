@@ -56,7 +56,7 @@ func TestArgs(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a")
 	cm := k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
@@ -64,25 +64,25 @@ func TestArgs(t *testing.T) {
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 	assertNestedFieldEquals(t, cm, `43`, "data", "e")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a", "-ab=b")
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "na", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c")
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c", "data", "c")
 	assertNestedFieldEquals(t, cm, `{"nested": "default"}`, "data", "d")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", "-ad.nested=d")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", "-ad.nested=d")
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": "d"}`, "data", "d")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", `-ad={"nested": "d2"}`)
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", `-ad={"nested": "d2"}`)
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": "d2"}`, "data", "d")
 
@@ -96,7 +96,7 @@ nested:
   nested2: d3
 `)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", fmt.Sprintf(`-ad=@%s`, tmpFile.Name()))
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a", "-ab=b", "-ac=c", fmt.Sprintf(`-ad=@%s`, tmpFile.Name()))
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, `{"nested": {"nested2": "d3"}}`, "data", "d")
 
@@ -110,7 +110,7 @@ d:
     nested2: d4
 `)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", fmt.Sprintf(`--args-from-file=%s`, tmpFile.Name()))
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", fmt.Sprintf(`--args-from-file=%s`, tmpFile.Name()))
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a2", "data", "a")
 	assertNestedFieldEquals(t, cm, "default", "data", "b")
@@ -144,7 +144,7 @@ func TestArgsFromEnv(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm := k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
@@ -174,14 +174,14 @@ func TestArgsFromEnvAndCli(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "b=b")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "b=b")
 	cm := k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
 	assertNestedFieldEquals(t, cm, "c", "data", "c")
 
 	// make sure the CLI overrides values from env
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "b=b", "-a", "c=c2")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "b=b", "-a", "c=c2")
 	cm = k.MustGetCoreV1(t, "configmaps", p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "a", "data", "a")
 	assertNestedFieldEquals(t, cm, "b", "data", "b")
@@ -225,21 +225,21 @@ func testArgsInDiscriminator(t *testing.T, inDefaultDiscriminator bool) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "discriminator-default", "metadata", "labels", "kluctl.io/discriminator")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=a")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=a")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, "discriminator-a", "metadata", "labels", "kluctl.io/discriminator")
 
 	if inDefaultDiscriminator {
 		// now without targets
-		p.KluctlMust("deploy", "--yes")
+		p.KluctlMust(t, "deploy", "--yes")
 		cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
 		assertNestedFieldEquals(t, cm, "discriminator-default", "metadata", "labels", "kluctl.io/discriminator")
 
-		p.KluctlMust("deploy", "--yes", "-aa=a")
+		p.KluctlMust(t, "deploy", "--yes", "-aa=a")
 		cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
 		assertNestedFieldEquals(t, cm, "discriminator-a", "metadata", "labels", "kluctl.io/discriminator")
 	}

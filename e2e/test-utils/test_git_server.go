@@ -106,13 +106,20 @@ func (p *TestGitServer) initGitServer() {
 	p.gitServerPort = a.Port
 
 	go func() {
-		_ = p.gitHttpServer.Serve(ln)
+		err := p.gitHttpServer.Serve(ln)
+		if err != nil {
+			p.t.Logf("gitHttpServer.Serve() with port %d returned error: %s", p.gitServerPort, err.Error())
+		} else {
+			p.t.Logf("gitHttpServer.Serve() with port %d returned with no error", p.gitServerPort)
+		}
 	}()
 }
 
 func (p *TestGitServer) Cleanup() {
 	p.cleanupMutex.Lock()
 	defer p.cleanupMutex.Unlock()
+
+	p.t.Logf("gitHttpServer.Cleanup() called for port %d", p.gitServerPort)
 
 	if p.gitHttpServer != nil {
 		_ = p.gitHttpServer.Shutdown(context.Background())

@@ -11,7 +11,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	cp "github.com/otiai10/copy"
-	"github.com/stretchr/testify/assert"
 	registry2 "helm.sh/helm/v3/pkg/registry"
 	"net/url"
 	"os"
@@ -24,7 +23,7 @@ import (
 )
 
 type TestProject struct {
-	t *testing.T
+	initialName string
 
 	extraEnv          utils.OrderedMap[string, string]
 	useProcess        bool
@@ -76,7 +75,7 @@ func WithSkipProjectDirArg(b bool) TestProjectOption {
 
 func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	p := &TestProject{
-		t:           t,
+		initialName: t.Name(),
 		gitRepoName: "kluctl-project",
 	}
 
@@ -114,7 +113,7 @@ func (p *TestProject) GitServer() *git2.TestGitServer {
 }
 
 func (p *TestProject) TestSlug() string {
-	n := p.t.Name()
+	n := p.initialName
 	n = xstrings.ToKebabCase(n)
 	n = strings.ReplaceAll(n, "/", "-")
 	var x []string
@@ -170,7 +169,7 @@ func (p *TestProject) UpdateFile(pth string, update func(f string) (string, erro
 func (p *TestProject) GetYaml(path string) *uo.UnstructuredObject {
 	o, err := uo.FromFile(filepath.Join(p.LocalProjectDir(), path))
 	if err != nil {
-		p.t.Fatal(err)
+		panic(err)
 	}
 	return o
 }
@@ -184,7 +183,7 @@ func (p *TestProject) ListDeploymentItemPathes(dir string, fullPath bool) []stri
 	o := p.GetDeploymentYaml(dir)
 	l, _, err := o.GetNestedObjectList("deployments")
 	if err != nil {
-		p.t.Fatal(err)
+		panic(err)
 	}
 	for _, x := range l {
 		pth, ok, _ := x.GetNestedString("path")
@@ -300,7 +299,7 @@ func (p *TestProject) AddKustomizeDeployment(dir string, resources []KustomizeRe
 
 	err := os.MkdirAll(absKustomizeDir, 0o700)
 	if err != nil {
-		p.t.Fatal(err)
+		panic(err)
 	}
 
 	p.UpdateKustomizeDeployment(dir, func(o *uo.UnstructuredObject, wt *git.Worktree) error {
@@ -370,7 +369,7 @@ func (p *TestProject) convertInterfaceToList(x interface{}) []interface{} {
 	if s, ok := x.(string); ok {
 		l, err := yaml.ReadYamlAllString(s)
 		if err != nil {
-			p.t.Fatal(err)
+			panic(err)
 		}
 		return l
 	}
@@ -459,22 +458,20 @@ func (p *TestProject) GetGitRepo() *git.Repository {
 func (p *TestProject) GetGitWorktree() *git.Worktree {
 	wt, err := p.GetGitRepo().Worktree()
 	if err != nil {
-		p.t.Fatal(err)
+		panic(err)
 	}
 	return wt
 }
 
-func (p *TestProject) CopyProjectSource() string {
-	return p.CopyProjectSourceTo(p.t.TempDir())
-}
-
 func (p *TestProject) CopyProjectSourceTo(dst string) string {
 	err := cp.Copy(p.LocalRepoDir(), dst)
-	assert.NoError(p.t, err)
+	if err != nil {
+		panic(err)
+	}
 	return dst
 }
 
-func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
+func (p *TestProject) KluctlProcess(t *testing.T, argsIn ...string) (string, string, error) {
 	var args []string
 	args = append(args, argsIn...)
 	args = append(args, "--no-update-check")
@@ -490,9 +487,9 @@ func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
 
 	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
 	env = append(env, "CALL_KLUCTL=true")
-	env = append(env, fmt.Sprintf("KLUCTL_BASE_TMP_DIR=%s", p.t.TempDir()))
+	env = append(env, fmt.Sprintf("KLUCTL_BASE_TMP_DIR=%s", t.TempDir()))
 
-	p.t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
+	t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
 	testExe, err := os.Executable()
 	if err != nil {
@@ -503,22 +500,22 @@ func (p *TestProject) KluctlProcess(argsIn ...string) (string, string, error) {
 	cmd.Dir = cwd
 	cmd.Env = env
 
-	stdout, stderr, err := runHelper(p.t, cmd)
+	stdout, stderr, err := runHelper(t, cmd)
 	return stdout, stderr, err
 }
 
-func (p *TestProject) KluctlProcessMust(argsIn ...string) (string, string) {
-	stdout, stderr, err := p.KluctlProcess(argsIn...)
+func (p *TestProject) KluctlProcessMust(t *testing.T, argsIn ...string) (string, string) {
+	stdout, stderr, err := p.KluctlProcess(t, argsIn...)
 	if err != nil {
-		p.t.Logf(stderr)
-		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
+		t.Logf(stderr)
+		t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr
 }
 
-func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
+func (p *TestProject) KluctlExecute(t *testing.T, argsIn ...string) (string, string, error) {
 	if p.extraEnv.Len() != 0 {
-		p.t.Fatal("extraEnv is only supported in KluctlProcess(...)")
+		t.Fatal("extraEnv is only supported in KluctlProcess(...)")
 	}
 
 	var args []string
@@ -527,21 +524,21 @@ func (p *TestProject) KluctlExecute(argsIn ...string) (string, string, error) {
 	}
 	args = append(args, argsIn...)
 
-	return KluctlExecute(p.t, context.Background(), p.t.Log, args...)
+	return KluctlExecute(t, context.Background(), t.Log, args...)
 }
 
-func (p *TestProject) Kluctl(argsIn ...string) (string, string, error) {
+func (p *TestProject) Kluctl(t *testing.T, argsIn ...string) (string, string, error) {
 	if p.useProcess {
-		return p.KluctlProcess(argsIn...)
+		return p.KluctlProcess(t, argsIn...)
 	} else {
-		return p.KluctlExecute(argsIn...)
+		return p.KluctlExecute(t, argsIn...)
 	}
 }
 
-func (p *TestProject) KluctlMust(argsIn ...string) (string, string) {
-	stdout, stderr, err := p.Kluctl(argsIn...)
+func (p *TestProject) KluctlMust(t *testing.T, argsIn ...string) (string, string) {
+	stdout, stderr, err := p.Kluctl(t, argsIn...)
 	if err != nil {
-		p.t.Fatal(fmt.Errorf("kluctl failed: %w", err))
+		t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr
 }

@@ -24,16 +24,16 @@ func TestKustomize(t *testing.T) {
 		name:      "cm",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
 		name:      "cm2",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--dry-run")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--dry-run")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 }
 
@@ -78,7 +78,7 @@ func TestGeneratedKustomize(t *testing.T) {
 		return nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
@@ -128,7 +128,7 @@ namespace: %s
 `, p.TestSlug()), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "a=v1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "a=v1")
 	// it should not appear in the default namespace as that would indicate that the component was treated as a deployment item
 	assertConfigMapNotExists(t, k, "default", p.TestSlug()+"-cm")
 	s := assertConfigMapExists(t, k, p.TestSlug(), p.TestSlug()+"-cm")
@@ -161,7 +161,7 @@ func TestKustomizeBase(t *testing.T) {
 		Name: "../base",
 	}}, nil)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "base-cm")
 }
 
@@ -204,7 +204,7 @@ func TestTemplateIgnore(t *testing.T) {
 		return `/configmap-cm3.yml`, nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	cm2 := assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	cm3 := assertConfigMapExists(t, k, p.TestSlug(), "cm3")
@@ -275,7 +275,7 @@ func testLocalIncludes(t *testing.T, projectDir string) {
 		return nil
 	})
 
-	p.KluctlMust("deploy", "--yes", "--project-dir", filepath.Join(p.LocalProjectDir(), projectDir))
+	p.KluctlMust(t, "deploy", "--yes", "--project-dir", filepath.Join(p.LocalProjectDir(), projectDir))
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-inc1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-inc2")
 }

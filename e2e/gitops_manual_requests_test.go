@@ -61,7 +61,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("run manual diff (with no changes)", func() {
-		p.KluctlMust("gitops", "diff", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "diff", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DiffRequestResult)
@@ -80,7 +80,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("run manual diff (with changes)", func() {
-		p.KluctlMust("gitops", "diff", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "diff", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DiffRequestResult)
@@ -95,7 +95,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("run manual deploy (with changes)", func() {
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -110,7 +110,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("run manual deploy (with no changes)", func() {
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -125,7 +125,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("run manual prune (with no changes)", func() {
-		p.KluctlMust("gitops", "prune", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "prune", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.PruneRequestResult)
@@ -137,7 +137,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	p.DeleteKustomizeDeployment("d2")
 
 	suite.Run("run manual prune (with changes)", func() {
-		p.KluctlMust("gitops", "prune", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "prune", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.PruneRequestResult)
@@ -148,7 +148,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("run manual validate (with no errors)", func() {
-		p.KluctlMust("gitops", "validate", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "validate", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.ValidateRequestResult)
@@ -164,7 +164,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	assert.NoError(suite.T(), err)
 
 	suite.Run("run manual validate (with errors)", func() {
-		_, _, err := p.Kluctl("gitops", "validate", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		_, _, err := p.Kluctl(suite.T(), "gitops", "validate", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 		assert.ErrorContains(suite.T(), err, "Validation failed")
 
 		kd := suite.getKluctlDeployment(key)
@@ -177,7 +177,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("resume and wait for reconcile", func() {
-		p.KluctlMust("gitops", "resume", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "resume", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 		g.Eventually(func() bool {
 			var cm1 corev1.ConfigMap
 			err := suite.k.Client.Get(context.Background(), client.ObjectKey{Name: "cm1", Namespace: p.TestSlug()}, &cm1)
@@ -196,7 +196,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	})
 
 	suite.Run("suspend and ensure reconcile does not happen", func() {
-		p.KluctlMust("gitops", "suspend", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "suspend", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		err := suite.k.Client.Delete(context.Background(), cm1.ToUnstructured())
 		assert.NoError(suite.T(), err)
@@ -211,8 +211,8 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	suite.Run("run manual reconcile", func() {
 		assertConfigMapNotExists(suite.T(), suite.k, p.TestSlug(), "cm1")
 
-		// this should ren even though suspend=true
-		p.KluctlMust("gitops", "reconcile", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		// this should run even though suspend=true
+		p.KluctlMust(suite.T(), "gitops", "reconcile", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.ReconcileRequestResult)
@@ -266,7 +266,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	})
 
 	suite.Run("deploy with dry-run", func() {
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--dry-run")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--dry-run")
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -285,7 +285,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 			kd.Spec.DryRun = true
 		})
 		suite.waitForReconcile(key)
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--dry-run=false")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--dry-run=false")
 
 		kd = suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -306,7 +306,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	suite.waitForReconcile(key)
 
 	suite.Run("deploy with overridden args", func() {
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "-a", "a=via_arg")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "-a", "a=via_arg")
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -319,7 +319,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 		assertNestedFieldEquals(suite.T(), cm1, "via_arg", "data", "k2")
 
 		// undo it
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 	})
 
 	p.DeleteKustomizeDeployment("d2")
@@ -329,8 +329,8 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 			kd.Spec.Prune = true
 		})
 
-		p.KluctlMust("gitops", "reconcile", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--prune=false")
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--prune=false")
+		p.KluctlMust(suite.T(), "gitops", "reconcile", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--prune=false")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--prune=false")
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -342,8 +342,8 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Prune = false
 		})
-		p.KluctlMust("gitops", "reconcile", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--prune")
+		p.KluctlMust(suite.T(), "gitops", "reconcile", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--prune")
 
 		kd = suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -363,7 +363,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	})
 
 	suite.Run("deploy with overridden inclusion", func() {
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "-I", "d1")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "-I", "d1")
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -374,7 +374,7 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	})
 
 	suite.Run("deploy with overridden exclusion", func() {
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "-E", "d1")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "-E", "d1")
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)
@@ -390,12 +390,12 @@ func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 
 	suite.Run("deploy with overridden target", func() {
 		// first, deploy without overrides
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 		cm1 := assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm1")
 		assertNestedFieldEquals(suite.T(), cm1, "na", "data", "k3")
 
 		// now with override
-		p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--target", "target2")
+		p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name, "--target", "target2")
 
 		kd := suite.getKluctlDeployment(key)
 		assert.NotNil(suite.T(), kd.Status.DeployRequestResult)

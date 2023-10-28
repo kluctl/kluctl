@@ -55,7 +55,7 @@ func TestGitInclude(t *testing.T) {
 
 	p, _, _ := prepareGitIncludeTest(t, k, nil, nil, nil)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
 }
@@ -209,7 +209,7 @@ func TestGitIncludeRef(t *testing.T) {
 		},
 	}))
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "parent")
 	assertConfigMapExists(t, k, p.TestSlug(), "head")
 	assertConfigMapExists(t, k, p.TestSlug(), "branch1")

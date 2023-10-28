@@ -47,8 +47,8 @@ func prepareLocalSourceOverrideTest(t *testing.T, k *test_utils.EnvTestCluster, 
 	repo2 := repo.URL.String() + "/org1/include2"
 
 	if oci {
-		ip1.KluctlMust("oci", "push", "--url", repo1)
-		ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
+		ip1.KluctlMust(t, "oci", "push", "--url", repo1)
+		ip2.KluctlMust(t, "oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
 	}
 
 	if oci {
@@ -116,7 +116,7 @@ func TestLocalGitOverride(t *testing.T) {
 	k1 := u1.RepoKey().String()
 	k2 := u2.RepoKey().String()
 
-	pt.p.KluctlMust("deploy", "--yes", "-t", "test",
+	pt.p.KluctlMust(t, "deploy", "--yes", "-t", "test",
 		"--local-git-override", fmt.Sprintf("%s=%s", k1, pt.override1),
 		"--local-git-override", fmt.Sprintf("%s=%s", k2, pt.override2),
 	)
@@ -136,7 +136,7 @@ func TestGitGroup(t *testing.T) {
 	u1, _ := types.ParseGitUrl(pt.p.GitServer().GitUrl() + "/repos")
 	k1 := u1.RepoKey().String()
 
-	pt.p.KluctlMust("deploy", "--yes", "-t", "test",
+	pt.p.KluctlMust(t, "deploy", "--yes", "-t", "test",
 		"--local-git-group-override", fmt.Sprintf("%s=%s", k1, pt.overrideGroupDir),
 	)
 	cm := assertConfigMapExists(t, k, pt.p.TestSlug(), "include1-cm")
@@ -154,7 +154,7 @@ func TestLocalOciOverride(t *testing.T) {
 	k1 := strings.TrimPrefix(pt.repoUrl1, "oci://")
 	k2 := strings.TrimPrefix(pt.repoUrl2, "oci://")
 
-	pt.p.KluctlMust("deploy", "--yes", "-t", "test",
+	pt.p.KluctlMust(t, "deploy", "--yes", "-t", "test",
 		"--local-oci-override", fmt.Sprintf("%s=%s", k1, pt.override1),
 		"--local-oci-override", fmt.Sprintf("%s=%s", k2, pt.override2),
 	)
@@ -172,7 +172,7 @@ func TestLocalOciGroupOverride(t *testing.T) {
 
 	k1 := strings.TrimPrefix(pt.repo.URL.String(), "oci://") + "/org1"
 
-	pt.p.KluctlMust("deploy", "--yes", "-t", "test",
+	pt.p.KluctlMust(t, "deploy", "--yes", "-t", "test",
 		"--local-oci-group-override", fmt.Sprintf("%s=%s", k1, pt.overrideGroupDir),
 	)
 	cm := assertConfigMapExists(t, k, pt.p.TestSlug(), "include1-cm")

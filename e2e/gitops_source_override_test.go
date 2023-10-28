@@ -48,7 +48,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 	key := suite.createKluctlDeployment(pt.p, "test", nil)
 
 	suite.Run("initial deployment", func() {
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 		suite.assertOverridesDidNotHappen(key, &pt)
 	})
 
@@ -67,7 +67,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 
 		suite.assertOverridesDidNotHappen(key, &pt)
 
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
 			"--local-git-override", fmt.Sprintf("%s=%s", k1, pt.override1),
 			"--local-git-override", fmt.Sprintf("%s=%s", k2, pt.override2),
 			"--local-source-override-port", fmt.Sprintf("%d", suite.sourceOverridePort))
@@ -75,7 +75,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 		suite.assertOverridesDidHappen(key, &pt)
 
 		// undo everything
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 	})
 
 	suite.Run("deploy with overridden git group source", func() {
@@ -84,14 +84,14 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 
 		suite.assertOverridesDidNotHappen(key, &pt)
 
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
 			"--local-git-group-override", fmt.Sprintf("%s=%s", k1, pt.overrideGroupDir),
 			"--local-source-override-port", fmt.Sprintf("%d", suite.sourceOverridePort))
 
 		suite.assertOverridesDidHappen(key, &pt)
 
 		// undo everything
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 	})
 }
 
@@ -102,7 +102,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalOciOverrides() {
 	key := suite.createKluctlDeployment(pt.p, "test", nil)
 
 	suite.Run("initial deployment", func() {
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 		suite.assertOverridesDidNotHappen(key, &pt)
 	})
 
@@ -119,7 +119,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalOciOverrides() {
 
 		suite.assertOverridesDidNotHappen(key, &pt)
 
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
 			"--local-oci-override", fmt.Sprintf("%s=%s", k1, pt.override1),
 			"--local-oci-override", fmt.Sprintf("%s=%s", k2, pt.override2),
 			"--local-source-override-port", fmt.Sprintf("%d", suite.sourceOverridePort))
@@ -127,7 +127,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalOciOverrides() {
 		suite.assertOverridesDidHappen(key, &pt)
 
 		// undo everything
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 	})
 
 	suite.Run("deploy with overridden oci group source", func() {
@@ -135,13 +135,13 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalOciOverrides() {
 
 		suite.assertOverridesDidNotHappen(key, &pt)
 
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name,
 			"--local-oci-group-override", fmt.Sprintf("%s=%s", k1, pt.overrideGroupDir),
 			"--local-source-override-port", fmt.Sprintf("%d", suite.sourceOverridePort))
 
 		suite.assertOverridesDidHappen(key, &pt)
 
 		// undo everything
-		pt.p.KluctlMust("gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
+		pt.p.KluctlMust(suite.T(), "gitops", "deploy", "--context", suite.k.Context, "--namespace", key.Namespace, "--name", key.Name)
 	})
 }

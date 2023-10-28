@@ -47,7 +47,7 @@ func TestSopsVars(t *testing.T) {
 		return string(b), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
@@ -80,7 +80,7 @@ func TestSopsResources(t *testing.T) {
 		return string(b), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "encrypted-cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
@@ -117,7 +117,7 @@ func TestSopsHelmValues(t *testing.T) {
 		return nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 

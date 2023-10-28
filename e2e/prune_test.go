@@ -25,13 +25,13 @@ func TestPrune(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	p.DeleteKustomizeDeployment("cm2")
 
-	p.KluctlMust("prune", "--yes", "-t", "test")
+	p.KluctlMust(t, "prune", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 }
@@ -56,7 +56,7 @@ func TestDeployWithPrune(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
@@ -66,7 +66,7 @@ func TestDeployWithPrune(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--prune")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--prune")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm3")
