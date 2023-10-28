@@ -32,7 +32,8 @@ type TestGitServer struct {
 	authPassword string
 	failWhenAuth bool
 
-	cleanupMutex sync.RWMutex
+	cleanupMutex  sync.RWMutex
+	cleanupDoneCh chan struct{}
 }
 
 type TestGitServerOpt func(*TestGitServer)
@@ -52,8 +53,9 @@ func WithTestGitServerFailWhenAuth(fail bool) TestGitServerOpt {
 
 func NewTestGitServer(t *testing.T, opts ...TestGitServerOpt) *TestGitServer {
 	p := &TestGitServer{
-		t:       t,
-		baseDir: t.TempDir(),
+		t:             t,
+		baseDir:       t.TempDir(),
+		cleanupDoneCh: make(chan struct{}),
 	}
 
 	for _, o := range opts {
@@ -112,6 +114,7 @@ func (p *TestGitServer) initGitServer() {
 		} else {
 			p.t.Logf("gitHttpServer.Serve() with port %d returned with no error", p.gitServerPort)
 		}
+		close(p.cleanupDoneCh)
 	}()
 }
 
@@ -125,6 +128,7 @@ func (p *TestGitServer) Cleanup() {
 		_ = p.gitHttpServer.Shutdown(context.Background())
 		p.gitHttpServer = nil
 		p.gitServer = nil
+		<-p.cleanupDoneCh
 	}
 
 	p.baseDir = ""
