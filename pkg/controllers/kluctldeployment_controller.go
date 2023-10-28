@@ -432,6 +432,8 @@ func (r *KluctlDeploymentReconciler) finalize(ctx context.Context, obj *kluctlv1
 func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctlv1.KluctlDeployment, reconcileId string) {
 	log := ctrl.LoggerFrom(ctx)
 
+	log.Info("Finalizing")
+
 	if !obj.Spec.Delete || obj.Spec.Suspend {
 		return
 	}
@@ -441,7 +443,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 		return
 	}
 
-	log.V(1).Info("Deleting target")
+	log.Info(fmt.Sprintf("Deleting objects with discriminator '%s'", obj.Status.TargetKey.Discriminator))
 
 	pp, err := prepareProject(ctx, r, obj, false)
 	if err != nil {
@@ -458,7 +460,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 	if cmdResult != nil {
 		err = pt.writeCommandResult(ctx, cmdResult, nil, "delete", reconcileId, "", false)
 		if err != nil {
-			log.Error(err, "delete write delete command result")
+			log.Error(err, "write delete command result failed")
 		}
 	}
 }
