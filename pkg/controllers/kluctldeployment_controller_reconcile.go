@@ -510,6 +510,10 @@ func (r *KluctlDeploymentReconciler) reconcileFullRequest2(rr *kluctlv1.ManualRe
 		resourceVersions := r.getResourceVersions(key)
 
 		diffResult := pt.kluctlDiff(targetContext, resourceVersions)
+		err = pt.addCommandResultInfo(ctx, diffResult, rr, reconcileId, objectsHash)
+		if err != nil {
+			log.Error(err, "addCommandResultInfo failed")
+		}
 		driftDetectionResult := diffResult.BuildDriftDetectionResult()
 		obj.Status.SetLastDriftDetectionResult(driftDetectionResult)
 
