@@ -79,7 +79,7 @@ func TestWhen(t *testing.T) {
 		}
 	}
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=test", "-ab=test2")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=test", "-ab=test2")
 
 	for _, test := range tests {
 		if test.want {

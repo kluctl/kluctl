@@ -56,7 +56,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
            return true
        }
         if (DoFilterText([
-            projectKey.gitRepoKey,
+            projectKey.repoKey,
             projectKey.subDir,
             targetKey.targetName,
             targetKey.clusterId,
@@ -204,7 +204,7 @@ export function buildProjectSummaries(commandResultSummaries: Map<string, Comman
     })
 
     ret.sort((a, b) => {
-        return (a.project.gitRepoKey || "").localeCompare(b.project.gitRepoKey || "") ||
+        return (a.project.repoKey || "").localeCompare(b.project.repoKey || "") ||
             (a.project.subDir || "").localeCompare(b.project.subDir || "")
     })
 

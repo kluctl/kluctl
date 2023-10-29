@@ -30,12 +30,11 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --annotation stringArray    Set custom OCI annotations in the format '<key>=<value>'
-      --ignore-path stringArray   set paths to ignore in .gitignore format.
-      --output string             the format in which the artifact digest should be printed, can be 'json' or 'yaml'
-      --timeout duration          Specify timeout for all operations, including loading of the project, all
-                                  external api calls and waiting for readiness. (default 10m0s)
-      --url string                Specifies the artifact URL. This argument is required.
+      --annotation stringArray   Set custom OCI annotations in the format '<key>=<value>'
+      --output string            the format in which the artifact digest should be printed, can be 'json' or 'yaml'
+      --timeout duration         Specify timeout for all operations, including loading of the project, all
+                                 external api calls and waiting for readiness. (default 10m0s)
+      --url string               Specifies the artifact URL. This argument is required.
 
 ```
 <!-- END SECTION -->

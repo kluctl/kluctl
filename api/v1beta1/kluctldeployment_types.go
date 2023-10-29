@@ -32,21 +32,28 @@ const (
 
 	KluctlDeployModeFull   = "full-deploy"
 	KluctlDeployPokeImages = "poke-images"
+)
 
+// The following annotations are set by the CLI (gitops sub-commands) and the webui. The values contains a JSON serialized
+// ManualRequest
+const (
 	KluctlRequestReconcileAnnotation = "kluctl.io/request-reconcile"
+	KluctlRequestDiffAnnotation      = "kluctl.io/request-diff"
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
 	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
 	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
 
-	// KluctlOnetimePatchAnnotation can be set to apply a onetime json-patch to the KluctlDeployment in the next
-	// reconciliation loop. The patched KluctlDeployment is in-memory only and not persisted. The annotation is removed
-	// immediately after it is read.
-	KluctlOnetimePatchAnnotation = "kluctl.io/gitops-onetime-patch"
+	// SourceOverrideScheme is used when source overrides are setup via the CLI
+	SourceOverrideScheme = "grpc+source-override"
 )
 
 type KluctlDeploymentSpec struct {
 	// Specifies the project source location
 	Source ProjectSource `json:"source"`
+
+	// Specifies source overrides
+	// +optional
+	SourceOverrides []SourceOverride `json:"sourceOverrides,omitempty"`
 
 	// Credentials specifies the credentials used when pulling sources
 	// +optional
@@ -312,6 +319,15 @@ type ProjectSourceOci struct {
 	Path string `json:"path,omitempty"`
 }
 
+type SourceOverride struct {
+	// +required
+	RepoKey types.RepoKey `json:"repoKey"`
+	// +required
+	Url string `json:"url"`
+	// +optional
+	IsGroup bool `json:"isGroup,omitempty"`
+}
+
 type ProjectCredentials struct {
 	// Git specifies a list of git credentials
 	// +optional
@@ -459,58 +475,22 @@ type KubeConfig struct {
 	SecretRef SecretKeyReference `json:"secretRef,omitempty"`
 }
 
-type RequestResult struct {
-	// +required
-	RequestValue string `json:"requestValue"`
-
-	// +required
-	StartTime metav1.Time `json:"startTime"`
-
-	// +optional
-	EndTime *metav1.Time `json:"endTime,omitempty"`
-
-	// +required
-	ReconcileId string `json:"reconcileId"`
-
-	// +optional
-	ResultId string `json:"resultId,omitempty"`
-
-	// +optional
-	CommandError string `json:"commandError,omitempty"`
-}
-
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
 type KluctlDeploymentStatus struct {
 	// +optional
-	ReconcileRequestResult *RequestResult `json:"reconcileRequestResult,omitempty"`
+	ReconcileRequestResult *ManualRequestResult `json:"reconcileRequestResult,omitempty"`
 
 	// +optional
-	DeployRequestResult *RequestResult `json:"deployRequestResult,omitempty"`
+	DiffRequestResult *ManualRequestResult `json:"diffRequestResult,omitempty"`
 
 	// +optional
-	PruneRequestResult *RequestResult `json:"pruneRequestResult,omitempty"`
+	DeployRequestResult *ManualRequestResult `json:"deployRequestResult,omitempty"`
 
 	// +optional
-	ValidateRequestResult *RequestResult `json:"validateRequestResult,omitempty"`
+	PruneRequestResult *ManualRequestResult `json:"pruneRequestResult,omitempty"`
 
-	// LastHandledReconcileAt holds the value of the most recent
-	// reconcile request value, so a change of the annotation value
-	// can be detected.
-	// DEPRECATED
 	// +optional
-	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
-
-	// DEPRECATED
-	// +optional
-	LastHandledDeployAt string `json:"lastHandledDeployAt,omitempty"`
-
-	// DEPRECATED
-	// +optional
-	LastHandledPruneAt string `json:"lastHandledPruneAt,omitempty"`
-
-	// DEPRECATED
-	// +optional
-	LastHandledValidateAt string `json:"lastHandledValidateAt,omitempty"`
+	ValidateRequestResult *ManualRequestResult `json:"validateRequestResult,omitempty"`
 
 	// ObservedGeneration is the last reconciled generation.
 	// +optional
@@ -536,12 +516,11 @@ type KluctlDeploymentStatus struct {
 
 	// +optional
 	LastPrepareError string `json:"lastPrepareError,omitempty"`
+
+	// LastDiffResult is the result summary of the last diff command
 	// +optional
-	LastDeployError string `json:"lastDeployError,omitempty"`
-	// +optional
-	LastValidateError string `json:"lastValidateError,omitempty"`
-	// +optional
-	LastDriftDetectionError string `json:"lastDriftDetectionError,omitempty"`
+	// +kubebuilder:pruning:PreserveUnknownFields
+	LastDiffResult *runtime.RawExtension `json:"lastDiffResult,omitempty"`
 
 	// LastDeployResult is the result summary of the last deploy command
 	// +optional
@@ -561,57 +540,41 @@ type KluctlDeploymentStatus struct {
 	LastDriftDetectionResultMessage string `json:"lastDriftDetectionResultMessage,omitempty"`
 }
 
-func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary, err error) error {
-	s.LastDeployError = ""
-	if err != nil {
-		s.LastDeployError = err.Error()
+func (s *KluctlDeploymentStatus) SetLastDiffResult(crs *result.CommandResultSummary) {
+	if crs == nil {
+		s.LastDiffResult = nil
+	} else {
+		b := yaml.WriteJsonStringMust(crs)
+		s.LastDiffResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
+}
+
+func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary) {
 	if crs == nil {
 		s.LastDeployResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastDeployResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
 }
 
-func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult, err error) error {
-	s.LastValidateError = ""
-	if err != nil {
-		s.LastValidateError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult) {
 	if crs == nil {
 		s.LastValidateResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastValidateResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
 }
 
-func (s *KluctlDeploymentStatus) SetLastDriftDetectionResult(dr *result.DriftDetectionResult, err error) error {
-	s.LastDriftDetectionError = ""
-	s.LastDriftDetectionResultMessage = ""
-	if err != nil {
-		s.LastDriftDetectionError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastDriftDetectionResult(dr *result.DriftDetectionResult) {
 	if dr == nil {
 		s.LastDriftDetectionResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(dr)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(dr)
 		s.LastDriftDetectionResult = &runtime.RawExtension{Raw: []byte(b)}
 		s.LastDriftDetectionResultMessage = dr.BuildShortMessage()
 	}
-	return nil
 }
 
 func (s *KluctlDeploymentStatus) GetLastDeployResult() (*result.CommandResultSummary, error) {

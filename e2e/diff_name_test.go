@@ -32,10 +32,10 @@ func TestDiffName(t *testing.T) {
 			"kluctl.io/diff-name": "cm",
 		},
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "cm_name=cm-1", "-a", "v=a")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-1", "-a", "v=a")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-1")
 
-	resultStr, _ := p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "cm_name=cm-2", "-a", "v=b", "-oyaml")
+	resultStr, _ := p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-2", "-a", "v=b", "-oyaml")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-2")
 
 	var cr result.CompactedCommandResult
@@ -59,7 +59,7 @@ func TestDiffName(t *testing.T) {
 		Orphan: true,
 	}, r.Objects[1].BaseObject)
 
-	resultStr, _ = p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "cm_name=cm-3", "-a", "v=c", "-oyaml")
+	resultStr, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-3", "-a", "v=c", "-oyaml")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-2")
 	err = yaml.ReadYamlString(resultStr, &cr)
 	assert.NoError(t, err)

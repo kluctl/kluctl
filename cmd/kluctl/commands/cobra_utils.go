@@ -160,6 +160,7 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 	shortFlag := f.Tag.Get("short")
 	defaultValue := f.Tag.Get("default")
 	required := f.Tag.Get("required") == "true"
+	skipEnv := f.Tag.Get("skipenv")
 
 	group := groupOverride
 	if group == "" {
@@ -232,6 +233,8 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 		_ = cg.cmd.MarkPersistentFlagRequired(name)
 	}
 
+	_ = cg.cmd.PersistentFlags().SetAnnotation(name, "skipenv", []string{skipEnv})
+
 	return nil
 }
 
@@ -249,6 +252,10 @@ func copyViperValuesToCobraCmd(cmd *cobra.Command) error {
 func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 	var errs *multierror.Error
 	flags.VisitAll(func(flag *pflag.Flag) {
+		if a := flag.Annotations["skipenv"]; len(a) != 0 && a[0] == "true" {
+			return
+		}
+
 		sliceValue, _ := flag.Value.(pflag.SliceValue)
 		if flag.Changed && sliceValue == nil {
 			return

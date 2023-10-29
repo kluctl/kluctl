@@ -321,7 +321,7 @@ export class StaticApi implements Api {
 
         staticKluctlDeployments.forEach(kd_ => {
             const kd = kd_ as KluctlDeploymentWithClusterId
-            if (filterProject && filterProject !== kd.deployment.status?.projectKey?.gitRepoKey) {
+            if (filterProject && filterProject !== kd.deployment.status?.projectKey?.repoKey) {
                 return
             }
             if (filterSubDir && filterSubDir !== kd.deployment.status?.projectKey?.subDir) {
@@ -336,7 +336,7 @@ export class StaticApi implements Api {
 
         staticSummaries.forEach(rs_ => {
             const rs = rs_ as CommandResultSummary
-            if (filterProject && filterProject !== rs.projectKey.gitRepoKey) {
+            if (filterProject && filterProject !== rs.projectKey.repoKey) {
                 return
             }
             if (filterSubDir && filterSubDir !== rs.projectKey.subDir) {

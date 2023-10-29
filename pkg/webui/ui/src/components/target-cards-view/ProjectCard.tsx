@@ -8,7 +8,7 @@ import { cardHeight, CardTemplate } from "../card/Card";
 const projectCardWidth = 300
 
 export const ProjectCard = React.memo((props: { ps: ProjectSummary }) => {
-    let name = getLastPathElement(props.ps.project.gitRepoKey)
+    let name = getLastPathElement(props.ps.project.repoKey)
     const subDir = props.ps.project.subDir
 
     if (!name) {
@@ -16,9 +16,9 @@ export const ProjectCard = React.memo((props: { ps: ProjectSummary }) => {
     }
 
     let projectInfo: React.ReactElement | undefined
-    if (props.ps.project.gitRepoKey || props.ps.project.subDir) {
+    if (props.ps.project.repoKey || props.ps.project.subDir) {
         projectInfo =  <Box>
-            <Typography>{props.ps.project.gitRepoKey}</Typography>
+            <Typography>{props.ps.project.repoKey}</Typography>
             {props.ps.project.subDir && <Typography>SubDir: {props.ps.project.subDir}</Typography>}
         </Box>
     }

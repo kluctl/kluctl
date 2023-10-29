@@ -16,14 +16,21 @@ func (ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	check := func(aname string) bool {
+	checkManualRequest := func(aname string) bool {
 		v1, ok1 := e.ObjectNew.GetAnnotations()[aname]
 		v2, ok2 := e.ObjectOld.GetAnnotations()[aname]
+		if !ok2 {
+			// if it gets removed, no need for reconciliation
+			// the annotation actually gets removed at the beginning of the reconciliation, which would cause an
+			// unnecessary reconciliation anyway.
+			return false
+		}
 		return ok1 != ok2 || v1 != v2
 	}
 
-	return check(kluctlv1.KluctlRequestReconcileAnnotation) ||
-		check(kluctlv1.KluctlRequestDeployAnnotation) ||
-		check(kluctlv1.KluctlRequestPruneAnnotation) ||
-		check(kluctlv1.KluctlRequestValidateAnnotation)
+	return checkManualRequest(kluctlv1.KluctlRequestReconcileAnnotation) ||
+		checkManualRequest(kluctlv1.KluctlRequestDiffAnnotation) ||
+		checkManualRequest(kluctlv1.KluctlRequestDeployAnnotation) ||
+		checkManualRequest(kluctlv1.KluctlRequestPruneAnnotation) ||
+		checkManualRequest(kluctlv1.KluctlRequestValidateAnnotation)
 }

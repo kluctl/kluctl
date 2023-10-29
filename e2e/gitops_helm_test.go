@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	. "github.com/onsi/gomega"
@@ -24,7 +23,7 @@ func TestGitOpsHelm(t *testing.T) {
 func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	g := NewWithT(suite.T())
 
-	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull)
+	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull, false)
 	if err != nil {
 		if tc.expectedError == "" {
 			assert.Fail(suite.T(), "did not expect error")
@@ -116,13 +115,9 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		kd.Spec.Credentials = projectCreds
 	})
 
-	suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+	kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
-	var kd kluctlv1.KluctlDeployment
-	err = suite.k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
-
-	readinessCondition := suite.getReadiness(&kd)
+	readinessCondition := suite.getReadiness(kd)
 	g.Expect(readinessCondition).ToNot(BeNil())
 
 	if tc.expectedError == "" {

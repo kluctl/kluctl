@@ -42,7 +42,7 @@ func TestSkipDelete(t *testing.T) {
 		},
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	cm2 := assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm3")
@@ -51,13 +51,13 @@ func TestSkipDelete(t *testing.T) {
 	cm2.SetK8sAnnotation("kluctl.io/skip-delete", "true")
 	updateObject(t, k, cm2)
 
-	p.KluctlMust("delete", "--yes", "-t", "test")
+	p.KluctlMust(t, "delete", "--yes", "-t", "test")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm1")
 	cm2 = assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm3")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm4")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	cm1.SetK8sAnnotation("kluctl.io/skip-delete", "true")
 	cm2.SetK8sAnnotation("kluctl.io/skip-delete", "false")
@@ -66,7 +66,7 @@ func TestSkipDelete(t *testing.T) {
 	p.DeleteKustomizeDeployment("cm1")
 	p.DeleteKustomizeDeployment("cm2")
 	p.DeleteKustomizeDeployment("cm3")
-	p.KluctlMust("prune", "--yes", "-t", "test")
+	p.KluctlMust(t, "prune", "--yes", "-t", "test")
 	cm1 = assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm3")
@@ -94,7 +94,7 @@ func TestForceReplaceSkipDelete(t *testing.T) {
 		},
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assert.Equal(t, map[string]any{
 		"k1": "v1",
@@ -105,7 +105,7 @@ func TestForceReplaceSkipDelete(t *testing.T) {
 		return nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm1 = assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assert.Equal(t, map[string]any{
 		"k1": "v2",
@@ -116,13 +116,13 @@ func TestForceReplaceSkipDelete(t *testing.T) {
 		o.SetK8sLabel(invalidLabel, "invalid_label")
 		return nil
 	}, "")
-	stdout, _, err := p.Kluctl("deploy", "--yes", "-t", "test")
+	stdout, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test")
 	assert.Error(t, err)
 	assert.Contains(t, stdout, "invalid: metadata.labels")
 	// make sure it did not try to replace it
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 
-	stdout, stderr, err := p.Kluctl("deploy", "--yes", "-t", "test", "--force-replace-on-error")
+	stdout, stderr, err := p.Kluctl(t, "deploy", "--yes", "-t", "test", "--force-replace-on-error")
 	assert.Error(t, err)
 	assert.Contains(t, stdout, "retrying with replace instead of patch")
 	assert.Contains(t, stderr, "skipped forced replace")

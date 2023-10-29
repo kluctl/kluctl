@@ -39,7 +39,7 @@ func TestWriteResult(t *testing.T) {
 		name:      "cm",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
 	// we must ensure that at least a second passes between deployments, as otherwise command result sorting becomes
@@ -54,7 +54,7 @@ func TestWriteResult(t *testing.T) {
 
 	opts := results.ListResultSummariesOptions{
 		ProjectFilter: &result.ProjectKey{
-			GitRepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
+			RepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
 		},
 	}
 
@@ -76,7 +76,7 @@ func TestWriteResult(t *testing.T) {
 	}, "")
 
 	b.Wait()
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
@@ -94,7 +94,7 @@ func TestWriteResult(t *testing.T) {
 		return nil
 	})
 	b.Wait()
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
@@ -106,7 +106,7 @@ func TestWriteResult(t *testing.T) {
 	}, summaries[0])
 
 	b.Wait()
-	p.KluctlMust("prune", "--yes", "-t", "test")
+	p.KluctlMust(t, "prune", "--yes", "-t", "test")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)

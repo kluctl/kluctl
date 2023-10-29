@@ -247,6 +247,10 @@ func (rc *ResultsCollector) WriteValidateResult(vr *result.ValidateResult) error
 	return fmt.Errorf("WriteValidateResult is not supported in ResultsCollector")
 }
 
+func (rc *ResultsCollector) DeleteCommandResult(rsId string) error {
+	return fmt.Errorf("DeleteCommandResult is not supported in ResultsCollector")
+}
+
 func (rc *ResultsCollector) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()

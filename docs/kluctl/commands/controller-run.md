@@ -26,17 +26,19 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --concurrency int                    Configures how many KluctlDeployments can be be reconciled
-                                           concurrently. (default 4)
-      --context string                     Override the context to use.
-      --default-service-account string     Default service account used for impersonation.
-      --dry-run                            Run all deployments in dryRun=true mode.
-      --health-probe-bind-address string   The address the probe endpoint binds to. (default ":8081")
-      --kubeconfig string                  Override the kubeconfig to use.
-      --leader-elect                       Enable leader election for controller manager. Enabling this will
-                                           ensure there is only one active controller manager.
-      --metrics-bind-address string        The address the metric endpoint binds to. (default ":8080")
-      --namespace string                   Specify the namespace to watch. If omitted, all namespaces are watched.
+      --concurrency int                       Configures how many KluctlDeployments can be be reconciled
+                                              concurrently. (default 4)
+      --context string                        Override the context to use.
+      --default-service-account string        Default service account used for impersonation.
+      --dry-run                               Run all deployments in dryRun=true mode.
+      --health-probe-bind-address string      The address the probe endpoint binds to. (default ":8081")
+      --kubeconfig string                     Override the kubeconfig to use.
+      --leader-elect                          Enable leader election for controller manager. Enabling this will
+                                              ensure there is only one active controller manager.
+      --metrics-bind-address string           The address the metric endpoint binds to. (default ":8080")
+      --namespace string                      Specify the namespace to watch. If omitted, all namespaces are watched.
+      --source-override-bind-address string   The address the source override manager endpoint binds to. (default
+                                              ":8082")
 
 ```
 <!-- END SECTION -->

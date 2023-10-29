@@ -38,7 +38,7 @@ func testNoTarget(t *testing.T, withDeploymentYaml bool) {
 
 	p := prepareNoTargetTest(t, withDeploymentYaml)
 
-	p.KluctlMust("deploy", "--yes")
+	p.KluctlMust(t, "deploy", "--yes")
 	cm := assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 	assert.Equal(t, map[string]any{
@@ -46,14 +46,14 @@ func testNoTarget(t *testing.T, withDeploymentYaml bool) {
 		"targetContext": defaultCluster1.Context,
 	}, cm.Object["data"])
 
-	p.KluctlMust("deploy", "--yes", "-T", "override-name")
+	p.KluctlMust(t, "deploy", "--yes", "-T", "override-name")
 	cm = assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "override-name",
 		"targetContext": defaultCluster1.Context,
 	}, cm.Object["data"])
 
-	p.KluctlMust("deploy", "--yes", "-T", "override-name", "--context", defaultCluster2.Context)
+	p.KluctlMust(t, "deploy", "--yes", "-T", "override-name", "--context", defaultCluster2.Context)
 	cm = assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 	assert.Equal(t, map[string]any{
 		"targetName":    "override-name",

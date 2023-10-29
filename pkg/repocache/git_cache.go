@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
 	"path"
@@ -30,7 +31,7 @@ type GitRepoCache struct {
 	repos      map[types.RepoKey]*GitCacheEntry
 	reposMutex sync.Mutex
 
-	repoOverrides []RepoOverride
+	repoOverrides sourceoverride.Resolver
 
 	cleanupDirs      []string
 	cleanupDirsMutex sync.Mutex
@@ -54,19 +55,12 @@ type RepoInfo struct {
 	DefaultRef types.GitRef      `json:"defaultRef"`
 }
 
-type RepoOverride struct {
-	RepoKey  types.RepoKey
-	Ref      string
-	Override string
-	IsGroup  bool
-}
-
 type clonedDir struct {
 	dir  string
 	info git.CheckoutInfo
 }
 
-func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, repoOverrides []RepoOverride, updateInterval time.Duration) *GitRepoCache {
+func NewGitRepoCache(ctx context.Context, sshPool *ssh_pool.SshPool, authProviders *auth.GitAuthProviders, repoOverrides sourceoverride.Resolver, updateInterval time.Duration) *GitRepoCache {
 	return &GitRepoCache{
 		ctx:            ctx,
 		sshPool:        sshPool,
@@ -93,9 +87,13 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 
 	repoKey := url.RepoKey()
 
-	overridePath, err := findRepoOverride(rp.repoOverrides, repoKey)
-	if err != nil {
-		return nil, err
+	var overridePath string
+	var err error
+	if rp.repoOverrides != nil {
+		overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if overridePath != "" {

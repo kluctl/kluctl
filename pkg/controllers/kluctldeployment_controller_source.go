@@ -13,6 +13,7 @@ import (
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +46,61 @@ type helmRepoSecrets struct {
 	secret        corev1.Secret
 }
 
+func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Context, obj *kluctlv1.KluctlDeployment) ([]*sourceoverride.ProxyClientController, error) {
+	cleanup := true
+	m := map[string]*sourceoverride.ProxyClientController{}
+
+	defer func() {
+		if cleanup {
+			for _, c := range m {
+				_ = c.Close()
+				c.Cleanup()
+			}
+		}
+	}()
+
+	byUrl := map[string][]kluctlv1.SourceOverride{}
+	var l []*sourceoverride.ProxyClientController
+
+	for _, so := range obj.Spec.SourceOverrides {
+		byUrl[so.Url] = append(byUrl[so.Url], so)
+	}
+
+	for urlStr, sos := range byUrl {
+		u, err := url.Parse(urlStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse override url: %w", err)
+		}
+
+		if u.Scheme != kluctlv1.SourceOverrideScheme {
+			return nil, fmt.Errorf("unsupported source override url scheme: %s", u.Scheme)
+		}
+
+		serverId := strings.TrimPrefix(u.Path, "/")
+
+		c, err := sourceoverride.NewClientController(serverId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create source override client: %w", err)
+		}
+
+		for _, so := range sos {
+			c.AddKnownOverride(sourceoverride.RepoOverride{
+				RepoKey: so.RepoKey,
+				IsGroup: so.IsGroup,
+			})
+		}
+
+		err = c.Connect(ctx, u.Host)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create source override client: %w", err)
+		}
+
+		l = append(l, c)
+	}
+	cleanup = false
+	return l, nil
+}
+
 func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
 	var ret []gitRepoSecrets
 
@@ -53,7 +109,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 			host = "*"
 		}
 		var secret corev1.Secret
-		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
@@ -97,7 +153,7 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credenti
 
 	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
 		var secret corev1.Secret
-		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
@@ -124,7 +180,7 @@ func (r *KluctlDeploymentReconciler) getHelmSecrets(ctx context.Context, obj *kl
 
 	loadCredentials := func(host string, path string, secretName string) error {
 		var secret corev1.Secret
-		err := r.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
@@ -386,13 +442,13 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCacheKey(secrets []ociRepoSecre
 	return h2, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets) (*repocache.GitRepoCache, error) {
+func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets, soClient sourceoverride.Resolver) (*repocache.GitRepoCache, error) {
 	key, err := r.buildGitRepoCacheKey(secrets)
 	if err != nil {
 		return nil, err
 	}
 
-	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-git-cache", key)
+	tmpBaseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kluctl-controller-git-cache", key)
 	err = os.MkdirAll(tmpBaseDir, 0o700)
 	if err != nil {
 		return nil, err
@@ -405,17 +461,17 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 		return nil, err
 	}
 
-	rc := repocache.NewGitRepoCache(ctx, r.SshPool, ga, nil, 0)
+	rc := repocache.NewGitRepoCache(ctx, r.SshPool, ga, soClient, 0)
 	return rc, nil
 }
 
-func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
+func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets, soClient sourceoverride.Resolver) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
 	key, err := r.buildOciRepoCacheKey(secrets)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	tmpBaseDir := filepath.Join(os.TempDir(), "kluctl-controller-oci-cache", key)
+	tmpBaseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kluctl-controller-oci-cache", key)
 	err = os.MkdirAll(tmpBaseDir, 0o700)
 	if err != nil {
 		return nil, nil, err
@@ -428,6 +484,6 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secr
 		return nil, nil, err
 	}
 
-	rc := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, 0)
+	rc := repocache.NewOciRepoCache(ctx, ociAuthProvider, soClient, 0)
 	return rc, ociAuthProvider, nil
 }

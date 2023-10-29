@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"fmt"
 	"github.com/getsops/sops/v3/age"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
@@ -13,7 +12,7 @@ import (
 
 func setSopsKey(p *test_project.TestProject) {
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
-	p.AddExtraEnv(fmt.Sprintf("%s=%s", age.SopsAgeKeyEnv, string(key)))
+	p.SetEnv(age.SopsAgeKeyEnv, string(key))
 }
 
 func TestSopsVars(t *testing.T) {
@@ -48,7 +47,7 @@ func TestSopsVars(t *testing.T) {
 		return string(b), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
@@ -81,7 +80,7 @@ func TestSopsResources(t *testing.T) {
 		return string(b), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "encrypted-cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
@@ -118,7 +117,7 @@ func TestSopsHelmValues(t *testing.T) {
 		return nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 

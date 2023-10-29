@@ -21,7 +21,7 @@ func TestRenderPrintAll(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	stdout, _ := p.KluctlMust("render", "-t", "test", "--print-all")
+	stdout, _ := p.KluctlMust(t, "render", "-t", "test", "--print-all")
 	y, err := yaml.ReadYamlAllString(stdout)
 	assert.NoError(t, err)
 	assert.Equal(t, []any{map[string]any{
@@ -49,13 +49,13 @@ func TestRenderNoKubeconfig(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	_, stderr := p.KluctlMust("render", "--print-all")
+	_, stderr := p.KluctlMust(t, "render", "--print-all")
 	assert.Contains(t, stderr, "No valid KUBECONFIG provided, which means the Kubernetes client is not available")
 
 	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField("context1", "context")
 	})
-	_, stderr, err := p.Kluctl("render", "-t", "test", "--print-all")
+	_, stderr, err := p.Kluctl(t, "render", "-t", "test", "--print-all")
 	assert.ErrorContains(t, err, "context \"context1\" does not exist")
 
 }

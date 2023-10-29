@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,7 +26,6 @@ type ociPushCmd struct {
 	args.RegistryCredentials
 
 	Url        string   `group:"misc" help:"Specifies the artifact URL. This argument is required." required:"true"`
-	IgnorePath []string `group:"misc" help:"set paths to ignore in .gitignore format."`
 	Annotation []string `group:"misc" help:"Set custom OCI annotations in the format '<key>=<value>'"`
 	Output     string   `group:"misc" help:"the format in which the artifact digest should be printed, can be 'json' or 'yaml'"`
 
@@ -38,8 +38,31 @@ artifact to an OCI repository.`
 }
 
 func (cmd *ociPushCmd) Run(ctx context.Context) error {
-	if cmd.IgnorePath == nil {
-		cmd.IgnorePath = excludeOCI
+	path, err := cmd.ProjectDir.GetProjectDir()
+	if err != nil {
+		return err
+	}
+
+	repoRoot, err := git.DetectGitRepositoryRoot(path)
+	if err != nil {
+		return err
+	}
+	gitInfo, _, err := git.BuildGitInfo(ctx, repoRoot, path)
+	if err != nil {
+		return err
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("invalid path '%s', must point to an existing project: %w", path, err)
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	ignorePatterns, err := git.LoadGitignore(absPath)
+	if err != nil {
+		return err
 	}
 
 	if cmd.Timeout != 0 {
@@ -58,24 +81,6 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	url, err := client.ParseArtifactURL(cmd.Url)
 	if err != nil {
 		return err
-	}
-
-	path, err := cmd.ProjectDir.GetProjectDir()
-	if err != nil {
-		return err
-	}
-
-	repoRoot, err := git.DetectGitRepositoryRoot(path)
-	if err != nil {
-		return err
-	}
-	gitInfo, _, err := git.BuildGitInfo(ctx, repoRoot, path)
-	if err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(path); err != nil {
-		return fmt.Errorf("invalid path '%s', must point to an existing project: %w", path, err)
 	}
 
 	annotations := map[string]string{}
@@ -123,7 +128,7 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	}
 
 	ociClient := client.NewClient(opts)
-	digestURL, err := ociClient.Push(ctx, url, path, meta, cmd.IgnorePath)
+	digestURL, err := ociClient.Push(ctx, url, path, meta, ignorePatterns)
 	if err != nil {
 		return fmt.Errorf("pushing artifact failed: %w", err)
 	}

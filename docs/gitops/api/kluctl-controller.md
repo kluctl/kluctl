@@ -166,6 +166,20 @@ ProjectSource
 </tr>
 <tr>
 <td>
+<code>sourceOverrides</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.SourceOverride">
+[]SourceOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies source overrides</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>credentials</code><br>
 <em>
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentials">
@@ -652,6 +666,20 @@ ProjectSource
 </tr>
 <tr>
 <td>
+<code>sourceOverrides</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.SourceOverride">
+[]SourceOverride
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Specifies source overrides</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>credentials</code><br>
 <em>
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentials">
@@ -1113,8 +1141,21 @@ There are two ways to use this value properly.
 <td>
 <code>reconcileRequestResult</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.RequestResult">
-RequestResult
+<a href="#gitops.kluctl.io/v1beta1.ManualRequestResult">
+ManualRequestResult
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>diffRequestResult</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ManualRequestResult">
+ManualRequestResult
 </a>
 </em>
 </td>
@@ -1126,8 +1167,8 @@ RequestResult
 <td>
 <code>deployRequestResult</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.RequestResult">
-RequestResult
+<a href="#gitops.kluctl.io/v1beta1.ManualRequestResult">
+ManualRequestResult
 </a>
 </em>
 </td>
@@ -1139,8 +1180,8 @@ RequestResult
 <td>
 <code>pruneRequestResult</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.RequestResult">
-RequestResult
+<a href="#gitops.kluctl.io/v1beta1.ManualRequestResult">
+ManualRequestResult
 </a>
 </em>
 </td>
@@ -1152,64 +1193,13 @@ RequestResult
 <td>
 <code>validateRequestResult</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.RequestResult">
-RequestResult
+<a href="#gitops.kluctl.io/v1beta1.ManualRequestResult">
+ManualRequestResult
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastHandledReconcileAt</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>LastHandledReconcileAt holds the value of the most recent
-reconcile request value, so a change of the annotation value
-can be detected.
-DEPRECATED</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastHandledDeployAt</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DEPRECATED</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastHandledPruneAt</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DEPRECATED</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastHandledValidateAt</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>DEPRECATED</p>
 </td>
 </tr>
 <tr>
@@ -1305,35 +1295,14 @@ string
 </tr>
 <tr>
 <td>
-<code>lastDeployError</code><br>
+<code>lastDiffResult</code><br>
 <em>
-string
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastValidateError</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>lastDriftDetectionError</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
+<p>LastDiffResult is the result summary of the last diff command</p>
 </td>
 </tr>
 <tr>
@@ -1461,6 +1430,137 @@ string
 </td>
 <td>
 <p>Name of the referent.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ManualRequest">ManualRequest
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.ManualRequestResult">ManualRequestResult</a>)
+</p>
+<p>ManualRequest is used in json form inside the manual request annotations</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>requestValue</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>overridesPatch</code><br>
+<em>
+k8s.io/apimachinery/pkg/runtime.RawExtension
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.ManualRequestResult">ManualRequestResult
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.KluctlDeploymentStatus">KluctlDeploymentStatus</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>request</code><br>
+<em>
+<a href="#gitops.kluctl.io/v1beta1.ManualRequest">
+ManualRequest
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>startTime</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>endTime</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
+Kubernetes meta/v1.Time
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>reconcileId</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>resultId</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+</td>
+</tr>
+<tr>
+<td>
+<code>commandError</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 </tbody>
@@ -2014,93 +2114,6 @@ string
 </table>
 </div>
 </div>
-<h3 id="gitops.kluctl.io/v1beta1.RequestResult">RequestResult
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#gitops.kluctl.io/v1beta1.KluctlDeploymentStatus">KluctlDeploymentStatus</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>requestValue</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>startTime</code><br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
-Kubernetes meta/v1.Time
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>endTime</code><br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#time-v1-meta">
-Kubernetes meta/v1.Time
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>reconcileId</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-</td>
-</tr>
-<tr>
-<td>
-<code>resultId</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-<tr>
-<td>
-<code>commandError</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="gitops.kluctl.io/v1beta1.SafeDuration">SafeDuration
 </h3>
 <p>
@@ -2174,6 +2187,57 @@ string
 <td>
 <em>(Optional)</em>
 <p>Key in the Secret, when not specified an implementation-specific default key is used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="gitops.kluctl.io/v1beta1.SourceOverride">SourceOverride
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#gitops.kluctl.io/v1beta1.KluctlDeploymentSpec">KluctlDeploymentSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>repoKey</code><br>
+<em>
+github.com/kluctl/kluctl/v2/pkg/types.RepoKey
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>url</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>isGroup</code><br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
 </td>
 </tr>
 </tbody>

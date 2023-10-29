@@ -12,13 +12,13 @@ import (
 )
 
 type HelmCredentials struct {
-	HelmUsername              []string `group:"helm" help:"Specify username to use for Helm Repository authentication. Must be in the form --helm-username=<host>/<path>=<username> or in the deprecated form --helm-username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmPassword              []string `group:"helm" help:"Specify password to use for Helm Repository authentication. Must be in the form --helm-password=<host>/<path>=<password> or in the deprecated form --helm-password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmKeyFile               []string `group:"helm" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --helm-key-file=<host>/<path>=<filePath> or in the deprecated form --helm-key-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmCertFile              []string `group:"helm" help:"Specify key to use for Helm Repository authentication. Must be in the form --helm-cert-file=<host>/<path>=<filePath> or in the deprecated form --helm-cert-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmCAFile                []string `group:"helm" help:"Specify ca bundle certificate to use for Helm Repository authentication. Must be in the form --helm-ca-file=<host>/<path>=<filePath> or in the deprecated form --helm-ca-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmInsecureSkipTlsVerify []string `group:"helm" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<host>/<path> or in the deprecated form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
-	HelmCreds                 []string `group:"helm" help:"This is a shortcut to --helm-username and --helm-password. Must be in the form --helm-creds=<host>/<path>=<username>:<password>, which specifies the username and password for the same repository."`
+	HelmUsername              []string `group:"helm" skipenv:"true" help:"Specify username to use for Helm Repository authentication. Must be in the form --helm-username=<host>/<path>=<username> or in the deprecated form --helm-username=<credentialsId>:<username>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmPassword              []string `group:"helm" skipenv:"true" help:"Specify password to use for Helm Repository authentication. Must be in the form --helm-password=<host>/<path>=<password> or in the deprecated form --helm-password=<credentialsId>:<password>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmKeyFile               []string `group:"helm" skipenv:"true" help:"Specify client certificate to use for Helm Repository authentication. Must be in the form --helm-key-file=<host>/<path>=<filePath> or in the deprecated form --helm-key-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmCertFile              []string `group:"helm" skipenv:"true" help:"Specify key to use for Helm Repository authentication. Must be in the form --helm-cert-file=<host>/<path>=<filePath> or in the deprecated form --helm-cert-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmCAFile                []string `group:"helm" skipenv:"true" help:"Specify ca bundle certificate to use for Helm Repository authentication. Must be in the form --helm-ca-file=<host>/<path>=<filePath> or in the deprecated form --helm-ca-file=<credentialsId>:<filePath>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmInsecureSkipTlsVerify []string `group:"helm" skipenv:"true" help:"Controls skipping of TLS verification. Must be in the form --helm-insecure-skip-tls-verify=<host>/<path> or in the deprecated form --helm-insecure-skip-tls-verify=<credentialsId>, where <credentialsId> must match the id specified in the helm-chart.yaml."`
+	HelmCreds                 []string `group:"helm" skipenv:"true" help:"This is a shortcut to --helm-username and --helm-password. Must be in the form --helm-creds=<host>/<path>=<username>:<password>, which specifies the username and password for the same repository."`
 }
 
 func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.HelmAuthProvider, error) {
@@ -27,8 +27,8 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 		return la, nil
 	}
 
-	var byCredentialId utils.OrderedMap[*helm_auth.AuthEntry]
-	var byHostPath utils.OrderedMap[*helm_auth.AuthEntry]
+	var byCredentialId utils.OrderedMap[string, *helm_auth.AuthEntry]
+	var byHostPath utils.OrderedMap[string, *helm_auth.AuthEntry]
 
 	getDeprecatedEntry := func(s string) (*helm_auth.AuthEntry, string, bool) {
 		x := strings.Split(s, ":")
@@ -57,7 +57,7 @@ func (c *HelmCredentials) BuildAuthProvider(ctx context.Context) (helm_auth.Helm
 
 		x := strings.SplitN(s, "=", 2)
 		if expectValue && len(x) != 2 {
-			return nil, "", fmt.Errorf("expected value")
+			return nil, "", fmt.Errorf("expected value: %s", s)
 		}
 
 		k := x[0]

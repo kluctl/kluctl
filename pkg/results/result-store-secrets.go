@@ -90,8 +90,8 @@ var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 func (s *ResultStoreSecrets) buildName(prefix string, id string, projectKey result.ProjectKey) string {
 	name := ""
 
-	if projectKey.GitRepoKey.Path != "" {
-		name = path.Base(projectKey.GitRepoKey.Path)
+	if projectKey.RepoKey.Path != "" {
+		name = path.Base(projectKey.RepoKey.Path)
 	}
 
 	name = strings.ReplaceAll(name, "_", "-")
@@ -194,8 +194,8 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 			"compactedObjects": compressedObjects,
 		},
 	}
-	if cr.ProjectKey.GitRepoKey.String() != "" {
-		secret.Annotations["kluctl.io/result-project-repo-key"] = cr.ProjectKey.GitRepoKey.String()
+	if cr.ProjectKey.RepoKey.String() != "" {
+		secret.Annotations["kluctl.io/result-project-repo-key"] = cr.ProjectKey.RepoKey.String()
 	}
 	if cr.ProjectKey.SubDir != "" {
 		secret.Annotations["kluctl.io/result-project-subdir"] = cr.ProjectKey.SubDir
@@ -215,6 +215,26 @@ func (s *ResultStoreSecrets) WriteCommandResult(cr *result.CommandResult) error 
 		return err
 	}
 
+	return nil
+}
+
+func (s *ResultStoreSecrets) DeleteCommandResult(rsId string) error {
+	if !s.allowWrite {
+		return fmt.Errorf("result store is read-only")
+	}
+	if rsId == "" {
+		return fmt.Errorf("empty rsId is not allowed")
+	}
+
+	var tmp corev1.Secret
+	err := s.client.DeleteAllOf(s.ctx, &tmp,
+		client.InNamespace(s.writeNamespace),
+		client.MatchingLabels{
+			"kluctl.io/command-result-id": rsId,
+		})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -263,8 +283,8 @@ func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) erro
 			"result": compressedVr,
 		},
 	}
-	if vr.ProjectKey.GitRepoKey.String() != "" {
-		secret.Annotations["kluctl.io/result-project-repo-key"] = vr.ProjectKey.GitRepoKey.String()
+	if vr.ProjectKey.RepoKey.String() != "" {
+		secret.Annotations["kluctl.io/result-project-repo-key"] = vr.ProjectKey.RepoKey.String()
 	}
 	if vr.ProjectKey.SubDir != "" {
 		secret.Annotations["kluctl.io/result-project-subdir"] = vr.ProjectKey.SubDir

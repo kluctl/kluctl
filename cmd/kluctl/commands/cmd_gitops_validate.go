@@ -32,6 +32,7 @@ func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 		args:            cmd.GitOpsArgs,
 		logsArgs:        cmd.GitOpsLogArgs,
 		overridableArgs: cmd.GitOpsOverridableArgs,
+		noArgsReact:     noArgsAutoDetectProjectAsk,
 	}
 	err := g.init(ctx)
 	if err != nil {
@@ -44,7 +45,7 @@ func (cmd *gitopsValidateCmd) Run(ctx context.Context) error {
 			return err
 		}
 
-		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.RequestResult {
+		rr, err := g.waitForRequestToStartAndFinish(ctx, client.ObjectKeyFromObject(&kd), v, func(status *v1beta1.KluctlDeploymentStatus) *v1beta1.ManualRequestResult {
 			return status.ValidateRequestResult
 		})
 		if err != nil {

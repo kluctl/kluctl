@@ -559,6 +559,21 @@ spec:
                       in the next API version bump. Use spec.git.url instead.
                     type: string
                 type: object
+              sourceOverrides:
+                description: Specifies source overrides
+                items:
+                  properties:
+                    isGroup:
+                      type: boolean
+                    repoKey:
+                      type: string
+                    url:
+                      type: string
+                  required:
+                  - repoKey
+                  - url
+                  type: object
+                type: array
               suspend:
                 description: This flag tells the controller to suspend subsequent
                   kluctl executions, it does not apply to already started executions.
@@ -678,8 +693,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -687,18 +712,50 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
-              lastDeployError:
-                type: string
+              diffRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - request
+                - startTime
+                type: object
               lastDeployResult:
                 description: LastDeployResult is the result summary of the last deploy
                   command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              lastDriftDetectionError:
-                type: string
+              lastDiffResult:
+                description: LastDiffResult is the result summary of the last diff
+                  command
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               lastDriftDetectionResult:
                 description: LastDriftDetectionResult is the result of the last drift
                   detection command optional
@@ -708,27 +765,11 @@ spec:
                 description: LastDriftDetectionResultMessage contains a short message
                   that describes the drift optional
                 type: string
-              lastHandledDeployAt:
-                description: DEPRECATED
-                type: string
-              lastHandledPruneAt:
-                description: DEPRECATED
-                type: string
-              lastHandledReconcileAt:
-                description: LastHandledReconcileAt holds the value of the most recent
-                  reconcile request value, so a change of the annotation value can
-                  be detected. DEPRECATED
-                type: string
-              lastHandledValidateAt:
-                description: DEPRECATED
-                type: string
               lastManualObjectsHash:
                 type: string
               lastObjectsHash:
                 type: string
               lastPrepareError:
-                type: string
-              lastValidateError:
                 type: string
               lastValidateResult:
                 description: LastValidateResult is the result summary of the last
@@ -744,9 +785,7 @@ spec:
                 type: integer
               projectKey:
                 properties:
-                  gitRepoKey:
-                    type: string
-                  ociRepoKey:
+                  repoKey:
                     type: string
                   subDir:
                     type: string
@@ -760,8 +799,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -769,7 +818,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
               reconcileRequestResult:
@@ -781,8 +830,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -790,7 +849,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
               targetKey:
@@ -813,8 +872,18 @@ spec:
                     type: string
                   reconcileId:
                     type: string
-                  requestValue:
-                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
                   resultId:
                     type: string
                   startTime:
@@ -822,7 +891,7 @@ spec:
                     type: string
                 required:
                 - reconcileId
-                - requestValue
+                - request
                 - startTime
                 type: object
             type: object

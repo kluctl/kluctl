@@ -8,11 +8,9 @@ import (
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
-	cp "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -32,8 +30,8 @@ func TestOciIncludeMultipleRepos(t *testing.T) {
 	repo1 := repo.URL.String() + "/org1/repo1"
 	repo2 := repo.URL.String() + "/org2/repo2"
 
-	ip1.KluctlMust("oci", "push", "--url", repo1)
-	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
+	ip1.KluctlMust(t, "oci", "push", "--url", repo1)
+	ip2.KluctlMust(t, "oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
 
 	p := test_project.NewTestProject(t)
 
@@ -53,7 +51,7 @@ func TestOciIncludeMultipleRepos(t *testing.T) {
 		},
 	}))
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
 }
@@ -84,17 +82,17 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	repoUrl3 := repo3.URL.String() + "/org3/repo3"
 
 	// push with no creds
-	_, _, err := ip1.Kluctl("oci", "push", "--url", repoUrl1)
+	_, _, err := ip1.Kluctl(t, "oci", "push", "--url", repoUrl1)
 	assert.ErrorContains(t, err, "401 Unauthorized")
 
 	// push with invalid creds
-	_, _, err = ip1.Kluctl("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:invalid", repo1.URL.Host))
+	_, _, err = ip1.Kluctl(t, "oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:invalid", repo1.URL.Host))
 	assert.ErrorContains(t, err, "401 Unauthorized")
 
 	// now with valid creds
-	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
-	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
-	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
+	ip1.KluctlMust(t, "oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
+	ip2.KluctlMust(t, "oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
+	ip3.KluctlMust(t, "oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
 
 	p := test_project.NewTestProject(t)
 
@@ -120,7 +118,7 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	}))
 
 	// deploy with no auth
-	_, _, err = p.Kluctl("deploy", "--yes", "-t", "test")
+	_, _, err = p.Kluctl(t, "deploy", "--yes", "-t", "test")
 	assert.ErrorContains(t, err, "401 Unauthorized")
 
 	// deploy with some invalid creds
@@ -131,14 +129,14 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	t.Setenv("KLUCTL_REGISTRY_2_REPOSITORY", fmt.Sprintf("%s/org2/repo2", repo2.URL.Host))
 	t.Setenv("KLUCTL_REGISTRY_2_USERNAME", "user2")
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "invalid")
-	_, _, err = p.Kluctl("deploy", "--yes", "-t", "test")
+	_, _, err = p.Kluctl(t, "deploy", "--yes", "-t", "test")
 	assert.ErrorContains(t, err, "401 Unauthorized")
 
 	// deploy with valid creds
 	t.Setenv("KLUCTL_REGISTRY_2_PASSWORD", "pass2")
 	dockerLogin(t, repo3.URL.Host, "user3", "pass3")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
 }
@@ -178,19 +176,19 @@ func TestOciIncludeTagsAndDigests(t *testing.T) {
 
 	repo1 := repo.URL.String() + "/org1/repo1"
 
-	ip1.KluctlMust("oci", "push", "--url", repo1+":tag1")
+	ip1.KluctlMust(t, "oci", "push", "--url", repo1+":tag1")
 
 	ip1.UpdateYaml("cm/configmap-include1-cm.yml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField("v2", "data", "a")
 		return nil
 	}, "")
-	ip1.KluctlMust("oci", "push", "--url", repo1+":tag2")
+	ip1.KluctlMust(t, "oci", "push", "--url", repo1+":tag2")
 
 	ip1.UpdateYaml("cm/configmap-include1-cm.yml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField("v3", "data", "a")
 		return nil
 	}, "")
-	stdout, _ := ip1.KluctlMust("oci", "push", "--url", repo1+":tag3", "--output", "json")
+	stdout, _ := ip1.KluctlMust(t, "oci", "push", "--url", repo1+":tag3", "--output", "json")
 	md := uo.FromStringMust(stdout)
 	digest, _, _ := md.GetNestedString("digest")
 
@@ -209,7 +207,7 @@ func TestOciIncludeTagsAndDigests(t *testing.T) {
 		},
 	}))
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertNestedFieldEquals(t, cm, "v", "data", "a")
 
@@ -220,7 +218,7 @@ func TestOciIncludeTagsAndDigests(t *testing.T) {
 		return items
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertNestedFieldEquals(t, cm, "v2", "data", "a")
 
@@ -231,141 +229,7 @@ func TestOciIncludeTagsAndDigests(t *testing.T) {
 		return items
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
 	assertNestedFieldEquals(t, cm, "v3", "data", "a")
-}
-
-func TestLocalOciOverride(t *testing.T) {
-	t.Parallel()
-
-	k := defaultCluster1
-
-	ip1 := prepareIncludeProject(t, "include1", "", nil)
-	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
-
-	repo := test_utils.TestHelmRepo{
-		Oci: true,
-	}
-	repo.Start(t)
-
-	repo1 := repo.URL.String() + "/org1/repo1"
-	repo2 := repo.URL.String() + "/org2/repo2"
-
-	ip1.KluctlMust("oci", "push", "--url", repo1)
-	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
-
-	p := test_project.NewTestProject(t)
-	createNamespace(t, k, p.TestSlug())
-
-	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
-
-	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
-		"oci": map[string]any{
-			"url": repo1,
-		},
-	}))
-	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
-		"oci": map[string]any{
-			"url":    repo2,
-			"subDir": "subDir",
-		},
-	}))
-
-	override1 := t.TempDir()
-	err := cp.Copy(ip1.LocalRepoDir(), override1)
-	assert.NoError(t, err)
-
-	override2 := t.TempDir()
-	err = cp.Copy(ip2.LocalRepoDir(), override2)
-	assert.NoError(t, err)
-
-	cm, err := uo.FromFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o1", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"), cm)
-
-	cm, err = uo.FromFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o2", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
-
-	k1 := strings.TrimPrefix(repo1, "oci://")
-	k2 := strings.TrimPrefix(repo2, "oci://")
-
-	p.KluctlMust("deploy", "--yes", "-t", "test",
-		"--local-oci-override", fmt.Sprintf("%s=%s", k1, override1),
-		"--local-oci-override", fmt.Sprintf("%s=%s", k2, override2),
-	)
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
-	assertNestedFieldEquals(t, cm, "o1", "data", "a")
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
-	assertNestedFieldEquals(t, cm, "o2", "data", "a")
-}
-
-func TestLocalOciGroupOverride(t *testing.T) {
-	t.Parallel()
-
-	k := defaultCluster1
-
-	ip1 := prepareIncludeProject(t, "include1", "", nil)
-	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
-
-	repo := test_utils.TestHelmRepo{
-		Oci: true,
-	}
-	repo.Start(t)
-
-	repo1 := repo.URL.String() + "/org1/repo1"
-	repo2 := repo.URL.String() + "/org1/repo2"
-
-	ip1.KluctlMust("oci", "push", "--url", repo1)
-	ip2.KluctlMust("oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
-
-	p := test_project.NewTestProject(t)
-	createNamespace(t, k, p.TestSlug())
-
-	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
-
-	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
-		"oci": map[string]any{
-			"url": repo1,
-		},
-	}))
-	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
-		"oci": map[string]any{
-			"url":    repo2,
-			"subDir": "subDir",
-		},
-	}))
-
-	overrideGroupDir := t.TempDir()
-
-	override1 := filepath.Join(overrideGroupDir, "repo1")
-	err := cp.Copy(ip1.LocalRepoDir(), override1)
-	assert.NoError(t, err)
-
-	override2 := filepath.Join(overrideGroupDir, "repo2")
-	err = cp.Copy(ip2.LocalRepoDir(), override2)
-	assert.NoError(t, err)
-
-	cm, err := uo.FromFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o1", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override1, "cm", "configmap-include1-cm.yml"), cm)
-
-	cm, err = uo.FromFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"))
-	assert.NoError(t, err)
-	_ = cm.SetNestedField("o2", "data", "a")
-	_ = yaml.WriteYamlFile(filepath.Join(override2, "subDir", "cm", "configmap-include2-cm.yml"), cm)
-
-	k1 := strings.TrimPrefix(repo.URL.String(), "oci://") + "/org1"
-
-	p.KluctlMust("deploy", "--yes", "-t", "test",
-		"--local-oci-group-override", fmt.Sprintf("%s=%s", k1, overrideGroupDir),
-	)
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include1-cm")
-	assertNestedFieldEquals(t, cm, "o1", "data", "a")
-	cm = assertConfigMapExists(t, k, p.TestSlug(), "include2-cm")
-	assertNestedFieldEquals(t, cm, "o2", "data", "a")
 }

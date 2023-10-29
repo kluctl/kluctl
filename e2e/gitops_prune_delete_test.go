@@ -7,7 +7,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 	"time"
@@ -80,12 +79,11 @@ data:
 	})
 
 	g.Eventually(func() bool {
-		var obj kluctlv1.KluctlDeployment
-		_ = suite.k.Client.Get(context.Background(), key, &obj)
-		if obj.Status.LastDeployResult == nil {
+		kd := suite.getKluctlDeploymentAllowNil(key)
+		if kd.Status.LastDeployResult == nil {
 			return false
 		}
-		ldr, err := obj.Status.GetLastDeployResult()
+		ldr, err := kd.Status.GetLastDeployResult()
 		g.Expect(err).To(Succeed())
 		return ldr.GitInfo.Commit == getHeadRevision(suite.T(), p)
 	}, timeout, time.Second).Should(BeTrue())
@@ -165,15 +163,7 @@ data:
 	suite.deleteKluctlDeployment(key)
 
 	g.Eventually(func() bool {
-		var obj kluctlv1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &obj)
-		if err == nil {
-			return false
-		}
-		if !errors.IsNotFound(err) {
-			return false
-		}
-		return true
+		return suite.getKluctlDeploymentAllowNil(key) == nil
 	}, timeout, time.Second).Should(BeTrue())
 
 	if delete {

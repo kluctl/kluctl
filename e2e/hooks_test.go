@@ -142,19 +142,19 @@ func (s *hooksTestContext) incRunCount() {
 	})
 }
 
-func (s *hooksTestContext) ensureHookExecuted(expectedCms ...string) {
-	_, err := s.ensureHookExecuted2(0, expectedCms...)
+func (s *hooksTestContext) ensureHookExecuted(t *testing.T, expectedCms ...string) {
+	_, err := s.ensureHookExecuted2(t, 0, expectedCms...)
 	assert.NoError(s.t, err)
 }
 
-func (s *hooksTestContext) ensureHookExecuted2(timeout time.Duration, expectedCms ...string) (string, error) {
+func (s *hooksTestContext) ensureHookExecuted2(t *testing.T, timeout time.Duration, expectedCms ...string) (string, error) {
 	s.clearSeenConfigmaps()
 	s.incRunCount()
 	args := []string{"deploy", "--yes", "-t", "test"}
 	if timeout != 0 {
 		args = append(args, "--timeout", timeout.String())
 	}
-	_, stderr, err := s.p.Kluctl(args...)
+	_, stderr, err := s.p.Kluctl(t, args...)
 	assert.Equal(s.t, expectedCms, s.seenConfigMaps)
 	return stderr, err
 }
@@ -162,49 +162,49 @@ func (s *hooksTestContext) ensureHookExecuted2(timeout time.Duration, expectedCm
 func TestHooksPreDeployInitial(t *testing.T) {
 	t.Parallel()
 	s := prepareHookTestProject(t, "pre-deploy-initial", "")
-	s.ensureHookExecuted("hook1", "cm1")
-	s.ensureHookExecuted("cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
+	s.ensureHookExecuted(t, "cm1")
 }
 
 func TestHooksPostDeployInitial(t *testing.T) {
 	t.Parallel()
 	s := prepareHookTestProject(t, "post-deploy-initial", "")
-	s.ensureHookExecuted("cm1", "hook1")
-	s.ensureHookExecuted("cm1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1")
 }
 
 func TestHooksPreDeployUpgrade(t *testing.T) {
 	t.Parallel()
 	s := prepareHookTestProject(t, "pre-deploy-upgrade", "")
-	s.ensureHookExecuted("cm1")
-	s.ensureHookExecuted("hook1", "cm1")
-	s.ensureHookExecuted("hook1", "cm1")
+	s.ensureHookExecuted(t, "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
 }
 
 func TestHooksPostDeployUpgrade(t *testing.T) {
 	t.Parallel()
 	s := prepareHookTestProject(t, "post-deploy-upgrade", "")
-	s.ensureHookExecuted("cm1")
-	s.ensureHookExecuted("cm1", "hook1")
-	s.ensureHookExecuted("cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func doTestHooksPreDeploy(t *testing.T, hooks string) {
 	s := prepareHookTestProject(t, hooks, "")
-	s.ensureHookExecuted("hook1", "cm1")
-	s.ensureHookExecuted("hook1", "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
 }
 
 func doTestHooksPostDeploy(t *testing.T, hooks string) {
 	s := prepareHookTestProject(t, hooks, "")
-	s.ensureHookExecuted("cm1", "hook1")
-	s.ensureHookExecuted("cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func doTestHooksPrePostDeploy(t *testing.T, hooks string) {
 	s := prepareHookTestProject(t, hooks, "")
-	s.ensureHookExecuted("hook1", "cm1", "hook1")
-	s.ensureHookExecuted("hook1", "cm1", "hook1")
+	s.ensureHookExecuted(t, "hook1", "cm1", "hook1")
+	s.ensureHookExecuted(t, "hook1", "cm1", "hook1")
 }
 
 func TestHooksPreDeploy(t *testing.T) {
@@ -253,7 +253,7 @@ func TestHooksWait(t *testing.T) {
 	}}, false, "post-deploy", "")
 	s.addHookConfigMap("hook", resourceOpts{name: "hook3", namespace: s.p.TestSlug()}, false, "post-deploy", "")
 
-	stderr, err := s.ensureHookExecuted2(3*time.Second, "cm1", "hook1", "hook2")
+	stderr, err := s.ensureHookExecuted2(t, 3*time.Second, "cm1", "hook1", "hook2")
 	if err == nil {
 		t.Fatal("err == nil, but it should have timed out")
 	}
@@ -269,7 +269,7 @@ func TestHooksWait(t *testing.T) {
 	}()
 
 	// hook2 appears twice because the patch from above causes the webhook to fire
-	stderr, err = s.ensureHookExecuted2(20*time.Second, "cm1", "hook1", "hook2", "hook2", "hook3")
+	stderr, err = s.ensureHookExecuted2(t, 20*time.Second, "cm1", "hook1", "hook2", "hook2", "hook3")
 	assert.NoError(t, err)
 	assert.Contains(t, stderr, "Still waiting")
 
@@ -281,6 +281,6 @@ func TestHooksWait(t *testing.T) {
 		return nil
 	}, "")
 
-	_, err = s.ensureHookExecuted2(5*time.Second, "cm1", "hook1", "hook2", "hook3")
+	_, err = s.ensureHookExecuted2(t, 5*time.Second, "cm1", "hook1", "hook2", "hook3")
 	assert.NoError(t, err)
 }

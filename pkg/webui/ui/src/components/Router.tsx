@@ -18,7 +18,7 @@ function ErrorPage() {
 }
 
 function buildRedirectToTargetPath(app: AppContextProps, sp: URLSearchParams) {
-    const gitRepoKey = sp.get("gitRepoKey")
+    const repoKey = sp.get("repoKey")
     const subDir = sp.get("subDir")
     const targetName = sp.get("targetName")
     const targetClusterId = sp.get("targetClusterId")
@@ -28,7 +28,7 @@ function buildRedirectToTargetPath(app: AppContextProps, sp: URLSearchParams) {
     const kdNamespace = sp.get("kluctlDeploymentNamespace")
     const kdClusterId = sp.get("kluctlDeploymentClusterId")
 
-    if (!gitRepoKey && !subDir && !targetName && !targetClusterId && !discriminator &&
+    if (!repoKey && !subDir && !targetName && !targetClusterId && !discriminator &&
         !kdName && !kdNamespace && !kdClusterId &&
         !commandResultId) {
         return "/targets"
@@ -53,7 +53,7 @@ function buildRedirectToTargetPath(app: AppContextProps, sp: URLSearchParams) {
     } else {
         app.projects.forEach(ps => {
             if (firstProject) return
-            if (gitRepoKey !== null && gitRepoKey !== ps.project.gitRepoKey) return
+            if (repoKey !== null && repoKey !== ps.project.repoKey) return
             if (subDir !== null && subDir !== ps.project.subDir) return
 
             ps.targets.forEach(ts => {

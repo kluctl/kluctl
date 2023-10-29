@@ -1,10 +1,11 @@
-package git
+package test_utils
 
 import (
 	"context"
 	"fmt"
 	config2 "github.com/go-git/go-git/v5/config"
-	"log"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"net"
 	"net/http"
 	"os"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/jinzhu/copier"
-	http_server "github.com/kluctl/kluctl/v2/pkg/git/http-server"
 )
 
 type TestGitServer struct {
@@ -32,13 +32,8 @@ type TestGitServer struct {
 	authPassword string
 	failWhenAuth bool
 
-	cleanupMutex sync.RWMutex
-}
-
-type repoInfo struct {
-	repoName string
-	username string
-	password string
+	cleanupMutex  sync.RWMutex
+	cleanupDoneCh chan struct{}
 }
 
 type TestGitServerOpt func(*TestGitServer)
@@ -58,8 +53,9 @@ func WithTestGitServerFailWhenAuth(fail bool) TestGitServerOpt {
 
 func NewTestGitServer(t *testing.T, opts ...TestGitServerOpt) *TestGitServer {
 	p := &TestGitServer{
-		t:       t,
-		baseDir: t.TempDir(),
+		t:             t,
+		baseDir:       t.TempDir(),
+		cleanupDoneCh: make(chan struct{}),
 	}
 
 	for _, o := range opts {
@@ -107,15 +103,18 @@ func (p *TestGitServer) initGitServer() {
 		Handler: handler,
 	}
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ln := port_tool.NewListenerWithUniquePort("127.0.0.1")
 	a := ln.Addr().(*net.TCPAddr)
 	p.gitServerPort = a.Port
 
 	go func() {
-		_ = p.gitHttpServer.Serve(ln)
+		err := p.gitHttpServer.Serve(ln)
+		if err != nil {
+			p.t.Logf("gitHttpServer.Serve() with port %d returned error: %s", p.gitServerPort, err.Error())
+		} else {
+			p.t.Logf("gitHttpServer.Serve() with port %d returned with no error", p.gitServerPort)
+		}
+		close(p.cleanupDoneCh)
 	}()
 }
 
@@ -123,10 +122,13 @@ func (p *TestGitServer) Cleanup() {
 	p.cleanupMutex.Lock()
 	defer p.cleanupMutex.Unlock()
 
+	p.t.Logf("gitHttpServer.Cleanup() called for port %d", p.gitServerPort)
+
 	if p.gitHttpServer != nil {
 		_ = p.gitHttpServer.Shutdown(context.Background())
 		p.gitHttpServer = nil
 		p.gitServer = nil
+		<-p.cleanupDoneCh
 	}
 
 	p.baseDir = ""

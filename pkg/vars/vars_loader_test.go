@@ -21,7 +21,6 @@ import (
 	"github.com/getsops/sops/v3/age"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/git/auth"
 	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -257,7 +256,7 @@ func (s *VarsLoaderTestSuite) TestFileWithLoadNotExists() {
 }
 
 func (s *VarsLoaderTestSuite) TestGit() {
-	gs := git.NewTestGitServer(s.T())
+	gs := test_utils.NewTestGitServer(s.T())
 	gs.GitInit("repo")
 	gs.UpdateYaml("repo", "test.yaml", func(o map[string]any) error {
 		o["test1"] = map[string]any{
@@ -295,7 +294,7 @@ func (s *VarsLoaderTestSuite) TestGit() {
 }
 
 func (s *VarsLoaderTestSuite) TestGitBranch() {
-	gs := git.NewTestGitServer(s.T())
+	gs := test_utils.NewTestGitServer(s.T())
 	gs.GitInit("repo")
 
 	wt := gs.GetWorktree("repo")

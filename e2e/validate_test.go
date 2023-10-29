@@ -82,7 +82,7 @@ func assertValidate(t *testing.T, p *test_project.TestProject, succeed bool) (st
 	args := []string{"validate"}
 	args = append(args, "-t", "test")
 
-	stdout, stderr, err := p.Kluctl(args...)
+	stdout, stderr, err := p.Kluctl(t, args...)
 
 	if succeed {
 		assert.NoError(t, err)
@@ -103,7 +103,7 @@ func TestValidate(t *testing.T) {
 
 	p := prepareValidateTest(t, k)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertObjectExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
 
 	assertValidate(t, p, false)

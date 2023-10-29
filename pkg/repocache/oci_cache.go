@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -30,7 +31,7 @@ type OciRepoCache struct {
 	repos      map[types.RepoKey]*OciCacheEntry
 	reposMutex sync.Mutex
 
-	repoOverrides []RepoOverride
+	repoOverrides sourceoverride.Resolver
 
 	cleanupDirs      []string
 	cleanupDirsMutex sync.Mutex
@@ -47,7 +48,7 @@ type OciCacheEntry struct {
 	overridePath string
 }
 
-func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthProvider, repoOverrides []RepoOverride, updateInterval time.Duration) *OciRepoCache {
+func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthProvider, repoOverrides sourceoverride.Resolver, updateInterval time.Duration) *OciRepoCache {
 	return &OciRepoCache{
 		ctx:             ctx,
 		updateInterval:  updateInterval,
@@ -81,9 +82,12 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 
 	repoKey := types.NewRepoKey("oci", urlN.Host, urlN.Path)
 
-	overridePath, err := findRepoOverride(rp.repoOverrides, repoKey)
-	if err != nil {
-		return nil, err
+	var overridePath string
+	if rp.repoOverrides != nil {
+		overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if overridePath != "" {

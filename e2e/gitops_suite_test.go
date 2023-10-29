@@ -7,10 +7,15 @@ import (
 	"github.com/huandu/xstrings"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/results"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -43,12 +48,12 @@ type GitopsTestSuite struct {
 
 	k *test_utils.EnvTestCluster
 
-	cancelController context.CancelFunc
+	sourceOverridePort int
+	cancelController   context.CancelFunc
 
 	gitopsNamespace        string
 	gitopsResultsNamespace string
 	gitopsSecretIdx        int
-	deletedDeployments     []client.ObjectKey
 }
 
 func (suite *GitopsTestSuite) SetupSuite() {
@@ -67,19 +72,6 @@ func (suite *GitopsTestSuite) SetupSuite() {
 }
 
 func (suite *GitopsTestSuite) TearDownSuite() {
-	g := NewWithT(suite.T())
-
-	g.Eventually(func() bool {
-		for _, key := range suite.deletedDeployments {
-			var kd kluctlv1.KluctlDeployment
-			err := suite.k.Client.Get(context.TODO(), key, &kd)
-			if err == nil {
-				return false
-			}
-		}
-		return true
-	}, timeout, time.Second).Should(BeTrue())
-
 	if suite.cancelController != nil {
 		suite.cancelController()
 	}
@@ -95,6 +87,8 @@ func (suite *GitopsTestSuite) startController() {
 		suite.T().Fatal(err)
 	}
 
+	suite.sourceOverridePort = port_tool.NextFreePort("127.0.0.1")
+
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	args := []string{
 		"controller",
@@ -109,10 +103,14 @@ func (suite *GitopsTestSuite) startController() {
 		suite.gitopsNamespace + "-results",
 		"--metrics-bind-address=0",
 		"--health-probe-bind-address=0",
+		fmt.Sprintf("--source-override-bind-address=localhost:%d", suite.sourceOverridePort),
 	}
 	done := make(chan struct{})
 	go func() {
-		_, _, err := test_project.KluctlExecute(suite.T(), ctx, args...)
+		logFn := func(args ...any) {
+			suite.T().Log(args...)
+		}
+		_, _, err := test_project.KluctlExecute(suite.T(), ctx, logFn, args...)
 		if err != nil {
 			suite.T().Error(err)
 		}
@@ -136,24 +134,26 @@ func (suite *GitopsTestSuite) triggerReconcile(key client.ObjectKey) string {
 		if a == nil {
 			a = map[string]string{}
 		}
-		a[kluctlv1.KluctlRequestReconcileAnnotation] = reconcileId
+		mr := kluctlv1.ManualRequest{
+			RequestValue: reconcileId,
+		}
+		a[kluctlv1.KluctlRequestReconcileAnnotation] = yaml.WriteJsonStringMust(&mr)
 		kd.SetAnnotations(a)
 	})
 	return reconcileId
 }
 
-func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
+func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) *kluctlv1.KluctlDeployment {
 	g := gomega.NewWithT(suite.T())
 
 	reconcileId := suite.triggerReconcile(key)
 
 	suite.T().Logf("%s: waiting for reconcile to finish", reconcileId)
 
+	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		var kd kluctlv1.KluctlDeployment
-		err := suite.k.Client.Get(context.TODO(), key, &kd)
-		g.Expect(err).To(Succeed())
-		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
+		kd = suite.getKluctlDeployment(key)
+		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.Request.RequestValue != reconcileId {
 			suite.T().Logf("%s: request processing not started yet", reconcileId)
 			return false
 		}
@@ -161,22 +161,28 @@ func (suite *GitopsTestSuite) waitForReconcile(key client.ObjectKey) {
 			suite.T().Logf("%s: request processing not finished yet", reconcileId)
 			return false
 		}
+		readinessCondition := suite.getReadiness(kd)
+		if readinessCondition == nil || readinessCondition.Status == metav1.ConditionUnknown {
+			suite.T().Logf("%s: readiness status == unknown", reconcileId)
+			return false
+		}
+		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
+	return kd
 }
 
-func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string) {
+func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string) *kluctlv1.KluctlDeployment {
 	g := gomega.NewWithT(suite.T())
 
 	reconcileId := suite.triggerReconcile(key)
 
 	suite.T().Logf("%s: waiting for commit %s", reconcileId, commit)
 
+	var kd *kluctlv1.KluctlDeployment
 	g.Eventually(func() bool {
-		var kd kluctlv1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
-		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.RequestValue != reconcileId {
+		kd = suite.getKluctlDeployment(key)
+		if kd.Status.ReconcileRequestResult == nil || kd.Status.ReconcileRequestResult.Request.RequestValue != reconcileId {
 			suite.T().Logf("%s: request processing not started yet", reconcileId)
 			return false
 		}
@@ -188,8 +194,15 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 			suite.T().Logf("%s: commit %s does mot match %s", reconcileId, kd.Status.ObservedCommit, commit)
 			return false
 		}
+		readinessCondition := suite.getReadiness(kd)
+		if readinessCondition == nil || readinessCondition.Status == metav1.ConditionUnknown {
+			suite.T().Logf("%s: readiness status == unknown", reconcileId)
+			return false
+		}
+		suite.T().Logf("%s: finished waiting", reconcileId)
 		return true
 	}, timeout, time.Second).Should(BeTrue())
+	return kd
 }
 
 func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
@@ -241,25 +254,45 @@ func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProjec
 	return key
 }
 
+func (suite *GitopsTestSuite) getKluctlDeploymentAllowNil(key client.ObjectKey) *kluctlv1.KluctlDeployment {
+	var kd kluctlv1.KluctlDeployment
+	err := suite.k.Client.Get(context.TODO(), key, &kd)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		suite.T().Fatal(err)
+	}
+	return &kd
+}
+
+func (suite *GitopsTestSuite) getKluctlDeployment(key client.ObjectKey) *kluctlv1.KluctlDeployment {
+	kd := suite.getKluctlDeploymentAllowNil(key)
+	if kd == nil {
+		suite.T().Fatal(fmt.Sprintf("KluctlDeployment %s not found", key.String()))
+	}
+	return kd
+}
+
 func (suite *GitopsTestSuite) updateKluctlDeployment(key client.ObjectKey, update func(kd *kluctlv1.KluctlDeployment)) *kluctlv1.KluctlDeployment {
 	g := NewWithT(suite.T())
 
-	var kd kluctlv1.KluctlDeployment
-	err := suite.k.Client.Get(context.TODO(), key, &kd)
-	g.Expect(err).To(Succeed())
+	kd := suite.getKluctlDeployment(key)
 
 	patch := client.MergeFrom(kd.DeepCopy())
 
-	update(&kd)
+	update(kd)
 
-	err = suite.k.Client.Patch(context.TODO(), &kd, patch, client.FieldOwner("kubectl"))
+	err := suite.k.Client.Patch(context.TODO(), kd, patch, client.FieldOwner("kubectl"))
 	g.Expect(err).To(Succeed())
 
-	return &kd
+	return kd
 }
 
 func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
 	g := NewWithT(suite.T())
+
+	suite.T().Logf("Deleting KluctlDeployment %s", key.String())
 
 	var kd kluctlv1.KluctlDeployment
 	kd.Name = key.Name
@@ -269,13 +302,20 @@ func (suite *GitopsTestSuite) deleteKluctlDeployment(key client.ObjectKey) {
 		g.Expect(err).To(Succeed())
 	}
 
-	suite.deletedDeployments = append(suite.deletedDeployments, key)
+	g.Eventually(func() bool {
+		if suite.getKluctlDeploymentAllowNil(key) != nil {
+			return false
+		}
+		return true
+	}, timeout, time.Second).Should(BeTrue())
+
+	suite.T().Logf("KluctlDeployment %s has vanished", key.String())
 }
 
 func (suite *GitopsTestSuite) createGitopsSecret(m map[string]string) string {
 	g := NewWithT(suite.T())
 
-	name := fmt.Sprintf("gitops-seceet-%d", suite.gitopsSecretIdx)
+	name := fmt.Sprintf("gitops-secret-%d", suite.gitopsSecretIdx)
 	suite.gitopsSecretIdx++
 
 	mb := map[string][]byte{}
@@ -302,4 +342,54 @@ func (suite *GitopsTestSuite) getReadiness(obj *kluctlv1.KluctlDeployment) *meta
 		}
 	}
 	return nil
+}
+
+func (suite *GitopsTestSuite) getCommandResult(id string) *result.CommandResult {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, false, "", 0, 0)
+	assert.NoError(suite.T(), err)
+
+	cr, err := rs.GetCommandResult(results.GetCommandResultOptions{Id: id})
+	if err != nil {
+		return nil
+	}
+	return cr
+}
+
+func (suite *GitopsTestSuite) getValidateResult(id string) *result.ValidateResult {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, suite.k.RESTConfig(), suite.k.Client, false, "", 0, 0)
+	assert.NoError(suite.T(), err)
+
+	vr, err := rs.GetValidateResult(results.GetValidateResultOptions{Id: id})
+	if err != nil {
+		return nil
+	}
+	return vr
+}
+
+func (suite *GitopsTestSuite) assertNoChanges(resultId string) {
+	cr := suite.getCommandResult(resultId)
+	assert.NotNil(suite.T(), cr)
+
+	sum := cr.BuildSummary()
+	assert.Zero(suite.T(), sum.NewObjects)
+	assert.Zero(suite.T(), sum.ChangedObjects)
+	assert.Zero(suite.T(), sum.OrphanObjects)
+	assert.Zero(suite.T(), sum.DeletedObjects)
+}
+
+func (suite *GitopsTestSuite) assertChanges(resultId string, new int, changed int, orphan int, deleted int) {
+	cr := suite.getCommandResult(resultId)
+	assert.NotNil(suite.T(), cr)
+
+	sum := cr.BuildSummary()
+	assert.Equal(suite.T(), new, sum.NewObjects)
+	assert.Equal(suite.T(), changed, sum.ChangedObjects)
+	assert.Equal(suite.T(), orphan, sum.OrphanObjects)
+	assert.Equal(suite.T(), deleted, sum.DeletedObjects)
 }

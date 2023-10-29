@@ -12,6 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -527,20 +528,28 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	})
 }
 
+func (s *CommandResultsServer) manualRequest(c *gin.Context, annotationName string) {
+	mr := &kluctlv1.ManualRequest{
+		RequestValue: time.Now().Format(time.RFC3339Nano),
+	}
+
+	s.doSetAnnotation(c, annotationName, yaml.WriteJsonStringMust(mr))
+}
+
 func (s *CommandResultsServer) validateNow(c *gin.Context) {
-	s.doSetAnnotation(c, kluctlv1.KluctlRequestValidateAnnotation, time.Now().Format(time.RFC3339Nano))
+	s.manualRequest(c, kluctlv1.KluctlRequestValidateAnnotation)
 }
 
 func (s *CommandResultsServer) reconcileNow(c *gin.Context) {
-	s.doSetAnnotation(c, kluctlv1.KluctlRequestReconcileAnnotation, time.Now().Format(time.RFC3339Nano))
+	s.manualRequest(c, kluctlv1.KluctlRequestReconcileAnnotation)
 }
 
 func (s *CommandResultsServer) deployNow(c *gin.Context) {
-	s.doSetAnnotation(c, kluctlv1.KluctlRequestDeployAnnotation, time.Now().Format(time.RFC3339Nano))
+	s.manualRequest(c, kluctlv1.KluctlRequestDeployAnnotation)
 }
 
 func (s *CommandResultsServer) pruneNow(c *gin.Context) {
-	s.doSetAnnotation(c, kluctlv1.KluctlRequestPruneAnnotation, time.Now().Format(time.RFC3339Nano))
+	s.manualRequest(c, kluctlv1.KluctlRequestPruneAnnotation)
 }
 
 func (s *CommandResultsServer) setSuspended(c *gin.Context) {

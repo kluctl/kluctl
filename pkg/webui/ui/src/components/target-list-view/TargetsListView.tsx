@@ -80,7 +80,7 @@ export const TargetsListView = (props: TargetsListViewProps) => {
             headerName: "Project",
             width: 200,
             valueGetter: rp => {
-                return rp.row.ps.project.gitRepoKey
+                return rp.row.ps.project.repoKey
             },
             sortComparator: (v1, v2, cellParams1, cellParams2) => {
                 const name1 = getLastPathElement(v1)

@@ -40,14 +40,13 @@ const (
 )
 
 type ProjectKey struct {
-	GitRepoKey types.RepoKey `json:"gitRepoKey,omitempty"`
-	OciRepoKey types.RepoKey `json:"ociRepoKey,omitempty"`
-	SubDir     string        `json:"subDir,omitempty"`
+	RepoKey types.RepoKey `json:"repoKey,omitempty"`
+	SubDir  string        `json:"subDir,omitempty"`
 }
 
 func (k ProjectKey) Less(o ProjectKey) bool {
-	if k.GitRepoKey != o.GitRepoKey {
-		return k.GitRepoKey.String() < o.GitRepoKey.String()
+	if k.RepoKey != o.RepoKey {
+		return k.RepoKey.String() < o.RepoKey.String()
 	}
 	if k.SubDir != o.SubDir {
 		return k.SubDir < o.SubDir
@@ -134,6 +133,7 @@ type CommandResult struct {
 	Target           types.Target                   `json:"target"`
 	Command          CommandInfo                    `json:"command,omitempty"`
 	KluctlDeployment *KluctlDeploymentInfo          `json:"kluctlDeployment,omitempty"`
+	OverridesPatch   *uo.UnstructuredObject         `json:"overridesPatch,omitempty"`
 	GitInfo          GitInfo                        `json:"gitInfo,omitempty"`
 	ClusterInfo      ClusterInfo                    `json:"clusterInfo"`
 	Deployment       *types.DeploymentProjectConfig `json:"deployment,omitempty"`

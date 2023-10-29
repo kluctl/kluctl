@@ -163,7 +163,11 @@ func NewRepoKeyFromUrl(urlIn string) (RepoKey, error) {
 	if u.Scheme == "oci" {
 		t = "oci"
 	}
-	return NewRepoKey(t, u.Host, u.Path), nil
+	p := u.Path
+	if t == "git" {
+		p = strings.TrimSuffix(p, ".git")
+	}
+	return NewRepoKey(t, u.Host, p), nil
 }
 
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)

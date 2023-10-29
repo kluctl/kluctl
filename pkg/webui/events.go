@@ -246,8 +246,8 @@ func (h *eventsHandler) handler(c *gin.Context) {
 	var filter *result.ProjectKey
 	if args.FilterProject != "" {
 		filter = &result.ProjectKey{
-			GitRepoKey: repoKey,
-			SubDir:     args.FilterSubDir,
+			RepoKey: repoKey,
+			SubDir:  args.FilterSubDir,
 		}
 	}
 

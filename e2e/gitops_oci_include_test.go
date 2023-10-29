@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 )
 
@@ -54,9 +53,9 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	repoUrl2 := repo2.URL.String() + "/org2/repo2"
 	repoUrl3 := repo3.URL.String() + "/org3/repo3"
 
-	ip1.KluctlMust("oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
-	ip2.KluctlMust("oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
-	ip3.KluctlMust("oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
+	ip1.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
+	ip2.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
+	ip3.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
 
 	p := test_project.NewTestProject(suite.T())
 
@@ -80,7 +79,7 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 			"url": repoUrl3,
 		},
 	}))
-	p.KluctlMust("oci", "push", "--url", repoUrl0, "--registry-creds", fmt.Sprintf("%s=user0:pass0", repo0.URL.Host))
+	p.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl0, "--registry-creds", fmt.Sprintf("%s=user0:pass0", repo0.URL.Host))
 
 	var key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
 		kd.Spec.Source.Oci = &v1beta1.ProjectSourceOci{
@@ -88,13 +87,9 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 		}
 	})
 	suite.Run("fail without authentication", func() {
-		suite.waitForCommit(key, "")
+		kd := suite.waitForCommit(key, "")
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
-
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
@@ -122,44 +117,33 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	createSecret("secret2", "user2", "pass2")
 	createSecret("secret3", "user3", "pass3")
 
-	var kd v1beta1.KluctlDeployment
-	err := suite.k.Client.Get(context.Background(), key, &kd)
-	g.Expect(err).To(Succeed())
-
-	patch := client.MergeFrom(kd.DeepCopy())
-
-	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   repo0.URL.Host,
-		Repository: "org0/repo0",
-		SecretRef:  v1beta1.LocalObjectReference{Name: "secret0"},
+	suite.updateKluctlDeployment(key, func(kd *v1beta1.KluctlDeployment) {
+		kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
+			Registry:   repo0.URL.Host,
+			Repository: "org0/repo0",
+			SecretRef:  v1beta1.LocalObjectReference{Name: "secret0"},
+		})
+		kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
+			Registry:   repo1.URL.Host,
+			Repository: "org1/repo1",
+			SecretRef:  v1beta1.LocalObjectReference{Name: "secret1"},
+		})
+		kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
+			Registry:   repo2.URL.Host,
+			Repository: "*/repo2",
+			SecretRef:  v1beta1.LocalObjectReference{Name: "secret2"},
+		})
+		kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
+			Registry:   repo3.URL.Host,
+			Repository: "org3/*",
+			SecretRef:  v1beta1.LocalObjectReference{Name: "secret3"},
+		})
 	})
-	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   repo1.URL.Host,
-		Repository: "org1/repo1",
-		SecretRef:  v1beta1.LocalObjectReference{Name: "secret1"},
-	})
-	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   repo2.URL.Host,
-		Repository: "*/repo2",
-		SecretRef:  v1beta1.LocalObjectReference{Name: "secret2"},
-	})
-	kd.Spec.Credentials.Oci = append(kd.Spec.Credentials.Oci, v1beta1.ProjectCredentialsOci{
-		Registry:   repo3.URL.Host,
-		Repository: "org3/*",
-		SecretRef:  v1beta1.LocalObjectReference{Name: "secret3"},
-	})
-
-	err = suite.k.Client.Patch(context.Background(), &kd, patch, client.FieldOwner("kluctl"))
-	g.Expect(err).To(Succeed())
 
 	suite.Run("retry with authentication", func() {
-		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
-
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionTrue))
 	})

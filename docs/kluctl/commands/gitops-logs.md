@@ -26,11 +26,14 @@ The following arguments are available:
 GitOps arguments:
   Specify gitops flags.
 
-      --context string          Override the context to use.
-  -l, --label-selector string   If specified, KluctlDeployments are searched and filtered by this label selector.
-      --name string             Specifies the name of the KluctlDeployment.
-  -n, --namespace string        Specifies the namespace of the KluctlDeployment. If omitted, the current namespace
-                                from your kubeconfig is used.
+      --context string                   Override the context to use.
+  -l, --label-selector string            If specified, KluctlDeployments are searched and filtered by this label
+                                         selector.
+      --local-source-override-port int   Specifies the local port to which the source-override client should
+                                         connect to when running the controller locally.
+      --name string                      Specifies the name of the KluctlDeployment.
+  -n, --namespace string                 Specifies the namespace of the KluctlDeployment. If omitted, the current
+                                         namespace from your kubeconfig is used.
 
 ```
 <!-- END SECTION -->
@@ -39,6 +42,7 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
+      --all                   Follow all controller logs, including all deployments and non-deployment related logs.
   -f, --follow                Follow logs after printing old logs.
       --reconcile-id string   If specified, logs are filtered for the given reconcile ID.
 

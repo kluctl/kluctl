@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 	"io"
 	"os"
@@ -30,7 +31,7 @@ import (
 
 // Build archives the given directory as a tarball to the given local path.
 // While archiving, any environment specific data (for example, the user and group name) is stripped from file headers.
-func (c *Client) Build(artifactPath, sourceDir string, ignorePaths []string) (err error) {
+func (c *Client) Build(artifactPath, sourceDir string, ignorePatterns []gitignore.Pattern) (err error) {
 	absDir, err := filepath.Abs(sourceDir)
 	if err != nil {
 		return err
@@ -52,10 +53,7 @@ func (c *Client) Build(artifactPath, sourceDir string, ignorePaths []string) (er
 		}
 	}()
 
-	ignore := strings.Join(ignorePaths, "\n")
-	domain := strings.Split(filepath.Clean(absDir), string(filepath.Separator))
-	ps := sourceignore.ReadPatterns(strings.NewReader(ignore), domain)
-	matcher := sourceignore.NewMatcher(ps)
+	matcher := sourceignore.NewMatcher(ignorePatterns)
 	filter := func(p string, fi os.FileInfo) bool {
 		return matcher.Match(strings.Split(p, string(filepath.Separator)), fi.IsDir())
 	}
@@ -75,7 +73,7 @@ func (c *Client) Build(artifactPath, sourceDir string, ignorePaths []string) (er
 			return nil
 		}
 
-		if len(ignorePaths) > 0 && filter(p, fi) {
+		if len(ignorePatterns) > 0 && filter(p, fi) {
 			return nil
 		}
 

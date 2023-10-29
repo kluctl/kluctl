@@ -11,29 +11,31 @@ import (
 	"testing"
 )
 
-func KluctlExecute(t *testing.T, ctx context.Context, args ...string) (string, string, error) {
+func KluctlExecute(t *testing.T, ctx context.Context, logFn func(args ...any), args ...string) (string, string, error) {
 	t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
 	var m sync.Mutex
+
 	stdoutBuf := bytes.NewBuffer(nil)
+	stderrBuf := bytes.NewBuffer(nil)
+
 	stdout := status.NewLineRedirector(func(line string) {
 		m.Lock()
 		defer m.Unlock()
-		t.Log(line)
+		logFn(line)
 		stdoutBuf.WriteString(line + "\n")
 	})
-	stderrBuf := bytes.NewBuffer(nil)
-
-	ctx = utils.WithTmpBaseDir(ctx, t.TempDir())
-	ctx = commands.WithStdStreams(ctx, stdout, stderrBuf)
-	sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
+	stderr := status.NewLineRedirector(func(line string) {
 		m.Lock()
 		defer m.Unlock()
-		if ctx.Err() != nil {
-			return
-		}
-		t.Log(message)
-		stderrBuf.WriteString(message + "\n")
+		logFn(line)
+		stderrBuf.WriteString(line + "\n")
+	})
+
+	ctx = utils.WithTmpBaseDir(ctx, t.TempDir())
+	ctx = commands.WithStdStreams(ctx, stdout, stderr)
+	sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
+		_, _ = stderr.Write([]byte(message + "\n"))
 	}, true)
 	defer func() {
 		if sh != nil {
@@ -44,7 +46,12 @@ func KluctlExecute(t *testing.T, ctx context.Context, args ...string) (string, s
 	err := commands.Execute(ctx, args, nil)
 	sh.Stop()
 	sh = nil
+
 	_ = stdout.Close()
+	_ = stderr.Close()
+
+	<-stdout.Done()
+	<-stderr.Done()
 
 	m.Lock()
 	defer m.Unlock()

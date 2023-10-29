@@ -34,7 +34,7 @@ func TestObfuscateSecrets(t *testing.T) {
 		namespace: p.TestSlug(),
 	}, false)
 
-	stdout, _ := p.KluctlMust("deploy", "--yes", "-t", "test")
+	stdout, _ := p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertSecretExists(t, k, p.TestSlug(), "secret")
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value")))
 
@@ -42,7 +42,7 @@ func TestObfuscateSecrets(t *testing.T) {
 		_ = o.SetNestedField("secret_value_2", "stringData", "secret")
 		return nil
 	}, "")
-	stdout, _ = p.KluctlMust("deploy", "--yes", "-t", "test")
+	stdout, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value")))
 	assert.Contains(t, stdout, "***** (obfuscated)")
 
@@ -50,7 +50,7 @@ func TestObfuscateSecrets(t *testing.T) {
 		_ = o.SetNestedField("secret_value_3", "stringData", "secret")
 		return nil
 	}, "")
-	stdout, _ = p.KluctlMust("deploy", "--yes", "-t", "test", "--no-obfuscate")
+	stdout, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--no-obfuscate")
 	assert.Contains(t, stdout, "-"+base64.StdEncoding.EncodeToString([]byte("secret_value_2")))
 	assert.Contains(t, stdout, "+"+base64.StdEncoding.EncodeToString([]byte("secret_value_3")))
 	assert.NotContains(t, stdout, "***** (obfuscated)")
@@ -63,7 +63,7 @@ func TestObfuscateSecrets(t *testing.T) {
 		return nil
 	}, "")
 
-	stdout, _ = p.KluctlMust("deploy", "--yes", "-t", "test")
+	stdout, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_2")))
 	assert.Contains(t, stdout, "+secret2: '***** (obfuscated)'")
 
@@ -74,7 +74,7 @@ func TestObfuscateSecrets(t *testing.T) {
 		}, "stringData")
 		return nil
 	}, "")
-	stdout, _ = p.KluctlMust("deploy", "--yes", "-t", "test")
+	stdout, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_3")))
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_4")))
 	assert.Contains(t, stdout, "+secret3: '***** (obfuscated)'")
@@ -87,7 +87,7 @@ func TestObfuscateSecrets(t *testing.T) {
 		}, "stringData")
 		return nil
 	}, "")
-	stdout, _ = p.KluctlMust("deploy", "--yes", "-t", "test")
+	stdout, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_5")))
 	assert.NotContains(t, stdout, base64.StdEncoding.EncodeToString([]byte("secret_value_6")))
 	assert.Contains(t, stdout, "data[\"secret.dot1\"] | +***** (obfuscated)")

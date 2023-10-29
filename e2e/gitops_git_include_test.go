@@ -3,7 +3,7 @@ package e2e
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
-	git2 "github.com/kluctl/kluctl/v2/pkg/git"
+	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/suite"
@@ -39,11 +39,9 @@ func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 	suite.Run("fail without authentication", func() {
 		suite.waitForCommit(key, "")
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
+		kd := suite.getKluctlDeployment(key)
 
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
@@ -63,24 +61,14 @@ func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 	err := suite.k.Client.Create(context.Background(), &secret)
 	g.Expect(err).To(Succeed())
 
-	var kd v1beta1.KluctlDeployment
-	err = suite.k.Client.Get(context.Background(), key, &kd)
-	g.Expect(err).To(Succeed())
-
-	patch := client.MergeFrom(kd.DeepCopy())
-	kd.Spec.Source.SecretRef = &v1beta1.LocalObjectReference{Name: "git-secrets"}
-
-	err = suite.k.Client.Patch(context.Background(), &kd, patch, client.FieldOwner("kluctl"))
-	g.Expect(err).To(Succeed())
+	suite.updateKluctlDeployment(key, func(kd *v1beta1.KluctlDeployment) {
+		kd.Spec.Source.SecretRef = &v1beta1.LocalObjectReference{Name: "git-secrets"}
+	})
 
 	suite.Run("retry with authentication", func() {
-		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
-
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionTrue))
 	})
@@ -108,11 +96,9 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 	suite.Run("fail without authentication", func() {
 		suite.waitForCommit(key, "")
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
+		kd := suite.getKluctlDeployment(key)
 
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
@@ -129,59 +115,48 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 	secret1 := createSecret("user1", "password1")
 	secret2 := createSecret("user2", "password2")
 
-	var kd v1beta1.KluctlDeployment
-	err := suite.k.Client.Get(context.Background(), key, &kd)
-	g.Expect(err).To(Succeed())
-
-	patch := client.MergeFrom(kd.DeepCopy())
-
-	if legacyGitSource {
-		var credentials []v1beta1.ProjectCredentialsGitDeprecated
-		credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
-			Host:       gs1.GitHost(),
-			PathPrefix: ip1.GitRepoName(),
-			SecretRef:  v1beta1.LocalObjectReference{Name: secret2},
-		})
-		credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
-			Host:      mainGs.GitHost(),
-			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-		})
-		// make sure this one is ignored for http based urls
-		credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
-			Host:      "*",
-			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-		})
-		kd.Spec.Source.Credentials = credentials
-	} else {
-		var credentials []v1beta1.ProjectCredentialsGit
-		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-			Host:      gs1.GitHost(),
-			Path:      ip1.GitRepoName(),
-			SecretRef: v1beta1.LocalObjectReference{Name: secret2},
-		})
-		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-			Host:      mainGs.GitHost(),
-			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-		})
-		// make sure this one is ignored for http based urls
-		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-			Host:      "*",
-			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-		})
-		kd.Spec.Credentials.Git = credentials
-	}
-
-	err = suite.k.Client.Patch(context.Background(), &kd, patch, client.FieldOwner("kluctl"))
-	g.Expect(err).To(Succeed())
+	suite.updateKluctlDeployment(key, func(kd *v1beta1.KluctlDeployment) {
+		if legacyGitSource {
+			var credentials []v1beta1.ProjectCredentialsGitDeprecated
+			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
+				Host:       gs1.GitHost(),
+				PathPrefix: ip1.GitRepoName(),
+				SecretRef:  v1beta1.LocalObjectReference{Name: secret2},
+			})
+			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
+				Host:      mainGs.GitHost(),
+				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+			})
+			// make sure this one is ignored for http based urls
+			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
+				Host:      "*",
+				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+			})
+			kd.Spec.Source.Credentials = credentials
+		} else {
+			var credentials []v1beta1.ProjectCredentialsGit
+			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+				Host:      gs1.GitHost(),
+				Path:      ip1.GitRepoName(),
+				SecretRef: v1beta1.LocalObjectReference{Name: secret2},
+			})
+			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+				Host:      mainGs.GitHost(),
+				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+			})
+			// make sure this one is ignored for http based urls
+			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+				Host:      "*",
+				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+			})
+			kd.Spec.Credentials.Git = credentials
+		}
+	})
 
 	suite.Run("retry with authentication", func() {
-		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 
-		var kd v1beta1.KluctlDeployment
-		err := suite.k.Client.Get(context.Background(), key, &kd)
-		g.Expect(err).To(Succeed())
-
-		readinessCondition := suite.getReadiness(&kd)
+		readinessCondition := suite.getReadiness(kd)
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionTrue))
 	})
