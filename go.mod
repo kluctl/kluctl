@@ -85,7 +85,7 @@ require (
 	github.com/tkrajina/typescriptify-golang-structs v0.1.11
 	golang.org/x/oauth2 v0.13.0
 	google.golang.org/genproto v0.0.0-20231002182017-d307bd883b97
-	google.golang.org/grpc v1.58.3
+	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gotest.tools v2.2.0+incompatible
 	nhooyr.io/websocket v1.8.7
