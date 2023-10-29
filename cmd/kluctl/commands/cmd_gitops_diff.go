@@ -30,6 +30,7 @@ func (cmd *gitopsDiffCmd) Run(ctx context.Context) error {
 		args:            cmd.GitOpsArgs,
 		logsArgs:        cmd.GitOpsLogArgs,
 		overridableArgs: cmd.GitOpsOverridableArgs,
+		noArgsReact:     noArgsAutoDetectProject,
 	}
 	err := g.init(ctx)
 	if err != nil {

@@ -55,6 +55,25 @@ func AskForCredentials(ctx context.Context, prompt string) (string, string, erro
 	return strings.TrimSpace(username), strings.TrimSpace(password), nil
 }
 
+func AskForChoice(ctx context.Context, prompt string, choices *utils.OrderedMap[string, string]) (string, error) {
+	msg := prompt + "\n"
+	choices.ForEach(func(k string, v string) {
+		msg += fmt.Sprintf("%s. %s\n", k, v)
+	})
+
+	response, err := Prompt(ctx, false, msg)
+	if err != nil {
+		status.Warningf(ctx, "Failed prompting for \"%s\". Error: %v", prompt, err)
+		return "", err
+	}
+
+	if !choices.Has(response) {
+		// retry
+		return AskForChoice(ctx, prompt, choices)
+	}
+	return response, nil
+}
+
 func Prompt(ctx context.Context, password bool, message string) (string, error) {
 	provider := FromContext(ctx)
 	if provider == nil {

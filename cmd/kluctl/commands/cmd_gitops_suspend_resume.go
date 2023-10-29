@@ -34,8 +34,9 @@ func (cmd *GitopsSuspendCmd) Help() string {
 
 func (cmd *GitopsSuspendCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
-		args:     cmd.GitOpsArgs,
-		logsArgs: cmd.GitOpsLogArgs,
+		args:        cmd.GitOpsArgs,
+		logsArgs:    cmd.GitOpsLogArgs,
+		noArgsReact: noArgsAutoDetectProjectAsk,
 	}
 	if cmd.All {
 		g.noArgsReact = noArgsAllDeployments
@@ -57,7 +58,9 @@ func (cmd *GitopsSuspendCmd) Run(ctx context.Context) error {
 			return err
 		}
 		err = func() error {
-			st := status.Startf(ctx, "Waiting for final reconciliation loop to finish")
+			// modifying the spec causes a reconciliation loop and we should really wait for it to finish before we consider
+			// suspension to be done (otherwise you'd be surprised for some last-second deployments...)
+			st := status.Startf(ctx, "Waiting for final reconciliation to finish")
 			defer st.Failed()
 
 			tick := time.NewTicker(time.Second)

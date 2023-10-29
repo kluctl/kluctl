@@ -5,6 +5,7 @@ import (
 )
 
 type GitOpsArgs struct {
+	ProjectDir
 	CommandResultReadOnlyFlags
 
 	Name          string `group:"gitops" help:"Specifies the name of the KluctlDeployment."`
@@ -14,10 +15,6 @@ type GitOpsArgs struct {
 	Context string `group:"gitops" help:"Override the context to use."`
 
 	LocalSourceOverridePort int `group:"gitops" help:"Specifies the local port to which the source-override client should connect to when running the controller locally." default:"0"`
-}
-
-func (a GitOpsArgs) AnyObjectArgSet() bool {
-	return a.Name != "" || a.Namespace != "" || a.LabelSelector != ""
 }
 
 type GitOpsLogArgs struct {

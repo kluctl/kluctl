@@ -8,10 +8,14 @@ import (
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
+	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -29,6 +33,7 @@ import (
 	"math/rand"
 	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -50,6 +55,10 @@ type gitopsCmdHelper struct {
 	overridableArgs args.GitOpsOverridableArgs
 
 	noArgsReact noArgsReact
+
+	projectGitRoot string
+	projectGitInfo *result.GitInfo
+	projectKey     *result.ProjectKey
 
 	kds []v1beta1.KluctlDeployment
 
@@ -84,18 +93,21 @@ const (
 	noArgsForbid noArgsReact = iota
 	noArgsNoDeployments
 	noArgsAllDeployments
+	noArgsAutoDetectProject
+	noArgsAutoDetectProjectAsk
 )
 
 func (g *gitopsCmdHelper) init(ctx context.Context) error {
-	s := status.Startf(ctx, "Initializing")
-	defer s.Failed()
+	err := g.collectLocalProjectInfo(ctx)
+	if err != nil {
+		status.Warningf(ctx, "Failed to collect local project info: %s", err.Error())
+	}
 
 	g.logsBufs = map[logsKey]*logsBuf{}
 
 	configOverrides := &clientcmd.ConfigOverrides{
 		CurrentContext: g.args.Context,
 	}
-	var err error
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		clientcmd.NewDefaultClientConfigLoadingRules(),
 		configOverrides)
@@ -172,11 +184,16 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		// do nothing
 	} else if g.noArgsReact == noArgsAllDeployments {
 		var l v1beta1.KluctlDeploymentList
-		err = g.client.List(ctx, &l)
+		err = g.client.List(ctx, &l, client.InNamespace(g.args.Namespace))
 		if err != nil {
 			return err
 		}
 		g.kds = append(g.kds, l.Items...)
+	} else if g.noArgsReact == noArgsAutoDetectProject || g.noArgsReact == noArgsAutoDetectProjectAsk {
+		err = g.autoDetectDeployment(ctx)
+		if err != nil {
+			return err
+		}
 	} else {
 		return fmt.Errorf("either name or label selector must be set")
 	}
@@ -188,10 +205,127 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 
 	err = g.initSourceOverrides(ctx)
 	if err != nil {
+		status.Warningf(ctx, "Failed to initialize source overrides: %s", err.Error())
+	}
+
+	return nil
+}
+
+func (g *gitopsCmdHelper) collectLocalProjectInfo(ctx context.Context) error {
+	projectDir, err := g.args.ProjectDir.GetProjectDir()
+	if err != nil {
+		return err
+	}
+	gitRoot, err := git.DetectGitRepositoryRoot(projectDir)
+	if err != nil {
+		return err
+	}
+	gitInfo, projectKey, err := git.BuildGitInfo(ctx, gitRoot, projectDir)
+	if err != nil {
 		return err
 	}
 
-	s.Success()
+	if projectKey.RepoKey == (types.RepoKey{}) {
+		return fmt.Errorf("failed to determine repo key")
+	}
+
+	g.projectGitRoot = gitRoot
+	g.projectGitInfo = &gitInfo
+	g.projectKey = &projectKey
+
+	return nil
+}
+
+func (g *gitopsCmdHelper) autoDetectDeployment(ctx context.Context) error {
+	if g.projectKey == nil {
+		return fmt.Errorf("auto-detection of KluctlDeployments only possible if local project is a Git repository")
+	}
+
+	msg := fmt.Sprintf("Auto-detecting KluctlDeployments via repo key %s", g.projectKey.RepoKey.String())
+	if g.projectKey.SubDir != "" {
+		msg += fmt.Sprintf(" and sub directory %s", g.projectKey.SubDir)
+	}
+
+	st := status.Start(ctx, msg)
+	defer st.Failed()
+
+	var l v1beta1.KluctlDeploymentList
+	err := g.client.List(ctx, &l, client.InNamespace(g.args.Namespace))
+	if err != nil {
+		return err
+	}
+
+	var matching []v1beta1.KluctlDeployment
+	for _, kd := range l.Items {
+		var u, subDir string
+		if kd.Spec.Source.Git != nil {
+			u = kd.Spec.Source.Git.URL.String()
+			subDir = kd.Spec.Source.Git.Path
+		} else if kd.Spec.Source.Oci != nil {
+			u = kd.Spec.Source.Oci.URL
+			subDir = kd.Spec.Source.Oci.Path
+		} else if kd.Spec.Source.URL != nil {
+			u = kd.Spec.Source.URL.String()
+			subDir = kd.Spec.Source.Path
+		}
+		repoKey, err := types.NewRepoKeyFromUrl(u)
+		if err != nil {
+			status.Warningf(ctx, "Failed to determine repo key for KluctlDeployment %s/%s with source url %s", kd.Namespace, kd.Name, kd.Spec.Source.Git.URL.String())
+			continue
+		}
+
+		if repoKey != g.projectKey.RepoKey || subDir != g.projectKey.SubDir {
+			continue
+		}
+
+		matching = append(matching, kd)
+	}
+
+	if len(matching) == 0 {
+		return fmt.Errorf("no matching KluctlDeployments found")
+	}
+
+	if len(matching) == 1 {
+		if g.noArgsReact == noArgsAutoDetectProjectAsk {
+			kd := matching[0]
+			if !prompts.AskForConfirmation(ctx, fmt.Sprintf("Auto-detected %s/%s, do you want to run the command for this deployment?", kd.Namespace, kd.Name)) {
+				return fmt.Errorf("aborted")
+			}
+		}
+		g.kds = matching
+		st.Success()
+		return nil
+	}
+
+	if g.noArgsReact == noArgsAutoDetectProjectAsk {
+		if len(matching) == 1 {
+			if !prompts.AskForConfirmation(ctx, "Auto-detected %s/%s, do you want to run the command for this deployment?") {
+				return fmt.Errorf("aborted")
+			}
+		}
+
+		var choices utils.OrderedMap[string, string]
+		for i, kd := range matching {
+			choices.Set(fmt.Sprintf("%d", i+1), fmt.Sprintf("%s/%s", kd.Namespace, kd.Name))
+		}
+		choices.Set("a", "All")
+
+		response, err := prompts.AskForChoice(ctx, "Auto-detected multiple KluctlDeployments. Which one do you want to run the command for?", &choices)
+		if err != nil {
+			return err
+		}
+
+		if response == "a" {
+			g.kds = matching
+		} else {
+			idx, _ := strconv.ParseInt(response, 10, 32)
+			g.kds = append(g.kds, matching[idx-1])
+		}
+	} else {
+		g.kds = matching
+	}
+
+	st.Success()
 
 	return nil
 }
@@ -379,7 +513,7 @@ func (g *gitopsCmdHelper) buildOverridePatch(ctx context.Context, kdIn *v1beta1.
 		return nil, err
 	}
 
-	err = g.buildSourceOverrides(kd)
+	err = g.buildSourceOverrides(ctx, kd)
 
 	kdOrigS, err := yaml.WriteJsonString(kdIn)
 	if err != nil {
@@ -425,18 +559,22 @@ func (g *gitopsCmdHelper) overrideDeploymentArgs(kd *v1beta1.KluctlDeployment) e
 	return nil
 }
 
-func (g *gitopsCmdHelper) buildSourceOverrides(kd *v1beta1.KluctlDeployment) error {
+func (g *gitopsCmdHelper) buildSourceOverrides(ctx context.Context, kd *v1beta1.KluctlDeployment) error {
 	var err error
 	var proxyUrl *url.URL
-	if len(g.soResolver.Overrides) != 0 {
-		if g.soClient == nil {
-			return fmt.Errorf("local source overrides present but no connection to source override proxy established")
-		}
+
+	if g.soClient != nil {
 		proxyUrl, err = g.soClient.BuildProxyUrl()
 		if err != nil {
 			return err
 		}
+	} else if len(g.soResolver.Overrides) != 0 {
+		return fmt.Errorf("local source overrides present but no connection to source override proxy established")
+	} else {
+		status.Warningf(ctx, "Will not try to auto override local project source")
+		return nil
 	}
+
 	for _, ro := range g.soResolver.Overrides {
 		kd.Spec.SourceOverrides = append(kd.Spec.SourceOverrides, v1beta1.SourceOverride{
 			RepoKey: ro.RepoKey,
@@ -444,6 +582,32 @@ func (g *gitopsCmdHelper) buildSourceOverrides(kd *v1beta1.KluctlDeployment) err
 			IsGroup: ro.IsGroup,
 		})
 	}
+
+	err = g.buildProjectDirSourceOverride(kd, proxyUrl)
+	if err != nil {
+		status.Warningf(ctx, "Failed to add source override for local deployment project: %s", err.Error())
+	}
+
+	return nil
+}
+
+func (g *gitopsCmdHelper) buildProjectDirSourceOverride(kd *v1beta1.KluctlDeployment, proxyUrl *url.URL) error {
+	if g.projectKey == nil || proxyUrl == nil {
+		return nil
+	}
+
+	g.soResolver.Overrides = append(g.soResolver.Overrides, sourceoverride.RepoOverride{
+		RepoKey:  g.projectKey.RepoKey,
+		Override: g.projectGitRoot,
+		IsGroup:  false,
+	})
+
+	kd.Spec.SourceOverrides = append(kd.Spec.SourceOverrides, v1beta1.SourceOverride{
+		RepoKey: g.projectKey.RepoKey,
+		Url:     proxyUrl.String(),
+		IsGroup: false,
+	})
+
 	return nil
 }
 
@@ -640,10 +804,6 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 	g.soResolver, err = g.overridableArgs.SourceOverrides.ParseOverrides(ctx)
 	if err != nil {
 		return err
-	}
-
-	if len(g.soResolver.Overrides) == 0 {
-		return nil
 	}
 
 	controllerNamespace := "kluctl-system"

@@ -29,6 +29,7 @@ func (cmd *gitopsPruneCmd) Run(ctx context.Context) error {
 		args:            cmd.GitOpsArgs,
 		logsArgs:        cmd.GitOpsLogArgs,
 		overridableArgs: cmd.GitOpsOverridableArgs,
+		noArgsReact:     noArgsAutoDetectProjectAsk,
 	}
 	err := g.init(ctx)
 	if err != nil {

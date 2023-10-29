@@ -13,6 +13,8 @@ type gitopsLogsCmd struct {
 
 	ReconcileId string `group:"misc" help:"If specified, logs are filtered for the given reconcile ID."`
 	Follow      bool   `group:"misc" short:"f" help:"Follow logs after printing old logs."`
+
+	All bool `group:"misc" help:"Follow all controller logs, including all deployments and non-deployment related logs."`
 }
 
 func (cmd *gitopsLogsCmd) Help() string {
@@ -23,8 +25,13 @@ func (cmd *gitopsLogsCmd) Run(ctx context.Context) error {
 	g := gitopsCmdHelper{
 		args:        cmd.GitOpsArgs,
 		logsArgs:    cmd.GitOpsLogArgs,
-		noArgsReact: noArgsNoDeployments,
+		noArgsReact: noArgsAutoDetectProject,
 	}
+
+	if cmd.All {
+		g.noArgsReact = noArgsNoDeployments
+	}
+
 	err := g.init(ctx)
 	if err != nil {
 		return err
@@ -33,7 +40,7 @@ func (cmd *gitopsLogsCmd) Run(ctx context.Context) error {
 	stopCh := make(chan struct{})
 
 	gh := utils.NewGoHelper(ctx, 0)
-	if !cmd.GitOpsArgs.AnyObjectArgSet() {
+	if cmd.All {
 		gh.RunE(func() error {
 			return g.watchLogs(ctx, stopCh, client.ObjectKey{}, cmd.Follow, cmd.ReconcileId)
 		})
