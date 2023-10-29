@@ -19,7 +19,7 @@ func (ReconcileRequestedPredicate) Update(e event.UpdateEvent) bool {
 	checkManualRequest := func(aname string) bool {
 		v1, ok1 := e.ObjectNew.GetAnnotations()[aname]
 		v2, ok2 := e.ObjectOld.GetAnnotations()[aname]
-		if !ok2 {
+		if !ok1 {
 			// if it gets removed, no need for reconciliation
 			// the annotation actually gets removed at the beginning of the reconciliation, which would cause an
 			// unnecessary reconciliation anyway.

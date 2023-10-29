@@ -263,7 +263,7 @@ type ProjectSource struct {
 	// Url specifies the Git url where the project source is located
 	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.
 	// +optional
-	URL *types.GitUrl `json:"url,omitempty"`
+	URL *string `json:"url,omitempty"`
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
@@ -293,7 +293,7 @@ type ProjectSourceGit struct {
 	// URL specifies the Git url where the project source is located. If the given Git repository needs authentication,
 	// use spec.credentials.git to specify those.
 	// +required
-	URL types.GitUrl `json:"url"`
+	URL string `json:"url"`
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// +optional

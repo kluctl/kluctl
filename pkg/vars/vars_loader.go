@@ -316,7 +316,7 @@ func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignor
 }
 
 func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, bool, error) {
-	ge, err := v.rp.GetEntry(gitFile.Url)
+	ge, err := v.rp.GetEntry(gitFile.Url.String())
 	if err != nil {
 		return nil, false, err
 	}

@@ -1930,7 +1930,7 @@ ProjectSourceOci
 <td>
 <code>url</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types.GitUrl
+string
 </em>
 </td>
 <td>
@@ -2022,7 +2022,7 @@ DEPRECATED this field is deprecated and will be removed in the next API version 
 <td>
 <code>url</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types.GitUrl
+string
 </em>
 </td>
 <td>

@@ -43,7 +43,6 @@ func (suite *GitOpsLocalSourceOverrideSuite) assertOverridesDidHappen(key client
 func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 	gs := test_utils.NewTestGitServer(suite.T())
 	pt := prepareLocalSourceOverrideTest(suite.T(), suite.k, gs, false)
-	pt.p.SetSkipProjectDirArg(true)
 
 	key := suite.createKluctlDeployment(pt.p, "test", nil)
 

@@ -81,14 +81,18 @@ func (rp *GitRepoCache) Clear() {
 	rp.cleanupDirs = nil
 }
 
-func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
+func (rp *GitRepoCache) GetEntry(url string) (*GitCacheEntry, error) {
 	rp.reposMutex.Lock()
 	defer rp.reposMutex.Unlock()
 
-	repoKey := url.RepoKey()
+	u, err := types.ParseGitUrl(url)
+	if err != nil {
+		return nil, err
+	}
+
+	repoKey := u.RepoKey()
 
 	var overridePath string
-	var err error
 	if rp.repoOverrides != nil {
 		overridePath, err = rp.repoOverrides.ResolveOverride(rp.ctx, repoKey)
 		if err != nil {
@@ -97,11 +101,11 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 	}
 
 	if overridePath != "" {
-		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url.String(), overridePath)
+		status.WarningOncef(rp.ctx, fmt.Sprintf("git-override-%s", repoKey), "Overriding git repo %s with local directory %s", url, overridePath)
 
 		e := &GitCacheEntry{
 			rp:           rp,
-			url:          url,
+			url:          *u,
 			mr:           nil, // mark as overridden
 			clonedDirs:   map[types.GitRef]clonedDir{},
 			overridePath: overridePath,
@@ -112,13 +116,13 @@ func (rp *GitRepoCache) GetEntry(url types.GitUrl) (*GitCacheEntry, error) {
 
 	e, ok := rp.repos[repoKey]
 	if !ok {
-		mr, err := git.NewMirroredGitRepo(rp.ctx, url, filepath.Join(utils.GetTmpBaseDir(rp.ctx), "git-cache"), rp.sshPool, rp.authProviders)
+		mr, err := git.NewMirroredGitRepo(rp.ctx, *u, filepath.Join(utils.GetTmpBaseDir(rp.ctx), "git-cache"), rp.sshPool, rp.authProviders)
 		if err != nil {
 			return nil, err
 		}
 		e = &GitCacheEntry{
 			rp:         rp,
-			url:        url,
+			url:        *u,
 			mr:         mr,
 			clonedDirs: map[types.GitRef]clonedDir{},
 		}

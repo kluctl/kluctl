@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +33,7 @@ func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 	p, _, _ := prepareGitIncludeTest(suite.T(), suite.k, mainGs, gs1, gs2)
 
 	key := suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
-		kd.Spec.Source.URL = types2.ParseGitUrlMust(p.GitUrl())
+		kd.Spec.Source.URL = utils.StrPtr(p.GitUrl())
 	})
 
 	suite.Run("fail without authentication", func() {
@@ -87,7 +87,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 	var key client.ObjectKey
 	if legacyGitSource {
 		key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
-			kd.Spec.Source.URL = types2.ParseGitUrlMust(p.GitUrl())
+			kd.Spec.Source.URL = utils.StrPtr(p.GitUrl())
 		})
 	} else {
 		key = suite.createKluctlDeployment(p, "test", nil)

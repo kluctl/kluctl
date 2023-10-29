@@ -197,7 +197,7 @@ func (p *DeploymentProject) loadIncludes() error {
 				return err
 			}
 		} else if inc.Git != nil {
-			ge, err := p.ctx.GitRP.GetEntry(inc.Git.Url)
+			ge, err := p.ctx.GitRP.GetEntry(inc.Git.Url.String())
 			if err != nil {
 				return err
 			}
