@@ -711,14 +711,12 @@ export class TargetKey {
     }
 }
 export class ProjectKey {
-    gitRepoKey?: string;
-    ociRepoKey?: string;
+    repoKey?: string;
     subDir?: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
-        this.gitRepoKey = source["gitRepoKey"];
-        this.ociRepoKey = source["ociRepoKey"];
+        this.repoKey = source["repoKey"];
         this.subDir = source["subDir"];
     }
 }

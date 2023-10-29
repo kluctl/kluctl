@@ -785,9 +785,7 @@ spec:
                 type: integer
               projectKey:
                 properties:
-                  gitRepoKey:
-                    type: string
-                  ociRepoKey:
+                  repoKey:
                     type: string
                   subDir:
                     type: string

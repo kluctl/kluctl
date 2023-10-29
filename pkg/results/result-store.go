@@ -55,7 +55,7 @@ type ResultStore interface {
 
 func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {
 	if filter != nil {
-		if filter.GitRepoKey.String() != "" && x.GitRepoKey != filter.GitRepoKey {
+		if filter.RepoKey.String() != "" && x.RepoKey != filter.RepoKey {
 			return false
 		}
 		if filter.SubDir != "" && x.SubDir != filter.SubDir {

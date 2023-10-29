@@ -72,8 +72,8 @@ func (r *KluctlDeploymentReconciler) patchProjectKey(ctx context.Context, obj *k
 	var newProjectKey result.ProjectKey
 	if obj.Spec.Source.Git != nil {
 		newProjectKey = result.ProjectKey{
-			GitRepoKey: obj.Spec.Source.Git.URL.RepoKey(),
-			SubDir:     path.Clean(obj.Spec.Source.Git.Path),
+			RepoKey: obj.Spec.Source.Git.URL.RepoKey(),
+			SubDir:  path.Clean(obj.Spec.Source.Git.Path),
 		}
 	} else if obj.Spec.Source.Oci != nil {
 		repoKey, err := types.NewRepoKeyFromUrl(obj.Spec.Source.Oci.URL)
@@ -81,13 +81,13 @@ func (r *KluctlDeploymentReconciler) patchProjectKey(ctx context.Context, obj *k
 			return err
 		}
 		newProjectKey = result.ProjectKey{
-			OciRepoKey: repoKey,
-			SubDir:     path.Clean(obj.Spec.Source.Oci.Path),
+			RepoKey: repoKey,
+			SubDir:  path.Clean(obj.Spec.Source.Oci.Path),
 		}
 	} else if obj.Spec.Source.URL != nil {
 		newProjectKey = result.ProjectKey{
-			GitRepoKey: obj.Spec.Source.URL.RepoKey(),
-			SubDir:     path.Clean(obj.Spec.Source.Path),
+			RepoKey: obj.Spec.Source.URL.RepoKey(),
+			SubDir:  path.Clean(obj.Spec.Source.Path),
 		}
 	} else {
 		return fmt.Errorf("missing source spec")

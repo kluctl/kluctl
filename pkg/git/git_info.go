@@ -82,7 +82,7 @@ func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (resu
 			Tag: head.Name().Short(),
 		}
 	}
-	projectKey.GitRepoKey = repoKey
+	projectKey.RepoKey = repoKey
 	projectKey.SubDir = subDir
 	return gitInfo, projectKey, nil
 }

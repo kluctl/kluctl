@@ -54,7 +54,7 @@ func TestWriteResult(t *testing.T) {
 
 	opts := results.ListResultSummariesOptions{
 		ProjectFilter: &result.ProjectKey{
-			GitRepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
+			RepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
 		},
 	}
 
