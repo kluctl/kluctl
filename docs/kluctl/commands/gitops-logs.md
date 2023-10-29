@@ -42,6 +42,7 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
+      --all                   Follow all controller logs, including all deployments and non-deployment related logs.
   -f, --follow                Follow logs after printing old logs.
       --reconcile-id string   If specified, logs are filtered for the given reconcile ID.
 
