@@ -265,18 +265,18 @@ func (g *gitopsCmdHelper) autoDetectDeployment(ctx context.Context) error {
 	for _, kd := range l.Items {
 		var u, subDir string
 		if kd.Spec.Source.Git != nil {
-			u = kd.Spec.Source.Git.URL.String()
+			u = kd.Spec.Source.Git.URL
 			subDir = kd.Spec.Source.Git.Path
 		} else if kd.Spec.Source.Oci != nil {
 			u = kd.Spec.Source.Oci.URL
 			subDir = kd.Spec.Source.Oci.Path
 		} else if kd.Spec.Source.URL != nil {
-			u = kd.Spec.Source.URL.String()
+			u = *kd.Spec.Source.URL
 			subDir = kd.Spec.Source.Path
 		}
 		repoKey, err := types.NewRepoKeyFromUrl(u)
 		if err != nil {
-			status.Warningf(ctx, "Failed to determine repo key for KluctlDeployment %s/%s with source url %s", kd.Namespace, kd.Name, kd.Spec.Source.Git.URL.String())
+			status.Warningf(ctx, "Failed to determine repo key for KluctlDeployment %s/%s with source url %s", kd.Namespace, kd.Name, kd.Spec.Source.Git.URL)
 			continue
 		}
 

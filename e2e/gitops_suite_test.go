@@ -10,7 +10,6 @@ import (
 	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -208,7 +207,7 @@ func (suite *GitopsTestSuite) waitForCommit(key client.ObjectKey, commit string)
 func (suite *GitopsTestSuite) createKluctlDeployment(p *test_project.TestProject, target string, args map[string]any) client.ObjectKey {
 	return suite.createKluctlDeployment2(p, target, args, func(kd *kluctlv1.KluctlDeployment) {
 		kd.Spec.Source.Git = &kluctlv1.ProjectSourceGit{
-			URL: *types2.ParseGitUrlMust(p.GitUrl()),
+			URL: p.GitUrl(),
 		}
 	})
 }

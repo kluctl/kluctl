@@ -494,9 +494,9 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 	internal_metrics.NewKluctlDeploymentInterval(obj.Namespace, obj.Name).Set(deploymentInterval)
 	if obj.Spec.Source.Git != nil {
 		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
-			obj.Spec.Source.Git.URL.String(), obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
+			obj.Spec.Source.Git.URL, obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
 		internal_metrics.NewKluctlGitSourceSpec(obj.Namespace, obj.Name,
-			obj.Spec.Source.Git.URL.String(), obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
+			obj.Spec.Source.Git.URL, obj.Spec.Source.Git.Path, obj.Spec.Source.Git.Ref.String()).Set(0.0)
 	} else if obj.Spec.Source.Oci != nil {
 		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
 			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
@@ -504,6 +504,6 @@ func (r *KluctlDeploymentReconciler) exportDeploymentObjectToProm(obj *kluctlv1.
 			obj.Spec.Source.Oci.URL, obj.Spec.Source.Oci.Path, obj.Spec.Source.Oci.Ref.String()).Set(0.0)
 	} else if obj.Spec.Source.URL != nil {
 		internal_metrics.NewKluctlSourceSpec(obj.Namespace, obj.Name,
-			obj.Spec.Source.URL.String(), obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
+			*obj.Spec.Source.URL, obj.Spec.Source.Path, obj.Spec.Source.Ref.String()).Set(0.0)
 	}
 }

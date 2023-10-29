@@ -2,7 +2,6 @@ package e2e
 
 import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -108,7 +107,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	}, func(kd *kluctlv1.KluctlDeployment) {
 		kd.Spec.Source = kluctlv1.ProjectSource{
 			Git: &kluctlv1.ProjectSourceGit{
-				URL: *types2.ParseGitUrlMust(p.GitUrl()),
+				URL: p.GitUrl(),
 			},
 		}
 		kd.Spec.HelmCredentials = legacyHelmCreds
