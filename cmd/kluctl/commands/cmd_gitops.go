@@ -21,6 +21,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	flag "github.com/spf13/pflag"
 	v12 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -135,6 +136,11 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 		return err
 	}
 	g.corev1Client, err = v1.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	err = g.checkCRDSupport(ctx)
 	if err != nil {
 		return err
 	}
@@ -852,6 +858,30 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+func (g *gitopsCmdHelper) checkCRDSupport(ctx context.Context) error {
+	var crd apiextensionsv1.CustomResourceDefinition
+	err := g.client.Get(ctx, client.ObjectKey{Name: "kluctldeployments.gitops.kluctl.io"}, &crd)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return fmt.Errorf("KluctlDeployment CRD not found, which usually means the kluctl-controller is not installed")
+		}
+		return err
+	}
+
+	for _, version := range crd.Spec.Versions {
+		if !version.Storage {
+			continue
+		}
+		status := version.Schema.OpenAPIV3Schema.Properties["status"]
+		if _, ok := status.Properties["reconcileRequestResult"]; ok {
+			// seems to be recent enough
+			return nil
+		}
+	}
+
+	return fmt.Errorf("the KluctlDeployment CRD on the cluster seems to be outdated. Ensure to install at least kluctl-controller v2.22.0 with its corresponding CRDs")
 }
 
 func init() {
