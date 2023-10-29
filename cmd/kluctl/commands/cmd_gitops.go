@@ -379,23 +379,7 @@ func (g *gitopsCmdHelper) buildOverridePatch(ctx context.Context, kdIn *v1beta1.
 		return nil, err
 	}
 
-	var proxyUrl *url.URL
-	if len(g.soResolver.Overrides) != 0 {
-		if g.soClient == nil {
-			return nil, fmt.Errorf("local source overrides present but no connection to source override proxy established")
-		}
-		proxyUrl, err = g.soClient.BuildProxyUrl()
-		if err != nil {
-			return nil, err
-		}
-	}
-	for _, ro := range g.soResolver.Overrides {
-		kd.Spec.SourceOverrides = append(kd.Spec.SourceOverrides, v1beta1.SourceOverride{
-			RepoKey: ro.RepoKey,
-			Url:     proxyUrl.String(),
-			IsGroup: ro.IsGroup,
-		})
-	}
+	err = g.buildSourceOverrides(kd)
 
 	kdOrigS, err := yaml.WriteJsonString(kdIn)
 	if err != nil {
@@ -438,6 +422,28 @@ func (g *gitopsCmdHelper) overrideDeploymentArgs(kd *v1beta1.KluctlDeployment) e
 	}
 	kd.Spec.Args = &runtime.RawExtension{Raw: []byte(b)}
 
+	return nil
+}
+
+func (g *gitopsCmdHelper) buildSourceOverrides(kd *v1beta1.KluctlDeployment) error {
+	var err error
+	var proxyUrl *url.URL
+	if len(g.soResolver.Overrides) != 0 {
+		if g.soClient == nil {
+			return fmt.Errorf("local source overrides present but no connection to source override proxy established")
+		}
+		proxyUrl, err = g.soClient.BuildProxyUrl()
+		if err != nil {
+			return err
+		}
+	}
+	for _, ro := range g.soResolver.Overrides {
+		kd.Spec.SourceOverrides = append(kd.Spec.SourceOverrides, v1beta1.SourceOverride{
+			RepoKey: ro.RepoKey,
+			Url:     proxyUrl.String(),
+			IsGroup: ro.IsGroup,
+		})
+	}
 	return nil
 }
 
