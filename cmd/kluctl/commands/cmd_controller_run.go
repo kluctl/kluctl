@@ -147,7 +147,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 			return nil
 		}
 		setupLog.Info("Initializing source-override server TLS")
-		return sourceoverride.InitTLS(ctx, mgr.GetClient(), cmd.ControllerNamespace)
+		return sourceoverride.InitControllerSecret(ctx, mgr.GetClient(), cmd.ControllerNamespace)
 	}))
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

@@ -14,24 +14,26 @@ import (
 )
 
 type ProxyClientController struct {
-	client              client.Client
+	client              client.Reader
 	controllerNamespace string
 
 	pubKeyHash     string
 	knownOverrides []RepoOverride
 
-	grpcConn *grpc.ClientConn
-	smClient ProxyClient
+	grpcConn         *grpc.ClientConn
+	smClient         ProxyClient
+	controllerSecret []byte
 
 	cache utils.ThreadSafeCache[types.RepoKey, string]
 }
 
-func NewClientController(c client.Client, controllerNamespace string, pubKeyHash string) (*ProxyClientController, error) {
+func NewClientController(c client.Reader, controllerNamespace string, pubKeyHash string) (*ProxyClientController, error) {
 	s := &ProxyClientController{
 		client:              c,
 		controllerNamespace: controllerNamespace,
 		pubKeyHash:          pubKeyHash,
 	}
+
 	return s, nil
 }
 
@@ -50,10 +52,11 @@ func (c *ProxyClientController) Cleanup() {
 }
 
 func (c *ProxyClientController) Connect(ctx context.Context, target string) error {
-	cp, err := LoadTLSCA(ctx, c.client, c.controllerNamespace)
+	cp, _, controllerSecret, err := WaitAndLoadSecret(ctx, c.client, c.controllerNamespace)
 	if err != nil {
 		return err
 	}
+
 	creds := credentials.NewClientTLSFromCert(cp, "")
 
 	grpcConn, err := grpc.DialContext(ctx, target,
@@ -67,6 +70,7 @@ func (c *ProxyClientController) Connect(ctx context.Context, target string) erro
 	}
 	c.grpcConn = grpcConn
 	c.smClient = NewProxyClient(c.grpcConn)
+	c.controllerSecret = controllerSecret
 	return nil
 }
 
@@ -90,7 +94,8 @@ func (c *ProxyClientController) ResolveOverride(ctx context.Context, repoKey typ
 func (c *ProxyClientController) doResolveOverride(ctx context.Context, repoKey types.RepoKey) (string, error) {
 	msg := &ProxyRequest{
 		Auth: &AuthMsg{
-			PubKeyHash: &c.pubKeyHash,
+			PubKeyHash:       &c.pubKeyHash,
+			ControllerSecret: c.controllerSecret,
 		},
 		Request: &ResolveOverrideRequest{
 			RepoKey: repoKey.String(),

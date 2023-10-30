@@ -28,6 +28,7 @@ message AuthMsg {
   optional string authError = 4;
 
   optional string pubKeyHash = 5;
+  optional bytes controllerSecret = 6;
 }
 
 message ResolveOverrideRequest {

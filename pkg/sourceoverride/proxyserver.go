@@ -1,6 +1,7 @@
 package sourceoverride
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -30,6 +31,8 @@ type ProxyServerImpl struct {
 	ctx                 context.Context
 	client              client.Reader
 	controllerNamespace string
+
+	controllerSecret []byte
 
 	mutex       sync.Mutex
 	stopped     bool
@@ -76,7 +79,7 @@ func (m *ProxyServerImpl) Listen(addr string) (net.Addr, error) {
 }
 
 func (m *ProxyServerImpl) Serve() error {
-	cert, err := WaitAndLoadTLSCert(m.ctx, m.client, m.controllerNamespace)
+	_, cert, controllerSecret, err := WaitAndLoadSecret(m.ctx, m.client, m.controllerNamespace)
 	if err != nil {
 		return err
 	}
@@ -95,6 +98,7 @@ func (m *ProxyServerImpl) Serve() error {
 	)
 	RegisterProxyServer(grpcServer, m)
 	m.grpcServer = grpcServer
+	m.controllerSecret = controllerSecret
 	m.mutex.Unlock()
 
 	return grpcServer.Serve(m.listener)
@@ -224,6 +228,10 @@ func (s *ProxyServerImpl) ResolveOverride(ctx context.Context, req *ProxyRequest
 	}
 
 	s.mutex.Lock()
+	if !bytes.Equal(s.controllerSecret, req.Auth.ControllerSecret) {
+		s.mutex.Unlock()
+		return nil, fmt.Errorf("controllerSecret does not match")
+	}
 	con, ok := s.connections[*req.Auth.PubKeyHash]
 	s.mutex.Unlock()
 	if !ok {

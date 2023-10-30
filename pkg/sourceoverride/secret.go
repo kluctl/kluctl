@@ -18,42 +18,55 @@ import (
 	"time"
 )
 
-const certSecretName = "kluctl-source-override-cert"
+const secretName = "kluctl-source-override-secret"
 const caConfigMapName = "kluctl-source-override-ca"
 
-func WaitAndLoadTLSCert(ctx context.Context, c client.Reader, controllerNamespace string) (*tls.Certificate, error) {
-	var certSecret corev1.Secret
+func WaitAndLoadSecret(ctx context.Context, c client.Reader, controllerNamespace string) (*x509.CertPool, *tls.Certificate, []byte, error) {
+	var secret corev1.Secret
 
 	for {
-		err := c.Get(ctx, client.ObjectKey{Name: certSecretName, Namespace: controllerNamespace}, &certSecret)
+		err := c.Get(ctx, client.ObjectKey{Name: secretName, Namespace: controllerNamespace}, &secret)
 		if err == nil {
 			break
 		} else if errors.IsNotFound(err) {
 			select {
 			case <-ctx.Done():
-				return nil, ctx.Err()
+				return nil, nil, nil, ctx.Err()
 			case <-time.After(1 * time.Second):
 				continue
 			}
 		} else {
-			return nil, err
+			return nil, nil, nil, err
 		}
 	}
 
-	certBytes, ok := certSecret.Data["tls.crt"]
+	caBytes, ok := secret.Data["ca.pem"]
 	if !ok {
-		return nil, fmt.Errorf("missing tls.crt in %s", certSecretName)
+		return nil, nil, nil, fmt.Errorf("missing ca.pem in %s", secretName)
 	}
-	keyBytes, ok := certSecret.Data["tls.key"]
+	certBytes, ok := secret.Data["tls.crt"]
 	if !ok {
-		return nil, fmt.Errorf("missing tls.key in %s", certSecretName)
+		return nil, nil, nil, fmt.Errorf("missing tls.crt in %s", secretName)
+	}
+	keyBytes, ok := secret.Data["tls.key"]
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("missing tls.key in %s", secretName)
+	}
+	controllerSecret, ok := secret.Data["controllerSecret"]
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("missing controllerSecret in %s", secretName)
+	}
+
+	cp := x509.NewCertPool()
+	if !cp.AppendCertsFromPEM(caBytes) {
+		return nil, nil, nil, fmt.Errorf("failed to add CA to pool")
 	}
 
 	cert, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	return &cert, nil
+	return cp, &cert, controllerSecret, nil
 }
 
 func LoadTLSCA(ctx context.Context, c client.Reader, controllerNamespace string) (*x509.CertPool, error) {
@@ -78,14 +91,14 @@ func LoadTLSCA(ctx context.Context, c client.Reader, controllerNamespace string)
 	return cp, nil
 }
 
-func InitTLS(ctx context.Context, c client.Client, controllerNamespace string) error {
-	var certSecret corev1.Secret
+func InitControllerSecret(ctx context.Context, c client.Client, controllerNamespace string) error {
+	var secret corev1.Secret
 
-	err := c.Get(ctx, client.ObjectKey{Name: certSecretName, Namespace: controllerNamespace}, &certSecret)
+	err := c.Get(ctx, client.ObjectKey{Name: secretName, Namespace: controllerNamespace}, &secret)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if err == nil {
-		return initTLSCA(ctx, c, &certSecret, false)
+		return initTLSCA(ctx, c, &secret, false)
 	}
 
 	caPem, cert, key, err := certsetup()
@@ -93,21 +106,28 @@ func InitTLS(ctx context.Context, c client.Client, controllerNamespace string) e
 		return err
 	}
 
-	certSecret.Data = map[string][]byte{
-		"ca.pem":  caPem,
-		"tls.crt": cert,
-		"tls.key": key,
-	}
-
-	certSecret.APIVersion = "v1"
-	certSecret.Kind = "Secret"
-	certSecret.Name = certSecretName
-	certSecret.Namespace = controllerNamespace
-	err = c.Patch(ctx, &certSecret, client.Apply, client.FieldOwner("kluctl-controller"))
+	controllerSecret := make([]byte, challengeSize)
+	_, err = rand.Read(controllerSecret)
 	if err != nil {
 		return err
 	}
-	return initTLSCA(ctx, c, &certSecret, true)
+
+	secret.Data = map[string][]byte{
+		"ca.pem":           caPem,
+		"tls.crt":          cert,
+		"tls.key":          key,
+		"controllerSecret": controllerSecret,
+	}
+
+	secret.APIVersion = "v1"
+	secret.Kind = "Secret"
+	secret.Name = secretName
+	secret.Namespace = controllerNamespace
+	err = c.Patch(ctx, &secret, client.Apply, client.FieldOwner("kluctl-controller"))
+	if err != nil {
+		return err
+	}
+	return initTLSCA(ctx, c, &secret, true)
 }
 
 func initTLSCA(ctx context.Context, c client.Client, certSecret *corev1.Secret, force bool) error {
