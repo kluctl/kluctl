@@ -24,14 +24,15 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --all-contexts                Use all Kubernetes contexts found in the kubeconfig.
-      --context stringArray         List of kubernetes contexts to use.
-      --host string                 Host to bind to. Pass an empty string to bind to all addresses. Defaults to
-                                    'localhost' when run locally and to all hosts when run in-cluster.
-      --in-cluster                  This enables in-cluster functionality. This also enforces authentication.
-      --in-cluster-context string   The context to use fo in-cluster functionality.
-      --only-api                    Only serve API without the actual UI.
-      --port int                    Port to bind to. (default 8080)
+      --all-contexts                  Use all Kubernetes contexts found in the kubeconfig.
+      --context stringArray           List of kubernetes contexts to use.
+      --controller-namespace string   The namespace where the controller runs in. (default "kluctl-system")
+      --host string                   Host to bind to. Pass an empty string to bind to all addresses. Defaults to
+                                      'localhost' when run locally and to all hosts when run in-cluster.
+      --in-cluster                    This enables in-cluster functionality. This also enforces authentication.
+      --in-cluster-context string     The context to use fo in-cluster functionality.
+      --only-api                      Only serve API without the actual UI.
+      --port int                      Port to bind to. (default 8080)
 
 ```
 <!-- END SECTION -->

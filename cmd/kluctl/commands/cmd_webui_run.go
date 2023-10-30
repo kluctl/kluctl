@@ -18,8 +18,9 @@ type webuiRunCmd struct {
 	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
 	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
 
-	InCluster        bool   `group:"misc" help:"This enables in-cluster functionality. This also enforces authentication."`
-	InClusterContext string `group:"misc" help:"The context to use fo in-cluster functionality."`
+	InCluster           bool   `group:"misc" help:"This enables in-cluster functionality. This also enforces authentication."`
+	InClusterContext    string `group:"misc" help:"The context to use fo in-cluster functionality."`
+	ControllerNamespace string `group:"misc" help:"The namespace where the controller runs in." default:"kluctl-system"`
 
 	OnlyApi bool `group:"misc" help:"Only serve API without the actual UI."`
 
@@ -150,7 +151,7 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 	collector := results.NewResultsCollector(ctx, stores)
 	collector.Start()
 
-	server, err := webui.NewCommandResultsServer(ctx, collector, configs, inClusterConfig, inClusterClient, authConfig, cmd.OnlyApi)
+	server, err := webui.NewCommandResultsServer(ctx, collector, configs, cmd.ControllerNamespace, inClusterConfig, inClusterClient, authConfig, cmd.OnlyApi)
 	if err != nil {
 		return err
 	}

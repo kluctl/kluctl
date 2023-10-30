@@ -86,6 +86,8 @@ func (suite *GitopsTestSuite) startController() {
 		suite.T().Fatal(err)
 	}
 
+	createNamespace(suite.T(), suite.k, "kluctl-system")
+
 	suite.sourceOverridePort = port_tool.NextFreePort("127.0.0.1")
 
 	ctx, ctxCancel := context.WithCancel(context.Background())

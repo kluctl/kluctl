@@ -719,7 +719,7 @@ func (g *gitopsCmdHelper) watchLogs(ctx context.Context, stopCh chan struct{}, k
 		status.Infof(ctx, "Watching logs for %s/%s...", key.Namespace, key.Name)
 	}
 
-	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, "kluctl-system", key, reconcileId, g.logsArgs.LogSince, follow)
+	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, g.args.ControllerNamespace, key, reconcileId, g.logsArgs.LogSince, follow)
 	if err != nil {
 		return err
 	}
@@ -820,8 +820,7 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 		return err
 	}
 
-	controllerNamespace := "kluctl-system"
-	pods, err := g.corev1Client.Pods(controllerNamespace).List(ctx, metav1.ListOptions{
+	pods, err := g.corev1Client.Pods(g.args.ControllerNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "control-plane=kluctl-controller",
 	})
 	if err != nil {
@@ -832,7 +831,7 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 		pod = &pods.Items[rand.Int()%len(pods.Items)]
 	}
 
-	soClient, err := sourceoverride.NewClientCli(ctx, g.client, controllerNamespace, g.soResolver)
+	soClient, err := sourceoverride.NewClientCli(ctx, g.client, g.args.ControllerNamespace, g.soResolver)
 	if err != nil {
 		return err
 	}

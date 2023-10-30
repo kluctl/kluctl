@@ -27,7 +27,7 @@ func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace strin
 	ns.SetName(namespace)
 	_, err := r.Create(context.Background(), &ns, metav1.CreateOptions{})
 
-	if err != nil {
+	if err != nil && !errors.IsAlreadyExists(err) {
 		t.Fatal(err)
 	}
 }
