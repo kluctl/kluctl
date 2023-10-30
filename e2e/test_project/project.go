@@ -26,6 +26,7 @@ type TestProject struct {
 	initialName string
 
 	extraEnv          utils.OrderedMap[string, string]
+	extraArgs         []string
 	useProcess        bool
 	skipProjectDirArg bool
 	bare              bool
@@ -135,6 +136,10 @@ func (p *TestProject) Discriminator(targetName string) string {
 
 func (p *TestProject) SetEnv(k string, v string) {
 	p.extraEnv.Set(k, v)
+}
+
+func (p *TestProject) AddExtraArgs(a ...string) {
+	p.extraArgs = append(p.extraArgs, a...)
 }
 
 func (p *TestProject) UpdateKluctlYaml(update func(o *uo.UnstructuredObject) error) {
@@ -473,6 +478,7 @@ func (p *TestProject) CopyProjectSourceTo(dst string) string {
 
 func (p *TestProject) KluctlProcess(t *testing.T, argsIn ...string) (string, string, error) {
 	var args []string
+	args = append(args, p.extraArgs...)
 	args = append(args, argsIn...)
 	args = append(args, "--no-update-check")
 
@@ -519,6 +525,7 @@ func (p *TestProject) KluctlExecute(t *testing.T, argsIn ...string) (string, str
 	}
 
 	var args []string
+	args = append(args, p.extraArgs...)
 	if !p.skipProjectDirArg {
 		args = append(args, "--project-dir", p.LocalProjectDir())
 	}
