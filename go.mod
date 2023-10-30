@@ -45,7 +45,7 @@ require (
 	k8s.io/apimachinery v0.28.3
 	k8s.io/client-go v0.28.3
 	k8s.io/klog/v2 v2.100.1
-	sigs.k8s.io/kustomize/kyaml v0.14.3
+	sigs.k8s.io/kustomize/kyaml v0.15.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
 )
 
@@ -91,7 +91,7 @@ require (
 	nhooyr.io/websocket v1.8.7
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.16.2
-	sigs.k8s.io/kustomize/api v0.14.0
+	sigs.k8s.io/kustomize/api v0.15.0
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -292,6 +292,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230920204549-e6e6cdab5c13 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231009173412-8bfb1ae86b6c // indirect
+	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
