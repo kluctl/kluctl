@@ -824,7 +824,7 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 		pod = &pods.Items[rand.Int()%len(pods.Items)]
 	}
 
-	soClient, err := sourceoverride.NewClientCli(ctx, g.soResolver)
+	soClient, err := sourceoverride.NewClientCli(ctx, g.client, controllerNamespace, g.soResolver)
 	if err != nil {
 		return err
 	}

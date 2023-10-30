@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"net"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
 
@@ -17,9 +19,12 @@ const (
 type ProxyServerImpl struct {
 	UnimplementedProxyServer
 
-	ctx context.Context
+	ctx                 context.Context
+	client              client.Reader
+	controllerNamespace string
 
 	mutex       sync.Mutex
+	stopped     bool
 	connections map[string]*ProxyConnection
 
 	listener   net.Listener
@@ -43,13 +48,13 @@ type wrappedRequest struct {
 	errCh  chan error
 }
 
-func NewProxyServerImpl(ctx context.Context) *ProxyServerImpl {
+func NewProxyServerImpl(ctx context.Context, c client.Reader, controllerNamespace string) *ProxyServerImpl {
 	m := &ProxyServerImpl{
-		ctx:         ctx,
-		connections: map[string]*ProxyConnection{},
+		ctx:                 ctx,
+		client:              c,
+		controllerNamespace: controllerNamespace,
+		connections:         map[string]*ProxyConnection{},
 	}
-	m.grpcServer = grpc.NewServer(grpc.MaxRecvMsgSize(maxMsgSize))
-	RegisterProxyServer(m.grpcServer, m)
 	return m
 }
 
@@ -63,11 +68,40 @@ func (m *ProxyServerImpl) Listen(addr string) (net.Addr, error) {
 }
 
 func (m *ProxyServerImpl) Serve() error {
-	return m.grpcServer.Serve(m.listener)
+	cert, err := WaitAndLoadTLSCert(m.ctx, m.client, m.controllerNamespace)
+	if err != nil {
+		return err
+	}
+	creds := credentials.NewServerTLSFromCert(cert)
+
+	var grpcServer *grpc.Server
+
+	m.mutex.Lock()
+	if m.stopped {
+		m.mutex.Unlock()
+		return fmt.Errorf("stopped while starting")
+	}
+	grpcServer = grpc.NewServer(
+		grpc.Creds(creds),
+		grpc.MaxRecvMsgSize(maxMsgSize),
+	)
+	RegisterProxyServer(grpcServer, m)
+	m.grpcServer = grpcServer
+	m.mutex.Unlock()
+
+	return grpcServer.Serve(m.listener)
 }
 
 func (m *ProxyServerImpl) Stop() {
-	m.grpcServer.Stop()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	if m.stopped {
+		return
+	}
+	m.stopped = true
+	if m.grpcServer != nil {
+		m.grpcServer.Stop()
+	}
 }
 
 func (s *ProxyServerImpl) ProxyStream(stream Proxy_ProxyStreamServer) error {

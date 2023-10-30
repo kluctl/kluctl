@@ -12,7 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"io"
 	v1 "k8s.io/api/core/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -23,10 +23,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ProxyClientCli struct {
-	ctx context.Context
+	ctx                 context.Context
+	client              client.Client
+	controllerNamespace string
 
 	resolver Resolver
 	serverId string
@@ -42,11 +45,13 @@ type ProxyClientCli struct {
 	smClient ProxyClient
 }
 
-func NewClientCli(ctx context.Context, resolver Resolver) (*ProxyClientCli, error) {
+func NewClientCli(ctx context.Context, c client.Client, controllerNamespace string, resolver Resolver) (*ProxyClientCli, error) {
 	s := &ProxyClientCli{
-		ctx:      ctx,
-		resolver: resolver,
-		serverId: uuid.NewString(),
+		ctx:                 ctx,
+		client:              c,
+		controllerNamespace: controllerNamespace,
+		resolver:            resolver,
+		serverId:            uuid.NewString(),
 	}
 	return s, nil
 }
@@ -85,9 +90,15 @@ func (c *ProxyClientCli) ConnectToPod(restConfig *rest.Config, pod v1.Pod) error
 }
 
 func (c *ProxyClientCli) Connect(target string) error {
+	cp, err := LoadTLSCA(c.ctx, c.client, c.controllerNamespace)
+	if err != nil {
+		return err
+	}
+	creds := credentials.NewClientTLSFromCert(cp, "")
+
 	grpcConn, err := grpc.DialContext(c.ctx, target,
 		grpc.WithBlock(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 	)
 	if err != nil {
 		return err

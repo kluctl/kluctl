@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
@@ -138,13 +139,25 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		os.Exit(1)
 	}
 
+	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		if cmd.SourceOverrideBindAddress == "0" {
+			return nil
+		}
+		setupLog.Info("Initializing source-override server TLS")
+		return sourceoverride.InitTLS(ctx, mgr.GetClient(), "kluctl-system")
+	}))
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
 	eventRecorder := mgr.GetEventRecorderFor(controllerName)
 
 	sshPool := &ssh_pool.SshPool{}
 
 	var soProxyServer *sourceoverride.ProxyServerImpl
 	if cmd.SourceOverrideBindAddress != "0" {
-		soProxyServer = sourceoverride.NewProxyServerImpl(ctx)
+		soProxyServer = sourceoverride.NewProxyServerImpl(ctx, mgr.GetClient(), "kluctl-system")
 		_, err := soProxyServer.Listen(cmd.SourceOverrideBindAddress)
 		if err != nil {
 			return err

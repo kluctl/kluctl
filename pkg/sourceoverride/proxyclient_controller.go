@@ -8,11 +8,15 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ProxyClientController struct {
+	client              client.Client
+	controllerNamespace string
+
 	serverId       string
 	knownOverrides []RepoOverride
 
@@ -22,9 +26,11 @@ type ProxyClientController struct {
 	cache utils.ThreadSafeCache[types.RepoKey, string]
 }
 
-func NewClientController(serverId string) (*ProxyClientController, error) {
+func NewClientController(c client.Client, controllerNamespace string, serverId string) (*ProxyClientController, error) {
 	s := &ProxyClientController{
-		serverId: serverId,
+		client:              c,
+		controllerNamespace: controllerNamespace,
+		serverId:            serverId,
 	}
 	return s, nil
 }
@@ -44,10 +50,17 @@ func (c *ProxyClientController) Cleanup() {
 }
 
 func (c *ProxyClientController) Connect(ctx context.Context, target string) error {
+	cp, err := LoadTLSCA(ctx, c.client, c.controllerNamespace)
+	if err != nil {
+		return err
+	}
+	creds := credentials.NewClientTLSFromCert(cp, "")
+
 	grpcConn, err := grpc.DialContext(ctx, target,
 		grpc.WithBlock(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
+		grpc.WithAuthority("source-override"),
 	)
 	if err != nil {
 		return err
