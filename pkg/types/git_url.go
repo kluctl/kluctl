@@ -170,6 +170,14 @@ func NewRepoKeyFromUrl(urlIn string) (RepoKey, error) {
 	return NewRepoKey(t, u.Host, p), nil
 }
 
+func NewRepoKeyFromGitUrl(urlIn string) (RepoKey, error) {
+	u, err := ParseGitUrl(urlIn)
+	if err != nil {
+		return RepoKey{}, err
+	}
+	return NewRepoKeyFromUrl(u.String())
+}
+
 var hostNameRegex = regexp.MustCompile(`^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\-]*[A-Za-z0-9])$`)
 var ipRegex = regexp.MustCompile(`^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$`)
 
