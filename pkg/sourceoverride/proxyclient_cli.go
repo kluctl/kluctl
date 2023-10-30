@@ -2,9 +2,14 @@ package sourceoverride
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	oci_client "github.com/kluctl/kluctl/v2/pkg/oci/client"
@@ -32,7 +37,10 @@ type ProxyClientCli struct {
 	controllerNamespace string
 
 	resolver Resolver
-	serverId string
+
+	key         *ecdsa.PrivateKey
+	pubKeyBytes []byte
+	pubKeyHash  []byte
 
 	pod     *v1.Pod
 	podPort int
@@ -51,8 +59,24 @@ func NewClientCli(ctx context.Context, c client.Client, controllerNamespace stri
 		client:              c,
 		controllerNamespace: controllerNamespace,
 		resolver:            resolver,
-		serverId:            uuid.NewString(),
 	}
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	s.key = key
+
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(key.Public())
+	if err != nil {
+		return nil, err
+	}
+	s.pubKeyBytes = pubKeyBytes
+
+	h := sha256.New()
+	h.Write(pubKeyBytes)
+	s.pubKeyHash = h.Sum(nil)
+
 	return s, nil
 }
 
@@ -63,7 +87,7 @@ func (c *ProxyClientCli) BuildProxyUrl() (*url.URL, error) {
 	} else {
 		host = c.target
 	}
-	u := fmt.Sprintf("%s://%s/%s", kluctlv1.SourceOverrideScheme, host, c.serverId)
+	u := fmt.Sprintf("%s://%s/%s", kluctlv1.SourceOverrideScheme, host, hex.EncodeToString(c.pubKeyHash))
 	return url.Parse(u)
 }
 
@@ -163,23 +187,57 @@ func (c *ProxyClientCli) Handshake() error {
 	}
 
 	msg := &ProxyResponse{
-		Auth: &Auth{
-			ServerId: c.serverId,
+		Auth: &AuthMsg{
+			PubKey: c.pubKeyBytes,
+		},
+	}
+
+	err = c.stream.Send(msg)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	if resp.Auth == nil || len(resp.Auth.Challenge) != challengeSize {
+		return fmt.Errorf("response is missing auth message")
+	}
+
+	h := sha256.New()
+	h.Write(c.pubKeyHash)
+	h.Write(resp.Auth.Challenge)
+
+	sig, err := ecdsa.SignASN1(rand.Reader, c.key, h.Sum(nil))
+	if err != nil {
+		return err
+	}
+
+	msg = &ProxyResponse{
+		Auth: &AuthMsg{
+			Pop: sig,
 		},
 	}
 	err = c.stream.Send(msg)
 	if err != nil {
 		return err
 	}
-	resp, err := c.stream.Recv()
+	resp, err = c.stream.Recv()
 	if err != nil {
 		return err
 	}
-	if resp.AuthError == nil {
+
+	if resp.Auth == nil {
+		return fmt.Errorf("response is missing auth message")
+	}
+
+	if resp.Auth.AuthError == nil {
 		return fmt.Errorf("missing authError")
 	}
-	if *resp.AuthError != "" {
-		return errors.New(*resp.AuthError)
+	if *resp.Auth.AuthError != "" {
+		return errors.New(*resp.Auth.AuthError)
 	}
 	return nil
 }

@@ -10,18 +10,24 @@ service Proxy {
 }
 
 message ProxyResponse {
-  optional Auth auth = 1;
+  AuthMsg auth = 1;
   optional ResolveOverrideResponse response = 2;
 }
 
 message ProxyRequest {
-  optional string authError = 1;
-  string serverId = 2;
-  optional ResolveOverrideRequest request = 3;
+  AuthMsg auth = 1;
+  optional ResolveOverrideRequest request = 2;
 }
 
-message Auth {
-  string serverId = 1;
+message AuthMsg {
+  optional bytes pubKey = 1;
+
+  optional bytes challenge = 2;
+  optional bytes pop = 3;
+
+  optional string authError = 4;
+
+  optional string pubKeyHash = 5;
 }
 
 message ResolveOverrideRequest {

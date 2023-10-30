@@ -17,7 +17,7 @@ type ProxyClientController struct {
 	client              client.Client
 	controllerNamespace string
 
-	serverId       string
+	pubKeyHash     string
 	knownOverrides []RepoOverride
 
 	grpcConn *grpc.ClientConn
@@ -26,11 +26,11 @@ type ProxyClientController struct {
 	cache utils.ThreadSafeCache[types.RepoKey, string]
 }
 
-func NewClientController(c client.Client, controllerNamespace string, serverId string) (*ProxyClientController, error) {
+func NewClientController(c client.Client, controllerNamespace string, pubKeyHash string) (*ProxyClientController, error) {
 	s := &ProxyClientController{
 		client:              c,
 		controllerNamespace: controllerNamespace,
-		serverId:            serverId,
+		pubKeyHash:          pubKeyHash,
 	}
 	return s, nil
 }
@@ -89,7 +89,9 @@ func (c *ProxyClientController) ResolveOverride(ctx context.Context, repoKey typ
 
 func (c *ProxyClientController) doResolveOverride(ctx context.Context, repoKey types.RepoKey) (string, error) {
 	msg := &ProxyRequest{
-		ServerId: c.serverId,
+		Auth: &AuthMsg{
+			PubKeyHash: &c.pubKeyHash,
+		},
 		Request: &ResolveOverrideRequest{
 			RepoKey: repoKey.String(),
 		},
