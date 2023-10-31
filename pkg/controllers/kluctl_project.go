@@ -593,7 +593,7 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), pp.j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, pp.j2)
 	if err != nil {
 		return nil, err
 	}

@@ -29,12 +29,6 @@ import (
 )
 
 func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
-	if err != nil {
-		return fmt.Errorf("creating temporary project directory failed: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
 	j2, err := kluctl_jinja2.NewKluctlJinja2(strictTemplates)
 	if err != nil {
 		return err
@@ -111,7 +105,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, j2)
 	if err != nil {
 		return err
 	}
@@ -154,6 +148,12 @@ func withProjectCommandContext(ctx context.Context, args projectTargetCommandArg
 }
 
 func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(cmdCtx *commandCtx) error) error {
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
+	if err != nil {
+		return fmt.Errorf("creating temporary project directory failed: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	images, err := deployment.NewImages()
 	if err != nil {
 		return err
@@ -171,7 +171,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
-		tmpDir, err := os.MkdirTemp(p.TmpDir, "rendered")
+		tmpDir, err := os.MkdirTemp(tmpDir, "rendered")
 		if err != nil {
 			return err
 		}
