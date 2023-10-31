@@ -1,7 +1,6 @@
 package kluctl_project
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
@@ -32,7 +31,7 @@ func (p *LoadedKluctlProject) BuildVars(target *types.Target, forSeal bool) (*va
 		allArgs.Merge(p.LoadArgs.ExternalArgs)
 	}
 
-	err = deployment.LoadDefaultArgs(p.Config.Args, allArgs)
+	err = LoadDefaultArgs(p.Config.Args, allArgs)
 	if err != nil {
 		return nil, err
 	}

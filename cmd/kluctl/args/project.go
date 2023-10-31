@@ -1,7 +1,7 @@
 package args
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"
 	"path/filepath"
@@ -44,11 +44,11 @@ func (a *ArgsFlags) LoadArgs() (*uo.UnstructuredObject, error) {
 	}
 
 	var args *uo.UnstructuredObject
-	optionArgs, err := deployment.ParseArgs(a.Arg)
+	optionArgs, err := kluctl_project.ParseArgs(a.Arg)
 	if err != nil {
 		return nil, err
 	}
-	args, err = deployment.ConvertArgsToVars(optionArgs, true)
+	args, err = kluctl_project.ConvertArgsToVars(optionArgs, true)
 	if err != nil {
 		return nil, err
 	}
