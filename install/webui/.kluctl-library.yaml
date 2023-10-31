@@ -1,5 +1,3 @@
-discriminator: kluctl.io-webui
-
 args:
   - name: kluctl_image
     default: ghcr.io/kluctl/kluctl

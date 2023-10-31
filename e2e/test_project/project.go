@@ -171,6 +171,10 @@ func (p *TestProject) UpdateFile(pth string, update func(f string) (string, erro
 	p.gitServer.UpdateFile(p.gitRepoName, path.Join(p.gitSubDir, pth), update, message)
 }
 
+func (p *TestProject) DeleteFile(pth string, message string) {
+	p.gitServer.DeleteFile(p.gitRepoName, path.Join(p.gitSubDir, pth), message)
+}
+
 func (p *TestProject) GetYaml(path string) *uo.UnstructuredObject {
 	o, err := uo.FromFile(filepath.Join(p.LocalProjectDir(), path))
 	if err != nil {

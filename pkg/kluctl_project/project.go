@@ -12,9 +12,7 @@ type LoadedKluctlProject struct {
 	LoadArgs LoadKluctlProjectArgs
 	LoadTime time.Time
 
-	TmpDir string
-
-	sealedSecretsDir string
+	SealedSecretsDir string
 
 	Config  types2.KluctlProject
 	Targets []*types2.Target

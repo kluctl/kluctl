@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -192,7 +193,7 @@ func (p *DeploymentProject) loadIncludes() error {
 		}
 
 		if inc.Include != nil {
-			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc.Vars)
+			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc)
 			if err != nil {
 				return err
 			}
@@ -210,7 +211,7 @@ func (p *DeploymentProject) loadIncludes() error {
 			if err != nil {
 				return err
 			}
-			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc.Vars)
+			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc)
 			if err != nil {
 				return err
 			}
@@ -223,7 +224,7 @@ func (p *DeploymentProject) loadIncludes() error {
 			if err != nil {
 				return err
 			}
-			newProject, err = p.loadLocalInclude(NewSource(extractedDir), inc.Oci.SubDir, inc.Vars)
+			newProject, err = p.loadLocalInclude(NewSource(extractedDir), inc.Oci.SubDir, inc)
 			if err != nil {
 				return err
 			}
@@ -237,9 +238,37 @@ func (p *DeploymentProject) loadIncludes() error {
 	return nil
 }
 
-func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
-	varsCtx := p.VarsCtx.Copy()
-	err := p.loadVarsList(varsCtx, vars)
+func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, inc *types.DeploymentItemConfig) (*DeploymentProject, error) {
+	varsCtx := vars.NewVarsCtx(p.VarsCtx.J2)
+
+	libraryFile := yaml.FixPathExt(filepath.Join(source.dir, incDir, ".kluctl-library.yaml"))
+	if yaml.Exists(libraryFile) {
+		var lib types.KluctlLibraryProject
+		err := yaml.ReadYamlFile(libraryFile, &lib)
+		if err != nil {
+			return nil, err
+		}
+
+		if inc.PassVars {
+			varsCtx.Vars = p.VarsCtx.Vars.Clone()
+			_ = varsCtx.Vars.RemoveNestedField("args") // args should not be merged but taken 1:1
+		}
+
+		args := uo.New()
+		if inc.Args != nil {
+			args = inc.Args.Clone()
+		}
+
+		err = kluctl_project.LoadDefaultArgs(lib.Args, args)
+		if err != nil {
+			return nil, err
+		}
+		varsCtx.UpdateChild("args", args)
+	} else {
+		varsCtx = p.VarsCtx.Copy()
+	}
+
+	err := p.loadVarsList(varsCtx, inc.Vars)
 	if err != nil {
 		return nil, err
 	}

@@ -298,6 +298,16 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 	p.CommitYaml(repo, pth, message, o)
 }
 
+func (p *TestGitServer) DeleteFile(repo string, pth string, message string) {
+	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	_ = os.Remove(fullPath)
+
+	if message == "" {
+		message = fmt.Sprintf("delete %s", filepath.Join(repo, pth))
+	}
+	p.CommitFiles(repo, []string{pth}, false, message)
+}
+
 func (p *TestGitServer) GitHost() string {
 	return fmt.Sprintf("localhost:%d", p.gitServerPort)
 }

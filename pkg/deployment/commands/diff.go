@@ -3,14 +3,14 @@ package commands
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type DiffCommand struct {
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 
 	ForceApply          bool
 	ReplaceOnError      bool
@@ -22,7 +22,7 @@ type DiffCommand struct {
 	SkipResourceVersions map[k8s2.ObjectRef]string
 }
 
-func NewDiffCommand(targetCtx *kluctl_project.TargetContext) *DiffCommand {
+func NewDiffCommand(targetCtx *target_context.TargetContext) *DiffCommand {
 	return &DiffCommand{
 		targetCtx: targetCtx,
 	}

@@ -6,7 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -15,12 +15,12 @@ import (
 
 type DeleteCommand struct {
 	discriminator string
-	targetCtx     *kluctl_project.TargetContext
+	targetCtx     *target_context.TargetContext
 	inclusion     *utils.Inclusion
 	wait          bool
 }
 
-func NewDeleteCommand(discriminator string, targetCtx *kluctl_project.TargetContext, inclusion *utils.Inclusion, wait bool) *DeleteCommand {
+func NewDeleteCommand(discriminator string, targetCtx *target_context.TargetContext, inclusion *utils.Inclusion, wait bool) *DeleteCommand {
 	return &DeleteCommand{
 		discriminator: discriminator,
 		targetCtx:     targetCtx,

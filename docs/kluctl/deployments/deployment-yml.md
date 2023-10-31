@@ -93,6 +93,10 @@ Specifies an external git project to be included. The project is included the sa
 that the included project can not use/load templates from the parent project. An included project might also include
 further git projects.
 
+If the included project is a [Kluctl Library Project](../kluctl-libraries/README.md), current variables are NOT passed
+automatically into the included project. Only when [passVars](#passvars) is set to true, all current variables are passed.
+For library projects, [args](#args) is the preferred way to pass configuration.
+
 Simple example:
 ```yaml
 deployments:
@@ -126,6 +130,10 @@ If `ref` is omitted, the default branch will be checked out.
 Specifies an OCI based artifact to include. The artifact must be pushed to your OCI repository via the
 [`kluctl oci push`](../commands/oci-push.md) command. The artifact is extracted and then included the same way a
 [git include](#git-includes) is included.
+
+If the included project is a [Kluctl Library Project](../kluctl-libraries/README.md), current variables are NOT passed
+automatically into the included project. Only when [passVars](#passvars) is set to true, all current variables are passed.
+For library projects, [args](#args) is the preferred way to pass configuration.
 
 Simple example:
 ```yaml
@@ -245,8 +253,18 @@ deployments:
     - file: vars2.yaml
 ```
 
-### when
+### passVars
+Can only be used on [include](#includes), [git include](#git-includes) and [oci include](#oci-includes). If set to `true`,
+all variables will be passed down to the included project even if the project is an explicitly marked
+[Kluctl Library Project](../kluctl-libraries/README.md).
 
+If the included project is not a library project, variables are always fully passed into the included deployment. 
+
+### args
+Can only be used on [include](#includes), [git include](#git-includes) and [oci include](#oci-includes). Passes the given
+arguments into [Kluctl Library Projects](../kluctl-libraries/README.md).
+
+### when
 Each deployment item can be conditional with the help of the `when` field. It must be set to a
 [Jinja2 based expression](https://jinja.palletsprojects.com/en/latest/templates/#expressions)
 that evaluates to a boolean.

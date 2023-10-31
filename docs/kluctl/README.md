@@ -81,5 +81,6 @@ kluctl was rewritten in Go.
 1. [Get Started](./get-started.md)
 2. [Installation](./installation.md)
 3. [Kluctl Commands](./commands)
-4. [.kluctl.yaml](./kluctl-project)
-5. [Deployments](./deployments)
+4. [Kluctl Projects](./kluctl-project)
+5. [Kluctl Libraries](./kluctl-libraries)
+6. [Deployments](./deployments)

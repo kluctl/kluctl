@@ -1,8 +1,8 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "Kluctl project"
-linkTitle: ".kluctl.yaml"
+title: "Kluctl Projects"
+linkTitle: "Kluctl Projects"
 weight: 1
 description: >
     Kluctl project configuration, found in the .kluctl.yaml file.

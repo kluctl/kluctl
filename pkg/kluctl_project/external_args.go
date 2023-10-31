@@ -1,4 +1,4 @@
-package deployment
+package kluctl_project
 
 import (
 	"fmt"

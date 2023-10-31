@@ -59,3 +59,7 @@ type KluctlProject struct {
 	Discriminator string           `json:"discriminator,omitempty"`
 	Aws           *AwsConfig       `json:"aws,omitempty"`
 }
+
+type KluctlLibraryProject struct {
+	Args []*DeploymentArg `json:"args,omitempty"`
+}

@@ -4,14 +4,14 @@ import (
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
 
-func newCommandResult(targetCtx *kluctl_project.TargetContext, startTime time.Time, command string) *result.CommandResult {
+func newCommandResult(targetCtx *target_context.TargetContext, startTime time.Time, command string) *result.CommandResult {
 	r := &result.CommandResult{}
 
 	r.Target = targetCtx.Target
@@ -54,7 +54,7 @@ func newCommandResult(targetCtx *kluctl_project.TargetContext, startTime time.Ti
 	return r
 }
 
-func newValidateCommandResult(targetCtx *kluctl_project.TargetContext, startTime time.Time) *result.ValidateResult {
+func newValidateCommandResult(targetCtx *target_context.TargetContext, startTime time.Time) *result.ValidateResult {
 	r := &result.ValidateResult{}
 
 	r.StartTime = metav1.NewTime(startTime)
@@ -106,7 +106,7 @@ func newDeleteCommandResult(k *k8s2.K8sCluster, startTime time.Time, inclusion *
 	return r
 }
 
-func finishCommandResult(r *result.CommandResult, targetCtx *kluctl_project.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
+func finishCommandResult(r *result.CommandResult, targetCtx *target_context.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
 	r.Errors = append(r.Errors, dew.GetErrorsList()...)
 	r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
 	if targetCtx != nil {
@@ -115,7 +115,7 @@ func finishCommandResult(r *result.CommandResult, targetCtx *kluctl_project.Targ
 	r.Command.EndTime = metav1.Now()
 }
 
-func finishValidateResult(r *result.ValidateResult, targetCtx *kluctl_project.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
+func finishValidateResult(r *result.ValidateResult, targetCtx *target_context.TargetContext, dew *utils2.DeploymentErrorsAndWarnings) {
 	r.Errors = append(r.Errors, dew.GetErrorsList()...)
 	r.Warnings = append(r.Warnings, dew.GetWarningsList()...)
 	r.EndTime = metav1.Now()

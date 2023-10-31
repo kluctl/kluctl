@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -12,10 +12,10 @@ import (
 )
 
 type PokeImagesCommand struct {
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 }
 
-func NewPokeImagesCommand(targetCtx *kluctl_project.TargetContext) *PokeImagesCommand {
+func NewPokeImagesCommand(targetCtx *target_context.TargetContext) *PokeImagesCommand {
 	return &PokeImagesCommand{
 		targetCtx: targetCtx,
 	}

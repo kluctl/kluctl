@@ -12,6 +12,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/git"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
@@ -593,7 +594,7 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), pp.j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, pp.j2)
 	if err != nil {
 		return nil, err
 	}
@@ -601,7 +602,7 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 	return p, nil
 }
 
-func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject) (*kluctl_project.TargetContext, error) {
+func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject) (*target_context.TargetContext, error) {
 	renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
 	if err != nil {
 		return nil, err
@@ -613,7 +614,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 
 	inclusion := pt.buildInclusion()
 
-	props := kluctl_project.TargetContextParams{
+	props := target_context.TargetContextParams{
 		DryRun:           pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
 		Images:           images,
 		Inclusion:        inclusion,
@@ -631,7 +632,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 		props.ContextOverride = *pt.pp.obj.Spec.Context
 	}
 
-	restConfig, contextName, err := p.LoadK8sConfig(ctx, props)
+	restConfig, contextName, err := p.LoadK8sConfig(ctx, props.TargetName, props.ContextOverride, props.OfflineK8s)
 	if err != nil {
 		return nil, err
 	}
@@ -646,7 +647,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 		return nil, err
 	}
 
-	targetContext, err := p.NewTargetContext(ctx, contextName, k, props)
+	targetContext, err := target_context.NewTargetContext(ctx, p, contextName, k, props)
 	if err != nil {
 		return targetContext, err
 	}
@@ -769,7 +770,7 @@ func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResul
 	return nil
 }
 
-func (pt *preparedTarget) kluctlDeployOrPokeImages(deployMode string, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlDeployOrPokeImages(deployMode string, targetContext *target_context.TargetContext) (*result.CommandResult, error) {
 	if deployMode == kluctlv1.KluctlDeployModeFull {
 		return pt.kluctlDeploy(targetContext), nil
 	} else if deployMode == kluctlv1.KluctlDeployPokeImages {
@@ -779,7 +780,7 @@ func (pt *preparedTarget) kluctlDeployOrPokeImages(deployMode string, targetCont
 	}
 }
 
-func (pt *preparedTarget) kluctlDeploy(targetContext *kluctl_project.TargetContext) *result.CommandResult {
+func (pt *preparedTarget) kluctlDeploy(targetContext *target_context.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext)
@@ -796,7 +797,7 @@ func (pt *preparedTarget) kluctlDeploy(targetContext *kluctl_project.TargetConte
 	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlPokeImages(targetContext *kluctl_project.TargetContext) *result.CommandResult {
+func (pt *preparedTarget) kluctlPokeImages(targetContext *target_context.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext)
@@ -805,7 +806,7 @@ func (pt *preparedTarget) kluctlPokeImages(targetContext *kluctl_project.TargetC
 	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlPrune(targetContext *kluctl_project.TargetContext) *result.CommandResult {
+func (pt *preparedTarget) kluctlPrune(targetContext *target_context.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPruneCommand("", targetContext, false)
@@ -817,7 +818,7 @@ func (pt *preparedTarget) kluctlPrune(targetContext *kluctl_project.TargetContex
 	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlDiff(targetContext *kluctl_project.TargetContext, resourceVersions map[k8s.ObjectRef]string) *result.CommandResult {
+func (pt *preparedTarget) kluctlDiff(targetContext *target_context.TargetContext, resourceVersions map[k8s.ObjectRef]string) *result.CommandResult {
 	cmd := commands.NewDiffCommand(targetContext)
 	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
 	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
@@ -828,7 +829,7 @@ func (pt *preparedTarget) kluctlDiff(targetContext *kluctl_project.TargetContext
 	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlValidate(targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult) *result.ValidateResult {
+func (pt *preparedTarget) kluctlValidate(targetContext *target_context.TargetContext, cmdResult *result.CommandResult) *result.ValidateResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 

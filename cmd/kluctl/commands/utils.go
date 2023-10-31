@@ -14,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
@@ -29,12 +30,6 @@ import (
 )
 
 func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
-	if err != nil {
-		return fmt.Errorf("creating temporary project directory failed: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
 	j2, err := kluctl_jinja2.NewKluctlJinja2(strictTemplates)
 	if err != nil {
 		return err
@@ -111,7 +106,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ClientConfigGetter: clientConfigGetter(forCompletion),
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, j2)
 	if err != nil {
 		return err
 	}
@@ -140,7 +135,7 @@ type projectTargetCommandArgs struct {
 
 type commandCtx struct {
 	ctx       context.Context
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 	images    *deployment.Images
 
 	resultId    string
@@ -154,6 +149,12 @@ func withProjectCommandContext(ctx context.Context, args projectTargetCommandArg
 }
 
 func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(cmdCtx *commandCtx) error) error {
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
+	if err != nil {
+		return fmt.Errorf("creating temporary project directory failed: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	images, err := deployment.NewImages()
 	if err != nil {
 		return err
@@ -171,7 +172,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
-		tmpDir, err := os.MkdirTemp(p.TmpDir, "rendered")
+		tmpDir, err := os.MkdirTemp(tmpDir, "rendered")
 		if err != nil {
 			return err
 		}
@@ -179,7 +180,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		renderOutputDir = tmpDir
 	}
 
-	targetParams := kluctl_project.TargetContextParams{
+	targetParams := target_context.TargetContextParams{
 		TargetName:         args.targetFlags.Target,
 		TargetNameOverride: args.targetFlags.TargetNameOverride,
 		ContextOverride:    args.targetFlags.Context,
@@ -196,7 +197,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	commandResultId := uuid.NewString()
 
-	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams)
+	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams.TargetName, targetParams.ContextOverride, targetParams.OfflineK8s)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, contextName, k, targetParams)
+	targetCtx, err := target_context.NewTargetContext(ctx, p, contextName, k, targetParams)
 	if err != nil {
 		return err
 	}
