@@ -70,7 +70,7 @@ require (
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-git/go-git/v5 v5.9.0
+	github.com/go-git/go-git/v5 v5.10.0
 	github.com/go-logr/logr v1.2.4
 	github.com/google/gops v0.3.28
 	github.com/google/uuid v1.3.1
