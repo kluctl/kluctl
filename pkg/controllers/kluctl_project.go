@@ -646,7 +646,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 		return nil, err
 	}
 
-	targetContext, err := p.NewTargetContext(ctx, contextName, k, props)
+	targetContext, err := kluctl_project.NewTargetContext(ctx, p, contextName, k, props)
 	if err != nil {
 		return targetContext, err
 	}

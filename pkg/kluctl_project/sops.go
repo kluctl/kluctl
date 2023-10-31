@@ -11,16 +11,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (c *LoadedKluctlProject) buildSopsDecrypter(ctx context.Context, client client.Client, target *types.Target) (*decryptor.Decryptor, error) {
-	d := decryptor.NewDecryptor(c.LoadArgs.ProjectDir, decryptor.MaxEncryptedFileSize)
+func buildSopsDecrypter(ctx context.Context, rootDir string, client client.Client, target *types.Target, addKeyServersFunc func(ctx context.Context, d *decryptor.Decryptor) error) (*decryptor.Decryptor, error) {
+	d := decryptor.NewDecryptor(rootDir, decryptor.MaxEncryptedFileSize)
 
-	err := c.addAwsKeyServers(ctx, client, d, target)
+	err := addAwsKeyServers(ctx, client, d, target)
 	if err != nil {
 		return nil, err
 	}
 
-	if c.LoadArgs.AddKeyServersFunc != nil {
-		err = c.LoadArgs.AddKeyServersFunc(ctx, d)
+	if addKeyServersFunc != nil {
+		err = addKeyServersFunc(ctx, d)
 		if err != nil {
 			return nil, err
 		}
@@ -31,7 +31,7 @@ func (c *LoadedKluctlProject) buildSopsDecrypter(ctx context.Context, client cli
 	return d, nil
 }
 
-func (c *LoadedKluctlProject) addAwsKeyServers(ctx context.Context, client client.Client, d *decryptor.Decryptor, target *types.Target) error {
+func addAwsKeyServers(ctx context.Context, client client.Client, d *decryptor.Decryptor, target *types.Target) error {
 	cfg, err := aws.LoadAwsConfigHelper(ctx, client, target.Aws, nil)
 	if err != nil {
 		return err

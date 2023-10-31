@@ -223,7 +223,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, contextName, k, targetParams)
+	targetCtx, err := kluctl_project.NewTargetContext(ctx, p, contextName, k, targetParams)
 	if err != nil {
 		return err
 	}

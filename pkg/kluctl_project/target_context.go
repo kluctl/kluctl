@@ -48,7 +48,7 @@ type TargetContextParams struct {
 	RenderOutputDir    string
 }
 
-func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName string, k *k8s.K8sCluster, params TargetContextParams) (*TargetContext, error) {
+func NewTargetContext(ctx context.Context, p *LoadedKluctlProject, contextName string, k *k8s.K8sCluster, params TargetContextParams) (*TargetContext, error) {
 	repoRoot, err := filepath.Abs(p.LoadArgs.RepoRoot)
 	if err != nil {
 		return nil, err
@@ -101,18 +101,11 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		}
 	}
 
-	sopsDecryptor, err := p.buildSopsDecrypter(ctx, client, target)
+	sopsDecryptor, err := buildSopsDecrypter(ctx, p.LoadArgs.ProjectDir, client, target, p.LoadArgs.AddKeyServersFunc)
 	if err != nil {
 		return nil, err
 	}
 	varsLoader := vars.NewVarsLoader(ctx, k, sopsDecryptor, p.GitRP, aws.NewClientFactory(client, target.Aws), gcp.NewClientFactory())
-
-	if params.ForSeal {
-		err = p.loadSecrets(ctx, target, varsCtx, varsLoader)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	dctx := deployment.SharedContext{
 		Ctx:                               ctx,
@@ -136,6 +129,13 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		KluctlProject:  p,
 		Target:         *target,
 		ClusterContext: contextName,
+	}
+
+	if params.ForSeal {
+		err = targetCtx.loadSecrets(ctx, target, varsCtx, varsLoader)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(repoRoot), relProjectDir, nil)
@@ -220,8 +220,8 @@ func (p *LoadedKluctlProject) BuildVars(target *types.Target, forSeal bool) (*va
 	return varsCtx, nil
 }
 
-func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, error) {
-	for _, e := range p.Config.SecretsConfig.SecretSets {
+func (tc *TargetContext) findSecretsEntry(name string) (*types.SecretSet, error) {
+	for _, e := range tc.KluctlProject.Config.SecretsConfig.SecretSets {
 		if e.Name == name {
 			return &e, nil
 		}
@@ -229,11 +229,11 @@ func (p *LoadedKluctlProject) findSecretsEntry(name string) (*types.SecretSet, e
 	return nil, fmt.Errorf("secret Set with name %s was not found", name)
 }
 
-func (p *LoadedKluctlProject) loadSecrets(ctx context.Context, target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
-	searchDirs := []string{p.LoadArgs.ProjectDir}
+func (tc *TargetContext) loadSecrets(ctx context.Context, target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
+	searchDirs := []string{tc.KluctlProject.LoadArgs.ProjectDir}
 
 	for _, secretSetName := range target.SealingConfig.SecretSets {
-		secretEntry, err := p.findSecretsEntry(secretSetName)
+		secretEntry, err := tc.findSecretsEntry(secretSetName)
 		if err != nil {
 			return err
 		}
