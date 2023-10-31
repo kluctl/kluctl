@@ -197,7 +197,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	commandResultId := uuid.NewString()
 
-	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams.TargetName, targetParams.ContextOverride)
+	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams.TargetName, targetParams.ContextOverride, targetParams.OfflineK8s)
 	if err != nil {
 		return err
 	}

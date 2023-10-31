@@ -8,7 +8,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-func (p *LoadedKluctlProject) LoadK8sConfig(ctx context.Context, targetName string, contextOverride string) (*rest.Config, string, error) {
+func (p *LoadedKluctlProject) LoadK8sConfig(ctx context.Context, targetName string, contextOverride string, offlineK8s bool) (*rest.Config, string, error) {
+	if offlineK8s {
+		return nil, "", nil
+	}
+
 	var contextName *string
 	if targetName != "" {
 		t, err := p.FindTarget(targetName)

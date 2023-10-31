@@ -632,7 +632,7 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 		props.ContextOverride = *pt.pp.obj.Spec.Context
 	}
 
-	restConfig, contextName, err := p.LoadK8sConfig(ctx, props.TargetName, props.ContextOverride)
+	restConfig, contextName, err := p.LoadK8sConfig(ctx, props.TargetName, props.ContextOverride, props.OfflineK8s)
 	if err != nil {
 		return nil, err
 	}
