@@ -1,4 +1,4 @@
-package kluctl_project
+package target_context
 
 import (
 	"context"

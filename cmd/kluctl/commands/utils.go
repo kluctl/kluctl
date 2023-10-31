@@ -14,6 +14,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
@@ -134,7 +135,7 @@ type projectTargetCommandArgs struct {
 
 type commandCtx struct {
 	ctx       context.Context
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 	images    *deployment.Images
 
 	resultId    string
@@ -179,7 +180,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		renderOutputDir = tmpDir
 	}
 
-	targetParams := kluctl_project.TargetContextParams{
+	targetParams := target_context.TargetContextParams{
 		TargetName:         args.targetFlags.Target,
 		TargetNameOverride: args.targetFlags.TargetNameOverride,
 		ContextOverride:    args.targetFlags.Context,
@@ -196,7 +197,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	commandResultId := uuid.NewString()
 
-	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams)
+	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams.TargetName, targetParams.ContextOverride)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 	}
 
-	targetCtx, err := kluctl_project.NewTargetContext(ctx, p, contextName, k, targetParams)
+	targetCtx, err := target_context.NewTargetContext(ctx, p, contextName, k, targetParams)
 	if err != nil {
 		return err
 	}

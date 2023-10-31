@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -13,7 +13,7 @@ import (
 )
 
 type ValidateCommand struct {
-	targetCtx     *kluctl_project.TargetContext
+	targetCtx     *target_context.TargetContext
 	r             *result.CommandResult
 	discriminator string
 
@@ -21,7 +21,7 @@ type ValidateCommand struct {
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(discriminator string, targetCtx *kluctl_project.TargetContext, r *result.CommandResult) *ValidateCommand {
+func NewValidateCommand(discriminator string, targetCtx *target_context.TargetContext, r *result.CommandResult) *ValidateCommand {
 	cmd := &ValidateCommand{
 		targetCtx:     targetCtx,
 		r:             r,

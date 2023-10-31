@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -11,7 +11,7 @@ import (
 )
 
 type DeployCommand struct {
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 
 	ForceApply          bool
 	ReplaceOnError      bool
@@ -23,7 +23,7 @@ type DeployCommand struct {
 	WaitPrune           bool
 }
 
-func NewDeployCommand(targetCtx *kluctl_project.TargetContext) *DeployCommand {
+func NewDeployCommand(targetCtx *target_context.TargetContext) *DeployCommand {
 	return &DeployCommand{
 		targetCtx: targetCtx,
 	}

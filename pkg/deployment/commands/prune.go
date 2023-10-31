@@ -5,18 +5,18 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type PruneCommand struct {
 	discriminator string
-	targetCtx     *kluctl_project.TargetContext
+	targetCtx     *target_context.TargetContext
 	wait          bool
 }
 
-func NewPruneCommand(discriminator string, targetCtx *kluctl_project.TargetContext, wait bool) *PruneCommand {
+func NewPruneCommand(discriminator string, targetCtx *target_context.TargetContext, wait bool) *PruneCommand {
 	return &PruneCommand{
 		discriminator: discriminator,
 		targetCtx:     targetCtx,

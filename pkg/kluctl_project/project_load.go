@@ -64,7 +64,7 @@ func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
 	s := status.Start(ctx, "Loading kluctl project")
 	defer s.Failed()
 
-	c.sealedSecretsDir = filepath.Join(c.LoadArgs.ProjectDir, ".sealed-secrets")
+	c.SealedSecretsDir = filepath.Join(c.LoadArgs.ProjectDir, ".sealed-secrets")
 
 	sealedSecretsUsed := false
 	if c.Config.SecretsConfig != nil {

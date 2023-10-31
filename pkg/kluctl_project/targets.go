@@ -27,7 +27,7 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 			continue
 		}
 
-		err = c.renderTarget(target)
+		err = c.RenderTarget(target)
 		if err != nil {
 			status.Warningf(ctx, "Failed to load target %s: %v", target.Name, err)
 			continue
@@ -46,7 +46,7 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 	return nil
 }
 
-func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
+func (c *LoadedKluctlProject) RenderTarget(target *types.Target) error {
 	// Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
 	// to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
 
