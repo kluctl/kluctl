@@ -50,7 +50,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/secretmanager v1.11.2
+	cloud.google.com/go/secretmanager v1.11.3
 	filippo.io/age v1.1.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.8.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.4.0
