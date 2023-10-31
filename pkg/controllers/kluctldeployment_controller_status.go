@@ -71,7 +71,7 @@ func (r *KluctlDeploymentReconciler) patchProjectKey(ctx context.Context, obj *k
 
 	var newProjectKey result.ProjectKey
 	if obj.Spec.Source.Git != nil {
-		repoKey, err := types.NewRepoKeyFromUrl(obj.Spec.Source.Git.URL)
+		repoKey, err := types.NewRepoKeyFromGitUrl(obj.Spec.Source.Git.URL)
 		if err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func (r *KluctlDeploymentReconciler) patchProjectKey(ctx context.Context, obj *k
 			SubDir:  path.Clean(obj.Spec.Source.Oci.Path),
 		}
 	} else if obj.Spec.Source.URL != nil {
-		repoKey, err := types.NewRepoKeyFromUrl(*obj.Spec.Source.URL)
+		repoKey, err := types.NewRepoKeyFromGitUrl(*obj.Spec.Source.URL)
 		if err != nil {
 			return err
 		}

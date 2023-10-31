@@ -35,12 +35,10 @@ func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
 
 	ctx := conn.CloseRead(gctx)
 
-	controllerNamespace := "kluctl-system"
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second, true)
+	logCh, err := logs.WatchControllerLogs(ctx, s.serverCoreV1Client, s.controllerNamespace, client.ObjectKey{Name: args.Name, Namespace: args.Namespace}, args.ReconcileId, 60*time.Second, true)
 	if err != nil {
 		_ = gctx.AbortWithError(http.StatusBadRequest, err)
 		return

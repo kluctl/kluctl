@@ -8,24 +8,32 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ProxyClientController struct {
-	serverId       string
+	client              client.Reader
+	controllerNamespace string
+
+	pubKeyHash     string
 	knownOverrides []RepoOverride
 
-	grpcConn *grpc.ClientConn
-	smClient ProxyClient
+	grpcConn         *grpc.ClientConn
+	smClient         ProxyClient
+	controllerSecret []byte
 
 	cache utils.ThreadSafeCache[types.RepoKey, string]
 }
 
-func NewClientController(serverId string) (*ProxyClientController, error) {
+func NewClientController(c client.Reader, controllerNamespace string, pubKeyHash string) (*ProxyClientController, error) {
 	s := &ProxyClientController{
-		serverId: serverId,
+		client:              c,
+		controllerNamespace: controllerNamespace,
+		pubKeyHash:          pubKeyHash,
 	}
+
 	return s, nil
 }
 
@@ -44,16 +52,25 @@ func (c *ProxyClientController) Cleanup() {
 }
 
 func (c *ProxyClientController) Connect(ctx context.Context, target string) error {
+	cp, _, controllerSecret, err := WaitAndLoadSecret(ctx, c.client, c.controllerNamespace)
+	if err != nil {
+		return err
+	}
+
+	creds := credentials.NewClientTLSFromCert(cp, "")
+
 	grpcConn, err := grpc.DialContext(ctx, target,
 		grpc.WithBlock(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
+		grpc.WithAuthority("source-override"),
 	)
 	if err != nil {
 		return err
 	}
 	c.grpcConn = grpcConn
 	c.smClient = NewProxyClient(c.grpcConn)
+	c.controllerSecret = controllerSecret
 	return nil
 }
 
@@ -76,7 +93,10 @@ func (c *ProxyClientController) ResolveOverride(ctx context.Context, repoKey typ
 
 func (c *ProxyClientController) doResolveOverride(ctx context.Context, repoKey types.RepoKey) (string, error) {
 	msg := &ProxyRequest{
-		ServerId: c.serverId,
+		Auth: &AuthMsg{
+			PubKeyHash:       &c.pubKeyHash,
+			ControllerSecret: c.controllerSecret,
+		},
 		Request: &ResolveOverrideRequest{
 			RepoKey: repoKey.String(),
 		},

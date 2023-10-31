@@ -263,20 +263,28 @@ func (g *gitopsCmdHelper) autoDetectDeployment(ctx context.Context) error {
 
 	var matching []v1beta1.KluctlDeployment
 	for _, kd := range l.Items {
+		isGit := false
 		var u, subDir string
 		if kd.Spec.Source.Git != nil {
+			isGit = true
 			u = kd.Spec.Source.Git.URL
 			subDir = kd.Spec.Source.Git.Path
 		} else if kd.Spec.Source.Oci != nil {
 			u = kd.Spec.Source.Oci.URL
 			subDir = kd.Spec.Source.Oci.Path
 		} else if kd.Spec.Source.URL != nil {
+			isGit = true
 			u = *kd.Spec.Source.URL
 			subDir = kd.Spec.Source.Path
 		}
-		repoKey, err := types.NewRepoKeyFromUrl(u)
+		var repoKey types.RepoKey
+		if isGit {
+			repoKey, err = types.NewRepoKeyFromGitUrl(u)
+		} else {
+			repoKey, err = types.NewRepoKeyFromUrl(u)
+		}
 		if err != nil {
-			status.Warningf(ctx, "Failed to determine repo key for KluctlDeployment %s/%s with source url %s", kd.Namespace, kd.Name, kd.Spec.Source.Git.URL)
+			status.Warningf(ctx, "Failed to determine repo key for KluctlDeployment %s/%s with source url %s: %s", kd.Namespace, kd.Name, u, err.Error())
 			continue
 		}
 
@@ -711,7 +719,7 @@ func (g *gitopsCmdHelper) watchLogs(ctx context.Context, stopCh chan struct{}, k
 		status.Infof(ctx, "Watching logs for %s/%s...", key.Namespace, key.Name)
 	}
 
-	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, "kluctl-system", key, reconcileId, g.logsArgs.LogSince, follow)
+	logsCh, err := logs.WatchControllerLogs(ctx, g.corev1Client, g.args.ControllerNamespace, key, reconcileId, g.logsArgs.LogSince, follow)
 	if err != nil {
 		return err
 	}
@@ -812,8 +820,7 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 		return err
 	}
 
-	controllerNamespace := "kluctl-system"
-	pods, err := g.corev1Client.Pods(controllerNamespace).List(ctx, metav1.ListOptions{
+	pods, err := g.corev1Client.Pods(g.args.ControllerNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "control-plane=kluctl-controller",
 	})
 	if err != nil {
@@ -824,7 +831,7 @@ func (g *gitopsCmdHelper) initSourceOverrides(ctx context.Context) error {
 		pod = &pods.Items[rand.Int()%len(pods.Items)]
 	}
 
-	soClient, err := sourceoverride.NewClientCli(ctx, g.soResolver)
+	soClient, err := sourceoverride.NewClientCli(ctx, g.client, g.args.ControllerNamespace, g.soResolver)
 	if err != nil {
 		return err
 	}

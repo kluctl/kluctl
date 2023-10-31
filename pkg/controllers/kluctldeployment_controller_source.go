@@ -78,7 +78,7 @@ func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Con
 
 		serverId := strings.TrimPrefix(u.Path, "/")
 
-		c, err := sourceoverride.NewClientController(serverId)
+		c, err := sourceoverride.NewClientController(r.Client, r.ControllerNamespace, serverId)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create source override client: %w", err)
 		}

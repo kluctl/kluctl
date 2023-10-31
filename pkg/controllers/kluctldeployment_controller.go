@@ -35,6 +35,7 @@ type KluctlDeploymentReconciler struct {
 	EventRecorder         kuberecorder.EventRecorder
 	MetricsRecorder       *metrics.Recorder
 	ControllerName        string
+	ControllerNamespace   string
 	DefaultServiceAccount string
 	DryRun                bool
 

@@ -30,6 +30,7 @@ GitOps arguments:
   Specify gitops flags.
 
       --context string                   Override the context to use.
+      --controller-namespace string      The namespace where the controller runs in. (default "kluctl-system")
   -l, --label-selector string            If specified, KluctlDeployments are searched and filtered by this label
                                          selector.
       --local-source-override-port int   Specifies the local port to which the source-override client should

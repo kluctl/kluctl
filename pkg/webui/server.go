@@ -38,6 +38,8 @@ type CommandResultsServer struct {
 	store results.ResultStore
 	cam   *clusterAccessorManager
 
+	controllerNamespace string
+
 	// this is the client for the k8s cluster where the server runs on
 	serverClient       client.Client
 	serverCoreV1Client *corev1.CoreV1Client
@@ -52,6 +54,7 @@ func NewCommandResultsServer(
 	ctx context.Context,
 	store *results.ResultsCollector,
 	configs []*rest.Config,
+	controllerNamespace string,
 	serverConfig *rest.Config,
 	serverClient client.Client,
 	authConfig AuthConfig,
@@ -77,7 +80,7 @@ func NewCommandResultsServer(
 
 	ret.events = newEventsHandler(ret)
 
-	ret.auth, err = newAuthHandler(ctx, serverClient, authConfig)
+	ret.auth, err = newAuthHandler(ctx, serverClient, controllerNamespace, authConfig)
 	if err != nil {
 		return nil, err
 	}

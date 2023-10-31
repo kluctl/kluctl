@@ -10,6 +10,7 @@ import (
 	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -86,6 +87,9 @@ func (suite *GitopsTestSuite) startController() {
 		suite.T().Fatal(err)
 	}
 
+	controllerNamespace := suite.gitopsNamespace + "-system"
+	createNamespace(suite.T(), suite.k, controllerNamespace)
+
 	suite.sourceOverridePort = port_tool.NextFreePort("127.0.0.1")
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -100,6 +104,8 @@ func (suite *GitopsTestSuite) startController() {
 		suite.gitopsNamespace,
 		"--command-result-namespace",
 		suite.gitopsNamespace + "-results",
+		"--controller-namespace",
+		controllerNamespace,
 		"--metrics-bind-address=0",
 		"--health-probe-bind-address=0",
 		fmt.Sprintf("--source-override-bind-address=localhost:%d", suite.sourceOverridePort),
@@ -115,6 +121,11 @@ func (suite *GitopsTestSuite) startController() {
 		}
 		close(done)
 	}()
+
+	_, _, _, err = sourceoverride.WaitAndLoadSecret(ctx, suite.k.Client, controllerNamespace)
+	if err != nil {
+		suite.T().Fatal(err)
+	}
 
 	cancel := func() {
 		ctxCancel()

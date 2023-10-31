@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
@@ -40,7 +41,9 @@ type controllerRunCmd struct {
 
 	Kubeconfig string `group:"misc" help:"Override the kubeconfig to use."`
 	Context    string `group:"misc" help:"Override the context to use."`
-	Namespace  string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
+
+	ControllerNamespace string `group:"misc" help:"The namespace where the controller runs in." default:"kluctl-system"`
+	Namespace           string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
 
 	MetricsBindAddress        string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
 	HealthProbeBindAddress    string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
@@ -103,7 +106,8 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	var cacheNamespaces map[string]cache.Config
 	if cmd.Namespace != "" {
 		cacheNamespaces = map[string]cache.Config{
-			cmd.Namespace: {},
+			cmd.ControllerNamespace: {},
+			cmd.Namespace:           {},
 		}
 	}
 
@@ -138,13 +142,25 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		os.Exit(1)
 	}
 
+	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		if cmd.SourceOverrideBindAddress == "0" {
+			return nil
+		}
+		setupLog.Info("Initializing source-override server TLS")
+		return sourceoverride.InitControllerSecret(ctx, mgr.GetClient(), cmd.ControllerNamespace)
+	}))
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
 	eventRecorder := mgr.GetEventRecorderFor(controllerName)
 
 	sshPool := &ssh_pool.SshPool{}
 
 	var soProxyServer *sourceoverride.ProxyServerImpl
 	if cmd.SourceOverrideBindAddress != "0" {
-		soProxyServer = sourceoverride.NewProxyServerImpl(ctx)
+		soProxyServer = sourceoverride.NewProxyServerImpl(ctx, mgr.GetAPIReader(), cmd.ControllerNamespace)
 		_, err := soProxyServer.Listen(cmd.SourceOverrideBindAddress)
 		if err != nil {
 			return err
@@ -157,6 +173,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 
 	r := controllers.KluctlDeploymentReconciler{
 		ControllerName:        controllerName,
+		ControllerNamespace:   cmd.ControllerNamespace,
 		DefaultServiceAccount: cmd.DefaultServiceAccount,
 		DryRun:                cmd.DryRun,
 		RestConfig:            restConfig,

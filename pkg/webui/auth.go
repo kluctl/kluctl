@@ -54,7 +54,8 @@ type login struct {
 type authHandler struct {
 	ctx context.Context
 
-	serverClient client.Client
+	serverClient        client.Client
+	controllerNamespace string
 
 	authConfig AuthConfig
 
@@ -72,11 +73,12 @@ type User struct {
 	IsAdmin  bool   `json:"isAdmin"`
 }
 
-func newAuthHandler(ctx context.Context, serverClient client.Client, authConfig AuthConfig) (*authHandler, error) {
+func newAuthHandler(ctx context.Context, serverClient client.Client, controllerNamespace string, authConfig AuthConfig) (*authHandler, error) {
 	ret := &authHandler{
-		ctx:          ctx,
-		authConfig:   authConfig,
-		serverClient: serverClient,
+		ctx:                 ctx,
+		authConfig:          authConfig,
+		serverClient:        serverClient,
+		controllerNamespace: controllerNamespace,
 	}
 
 	if serverClient == nil {
@@ -256,8 +258,8 @@ func (s *authHandler) getSecret(secretName string, secretKey string, allowGenera
 		return "", fmt.Errorf("no serverClient set")
 	}
 	if allowGenerate {
-		return k8s.GetOrGenerateSingleSecret(s.ctx, s.serverClient, secretName, "kluctl-system", secretKey, "kluctl-webui")
+		return k8s.GetOrGenerateSingleSecret(s.ctx, s.serverClient, secretName, s.controllerNamespace, secretKey, "kluctl-webui")
 	} else {
-		return k8s.GetSingleSecret(s.ctx, s.serverClient, secretName, "kluctl-system", secretKey)
+		return k8s.GetSingleSecret(s.ctx, s.serverClient, secretName, s.controllerNamespace, secretKey)
 	}
 }

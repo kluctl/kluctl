@@ -32,6 +32,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 	g := NewWithT(suite.T())
 
 	p := test_project.NewTestProject(suite.T())
+	p.AddExtraArgs("--controller-namespace", suite.gitopsNamespace+"-system")
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
 	p.UpdateTarget("target1", nil)
@@ -236,6 +237,7 @@ func (suite *GitOpsManualRequestsSuite) TestManualRequests() {
 
 func (suite *GitOpsManualRequestsSuite) TestOverrides() {
 	p := test_project.NewTestProject(suite.T())
+	p.AddExtraArgs("--controller-namespace", suite.gitopsNamespace+"-system")
 	createNamespace(suite.T(), suite.k, p.TestSlug())
 
 	p.UpdateTarget("target1", nil)
