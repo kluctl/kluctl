@@ -7,20 +7,23 @@ import (
 )
 
 type DeploymentItemConfig struct {
-	Path             *string                  `json:"path,omitempty"`
-	Include          *string                  `json:"include,omitempty"`
-	Git              *GitProject              `json:"git,omitempty"`
-	Oci              *OciProject              `json:"oci,omitempty"`
-	Tags             []string                 `json:"tags,omitempty"`
-	Barrier          bool                     `json:"barrier,omitempty"`
-	Message          *string                  `json:"message,omitempty"`
-	WaitReadiness    bool                     `json:"waitReadiness,omitempty"`
-	Vars             []*VarsSource            `json:"vars,omitempty"`
-	SkipDeleteIfTags bool                     `json:"skipDeleteIfTags,omitempty"`
-	OnlyRender       bool                     `json:"onlyRender,omitempty"`
-	AlwaysDeploy     bool                     `json:"alwaysDeploy,omitempty"`
-	DeleteObjects    []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
-	When             string                   `json:"when,omitempty"`
+	Path          *string                  `json:"path,omitempty"`
+	Include       *string                  `json:"include,omitempty"`
+	Git           *GitProject              `json:"git,omitempty"`
+	Oci           *OciProject              `json:"oci,omitempty"`
+	DeleteObjects []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
+
+	Tags          []string `json:"tags,omitempty"`
+	Barrier       bool     `json:"barrier,omitempty"`
+	Message       *string  `json:"message,omitempty"`
+	WaitReadiness bool     `json:"waitReadiness,omitempty"`
+
+	Vars []*VarsSource `json:"vars,omitempty"`
+
+	SkipDeleteIfTags bool   `json:"skipDeleteIfTags,omitempty"`
+	OnlyRender       bool   `json:"onlyRender,omitempty"`
+	AlwaysDeploy     bool   `json:"alwaysDeploy,omitempty"`
+	When             string `json:"when,omitempty"`
 
 	// these are only allowed when writing the command result
 	RenderedHelmChartConfig *HelmChartConfig         `json:"renderedHelmChartConfig,omitempty"`
