@@ -239,33 +239,31 @@ func (p *DeploymentProject) loadIncludes() error {
 }
 
 func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, inc *types.DeploymentItemConfig) (*DeploymentProject, error) {
-	var varsCtx *vars.VarsCtx
-	if yaml.Exists(filepath.Join(incDir, ".kluctl.yaml")) {
-		loadArgs := kluctl_project.LoadKluctlProjectArgs{
-			RepoRoot:     source.dir,
-			ProjectDir:   filepath.Join(source.dir, incDir),
-			ExternalArgs: inc.Args,
-		}
-		lp, err := kluctl_project.LoadKluctlProject(p.ctx.Ctx, loadArgs, p.VarsCtx.J2)
-		if err != nil {
-			return nil, err
-		}
+	varsCtx := vars.NewVarsCtx(p.VarsCtx.J2)
 
-		if lp.Config.Discriminator != "" {
-			status.Warningf(p.ctx.Ctx, "Included project defines a discriminator (%s) that will be ignored", lp.Config.Discriminator)
-		}
-
-		varsCtx, err = lp.BuildVars(nil, false)
+	libraryFile := yaml.FixPathExt(filepath.Join(source.dir, incDir, ".kluctl-library.yaml"))
+	if yaml.Exists(libraryFile) {
+		var lib types.KluctlLibraryProject
+		err := yaml.ReadYamlFile(libraryFile, &lib)
 		if err != nil {
 			return nil, err
 		}
 
 		if inc.PassVars {
-			x := p.VarsCtx.Vars.Clone()
-			_ = x.RemoveNestedField("args") // args should not be merged but taken 1:1
-			x.Merge(varsCtx.Vars)
-			varsCtx.Vars = x
+			varsCtx.Vars = p.VarsCtx.Vars.Clone()
+			_ = varsCtx.Vars.RemoveNestedField("args") // args should not be merged but taken 1:1
 		}
+
+		args := uo.New()
+		if inc.Args != nil {
+			args = inc.Args.Clone()
+		}
+
+		err = kluctl_project.LoadDefaultArgs(lib.Args, args)
+		if err != nil {
+			return nil, err
+		}
+		varsCtx.UpdateChild("args", args)
 	} else {
 		varsCtx = p.VarsCtx.Copy()
 	}
