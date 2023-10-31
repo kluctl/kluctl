@@ -88,7 +88,7 @@ func (p *LoadedKluctlProject) NewTargetContext(ctx context.Context, contextName 
 		}
 	}
 
-	varsCtx, err := p.buildVars(target, params.ForSeal)
+	varsCtx, err := p.BuildVars(target, params.ForSeal)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (p *LoadedKluctlProject) LoadK8sConfig(ctx context.Context, params TargetCo
 	return clientConfig, *contextName, nil
 }
 
-func (p *LoadedKluctlProject) buildVars(target *types.Target, forSeal bool) (*vars.VarsCtx, error) {
+func (p *LoadedKluctlProject) BuildVars(target *types.Target, forSeal bool) (*vars.VarsCtx, error) {
 	varsCtx := vars.NewVarsCtx(p.J2)
 
 	targetVars, err := uo.FromStruct(target)

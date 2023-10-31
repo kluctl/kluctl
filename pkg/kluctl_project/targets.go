@@ -52,7 +52,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 
 	var retErr error
 	for i := 0; i < 10; i++ {
-		varsCtx, err := c.buildVars(target, false)
+		varsCtx, err := c.BuildVars(target, false)
 		if err != nil {
 			return err
 		}

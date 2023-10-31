@@ -23,7 +23,7 @@ func (uo *UnstructuredObject) UnmarshalJSON(b []byte) error {
 }
 
 func (uo *UnstructuredObject) IsZero() bool {
-	return len(uo.Object) == 0
+	return uo == nil || len(uo.Object) == 0
 }
 
 func New() *UnstructuredObject {

@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -192,7 +193,7 @@ func (p *DeploymentProject) loadIncludes() error {
 		}
 
 		if inc.Include != nil {
-			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc.Vars)
+			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc)
 			if err != nil {
 				return err
 			}
@@ -210,7 +211,7 @@ func (p *DeploymentProject) loadIncludes() error {
 			if err != nil {
 				return err
 			}
-			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc.Vars)
+			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc)
 			if err != nil {
 				return err
 			}
@@ -223,7 +224,7 @@ func (p *DeploymentProject) loadIncludes() error {
 			if err != nil {
 				return err
 			}
-			newProject, err = p.loadLocalInclude(NewSource(extractedDir), inc.Oci.SubDir, inc.Vars)
+			newProject, err = p.loadLocalInclude(NewSource(extractedDir), inc.Oci.SubDir, inc)
 			if err != nil {
 				return err
 			}
@@ -237,9 +238,39 @@ func (p *DeploymentProject) loadIncludes() error {
 	return nil
 }
 
-func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
-	varsCtx := p.VarsCtx.Copy()
-	err := p.loadVarsList(varsCtx, vars)
+func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, inc *types.DeploymentItemConfig) (*DeploymentProject, error) {
+	var varsCtx *vars.VarsCtx
+	if yaml.Exists(filepath.Join(incDir, ".kluctl.yaml")) {
+		loadArgs := kluctl_project.LoadKluctlProjectArgs{
+			RepoRoot:     source.dir,
+			ProjectDir:   filepath.Join(source.dir, incDir),
+			ExternalArgs: inc.Args,
+		}
+		lp, err := kluctl_project.LoadKluctlProject(p.ctx.Ctx, loadArgs, p.VarsCtx.J2)
+		if err != nil {
+			return nil, err
+		}
+
+		if lp.Config.Discriminator != "" {
+			status.Warningf(p.ctx.Ctx, "Included project defines a discriminator (%s) that will be ignored", lp.Config.Discriminator)
+		}
+
+		varsCtx, err = lp.BuildVars(nil, false)
+		if err != nil {
+			return nil, err
+		}
+
+		if inc.PassVars {
+			x := p.VarsCtx.Vars.Clone()
+			_ = x.RemoveNestedField("args") // args should not be merged but taken 1:1
+			x.Merge(varsCtx.Vars)
+			varsCtx.Vars = x
+		}
+	} else {
+		varsCtx = p.VarsCtx.Copy()
+	}
+
+	err := p.loadVarsList(varsCtx, inc.Vars)
 	if err != nil {
 		return nil, err
 	}

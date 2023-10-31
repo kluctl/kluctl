@@ -3,6 +3,7 @@ package types
 import (
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
@@ -18,7 +19,9 @@ type DeploymentItemConfig struct {
 	Message       *string  `json:"message,omitempty"`
 	WaitReadiness bool     `json:"waitReadiness,omitempty"`
 
-	Vars []*VarsSource `json:"vars,omitempty"`
+	Args     *uo.UnstructuredObject `json:"args,omitempty"`
+	PassVars bool                   `json:"passVars,omitempty"`
+	Vars     []*VarsSource          `json:"vars,omitempty"`
 
 	SkipDeleteIfTags bool   `json:"skipDeleteIfTags,omitempty"`
 	OnlyRender       bool   `json:"onlyRender,omitempty"`
@@ -34,23 +37,33 @@ type DeploymentItemConfig struct {
 func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeploymentItemConfig)
 	cnt := 0
+	isInclude := false
 	if s.Path != nil {
 		cnt += 1
 	}
 	if s.Include != nil {
 		cnt += 1
+		isInclude = true
 	}
 	if s.Git != nil {
 		cnt += 1
+		isInclude = true
 	}
 	if s.Oci != nil {
 		cnt += 1
+		isInclude = true
 	}
 	if cnt > 1 {
 		sl.ReportError(s, "self", "self", "only one of path, include, git and oci can be set at the same time", "")
 	}
 	if s.Path == nil && s.WaitReadiness {
 		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")
+	}
+	if !s.Args.IsZero() && !isInclude {
+		sl.ReportError(s, "self", "self", "args are only allowed when another project is included (via include, git or oci)", "")
+	}
+	if s.PassVars && !isInclude {
+		sl.ReportError(s, "self", "self", "passVars is only allowed when another project is included (via include, git or oci)", "")
 	}
 }
 
