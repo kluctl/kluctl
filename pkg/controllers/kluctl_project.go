@@ -144,7 +144,9 @@ func prepareProject(ctx context.Context,
 	}
 
 	if doCloneSource {
+		pth := ""
 		if pp.obj.Spec.Source.Git != nil {
+			pth = pp.obj.Spec.Source.Git.Path
 			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.Git.URL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to clone git source: %w", err)
@@ -155,6 +157,7 @@ func prepareProject(ctx context.Context,
 				return nil, err
 			}
 		} else if pp.obj.Spec.Source.Oci != nil {
+			pth = pp.obj.Spec.Source.Oci.Path
 			rpEntry, err := pp.ociRP.GetEntry(pp.obj.Spec.Source.Oci.URL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to pull OCI source: %w", err)
@@ -165,6 +168,7 @@ func prepareProject(ctx context.Context,
 				return nil, err
 			}
 		} else if pp.obj.Spec.Source.URL != nil {
+			pth = pp.obj.Spec.Source.Path
 			rpEntry, err := pp.gitRP.GetEntry(*pp.obj.Spec.Source.URL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to clone git source: %w", err)
@@ -179,7 +183,7 @@ func prepareProject(ctx context.Context,
 		}
 
 		// check kluctl project path exists
-		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.Spec.Source.Path)
+		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pth)
 		if err != nil {
 			return pp, err
 		}

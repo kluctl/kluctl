@@ -313,22 +313,31 @@ interval at which forced deployments must be performed by the controller.
 The KluctlDeployment reconciliation can be suspended by setting `spec.suspend` to `true`. Suspension will however not
 prevent manual reconciliation requests via the `kluctl gitops` sub-commands.
 
+## Manual requests/reconciliation
+
 The controller can be told to reconcile the KluctlDeployment outside of the specified interval
-by annotating the KluctlDeployment object with `kluctl.io/request-reconcile`.
+by using the [`kluctl gitops`](../../../kluctl/commands/README.md) sub-commands.
 
 On-demand reconciliation example:
 
 ```bash
-kubectl annotate --overwrite kluctldeployment/microservices-demo-prod kluctl.io/request-reconcile="$(date +%s)"
+kluctl gitops deploy --namespace my-namespace --name my-deployment
 ```
 
-Similarly, a deployment can be forced even if the source has not changed by using the  `kluctl.io/request-deploy`
-annotation:
+You can also perform manual requests while temporarily overriding deployment configurations, e.g.:
 
 ```bash
-kubectl annotate --overwrite kluctldeployment/microservices-demo-prod kluctl.io/request-deploy="$(date +%s)"
+kluctl gitops deploy --namespace my-namespace --name my-deployment --force-apply
 ```
 
+Local source overrides are also possible, allowing you to test changes before pushing them:
+
+```bash
+kluctl gitops diff --namespace my-namespace --name my-deployment --local-git-override=github.com/exaple-org/example-project=/local/path/to/modified/repo
+```
+
+When `--namespace` and `--name` are omitted, the CLI will try to auto-detect the deployment on the current cluster
+and suggest the auto-detected deployment to you.
 
 ## Kubeconfigs and RBAC
 
