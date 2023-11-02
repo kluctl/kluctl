@@ -25,9 +25,9 @@ fi
 echo VERSION=$VERSION
 
 FILES=""
-FILES="$FILES install/controller/.kluctl.yaml"
+FILES="$FILES install/controller/.kluctl-library.yaml"
 FILES="$FILES install/controller/controller/kustomization.yaml"
-FILES="$FILES install/webui/.kluctl.yaml"
+FILES="$FILES install/webui/.kluctl-library.yaml"
 FILES="$FILES install/webui/webui/deployment.yaml"
 FILES="$FILES install/webui/webui/kustomization.yaml"
 FILES="$FILES docs/kluctl/installation.md"
