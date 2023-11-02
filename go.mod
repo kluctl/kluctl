@@ -46,7 +46,7 @@ require (
 	k8s.io/client-go v0.28.3
 	k8s.io/klog/v2 v2.110.1
 	sigs.k8s.io/kustomize/kyaml v0.15.0
-	sigs.k8s.io/structured-merge-diff/v4 v4.3.0
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 )
 
 require (
