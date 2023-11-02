@@ -159,8 +159,8 @@ github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6r
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bitly/go-simplejson v0.5.0 h1:6IH+V8/tVMab511d5bn4M7EwGXZf9Hj6i2xSwkNEM+Y=
 github.com/bitly/go-simplejson v0.5.0/go.mod h1:cXHtHw4XUPsvGaxgjIAn8PhEWG9NfngEKAMDJEczWVA=
-github.com/bitnami-labs/sealed-secrets v0.24.2 h1:6RELDjQk+1WvrgkOJX9Y3aRyMBda3JWKuP7Qoi7Ee2M=
-github.com/bitnami-labs/sealed-secrets v0.24.2/go.mod h1:uQUgGnyOmGPUb6tCMRdhOKKHo2xJGwoxSqDYaWZZ+Hc=
+github.com/bitnami-labs/sealed-secrets v0.24.3 h1:J68juzuXcCPco0tYCFV9AUSEoR8MB3pFbLxQlHhDS/s=
+github.com/bitnami-labs/sealed-secrets v0.24.3/go.mod h1:7JlsRLoSaQx6dF30j38GpFXZWz06KKj5TiNoUmAma3c=
 github.com/blang/semver v3.5.1+incompatible h1:cQNTCjp13qL8KC3Nbxr/y2Bqb63oX6wdnnjpJbkM4JQ=
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/bshuster-repo/logrus-logstash-hook v1.0.0 h1:e+C0SB5R1pu//O4MQ3f9cFuPGoOVeF2fE4Og9otCc70=
