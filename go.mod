@@ -55,13 +55,13 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.8.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
-	github.com/aws/aws-sdk-go-v2 v1.22.1
-	github.com/aws/aws-sdk-go-v2/config v1.21.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.15.0
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.22.0
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.23.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.25.0
-	github.com/aws/smithy-go v1.16.0
+	github.com/aws/aws-sdk-go-v2 v1.24.0
+	github.com/aws/aws-sdk-go-v2/config v1.26.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.11
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.24.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.25.4
+	github.com/aws/aws-sdk-go-v2/service/sts v1.26.4
+	github.com/aws/smithy-go v1.19.0
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2
@@ -119,14 +119,15 @@ require (
 	github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.5.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.1 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.10 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/kms v1.24.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.17.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.18.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.21.4 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
