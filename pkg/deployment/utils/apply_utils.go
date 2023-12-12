@@ -329,12 +329,11 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 	}
 	r, apiWarnings, err := a.k.ApplyObject(x2, options)
 	a.handleApiWarnings(ref, apiWarnings)
-	if err != nil {
-		// We didn't manage to solve it, better to abort (and not retry with replace!)
-		a.HandleError(ref, err)
-		return
+	if err == nil {
+		a.handleResult(r, hook)
+	} else {
+		a.retryApplyForceReplace(x, hook, remoteObject, err)
 	}
-	a.handleResult(r, hook)
 }
 
 func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bool) {
