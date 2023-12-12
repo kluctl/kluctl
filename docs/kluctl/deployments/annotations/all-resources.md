@@ -70,6 +70,10 @@ This tag is especially useful and required on resources that would otherwise cau
 do not match the specified inclusion/exclusion tags. Namespaces are the most prominent example of such resources, as
 they most likely don't match exclusion tags, but cascaded deletion would still cause deletion of the excluded resources.
 
+### kluctl.io/force-managed
+If set to "true", Kluctl will always treat the annotated resource as being managed by Kluctl, meaning that it will
+consider it for deletion and pruning even if a foreign field manager resets/removes the Kluctl field manager.
+
 ## Control diff behavior
 
 The following annotations control how diffs are performed.
