@@ -150,7 +150,7 @@ var helmTests = []helmTestCase{
 	{
 		name: "oci-creds-missing", oci: true, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "401 Unauthorized",
+		expectedError: "no basic auth credentials",
 	},
 	{
 		name: "oci-creds-invalid", oci: true, testAuth: true,
@@ -164,7 +164,7 @@ var helmTests = []helmTestCase{
 	{
 		name: "oci-creds-missing-path", oci: true, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart2", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "401 Unauthorized",
+		expectedError: "no basic auth credentials",
 	},
 	{
 		name: "oci-creds-invalid-path", oci: true, testAuth: true,
