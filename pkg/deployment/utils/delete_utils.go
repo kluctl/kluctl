@@ -122,7 +122,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 				break
 			}
 		}
-		if !found {
+		if !found && !o.GetK8sAnnotationBoolNoError("kluctl.io/force-managed", false) {
 			// This object is not managed by kluctl, so we shouldn't delete it
 			continue
 		}
