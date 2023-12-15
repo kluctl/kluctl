@@ -40,10 +40,10 @@ require (
 	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0
 	helm.sh/helm/v3 v3.13.3
-	k8s.io/api v0.28.4
-	k8s.io/apiextensions-apiserver v0.28.4
-	k8s.io/apimachinery v0.28.4
-	k8s.io/client-go v0.28.4
+	k8s.io/api v0.29.0
+	k8s.io/apiextensions-apiserver v0.29.0
+	k8s.io/apimachinery v0.29.0
+	k8s.io/client-go v0.29.0
 	k8s.io/klog/v2 v2.110.1
 	sigs.k8s.io/kustomize/kyaml v0.16.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
@@ -194,6 +194,7 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.2.2 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
 	github.com/goware/prefixer v0.0.0-20160118172347-395022866408 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
@@ -237,6 +238,7 @@ require (
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
 	github.com/opencontainers/runc v1.1.6 // indirect
@@ -297,9 +299,9 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.28.4 // indirect
+	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/cli-runtime v0.28.4 // indirect
-	k8s.io/component-base v0.28.4 // indirect
+	k8s.io/component-base v0.29.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20231206194836-bf4651e18aa8 // indirect
 	k8s.io/kubectl v0.28.4 // indirect
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661 // indirect
