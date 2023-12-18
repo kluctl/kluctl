@@ -1,8 +1,8 @@
 <!-- This comment is uncommented when auto-synced to www-kluctl.io
 
 ---
-title: "Kluctl Libraries"
-linkTitle: "Kluctl Libraries"
+title: "Kluctl Library Projects"
+linkTitle: "Kluctl Library Projects"
 weight: 1
 description: >
     Kluctl library project configuration, found in the .kluctl-library.yaml file.
