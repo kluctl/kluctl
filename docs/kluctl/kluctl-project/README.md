@@ -3,7 +3,7 @@
 ---
 title: "Kluctl Projects"
 linkTitle: "Kluctl Projects"
-weight: 1
+weight: 10
 description: >
     Kluctl project configuration, found in the .kluctl.yaml file.
 ---

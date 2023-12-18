@@ -4,7 +4,7 @@
 title: Running locally
 linkTitle: Running locally
 description: Running the Kluctl Webui locally
-weight: 30
+weight: 20
 ---
 -->
 

@@ -4,7 +4,7 @@
 title: Azure AD Integration
 linkTitle: Azure AD Integration
 description: Azure AD Integration
-weight: 20
+weight: 30
 ---
 -->
 

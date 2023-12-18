@@ -3,7 +3,7 @@
 ---
 title: "Deployments"
 linkTitle: "Deployments"
-weight: 2
+weight: 30
 description: >
     Deployments and sub-deployments.
 ---
