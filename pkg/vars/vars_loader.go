@@ -23,8 +23,10 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/vault"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -114,9 +116,12 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 	} else if source.Git != nil {
 		newVars, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
-		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
+		newVars, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
-		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
+		newVars, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
+		sensitive = true
+	} else if source.ClusterObject != nil {
+		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterObject, ignoreMissing)
 		sensitive = true
 	} else if source.SystemEnvVars != nil {
 		newVars, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
@@ -335,7 +340,7 @@ func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *typ
 	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir})
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, ignoreMissing bool, base64Decode bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, ignoreMissing bool, base64Decode bool) (*uo.UnstructuredObject, error) {
 	if v.k == nil {
 		return nil, fmt.Errorf("loading vars from cluster is disabled")
 	}
@@ -425,6 +430,142 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		}
 		return newVars, nil
 	}
+}
+
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterObject, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+	if v.k == nil {
+		return nil, fmt.Errorf("loading vars from cluster is disabled")
+	}
+
+	var err error
+
+	var gvk schema.GroupVersionKind
+	if varsSource.ApiVersion != "" {
+		gv, err := schema.ParseGroupVersion(varsSource.ApiVersion)
+		if err != nil {
+			return nil, err
+		}
+		gvk.Kind = varsSource.Kind
+		gvk.Group = gv.Group
+		gvk.Version = gv.Version
+	} else {
+		gvks, err := v.k.GetFilteredPreferredGVKs(func(ar *metav1.APIResource) bool {
+			return ar.Kind == varsSource.Kind
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(gvks) == 0 {
+			return nil, fmt.Errorf("no matching resource found for kind %s", varsSource.Kind)
+		}
+		if len(gvks) != 1 {
+			return nil, fmt.Errorf("more then one matching resources found for kind %s, consider also specifying apiVersion", varsSource.Kind)
+		}
+		gvk = gvks[0]
+	}
+
+	var objs []*uo.UnstructuredObject
+	if varsSource.Name != "" {
+		o, _, err := v.k.GetSingleObject(k8s2.NewObjectRef(gvk.Group, gvk.Version, gvk.Kind, varsSource.Name, varsSource.Namespace))
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		}
+		if o != nil {
+			objs = append(objs, o)
+		}
+	} else {
+		objs, _, err = v.k.ListObjects(gvk, varsSource.Namespace, varsSource.Labels)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// we want stable sorting
+	sort.Slice(objs, func(i, j int) bool {
+		return objs[i].GetK8sRef().Less(objs[j].GetK8sRef())
+	})
+
+	if len(objs) == 0 {
+		if ignoreMissing {
+			return uo.New(), nil
+		}
+		return nil, fmt.Errorf("no object found")
+	}
+	if len(objs) != 1 {
+		if !varsSource.List {
+			return nil, fmt.Errorf("found more than one object")
+		}
+	}
+
+	path, err := uo.NewMyJsonPath(varsSource.Path)
+	if err != nil {
+		return nil, fmt.Errorf("invalid json path %s: %w", varsSource.Path, err)
+	}
+
+	var values []any
+	for _, o := range objs {
+		ref := o.GetK8sRef()
+
+		doError := func(err error) (*uo.UnstructuredObject, error) {
+			return nil, fmt.Errorf("failed to load vars from kubernetes object %s and json path %s: %w", ref.String(), varsSource.Path, err)
+		}
+
+		valList := path.Get(o)
+		if len(valList) == 0 {
+			if ignoreMissing {
+				return uo.New(), nil
+			}
+			return doError(fmt.Errorf("json path not found"))
+		} else if len(valList) > 1 {
+			return doError(fmt.Errorf("json path resulted in multiple matches"))
+		}
+		val := valList[0]
+
+		if varsSource.Render {
+			if s, ok := val.(string); ok {
+				s2, err := varsCtx.RenderString(s, nil)
+				if err != nil {
+					return doError(err)
+				}
+				val = s2
+			} else if m, ok := val.(map[string]any); ok {
+				_, err := varsCtx.RenderStruct(m)
+				if err != nil {
+					return doError(err)
+				}
+				val = m
+			}
+		}
+
+		if varsSource.ParseYaml {
+			s, ok := val.(string)
+			if !ok {
+				return doError(fmt.Errorf("value is not a string, but parsing YAML was requested"))
+			}
+			x, err := uo.FromString(s)
+			if err != nil {
+				return doError(err)
+			}
+			val = x
+		}
+
+		values = append(values, val)
+	}
+
+	p, err := uo.NewMyJsonPath(varsSource.TargetPath)
+	if err != nil {
+		return nil, err
+	}
+	newVars := uo.New()
+	if varsSource.List {
+		err = p.SetOne(newVars, values)
+	} else {
+		err = p.SetOne(newVars, values[0])
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to set vars on path %s: %w", varsSource.TargetPath, err)
+	}
+	return newVars, nil
 }
 
 func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string) (*uo.UnstructuredObject, error) {

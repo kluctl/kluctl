@@ -546,6 +546,345 @@ func (s *VarsLoaderTestSuite) TestK8sObjectLabels() {
 	})
 }
 
+func (s *VarsLoaderTestSuite) TestClusterObject() {
+	s.createNamespace()
+
+	cm1 := corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "cm1",
+			Namespace: s.namespace(),
+			Labels: map[string]string{
+				"label1": "lv1",
+				"label2": "42",
+				"label3": "x",
+			},
+			Annotations: map[string]string{
+				"yaml":          `{"x": 45}`,
+				"render":        `{{ my.target.a }}`,
+				"renderAndYaml": `{"a": {{ my.target.b.x * 2 }} }`,
+			},
+		},
+		Data: map[string]string{},
+	}
+	cm2 := corev1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "cm2",
+			Namespace: s.namespace(),
+			Labels: map[string]string{
+				"label1": "lv2",
+				"label2": "44",
+				"label3": "x",
+			},
+			Annotations: map[string]string{
+				"a1": "v1",
+				"a2": `{{ 1 + 2 }}`,
+			},
+		},
+		Data: map[string]string{},
+	}
+
+	err := s.k.Client.Create(context.TODO(), &cm1)
+	assert.NoError(s.T(), err)
+	err = s.k.Client.Create(context.TODO(), &cm2)
+	assert.NoError(s.T(), err)
+
+	// test path
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `$`,
+				TargetPath: "my.target2",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels.*`,
+				TargetPath: "my.target3",
+			},
+		}, nil, "")
+		assert.ErrorContains(s.T(), err, "json path resulted in multiple matches")
+
+		v, _, _ := vc.Vars.GetNestedString("my", "target")
+		assert.Equal(s.T(), "42", v)
+
+		v, _, _ = vc.Vars.GetNestedString("my", "target2", "apiVersion")
+		assert.Equal(s.T(), "v1", v)
+	})
+
+	// test targetPath
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
+			},
+		}, nil, "")
+		assert.ErrorContains(s.T(), err, "can not set with an empty expression")
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedString("my", "target")
+		assert.Equal(s.T(), "42", v)
+	})
+
+	// test targetPath with multiple matches
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		vc.Update(uo.FromMap(map[string]interface{}{
+			"list": []map[string]any{
+				{
+					"x": map[string]any{},
+				},
+				{
+					"x": map[string]any{},
+				},
+			},
+		}))
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "list[*].x.y",
+			},
+		}, nil, "")
+		assert.ErrorContains(s.T(), err, `can not deduce what element to add at 'list'`)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "list[0].x.y",
+			},
+		}, nil, "")
+		assert.ErrorContains(s.T(), err, `can not follow a <nil> at 'list[0]'`)
+	})
+
+	// test apiVersion
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				ApiVersion: "v1",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedString("my", "target")
+		assert.Equal(s.T(), "42", v)
+	})
+
+	// test labels
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind: "ConfigMap",
+				Labels: map[string]string{
+					"label1": "lv1",
+				},
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target.a",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind: "ConfigMap",
+				Labels: map[string]string{
+					"label1": "lv2",
+				},
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target.b",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind: "ConfigMap",
+				Labels: map[string]string{
+					"label3": "x",
+				},
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target.b",
+			},
+		}, nil, "")
+		assert.ErrorContains(s.T(), err, "found more than one object")
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind: "ConfigMap",
+				Labels: map[string]string{
+					"label3": "x",
+				},
+				List:       true,
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target.c",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedString("my", "target", "a")
+		assert.Equal(s.T(), "42", v)
+		v, _, _ = vc.Vars.GetNestedString("my", "target", "b")
+		assert.Equal(s.T(), "44", v)
+		l, _, _ := vc.Vars.GetNestedStringList("my", "target", "c")
+		assert.Equal(s.T(), []string{"42", "44"}, l)
+	})
+
+	// test render
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target.a",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.annotations["render"]`,
+				TargetPath: "my.target.b",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.annotations["render"]`,
+				Render:     true,
+				TargetPath: "my.target.c",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm2",
+				Namespace:  s.namespace(),
+				Path:       `metadata.annotations`,
+				Render:     true,
+				TargetPath: "my.target.d",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedString("my", "target", "a")
+		assert.Equal(s.T(), "42", v)
+		v, _, _ = vc.Vars.GetNestedString("my", "target", "b")
+		assert.Equal(s.T(), `{{ my.target.a }}`, v)
+		v, _, _ = vc.Vars.GetNestedString("my", "target", "c")
+		assert.Equal(s.T(), "42", v)
+		x, _, _ := vc.Vars.GetNestedField("my", "target", "d")
+		assert.Equal(s.T(), map[string]any{
+			"a1": "v1",
+			"a2": "3",
+		}, x)
+	})
+
+	// test parseYaml
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.labels["label2"]`,
+				TargetPath: "my.target.a",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.annotations["yaml"]`,
+				ParseYaml:  true,
+				TargetPath: "my.target.b",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind:       "ConfigMap",
+				Name:       "cm1",
+				Namespace:  s.namespace(),
+				Path:       `metadata.annotations["renderAndYaml"]`,
+				Render:     true,
+				ParseYaml:  true,
+				TargetPath: "my.target.c",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedString("my", "target", "a")
+		assert.Equal(s.T(), "42", v)
+		x, _, _ := vc.Vars.GetNestedField("my", "target", "b")
+		assert.Equal(s.T(), uo.FromMap(map[string]any{
+			"x": float64(45),
+		}), x)
+		x, _, _ = vc.Vars.GetNestedField("my", "target", "c")
+		assert.Equal(s.T(), uo.FromMap(map[string]any{
+			"a": float64(90),
+		}), x)
+	})
+}
+
 func (s *VarsLoaderTestSuite) TestSystemEnv() {
 	s.T().Setenv("TEST1", "42")
 	s.T().Setenv("TEST2", "'43'")

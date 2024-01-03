@@ -31,6 +31,32 @@ func ValidateVarsSourceClusterConfigMapOrSecret(sl validator.StructLevel) {
 	}
 }
 
+type VarsSourceClusterObject struct {
+	Kind       string `json:"kind" validate:"required"`
+	ApiVersion string `json:"apiVersion,omitempty"`
+
+	Namespace string `json:"namespace" validate:"required"`
+
+	Name   string            `json:"name,omitempty"`
+	Labels map[string]string `json:"labels,omitempty"`
+	List   bool              `json:"list,omitempty"`
+
+	Path       string `json:"path" validate:"required"`
+	Render     bool   `json:"render,omitempty"`
+	ParseYaml  bool   `json:"parseYaml,omitempty"`
+	TargetPath string `json:"targetPath" validate:"required"`
+}
+
+func ValidateVarsSourceClusterObject(sl validator.StructLevel) {
+	s := sl.Current().Interface().(VarsSourceClusterObject)
+
+	if s.Name == "" && len(s.Labels) == 0 {
+		sl.ReportError(s, "self", "self", "either name or labels must be set", "")
+	} else if s.Name != "" && len(s.Labels) != 0 {
+		sl.ReportError(s, "self", "self", "only one of name or labels can be set", "")
+	}
+}
+
 type VarsSourceHttp struct {
 	Url      YamlUrl           `json:"url,omitempty" validate:"required"`
 	Method   *string           `json:"method,omitempty"`
@@ -75,6 +101,7 @@ type VarsSource struct {
 	Git               *VarsSourceGit                      `json:"git,omitempty"`
 	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `json:"clusterConfigMap,omitempty"`
 	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `json:"clusterSecret,omitempty"`
+	ClusterObject     *VarsSourceClusterObject            `json:"clusterObject,omitempty"`
 	SystemEnvVars     *uo.UnstructuredObject              `json:"systemEnvVars,omitempty"`
 	Http              *VarsSourceHttp                     `json:"http,omitempty"`
 	AwsSecretsManager *VarsSourceAwsSecretsManager        `json:"awsSecretsManager,omitempty"`
@@ -113,5 +140,6 @@ func ValidateVarsSource(sl validator.StructLevel) {
 
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateVarsSourceClusterConfigMapOrSecret, VarsSourceClusterConfigMapOrSecret{})
+	yaml.Validator.RegisterStructValidation(ValidateVarsSourceClusterObject, VarsSourceClusterObject{})
 	yaml.Validator.RegisterStructValidation(ValidateVarsSource, VarsSource{})
 }

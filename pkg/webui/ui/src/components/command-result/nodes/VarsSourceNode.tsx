@@ -1,7 +1,7 @@
 import { CommandResult, VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
-import { Category, Cloud, Dvr, Http, Lock, Settings } from "@mui/icons-material";
+import { Category, Cloud, DataObject, Dvr, Http, Lock, Settings } from "@mui/icons-material";
 import { FileIcon, GitIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
@@ -32,6 +32,9 @@ export class VarsSourceNodeData extends NodeData {
         let labels = this.varsSource.clusterConfigMap?.labels
         if (!labels) {
             labels = this.varsSource.clusterSecret?.labels
+        }
+        if (!labels) {
+            labels = this.varsSource.clusterObject?.labels
         }
         if (labels) {
             this.labelsYaml = yaml.dump(labels)
@@ -85,14 +88,14 @@ export class VarsSourceNodeData extends NodeData {
                     return sourceProps
                 }
             }
-        } else if (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret) {
-            const vs = (this.varsSource.clusterConfigMap ? this.varsSource.clusterConfigMap : this.varsSource.clusterSecret)!
-            const type = this.varsSource.clusterConfigMap ? "cm" : "secret"
-            const icon = this.varsSource.clusterConfigMap ? <Settings fontSize={"large"}/> : <Lock fontSize={"large"}/>
+        } else if (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret || this.varsSource.clusterObject) {
+            const vs = (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret || this.varsSource.clusterObject)!
+            const type = this.varsSource.clusterObject ? this.varsSource.clusterObject.kind : (this.varsSource.clusterConfigMap ? "cm" : "secret")
+            const icon = this.varsSource.clusterObject ? <DataObject fontSize={"large"}/> : (this.varsSource.clusterConfigMap ? <Settings fontSize={"large"}/> : <Lock fontSize={"large"}/>)
             return {
                 type: type,
                 label: () => {
-                    return this.varsSource.clusterConfigMap?.name!
+                    return vs.name
                 },
                 icon: () => icon,
                 sourceProps: () => {

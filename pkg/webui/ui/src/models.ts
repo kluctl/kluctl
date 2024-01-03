@@ -328,6 +328,32 @@ export class VarsSourceHttp {
         this.jsonPath = source["jsonPath"];
     }
 }
+export class VarsSourceClusterObject {
+    kind: string;
+    apiVersion?: string;
+    namespace: string;
+    name?: string;
+    labels?: {[key: string]: string};
+    list?: boolean;
+    path: string;
+    render?: boolean;
+    parseYaml?: boolean;
+    targetPath: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.kind = source["kind"];
+        this.apiVersion = source["apiVersion"];
+        this.namespace = source["namespace"];
+        this.name = source["name"];
+        this.labels = source["labels"];
+        this.list = source["list"];
+        this.path = source["path"];
+        this.render = source["render"];
+        this.parseYaml = source["parseYaml"];
+        this.targetPath = source["targetPath"];
+    }
+}
 export class VarsSourceClusterConfigMapOrSecret {
     name?: string;
     labels?: {[key: string]: string};
@@ -365,6 +391,7 @@ export class VarsSource {
     git?: VarsSourceGit;
     clusterConfigMap?: VarsSourceClusterConfigMapOrSecret;
     clusterSecret?: VarsSourceClusterConfigMapOrSecret;
+    clusterObject?: VarsSourceClusterObject;
     systemEnvVars?: any;
     http?: VarsSourceHttp;
     awsSecretsManager?: VarsSourceAwsSecretsManager;
@@ -385,6 +412,7 @@ export class VarsSource {
         this.git = this.convertValues(source["git"], VarsSourceGit);
         this.clusterConfigMap = this.convertValues(source["clusterConfigMap"], VarsSourceClusterConfigMapOrSecret);
         this.clusterSecret = this.convertValues(source["clusterSecret"], VarsSourceClusterConfigMapOrSecret);
+        this.clusterObject = this.convertValues(source["clusterObject"], VarsSourceClusterObject);
         this.systemEnvVars = source["systemEnvVars"];
         this.http = this.convertValues(source["http"], VarsSourceHttp);
         this.awsSecretsManager = this.convertValues(source["awsSecretsManager"], VarsSourceAwsSecretsManager);

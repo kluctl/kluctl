@@ -202,6 +202,96 @@ vars:
 ### clusterSecret
 Same as clusterConfigMap, but for secrets.
 
+### clusterObject
+Retrieves an arbitrary Kubernetes object from the target's cluster and loads the specified content under `path` into the
+templating context. The content can either be interpreted as is or interpreted and loaded as yaml text. In both cases,
+rendering with the current context (without the newly introduced variables) can also be enabled.
+
+`targetPath` must also be specified to configure under which sub-keys the new variables should be loaded.
+
+The referred Kubernetes object must already exist while the Kluctl project is loaded, meaning that it is not possible to use
+an object that is deployed as part of the Kluctl project itself. The exception to this is when you use `ignoreMissing: true`
+and properly handle the missing case inside your templating (an example can be found further down).
+
+Objects can either be referred to by `name` or by `labels`. In case of `labels`, Kluctl assumes that only a single object
+matches. If multiple object are expected to match, `list: true` must also be passed, in which case the result loaded
+into `targetPath` will be a list of objects instead of a single object. 
+
+Assume the following object to be already deployed to the target cluster:
+```yaml
+apiVersion: some.group/v1
+kind: SomeObject
+metadata:
+  name: my-object
+  namespace: my-namespace
+spec:
+  ...
+status:
+  my-status: all-good
+```
+
+This object can be loaded via:
+
+```yaml
+vars:
+  - clusterObject:
+      kind: SomeObject
+      name: my-object
+      namespace: my-namespace
+      path: status
+      targetPath: my.custom.object.status
+```
+
+The following properties are supported for clusterObject sources:
+
+##### kind (required)
+The object kind. Kluctl will try to find the matching Kubernetes resource for this kind, which might either be a native
+API resource or a custom resource. If multiple resources match, `apiVersion` must also be specified.
+
+##### apiVersion (optional)
+The apiVersion of the object. This field is only required if `kind` is not enough to identify the underlying API resource.
+
+##### namespace (required)
+The namespace from which to load the object.
+
+##### name (optional)
+The name of the object. If specified, the object with the given name must exist (`ignoreMissing: true` can override this).
+
+Can be omitted when `labels` is specified.
+
+##### labels (optional)
+Specifies one or multiple labels to match. If specified, `name` is not allowed.
+
+By default, assumes and requires (unless `ignoreMissing: true` is set) that only one object matches. If multiple objects
+are assumed to match, set `list: true` as well, in which case the result will be a list as well.
+
+##### list (optional)
+If set to `true`, the result will be a list with one or more elements.
+
+##### path (required)
+Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used to load a sub-key from the matching object(s).
+Use `$` to load the whole object. To load a single field, use something like `status.my.field`. To load a whole
+sub-dict/sub-object or sub-list, use something like `status.conditions`.
+
+The specified JSON path is only allowed to result in a single match.
+
+##### render (optional)
+If set to `true`, Kluctl will render the resulting object(s) with the current templating context (excluding the newly
+loaded variables). Rendering happens on the values of individual fields of the resulting object(s). When `parseYaml: true`
+is specified as well, rendering happens before parsing the YAML string.
+
+##### parseYaml (optional)
+Instructs Kluctl to treat the value found at `path` as a YAML string. The value must be of type string. Kluctl will parse
+the string as YAML and use the resulting YAML value (which can be a simple int/float/bool or a complex list/dict) as the
+result and store it in `targetPath`. When `render: true` is specified as well, the YAML string is rendered before parsing
+happens.
+
+##### targetPath (required)
+Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used as the target path in the new templating
+context.
+
+Only simple pathes are supported that do not contain wildcards or lists.
+
 ### http
 The http variables source allows to load variables from an arbitrary HTTP resource by performing a GET (or any other
 configured HTTP method) on the URL. Example:
