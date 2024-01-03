@@ -41,10 +41,9 @@ type VarsSourceClusterObject struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	List   bool              `json:"list,omitempty"`
 
-	Path       string `json:"path" validate:"required"`
-	Render     bool   `json:"render,omitempty"`
-	ParseYaml  bool   `json:"parseYaml,omitempty"`
-	TargetPath string `json:"targetPath" validate:"required"`
+	Path      string `json:"path" validate:"required"`
+	Render    bool   `json:"render,omitempty"`
+	ParseYaml bool   `json:"parseYaml,omitempty"`
 }
 
 func ValidateVarsSourceClusterObject(sl validator.StructLevel) {
@@ -108,6 +107,8 @@ type VarsSource struct {
 	GcpSecretManager  *VarsSourceGcpSecretManager         `json:"gcpSecretManager,omitempty"`
 	Vault             *VarsSourceVault                    `json:"vault,omitempty"`
 	AzureKeyVault     *VarSourceAzureKeyVault             `json:"azureKeyVault,omitempty"`
+
+	TargetPath string `json:"targetPath,omitempty"`
 
 	When string `json:"when,omitempty"`
 

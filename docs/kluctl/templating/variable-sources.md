@@ -35,27 +35,44 @@ vars:
   when: some.var == "value"
 - file: vars3.yaml
   sensitive: true
+- file: vars4.yaml
+  targetPath: my.target.path
 ```
 
 `vars2.yaml` can now use variables that are defined in `vars1.yaml`. A special case is the use of previously defined
 variables inside [values](#values) vars sources. Please see the documentation of [values](#values) for details.
 
 At all times, variables defined by
-parents of the current sub-deployment project can be used in the current vars file.
+parents of the current sub-deployment project can be used in the current vars source.
 
+The following properties can be set on all variable sources:
+
+##### ignoreMissing
 Each variable source can have the optional field `ignoreMissing` set to `true`, causing Kluctl to ignore if the source
 can not be found.
 
+##### noOverride
 When specifying `noOverride: true`, Kluctl will not override variables from the previously loaded variables. This is
 useful if you want to load default values for variables.
 
+##### when
 Variables can also be loaded conditionally by specifying a condition via `when: <condition>`. The condition must be in
 the same format as described in [conditional deployment items](../deployments/deployment-yml.md#when)
 
+##### sensitive
 Specifying `sensitive: true` causes the Webui to redact the underlying variables for non-admin users. This will be set
 to `true` by default for all variable sources that usually load sensitive data, including sops encrypted files and
 Kubernetes secrets.
 
+##### targetPath
+Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used as the target path in the new templating
+context.
+
+Only simple pathes are supported that do not contain wildcards or lists.
+
+For some variable sources, `targetPath` will become mandatory when the resulting variable is not a dictionary.
+
+## Variable source types
 Different types of vars entries are possible:
 
 ### file
@@ -285,12 +302,6 @@ Instructs Kluctl to treat the value found at `path` as a YAML string. The value 
 the string as YAML and use the resulting YAML value (which can be a simple int/float/bool or a complex list/dict) as the
 result and store it in `targetPath`. When `render: true` is specified as well, the YAML string is rendered before parsing
 happens.
-
-##### targetPath (required)
-Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used as the target path in the new templating
-context.
-
-Only simple pathes are supported that do not contain wildcards or lists.
 
 ### http
 The http variables source allows to load variables from an arbitrary HTTP resource by performing a GET (or any other

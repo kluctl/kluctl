@@ -127,6 +127,19 @@ func (s *VarsLoaderTestSuite) TestValuesNoOverrides() {
 	})
 }
 
+func (s *VarsLoaderTestSuite) TestValuesTargetPath() {
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			Values:     uo.FromStringMust(`{"test1": {"test2": 42}}`),
+			TargetPath: "my.target",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("my", "target", "test1", "test2")
+		assert.Equal(s.T(), int64(42), v)
+	})
+}
+
 func (s *VarsLoaderTestSuite) TestWhen() {
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
@@ -592,34 +605,34 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `$`,
-				TargetPath: "my.target2",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `$`,
 			},
+			TargetPath: "my.target2",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels.*`,
-				TargetPath: "my.target3",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels.*`,
 			},
+			TargetPath: "my.target3",
 		}, nil, "")
 		assert.ErrorContains(s.T(), err, "json path resulted in multiple matches")
 
@@ -640,16 +653,16 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 				Path:      `metadata.labels["label2"]`,
 			},
 		}, nil, "")
-		assert.ErrorContains(s.T(), err, "can not set with an empty expression")
+		assert.ErrorContains(s.T(), err, `'targetPath' is required for this variable source`)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
@@ -671,23 +684,23 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 		}))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "list[*].x.y",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "list[*].x.y",
 		}, nil, "")
 		assert.ErrorContains(s.T(), err, `can not deduce what element to add at 'list'`)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "list[0].x.y",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "list[0].x.y",
 		}, nil, "")
 		assert.ErrorContains(s.T(), err, `can not follow a <nil> at 'list[0]'`)
 	})
@@ -701,8 +714,8 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 				Name:       "cm1",
 				Namespace:  s.namespace(),
 				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target",
 			},
+			TargetPath: "my.target",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
@@ -718,10 +731,10 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 				Labels: map[string]string{
 					"label1": "lv1",
 				},
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target.a",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target.a",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
@@ -731,10 +744,10 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 				Labels: map[string]string{
 					"label1": "lv2",
 				},
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target.b",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target.b",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
@@ -744,10 +757,10 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 				Labels: map[string]string{
 					"label3": "x",
 				},
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target.b",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target.b",
 		}, nil, "")
 		assert.ErrorContains(s.T(), err, "found more than one object")
 
@@ -757,11 +770,11 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 				Labels: map[string]string{
 					"label3": "x",
 				},
-				List:       true,
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target.c",
+				List:      true,
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target.c",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
@@ -777,47 +790,47 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target.a",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target.a",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.annotations["render"]`,
-				TargetPath: "my.target.b",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.annotations["render"]`,
 			},
+			TargetPath: "my.target.b",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.annotations["render"]`,
-				Render:     true,
-				TargetPath: "my.target.c",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.annotations["render"]`,
+				Render:    true,
 			},
+			TargetPath: "my.target.c",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm2",
-				Namespace:  s.namespace(),
-				Path:       `metadata.annotations`,
-				Render:     true,
-				TargetPath: "my.target.d",
+				Kind:      "ConfigMap",
+				Name:      "cm2",
+				Namespace: s.namespace(),
+				Path:      `metadata.annotations`,
+				Render:    true,
 			},
+			TargetPath: "my.target.d",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
@@ -838,37 +851,37 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.labels["label2"]`,
-				TargetPath: "my.target.a",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.labels["label2"]`,
 			},
+			TargetPath: "my.target.a",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.annotations["yaml"]`,
-				ParseYaml:  true,
-				TargetPath: "my.target.b",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.annotations["yaml"]`,
+				ParseYaml: true,
 			},
+			TargetPath: "my.target.b",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			ClusterObject: &types.VarsSourceClusterObject{
-				Kind:       "ConfigMap",
-				Name:       "cm1",
-				Namespace:  s.namespace(),
-				Path:       `metadata.annotations["renderAndYaml"]`,
-				Render:     true,
-				ParseYaml:  true,
-				TargetPath: "my.target.c",
+				Kind:      "ConfigMap",
+				Name:      "cm1",
+				Namespace: s.namespace(),
+				Path:      `metadata.annotations["renderAndYaml"]`,
+				Render:    true,
+				ParseYaml: true,
 			},
+			TargetPath: "my.target.c",
 		}, nil, "")
 		assert.NoError(s.T(), err)
 

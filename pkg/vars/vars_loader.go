@@ -102,43 +102,44 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		ignoreMissing = *source.IgnoreMissing
 	}
 
-	var newVars *uo.UnstructuredObject
+	var newValue any
 	var sensitive bool
 	if source.Values != nil {
-		newVars = source.Values
 		if rootKey != "" {
-			newVars = uo.FromMap(map[string]interface{}{
-				rootKey: newVars.Object,
+			newValue = uo.FromMap(map[string]interface{}{
+				rootKey: source.Values.Object,
 			})
+		} else {
+			newValue = source.Values
 		}
 	} else if source.File != nil {
-		newVars, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
+		newValue, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
 	} else if source.Git != nil {
-		newVars, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
+		newValue, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
-		newVars, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
+		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
-		newVars, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
+		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
 		sensitive = true
 	} else if source.ClusterObject != nil {
-		newVars, err = v.loadFromK8sObject(varsCtx, *source.ClusterObject, ignoreMissing)
+		newValue, err = v.loadFromK8sObject(varsCtx, *source.ClusterObject, ignoreMissing)
 		sensitive = true
 	} else if source.SystemEnvVars != nil {
-		newVars, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
+		newValue, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
 		sensitive = true
 	} else if source.Http != nil {
-		newVars, sensitive, err = v.loadHttp(varsCtx, &source, ignoreMissing)
+		newValue, sensitive, err = v.loadHttp(varsCtx, &source, ignoreMissing)
 	} else if source.AwsSecretsManager != nil {
-		newVars, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else if source.GcpSecretManager != nil {
-		newVars, err = v.loadGcpSecretManager(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadGcpSecretManager(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else if source.Vault != nil {
-		newVars, err = v.loadVault(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadVault(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else if source.AzureKeyVault != nil {
-		newVars, err = v.loadAzureKeyVault(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadAzureKeyVault(varsCtx, &source, ignoreMissing)
 		sensitive = true
 	} else {
 		return fmt.Errorf("invalid vars source")
@@ -150,6 +151,25 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 	if sourceIn.Sensitive != nil {
 		// override the default
 		sensitive = *sourceIn.Sensitive
+	}
+
+	var newVars *uo.UnstructuredObject
+	if source.TargetPath != "" {
+		p, err := uo.NewMyJsonPath(source.TargetPath)
+		if err != nil {
+			return fmt.Errorf("failed to parse targetPath: %w", err)
+		}
+		newVars = uo.New()
+		err = p.SetOne(newVars, newValue)
+		if err != nil {
+			return fmt.Errorf("failed to set value to targetPath: %w", err)
+		}
+	} else {
+		var ok bool
+		newVars, ok = newValue.(*uo.UnstructuredObject)
+		if !ok {
+			return fmt.Errorf("'targetPath' is required for this variable source")
+		}
 	}
 
 	sourceIn.RenderedSensitive = sensitive
@@ -432,7 +452,7 @@ func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource t
 	}
 }
 
-func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterObject, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSourceClusterObject, ignoreMissing bool) (any, error) {
 	if v.k == nil {
 		return nil, fmt.Errorf("loading vars from cluster is disabled")
 	}
@@ -552,20 +572,11 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		values = append(values, val)
 	}
 
-	p, err := uo.NewMyJsonPath(varsSource.TargetPath)
-	if err != nil {
-		return nil, err
-	}
-	newVars := uo.New()
 	if varsSource.List {
-		err = p.SetOne(newVars, values)
+		return values, nil
 	} else {
-		err = p.SetOne(newVars, values[0])
+		return values[0], nil
 	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to set vars on path %s: %w", varsSource.TargetPath, err)
-	}
-	return newVars, nil
 }
 
 func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string) (*uo.UnstructuredObject, error) {
