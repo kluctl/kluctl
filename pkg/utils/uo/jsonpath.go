@@ -150,3 +150,7 @@ func (j *MyJsonPath) Del(o *UnstructuredObject) error {
 func (j *MyJsonPath) Set(o *UnstructuredObject, v any) error {
 	return j.exp.Set(o.Object, v)
 }
+
+func (j *MyJsonPath) SetOne(o *UnstructuredObject, v any) error {
+	return j.exp.SetOne(o.Object, v)
+}

@@ -419,7 +419,7 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 			return doError(err)
 		}
 		newVars := uo.New()
-		err = p.Set(newVars, parsed)
+		err = p.SetOne(newVars, parsed)
 		if err != nil {
 			return doError(err)
 		}
