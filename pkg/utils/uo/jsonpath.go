@@ -116,7 +116,7 @@ func (j *MyJsonPath) GetFirstObject(o *UnstructuredObject) (*UnstructuredObject,
 	if !found {
 		return nil, false, nil
 	}
-	m, ok := x.(map[string]interface{})
+	m, ok := getDict(x)
 	if !ok {
 		return nil, false, fmt.Errorf("child is not a map")
 	}

@@ -2,6 +2,7 @@ package uo
 
 import (
 	"fmt"
+	"github.com/ohler55/ojg/jp"
 )
 
 func MergeStrMap(a map[string]string, b map[string]string) {
@@ -18,12 +19,19 @@ func CopyMergeStrMap(a map[string]string, b map[string]string) map[string]string
 }
 
 func GetChild(parent interface{}, key interface{}) (interface{}, bool, error) {
-	if m, ok := parent.(map[string]interface{}); ok {
+	if m, ok := getDict(parent); ok {
 		keyStr, ok := key.(string)
 		if !ok {
 			return nil, false, fmt.Errorf("key is not a string")
 		}
 		v, found := m[keyStr]
+		return v, found, nil
+	} else if m, ok := parent.(jp.Keyed); ok {
+		keyStr, ok := key.(string)
+		if !ok {
+			return nil, false, fmt.Errorf("key is not a string")
+		}
+		v, found := m.ValueForKey(keyStr)
 		return v, found, nil
 	} else if l, ok := parent.([]interface{}); ok {
 		keyInt, ok := key.(int)
@@ -40,12 +48,19 @@ func GetChild(parent interface{}, key interface{}) (interface{}, bool, error) {
 }
 
 func SetChild(parent interface{}, key interface{}, value interface{}) error {
-	if m, ok := parent.(map[string]interface{}); ok {
+	if m, ok := getDict(parent); ok {
 		keyStr, ok := key.(string)
 		if !ok {
 			return fmt.Errorf("key is not a string")
 		}
 		m[keyStr] = value
+		return nil
+	} else if m, ok := parent.(jp.Keyed); ok {
+		keyStr, ok := key.(string)
+		if !ok {
+			return fmt.Errorf("key is not a string")
+		}
+		m.SetValueForKey(keyStr, value)
 		return nil
 	} else if l, ok := parent.([]interface{}); ok {
 		keyInt, ok := key.(int)
