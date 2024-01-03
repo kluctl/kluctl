@@ -439,6 +439,8 @@ func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource t
 		}
 		return uo.FromMap(m), nil
 	} else {
+		status.Deprecation(v.ctx, "cm-or-secret-target-path", "'targetPath' in clusterConfigMap and clusterSecret is deprecated, use the common 'targetPath' property from one level above instead.")
+
 		p, err := uo.NewMyJsonPath(varsSource.TargetPath)
 		if err != nil {
 			return doError(err)

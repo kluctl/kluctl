@@ -124,7 +124,7 @@ func ValidateVarsSource(sl validator.StructLevel) {
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
 		switch v.Type().Field(i).Name {
-		case "IgnoreMissing", "NoOverride", "When", "RenderedSensitive", "RenderedVars":
+		case "IgnoreMissing", "NoOverride", "TargetPath", "When", "RenderedSensitive", "RenderedVars":
 			continue
 		}
 		if !v.Field(i).IsNil() {
