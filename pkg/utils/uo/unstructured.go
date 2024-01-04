@@ -3,6 +3,7 @@ package uo
 import (
 	"fmt"
 	"github.com/ohler55/ojg/jp"
+	"reflect"
 )
 
 func MergeStrMap(a map[string]string, b map[string]string) {
@@ -33,16 +34,19 @@ func GetChild(parent interface{}, key interface{}) (interface{}, bool, error) {
 		}
 		v, found := m.ValueForKey(keyStr)
 		return v, found, nil
-	} else if l, ok := parent.([]interface{}); ok {
+	}
+
+	v := reflect.ValueOf(parent)
+	if v.Type().Kind() == reflect.Slice {
 		keyInt, ok := key.(int)
 		if !ok {
 			return nil, false, fmt.Errorf("key is not an int")
 		}
-		if keyInt < 0 || keyInt >= len(l) {
+		if keyInt < 0 || keyInt >= v.Len() {
 			return nil, false, fmt.Errorf("index out of bounds")
 		}
-		v := l[keyInt]
-		return v, true, nil
+		e := v.Index(keyInt)
+		return e.Interface(), true, nil
 	}
 	return nil, false, fmt.Errorf("unknown parent type")
 }
@@ -62,12 +66,17 @@ func SetChild(parent interface{}, key interface{}, value interface{}) error {
 		}
 		m.SetValueForKey(keyStr, value)
 		return nil
-	} else if l, ok := parent.([]interface{}); ok {
+	}
+
+	v := reflect.ValueOf(parent)
+	if v.Type().Kind() == reflect.Slice {
 		keyInt, ok := key.(int)
 		if !ok {
 			return fmt.Errorf("key is not an int")
 		}
-		l[keyInt] = value
+
+		e := v.Index(keyInt)
+		e.Set(reflect.ValueOf(value))
 		return nil
 	}
 	return fmt.Errorf("unknown parent type")
