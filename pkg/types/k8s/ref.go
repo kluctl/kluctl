@@ -26,6 +26,20 @@ func (r ObjectRef) String() string {
 	}
 }
 
+func (r ObjectRef) Less(o ObjectRef) bool {
+	if r.Group != o.Group {
+		return r.Group < o.Group
+	} else if r.Version != o.Version {
+		return r.Version < o.Version
+	} else if r.Kind != o.Kind {
+		return r.Kind < o.Kind
+	} else if r.Namespace != o.Namespace {
+		return r.Namespace < o.Namespace
+	} else {
+		return r.Name < o.Name
+	}
+}
+
 func (r ObjectRef) GroupVersionKind() schema.GroupVersionKind {
 	return schema.GroupVersionKind{
 		Group:   r.Group,

@@ -308,6 +308,15 @@ func (p *TestGitServer) DeleteFile(repo string, pth string, message string) {
 	p.CommitFiles(repo, []string{pth}, false, message)
 }
 
+func (p *TestGitServer) ReadFile(repo string, pth string) []byte {
+	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	b, err := os.ReadFile(fullPath)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	return b
+}
+
 func (p *TestGitServer) GitHost() string {
 	return fmt.Sprintf("localhost:%d", p.gitServerPort)
 }

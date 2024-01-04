@@ -35,27 +35,44 @@ vars:
   when: some.var == "value"
 - file: vars3.yaml
   sensitive: true
+- file: vars4.yaml
+  targetPath: my.target.path
 ```
 
 `vars2.yaml` can now use variables that are defined in `vars1.yaml`. A special case is the use of previously defined
 variables inside [values](#values) vars sources. Please see the documentation of [values](#values) for details.
 
 At all times, variables defined by
-parents of the current sub-deployment project can be used in the current vars file.
+parents of the current sub-deployment project can be used in the current vars source.
 
+The following properties can be set on all variable sources:
+
+##### ignoreMissing
 Each variable source can have the optional field `ignoreMissing` set to `true`, causing Kluctl to ignore if the source
 can not be found.
 
+##### noOverride
 When specifying `noOverride: true`, Kluctl will not override variables from the previously loaded variables. This is
 useful if you want to load default values for variables.
 
+##### when
 Variables can also be loaded conditionally by specifying a condition via `when: <condition>`. The condition must be in
 the same format as described in [conditional deployment items](../deployments/deployment-yml.md#when)
 
+##### sensitive
 Specifying `sensitive: true` causes the Webui to redact the underlying variables for non-admin users. This will be set
 to `true` by default for all variable sources that usually load sensitive data, including sops encrypted files and
 Kubernetes secrets.
 
+##### targetPath
+Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used as the target path in the new templating
+context.
+
+Only simple pathes are supported that do not contain wildcards or lists.
+
+For some variable sources, `targetPath` will become mandatory when the resulting variable is not a dictionary.
+
+## Variable source types
 Different types of vars entries are possible:
 
 ### file
@@ -126,7 +143,7 @@ The advantage of the second method is that the type (number) of `a` is preserved
 it into a string.
 
 ### git
-This loads variables from a git repository. Example:
+This loads variables from a file inside a git repository. Example:
 
 ```yaml
 vars:
@@ -141,6 +158,104 @@ The ref field has the same format at found in [Git includes](../deployments/depl
 
 Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
 [sops integration](../deployments/sops.md) integration for more details.
+
+### gitFiles
+This loads multiple branches/tags and its contents from a git repository. The branches/tags can be filtered via regex
+and the files to load can be filtered via globs. Files can also be parsed and interpreted as yaml. Providing
+[`targrtPath`](#targetpath) is mandatory for this variables source.
+
+Example:
+
+```yaml
+vars:
+  - gitFiles:
+      url: ssh://git@github.com/example/repo.git
+      ref:
+        branch: preview-env-.*
+      files:
+        - glob: preview-info.yaml
+          parseYaml: true
+    targetPath: previewEnvs
+```
+
+The following fields are supported for `gitFiles`.
+
+##### url
+Specified the Git url.
+
+##### ref
+Specifies the ref to match. The ref field has the same format at found in [Git includes](../deployments/deployment-yml.md#git-includes),
+with the addition that branches and tags can specify regular expressions.
+
+##### files
+Specifies a list of file filters. Each entry can have the following fields:
+
+| field        | required | description                                                                                                                                                                                                                          |
+|--------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| glob         | yes      | Specifies the globbing pattern to test files against. `/` must be used as separator, even on Windows.                                                                                                                                |
+| render       | no       | If set to `true`, Kluctl will render the content of matching files with the current context (excluding the currently loaded `gitFiles`.                                                                                              |
+| parseYaml    | no       | If set to `true`, Kluctl will parse and interpret the content of matching files as YAML.<br/>The result is stored in the `parsed` field of the resulting file dict.<br/>Parsing happend after rendering (if `render: true` is used). |
+| yamlMultiDoc | no       | If set to `true`, Kluctl will treat the content of matching files as multi-document YAML file.                                                                                                                                       |
+
+
+#### gitFiles result
+The above example will put the result into the variable `previewEnvs`. The result is a list of matching branches/tags with each entry
+having the following form:
+
+```yaml
+previewEnvs:
+- ref:
+    branch: preview-env-1
+  refStr: refs/heads/preview-env-1
+  files:
+  - path: preview-info.yaml
+    size: 1234
+    content: |
+      some:
+        arbitrary:
+          yamlContent: 42
+    parsed:
+      some:
+        arbitrary:
+          yamlContent: 42
+    # this is a copy of the original `gitFiles.files` entry that caused this match
+    file:
+      glob: preview-info.yaml
+      parseYaml: true
+  # this is a flat dict with each entry being a copy of what is found in `files` for that same entry
+  # it is indexed by the relative path of each file
+  filesByPath:
+    preview-info.yaml:
+      path: preview-info.yaml
+      content: ...
+    dir1/sub-dir/file.yaml:
+      path: dir1/sub-dir/file.yaml
+      content: ...
+  # this is a nested dict that follows the directory structure
+  filesTree:
+    preview-info.yaml:
+      path: preview-info.yaml
+      content: ...
+    dir1:
+      sub-dir:
+        file.yaml:
+          path: dir1/sub-dir/file.yaml
+          content: ...
+- ref:
+    branch: preview-env-2
+  ...
+```
+
+Each file entry, as found in `files`, `filesByPath` and `filesTree` has the following fields:
+
+| field   | description                                                                                                                                                                                  |
+|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| file    | This is a copy of the `files` entry from `gitFiles` that caused the match.                                                                                                                   |
+| path    | The relative path inside the git repository.                                                                                                                                                 |
+| size    | The size of the file. If the file is encrypted, this specifies the size of the unencrypted content.                                                                                          |
+| content | The content of the file. If the original file is encrypted, the `content` will contain the unencrypted content. If `render: true` was specified, the `content` will be the rendered content. |
+| parsed  | If `parsed: true` was specified, this field will contain the parsed content of the file.                                                                                                     |
+
 
 ### clusterConfigMap
 Loads a configmap from the target's cluster and loads the specified key's value into the templating context. The value
@@ -201,6 +316,90 @@ vars:
 
 ### clusterSecret
 Same as clusterConfigMap, but for secrets.
+
+### clusterObject
+Retrieves an arbitrary Kubernetes object from the target's cluster and loads the specified content under `path` into the
+templating context. The content can either be interpreted as is or interpreted and loaded as yaml text. In both cases,
+rendering with the current context (without the newly introduced variables) can also be enabled.
+
+`targetPath` must also be specified to configure under which sub-keys the new variables should be loaded.
+
+The referred Kubernetes object must already exist while the Kluctl project is loaded, meaning that it is not possible to use
+an object that is deployed as part of the Kluctl project itself. The exception to this is when you use `ignoreMissing: true`
+and properly handle the missing case inside your templating (an example can be found further down).
+
+Objects can either be referred to by `name` or by `labels`. In case of `labels`, Kluctl assumes that only a single object
+matches. If multiple object are expected to match, `list: true` must also be passed, in which case the result loaded
+into `targetPath` will be a list of objects instead of a single object. 
+
+Assume the following object to be already deployed to the target cluster:
+```yaml
+apiVersion: some.group/v1
+kind: SomeObject
+metadata:
+  name: my-object
+  namespace: my-namespace
+spec:
+  ...
+status:
+  my-status: all-good
+```
+
+This object can be loaded via:
+
+```yaml
+vars:
+  - clusterObject:
+      kind: SomeObject
+      name: my-object
+      namespace: my-namespace
+      path: status
+      targetPath: my.custom.object.status
+```
+
+The following properties are supported for clusterObject sources:
+
+##### kind (required)
+The object kind. Kluctl will try to find the matching Kubernetes resource for this kind, which might either be a native
+API resource or a custom resource. If multiple resources match, `apiVersion` must also be specified.
+
+##### apiVersion (optional)
+The apiVersion of the object. This field is only required if `kind` is not enough to identify the underlying API resource.
+
+##### namespace (required)
+The namespace from which to load the object.
+
+##### name (optional)
+The name of the object. If specified, the object with the given name must exist (`ignoreMissing: true` can override this).
+
+Can be omitted when `labels` is specified.
+
+##### labels (optional)
+Specifies one or multiple labels to match. If specified, `name` is not allowed.
+
+By default, assumes and requires (unless `ignoreMissing: true` is set) that only one object matches. If multiple objects
+are assumed to match, set `list: true` as well, in which case the result will be a list as well.
+
+##### list (optional)
+If set to `true`, the result will be a list with one or more elements.
+
+##### path (required)
+Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used to load a sub-key from the matching object(s).
+Use `$` to load the whole object. To load a single field, use something like `status.my.field`. To load a whole
+sub-dict/sub-object or sub-list, use something like `status.conditions`.
+
+The specified JSON path is only allowed to result in a single match.
+
+##### render (optional)
+If set to `true`, Kluctl will render the resulting object(s) with the current templating context (excluding the newly
+loaded variables). Rendering happens on the values of individual fields of the resulting object(s). When `parseYaml: true`
+is specified as well, rendering happens before parsing the YAML string.
+
+##### parseYaml (optional)
+Instructs Kluctl to treat the value found at `path` as a YAML string. The value must be of type string. Kluctl will parse
+the string as YAML and use the resulting YAML value (which can be a simple int/float/bool or a complex list/dict) as the
+result and store it in `targetPath`. When `render: true` is specified as well, the YAML string is rendered before parsing
+happens.
 
 ### http
 The http variables source allows to load variables from an arbitrary HTTP resource by performing a GET (or any other

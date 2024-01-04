@@ -3,6 +3,7 @@ package uo
 import (
 	"fmt"
 	"github.com/ohler55/ojg/jp"
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -116,7 +117,7 @@ func (j *MyJsonPath) GetFirstObject(o *UnstructuredObject) (*UnstructuredObject,
 	if !found {
 		return nil, false, nil
 	}
-	m, ok := x.(map[string]interface{})
+	m, ok := getDict(x)
 	if !ok {
 		return nil, false, fmt.Errorf("child is not a map")
 	}
@@ -128,13 +129,15 @@ func (j *MyJsonPath) GetFirstListOfObjects(o *UnstructuredObject) ([]*Unstructur
 	if !found {
 		return nil, false, nil
 	}
-	l, ok := x.([]interface{})
-	if !ok {
+	v := reflect.ValueOf(x)
+	if v.Type().Kind() != reflect.Slice {
 		return nil, false, fmt.Errorf("child is not a list")
 	}
+
 	var ret []*UnstructuredObject
-	for _, x := range l {
-		m, ok := x.(map[string]interface{})
+	for i := 0; i < v.Len(); i++ {
+		e := v.Index(i).Interface()
+		m, ok := getDict(e)
 		if !ok {
 			return nil, false, fmt.Errorf("child is not a list of maps")
 		}
@@ -149,4 +152,8 @@ func (j *MyJsonPath) Del(o *UnstructuredObject) error {
 
 func (j *MyJsonPath) Set(o *UnstructuredObject, v any) error {
 	return j.exp.Set(o.Object, v)
+}
+
+func (j *MyJsonPath) SetOne(o *UnstructuredObject, v any) error {
+	return j.exp.SetOne(o.Object, v)
 }

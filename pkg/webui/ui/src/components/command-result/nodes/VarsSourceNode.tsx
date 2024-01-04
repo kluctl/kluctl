@@ -1,7 +1,7 @@
 import { CommandResult, VarsSource } from "../../../models";
 import { NodeData } from "./NodeData";
 import React from "react";
-import { Category, Cloud, Dvr, Http, Lock, Settings } from "@mui/icons-material";
+import { Category, Cloud, DataObject, Dvr, Http, Lock, Settings } from "@mui/icons-material";
 import { FileIcon, GitIcon } from "../../../icons/Icons";
 import { PropertiesTable } from "../../PropertiesTable";
 import { CodeViewer } from "../../CodeViewer";
@@ -32,6 +32,9 @@ export class VarsSourceNodeData extends NodeData {
         let labels = this.varsSource.clusterConfigMap?.labels
         if (!labels) {
             labels = this.varsSource.clusterSecret?.labels
+        }
+        if (!labels) {
+            labels = this.varsSource.clusterObject?.labels
         }
         if (labels) {
             this.labelsYaml = yaml.dump(labels)
@@ -85,6 +88,30 @@ export class VarsSourceNodeData extends NodeData {
                     return sourceProps
                 }
             }
+        } else if (this.varsSource.gitFiles) {
+            return {
+                type: "gitFiles",
+                label: () => {
+                    const s = this.varsSource.gitFiles!.url.split("/")
+                    const name = s[s.length - 1]
+                    return <>
+                        {name}
+                    </>
+                },
+                icon: () => <GitIcon/>,
+                sourceProps: () => {
+                    const sourceProps = []
+                    sourceProps.push({ name: "Url", value: this.varsSource.gitFiles!.url })
+                    sourceProps.push({ name: "Ref", value: buildGitRefString(this.varsSource.gitFiles?.ref) })
+                    this.varsSource.gitFiles!.files?.forEach((gf, i) => {
+                        sourceProps.push({ name: `Files[${i}].glob`, value: gf.glob })
+                        sourceProps.push({ name: `Files[${i}].render`, value: !!gf.render + "" })
+                        sourceProps.push({ name: `Files[${i}].parseYaml`, value: !!gf.parseYaml + "" })
+                        sourceProps.push({ name: `Files[${i}].yamlMultiDoc`, value: !!gf.yamlMultiDoc + "" })
+                    })
+                    return sourceProps
+                }
+            }
         } else if (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret) {
             const vs = (this.varsSource.clusterConfigMap ? this.varsSource.clusterConfigMap : this.varsSource.clusterSecret)!
             const type = this.varsSource.clusterConfigMap ? "cm" : "secret"
@@ -92,7 +119,7 @@ export class VarsSourceNodeData extends NodeData {
             return {
                 type: type,
                 label: () => {
-                    return this.varsSource.clusterConfigMap?.name!
+                    return vs.name
                 },
                 icon: () => icon,
                 sourceProps: () => {
@@ -106,6 +133,33 @@ export class VarsSourceNodeData extends NodeData {
                             value: <CodeViewer code={this.labelsYaml!} language={"yaml"}/>
                         })
                     }
+                    return sourceProps
+                }
+            }
+        } else if (this.varsSource.clusterObject) {
+            const vs = this.varsSource.clusterObject
+            const type = "clusterObject"
+            const icon = <DataObject fontSize={"large"}/>
+            return {
+                type: type,
+                label: () => {
+                    return vs.name
+                },
+                icon: () => icon,
+                sourceProps: () => {
+                    const sourceProps = []
+                    sourceProps.push({ name: "Name", value: vs.name })
+                    sourceProps.push({ name: "Namespace", value: vs.namespace })
+                    if (vs.labels) {
+                        sourceProps.push({
+                            name: "Labels",
+                            value: <CodeViewer code={this.labelsYaml!} language={"yaml"}/>
+                        })
+                    }
+                    sourceProps.push({ name: "Path", value: vs.path })
+                    sourceProps.push({ name: "List", value: !!vs.list + "" })
+                    sourceProps.push({ name: "Render", value: !!vs.render + "" })
+                    sourceProps.push({ name: "ParseYaml", value: !!vs.parseYaml + "" })
                     return sourceProps
                 }
             }
@@ -245,6 +299,10 @@ export class VarsSourceNodeData extends NodeData {
             { name: "NoOverride", value: (!!this.varsSource.noOverride) + "" },
         ]
 
+        if (this.varsSource.targetPath) {
+            props.push({ name: "TargetPath", value: this.varsSource.targetPath })
+        }
+
         if (this.varsSource.when) {
             props.push({ name: "When", value: this.varsSource.when })
         }
@@ -264,7 +322,6 @@ export class VarsSourceNodeData extends NodeData {
 
             {!redactedWarning &&
                 <CodeViewer code={this.renderedVarsYaml} language={"yaml"}/>
-
             }
         </Box>
     }

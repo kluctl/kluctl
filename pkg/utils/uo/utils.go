@@ -1,10 +1,10 @@
 package uo
 
-func MergeMap(a, b map[string]interface{}) {
+func MergeMap(a, b map[string]any) {
 	for key := range b {
 		if _, ok := a[key]; ok {
-			adict, adictOk := a[key].(map[string]interface{})
-			bdict, bdictOk := b[key].(map[string]interface{})
+			adict, adictOk := getDict(a[key])
+			bdict, bdictOk := getDict(b[key])
 			if adictOk && bdictOk {
 				MergeMap(adict, bdict)
 			} else {
@@ -14,4 +14,14 @@ func MergeMap(a, b map[string]interface{}) {
 			a[key] = b[key]
 		}
 	}
+}
+
+func getDict(o any) (map[string]any, bool) {
+	if d, ok := o.(map[string]any); ok {
+		return d, true
+	}
+	if x, ok := o.(*UnstructuredObject); ok {
+		return x.Object, true
+	}
+	return nil, false
 }
