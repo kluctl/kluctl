@@ -88,10 +88,34 @@ export class VarsSourceNodeData extends NodeData {
                     return sourceProps
                 }
             }
-        } else if (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret || this.varsSource.clusterObject) {
-            const vs = (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret || this.varsSource.clusterObject)!
-            const type = this.varsSource.clusterObject ? this.varsSource.clusterObject.kind : (this.varsSource.clusterConfigMap ? "cm" : "secret")
-            const icon = this.varsSource.clusterObject ? <DataObject fontSize={"large"}/> : (this.varsSource.clusterConfigMap ? <Settings fontSize={"large"}/> : <Lock fontSize={"large"}/>)
+        } else if (this.varsSource.gitFiles) {
+            return {
+                type: "gitFiles",
+                label: () => {
+                    const s = this.varsSource.gitFiles!.url.split("/")
+                    const name = s[s.length - 1]
+                    return <>
+                        {name}
+                    </>
+                },
+                icon: () => <GitIcon/>,
+                sourceProps: () => {
+                    const sourceProps = []
+                    sourceProps.push({ name: "Url", value: this.varsSource.gitFiles!.url })
+                    sourceProps.push({ name: "Ref", value: buildGitRefString(this.varsSource.gitFiles?.ref) })
+                    this.varsSource.gitFiles!.files?.forEach((gf, i) => {
+                        sourceProps.push({ name: `Files[${i}].glob`, value: gf.glob })
+                        sourceProps.push({ name: `Files[${i}].render`, value: !!gf.render + "" })
+                        sourceProps.push({ name: `Files[${i}].parseYaml`, value: !!gf.parseYaml + "" })
+                        sourceProps.push({ name: `Files[${i}].yamlMultiDoc`, value: !!gf.yamlMultiDoc + "" })
+                    })
+                    return sourceProps
+                }
+            }
+        } else if (this.varsSource.clusterConfigMap || this.varsSource.clusterSecret) {
+            const vs = (this.varsSource.clusterConfigMap ? this.varsSource.clusterConfigMap : this.varsSource.clusterSecret)!
+            const type = this.varsSource.clusterConfigMap ? "cm" : "secret"
+            const icon = this.varsSource.clusterConfigMap ? <Settings fontSize={"large"}/> : <Lock fontSize={"large"}/>
             return {
                 type: type,
                 label: () => {
@@ -109,6 +133,33 @@ export class VarsSourceNodeData extends NodeData {
                             value: <CodeViewer code={this.labelsYaml!} language={"yaml"}/>
                         })
                     }
+                    return sourceProps
+                }
+            }
+        } else if (this.varsSource.clusterObject) {
+            const vs = this.varsSource.clusterObject
+            const type = "clusterObject"
+            const icon = <DataObject fontSize={"large"}/>
+            return {
+                type: type,
+                label: () => {
+                    return vs.name
+                },
+                icon: () => icon,
+                sourceProps: () => {
+                    const sourceProps = []
+                    sourceProps.push({ name: "Name", value: vs.name })
+                    sourceProps.push({ name: "Namespace", value: vs.namespace })
+                    if (vs.labels) {
+                        sourceProps.push({
+                            name: "Labels",
+                            value: <CodeViewer code={this.labelsYaml!} language={"yaml"}/>
+                        })
+                    }
+                    sourceProps.push({ name: "Path", value: vs.path })
+                    sourceProps.push({ name: "List", value: !!vs.list + "" })
+                    sourceProps.push({ name: "Render", value: !!vs.render + "" })
+                    sourceProps.push({ name: "ParseYaml", value: !!vs.parseYaml + "" })
                     return sourceProps
                 }
             }
@@ -248,6 +299,10 @@ export class VarsSourceNodeData extends NodeData {
             { name: "NoOverride", value: (!!this.varsSource.noOverride) + "" },
         ]
 
+        if (this.varsSource.targetPath) {
+            props.push({ name: "TargetPath", value: this.varsSource.targetPath })
+        }
+
         if (this.varsSource.when) {
             props.push({ name: "When", value: this.varsSource.when })
         }
@@ -267,7 +322,6 @@ export class VarsSourceNodeData extends NodeData {
 
             {!redactedWarning &&
                 <CodeViewer code={this.renderedVarsYaml} language={"yaml"}/>
-
             }
         </Box>
     }
