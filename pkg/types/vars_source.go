@@ -4,6 +4,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 )
 
@@ -11,6 +12,37 @@ type VarsSourceGit struct {
 	Url  GitUrl  `json:"url" validate:"required"`
 	Ref  *GitRef `json:"ref,omitempty"`
 	Path string  `json:"path" validate:"required"`
+}
+
+type VarsSourceGitFiles struct {
+	Url GitUrl  `json:"url" validate:"required"`
+	Ref *GitRef `json:"ref,omitempty"`
+
+	Files []GitFile `json:"files,omitempty"`
+}
+
+type GitFile struct {
+	Glob         string `json:"glob" validate:"required"`
+	Render       bool   `json:"render,omitempty"`
+	ParseYaml    bool   `json:"parseYaml,omitempty"`
+	YamlMultiDoc bool   `json:"yamlMultiDoc,omitempty"`
+}
+
+type GitFileMatch struct {
+	File    GitFile               `json:"file"`
+	Path    string                `json:"path"`
+	Size    int32                 `json:"size"`
+	Content string                `json:"content"`
+	Parsed  *runtime.RawExtension `json:"parsed,omitempty"`
+}
+
+type GitFilesRefMatch struct {
+	Ref    GitRef `json:"ref"`
+	RefStr string `json:"refStr"`
+
+	Files       []GitFileMatch          `json:"files"`
+	FilesByPath map[string]GitFileMatch `json:"filesByPath"`
+	FilesTree   *uo.UnstructuredObject  `json:"filesTree"`
 }
 
 type VarsSourceClusterConfigMapOrSecret struct {
@@ -98,6 +130,7 @@ type VarsSource struct {
 	Values            *uo.UnstructuredObject              `json:"values,omitempty"`
 	File              *string                             `json:"file,omitempty"`
 	Git               *VarsSourceGit                      `json:"git,omitempty"`
+	GitFiles          *VarsSourceGitFiles                 `json:"gitFiles,omitempty"`
 	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `json:"clusterConfigMap,omitempty"`
 	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `json:"clusterSecret,omitempty"`
 	ClusterObject     *VarsSourceClusterObject            `json:"clusterObject,omitempty"`

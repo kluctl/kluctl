@@ -143,7 +143,7 @@ The advantage of the second method is that the type (number) of `a` is preserved
 it into a string.
 
 ### git
-This loads variables from a git repository. Example:
+This loads variables from a file inside a git repository. Example:
 
 ```yaml
 vars:
@@ -158,6 +158,104 @@ The ref field has the same format at found in [Git includes](../deployments/depl
 
 Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
 [sops integration](../deployments/sops.md) integration for more details.
+
+### gitFiles
+This loads multiple branches/tags and its contents from a git repository. The branches/tags can be filtered via regex
+and the files to load can be filtered via globs. Files can also be parsed and interpreted as yaml. Providing
+[`targrtPath`](#targetpath) is mandatory for this variables source.
+
+Example:
+
+```yaml
+vars:
+  - gitFiles:
+      url: ssh://git@github.com/example/repo.git
+      ref:
+        branch: preview-env-.*
+      files:
+        - glob: preview-info.yaml
+          parseYaml: true
+    targetPath: previewEnvs
+```
+
+The following fields are supported for `gitFiles`.
+
+##### url
+Specified the Git url.
+
+##### ref
+Specifies the ref to match. The ref field has the same format at found in [Git includes](../deployments/deployment-yml.md#git-includes),
+with the addition that branches and tags can specify regular expressions.
+
+##### files
+Specifies a list of file filters. Each entry can have the following fields:
+
+| field        | required | description                                                                                                                                                                                                                          |
+|--------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| glob         | yes      | Specifies the globbing pattern to test files against. `/` must be used as separator, even on Windows.                                                                                                                                |
+| render       | no       | If set to `true`, Kluctl will render the content of matching files with the current context (excluding the currently loaded `gitFiles`.                                                                                              |
+| parseYaml    | no       | If set to `true`, Kluctl will parse and interpret the content of matching files as YAML.<br/>The result is stored in the `parsed` field of the resulting file dict.<br/>Parsing happend after rendering (if `render: true` is used). |
+| yamlMultiDoc | no       | If set to `true`, Kluctl will treat the content of matching files as multi-document YAML file.                                                                                                                                       |
+
+
+#### gitFiles result
+The above example will put the result into the variable `previewEnvs`. The result is a list of matching branches/tags with each entry
+having the following form:
+
+```yaml
+previewEnvs:
+- ref:
+    branch: preview-env-1
+  refStr: refs/heads/preview-env-1
+  files:
+  - path: preview-info.yaml
+    size: 1234
+    content: |
+      some:
+        arbitrary:
+          yamlContent: 42
+    parsed:
+      some:
+        arbitrary:
+          yamlContent: 42
+    # this is a copy of the original `gitFiles.files` entry that caused this match
+    file:
+      glob: preview-info.yaml
+      parseYaml: true
+  # this is a flat dict with each entry being a copy of what is found in `files` for that same entry
+  # it is indexed by the relative path of each file
+  filesByPath:
+    preview-info.yaml:
+      path: preview-info.yaml
+      content: ...
+    dir1/sub-dir/file.yaml:
+      path: dir1/sub-dir/file.yaml
+      content: ...
+  # this is a nested dict that follows the directory structure
+  filesTree:
+    preview-info.yaml:
+      path: preview-info.yaml
+      content: ...
+    dir1:
+      sub-dir:
+        file.yaml:
+          path: dir1/sub-dir/file.yaml
+          content: ...
+- ref:
+    branch: preview-env-2
+  ...
+```
+
+Each file entry, as found in `files`, `filesByPath` and `filesTree` has the following fields:
+
+| field   | description                                                                                                                                                                                  |
+|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| file    | This is a copy of the `files` entry from `gitFiles` that caused the match.                                                                                                                   |
+| path    | The relative path inside the git repository.                                                                                                                                                 |
+| size    | The size of the file. If the file is encrypted, this specifies the size of the unencrypted content.                                                                                          |
+| content | The content of the file. If the original file is encrypted, the `content` will contain the unencrypted content. If `render: true` was specified, the `content` will be the rendered content. |
+| parsed  | If `parsed: true` was specified, this field will contain the parsed content of the file.                                                                                                     |
+
 
 ### clusterConfigMap
 Loads a configmap from the target's cluster and loads the specified key's value into the templating context. The value

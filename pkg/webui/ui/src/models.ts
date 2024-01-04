@@ -338,7 +338,6 @@ export class VarsSourceClusterObject {
     path: string;
     render?: boolean;
     parseYaml?: boolean;
-    targetPath: string;
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
@@ -351,7 +350,6 @@ export class VarsSourceClusterObject {
         this.path = source["path"];
         this.render = source["render"];
         this.parseYaml = source["parseYaml"];
-        this.targetPath = source["targetPath"];
     }
 }
 export class VarsSourceClusterConfigMapOrSecret {
@@ -369,6 +367,50 @@ export class VarsSourceClusterConfigMapOrSecret {
         this.key = source["key"];
         this.targetPath = source["targetPath"];
     }
+}
+export class GitFile {
+    glob: string;
+    render?: boolean;
+    parseYaml?: boolean;
+    yamlMultiDoc?: boolean;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.glob = source["glob"];
+        this.render = source["render"];
+        this.parseYaml = source["parseYaml"];
+        this.yamlMultiDoc = source["yamlMultiDoc"];
+    }
+}
+export class VarsSourceGitFiles {
+    url: string;
+    ref?: GitRef;
+    files?: GitFile[];
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.url = source["url"];
+        this.ref = new GitRef(source["ref"]);
+        this.files = this.convertValues(source["files"], GitFile);
+    }
+
+	convertValues(a: any, classs: any, asMap: boolean = false): any {
+	    if (!a) {
+	        return a;
+	    }
+	    if (a.slice) {
+	        return (a as any[]).map(elem => this.convertValues(elem, classs));
+	    } else if ("object" === typeof a) {
+	        if (asMap) {
+	            for (const key of Object.keys(a)) {
+	                a[key] = new classs(a[key]);
+	            }
+	            return a;
+	        }
+	        return new classs(a);
+	    }
+	    return a;
+	}
 }
 export class VarsSourceGit {
     url: string;
@@ -389,6 +431,7 @@ export class VarsSource {
     values?: any;
     file?: string;
     git?: VarsSourceGit;
+    gitFiles?: VarsSourceGitFiles;
     clusterConfigMap?: VarsSourceClusterConfigMapOrSecret;
     clusterSecret?: VarsSourceClusterConfigMapOrSecret;
     clusterObject?: VarsSourceClusterObject;
@@ -398,6 +441,7 @@ export class VarsSource {
     gcpSecretManager?: VarsSourceGcpSecretManager;
     vault?: VarsSourceVault;
     azureKeyVault?: VarSourceAzureKeyVault;
+    targetPath?: string;
     when?: string;
     renderedSensitive?: boolean;
     renderedVars?: any;
@@ -410,6 +454,7 @@ export class VarsSource {
         this.values = source["values"];
         this.file = source["file"];
         this.git = this.convertValues(source["git"], VarsSourceGit);
+        this.gitFiles = this.convertValues(source["gitFiles"], VarsSourceGitFiles);
         this.clusterConfigMap = this.convertValues(source["clusterConfigMap"], VarsSourceClusterConfigMapOrSecret);
         this.clusterSecret = this.convertValues(source["clusterSecret"], VarsSourceClusterConfigMapOrSecret);
         this.clusterObject = this.convertValues(source["clusterObject"], VarsSourceClusterObject);
@@ -419,6 +464,7 @@ export class VarsSource {
         this.gcpSecretManager = this.convertValues(source["gcpSecretManager"], VarsSourceGcpSecretManager);
         this.vault = this.convertValues(source["vault"], VarsSourceVault);
         this.azureKeyVault = this.convertValues(source["azureKeyVault"], VarSourceAzureKeyVault);
+        this.targetPath = source["targetPath"];
         this.when = source["when"];
         this.renderedSensitive = source["renderedSensitive"];
         this.renderedVars = source["renderedVars"];

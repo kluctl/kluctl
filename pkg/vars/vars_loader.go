@@ -116,6 +116,8 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		newValue, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
 	} else if source.Git != nil {
 		newValue, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
+	} else if source.GitFiles != nil {
+		newValue, sensitive, err = v.loadGitFiles(ctx, varsCtx, source.GitFiles, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
 		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
 	} else if source.ClusterSecret != nil {
