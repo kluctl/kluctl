@@ -18,6 +18,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"strings"
@@ -381,21 +382,48 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		ForceDryRun: a.o.DryRun,
 	}
 	r, apiWarnings, err := a.k.ApplyObject(x, options)
+
+	retryWhenCRDExists := meta.IsNoMatchError(err)
+	if errors.IsUnexpectedServerError(err) {
+		reason := errors.ReasonForError(err)
+		if reason == metav1.StatusReasonNotFound {
+			// this happens when a CRD was present in the past, causing the on-disk discovery cache to persist the info
+			// about it. When the CRD is then deleted, the cache gets out-of-date, causing the k8s client to perform
+			// requests against non-existing resources. In that case, we do not get no-match errors but instead unexpected
+			// 404 errors. We simply retry with invalidated caches in that case.
+			retryWhenCRDExists = true
+		}
+	}
+
 	if r != nil && usesDummyName {
 		tmpName := r.GetK8sName()
 		_ = r.ReplaceKeys(tmpName, ref.Name)
 		_ = r.ReplaceValues(tmpName, ref.Name)
 		r.SetK8sNamespace(ref.Namespace)
-	} else if meta.IsNoMatchError(err) {
-		if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
-			if a.o.DryRun {
+	} else if retryWhenCRDExists {
+		if a.o.DryRun {
+			if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
+				// simulate that the apply "succeeded"
 				a.handleResult(x, hook)
 				a.HandleWarning(ref, fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
 				return
-			} else {
+			}
+		} else {
+			// let's do a metadata lookup for the guessed CRD and check if it appeared in the meantime. If yes,
+			// invalidate discovery cache and retry. This case happens when the current deployment applied some
+			// form of controller that then applies CRDs in the background, missed by Kluctl due to the discovery cache.
+			plural, _ := meta.UnsafeGuessKindToResource(ref.GroupVersionKind())
+			crdName := plural.Resource + "." + plural.Group
+			crdRef := k8s2.NewObjectRef("apiextensions.k8s.io", "v1", "CustomResourceDefinition", crdName, "")
+
+			_, _, tmpErr := a.k.GetSingleObjectMetadata(crdRef)
+			if tmpErr == nil {
+				status.Tracef(a.ctx, "resource unknown, and CRD %s is available, retrying with invalidated caches", crdName)
 				// retry with invalidated discovery
 				a.k.ResetMapper()
 				r, apiWarnings, err = a.k.ApplyObject(x, options)
+			} else {
+				status.Tracef(a.ctx, "resource unknown, and CRD %s not available", crdName)
 			}
 		}
 	}
