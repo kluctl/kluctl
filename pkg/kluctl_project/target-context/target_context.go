@@ -10,6 +10,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
@@ -63,6 +64,10 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 		}
 		target = &*t
 	} else {
+		if len(p.Targets) != 0 {
+			status.Deprecation(ctx, "no-target", "Warning, tried to use Kluctl without explicitly specifying a target, while the Kluctl project contains target definitions. This was allowed in older version of Kluctl, but is forbidden since v2.23.0. If mixing deployments with and without targets was actually intended, please switch to creating and using a dedicated target that serves as a replacement for no-target deployments.")
+			return nil, fmt.Errorf("a target must be explicitly selected when targets are defined in the Kluctl project")
+		}
 		target = &types.Target{
 			Discriminator: p.Config.Discriminator,
 		}

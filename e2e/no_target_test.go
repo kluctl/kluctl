@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -67,4 +68,15 @@ func TestNoTarget(t *testing.T) {
 
 func TestNoTargetNoDeployment(t *testing.T) {
 	testNoTarget(t, false)
+}
+
+func TestNoTargetWithTargetsInProject(t *testing.T) {
+	t.Parallel()
+
+	p := prepareNoTargetTest(t, true)
+	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
+	})
+
+	_, _, err := p.Kluctl(t, "deploy", "--yes")
+	assert.ErrorContains(t, err, "a target must be explicitly selected when targets are defined in the Kluctl project")
 }
