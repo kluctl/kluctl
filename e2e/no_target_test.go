@@ -12,9 +12,6 @@ import (
 func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_project.TestProject {
 	p := test_project.NewTestProject(t)
 
-	createNamespace(t, defaultCluster1, p.TestSlug())
-	createNamespace(t, defaultCluster2, p.TestSlug())
-
 	cm := createConfigMapObject(map[string]string{
 		"targetName":    `{{ target.name }}`,
 		"targetContext": `{{ target.context }}`,
@@ -38,6 +35,8 @@ func testNoTarget(t *testing.T, withDeploymentYaml bool) {
 	t.Parallel()
 
 	p := prepareNoTargetTest(t, withDeploymentYaml)
+	createNamespace(t, defaultCluster1, p.TestSlug())
+	createNamespace(t, defaultCluster2, p.TestSlug())
 
 	p.KluctlMust(t, "deploy", "--yes")
 	cm := assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")

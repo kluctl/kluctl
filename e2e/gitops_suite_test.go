@@ -231,6 +231,11 @@ func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProjec
 		suite.T().Fatal(err)
 	}
 
+	var targetPtr *string
+	if target != "" {
+		targetPtr = &target
+	}
+
 	kluctlDeployment := &kluctlv1.KluctlDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      p.TestSlug(),
@@ -239,7 +244,7 @@ func (suite *GitopsTestSuite) createKluctlDeployment2(p *test_project.TestProjec
 		Spec: kluctlv1.KluctlDeploymentSpec{
 			Interval: metav1.Duration{Duration: interval},
 			Timeout:  &metav1.Duration{Duration: timeout},
-			Target:   &target,
+			Target:   targetPtr,
 			Args: &runtime.RawExtension{
 				Raw: jargs,
 			},
