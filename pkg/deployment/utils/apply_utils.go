@@ -451,6 +451,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 
 	lastLogTime := time.Now()
 	didLog := false
+	seen := false
 	startTime := time.Now()
 	for true {
 		elapsed := int(time.Now().Sub(startTime).Seconds())
@@ -458,34 +459,42 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		o, apiWarnings, err := a.k.GetSingleObject(ref)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if !errors.IsNotFound(err) {
+				a.HandleError(ref, err)
+				return false
+			}
+		}
+
+		if o == nil {
+			if seen {
 				if didLog {
 					status.Warningf(a.ctx, "Cancelled waiting for %s as it disappeared while waiting for it (%ds elapsed)", ref.String(), elapsed)
 				}
 				a.HandleError(ref, fmt.Errorf("%s disappeared while waiting for it to become ready", ref.String()))
 				return false
 			}
-			a.HandleError(ref, err)
-			return false
-		}
-		v := validation.ValidateObject(a.k, o, false, false)
-		if v.Ready {
-			if didLog {
-				a.sctx.InfoFallbackf("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
-			}
-			return true
-		}
-		if len(v.Errors) != 0 {
-			if didLog {
-				status.Warningf(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
-			}
-			for _, e := range v.Errors {
-				a.HandleError(ref, fmt.Errorf(e.Message))
-			}
-			return false
-		}
+			a.sctx.Update(fmt.Sprintf("Waiting for %s to appear...", ref.String()))
+		} else {
+			seen = true
 
-		a.sctx.Update(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
+			v := validation.ValidateObject(a.k, o, false, false)
+			if v.Ready {
+				if didLog {
+					a.sctx.InfoFallbackf("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
+				}
+				return true
+			}
+			if len(v.Errors) != 0 {
+				if didLog {
+					status.Warningf(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
+				}
+				for _, e := range v.Errors {
+					a.HandleError(ref, fmt.Errorf(e.Message))
+				}
+				return false
+			}
+			a.sctx.Update(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
+		}
 
 		reportStillWaitingTime := 10 * time.Second
 		if testing.Testing() {
