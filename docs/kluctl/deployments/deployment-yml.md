@@ -64,14 +64,10 @@ Example:
 deployments:
 - path: path/to/deployment1
 - path: path/to/deployment2
-  waitReadiness: true
 ```
 
 The `path` must point to a directory relative to the directory containing the `deployment.yaml`. Only directories
 that are part of the kluctl project are allowed. The directory must contain a valid `kustomization.yaml`.
-
-`waitReadiness` is optional and if set to `true` instructs kluctl to wait for readiness of each individual object
-of the kustomize deployment. Readiness is defined in [readiness](./readiness.md).
 
 ### Includes
 
@@ -179,6 +175,10 @@ Causes kluctl to wait until all previous kustomize deployments have been applied
 upcoming deployments need the current or previous deployments to be finished beforehand. Previous deployments also
 include all sub-deployments from included deployments.
 
+Please note that barriers do not wait for readiness of individual resources. This means that it will not wait for
+readiness of services, deployments, daemon sets, and so on. To actually wait for readiness, use `waitReadiness: true` or
+`waitReadinessObjects`.
+
 Example:
 ```yaml
 deployments:
@@ -202,12 +202,57 @@ deployments:
 - barrier: true
   message: "Waiting for subDeployment1 to be finished"
 # At this point, it's ensured that kustomizeDeployment1, kustomizeDeployment2 and all sub-deployments from
-# subDeployment1 are fully deployed.
+# subDeployment1 are fully applied.
 - path: kustomizeDeployment3
 ```
 If no custom message is provided, the barrier will be created without a specific message, and the default behavior will be applied.
 
 When viewing the `kluctl deploy` status, the custom message, if provided, will be displayed along with default barrier information.
+
+### waitReadiness
+`waitReadiness` can be set on all deployment items. If set to `true`, Kluctl will wait for readiness of each individual object
+of the current deployment item. Readiness is defined in [readiness](./readiness.md).
+
+Please note that Kluctl will not wait for readiness of previous deployment items.
+
+This can also be combined with [barriers](#barriers), which will instruct Kluctl to stop processing the next deployment
+items until everything before the barrier is applied and the current deployment item's objects are all ready.
+
+Examples:
+```yaml
+deployments:
+- path: kustomizeDeployment1
+  waitReadiness: true
+- path: kustomizeDeployment2
+  # this will wait for kustomizeDeployment1 to be applied+ready and kustomizeDeployment2 to be applied
+  # kustomizeDeployment2 is not guaranteed to be ready at this point, but might be due to the parallel nature of Kluctl
+- barrier: true
+- path: kustomizeDeployment3
+```
+
+### waitReadinessObjects
+This is comparable to `waitReadiness`, but instead of waiting for all objects of the current deployment item, it allows
+to explicitly specify objects which are not necessarily part of the current (or any) deployment item.
+
+This is for example useful if you used an external Helm Chart and want to wait for readiness of some individual objects,
+e.g. CRDs that are being deployment by some in-cluster operator instead of the Helm chart itself.
+
+Examples:
+```yaml
+deployments:
+# The cilium Helm chart does not deploy CRDs anymore. Instead, the cilium-operator does this on startup. This means,
+# we can't apply CiliumNetworkPolicies before the CRDs get applied by the operator.
+- path: cilium
+- barrier: true
+  waitReadinessObjects:
+  - kind: Deployment
+    name: cilium-operator
+    namespace: kube-system
+  - kind: CustomResourceDefinition
+    name: ciliumnetworkpolicies.cilium.io
+# This deployment can now safely use the CRDs applied by the operator
+- path: kustomizeDeployment1
+```
 
 ### deleteObjects
 Causes kluctl to delete matching objects, specified by a list of group/kind/name/namespace dictionaries.

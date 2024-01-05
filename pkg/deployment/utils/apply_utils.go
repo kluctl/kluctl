@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/status"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -524,27 +525,56 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	return false
 }
 
+func (a *ApplyUtil) convertObjectRef(x types2.ObjectRefItem, refs map[k8s2.ObjectRef]bool) {
+	gvks, err := a.k.GetFilteredPreferredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
+	if err != nil {
+		a.HandleError(k8s2.ObjectRef{}, err)
+		return
+	}
+	if len(gvks) == 0 {
+		nameAndNs := x.Name
+		if x.Namespace != "" {
+			nameAndNs = x.Namespace + "/" + x.Name
+		}
+		var gk schema.GroupKind
+		if x.Group != nil {
+			gk.Group = *x.Group
+		}
+		if x.Kind != nil {
+			gk.Kind = *x.Kind
+		}
+		a.HandleError(k8s2.ObjectRef{}, fmt.Errorf("failed to wait for readiness of %s. resource with group/kind %s not found", nameAndNs, gk.String()))
+		return
+	}
+	for _, gvk := range gvks {
+		ref := k8s2.ObjectRef{
+			Group:     gvk.Group,
+			Version:   gvk.Version,
+			Kind:      gvk.Kind,
+			Name:      x.Name,
+			Namespace: x.Namespace,
+		}
+		refs[ref] = true
+	}
+}
+
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	toDelete := map[k8s2.ObjectRef]bool{}
+	toWaitReadiness := map[k8s2.ObjectRef]bool{}
 	for _, x := range d.Config.DeleteObjects {
-		gvks, err := a.k.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
-		if err != nil {
-			a.HandleError(k8s2.ObjectRef{}, err)
-		}
-		for _, gvk := range gvks {
-			ref := k8s2.ObjectRef{
-				Group:     gvk.Group,
-				Version:   gvk.Version,
-				Kind:      gvk.Kind,
-				Name:      x.Name,
-				Namespace: x.Namespace,
-			}
-			toDelete[ref] = true
-		}
+		a.convertObjectRef(x.ObjectRefItem, toDelete)
+	}
+	for _, x := range d.Config.WaitReadinessObjects {
+		a.convertObjectRef(x.ObjectRefItem, toWaitReadiness)
 	}
 	for _, x := range d.Objects {
 		if x.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
 			toDelete[x.GetK8sRef()] = true
+		}
+
+		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || x.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
+		if waitReadiness {
+			toWaitReadiness[x.GetK8sRef()] = true
 		}
 	}
 
@@ -616,14 +646,13 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		}
 	}
 	// Wait for readiness if needed after we have applied all objects
-	for _, o := range applyObjects {
+	for ref, _ := range toWaitReadiness {
 		if a.abortSignal.Load().(bool) {
 			break
 		}
 
-		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || o.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
-		if !a.o.NoWait && waitReadiness {
-			a.WaitReadiness(o.GetK8sRef(), 0)
+		if !a.o.NoWait {
+			a.WaitReadiness(ref, 0)
 		}
 	}
 	if a.abortSignal.Load().(bool) {
@@ -670,6 +699,10 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 	}
 	if len(d.Config.DeleteObjects) != 0 {
 		s := "<delete>"
+		return &s
+	}
+	if len(d.Config.WaitReadinessObjects) != 0 {
+		s := "<wait>"
 		return &s
 	}
 	return nil
