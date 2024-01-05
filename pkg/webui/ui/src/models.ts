@@ -136,6 +136,20 @@ export class HelmChartConfig {
         this.skipPrePull = source["skipPrePull"];
     }
 }
+export class WaitReadinessObjectItemConfig {
+    group?: string;
+    kind?: string;
+    name: string;
+    namespace?: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.group = source["group"];
+        this.kind = source["kind"];
+        this.name = source["name"];
+        this.namespace = source["namespace"];
+    }
+}
 export class DeleteObjectItemConfig {
     group?: string;
     kind?: string;
@@ -212,6 +226,7 @@ export class DeploymentItemConfig {
     barrier?: boolean;
     message?: string;
     waitReadiness?: boolean;
+    waitReadinessObjects?: WaitReadinessObjectItemConfig[];
     args?: any;
     passVars?: boolean;
     vars?: VarsSource[];
@@ -234,6 +249,7 @@ export class DeploymentItemConfig {
         this.barrier = source["barrier"];
         this.message = source["message"];
         this.waitReadiness = source["waitReadiness"];
+        this.waitReadinessObjects = this.convertValues(source["waitReadinessObjects"], WaitReadinessObjectItemConfig);
         this.args = source["args"];
         this.passVars = source["passVars"];
         this.vars = this.convertValues(source["vars"], VarsSource);
