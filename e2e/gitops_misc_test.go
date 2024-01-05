@@ -4,10 +4,13 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	. "github.com/onsi/gomega"
 )
 
 type GitOpsMiscSuite struct {
@@ -35,7 +38,7 @@ func (suite *GitOpsMiscSuite) TestGitSourceWithPath() {
 	suite.Run("initial deployment fails", func() {
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		status := suite.getReadiness(kd)
-		assert.Equal(suite.T(), v1.ConditionFalse, status.Status)
+		assert.Equal(suite.T(), metav1.ConditionFalse, status.Status)
 		assert.Equal(suite.T(), "target target1 not existent in kluctl project config", status.Message)
 	})
 
@@ -46,7 +49,7 @@ func (suite *GitOpsMiscSuite) TestGitSourceWithPath() {
 
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		status := suite.getReadiness(kd)
-		assert.Equal(suite.T(), v1.ConditionTrue, status.Status)
+		assert.Equal(suite.T(), metav1.ConditionTrue, status.Status)
 	})
 }
 
@@ -81,7 +84,7 @@ func (suite *GitOpsMiscSuite) TestOciSourceWithPath() {
 	suite.Run("initial deployment fails", func() {
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		status := suite.getReadiness(kd)
-		assert.Equal(suite.T(), v1.ConditionFalse, status.Status)
+		assert.Equal(suite.T(), metav1.ConditionFalse, status.Status)
 		assert.Equal(suite.T(), "target target1 not existent in kluctl project config", status.Message)
 	})
 
@@ -92,6 +95,45 @@ func (suite *GitOpsMiscSuite) TestOciSourceWithPath() {
 
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		status := suite.getReadiness(kd)
-		assert.Equal(suite.T(), v1.ConditionTrue, status.Status)
+		assert.Equal(suite.T(), metav1.ConditionTrue, status.Status)
+	})
+}
+
+func (suite *GitOpsMiscSuite) TestNoTarget() {
+	p := prepareNoTargetTest(suite.T(), true)
+	createNamespace(suite.T(), suite.k, p.TestSlug())
+
+	key := suite.createKluctlDeployment(p, "", nil)
+
+	suite.Run("deployment with no target", func() {
+		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+		cm := assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "cm")
+		assert.Equal(suite.T(), map[string]any{
+			"targetName":    "",
+			"targetContext": "default",
+		}, cm.Object["data"])
+	})
+}
+
+func (suite *GitOpsMiscSuite) TestNoTargetError() {
+	g := NewWithT(suite.T())
+
+	p := prepareNoTargetTest(suite.T(), true)
+	createNamespace(suite.T(), suite.k, p.TestSlug())
+
+	p.UpdateTarget("target1", func(target *uo.UnstructuredObject) {
+	})
+
+	key := suite.createKluctlDeployment(p, "", nil)
+
+	suite.Run("deployment with no target", func() {
+		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
+
+		readinessCondition := suite.getReadiness(kd)
+		g.Expect(readinessCondition).ToNot(BeNil())
+
+		g.Expect(readinessCondition.Status).To(Equal(metav1.ConditionFalse))
+		g.Expect(readinessCondition.Reason).To(Equal(kluctlv1.PrepareFailedReason))
+		g.Expect(readinessCondition.Message).To(ContainSubstring("a target must be explicitly selected when targets are defined in the Kluctl project"))
 	})
 }

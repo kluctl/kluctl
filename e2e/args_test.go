@@ -235,6 +235,11 @@ func testArgsInDiscriminator(t *testing.T, inDefaultDiscriminator bool) {
 
 	if inDefaultDiscriminator {
 		// now without targets
+		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
+			_ = o.RemoveNestedField("targets")
+			return nil
+		})
+
 		p.KluctlMust(t, "deploy", "--yes")
 		cm = assertConfigMapExists(t, k, p.TestSlug(), "cm")
 		assertNestedFieldEquals(t, cm, "discriminator-default", "metadata", "labels", "kluctl.io/discriminator")

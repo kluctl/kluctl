@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
@@ -10,9 +11,6 @@ import (
 
 func prepareNoTargetTest(t *testing.T, withDeploymentYaml bool) *test_project.TestProject {
 	p := test_project.NewTestProject(t)
-
-	createNamespace(t, defaultCluster1, p.TestSlug())
-	createNamespace(t, defaultCluster2, p.TestSlug())
 
 	cm := createConfigMapObject(map[string]string{
 		"targetName":    `{{ target.name }}`,
@@ -37,6 +35,8 @@ func testNoTarget(t *testing.T, withDeploymentYaml bool) {
 	t.Parallel()
 
 	p := prepareNoTargetTest(t, withDeploymentYaml)
+	createNamespace(t, defaultCluster1, p.TestSlug())
+	createNamespace(t, defaultCluster2, p.TestSlug())
 
 	p.KluctlMust(t, "deploy", "--yes")
 	cm := assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
@@ -67,4 +67,15 @@ func TestNoTarget(t *testing.T) {
 
 func TestNoTargetNoDeployment(t *testing.T) {
 	testNoTarget(t, false)
+}
+
+func TestNoTargetWithTargetsInProject(t *testing.T) {
+	t.Parallel()
+
+	p := prepareNoTargetTest(t, true)
+	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
+	})
+
+	_, _, err := p.Kluctl(t, "deploy", "--yes")
+	assert.ErrorContains(t, err, "a target must be explicitly selected when targets are defined in the Kluctl project")
 }
