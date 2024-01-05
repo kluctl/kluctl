@@ -718,9 +718,6 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 }
 
 func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.DeploymentItem) {
-	s := status.Start(a.ctx, "Running server-side apply for all objects")
-	defer s.Failed()
-
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(8)
 
@@ -777,7 +774,6 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.Deploy
 		}
 	}
 	wg.Wait()
-	s.Success()
 }
 
 func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.UnstructuredObject, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) {
