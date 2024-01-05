@@ -3,7 +3,7 @@
 ---
 title: "Commands"
 linkTitle: "Commands"
-weight: 10
+weight: 50
 description: >
     Description of available commands.
 ---

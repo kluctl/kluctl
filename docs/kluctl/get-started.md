@@ -4,7 +4,7 @@
 title: "Get Started"
 linkTitle: "Get Started"
 description: "Get Started with Kluctl."
-weight: 20
+weight: 1
 ---
 -->
 

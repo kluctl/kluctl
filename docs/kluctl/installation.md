@@ -3,7 +3,7 @@
 ---
 title: "Installation"
 linkTitle: "Installation"
-weight: 20
+weight: 5
 description: "Installing kluctl."
 ---
 -->

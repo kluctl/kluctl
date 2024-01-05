@@ -4,6 +4,6 @@
 title: Metrics
 linkTitle: Metrics
 description: OpenMetrics-compatible export of controller metrics
-weight: 10
+weight: 30
 ---
 -->

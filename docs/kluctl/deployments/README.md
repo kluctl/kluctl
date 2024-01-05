@@ -3,7 +3,7 @@
 ---
 title: "Deployments"
 linkTitle: "Deployments"
-weight: 2
+weight: 30
 description: >
     Deployments and sub-deployments.
 ---
@@ -37,12 +37,9 @@ as you need.
 Each level in this structure recursively adds [tags](./tags.md) to each deployed resources, allowing you to control
 precisely what is deployed in the future.
 
-Some visualized files/directories have links attached, follow them to get more information.
-
-<!-- markdown-link-check-disable -->
-<pre>
+```
 -- project-dir/
-   |-- <a href="./deployment-yml">deployment.yaml</a>
+   |-- deployment.yaml
    |-- .gitignore
    |-- kustomize-deployment1/
    |   |-- kustomization.yaml
@@ -58,7 +55,7 @@ Some visualized files/directories have links attached, follow them to get more i
    |   |   |-- resource2.yaml
    |   |   |-- patch1.yaml
    |   |   `-- ...
-   |   |-- <a href="./helm">kustomize-with-helm-deployment/</a>
+   |   |-- kustomize-with-helm-deployment
    |   |   |-- charts/
    |   |   |   `-- ...
    |   |   |-- kustomization.yaml
@@ -70,8 +67,7 @@ Some visualized files/directories have links attached, follow them to get more i
    |       `-- ... subsubsub deployments
    `-- sub-deployment/
        `-- ...
-</pre>
-<!-- markdown-link-check-enable -->
+```
 
 ## Order of deployments
 Deployments are done in parallel, meaning that there are usually no order guarantees. The only way to somehow control

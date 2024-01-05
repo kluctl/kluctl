@@ -4,6 +4,6 @@
 title: Specs
 linkTitle: Specs
 description: Kluctl Controller specs
-weight: 10
+weight: 20
 ---
 -->
