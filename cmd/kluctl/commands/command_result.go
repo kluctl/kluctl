@@ -19,11 +19,6 @@ import (
 func formatCommandResultText(cr *result.CommandResult, short bool) string {
 	buf := bytes.NewBuffer(nil)
 
-	if len(cr.Warnings) != 0 {
-		buf.WriteString("\nWarnings:\n")
-		prettyErrors(buf, cr.Warnings)
-	}
-
 	var newObjects []k8s.ObjectRef
 	var changedObjects []k8s.ObjectRef
 	var deletedObjects []k8s.ObjectRef
@@ -82,6 +77,11 @@ func formatCommandResultText(cr *result.CommandResult, short bool) string {
 	if len(orphanObjects) != 0 {
 		buf.WriteString("\nOrphan objects:\n")
 		prettyObjectRefs(buf, orphanObjects)
+	}
+
+	if len(cr.Warnings) != 0 {
+		buf.WriteString("\nWarnings:\n")
+		prettyErrors(buf, cr.Warnings)
 	}
 
 	if len(cr.Errors) != 0 {
