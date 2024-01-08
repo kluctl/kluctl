@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
@@ -96,20 +97,19 @@ func mergeKubeconfig(path string, kubeconfig []byte) {
 	}
 }
 
+func getKubeconfigTmpFile(t *testing.T, content []byte) string {
+	fname := filepath.Join(t.TempDir(), "kubeconfig")
+	err := os.WriteFile(fname, content, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fname
+}
+
 func setKubeconfigString(t *testing.T, content []byte) {
-	tmpKubeconfig, err := os.CreateTemp(t.TempDir(), "kubeconfig-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tmpKubeconfig.Close()
-
-	_, err = tmpKubeconfig.Write(content)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("set KUBECONFIG=%s\n", tmpKubeconfig.Name())
-	t.Setenv("KUBECONFIG", tmpKubeconfig.Name())
+	tmpKubeconfig := getKubeconfigTmpFile(t, content)
+	t.Logf("set KUBECONFIG=%s\n", tmpKubeconfig)
+	t.Setenv("KUBECONFIG", tmpKubeconfig)
 }
 
 func setKubeconfig(t *testing.T, config api.Config) {
