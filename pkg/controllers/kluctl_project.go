@@ -91,7 +91,7 @@ func prepareProject(ctx context.Context,
 	}()
 
 	var err error
-	pp.j2, err = kluctl_jinja2.NewKluctlJinja2(true)
+	pp.j2, err = kluctl_jinja2.NewKluctlJinja2(ctx, true)
 	if err != nil {
 		return nil, err
 	}
