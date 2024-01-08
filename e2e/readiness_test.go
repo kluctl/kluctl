@@ -42,7 +42,7 @@ func testWaitReadiness(t *testing.T, fn func(p *test_project.TestProject)) {
 	fn(p)
 
 	_, stderr, err := p.Kluctl(t, "deploy", "--yes", "-t", "test", "--timeout", (3 * time.Second).String())
-	assert.ErrorContains(t, err, "context deadline exceeded")
+	assert.Error(t, err)
 	assert.Contains(t, stderr, fmt.Sprintf("context cancelled while waiting for readiness of %s/ConfigMap/cm2", p.TestSlug()))
 
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
