@@ -11,6 +11,7 @@ import (
 
 type validateCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.InclusionFlags
@@ -33,6 +34,7 @@ TODO: This needs to be better documented!`
 func (cmd *validateCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		inclusionFlags:       cmd.InclusionFlags,

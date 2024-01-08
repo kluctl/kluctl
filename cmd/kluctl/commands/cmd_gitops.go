@@ -106,12 +106,13 @@ func (g *gitopsCmdHelper) init(ctx context.Context) error {
 
 	g.logsBufs = map[logsKey]*logsBuf{}
 
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = g.args.Kubeconfig.String()
+
 	configOverrides := &clientcmd.ConfigOverrides{
 		CurrentContext: g.args.Context,
 	}
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		configOverrides)
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		return err

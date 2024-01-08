@@ -138,21 +138,36 @@ func (k *K8sCluster) ListMetadata(gvk schema.GroupVersionKind, namespace string,
 	return k.doList(&l, namespace, labels)
 }
 
+func (k *K8sCluster) doGet(ref k8s.ObjectRef, o client.Object) ([]ApiWarning, error) {
+	o.SetName(ref.Name)
+	o.SetNamespace(ref.Namespace)
+	o.GetObjectKind().SetGroupVersionKind(ref.GroupVersionKind())
+	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, true, func(c client.Client) error {
+		return c.Get(k.ctx, client.ObjectKeyFromObject(o), o)
+	})
+	if err != nil {
+		return apiWarnings, err
+	}
+	return apiWarnings, nil
+}
+
 func (k *K8sCluster) GetSingleObject(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
 	var o unstructured.Unstructured
-	o.SetGroupVersionKind(ref.GroupVersionKind())
-
-	apiWarnings, err := k.clients.withCClientFromPool(k.ctx, true, func(c client.Client) error {
-		return c.Get(k.ctx, client.ObjectKey{
-			Name:      ref.Name,
-			Namespace: ref.Namespace,
-		}, &o)
-
-	})
+	apiWarnings, err := k.doGet(ref, &o)
 	if err != nil {
 		return nil, apiWarnings, err
 	}
 	return uo.FromUnstructured(&o), apiWarnings, nil
+}
+
+func (k *K8sCluster) GetSingleObjectMetadata(ref k8s.ObjectRef) (*uo.UnstructuredObject, []ApiWarning, error) {
+	var o v1.PartialObjectMetadata
+	apiWarnings, err := k.doGet(ref, &o)
+	if err != nil {
+		return nil, apiWarnings, err
+	}
+	x, err := uo.FromStruct(&o)
+	return x, apiWarnings, err
 }
 
 type DeleteOptions struct {

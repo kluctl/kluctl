@@ -14,10 +14,12 @@ type DeploymentItemConfig struct {
 	Oci           *OciProject              `json:"oci,omitempty"`
 	DeleteObjects []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
 
-	Tags          []string `json:"tags,omitempty"`
-	Barrier       bool     `json:"barrier,omitempty"`
-	Message       *string  `json:"message,omitempty"`
-	WaitReadiness bool     `json:"waitReadiness,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+	Barrier bool     `json:"barrier,omitempty"`
+	Message *string  `json:"message,omitempty"`
+
+	WaitReadiness        bool                            `json:"waitReadiness,omitempty"`
+	WaitReadinessObjects []WaitReadinessObjectItemConfig `json:"waitReadinessObjects,omitempty"`
 
 	Args     *uo.UnstructuredObject `json:"args,omitempty"`
 	PassVars bool                   `json:"passVars,omitempty"`
@@ -67,15 +69,30 @@ func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	}
 }
 
-type DeleteObjectItemConfig struct {
+type ObjectRefItem struct {
 	Group     *string `json:"group,omitempty"`
 	Kind      *string `json:"kind,omitempty"`
 	Name      string  `json:"name" validate:"required"`
 	Namespace string  `json:"namespace,omitempty"`
 }
 
+type DeleteObjectItemConfig struct {
+	ObjectRefItem
+}
+
 func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeleteObjectItemConfig)
+	if s.Group == nil && s.Kind == nil {
+		sl.ReportError(s, "self", "self", "at least one of group or kind must be set", "")
+	}
+}
+
+type WaitReadinessObjectItemConfig struct {
+	ObjectRefItem
+}
+
+func ValidateWaitReadinessObjectItemConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(WaitReadinessObjectItemConfig)
 	if s.Group == nil && s.Kind == nil {
 		sl.ReportError(s, "self", "self", "at least one of group or kind must be set", "")
 	}
@@ -138,5 +155,6 @@ type DeploymentProjectConfig struct {
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
 	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
+	yaml.Validator.RegisterStructValidation(ValidateWaitReadinessObjectItemConfig, WaitReadinessObjectItemConfig{})
 	yaml.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
 }

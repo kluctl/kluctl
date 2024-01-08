@@ -12,8 +12,9 @@ type GitOpsArgs struct {
 	Namespace     string `group:"gitops" short:"n" help:"Specifies the namespace of the KluctlDeployment. If omitted, the current namespace from your kubeconfig is used."`
 	LabelSelector string `group:"gitops" short:"l" help:"If specified, KluctlDeployments are searched and filtered by this label selector."`
 
-	Context             string `group:"gitops" help:"Override the context to use."`
-	ControllerNamespace string `group:"gitops" help:"The namespace where the controller runs in." default:"kluctl-system"`
+	Kubeconfig          ExistingFileType `group:"gitops" help:"Overrides the kubeconfig to use."`
+	Context             string           `group:"gitops" help:"Override the context to use."`
+	ControllerNamespace string           `group:"gitops" help:"The namespace where the controller runs in." default:"kluctl-system"`
 
 	LocalSourceOverridePort int `group:"gitops" help:"Specifies the local port to which the source-override client should connect to when running the controller locally." default:"0"`
 }

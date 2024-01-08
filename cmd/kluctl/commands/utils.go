@@ -29,7 +29,7 @@ import (
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.KubeconfigFlags, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	j2, err := kluctl_jinja2.NewKluctlJinja2(strictTemplates)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		OciRP:              ociRp,
 		OciAuthProvider:    ociAuth,
 		HelmAuthProvider:   helmAuth,
-		ClientConfigGetter: clientConfigGetter(forCompletion),
+		ClientConfigGetter: clientConfigGetter(kubeconfigFlags, forCompletion),
 	}
 
 	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, j2)
@@ -116,6 +116,7 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 type projectTargetCommandArgs struct {
 	projectFlags         args.ProjectFlags
+	kubeconfigFlags      args.KubeconfigFlags
 	targetFlags          args.TargetFlags
 	argsFlags            args.ArgsFlags
 	imageFlags           args.ImageFlags
@@ -143,7 +144,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, &args.helmCredentials, &args.registryCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, &args.kubeconfigFlags, args.projectFlags, &args.argsFlags, &args.helmCredentials, &args.registryCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
@@ -246,13 +247,16 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 	return cb(cmdCtx)
 }
 
-func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
+func clientConfigGetter(kubeconfigFlags *args.KubeconfigFlags, forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
 	return func(context *string) (*rest.Config, *api.Config, error) {
 		if forCompletion {
 			return nil, nil, nil
 		}
 
 		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		if kubeconfigFlags != nil {
+			configLoadingRules.ExplicitPath = kubeconfigFlags.Kubeconfig.String()
+		}
 		configOverrides := &clientcmd.ConfigOverrides{}
 		if context != nil {
 			configOverrides.CurrentContext = *context

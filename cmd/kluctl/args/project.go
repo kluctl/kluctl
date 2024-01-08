@@ -72,6 +72,10 @@ type TargetFlags struct {
 	Context string `group:"project" help:"Overrides the context name specified in the target. If the selected target does not specify a context or the no-name target is used, --context will override the currently active context."`
 }
 
+type KubeconfigFlags struct {
+	Kubeconfig ExistingFileType `group:"project" help:"Overrides the kubeconfig to use."`
+}
+
 type CommandResultReadOnlyFlags struct {
 	CommandResultNamespace string `group:"results" help:"Override the namespace to be used when writing command results." default:"kluctl-results"`
 }
