@@ -10,6 +10,7 @@ import (
 
 type pokeImagesCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
@@ -32,6 +33,7 @@ replaced`
 func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,

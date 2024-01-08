@@ -16,8 +16,9 @@ type webuiCmd struct {
 	Build webuiBuildCmd `cmd:"build" help:"Build the static Kluctl Webui"`
 }
 
-func createResultStores(ctx context.Context, k8sContexts []string, allContexts bool, inCluster bool) ([]results.ResultStore, []*rest.Config, error) {
+func createResultStores(ctx context.Context, kubeconfigOverride string, k8sContexts []string, allContexts bool, inCluster bool) ([]results.ResultStore, []*rest.Config, error) {
 	r := clientcmd.NewDefaultClientConfigLoadingRules()
+	r.ExplicitPath = kubeconfigOverride
 
 	kcfg, err := r.Load()
 	if err != nil {

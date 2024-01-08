@@ -26,7 +26,7 @@ func (cmd *webuiBuildCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("this build of Kluctl does not have the webui embedded")
 	}
 
-	stores, _, err := createResultStores(ctx, cmd.Context, cmd.AllContexts, false)
+	stores, _, err := createResultStores(ctx, "", cmd.Context, cmd.AllContexts, false)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/webui"
@@ -13,10 +14,12 @@ import (
 )
 
 type webuiRunCmd struct {
-	Host        string   `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to 'localhost' when run locally and to all hosts when run in-cluster."`
-	Port        int      `group:"misc" help:"Port to bind to." default:"8080"`
-	Context     []string `group:"misc" help:"List of kubernetes contexts to use."`
-	AllContexts bool     `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
+	Host string `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to 'localhost' when run locally and to all hosts when run in-cluster."`
+	Port int    `group:"misc" help:"Port to bind to." default:"8080"`
+
+	Kubeconfig  args.ExistingFileType `group:"misc" help:"Overrides the kubeconfig to use."`
+	Context     []string              `group:"misc" help:"List of kubernetes contexts to use."`
+	AllContexts bool                  `group:"misc" help:"Use all Kubernetes contexts found in the kubeconfig."`
 
 	InCluster           bool   `group:"misc" help:"This enables in-cluster functionality. This also enforces authentication."`
 	InClusterContext    string `group:"misc" help:"The context to use fo in-cluster functionality."`
@@ -143,7 +146,7 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 		}
 	}
 
-	stores, configs, err := createResultStores(ctx, cmd.Context, cmd.AllContexts, cmd.InCluster)
+	stores, configs, err := createResultStores(ctx, cmd.Kubeconfig.String(), cmd.Context, cmd.AllContexts, cmd.InCluster)
 	if err != nil {
 		return err
 	}
