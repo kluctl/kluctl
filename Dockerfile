@@ -9,6 +9,7 @@ RUN apk update && apk add git tzdata
 
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
+ENV KLUCTL_CACHE_DIR=/tmp/kluctl-cache
 
 COPY bin/kluctl /usr/bin/
 
