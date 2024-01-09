@@ -418,6 +418,11 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 
 			_, _, tmpErr := a.k.GetSingleObjectMetadata(crdRef)
 			if tmpErr == nil {
+				// CRD might be so fresh that it is not accepted/ready yet, so lets wait for readiness
+				if !a.WaitReadiness(crdRef, 5*time.Second) {
+					a.HandleError(ref, err)
+					return
+				}
 				status.Tracef(a.ctx, "resource unknown, and CRD %s is available, retrying with invalidated caches", crdName)
 				// retry with invalidated discovery
 				a.k.ResetMapper()
