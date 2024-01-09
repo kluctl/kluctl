@@ -20,7 +20,7 @@ func CreateDiscoveryAndMapper(ctx context.Context, config *rest.Config) (discove
 	if err != nil {
 		return nil, nil, err
 	}
-	discoveryCacheDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kube-cache/discovery", strings.ReplaceAll(apiHost.Host, ":", "-"))
+	discoveryCacheDir := filepath.Join(utils.GetCacheDir(ctx), "kube-cache", "discovery", strings.ReplaceAll(apiHost.Host, ":", "-"))
 	discovery2, err := disk.NewCachedDiscoveryClientForConfig(dynamic.ConfigFor(config), discoveryCacheDir, "", time.Hour*24)
 	if err != nil {
 		return nil, nil, err

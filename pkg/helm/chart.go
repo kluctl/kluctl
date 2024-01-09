@@ -321,7 +321,7 @@ func (c *Chart) Pull(ctx context.Context, pc *PulledChart) error {
 }
 
 func (c *Chart) doPullCached(ctx context.Context, version string) (*PulledChart, *lockedfile.File, error) {
-	baseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "helm-charts")
+	baseDir := filepath.Join(utils.GetCacheDir(ctx), "helm-charts")
 	cacheDir, err := c.BuildPulledChartDir(baseDir, version)
 	_ = os.MkdirAll(cacheDir, 0o755)
 

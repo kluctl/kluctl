@@ -187,7 +187,7 @@ func checkNewVersion(ctx context.Context) {
 		return
 	}
 
-	versionCheckPath := filepath.Join(utils.GetTmpBaseDir(ctx), "version_check.yaml")
+	versionCheckPath := filepath.Join(utils.GetCacheDir(ctx), "version_check.yaml")
 	var versionCheckState VersionCheckState
 	err := yaml.ReadYamlFile(versionCheckPath, &versionCheckState)
 	if err == nil {
