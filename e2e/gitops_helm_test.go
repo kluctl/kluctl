@@ -24,7 +24,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 
 	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull, false)
 	if err != nil {
-		if tc.expectedError == "" {
+		if tc.expectedPrepareError == "" {
 			assert.Fail(suite.T(), "did not expect error")
 		}
 		return
@@ -119,7 +119,14 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	readinessCondition := suite.getReadiness(kd)
 	g.Expect(readinessCondition).ToNot(BeNil())
 
-	if tc.expectedError == "" {
+	if tc.expectedReadyError == "" {
+		g.Expect(readinessCondition.Status).ToNot(Equal(metav1.ConditionFalse))
+	} else {
+		g.Expect(readinessCondition.Status).To(Equal(metav1.ConditionFalse))
+		g.Expect(readinessCondition.Message).To(ContainSubstring(tc.expectedReadyError))
+	}
+
+	if tc.expectedPrepareError == "" {
 		g.Expect(kd.Status.LastDeployResult).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).ToNot(Equal(metav1.ConditionFalse))
 		assertConfigMapExists(suite.T(), suite.k, p.TestSlug(), "test-helm1-test-chart1")
@@ -128,7 +135,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 
 		g.Expect(readinessCondition.Status).To(Equal(metav1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal(kluctlv1.PrepareFailedReason))
-		g.Expect(readinessCondition.Message).To(ContainSubstring(tc.expectedError))
+		g.Expect(kd.Status.LastPrepareError).To(ContainSubstring(tc.expectedPrepareError))
 	}
 }
 

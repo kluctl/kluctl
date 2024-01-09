@@ -38,7 +38,8 @@ type helmTestCase struct {
 	argPassCA         bool
 	argPassClientCert bool
 
-	expectedError string
+	expectedReadyError   string
+	expectedPrepareError string
 }
 
 var helmTests = []helmTestCase{
@@ -48,9 +49,10 @@ var helmTests = []helmTestCase{
 	// tls tests
 	{
 		name: "helm-tls-missing-ca", testTLS: true,
-		argPassCA:     false,
-		argCredsHost:  "<host>",
-		expectedError: "failed to verify certificate",
+		argPassCA:            false,
+		argCredsHost:         "<host>",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "failed to verify certificate",
 	},
 	{
 		name: "helm-tls-valid-ca", testTLS: true,
@@ -59,10 +61,11 @@ var helmTests = []helmTestCase{
 	},
 	{
 		name: "helm-tls-missing-cert", testTLS: true, testTLSClientCert: true,
-		argPassCA:         true,
-		argPassClientCert: false,
-		argCredsHost:      "<host>",
-		expectedError:     "certificate required",
+		argPassCA:            true,
+		argPassClientCert:    false,
+		argCredsHost:         "<host>",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "certificate required",
 	},
 	{
 		name: "helm-tls-valid-cert", testTLS: true, testTLSClientCert: true,
@@ -73,9 +76,10 @@ var helmTests = []helmTestCase{
 
 	{
 		name: "oci-tls-missing-ca", oci: true, testTLS: true,
-		argPassCA:     false,
-		argCredsHost:  "<host>",
-		expectedError: "failed to verify certificate",
+		argPassCA:            false,
+		argCredsHost:         "<host>",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "failed to verify certificate",
 	},
 	{
 		name: "oci-tls-valid-ca", oci: true, testTLS: true,
@@ -84,10 +88,11 @@ var helmTests = []helmTestCase{
 	},
 	{
 		name: "oci-tls-missing-cert", oci: true, testTLS: true, testTLSClientCert: true,
-		argPassCA:         true,
-		argPassClientCert: false,
-		argCredsHost:      "<host>",
-		expectedError:     "certificate required",
+		argPassCA:            true,
+		argPassClientCert:    false,
+		argCredsHost:         "<host>",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "certificate required",
 	},
 	{
 		name: "oci-tls-valid-cert", oci: true, testTLS: true, testTLSClientCert: true,
@@ -99,12 +104,14 @@ var helmTests = []helmTestCase{
 	// deprecated helm credentials flags
 	{
 		name: "dep-helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "dep-helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
 		argCredsId: "test-creds", argUsername: "test-user", argPassword: "invalid",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "dep-helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
@@ -113,19 +120,22 @@ var helmTests = []helmTestCase{
 	{
 		name: "dep-oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
 		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments",
 	},
 
 	// new helm credentials flags
 	{
 		name: "helm-creds-missing", oci: false, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "helm-creds-invalid", oci: false, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "helm-creds-valid", oci: false, testAuth: true,
@@ -134,12 +144,14 @@ var helmTests = []helmTestCase{
 	{
 		name: "helm-creds-missing-path", oci: false, testAuth: true, path: "path1",
 		argCredsHost: "<host>", argCredsPath: "path2", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "helm-creds-invalid-path", oci: false, testAuth: true, path: "path1",
 		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "invalid",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "helm-creds-valid-path", oci: false, testAuth: true, path: "path1",
@@ -150,12 +162,14 @@ var helmTests = []helmTestCase{
 	{
 		name: "oci-creds-missing", oci: true, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "no basic auth credentials",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "no basic auth credentials",
 	},
 	{
 		name: "oci-creds-invalid", oci: true, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "oci-creds-valid", oci: true, testAuth: true,
@@ -164,12 +178,14 @@ var helmTests = []helmTestCase{
 	{
 		name: "oci-creds-missing-path", oci: true, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart2", argUsername: "test-user", argPassword: "secret-password",
-		expectedError: "no basic auth credentials",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "no basic auth credentials",
 	},
 	{
 		name: "oci-creds-invalid-path", oci: true, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "invalid",
-		expectedError: "401 Unauthorized",
+		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
+		expectedPrepareError: "401 Unauthorized",
 	},
 	{
 		name: "oci-creds-valid-path", oci: true, testAuth: true,
@@ -361,9 +377,9 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 		args = append(args, extraArgs...)
 
 		_, stderr, err := p.Kluctl(t, args...)
-		if tc.expectedError != "" {
+		if tc.expectedPrepareError != "" {
 			assert.Error(t, err)
-			assert.Contains(t, stderr, tc.expectedError)
+			assert.Contains(t, stderr, tc.expectedPrepareError)
 			return p, repo, err
 		} else {
 			assert.NoError(t, err)
@@ -394,7 +410,7 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 	k := defaultCluster1
 	p, repo, err := prepareHelmTestCase(t, k, tc, prePull, useProcess)
 	if err != nil {
-		if tc.expectedError == "" {
+		if tc.expectedPrepareError == "" {
 			assert.Fail(t, "did not expect error")
 		}
 		return
@@ -414,11 +430,11 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 	} else {
 		assert.Contains(t, stderr, pullMessage)
 	}
-	if tc.expectedError != "" {
+	if tc.expectedPrepareError != "" {
 		if useProcess {
-			assert.Contains(t, stderr, tc.expectedError)
+			assert.Contains(t, stderr, tc.expectedPrepareError)
 		} else {
-			assert.ErrorContains(t, err, tc.expectedError)
+			assert.ErrorContains(t, err, tc.expectedPrepareError)
 		}
 	} else {
 		assert.NoError(t, err)

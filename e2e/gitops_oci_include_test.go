@@ -93,7 +93,7 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(readinessCondition.Message).To(ContainSubstring("401 Unauthorized"))
+		g.Expect(kd.Status.LastPrepareError).To(ContainSubstring("401 Unauthorized"))
 	})
 
 	createSecret := func(secretName string, username string, password string) {

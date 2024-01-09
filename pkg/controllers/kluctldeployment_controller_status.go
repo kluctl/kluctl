@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	errors2 "errors"
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
@@ -44,6 +45,13 @@ func (r *KluctlDeploymentReconciler) patchFail(ctx context.Context, obj *kluctlv
 
 func (r *KluctlDeploymentReconciler) patchFailPrepare(ctx context.Context, obj *kluctlv1.KluctlDeployment, err error) error {
 	obj.Status.LastPrepareError = err.Error()
+	var err2 *multierror.Error
+	if errors2.As(err, &err2) {
+		// prepare errors tend to be extremely long, which makes tools like k9s unusable
+		err = fmt.Errorf("prepare failed with %d errors. Check status.lastPrepareError for details", len(err2.Errors))
+	} else {
+		err = fmt.Errorf("prepare failed. Check status.lastPrepareError for details")
+	}
 	return r.patchFail(ctx, obj, kluctlv1.PrepareFailedReason, err)
 }
 

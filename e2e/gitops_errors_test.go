@@ -23,7 +23,7 @@ func TestGitOpsErrors(t *testing.T) {
 	suite.Run(t, new(GitOpsErrorsSuite))
 }
 
-func (suite *GitOpsErrorsSuite) assertErrors(kd *kluctlv1.KluctlDeployment, rstatus metav1.ConditionStatus, rreason string, rmessage string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
+func (suite *GitOpsErrorsSuite) assertErrors(kd *kluctlv1.KluctlDeployment, rstatus metav1.ConditionStatus, rreason string, rmessage string, prepareError string, expectedErrors []result.DeploymentError, expectedWarnings []result.DeploymentError) {
 	g := NewWithT(suite.T())
 
 	g.Expect(kd.Status.LastDeployResult).ToNot(BeNil())
@@ -34,6 +34,8 @@ func (suite *GitOpsErrorsSuite) assertErrors(kd *kluctlv1.KluctlDeployment, rsta
 	g.Expect(readinessCondition.Status).To(Equal(rstatus))
 	g.Expect(readinessCondition.Reason).To(Equal(rreason))
 	g.Expect(readinessCondition.Message).To(ContainSubstring(rmessage))
+
+	g.Expect(kd.Status.LastPrepareError, prepareError)
 
 	lastDeployResult, err := kd.Status.GetLastDeployResult()
 	g.Expect(err).To(Succeed())
@@ -103,7 +105,7 @@ data:
 			return badCm1_1, nil
 		}, "")
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", "", []result.DeploymentError{
 			{
 				Ref:     cm1Ref,
 				Message: "failed to patch git-ops-errors-git-ops-errors/ConfigMap/cm1: failed to create typed patch object (git-ops-errors-git-ops-errors/cm1; /v1, Kind=ConfigMap): .data_error: field not declared in schema",
@@ -120,7 +122,7 @@ data:
 			return badCm1_2, nil
 		}, "")
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "MalformedYAMLError: yaml: line 7: did not find expected node content in File: cm1.yaml", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed with 1 errors. Check status.lastPrepareError for details", "MalformedYAMLError: yaml: line 7: did not find expected node content in File: cm1.yaml", nil, nil)
 		p.UpdateFile("d1/cm1.yaml", func(f string) (string, error) {
 			return goodCm1, nil
 		}, "")
@@ -134,7 +136,7 @@ data:
 			return "a: b", nil
 		}, "")
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, ".kluctl.yml failed: error unmarshaling JSON: while decoding JSON: json: unknown field \"a\"", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", ".kluctl.yml failed: error unmarshaling JSON: while decoding JSON: json: unknown field \"a\"", nil, nil)
 		p.UpdateFile(".kluctl.yml", func(f string) (string, error) {
 			return kluctlBackup, nil
 		}, "")
@@ -148,7 +150,7 @@ data:
 			return "a: b", nil
 		}, "")
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed to load deployment.yml: error unmarshaling JSON: while decoding JSON: json: unknown field \"a\"", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "failed to load deployment.yml: error unmarshaling JSON: while decoding JSON: json: unknown field \"a\"", nil, nil)
 		p.UpdateFile("deployment.yml", func(f string) (string, error) {
 			return deploymentBackup, nil
 		}, "")
@@ -160,7 +162,7 @@ data:
 			kd.Spec.Target = utils.StrPtr("invalid")
 		})
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "target invalid not existent in kluctl project config", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "target invalid not existent in kluctl project config", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Target = utils.StrPtr("target1")
 		})
@@ -172,7 +174,7 @@ data:
 			kd.Spec.Context = utils.StrPtr("invalid")
 		})
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "context \"invalid\" does not exist", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "context \"invalid\" does not exist", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Context = utils.StrPtr("default")
 		})
@@ -186,7 +188,7 @@ data:
 			kd.Spec.Source.Git.URL = backup + "/invalid"
 		})
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "failed to clone git source: repository not found", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "failed to clone git source: repository not found", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Source.Git.URL = backup
 		})
@@ -201,7 +203,7 @@ data:
 			}
 		})
 		kd := suite.waitForReconcile(key)
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "ref refs/heads/invalid not found", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "ref refs/heads/invalid not found", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Source.Git.Ref = backup
 		})
@@ -219,7 +221,7 @@ data:
 			return nil
 		})
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", []result.DeploymentError{
+		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.DeployFailedReason, "deploy failed with 1 errors", "", []result.DeploymentError{
 			{Message: "pruning without a discriminator is not supported"},
 		}, []result.DeploymentError{
 			{Message: "no discriminator configured. Orphan object detection will not work"},
@@ -229,7 +231,7 @@ data:
 			return nil
 		})
 		kd = suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-		suite.assertErrors(kd, metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, "deploy succeeded", nil, nil)
+		suite.assertErrors(kd, metav1.ConditionTrue, kluctlv1.ReconciliationSucceededReason, "deploy succeeded", "", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			kd.Spec.Prune = false
 		})
