@@ -24,7 +24,7 @@ func (o OciDockerConfigAuthProvider) FindAuthEntry(ctx context.Context, ociUrl s
 	}
 
 	auth, err := authn.DefaultKeychain.Resolve(ociRef.Context())
-	status.Infof(ctx, "login ociRef=%s, auth=%v, err=%s", ociRef.String(), auth, err)
+	status.Tracef(ctx, "login ociRef=%s, auth=%v, err=%s", ociRef.String(), auth, err)
 	if err != nil {
 		return nil, err
 	}
