@@ -507,6 +507,7 @@ func (p *TestProject) KluctlProcess(t *testing.T, argsIn ...string) (string, str
 	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
 	env = append(env, "CALL_KLUCTL=true")
 	env = append(env, fmt.Sprintf("KLUCTL_BASE_TMP_DIR=%s", t.TempDir()))
+	env = append(env, fmt.Sprintf("KLUCTL_CACHE_DIR=%s", t.TempDir()))
 
 	t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 

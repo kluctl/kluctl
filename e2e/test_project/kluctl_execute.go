@@ -33,6 +33,7 @@ func KluctlExecute(t *testing.T, ctx context.Context, logFn func(args ...any), a
 	})
 
 	ctx = utils.WithTmpBaseDir(ctx, t.TempDir())
+	ctx = utils.WithCacheDir(ctx, t.TempDir())
 	ctx = commands.WithStdStreams(ctx, stdout, stderr)
 	sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
 		_, _ = stderr.Write([]byte(message + "\n"))

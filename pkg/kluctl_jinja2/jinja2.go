@@ -5,13 +5,22 @@ import (
 	"github.com/kluctl/go-embed-python/embed_util"
 	x "github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"os"
 	"path/filepath"
+	"testing"
 )
 
 const parallelism = 4
 
 func NewKluctlJinja2(ctx context.Context, strict bool) (*x.Jinja2, error) {
 	tmpDir := filepath.Join(utils.GetCacheDir(ctx), "go-embed-jinja2")
+
+	if testing.Testing() {
+		// we share the cache for all tests, even though WithCacheDir is used in tests
+		// otherwise things get really slow
+		tmpDir = filepath.Join(os.TempDir(), "kluctl-tests-jinja2")
+	}
+
 	extSrc, err := embed_util.NewEmbeddedFilesWithTmpDir(ExtSource, filepath.Join(tmpDir, "kluctl-ext"), true)
 	if err != nil {
 		return nil, err
