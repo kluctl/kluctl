@@ -71,7 +71,7 @@ func (suite *GitOpsMiscSuite) TestOciSourceWithPath() {
 
 	repoUrl := repo.URL.String() + "/org/repo"
 
-	p.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl, "--project-dir", p.LocalRepoDir())
+	p.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl, "--project-dir", p.LocalWorkDir())
 
 	p.AddExtraArgs("--controller-namespace", suite.gitopsNamespace+"-system")
 

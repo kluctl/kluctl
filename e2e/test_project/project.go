@@ -7,6 +7,7 @@ import (
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -452,12 +453,20 @@ func (p *TestProject) GitUrl() string {
 	return p.gitServer.GitRepoUrl(p.gitRepoName)
 }
 
-func (p *TestProject) LocalRepoDir() string {
-	return p.gitServer.LocalRepoDir(p.gitRepoName)
+func (p *TestProject) GitUrlPath() string {
+	u, err := types.ParseGitUrl(p.GitUrl())
+	if err != nil {
+		panic(err)
+	}
+	return strings.TrimPrefix(u.Path, "/")
+}
+
+func (p *TestProject) LocalWorkDir() string {
+	return p.gitServer.LocalWorkDir(p.gitRepoName)
 }
 
 func (p *TestProject) LocalProjectDir() string {
-	return path.Join(p.LocalRepoDir(), p.gitSubDir)
+	return path.Join(p.LocalWorkDir(), p.gitSubDir)
 }
 
 func (p *TestProject) GetGitRepo() *git.Repository {
@@ -473,7 +482,7 @@ func (p *TestProject) GetGitWorktree() *git.Worktree {
 }
 
 func (p *TestProject) CopyProjectSourceTo(dst string) string {
-	err := cp.Copy(p.LocalRepoDir(), dst)
+	err := cp.Copy(p.LocalWorkDir(), dst)
 	if err != nil {
 		panic(err)
 	}

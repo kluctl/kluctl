@@ -31,7 +31,7 @@ func TestOciIncludeMultipleRepos(t *testing.T) {
 	repo2 := repo.URL.String() + "/org2/repo2"
 
 	ip1.KluctlMust(t, "oci", "push", "--url", repo1)
-	ip2.KluctlMust(t, "oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
+	ip2.KluctlMust(t, "oci", "push", "--url", repo2, "--project-dir", ip2.LocalWorkDir())
 
 	p := test_project.NewTestProject(t)
 
@@ -91,7 +91,7 @@ func TestOciIncludeWithCreds(t *testing.T) {
 
 	// now with valid creds
 	ip1.KluctlMust(t, "oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
-	ip2.KluctlMust(t, "oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
+	ip2.KluctlMust(t, "oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalWorkDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
 	ip3.KluctlMust(t, "oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
 
 	p := test_project.NewTestProject(t)
