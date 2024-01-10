@@ -6,6 +6,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/url"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -112,19 +113,22 @@ func (u *GitUrl) NormalizePort() string {
 }
 
 func (u *GitUrl) Normalize() *GitUrl {
-	path := strings.ToLower(u.Path)
-	path = strings.TrimSuffix(path, ".git")
-	path = strings.TrimSuffix(path, "/")
+	p := strings.ToLower(u.Path)
+	if path.Base(p) != ".git" {
+		// we only trim it with it does not end with /.git
+		p = strings.TrimSuffix(p, ".git")
+	}
+	p = strings.TrimSuffix(p, "/")
 
 	hostname := strings.ToLower(u.Hostname())
 	port := u.NormalizePort()
 
-	if path != "" && hostname != "" && !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	if p != "" && hostname != "" && !strings.HasPrefix(p, "/") {
+		p = "/" + p
 	}
 
 	u2 := *u
-	u2.Path = path
+	u2.Path = p
 	u2.Host = hostname
 	if port != "" {
 		u2.Host += ":" + port

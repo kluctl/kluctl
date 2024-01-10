@@ -120,7 +120,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 			var credentials []v1beta1.ProjectCredentialsGitDeprecated
 			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
 				Host:       gs1.GitHost(),
-				PathPrefix: ip1.GitRepoName(),
+				PathPrefix: ip1.GitUrlPath(),
 				SecretRef:  v1beta1.LocalObjectReference{Name: secret2},
 			})
 			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
@@ -137,7 +137,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 			var credentials []v1beta1.ProjectCredentialsGit
 			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
 				Host:      gs1.GitHost(),
-				Path:      ip1.GitRepoName(),
+				Path:      ip1.GitUrlPath(),
 				SecretRef: v1beta1.LocalObjectReference{Name: secret2},
 			})
 			credentials = append(credentials, v1beta1.ProjectCredentialsGit{

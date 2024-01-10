@@ -292,17 +292,12 @@ func (c *ProxyClientCli) handleRequest(req *ResolveOverrideRequest) ([]byte, err
 
 	status.Infof(c.ctx, "Controller requested override for %s", req.RepoKey)
 
-	cleanup := false
 	f, err := os.CreateTemp(utils.GetTmpBaseDir(ctx), "so-*.tgz")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	f.Close()
-	defer func() {
-		if cleanup {
-			_ = os.Remove(f.Name())
-		}
-	}()
+	defer os.Remove(f.Name())
 
 	absPath, err := filepath.Abs(p)
 	if err != nil {

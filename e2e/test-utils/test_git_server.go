@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	config2 "github.com/go-git/go-git/v5/config"
+	"github.com/huandu/xstrings"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
 	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sigs.k8s.io/yaml"
+	"strings"
 	"sync"
 	"testing"
 
@@ -135,14 +137,19 @@ func (p *TestGitServer) Cleanup() {
 }
 
 func (p *TestGitServer) GitInit(repo string) {
-	dir := p.LocalRepoDir(repo)
+	gitDir := p.LocalGitDir(repo)
+	workDir := p.LocalWorkDir(repo)
 
-	err := os.MkdirAll(dir, 0o700)
+	err := os.MkdirAll(workDir, 0o700)
 	if err != nil {
 		p.t.Fatal(err)
 	}
 
-	r, err := git.PlainInit(dir, false)
+	r, err := git.PlainInit(workDir, false)
+	if err != nil {
+		p.t.Fatal(err)
+	}
+	err = os.Symlink(filepath.Join(workDir, ".git"), gitDir)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -159,10 +166,6 @@ func (p *TestGitServer) GitInit(repo string) {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	wt, err := r.Worktree()
-	if err != nil {
-		p.t.Fatal(err)
-	}
 
 	config.User.Name = "Test User"
 	config.User.Email = "no@mail.com"
@@ -172,11 +175,16 @@ func (p *TestGitServer) GitInit(repo string) {
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	f, err := os.Create(filepath.Join(dir, ".dummy"))
+	f, err := os.Create(filepath.Join(workDir, ".dummy"))
 	if err != nil {
 		p.t.Fatal(err)
 	}
 	_ = f.Close()
+
+	wt, err := r.Worktree()
+	if err != nil {
+		p.t.Fatal(err)
+	}
 	_, err = wt.Add(".dummy")
 	if err != nil {
 		p.t.Fatal(err)
@@ -188,7 +196,7 @@ func (p *TestGitServer) GitInit(repo string) {
 }
 
 func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message string) {
-	r, err := git.PlainOpen(p.LocalRepoDir(repo))
+	r, err := git.PlainOpen(p.LocalWorkDir(repo))
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -211,7 +219,7 @@ func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message
 }
 
 func (p *TestGitServer) CommitYaml(repo string, pth string, message string, o map[string]any) {
-	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 
 	dir, _ := filepath.Split(fullPath)
 	if dir != "" {
@@ -236,7 +244,7 @@ func (p *TestGitServer) CommitYaml(repo string, pth string, message string, o ma
 }
 
 func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string) (string, error), message string) {
-	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 	f := ""
 	if _, err := os.Stat(fullPath); err == nil {
 		b, err := os.ReadFile(fullPath)
@@ -266,7 +274,7 @@ func (p *TestGitServer) UpdateFile(repo string, pth string, update func(f string
 }
 
 func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[string]any) error, message string) {
-	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 
 	var o map[string]any
 	if _, err := os.Stat(fullPath); err == nil {
@@ -299,7 +307,7 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 }
 
 func (p *TestGitServer) DeleteFile(repo string, pth string, message string) {
-	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 	_ = os.Remove(fullPath)
 
 	if message == "" {
@@ -309,7 +317,7 @@ func (p *TestGitServer) DeleteFile(repo string, pth string, message string) {
 }
 
 func (p *TestGitServer) ReadFile(repo string, pth string) []byte {
-	fullPath := filepath.Join(p.LocalRepoDir(repo), pth)
+	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 	b, err := os.ReadFile(fullPath)
 	if err != nil {
 		p.t.Fatal(err)
@@ -322,19 +330,29 @@ func (p *TestGitServer) GitHost() string {
 }
 
 func (p *TestGitServer) GitUrl() string {
-	return fmt.Sprintf("http://localhost:%d", p.gitServerPort)
+	return fmt.Sprintf("http://localhost:%d/%s", p.gitServerPort, p.testNameSlug())
 }
 
 func (p *TestGitServer) GitRepoUrl(repo string) string {
-	return fmt.Sprintf("%s/%s/.git", p.GitUrl(), repo)
+	return fmt.Sprintf("%s/%s", p.GitUrl(), repo)
 }
 
-func (p *TestGitServer) LocalRepoDir(repo string) string {
-	return filepath.Join(p.baseDir, repo)
+func (p *TestGitServer) testNameSlug() string {
+	n := xstrings.ToKebabCase(p.t.Name())
+	n = strings.ReplaceAll(n, "/", "-")
+	return n
+}
+
+func (p *TestGitServer) LocalGitDir(repo string) string {
+	return filepath.Join(p.baseDir, p.testNameSlug(), repo)
+}
+
+func (p *TestGitServer) LocalWorkDir(repo string) string {
+	return filepath.Join(p.baseDir, p.testNameSlug(), repo) + "-workdir"
 }
 
 func (p *TestGitServer) GetGitRepo(repo string) *git.Repository {
-	r, err := git.PlainOpen(p.LocalRepoDir(repo))
+	r, err := git.PlainOpen(p.LocalWorkDir(repo))
 	if err != nil {
 		p.t.Fatal(err)
 	}

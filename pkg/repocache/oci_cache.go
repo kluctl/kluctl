@@ -109,7 +109,7 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		return e, nil
 	}
 
-	hostOciCacheDir := filepath.Join(utils.GetTmpBaseDir(rp.ctx), "oci")
+	hostOciCacheDir := filepath.Join(utils.GetCacheDir(rp.ctx), "oci")
 	hostOciCacheDir = filepath.Join(hostOciCacheDir, strings.ReplaceAll(urlN.Host, ":", "-"))
 
 	ociCacheDir := filepath.Join(hostOciCacheDir, urlN.Path)

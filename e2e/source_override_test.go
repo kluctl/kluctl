@@ -48,7 +48,7 @@ func prepareLocalSourceOverrideTest(t *testing.T, k *test_utils.EnvTestCluster, 
 
 	if oci {
 		ip1.KluctlMust(t, "oci", "push", "--url", repo1)
-		ip2.KluctlMust(t, "oci", "push", "--url", repo2, "--project-dir", ip2.LocalRepoDir())
+		ip2.KluctlMust(t, "oci", "push", "--url", repo2, "--project-dir", ip2.LocalWorkDir())
 	}
 
 	if oci {

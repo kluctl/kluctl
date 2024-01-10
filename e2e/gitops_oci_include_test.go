@@ -54,7 +54,7 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	repoUrl3 := repo3.URL.String() + "/org3/repo3"
 
 	ip1.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl1, "--registry-creds", fmt.Sprintf("%s=user1:pass1", repo1.URL.Host))
-	ip2.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalRepoDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
+	ip2.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl2, "--project-dir", ip2.LocalWorkDir(), "--registry-creds", fmt.Sprintf("%s=user2:pass2", repo2.URL.Host))
 	ip3.KluctlMust(suite.T(), "oci", "push", "--url", repoUrl3, "--registry-creds", fmt.Sprintf("%s=user3:pass3", repo3.URL.Host))
 
 	p := test_project.NewTestProject(suite.T())

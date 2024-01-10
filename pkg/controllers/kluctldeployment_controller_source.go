@@ -18,8 +18,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"net/url"
-	"os"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -443,19 +441,6 @@ func (r *KluctlDeploymentReconciler) buildOciRepoCacheKey(secrets []ociRepoSecre
 }
 
 func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secrets []gitRepoSecrets, soClient sourceoverride.Resolver) (*repocache.GitRepoCache, error) {
-	key, err := r.buildGitRepoCacheKey(secrets)
-	if err != nil {
-		return nil, err
-	}
-
-	tmpBaseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kluctl-controller-git-cache", key)
-	err = os.MkdirAll(tmpBaseDir, 0o700)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx = utils.WithTmpBaseDir(ctx, tmpBaseDir)
-
 	ga, err := r.buildGitAuth(ctx, secrets)
 	if err != nil {
 		return nil, err
@@ -466,19 +451,6 @@ func (r *KluctlDeploymentReconciler) buildGitRepoCache(ctx context.Context, secr
 }
 
 func (r *KluctlDeploymentReconciler) buildOciRepoCache(ctx context.Context, secrets []ociRepoSecrets, soClient sourceoverride.Resolver) (*repocache.OciRepoCache, *auth_provider.OciAuthProviders, error) {
-	key, err := r.buildOciRepoCacheKey(secrets)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	tmpBaseDir := filepath.Join(utils.GetTmpBaseDir(ctx), "kluctl-controller-oci-cache", key)
-	err = os.MkdirAll(tmpBaseDir, 0o700)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	ctx = utils.WithTmpBaseDir(ctx, tmpBaseDir)
-
 	ociAuthProvider, err := r.buildOciAuth(ctx, secrets)
 	if err != nil {
 		return nil, nil, err

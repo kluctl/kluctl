@@ -244,7 +244,7 @@ func testLocalIncludes(t *testing.T, projectDir string) {
 		return nil
 	}, "")
 
-	baseDir, _ := filepath.Rel(filepath.Join(p.LocalProjectDir(), projectDir), filepath.Join(p.LocalRepoDir(), "base"))
+	baseDir, _ := filepath.Rel(filepath.Join(p.LocalProjectDir(), projectDir), filepath.Join(p.LocalWorkDir(), "base"))
 	baseDir = filepath.ToSlash(baseDir)
 
 	p.UpdateDeploymentYaml(projectDir, func(o *uo.UnstructuredObject) error {
