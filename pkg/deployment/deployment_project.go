@@ -73,7 +73,7 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 	return dp, nil
 }
 
-func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*types.VarsSource) error {
+func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []types.VarsSource) error {
 	return p.ctx.VarsLoader.LoadVarsList(p.ctx.Ctx, varsCtx, varsList, p.getRenderSearchDirs(), "")
 }
 
@@ -101,7 +101,7 @@ func (p *DeploymentProject) loadConfig() error {
 }
 
 func (p *DeploymentProject) generateSingleKustomizeProject() error {
-	p.Config.Deployments = append(p.Config.Deployments, &types.DeploymentItemConfig{
+	p.Config.Deployments = append(p.Config.Deployments, types.DeploymentItemConfig{
 		Path: utils.StrPtr("."),
 	})
 	return nil
@@ -127,7 +127,8 @@ func (p *DeploymentProject) processConfig() error {
 
 	// If there are no explicit tags set, interpret the path as a tag, which allows to
 	// enable/disable single deployments via included/excluded tags
-	for _, item := range p.Config.Deployments {
+	for i, _ := range p.Config.Deployments {
+		item := &p.Config.Deployments[i]
 		if len(item.Tags) != 0 {
 			continue
 		}
@@ -180,7 +181,8 @@ func (p *DeploymentProject) CheckWhenTrue() (bool, error) {
 }
 
 func (p *DeploymentProject) loadIncludes() error {
-	for i, inc := range p.Config.Deployments {
+	for i, _ := range p.Config.Deployments {
+		inc := &p.Config.Deployments[i]
 		var err error
 		var newProject *DeploymentProject
 
@@ -380,19 +382,19 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap[string, bool] {
 	return &tags
 }
 
-func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []*types.IgnoreForDiffItemConfig {
-	var ret []*types.IgnoreForDiffItemConfig
+func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []types.IgnoreForDiffItemConfig {
+	var ret []types.IgnoreForDiffItemConfig
 	for _, e := range p.getParents() {
 		ret = append(ret, e.p.Config.IgnoreForDiff...)
 	}
 	if ignoreTags {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
 	}
 	if ignoreLabels {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels.*`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels.*`}})
 	}
 	if ignoreAnnotations {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.annotations.*`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.annotations.*`}})
 	}
 	return ret
 }

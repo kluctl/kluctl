@@ -58,8 +58,9 @@ func NewVarsLoader(ctx context.Context, k *k8s.K8sCluster, sops *decryptor.Decry
 	}
 }
 
-func (v *VarsLoader) LoadVarsList(ctx context.Context, varsCtx *VarsCtx, varsList []*types.VarsSource, searchDirs []string, rootKey string) error {
-	for _, source := range varsList {
+func (v *VarsLoader) LoadVarsList(ctx context.Context, varsCtx *VarsCtx, varsList []types.VarsSource, searchDirs []string, rootKey string) error {
+	for i, _ := range varsList {
+		source := &varsList[i]
 		err := v.LoadVars(ctx, varsCtx, source, searchDirs, rootKey)
 		if err != nil {
 			return err

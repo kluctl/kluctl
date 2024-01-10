@@ -132,7 +132,7 @@ var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-
 var ignoreDiffFieldRegexAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field-regex(-\d*)?$`)
 
 // NormalizeObject Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 	gvk := o_.GetK8sGVK()
 	name := o_.GetK8sName()
 	ns := o_.GetK8sNamespace()
@@ -163,14 +163,14 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		return v == *m
 	}
 
-	ignoreForDiffs = append([]*types.IgnoreForDiffItemConfig{}, ignoreForDiffs...)
+	ignoreForDiffs = append([]types.IgnoreForDiffItemConfig{}, ignoreForDiffs...)
 	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldAnnotationRegex) {
-		ignoreForDiffs = append(ignoreForDiffs, &types.IgnoreForDiffItemConfig{
+		ignoreForDiffs = append(ignoreForDiffs, types.IgnoreForDiffItemConfig{
 			FieldPath: []string{v},
 		})
 	}
 	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldRegexAnnotationRegex) {
-		ignoreForDiffs = append(ignoreForDiffs, &types.IgnoreForDiffItemConfig{
+		ignoreForDiffs = append(ignoreForDiffs, types.IgnoreForDiffItemConfig{
 			FieldPathRegex: []string{v},
 		})
 	}

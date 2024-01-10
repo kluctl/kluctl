@@ -140,13 +140,9 @@ func (in *DeploymentItemConfig) DeepCopyInto(out *DeploymentItemConfig) {
 	}
 	if in.Vars != nil {
 		in, out := &in.Vars, &out.Vars
-		*out = make([]*VarsSource, len(*in))
+		*out = make([]VarsSource, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(VarsSource)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.RenderedHelmChartConfig != nil {
@@ -181,13 +177,9 @@ func (in *DeploymentProjectConfig) DeepCopyInto(out *DeploymentProjectConfig) {
 	*out = *in
 	if in.Vars != nil {
 		in, out := &in.Vars, &out.Vars
-		*out = make([]*VarsSource, len(*in))
+		*out = make([]VarsSource, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(VarsSource)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.SealedSecrets != nil {
@@ -197,13 +189,9 @@ func (in *DeploymentProjectConfig) DeepCopyInto(out *DeploymentProjectConfig) {
 	}
 	if in.Deployments != nil {
 		in, out := &in.Deployments, &out.Deployments
-		*out = make([]*DeploymentItemConfig, len(*in))
+		*out = make([]DeploymentItemConfig, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(DeploymentItemConfig)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.CommonLabels != nil {
@@ -232,13 +220,9 @@ func (in *DeploymentProjectConfig) DeepCopyInto(out *DeploymentProjectConfig) {
 	}
 	if in.IgnoreForDiff != nil {
 		in, out := &in.IgnoreForDiff, &out.IgnoreForDiff
-		*out = make([]*IgnoreForDiffItemConfig, len(*in))
+		*out = make([]IgnoreForDiffItemConfig, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(IgnoreForDiffItemConfig)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -582,13 +566,9 @@ func (in *KluctlLibraryProject) DeepCopyInto(out *KluctlLibraryProject) {
 	*out = *in
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
-		*out = make([]*DeploymentArg, len(*in))
+		*out = make([]DeploymentArg, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(DeploymentArg)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -608,24 +588,16 @@ func (in *KluctlProject) DeepCopyInto(out *KluctlProject) {
 	*out = *in
 	if in.Targets != nil {
 		in, out := &in.Targets, &out.Targets
-		*out = make([]*Target, len(*in))
+		*out = make([]Target, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Target)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
-		*out = make([]*DeploymentArg, len(*in))
+		*out = make([]DeploymentArg, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(DeploymentArg)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.SecretsConfig != nil {
@@ -779,13 +751,9 @@ func (in *SecretSet) DeepCopyInto(out *SecretSet) {
 	*out = *in
 	if in.Vars != nil {
 		in, out := &in.Vars, &out.Vars
-		*out = make([]*VarsSource, len(*in))
+		*out = make([]VarsSource, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(VarsSource)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
