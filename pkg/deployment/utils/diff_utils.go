@@ -61,7 +61,7 @@ func (u *DiffUtil) sortChanges() {
 	})
 }
 
-func (u *DiffUtil) diffObjects(objects []*uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, wg *sync.WaitGroup) {
+func (u *DiffUtil) diffObjects(objects []*uo.UnstructuredObject, ignoreForDiffs []types.IgnoreForDiffItemConfig, wg *sync.WaitGroup) {
 	for _, o := range objects {
 		o := o
 		ref := o.GetK8sRef()
@@ -84,7 +84,7 @@ func (u *DiffUtil) diffObjects(objects []*uo.UnstructuredObject, ignoreForDiffs 
 	}
 }
 
-func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig) {
+func (u *DiffUtil) diffObject(lo *uo.UnstructuredObject, diffRef k8s2.ObjectRef, ao *uo.UnstructuredObject, ro *uo.UnstructuredObject, ignoreForDiffs []types.IgnoreForDiffItemConfig) {
 	if ao != nil && ro == nil {
 		// new?
 		return

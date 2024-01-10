@@ -296,13 +296,13 @@ func (s *CommandResultsServer) redactSensitiveVars(user *User, d *types.Deployme
 		}
 	}
 
-	for _, v := range d.Vars {
-		doRedact(v)
+	for i, _ := range d.Vars {
+		doRedact(&d.Vars[i])
 	}
 
 	for _, di := range d.Deployments {
-		for _, v := range di.Vars {
-			doRedact(v)
+		for i, _ := range di.Vars {
+			doRedact(&di.Vars[i])
 		}
 		s.redactSensitiveVars(user, di.RenderedInclude)
 	}

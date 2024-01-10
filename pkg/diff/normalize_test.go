@@ -40,7 +40,7 @@ type testCase struct {
 	remote         *uo.UnstructuredObject
 	local          *uo.UnstructuredObject
 	result         *uo.UnstructuredObject
-	ignoreForDiffs []*types.IgnoreForDiffItemConfig
+	ignoreForDiffs []types.IgnoreForDiffItemConfig
 }
 
 func runTests(t *testing.T, tests []testCase) {
@@ -112,7 +112,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.l1", "metadata.labels.l2"}},
 			},
 		},
@@ -120,7 +120,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}},
 			},
 		},
@@ -128,7 +128,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPathRegex: []string{`metadata\.labels\.l.*`}},
 			},
 		},
@@ -136,7 +136,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}, Group: utils.StrPtr("Nope")},
 			},
 		},
@@ -144,7 +144,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}, Kind: utils.StrPtr("Nope")},
 			},
 		},
@@ -152,7 +152,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}, Name: utils.StrPtr("Nope")},
 			},
 		},
@@ -160,7 +160,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}, Namespace: utils.StrPtr("Nope")},
 			},
 		},
@@ -168,7 +168,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}, Group: utils.StrPtr("apps"), Kind: utils.StrPtr("Deployment"), Name: utils.StrPtr("test"), Namespace: utils.StrPtr("ns")},
 			},
 		},

@@ -93,7 +93,9 @@ func (c *DeploymentCollection) collectAllDeployments(project *DeploymentProject,
 		return nil, err
 	}
 
-	for i, diConfig := range project.Config.Deployments {
+	for i, _ := range project.Config.Deployments {
+		diConfig := &project.Config.Deployments[i]
+
 		whenTrue, err := project.VarsCtx.CheckConditional(diConfig.When)
 		if err != nil {
 			return nil, err

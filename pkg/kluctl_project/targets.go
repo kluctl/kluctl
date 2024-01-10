@@ -21,7 +21,7 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 			continue
 		}
 
-		target, err := c.buildTarget(configTarget)
+		target, err := c.buildTarget(&configTarget)
 		if err != nil {
 			status.Warningf(ctx, "Failed to load target config for project: %v", err)
 			continue

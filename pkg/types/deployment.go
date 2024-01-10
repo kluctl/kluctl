@@ -23,7 +23,7 @@ type DeploymentItemConfig struct {
 
 	Args     *uo.UnstructuredObject `json:"args,omitempty"`
 	PassVars bool                   `json:"passVars,omitempty"`
-	Vars     []*VarsSource          `json:"vars,omitempty"`
+	Vars     []VarsSource           `json:"vars,omitempty"`
 
 	SkipDeleteIfTags bool   `json:"skipDeleteIfTags,omitempty"`
 	OnlyRender       bool   `json:"onlyRender,omitempty"`
@@ -137,19 +137,19 @@ func ValidateIgnoreForDiffItemConfig(sl validator.StructLevel) {
 }
 
 type DeploymentProjectConfig struct {
-	Vars          []*VarsSource        `json:"vars,omitempty"`
+	Vars          []VarsSource         `json:"vars,omitempty"`
 	SealedSecrets *SealedSecretsConfig `json:"sealedSecrets,omitempty"`
 
 	When string `json:"when,omitempty"`
 
-	Deployments []*DeploymentItemConfig `json:"deployments,omitempty"`
+	Deployments []DeploymentItemConfig `json:"deployments,omitempty"`
 
 	CommonLabels      map[string]string `json:"commonLabels,omitempty"`
 	CommonAnnotations map[string]string `json:"commonAnnotations,omitempty"`
 	OverrideNamespace *string           `json:"overrideNamespace,omitempty"`
 	Tags              []string          `json:"tags,omitempty"`
 
-	IgnoreForDiff []*IgnoreForDiffItemConfig `json:"ignoreForDiff,omitempty"`
+	IgnoreForDiff []IgnoreForDiffItemConfig `json:"ignoreForDiff,omitempty"`
 }
 
 func init() {

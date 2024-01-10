@@ -37,8 +37,8 @@ type DeploymentArg struct {
 }
 
 type SecretSet struct {
-	Name string        `json:"name" validate:"required"`
-	Vars []*VarsSource `json:"vars,omitempty"`
+	Name string       `json:"name" validate:"required"`
+	Vars []VarsSource `json:"vars,omitempty"`
 }
 
 type GlobalSealedSecretsConfig struct {
@@ -53,13 +53,13 @@ type SecretsConfig struct {
 }
 
 type KluctlProject struct {
-	Targets       []*Target        `json:"targets,omitempty"`
-	Args          []*DeploymentArg `json:"args,omitempty"`
-	SecretsConfig *SecretsConfig   `json:"secretsConfig,omitempty"`
-	Discriminator string           `json:"discriminator,omitempty"`
-	Aws           *AwsConfig       `json:"aws,omitempty"`
+	Targets       []Target        `json:"targets,omitempty"`
+	Args          []DeploymentArg `json:"args,omitempty"`
+	SecretsConfig *SecretsConfig  `json:"secretsConfig,omitempty"`
+	Discriminator string          `json:"discriminator,omitempty"`
+	Aws           *AwsConfig      `json:"aws,omitempty"`
 }
 
 type KluctlLibraryProject struct {
-	Args []*DeploymentArg `json:"args,omitempty"`
+	Args []DeploymentArg `json:"args,omitempty"`
 }

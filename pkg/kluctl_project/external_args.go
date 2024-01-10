@@ -54,7 +54,7 @@ func ConvertArgsToVars(args map[string]string, allowLoadFromFiles bool) (*uo.Uns
 	return vars, nil
 }
 
-func LoadDefaultArgs(args []*types.DeploymentArg, deployArgs *uo.UnstructuredObject) error {
+func LoadDefaultArgs(args []types.DeploymentArg, deployArgs *uo.UnstructuredObject) error {
 	// load defaults
 	defaults := uo.New()
 	for _, a := range args {
@@ -80,7 +80,7 @@ func LoadDefaultArgs(args []*types.DeploymentArg, deployArgs *uo.UnstructuredObj
 	return nil
 }
 
-func checkRequiredArgs(argsDef []*types.DeploymentArg, args *uo.UnstructuredObject) error {
+func checkRequiredArgs(argsDef []types.DeploymentArg, args *uo.UnstructuredObject) error {
 	for _, a := range argsDef {
 		var p []interface{}
 		for _, x := range strings.Split(a.Name, ".") {
