@@ -39,7 +39,7 @@ func (suite *GitOpsMiscSuite) TestGitSourceWithPath() {
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		status := suite.getReadiness(kd)
 		assert.Equal(suite.T(), metav1.ConditionFalse, status.Status)
-		assert.Equal(suite.T(), "target target1 not existent in kluctl project config", status.Message)
+		assert.Equal(suite.T(), "target target1 not existent in kluctl project config", kd.Status.LastPrepareError)
 	})
 
 	suite.Run("deployment with path succeeds", func() {
@@ -85,7 +85,7 @@ func (suite *GitOpsMiscSuite) TestOciSourceWithPath() {
 		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 		status := suite.getReadiness(kd)
 		assert.Equal(suite.T(), metav1.ConditionFalse, status.Status)
-		assert.Equal(suite.T(), "target target1 not existent in kluctl project config", status.Message)
+		assert.Equal(suite.T(), "target target1 not existent in kluctl project config", kd.Status.LastPrepareError)
 	})
 
 	suite.Run("deployment with path succeeds", func() {
@@ -134,6 +134,6 @@ func (suite *GitOpsMiscSuite) TestNoTargetError() {
 
 		g.Expect(readinessCondition.Status).To(Equal(metav1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal(kluctlv1.PrepareFailedReason))
-		g.Expect(readinessCondition.Message).To(ContainSubstring("a target must be explicitly selected when targets are defined in the Kluctl project"))
+		g.Expect(kd.Status.LastPrepareError).To(ContainSubstring("a target must be explicitly selected when targets are defined in the Kluctl project"))
 	})
 }
