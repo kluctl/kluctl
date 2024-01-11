@@ -88,8 +88,6 @@ dockers:
     goarch: amd64
     build_flag_templates:
       - "--pull"
-      # use `docker buildx imagetools inspect  cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 of linux/amd64 layer
-      - "--build-arg=WOLFI_DIGEST=sha256:bf06e4be7e7fd13fda57290bc339022e1fdb34ecaa9beb07bad1b7f91038c6e4"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -103,8 +101,6 @@ dockers:
     goarch: arm64
     build_flag_templates:
       - "--pull"
-      # use `docker buildx imagetools inspect  cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 of linux/arm64 layer
-      - "--build-arg=WOLFI_DIGEST=sha256:98ff8900f4e2173fa2e32ba52c695b1b5c6b76c6e16914f6873f5aa6502e23d3"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
