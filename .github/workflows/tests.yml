@@ -142,11 +142,16 @@ jobs:
       - name: Build docker images
         run: |
           docker build -t test-image --platform=${{ matrix.docker_platform }} .
-      - name: Test if git works
+      - name: Test if git works inside container
         run: |
           # test if the git binary is still working, which keep breaking due to wolfi-base updates being missed
           # If you see this failing, it's time to upgrade the base image in Dockerfile...
           docker run --platform=${{ matrix.docker_platform }} --rm -i --entrypoint=/bin/sh test-image -c "cd && git clone https://github.com/kluctl/kluctl.git"
+      - name: Test if binary can be executed inside Github actions
+        if: matrix.goarch == 'amd64'
+        run: |
+          cd install/controller
+          ../../bin/kluctl render --offline-kubernetes
 
   tests:
     strategy:
