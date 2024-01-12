@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"k8s.io/client-go/util/homedir"
 	"os"
 	"os/user"
@@ -57,7 +56,10 @@ func GetCacheDir(ctx context.Context) string {
 		v2 := v.(*dirValue)
 		dir = v2.dir
 	}
-	ensureDir(dir, 0o700, true)
+	err := os.MkdirAll(dir, 0o700)
+	if err != nil {
+		panic(err)
+	}
 	return dir
 }
 
@@ -96,7 +98,11 @@ func getDefaultCacheDir(ctx context.Context) string {
 }
 
 func createTmpBaseDir(dir string) string {
-	ensureDir(dir, 0o777, true)
+	// all users can access the parent dir
+	err := os.MkdirAll(dir, 0o777)
+	if err != nil {
+		panic(err)
+	}
 
 	// every user gets its own tmp dir
 	if runtime.GOOS == "windows" {
@@ -110,35 +116,11 @@ func createTmpBaseDir(dir string) string {
 		dir = filepath.Join(dir, fmt.Sprintf("%d", uid))
 	}
 
-	ensureDir(dir, 0o700, true)
-	return dir
-}
-
-func ensureDir(path string, perm fs.FileMode, allowCreate bool) {
-	if Exists(path) {
-		st, err := os.Lstat(path)
-		if err != nil {
-			panic(err)
-		}
-		if !st.IsDir() {
-			panic(fmt.Sprintf("%s is not a directory", path))
-		}
-		if st.Mode().Perm() != perm {
-			err = os.Chmod(path, perm)
-			if err != nil {
-				panic(err)
-			}
-		}
-	} else if !allowCreate {
-		panic(fmt.Sprintf("failed to ensure directory %s", path))
-	} else {
-		err := os.Mkdir(path, perm)
-		if err != nil {
-			if os.IsExist(err) {
-				ensureDir(path, perm, false)
-			} else {
-				panic(err)
-			}
-		}
+	// only current user can access the actual tmp dir
+	err = os.Mkdir(dir, 0o700)
+	if err != nil && !os.IsExist(err) {
+		panic(err)
 	}
+
+	return dir
 }
