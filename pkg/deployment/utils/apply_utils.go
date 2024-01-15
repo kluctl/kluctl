@@ -601,6 +601,8 @@ func (a *ApplyUtil) convertObjectRef(x types2.ObjectRefItem, refs map[k8s2.Objec
 }
 
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
+	h := HooksUtil{a: a}
+
 	toDelete := map[k8s2.ObjectRef]bool{}
 	toWaitReadiness := map[k8s2.ObjectRef]bool{}
 	for _, x := range d.Config.DeleteObjects {
@@ -614,13 +616,15 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 			toDelete[x.GetK8sRef()] = true
 		}
 
-		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || x.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
-		if waitReadiness {
-			toWaitReadiness[x.GetK8sRef()] = true
+		// hooks have their own waitReadiness logic, so we must skip them here. Otherwise we'd wait for an object
+		// didn't even get deployed yet (e.g. post-deploy hooks).
+		if h.GetHook(x) == nil {
+			waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || x.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
+			if waitReadiness {
+				toWaitReadiness[x.GetK8sRef()] = true
+			}
 		}
 	}
-
-	h := HooksUtil{a: a}
 
 	initialDeploy := true
 	for _, o := range d.Objects {
