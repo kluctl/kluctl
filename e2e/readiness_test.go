@@ -103,3 +103,18 @@ func TestWaitReadinessViaKustomization(t *testing.T) {
 		}, "")
 	})
 }
+
+func TestWaitReadinessViaKustomizationWithHook(t *testing.T) {
+	testWaitReadiness(t, func(p *test_project.TestProject) {
+		// the kustomization.yaml wait-readiness should actually be ignored in this case...
+		p.UpdateYaml("cm2/kustomization.yml", func(o *uo.UnstructuredObject) error {
+			o.SetK8sAnnotation("kluctl.io/wait-readiness", "true")
+			return nil
+		}, "")
+		// because the hook object is what is waited for instead
+		p.UpdateYaml("cm2/configmap-cm2.yml", func(o *uo.UnstructuredObject) error {
+			o.SetK8sAnnotation("kluctl.io/hook", "post-deploy")
+			return nil
+		}, "")
+	})
+}
