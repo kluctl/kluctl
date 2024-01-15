@@ -2,7 +2,7 @@ args:
   - name: kluctl_image
     default: ghcr.io/kluctl/kluctl
   - name: kluctl_version
-    default: v2.23.2
+    default: v2.23.3
   - name: controller_args
     default: []
   - name: controller_envs
