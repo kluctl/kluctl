@@ -65,6 +65,37 @@ func isSkipDelete(o *uo.UnstructuredObject) bool {
 	return false
 }
 
+func isManagedByKluctl(o *uo.UnstructuredObject) bool {
+	ownerRefs := o.GetK8sOwnerReferences()
+	managedFields := o.GetK8sManagedFields()
+
+	// exclude objects which are owned by some other object
+	if len(ownerRefs) != 0 {
+		return false
+	}
+
+	if len(managedFields) == 0 {
+		// We don't know who manages it...be safe and exclude it
+		return false
+	}
+
+	// check if kluctl is managing this object
+	found := false
+	for _, mf := range managedFields {
+		mgr, _, _ := mf.GetNestedString("manager")
+		if mgr == "kluctl" {
+			found = true
+			break
+		}
+	}
+	if !found && !o.GetK8sAnnotationBoolNoError("kluctl.io/force-managed", false) {
+		// This object is not managed by kluctl, so we shouldn't delete it
+		return false
+	}
+
+	return true
+}
+
 func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusionHasTags bool, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
 	filterFunc := func(ar *v1.APIResource) bool {
 		if len(apiFilter) == 0 {
@@ -95,35 +126,12 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 			continue
 		}
 
-		ownerRefs := o.GetK8sOwnerReferences()
-		managedFields := o.GetK8sManagedFields()
-
 		// exclude when explicitly requested
 		if isSkipDelete(o) {
 			continue
 		}
 
-		// exclude objects which are owned by some other object
-		if len(ownerRefs) != 0 {
-			continue
-		}
-
-		if len(managedFields) == 0 {
-			// We don't know who manages it...be safe and exclude it
-			continue
-		}
-
-		// check if kluctl is managing this object
-		found := false
-		for _, mf := range managedFields {
-			mgr, _, _ := mf.GetNestedString("manager")
-			if mgr == "kluctl" {
-				found = true
-				break
-			}
-		}
-		if !found && !o.GetK8sAnnotationBoolNoError("kluctl.io/force-managed", false) {
-			// This object is not managed by kluctl, so we shouldn't delete it
+		if !isManagedByKluctl(o) {
 			continue
 		}
 
