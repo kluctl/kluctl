@@ -66,6 +66,10 @@ func isSkipDelete(o *uo.UnstructuredObject) bool {
 }
 
 func isManagedByKluctl(o *uo.UnstructuredObject) bool {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/force-managed", false) {
+		return true
+	}
+
 	ownerRefs := o.GetK8sOwnerReferences()
 	managedFields := o.GetK8sManagedFields()
 
@@ -88,7 +92,7 @@ func isManagedByKluctl(o *uo.UnstructuredObject) bool {
 			break
 		}
 	}
-	if !found && !o.GetK8sAnnotationBoolNoError("kluctl.io/force-managed", false) {
+	if !found {
 		// This object is not managed by kluctl, so we shouldn't delete it
 		return false
 	}
