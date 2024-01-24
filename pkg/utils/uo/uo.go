@@ -56,6 +56,14 @@ func FromStruct(o interface{}) (*UnstructuredObject, error) {
 	return FromMap(m), nil
 }
 
+func FromStructMust(o interface{}) *UnstructuredObject {
+	x, err := FromStruct(o)
+	if err != nil {
+		panic(err)
+	}
+	return x
+}
+
 func (uo *UnstructuredObject) ToStruct(out interface{}) error {
 	b, err := yaml.WriteYamlBytes(uo.Object)
 	if err != nil {
