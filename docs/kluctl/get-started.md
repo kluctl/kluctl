@@ -127,5 +127,5 @@ You should need 2 instances of the nginx POD running now.
 
 ## Where to continue?
 
-Continue by reading through the [tutorials](https://kluctl.io/docs/guides/tutorials/) and by consulting
-the [reference documentation](./README.md).
+Continue by reading through the [recipes](https://kluctl.io/docs/recipes/) and [tutorials](https://kluctl.io/docs/tutorials/).
+Also, consult the [reference documentation](./README.md) for details about specifics.

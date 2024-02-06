@@ -11,7 +11,7 @@ description: >
 
 # Filters
 
-In addition to the [builtin Jinja2 filters](https://jinja.palletsprojects.com/en/2.11.x/templates/#list-of-builtin-filters),
+In addition to the [builtin Jinja2 filters](https://jinja.palletsprojects.com/en/3.1.x/templates/#list-of-builtin-filters),
 kluctl provides a few additional filters:
 
 ### b64encode
