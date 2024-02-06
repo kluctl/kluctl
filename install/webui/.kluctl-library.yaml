@@ -2,7 +2,7 @@ args:
   - name: kluctl_image
     default: ghcr.io/kluctl/kluctl
   - name: kluctl_version
-    default: v2.23.3
+    default: v2.23.4
   - name: webui_args
     default: []
   - name: webui_envs
