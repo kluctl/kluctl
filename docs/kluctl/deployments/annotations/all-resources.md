@@ -72,7 +72,8 @@ they most likely don't match exclusion tags, but cascaded deletion would still c
 
 ### kluctl.io/force-managed
 If set to "true", Kluctl will always treat the annotated resource as being managed by Kluctl, meaning that it will
-consider it for deletion and pruning even if a foreign field manager resets/removes the Kluctl field manager.
+consider it for deletion and pruning even if a foreign field manager resets/removes the Kluctl field manager or if
+foreign controllers add `ownerReferences` even though they do not really own the resources.
 
 ## Control diff behavior
 

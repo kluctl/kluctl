@@ -261,6 +261,10 @@ func (uo *UnstructuredObject) GetK8sOwnerReferences() []*UnstructuredObject {
 	return ret
 }
 
+func (uo *UnstructuredObject) SetK8sOwnerReferences(l []*UnstructuredObject) {
+	_ = uo.SetNestedField(l, "metadata", "ownerReferences")
+}
+
 func (uo *UnstructuredObject) GetK8sManagedFields() []*UnstructuredObject {
 	ret, _, _ := uo.GetNestedObjectList("metadata", "managedFields")
 	return ret
