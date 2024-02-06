@@ -17,7 +17,7 @@ require (
 	github.com/imdario/mergo v0.3.16
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/go-embed-python v0.0.0-3.11.7-20240107-1
+	github.com/kluctl/go-embed-python v0.0.0-3.12.1-20240107-1
 	github.com/kluctl/go-jinja2 v0.0.0-20240206085301-ad6f23980236
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
