@@ -311,7 +311,7 @@ arguments into [Kluctl Library Projects](../kluctl-libraries/README.md).
 
 ### when
 Each deployment item can be conditional with the help of the `when` field. It must be set to a
-[Jinja2 based expression](https://jinja.palletsprojects.com/en/latest/templates/#expressions)
+[Jinja2 based expression](https://jinja.palletsprojects.com/en/3.1.x/templates/#expressions)
 that evaluates to a boolean.
 
 Example:

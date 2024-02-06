@@ -12,7 +12,7 @@ description: >
 # Functions
 
 In addition to the provided
-[builtin global functions](https://jinja.palletsprojects.com/en/2.11.x/templates/#list-of-global-functions),
+[builtin global functions](https://jinja.palletsprojects.com/en/3.1.x/templates/#list-of-global-functions),
 kluctl also provides a few global functions:
 
 ### load_template(file)
