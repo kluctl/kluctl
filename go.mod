@@ -9,7 +9,7 @@ require (
 	github.com/bitnami-labs/sealed-secrets v0.24.5
 	github.com/cyphar/filepath-securejoin v0.2.4
 	github.com/docker/distribution v2.8.3+incompatible
-	github.com/go-playground/validator/v10 v10.16.0
+	github.com/go-playground/validator/v10 v10.17.0
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-containerregistry v0.17.0
 	github.com/hashicorp/vault/api v1.10.0
