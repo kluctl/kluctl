@@ -74,7 +74,7 @@ The API design of the controller can be found at [kluctldeployment.gitops.kluctl
 ## Example
 
 After installing the Kluctl Controller, we can create a `KluctlDeployment` that automatically deploys the
-[Microservices Demo](https://kluctl.io/docs/guides/tutorials/microservices-demo/3-templating-and-multi-env/).
+[Microservices Demo](https://kluctl.io/docs/tutorials/microservices-demo/3-templating-and-multi-env/).
 
 Create a KluctlDeployment that uses the demo project source to deploy the `test` target to the same cluster that the
 controller runs on.
