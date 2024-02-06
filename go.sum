@@ -442,10 +442,10 @@ github.com/klauspost/compress v1.17.4/go.mod h1:/dCuZOvVtNoHsyb+cuJD3itjs3NbnF6K
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.2.6 h1:ndNyv040zDGIDh8thGkXYjnFtiN02M1PVVF+JE/48xc=
 github.com/klauspost/cpuid/v2 v2.2.6/go.mod h1:Lcz8mBdAVJIBVzewtcLocK12l3Y+JytZYpaMropDUws=
-github.com/kluctl/go-embed-python v0.0.0-3.11.6-20231002-1 h1:L+ZH/eN5gE7eh3BTye/Z8td8YjbhEs6hzybVByz2twQ=
-github.com/kluctl/go-embed-python v0.0.0-3.11.6-20231002-1/go.mod h1:2/V+QZL7VyhTXtKHorARyA7UYOizVV37M8kkXMEk+Kg=
-github.com/kluctl/go-jinja2 v0.0.0-20240108142937-8839259d2537 h1:oG9FYqprfbAI9kQtec4D0gPwJqLJlS+euknEVz25gp0=
-github.com/kluctl/go-jinja2 v0.0.0-20240108142937-8839259d2537/go.mod h1:7FmUmt2zgHJfJE82ZNY/AHNGsGdyHBaF3OA12r4Zj+8=
+github.com/kluctl/go-embed-python v0.0.0-3.11.7-20240107-1 h1:FRjmtgCHeK4IcZTOosx5tJ8LZ4VDMzFaaXBylsMRAGQ=
+github.com/kluctl/go-embed-python v0.0.0-3.11.7-20240107-1/go.mod h1:nhLUuBr5jJ6TMy4RlZn0wEtGC/RuTfERNVHyP1t0joI=
+github.com/kluctl/go-jinja2 v0.0.0-20240206085301-ad6f23980236 h1:qHDKDrp92XNv1crPOMol5fZ3t1RzmuS452Ku7Hj3X0A=
+github.com/kluctl/go-jinja2 v0.0.0-20240206085301-ad6f23980236/go.mod h1:tf65M11BQMkV4k2ukb8dkxCho7VuG86LcJdzE8kuR3U=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
