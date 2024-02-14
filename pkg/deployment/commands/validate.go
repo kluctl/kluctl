@@ -9,22 +9,19 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
-	"time"
 )
 
 type ValidateCommand struct {
 	targetCtx     *target_context.TargetContext
-	r             *result.CommandResult
 	discriminator string
 
 	dew *utils2.DeploymentErrorsAndWarnings
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(discriminator string, targetCtx *target_context.TargetContext, r *result.CommandResult) *ValidateCommand {
+func NewValidateCommand(discriminator string, targetCtx *target_context.TargetContext) *ValidateCommand {
 	cmd := &ValidateCommand{
 		targetCtx:     targetCtx,
-		r:             r,
 		discriminator: discriminator,
 		dew:           utils2.NewDeploymentErrorsAndWarnings(),
 	}
@@ -33,10 +30,7 @@ func NewValidateCommand(discriminator string, targetCtx *target_context.TargetCo
 }
 
 func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
-	startTime := time.Now()
-	if cmd.r == nil {
-		startTime = cmd.targetCtx.KluctlProject.LoadTime
-	}
+	startTime := cmd.targetCtx.KluctlProject.LoadTime
 
 	cmd.dew.Init()
 
@@ -49,36 +43,17 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 
 	var refs []k8s2.ObjectRef
 	var renderedObjects []*uo.UnstructuredObject
-	appliedObjects := map[k8s2.ObjectRef]*uo.UnstructuredObject{}
 	discriminator := cmd.discriminator
 
-	if cmd.r != nil {
-		for _, o := range cmd.r.Objects {
-			refs = append(refs, o.Ref)
-			if o.Hook {
-				continue
-			}
-			if o.Rendered != nil {
-				renderedObjects = append(renderedObjects, o.Rendered)
-			}
-			if o.Applied != nil {
-				appliedObjects[o.Ref] = o.Applied
-			}
+	for _, d := range cmd.targetCtx.DeploymentCollection.Deployments {
+		for _, o := range d.Objects {
+			ref := o.GetK8sRef()
+			refs = append(refs, ref)
+			renderedObjects = append(renderedObjects, o)
 		}
-		if discriminator == "" {
-			discriminator = cmd.r.TargetKey.Discriminator
-		}
-	} else {
-		for _, d := range cmd.targetCtx.DeploymentCollection.Deployments {
-			for _, o := range d.Objects {
-				ref := o.GetK8sRef()
-				refs = append(refs, ref)
-				renderedObjects = append(renderedObjects, o)
-			}
-		}
-		if discriminator == "" {
-			discriminator = cmd.targetCtx.Target.Discriminator
-		}
+	}
+	if discriminator == "" {
+		discriminator = cmd.targetCtx.Target.Discriminator
 	}
 
 	err := cmd.ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, refs, true)
