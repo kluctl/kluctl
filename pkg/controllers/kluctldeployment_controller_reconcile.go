@@ -353,7 +353,7 @@ func (r *KluctlDeploymentReconciler) reconcileValidateRequest(ctx context.Contex
 		"validate", kluctlv1.KluctlRequestValidateAnnotation,
 		getResultPtr, false,
 		func(rr *kluctlv1.ManualRequestResult, targetContext *target_context.TargetContext, pt *preparedTarget, reconcileID string, objectsHash string) (any, string, error) {
-			cmdResult := pt.kluctlValidate(targetContext, nil)
+			cmdResult := pt.kluctlValidate(targetContext)
 			err := pt.writeValidateResult(ctx, cmdResult, rr, reconcileId, objectsHash)
 			if err != nil {
 				log.Error(err, "Failed to write validate result")
@@ -484,7 +484,7 @@ func (r *KluctlDeploymentReconciler) reconcileFullRequest2(rr *kluctlv1.ManualRe
 		if err != nil {
 			return nil, kluctlv1.ValidateFailedReason, err
 		}
-		validateResult := pt.kluctlValidate(targetContext, deployResult)
+		validateResult := pt.kluctlValidate(targetContext)
 		err = pt.writeValidateResult(ctx, validateResult, rr, reconcileId, objectsHash)
 		if err != nil {
 			log.Error(err, "Failed to write deploy result")

@@ -833,11 +833,11 @@ func (pt *preparedTarget) kluctlDiff(targetContext *target_context.TargetContext
 	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlValidate(targetContext *target_context.TargetContext, cmdResult *result.CommandResult) *result.ValidateResult {
+func (pt *preparedTarget) kluctlValidate(targetContext *target_context.TargetContext) *result.ValidateResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	cmd := commands.NewValidateCommand(targetContext.Target.Discriminator, targetContext, cmdResult)
+	cmd := commands.NewValidateCommand(targetContext.Target.Discriminator, targetContext)
 
 	validateResult := cmd.Run(targetContext.SharedContext.Ctx)
 	return validateResult

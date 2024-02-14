@@ -24,12 +24,11 @@ var supportedKluctlDeletePolicies = []string{
 	"hook-failed",
 }
 
-// delete/rollback hooks are actually not supported, but we won't show warnings about that to not spam the user
 var supportedHelmHooks = []string{
 	"pre-install", "post-install",
 	"pre-upgrade", "post-upgrade",
-	"pre-delete", "post-delete",
-	"pre-rollback", "post-rollback",
+	//"pre-delete", "post-delete", TODO re-add this when we actually support delete
+	//"pre-rollback", "post-rollback", TODO re-add this when we actually support rollback
 }
 
 type HooksUtil struct {
@@ -182,11 +181,13 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 
 	helmCompatibility("pre-install", "pre-deploy-initial")
-	helmCompatibility("pre-upgrade", "pre-deploy-upgrade")
 	helmCompatibility("post-install", "post-deploy-initial")
+	helmCompatibility("pre-delete", "pre-delete")   // actually not implemented, so it will be ignored
+	helmCompatibility("post-delete", "post-delete") // actually not implemented, so it will be ignored
+	helmCompatibility("pre-upgrade", "pre-deploy-upgrade")
 	helmCompatibility("post-upgrade", "post-deploy-upgrade")
-	helmCompatibility("pre-delete", "pre-delete")
-	helmCompatibility("post-delete", "post-delete")
+	helmCompatibility("pre-rollback", "pre-rollback")   // actually not implemented, so it will be ignored
+	helmCompatibility("post-rollback", "post-rollback") // actually not implemented, so it will be ignored
 
 	weightStr := o.GetK8sAnnotation("kluctl.io/hook-weight")
 	if weightStr == nil {
@@ -267,4 +268,28 @@ func (h *hook) IsPersistent() bool {
 		}
 	}
 	return true
+}
+
+func (h *hook) IsOnlyDelete() bool {
+	found := false
+	for x := range h.hooks {
+		if x == "pre-delete" || x == "post-delete" {
+			found = true
+		} else {
+			return false
+		}
+	}
+	return found
+}
+
+func (h *hook) IsOnlyRollback() bool {
+	found := false
+	for x := range h.hooks {
+		if x == "pre-rollback" || x == "post-rollback" {
+			found = true
+		} else {
+			return false
+		}
+	}
+	return found
 }

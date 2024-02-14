@@ -44,9 +44,19 @@ func getHeadRevision(t *testing.T, p *test_project.TestProject) string {
 func assertObjectExists(t *testing.T, k *test_utils.EnvTestCluster, gvr schema.GroupVersionResource, namespace string, name string) *uo.UnstructuredObject {
 	x, err := k.Get(gvr, namespace, name)
 	if err != nil {
-		t.Fatalf("unexpected error '%v' while getting ConfigMap %s/%s", err, namespace, name)
+		t.Fatalf("unexpected error '%v' while getting %s %s/%s", err, gvr.GroupResource().String(), namespace, name)
 	}
 	return x
+}
+
+func assertObjectNotExists(t *testing.T, k *test_utils.EnvTestCluster, gvr schema.GroupVersionResource, namespace string, name string) {
+	_, err := k.Get(gvr, namespace, name)
+	if err == nil {
+		t.Fatalf("expected %s/%s to not exist", namespace, name)
+	}
+	if !errors.IsNotFound(err) {
+		t.Fatalf("unexpected error '%v' for %s/%s, expected a NotFound error", err, namespace, name)
+	}
 }
 
 func assertConfigMapExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) *uo.UnstructuredObject {
@@ -54,13 +64,7 @@ func assertConfigMapExists(t *testing.T, k *test_utils.EnvTestCluster, namespace
 }
 
 func assertConfigMapNotExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) {
-	_, err := k.Get(v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name)
-	if err == nil {
-		t.Fatalf("expected %s/%s to not exist", namespace, name)
-	}
-	if !errors.IsNotFound(err) {
-		t.Fatalf("unexpected error '%v' for %s/%s, expected a NotFound error", err, namespace, name)
-	}
+	assertObjectNotExists(t, k, v1.SchemeGroupVersion.WithResource("configmaps"), namespace, name)
 }
 
 func assertSecretExists(t *testing.T, k *test_utils.EnvTestCluster, namespace string, name string) *uo.UnstructuredObject {
