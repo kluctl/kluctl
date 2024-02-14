@@ -160,3 +160,19 @@ func TestValidateSkipDeleteHooks(t *testing.T) {
 
 	assertValidate(t, p, true)
 }
+
+func TestValidateSkipRollbackHooks(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := prepareValidateTest(t, k, map[string]string{
+		"helm.sh/hook":        "post-rollback",
+		"kluctl.io/hook-wait": "false",
+	})
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertObjectNotExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
+
+	assertValidate(t, p, true)
+}

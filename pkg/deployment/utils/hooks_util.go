@@ -281,3 +281,15 @@ func (h *hook) IsOnlyDelete() bool {
 	}
 	return found
 }
+
+func (h *hook) IsOnlyRollback() bool {
+	found := false
+	for x := range h.hooks {
+		if x == "pre-rollback" || x == "post-rollback" {
+			found = true
+		} else {
+			return false
+		}
+	}
+	return found
+}

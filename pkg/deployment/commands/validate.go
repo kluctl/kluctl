@@ -78,7 +78,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 				// the hook is not expected to exist after deployment
 				continue
 			}
-			if hook.IsOnlyDelete() {
+			if hook.IsOnlyDelete() || hook.IsOnlyRollback() {
 				// the hook is not expected to be executed
 				continue
 			}
