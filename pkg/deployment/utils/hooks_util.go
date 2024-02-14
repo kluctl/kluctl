@@ -24,12 +24,11 @@ var supportedKluctlDeletePolicies = []string{
 	"hook-failed",
 }
 
-// delete/rollback hooks are actually not supported, but we won't show warnings about that to not spam the user
 var supportedHelmHooks = []string{
 	"pre-install", "post-install",
 	"pre-upgrade", "post-upgrade",
-	"pre-delete", "post-delete",
-	"pre-rollback", "post-rollback",
+	//"pre-delete", "post-delete", TODO re-add this when we actually support delete
+	//"pre-rollback", "post-rollback", TODO re-add this when we actually support rollback
 }
 
 type HooksUtil struct {
