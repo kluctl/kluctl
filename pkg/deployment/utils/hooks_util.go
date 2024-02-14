@@ -182,10 +182,12 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 
 	helmCompatibility("pre-install", "pre-deploy-initial")
 	helmCompatibility("post-install", "post-deploy-initial")
-	helmCompatibility("pre-delete", "pre-delete")
-	helmCompatibility("post-delete", "post-delete")
+	helmCompatibility("pre-delete", "pre-delete")   // actually not implemented, so it will be ignored
+	helmCompatibility("post-delete", "post-delete") // actually not implemented, so it will be ignored
 	helmCompatibility("pre-upgrade", "pre-deploy-upgrade")
 	helmCompatibility("post-upgrade", "post-deploy-upgrade")
+	helmCompatibility("pre-rollback", "pre-rollback")   // actually not implemented, so it will be ignored
+	helmCompatibility("post-rollback", "post-rollback") // actually not implemented, so it will be ignored
 
 	weightStr := o.GetK8sAnnotation("kluctl.io/hook-weight")
 	if weightStr == nil {
