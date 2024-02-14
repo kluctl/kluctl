@@ -102,13 +102,13 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	})
 }
 
-func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string) *hooksTestContext {
+func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string, isHelm bool) *hooksTestContext {
 	s := prepareHookTestProjectBase(t)
 
 	s.p.AddKustomizeDeployment("hook", nil, nil)
 
 	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.TestSlug()})
-	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.TestSlug()}, false, hook, hookDeletionPolicy)
+	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.TestSlug()}, isHelm, hook, hookDeletionPolicy)
 
 	return s
 }
@@ -161,21 +161,21 @@ func (s *hooksTestContext) ensureHookExecuted2(t *testing.T, timeout time.Durati
 
 func TestHooksPreDeployInitial(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "pre-deploy-initial", "")
+	s := prepareHookTestProject(t, "pre-deploy-initial", "", false)
 	s.ensureHookExecuted(t, "hook1", "cm1")
 	s.ensureHookExecuted(t, "cm1")
 }
 
 func TestHooksPostDeployInitial(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "post-deploy-initial", "")
+	s := prepareHookTestProject(t, "post-deploy-initial", "", false)
 	s.ensureHookExecuted(t, "cm1", "hook1")
 	s.ensureHookExecuted(t, "cm1")
 }
 
 func TestHooksPreDeployUpgrade(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "pre-deploy-upgrade", "")
+	s := prepareHookTestProject(t, "pre-deploy-upgrade", "", false)
 	s.ensureHookExecuted(t, "cm1")
 	s.ensureHookExecuted(t, "hook1", "cm1")
 	s.ensureHookExecuted(t, "hook1", "cm1")
@@ -183,26 +183,26 @@ func TestHooksPreDeployUpgrade(t *testing.T) {
 
 func TestHooksPostDeployUpgrade(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "post-deploy-upgrade", "")
+	s := prepareHookTestProject(t, "post-deploy-upgrade", "", false)
 	s.ensureHookExecuted(t, "cm1")
 	s.ensureHookExecuted(t, "cm1", "hook1")
 	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func doTestHooksPreDeploy(t *testing.T, hooks string) {
-	s := prepareHookTestProject(t, hooks, "")
+	s := prepareHookTestProject(t, hooks, "", false)
 	s.ensureHookExecuted(t, "hook1", "cm1")
 	s.ensureHookExecuted(t, "hook1", "cm1")
 }
 
 func doTestHooksPostDeploy(t *testing.T, hooks string) {
-	s := prepareHookTestProject(t, hooks, "")
+	s := prepareHookTestProject(t, hooks, "", false)
 	s.ensureHookExecuted(t, "cm1", "hook1")
 	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func doTestHooksPrePostDeploy(t *testing.T, hooks string) {
-	s := prepareHookTestProject(t, hooks, "")
+	s := prepareHookTestProject(t, hooks, "", false)
 	s.ensureHookExecuted(t, "hook1", "cm1", "hook1")
 	s.ensureHookExecuted(t, "hook1", "cm1", "hook1")
 }
@@ -237,6 +237,42 @@ func TestHooksPrePostDeploy(t *testing.T) {
 func TestHooksPrePostDeploy2(t *testing.T) {
 	t.Parallel()
 	doTestHooksPrePostDeploy(t, "pre-deploy-initial,pre-deploy-upgrade,post-deploy-initial,post-deploy-upgrade")
+}
+
+func TestHooksPreDelete(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "pre-delete", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksPostDelete(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-delete", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksDeleteAndDeploy(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-delete,post-install", "", true)
+	s.ensureHookExecuted(t, "cm1", "hook1")
+}
+
+func TestHooksPreRollback(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "pre-rollback", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksPostRollback(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-rollback", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksRollbackAndDeploy(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-rollback,post-install", "", true)
+	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func TestHooksWait(t *testing.T) {

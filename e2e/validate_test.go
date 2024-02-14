@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func buildDeployment(name string, namespace string, ready bool) *uo.UnstructuredObject {
+func buildDeployment(name string, namespace string, ready bool, annotations map[string]string) *uo.UnstructuredObject {
 	deployment := uo.FromStringMust(fmt.Sprintf(`
 apiVersion: apps/v1
 kind: Deployment
@@ -39,6 +39,9 @@ spec:
         ports:
         - containerPort: 80
 `, name, namespace))
+	if annotations != nil {
+		deployment.SetK8sAnnotations(annotations)
+	}
 	if ready {
 		deployment.Merge(uo.FromStringMust(`
 status:
@@ -64,7 +67,7 @@ status:
 	return deployment
 }
 
-func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster) *test_project.TestProject {
+func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster, annotations map[string]string) *test_project.TestProject {
 	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
@@ -72,7 +75,7 @@ func prepareValidateTest(t *testing.T, k *test_utils.EnvTestCluster) *test_proje
 	p.UpdateTarget("test", nil)
 
 	p.AddKustomizeDeployment("d1", []test_project.KustomizeResource{
-		{Name: fmt.Sprintf("configmap-%s.yml", "d1"), Content: buildDeployment("d1", p.TestSlug(), false)},
+		{Name: "d1.yml", Content: buildDeployment("d1", p.TestSlug(), false, annotations)},
 	}, nil)
 
 	return p
@@ -101,20 +104,59 @@ func TestValidate(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := prepareValidateTest(t, k)
+	p := prepareValidateTest(t, k, nil)
 
 	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertObjectExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
 
 	assertValidate(t, p, false)
 
-	readyDeployment := buildDeployment("d1", p.TestSlug(), true)
+	readyDeployment := buildDeployment("d1", p.TestSlug(), true, nil)
 
 	_, err := k.DynamicClient.Resource(appsv1.SchemeGroupVersion.WithResource("deployments")).Namespace(p.TestSlug()).
 		Patch(context.Background(), "d1", types.ApplyPatchType, []byte(yaml.WriteJsonStringMust(readyDeployment)), metav1.PatchOptions{
 			FieldManager: "test",
 		}, "status")
 	assert.NoError(t, err)
+
+	assertValidate(t, p, true)
+}
+
+func TestValidateSkipHooks(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := prepareValidateTest(t, k, map[string]string{
+		"kluctl.io/hook":      "post-deploy",
+		"kluctl.io/hook-wait": "false",
+	})
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertObjectExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
+
+	assertValidate(t, p, false)
+
+	p.UpdateYaml("d1/d1.yml", func(o *uo.UnstructuredObject) error {
+		o.SetK8sAnnotation("kluctl.io/hook-delete-policy", "hook-succeeded")
+		return nil
+	}, "")
+
+	assertValidate(t, p, true)
+}
+
+func TestValidateSkipDeleteHooks(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := prepareValidateTest(t, k, map[string]string{
+		"helm.sh/hook":        "post-delete",
+		"kluctl.io/hook-wait": "false",
+	})
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertObjectNotExists(t, k, appsv1.SchemeGroupVersion.WithResource("deployments"), p.TestSlug(), "d1")
 
 	assertValidate(t, p, true)
 }
