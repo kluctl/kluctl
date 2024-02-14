@@ -98,9 +98,15 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 
 		au := ad.NewApplyUtil(ctx, nil)
 		h := utils2.NewHooksUtil(au)
-		hook := h.GetHook(o)
-		if hook != nil && !hook.IsPersistent() {
-			continue
+		if hook := h.GetHook(o); hook != nil {
+			if !hook.IsPersistent() {
+				// the hook is not expected to exist after deployment
+				continue
+			}
+			if hook.IsOnlyDelete() {
+				// the hook is not expected to be executed
+				continue
+			}
 		}
 
 		ref := o.GetK8sRef()

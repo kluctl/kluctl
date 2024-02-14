@@ -268,3 +268,15 @@ func (h *hook) IsPersistent() bool {
 	}
 	return true
 }
+
+func (h *hook) IsOnlyDelete() bool {
+	found := false
+	for x := range h.hooks {
+		if x == "pre-delete" || x == "post-delete" {
+			found = true
+		} else {
+			return false
+		}
+	}
+	return found
+}
