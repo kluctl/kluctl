@@ -129,6 +129,10 @@ func (j *MyJsonPath) GetFirstListOfObjects(o *UnstructuredObject) ([]*Unstructur
 	if !found {
 		return nil, false, nil
 	}
+	if x == nil {
+		// nil is a valid list of zero elements, so treat it as 'found'
+		return nil, true, nil
+	}
 	v := reflect.ValueOf(x)
 	if v.Type().Kind() != reflect.Slice {
 		return nil, false, fmt.Errorf("child is not a list")
