@@ -21,6 +21,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -221,7 +222,10 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 		resultStore, err = buildResultStoreRW(ctx, clientConfig, mapper, args.commandResultFlags, false)
 		if err != nil {
-			return err
+			if !errors.IsForbidden(err) {
+				return err
+			}
+			status.Warningf(ctx, "Not enough permissions to write to the result store.")
 		}
 	}
 

@@ -316,6 +316,9 @@ func (s *ResultStoreSecrets) cleanupOldCommandResults(project result.ProjectKey,
 		ProjectFilter: &project,
 	})
 	if err != nil {
+		if errors.IsForbidden(err) {
+			return nil
+		}
 		return err
 	}
 
@@ -429,6 +432,9 @@ func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, t
 		ProjectFilter: &project,
 	})
 	if err != nil {
+		if errors.IsForbidden(err) {
+			return nil
+		}
 		return err
 	}
 
