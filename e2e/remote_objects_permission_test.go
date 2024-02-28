@@ -9,6 +9,8 @@ import (
 )
 
 func TestRemoteObjectUtils_PermissionErrors(t *testing.T) {
+	t.Parallel()
+
 	k := defaultCluster1
 
 	p := test_project.NewTestProject(t)
@@ -54,7 +56,7 @@ roleRef:
 	kc, err := au.KubeConfig()
 	assert.NoError(t, err)
 
-	setKubeconfigString(t, kc)
+	p.AddExtraArgs("--kubeconfig", getKubeconfigTmpFile(t, kc))
 
 	stdout, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test", "--write-command-result=false")
 	assert.Error(t, err)
@@ -62,6 +64,8 @@ roleRef:
 }
 
 func TestNoGetKubeSystemPermissions(t *testing.T) {
+	t.Parallel()
+
 	k := defaultCluster1
 
 	p := test_project.NewTestProject(t)
@@ -118,7 +122,7 @@ roleRef:
 	kc, err := au.KubeConfig()
 	assert.NoError(t, err)
 
-	setKubeconfigString(t, kc)
+	p.AddExtraArgs("--kubeconfig", getKubeconfigTmpFile(t, kc))
 
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
 		name:      "cm2",
