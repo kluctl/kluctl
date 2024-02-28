@@ -60,3 +60,71 @@ roleRef:
 	assert.Error(t, err)
 	assert.Contains(t, stdout, "at least one permission error was encountered while gathering objects by discriminator labels")
 }
+
+func TestNoGetKubeSystemPermissions(t *testing.T) {
+	k := defaultCluster1
+
+	p := test_project.NewTestProject(t)
+
+	username := p.TestSlug()
+	au, err := k.AddUser(envtest.User{Name: username}, nil)
+	assert.NoError(t, err)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+
+	addConfigMapDeployment(p, "cm", nil, resourceOpts{
+		name:      "cm1",
+		namespace: p.TestSlug(),
+	})
+
+	rbac := fmt.Sprintf(`
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: %s
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    # only list allowed, get is forbidden. it should still be able to get the cluster ID
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "update", "patch", "get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["*"]
+    verbs: ["create", "update",  "patch", "get", "list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: %s
+subjects:
+  - kind: User
+    name: %s
+roleRef:
+  kind: ClusterRole
+  name: %s
+  apiGroup: rbac.authorization.k8s.io
+`, username, username, username, username)
+	p.AddKustomizeDeployment("rbac", []test_project.KustomizeResource{
+		{Name: "rbac.yaml", Content: rbac},
+	}, nil)
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
+
+	kc, err := au.KubeConfig()
+	assert.NoError(t, err)
+
+	setKubeconfigString(t, kc)
+
+	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
+		name:      "cm2",
+		namespace: p.TestSlug(),
+	})
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--write-command-result=false")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
+}
