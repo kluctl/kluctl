@@ -67,7 +67,7 @@ type VarsSourceClusterObject struct {
 	Kind       string `json:"kind" validate:"required"`
 	ApiVersion string `json:"apiVersion,omitempty"`
 
-	Namespace string `json:"namespace" validate:"required"`
+	Namespace string `json:"namespace"`
 
 	Name   string            `json:"name,omitempty"`
 	Labels map[string]string `json:"labels,omitempty"`

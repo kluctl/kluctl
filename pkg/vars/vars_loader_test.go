@@ -567,9 +567,10 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 			Name:      "cm1",
 			Namespace: s.namespace(),
 			Labels: map[string]string{
-				"label1": "lv1",
-				"label2": "42",
-				"label3": "x",
+				"label1":    "lv1",
+				"label2":    "42",
+				"label3":    "x",
+				"namespace": s.namespace(),
 			},
 			Annotations: map[string]string{
 				"yaml":          `{"x": 45}`,
@@ -584,9 +585,10 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 			Name:      "cm2",
 			Namespace: s.namespace(),
 			Labels: map[string]string{
-				"label1": "lv2",
-				"label2": "44",
-				"label3": "x",
+				"label1":    "lv2",
+				"label2":    "44",
+				"label3":    "x",
+				"namespace": s.namespace(),
 			},
 			Annotations: map[string]string{
 				"a1": "v1",
@@ -778,11 +780,27 @@ func (s *VarsLoaderTestSuite) TestClusterObject() {
 		}, nil, "")
 		assert.NoError(s.T(), err)
 
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterObject: &types.VarsSourceClusterObject{
+				Kind: "ConfigMap",
+				Labels: map[string]string{
+					"namespace": s.namespace(),
+				},
+				List: true,
+				// no namespace
+				Path: `metadata.labels["label2"]`,
+			},
+			TargetPath: "my.target.d",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
 		v, _, _ := vc.Vars.GetNestedString("my", "target", "a")
 		assert.Equal(s.T(), "42", v)
 		v, _, _ = vc.Vars.GetNestedString("my", "target", "b")
 		assert.Equal(s.T(), "44", v)
 		l, _, _ := vc.Vars.GetNestedStringList("my", "target", "c")
+		assert.Equal(s.T(), []string{"42", "44"}, l)
+		l, _, _ = vc.Vars.GetNestedStringList("my", "target", "d")
 		assert.Equal(s.T(), []string{"42", "44"}, l)
 	})
 
