@@ -16,10 +16,12 @@ import (
 )
 
 type RemoteObjectUtils struct {
-	ctx              context.Context
-	dew              *DeploymentErrorsAndWarnings
-	remoteObjects    map[k8s2.ObjectRef]*uo.UnstructuredObject
-	remoteNamespaces map[string]*uo.UnstructuredObject
+	ctx           context.Context
+	dew           *DeploymentErrorsAndWarnings
+	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
+
+	remoteNamespacesOk bool
+	remoteNamespaces   map[string]*uo.UnstructuredObject
 }
 
 func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
@@ -212,10 +214,16 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 		Kind:    "Namespace",
 	}, "", nil)
 	if err != nil {
-		return err
-	}
-	for _, o := range r {
-		u.remoteNamespaces[o.GetK8sName()] = o
+		// listing namespaces might be forbidden by the user, while getting individual ones is allowed
+		// in that case, GetRemoteNamespace will do a GET
+		if !errors2.IsForbidden(err) {
+			return err
+		}
+	} else {
+		u.remoteNamespacesOk = true
+		for _, o := range r {
+			u.remoteNamespaces[o.GetK8sName()] = o
+		}
 	}
 
 	s.Success()
@@ -224,13 +232,21 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 }
 
 func (u *RemoteObjectUtils) GetRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
-	o, _ := u.remoteObjects[ref]
-	return o
+	return u.remoteObjects[ref]
 }
 
-func (u *RemoteObjectUtils) GetRemoteNamespace(name string) *uo.UnstructuredObject {
-	o, _ := u.remoteNamespaces[name]
-	return o
+func (u *RemoteObjectUtils) GetRemoteNamespace(k *k8s.K8sCluster, name string) (*uo.UnstructuredObject, error) {
+	if u.remoteNamespacesOk {
+		return u.remoteNamespaces[name], nil
+	}
+
+	ref := k8s2.NewObjectRef("", "v1", "Namespace", name, "")
+	o, _, err := k.GetSingleObject(ref)
+	if err != nil && !errors2.IsNotFound(err) {
+		return nil, err
+	}
+
+	return o, nil
 }
 
 func (u *RemoteObjectUtils) ForgetRemoteObject(ref k8s2.ObjectRef) {

@@ -355,7 +355,12 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 
 	var remoteNamespace *uo.UnstructuredObject
 	if ref.Namespace != "" {
-		remoteNamespace = a.ru.GetRemoteNamespace(ref.Namespace)
+		var err error
+		remoteNamespace, err = a.ru.GetRemoteNamespace(a.k, ref.Namespace)
+		if err != nil {
+			a.HandleError(ref, err)
+			return
+		}
 	}
 
 	usesDummyName := false

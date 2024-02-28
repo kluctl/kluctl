@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,17 +57,39 @@ func FixNamespaceInRef(ref k8s.ObjectRef, namespaced bool, def string) k8s.Objec
 }
 
 func GetClusterId(ctx context.Context, c client.Client) (string, error) {
+	var clusterId string
+
 	// we reuse the kube-system namespace uid as global cluster id
 	var ns corev1.Namespace
 	err := c.Get(ctx, client.ObjectKey{Name: "kube-system"}, &ns)
 	if err != nil {
-		return "", err
+		if !errors.IsForbidden(err) {
+			return "", err
+		}
+		// There is a good chance that the user does not have permissions to GET specific namespaces while still being
+		// able to list them. Let's give this a try.
+		var nsl metav1.PartialObjectMetadataList
+		nsl.SetGroupVersionKind(schema.GroupVersionKind{
+			Version: "v1",
+			Kind:    "Namespace",
+		})
+
+		err = c.List(ctx, &nsl)
+		if err != nil {
+			return "", err
+		}
+		for _, x := range nsl.Items {
+			if x.Name == "kube-system" {
+				clusterId = string(x.UID)
+			}
+		}
+	} else {
+		clusterId = string(ns.UID)
 	}
-	clusterId := ns.UID
 	if clusterId == "" {
 		return "", fmt.Errorf("kube-system namespace has no uid")
 	}
-	return string(clusterId), nil
+	return clusterId, nil
 }
 
 func GetSingleSecret(ctx context.Context, c client.Client, name string, namespace string, key string) (string, error) {

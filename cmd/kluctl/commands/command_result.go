@@ -237,11 +237,26 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 	if writeToResultStore && ctx.resultStore != nil {
 		s := status.Start(ctx.ctx, "Writing command result")
 		defer s.Failed()
+
+		didWarn := false
+		if cr.ClusterInfo.ClusterId == "" {
+			warning := "failed to determine cluster ID due to missing get/list permissions for the kube-system namespace. This might result in follow up issues in regard to cluster differentiation stored command results"
+			cr.Warnings = append(cr.Warnings, result.DeploymentError{
+				Message: warning,
+			})
+			status.Warning(ctx.ctx, warning)
+			didWarn = true
+		}
+
 		resultStoreErr = ctx.resultStore.WriteCommandResult(cr)
 		if resultStoreErr != nil {
 			s.FailedWithMessagef("Failed to write result to result store: %s", resultStoreErr.Error())
 		} else {
-			s.Success()
+			if didWarn {
+				s.Warning()
+			} else {
+				s.Success()
+			}
 		}
 	}
 	err := outputCommandResult2(ctx.ctx, flags, cr)
