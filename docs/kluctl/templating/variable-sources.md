@@ -311,7 +311,7 @@ vars:
       name: my-vars
       namespace: my-namespace
       key: value
-      targetPath: deep.nested.path
+    targetPath: deep.nested.path
 ```
 
 ### clusterSecret
@@ -354,7 +354,7 @@ vars:
       name: my-object
       namespace: my-namespace
       path: status
-      targetPath: my.custom.object.status
+    targetPath: my.custom.object.status
 ```
 
 The following properties are supported for clusterObject sources:
