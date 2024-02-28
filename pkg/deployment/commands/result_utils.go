@@ -7,6 +7,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
@@ -40,12 +41,7 @@ func newCommandResult(targetCtx *target_context.TargetContext, startTime time.Ti
 		})
 	}
 
-	r.ClusterInfo, err = buildClusterInfo(targetCtx.SharedContext.K)
-	if err != nil {
-		r.Errors = append(r.Errors, result.DeploymentError{
-			Message: err.Error(),
-		})
-	}
+	r.ClusterInfo = buildClusterInfo(targetCtx.SharedContext.K, &r.Warnings)
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
@@ -68,12 +64,7 @@ func newValidateCommandResult(targetCtx *target_context.TargetContext, startTime
 		})
 	}
 
-	clusterInfo, err := buildClusterInfo(targetCtx.SharedContext.K)
-	if err != nil {
-		r.Errors = append(r.Errors, result.DeploymentError{
-			Message: err.Error(),
-		})
-	}
+	clusterInfo := buildClusterInfo(targetCtx.SharedContext.K, &r.Warnings)
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
@@ -95,13 +86,7 @@ func newDeleteCommandResult(k *k8s2.K8sCluster, startTime time.Time, inclusion *
 	r.Command.IncludeDeploymentDirs = inclusion.GetIncludes("deploymentItemDir")
 	r.Command.ExcludeDeploymentDirs = inclusion.GetExcludes("deploymentItemDir")
 
-	var err error
-	r.ClusterInfo, err = buildClusterInfo(k)
-	if err != nil {
-		r.Errors = append(r.Errors, result.DeploymentError{
-			Message: err.Error(),
-		})
-	}
+	r.ClusterInfo = buildClusterInfo(k, &r.Warnings)
 
 	return r
 }
@@ -121,14 +106,19 @@ func finishValidateResult(r *result.ValidateResult, targetCtx *target_context.Ta
 	r.EndTime = metav1.Now()
 }
 
-func buildClusterInfo(k *k8s2.K8sCluster) (result.ClusterInfo, error) {
+func buildClusterInfo(k *k8s2.K8sCluster, warnings *[]result.DeploymentError) result.ClusterInfo {
 	var clusterInfo result.ClusterInfo
 	clusterId, err := k.GetClusterId()
-	if err != nil {
-		return clusterInfo, err
-	}
 	clusterInfo = result.ClusterInfo{
 		ClusterId: clusterId,
 	}
-	return clusterInfo, nil
+	if err == nil {
+		return clusterInfo
+	}
+	if !errors.IsForbidden(err) {
+		*warnings = append(*warnings, result.DeploymentError{
+			Message: err.Error(),
+		})
+	}
+	return clusterInfo
 }
