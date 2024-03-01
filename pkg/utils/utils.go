@@ -22,6 +22,15 @@ func DeepCopy(dst interface{}, src interface{}) error {
 	})
 }
 
+func DeepClone[T any](src *T) (*T, error) {
+	ret := new(T)
+	err := DeepCopy(ret, src)
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
+}
+
 func FindStrInSlice(a []string, s string) int {
 	for i, v := range a {
 		if v == s {
