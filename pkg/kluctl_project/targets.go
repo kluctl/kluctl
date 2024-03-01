@@ -67,8 +67,7 @@ func (c *LoadedKluctlProject) RenderTarget(target *types.Target) error {
 }
 
 func (c *LoadedKluctlProject) buildTarget(configTarget *types.Target) (*types.Target, error) {
-	var target types.Target
-	err := utils.DeepCopy(&target, configTarget)
+	target, err := utils.DeepClone(configTarget)
 	if err != nil {
 		return nil, err
 	}
@@ -89,5 +88,8 @@ func (c *LoadedKluctlProject) buildTarget(configTarget *types.Target) (*types.Ta
 			target.Aws.ServiceAccount = c.Config.Aws.ServiceAccount
 		}
 	}
-	return &target, nil
+	// just to make sure we don't later overwrite stuff from c.Config, which we might have copied into the target a few
+	// lines above this
+	target, err = utils.DeepClone(target)
+	return target, nil
 }
