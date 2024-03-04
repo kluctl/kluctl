@@ -78,11 +78,8 @@ The required indention filter is the part that makes this error-prone and hard t
 whenever you can.
 
 ### render
-Renders the input string with the current Jinja2 context. Example:
-```
-{% set a="{{ my_var }}" %}
-{{ a | render }}
-```
+Same as the global [render function](./functions.md#rendertemplate), but deprecated now. `render` being a filter turned out to
+not work well with local variables, as these are not accessible in filters. Please only use the global function.
 
 ### sha256(digest_len)
 Calculates the sha256 digest of the input string. Example:
