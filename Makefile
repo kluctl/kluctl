@@ -106,13 +106,9 @@ test-e2e-gitops: envtest ## Run gitops e2e tests.
 replace-commands-help: ## Replace commands help in docs
 	go run ./internal/replace-commands-help --docs-dir ./docs/kluctl/commands
 
-MARKDOWN_LINK_CHECK_VERSION=3.11.2
+LYCHEE_VERSION=0.14
 markdown-link-check: ## Check markdown files for dead links
-	find . -name '*.md' \
-		-and -not -path './docs/gitops/api/kluctl-controller.md' \
-		-and -not -path './pkg/webui/ui/node_modules/*' \
-		-and -not -path './pkg/webui/ui/build/*' | \
-		xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
+	docker run --init -i --rm -w /input -v ${PWD}:/input:ro lycheeverse/lychee:$(LYCHEE_VERSION) -- README.md docs install
 
 ##@ Build
 
