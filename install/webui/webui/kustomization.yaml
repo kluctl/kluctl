@@ -1,5 +1,5 @@
 {% set kluctl_image = get_var("args.kluctl_image", "ghcr.io/kluctl/kluctl") %}
-{% set kluctl_version = get_var("args.kluctl_version", "v2.23.4") %}
+{% set kluctl_version = get_var("args.kluctl_version", "v2.23.5") %}
 {% set pull_policy = "Always" if ("-devel" in kluctl_version or "-snapshot" in kluctl_version) else "IfNotPresent" %}
 
 resources:
