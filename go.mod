@@ -66,7 +66,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2
 	github.com/docker/cli v24.0.7+incompatible
-	github.com/evanphx/json-patch/v5 v5.7.0
+	github.com/evanphx/json-patch/v5 v5.8.0
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
@@ -90,7 +90,7 @@ require (
 	gotest.tools v2.2.0+incompatible
 	nhooyr.io/websocket v1.8.10
 	sigs.k8s.io/cli-utils v0.35.0
-	sigs.k8s.io/controller-runtime v0.16.3
+	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/kustomize/api v0.16.0
 	sigs.k8s.io/yaml v1.4.0
 )
