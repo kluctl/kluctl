@@ -34,6 +34,7 @@ type TargetContextParams struct {
 	TargetName         string
 	TargetNameOverride string
 	ContextOverride    string
+	Discriminator      string
 	OfflineK8s         bool
 	K8sVersion         string
 	DryRun             bool
@@ -75,6 +76,10 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 	}
 	if params.TargetNameOverride != "" {
 		target.Name = params.TargetNameOverride
+	}
+	if params.Discriminator != "" {
+		target.Discriminator = params.Discriminator
+		needRender = true
 	}
 
 	params.Images.PrependFixedImages(target.Images)

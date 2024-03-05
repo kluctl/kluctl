@@ -17,6 +17,18 @@ import (
 	"time"
 )
 
+func createTestCluster(t *testing.T, context string) *test_utils.EnvTestCluster {
+	k := test_utils.CreateEnvTestCluster(context)
+	err := k.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		k.Stop()
+	})
+	return k
+}
+
 func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {
 	r := k.DynamicClient.Resource(v1.SchemeGroupVersion.WithResource("namespaces"))
 	if _, err := r.Get(context.Background(), namespace, metav1.GetOptions{}); err == nil {

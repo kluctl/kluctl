@@ -10,6 +10,7 @@ import (
 )
 
 type controllerInstallCmd struct {
+	args.KubeconfigFlags
 	args.YesFlags
 	args.DryRunFlags
 	args.CommandResultFlags
@@ -40,6 +41,7 @@ func (cmd *controllerInstallCmd) Run(ctx context.Context) error {
 			},
 			Timeout: 10 * time.Minute,
 		},
+		KubeconfigFlags: cmd.KubeconfigFlags,
 		TargetFlags: args.TargetFlags{
 			Context: cmd.Context,
 		},
@@ -49,6 +51,7 @@ func (cmd *controllerInstallCmd) Run(ctx context.Context) error {
 		YesFlags:           cmd.YesFlags,
 		DryRunFlags:        cmd.DryRunFlags,
 		CommandResultFlags: cmd.CommandResultFlags,
+		Discriminator:      "kluctl.io-controller",
 		internal:           true,
 	}
 	return cmd2.Run(ctx)

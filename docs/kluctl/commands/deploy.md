@@ -36,6 +36,7 @@ Misc arguments:
   Command specific arguments.
 
       --abort-on-error               Abort deploying when an error occurs instead of trying the remaining deployments
+      --discriminator string         Override the target discriminator.
       --dry-run                      Performs all kubernetes API calls in dry-run mode.
       --force-apply                  Force conflict resolution when applying. See documentation for details
       --force-replace-on-error       Same as --replace-on-error, but also try to delete and re-create objects. See

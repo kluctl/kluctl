@@ -31,6 +31,8 @@ type deployCmd struct {
 
 	DeployExtraFlags
 
+	Discriminator string `group:"misc" help:"Override the target discriminator."`
+
 	internal bool
 }
 
@@ -60,6 +62,7 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
 		internalDeploy:       cmd.internal,
+		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		return cmd.runCmdDeploy(cmdCtx)

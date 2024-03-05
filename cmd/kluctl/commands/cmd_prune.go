@@ -22,6 +22,8 @@ type pruneCmd struct {
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
 	args.CommandResultFlags
+
+	Discriminator string `group:"misc" help:"Override the target discriminator."`
 }
 
 func (cmd *pruneCmd) Help() string {
@@ -45,6 +47,7 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
+		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		return cmd.runCmdPrune(cmdCtx)
