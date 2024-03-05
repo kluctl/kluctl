@@ -31,6 +31,7 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
+      --discriminator string        Override the target discriminator.
       --dry-run                     Performs all kubernetes API calls in dry-run mode.
       --no-obfuscate                Disable obfuscation of sensitive/secret data
   -o, --output-format stringArray   Specify output format and target file, in the format 'format=path'. Format can

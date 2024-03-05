@@ -21,6 +21,8 @@ type diffCmd struct {
 	args.IgnoreFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+
+	Discriminator string `group:"misc" help:"Override the target discriminator."`
 }
 
 func (cmd *diffCmd) Help() string {
@@ -41,6 +43,7 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		helmCredentials:      cmd.HelmCredentials,
 		registryCredentials:  cmd.RegistryCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx)

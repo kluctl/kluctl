@@ -128,6 +128,8 @@ type projectTargetCommandArgs struct {
 	renderOutputDirFlags args.RenderOutputDirFlags
 	commandResultFlags   *args.CommandResultFlags
 
+	discriminator string
+
 	internalDeploy    bool
 	forSeal           bool
 	forCompletion     bool
@@ -186,6 +188,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		TargetName:         args.targetFlags.Target,
 		TargetNameOverride: args.targetFlags.TargetNameOverride,
 		ContextOverride:    args.targetFlags.Context,
+		Discriminator:      args.discriminator,
 		OfflineK8s:         args.offlineKubernetes,
 		K8sVersion:         args.kubernetesVersion,
 		DryRun:             args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
