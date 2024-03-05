@@ -51,6 +51,7 @@ func (cmd *controllerInstallCmd) Run(ctx context.Context) error {
 		YesFlags:           cmd.YesFlags,
 		DryRunFlags:        cmd.DryRunFlags,
 		CommandResultFlags: cmd.CommandResultFlags,
+		Discriminator:      "kluctl.io-controller",
 		internal:           true,
 	}
 	return cmd2.Run(ctx)

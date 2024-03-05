@@ -26,18 +26,6 @@ spec:
 `, name, namespace)
 }
 
-func createCRDTestCluster(t *testing.T) *test_utils.EnvTestCluster {
-	k := test_utils.CreateEnvTestCluster("cluster1")
-	err := k.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		k.Stop()
-	})
-	return k
-}
-
 func prepareCRDsTest(t *testing.T, k *test_utils.EnvTestCluster, crds bool, barrier bool) *test_project.TestProject {
 	p := test_project.NewTestProject(t)
 	p.AddExtraArgs("--kubeconfig", getKubeconfigTmpFile(t, k.Kubeconfig))
@@ -67,7 +55,7 @@ func prepareCRDsTest(t *testing.T, k *test_utils.EnvTestCluster, crds bool, barr
 func TestDeployCRDUnordered(t *testing.T) {
 	t.Parallel()
 
-	k := createCRDTestCluster(t)
+	k := createTestCluster(t, "cluster1")
 	p := prepareCRDsTest(t, k, true, false)
 
 	for i := 0; i < 100; i++ {
@@ -85,7 +73,7 @@ func TestDeployCRDUnordered(t *testing.T) {
 func TestDiffCRDSimulated(t *testing.T) {
 	t.Parallel()
 
-	k := createCRDTestCluster(t)
+	k := createTestCluster(t, "cluster1")
 
 	p := prepareCRDsTest(t, k, true, true)
 
@@ -96,7 +84,7 @@ func TestDiffCRDSimulated(t *testing.T) {
 func TestDeployCRDBarrier(t *testing.T) {
 	t.Parallel()
 
-	k := createCRDTestCluster(t)
+	k := createTestCluster(t, "cluster1")
 
 	p := prepareCRDsTest(t, k, true, true)
 
@@ -106,7 +94,7 @@ func TestDeployCRDBarrier(t *testing.T) {
 func TestDeployCRDByController(t *testing.T) {
 	t.Parallel()
 
-	k := createCRDTestCluster(t)
+	k := createTestCluster(t, "cluster1")
 
 	p := prepareCRDsTest(t, k, false, true)
 	p.UpdateDeploymentItems(".", func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
