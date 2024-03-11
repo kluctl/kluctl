@@ -70,6 +70,7 @@ require (
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
+	github.com/go-errors/errors v1.5.1
 	github.com/go-git/go-git/v5 v5.11.1-0.20240110114741-f7c30f52dca0
 	github.com/go-logr/logr v1.4.1
 	github.com/google/gops v0.3.28
@@ -163,7 +164,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/getsops/gopgagent v0.0.0-20170926210634-4d7ea76ff71a // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
