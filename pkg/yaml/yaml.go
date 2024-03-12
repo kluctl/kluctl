@@ -5,16 +5,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"golang.org/x/text/encoding/unicode"
-	"golang.org/x/text/transform"
 	"io"
-	apimachinery_yaml "k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sigs.k8s.io/yaml"
 	"strings"
+
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
+	apimachinery_yaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 func newUnicodeReader(r io.Reader) io.Reader {
@@ -52,7 +53,7 @@ func ReadYamlStream(r io.Reader, o interface{}) error {
 		return err
 	}
 
-	err = yaml.UnmarshalStrict(b, o)
+	err = yaml.Unmarshal(b, o)
 	if err != nil {
 		return err
 	}
