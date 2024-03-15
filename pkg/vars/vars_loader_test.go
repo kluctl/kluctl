@@ -170,7 +170,7 @@ func (s *VarsLoaderTestSuite) TestFile() {
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		vs := &types.VarsSource{
-			File: utils.StrPtr("test.yaml"),
+			File: utils.Ptr("test.yaml"),
 		}
 		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
 		assert.NoError(s.T(), err)
@@ -184,7 +184,7 @@ func (s *VarsLoaderTestSuite) TestFile() {
 		b := true
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
-			File:          utils.StrPtr("test.yaml"),
+			File:          utils.Ptr("test.yaml"),
 		}, []string{d}, "")
 		assert.NoError(s.T(), err)
 
@@ -196,7 +196,7 @@ func (s *VarsLoaderTestSuite) TestFile() {
 		b := true
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
-			File:          utils.StrPtr("test-missing.yaml"),
+			File:          utils.Ptr("test-missing.yaml"),
 		}, []string{d}, "")
 		assert.NoError(s.T(), err)
 	})
@@ -212,7 +212,7 @@ func (s *VarsLoaderTestSuite) TestSopsFile() {
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		vs := &types.VarsSource{
-			File: utils.StrPtr("test.yaml"),
+			File: utils.Ptr("test.yaml"),
 		}
 		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
 		assert.NoError(s.T(), err)
@@ -230,7 +230,7 @@ func (s *VarsLoaderTestSuite) TestFileWithLoad() {
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
-			File: utils.StrPtr("test.yaml"),
+			File: utils.Ptr("test.yaml"),
 		}, []string{d}, "")
 		assert.NoError(s.T(), err)
 
@@ -247,7 +247,7 @@ func (s *VarsLoaderTestSuite) TestFileWithLoadSubDir() {
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
-			File: utils.StrPtr("test.yaml"),
+			File: utils.Ptr("test.yaml"),
 		}, []string{d, filepath.Join(d, "subdir")}, "")
 		assert.NoError(s.T(), err)
 
@@ -262,7 +262,7 @@ func (s *VarsLoaderTestSuite) TestFileWithLoadNotExists() {
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
-			File: utils.StrPtr("test.yaml"),
+			File: utils.Ptr("test.yaml"),
 		}, []string{d}, "")
 		assert.EqualError(s.T(), err, "failed to render vars file test.yaml: template test3.txt not found")
 	})
@@ -1070,7 +1070,7 @@ func (s *VarsLoaderTestSuite) TestHttp_POST() {
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:    types.YamlUrl{URL: *u},
-				Method: utils.StrPtr("POST"),
+				Method: utils.Ptr("POST"),
 			},
 		}, nil, "")
 		assert.ErrorContains(s.T(), err, "failed with status code 543")
@@ -1078,8 +1078,8 @@ func (s *VarsLoaderTestSuite) TestHttp_POST() {
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:    types.YamlUrl{URL: *u},
-				Method: utils.StrPtr("POST"),
-				Body:   utils.StrPtr("body"),
+				Method: utils.Ptr("POST"),
+				Body:   utils.Ptr("body"),
 			},
 		}, nil, "")
 		assert.ErrorContains(s.T(), err, "failed with status code 544")
@@ -1087,8 +1087,8 @@ func (s *VarsLoaderTestSuite) TestHttp_POST() {
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:     types.YamlUrl{URL: *u},
-				Method:  utils.StrPtr("POST"),
-				Body:    utils.StrPtr("body"),
+				Method:  utils.Ptr("POST"),
+				Body:    utils.Ptr("body"),
 				Headers: map[string]string{"h": "h"},
 			},
 		}, nil, "")
@@ -1110,7 +1110,7 @@ func (s *VarsLoaderTestSuite) TestHttp_JsonPath() {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Http: &types.VarsSourceHttp{
 				Url:      types.YamlUrl{URL: *u},
-				JsonPath: utils.StrPtr("test1"),
+				JsonPath: utils.Ptr("test1"),
 			},
 		}, nil, "")
 		assert.NoError(s.T(), err)
@@ -1136,7 +1136,7 @@ func (s *VarsLoaderTestSuite) TestAwsSecretsManager() {
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "secret",
-				Region:     utils.StrPtr("eu-central1"),
+				Region:     utils.Ptr("eu-central1"),
 			},
 		}, nil, "")
 		assert.NoError(s.T(), err)
@@ -1171,7 +1171,7 @@ func (s *VarsLoaderTestSuite) TestAwsSecretsManager() {
 			IgnoreMissing: &b,
 			AwsSecretsManager: &types.VarsSourceAwsSecretsManager{
 				SecretName: "missing",
-				Region:     utils.StrPtr("eu-central1"),
+				Region:     utils.Ptr("eu-central1"),
 			},
 		}, nil, "")
 		assert.NoError(s.T(), err)

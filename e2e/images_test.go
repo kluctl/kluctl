@@ -121,7 +121,7 @@ func TestGetImageVars(t *testing.T) {
 	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
-		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars"},
+		{Image: utils.Ptr("i1"), ResultImage: "i1:vars"},
 	})
 
 	createNamespace(t, k, p.TestSlug())
@@ -143,7 +143,7 @@ func TestGetImageMixed(t *testing.T) {
 	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
-		{Image: utils.StrPtr("i2"), ResultImage: "i2:vars"},
+		{Image: utils.Ptr("i2"), ResultImage: "i2:vars"},
 	})
 
 	createNamespace(t, k, p.TestSlug())
@@ -167,8 +167,8 @@ func TestGetImageByDeployment(t *testing.T) {
 	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
-		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars1", Deployment: utils.StrPtr("Deployment/d1")},
-		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars2", Deployment: utils.StrPtr("Deployment/d2")},
+		{Image: utils.Ptr("i1"), ResultImage: "i1:vars1", Deployment: utils.Ptr("Deployment/d1")},
+		{Image: utils.Ptr("i1"), ResultImage: "i1:vars2", Deployment: utils.Ptr("Deployment/d2")},
 	})
 
 	createNamespace(t, k, p.TestSlug())
@@ -192,8 +192,8 @@ func TestGetImageByContainer(t *testing.T) {
 	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
-		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars1", Container: utils.StrPtr("c1")},
-		{Image: utils.StrPtr("i1"), ResultImage: "i1:vars2", Container: utils.StrPtr("c2")},
+		{Image: utils.Ptr("i1"), ResultImage: "i1:vars1", Container: utils.Ptr("c1")},
+		{Image: utils.Ptr("i1"), ResultImage: "i1:vars2", Container: utils.Ptr("c2")},
 	})
 
 	createNamespace(t, k, p.TestSlug())
@@ -217,8 +217,8 @@ func TestGetImageRegex(t *testing.T) {
 	p := test_project.NewTestProject(t)
 
 	setImagesVars(p, []types.FixedImage{
-		{ImageRegex: utils.StrPtr("i.*"), ResultImage: "i1:x"},
-		{ImageRegex: utils.StrPtr("j.*"), ResultImage: "i1:y"},
+		{ImageRegex: utils.Ptr("i.*"), ResultImage: "i1:x"},
+		{ImageRegex: utils.Ptr("j.*"), ResultImage: "i1:y"},
 	})
 
 	createNamespace(t, k, p.TestSlug())

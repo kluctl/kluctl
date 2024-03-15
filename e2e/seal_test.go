@@ -469,7 +469,7 @@ func TestSeal_File(t *testing.T) {
 		},
 		[]*uo.UnstructuredObject{
 			uo.FromMap(map[string]interface{}{
-				"file": utils.StrPtr("secret-values.yaml"),
+				"file": utils.Ptr("secret-values.yaml"),
 			}),
 		}, true)
 

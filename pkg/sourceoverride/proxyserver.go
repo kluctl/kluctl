@@ -190,7 +190,7 @@ func (s *ProxyServerImpl) handshake(stream Proxy_ProxyStreamServer) (*ProxyConne
 
 	msg = &ProxyRequest{
 		Auth: &AuthMsg{
-			AuthError: utils.StrPtr(""),
+			AuthError: utils.Ptr(""),
 		},
 	}
 

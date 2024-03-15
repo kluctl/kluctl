@@ -50,8 +50,8 @@ func TestValidateVarsSource(t *testing.T) {
 	tests := []testCase{
 		{vs: VarsSource{Values: uo.New()}}, // no error
 		{vs: VarsSource{}, e: "unknown vars source type"},
-		{vs: VarsSource{Values: uo.New(), File: utils.StrPtr("test")}, e: "more then one vars source type"},
-		{vs: VarsSource{Values: uo.New(), File: utils.StrPtr("test"), SystemEnvVars: uo.New()}, e: "more then one vars source type"},
+		{vs: VarsSource{Values: uo.New(), File: utils.Ptr("test")}, e: "more then one vars source type"},
+		{vs: VarsSource{Values: uo.New(), File: utils.Ptr("test"), SystemEnvVars: uo.New()}, e: "more then one vars source type"},
 	}
 
 	for i, tc := range tests {

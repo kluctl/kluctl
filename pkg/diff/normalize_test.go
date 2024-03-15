@@ -137,7 +137,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Group: utils.StrPtr("Nope")},
+				{FieldPath: []string{"metadata.labels.*"}, Group: utils.Ptr("Nope")},
 			},
 		},
 		{
@@ -145,7 +145,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Kind: utils.StrPtr("Nope")},
+				{FieldPath: []string{"metadata.labels.*"}, Kind: utils.Ptr("Nope")},
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Name: utils.StrPtr("Nope")},
+				{FieldPath: []string{"metadata.labels.*"}, Name: utils.Ptr("Nope")},
 			},
 		},
 		{
@@ -161,7 +161,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Namespace: utils.StrPtr("Nope")},
+				{FieldPath: []string{"metadata.labels.*"}, Namespace: utils.Ptr("Nope")},
 			},
 		},
 		{
@@ -169,7 +169,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {}}}`),
 			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Group: utils.StrPtr("apps"), Kind: utils.StrPtr("Deployment"), Name: utils.StrPtr("test"), Namespace: utils.StrPtr("ns")},
+				{FieldPath: []string{"metadata.labels.*"}, Group: utils.Ptr("apps"), Kind: utils.Ptr("Deployment"), Name: utils.Ptr("test"), Namespace: utils.Ptr("ns")},
 			},
 		},
 	}

@@ -159,24 +159,24 @@ data:
 
 	suite.Run("invalid target", func() {
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Target = utils.StrPtr("invalid")
+			kd.Spec.Target = utils.Ptr("invalid")
 		})
 		kd := suite.waitForReconcile(key)
 		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "target invalid not existent in kluctl project config", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Target = utils.StrPtr("target1")
+			kd.Spec.Target = utils.Ptr("target1")
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})
 
 	suite.Run("invalid context", func() {
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Context = utils.StrPtr("invalid")
+			kd.Spec.Context = utils.Ptr("invalid")
 		})
 		kd := suite.waitForReconcile(key)
 		suite.assertErrors(kd, metav1.ConditionFalse, kluctlv1.PrepareFailedReason, "prepare failed. Check status.lastPrepareError for details", "context \"invalid\" does not exist", nil, nil)
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
-			kd.Spec.Context = utils.StrPtr("default")
+			kd.Spec.Context = utils.Ptr("default")
 		})
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})

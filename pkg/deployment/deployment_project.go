@@ -102,7 +102,7 @@ func (p *DeploymentProject) loadConfig() error {
 
 func (p *DeploymentProject) generateSingleKustomizeProject() error {
 	p.Config.Deployments = append(p.Config.Deployments, types.DeploymentItemConfig{
-		Path: utils.StrPtr("."),
+		Path: utils.Ptr("."),
 	})
 	return nil
 }

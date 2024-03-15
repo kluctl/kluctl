@@ -59,8 +59,8 @@ func ParseBoolOrDefault(s string, def bool) bool {
 	return b
 }
 
-func StrPtr(s string) *string {
-	return &s
+func Ptr[T any](v T) *T {
+	return &v
 }
 
 func StrPtrEquals(s1 *string, s2 *string) bool {
