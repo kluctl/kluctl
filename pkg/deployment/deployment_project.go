@@ -382,7 +382,7 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap[string, bool] {
 	return &tags
 }
 
-func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []types.IgnoreForDiffItemConfig {
+func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations, ignoreKluctlMetadata bool) []types.IgnoreForDiffItemConfig {
 	var ret []types.IgnoreForDiffItemConfig
 	for _, e := range p.getParents() {
 		ret = append(ret, e.p.Config.IgnoreForDiff...)
@@ -395,6 +395,11 @@ func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAn
 	}
 	if ignoreAnnotations {
 		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.annotations.*`}})
+	}
+	if ignoreKluctlMetadata {
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/discriminator"\]`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.annotations\["kluctl\.io/deployment-item-dir"\]`}})
 	}
 	return ret
 }

@@ -12,12 +12,13 @@ import (
 type DiffCommand struct {
 	targetCtx *target_context.TargetContext
 
-	ForceApply          bool
-	ReplaceOnError      bool
-	ForceReplaceOnError bool
-	IgnoreTags          bool
-	IgnoreLabels        bool
-	IgnoreAnnotations   bool
+	ForceApply           bool
+	ReplaceOnError       bool
+	ForceReplaceOnError  bool
+	IgnoreTags           bool
+	IgnoreLabels         bool
+	IgnoreAnnotations    bool
+	IgnoreKluctlMetadata bool
 
 	SkipResourceVersions map[k8s2.ObjectRef]string
 }
@@ -68,6 +69,7 @@ func (cmd *DiffCommand) Run() *result.CommandResult {
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
+	du.IgnoreKluctlMetadata = cmd.IgnoreKluctlMetadata
 	du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
