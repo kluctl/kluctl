@@ -257,7 +257,7 @@ func (c *ProxyClientCli) Start() error {
 		var resp ResolveOverrideResponse
 		b, err := c.handleRequest(req.Request)
 		if err != nil {
-			resp.Error = utils.StrPtr(err.Error())
+			resp.Error = utils.Ptr(err.Error())
 		} else {
 			resp.Artifact = b
 		}

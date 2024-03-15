@@ -127,19 +127,19 @@ type VarsSource struct {
 	NoOverride    *bool `json:"noOverride,omitempty"`
 	Sensitive     *bool `json:"sensitive,omitempty"`
 
-	Values            *uo.UnstructuredObject              `json:"values,omitempty"`
-	File              *string                             `json:"file,omitempty"`
-	Git               *VarsSourceGit                      `json:"git,omitempty"`
-	GitFiles          *VarsSourceGitFiles                 `json:"gitFiles,omitempty"`
-	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `json:"clusterConfigMap,omitempty"`
-	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `json:"clusterSecret,omitempty"`
-	ClusterObject     *VarsSourceClusterObject            `json:"clusterObject,omitempty"`
-	SystemEnvVars     *uo.UnstructuredObject              `json:"systemEnvVars,omitempty"`
-	Http              *VarsSourceHttp                     `json:"http,omitempty"`
-	AwsSecretsManager *VarsSourceAwsSecretsManager        `json:"awsSecretsManager,omitempty"`
-	GcpSecretManager  *VarsSourceGcpSecretManager         `json:"gcpSecretManager,omitempty"`
-	Vault             *VarsSourceVault                    `json:"vault,omitempty"`
-	AzureKeyVault     *VarSourceAzureKeyVault             `json:"azureKeyVault,omitempty"`
+	Values            *uo.UnstructuredObject              `json:"values,omitempty" isVarsSource:"true"`
+	File              *string                             `json:"file,omitempty" isVarsSource:"true"`
+	Git               *VarsSourceGit                      `json:"git,omitempty" isVarsSource:"true"`
+	GitFiles          *VarsSourceGitFiles                 `json:"gitFiles,omitempty" isVarsSource:"true"`
+	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `json:"clusterConfigMap,omitempty" isVarsSource:"true"`
+	ClusterSecret     *VarsSourceClusterConfigMapOrSecret `json:"clusterSecret,omitempty" isVarsSource:"true"`
+	ClusterObject     *VarsSourceClusterObject            `json:"clusterObject,omitempty" isVarsSource:"true"`
+	SystemEnvVars     *uo.UnstructuredObject              `json:"systemEnvVars,omitempty" isVarsSource:"true"`
+	Http              *VarsSourceHttp                     `json:"http,omitempty" isVarsSource:"true" isVarsSource:"true"`
+	AwsSecretsManager *VarsSourceAwsSecretsManager        `json:"awsSecretsManager,omitempty" isVarsSource:"true"`
+	GcpSecretManager  *VarsSourceGcpSecretManager         `json:"gcpSecretManager,omitempty" isVarsSource:"true"`
+	Vault             *VarsSourceVault                    `json:"vault,omitempty" isVarsSource:"true"`
+	AzureKeyVault     *VarSourceAzureKeyVault             `json:"azureKeyVault,omitempty" isVarsSource:"true"`
 
 	TargetPath string `json:"targetPath,omitempty"`
 
@@ -156,11 +156,8 @@ func ValidateVarsSource(sl validator.StructLevel) {
 	count := 0
 	v := reflect.ValueOf(s)
 	for i := 0; i < v.NumField(); i++ {
-		switch v.Type().Field(i).Name {
-		case "IgnoreMissing", "NoOverride", "TargetPath", "When", "RenderedSensitive", "RenderedVars":
-			continue
-		}
-		if !v.Field(i).IsNil() {
+		f := v.Type().Field(i)
+		if f.Tag.Get("isVarsSource") == "true" && !v.Field(i).IsNil() {
 			count += 1
 		}
 	}
