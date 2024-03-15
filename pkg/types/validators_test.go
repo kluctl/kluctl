@@ -1,6 +1,9 @@
 package types
 
 import (
+	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
 
 	"github.com/go-playground/validator/v10"
@@ -32,5 +35,34 @@ func TestValidateGitProjectSubDir(t *testing.T) {
 		} else {
 			assert.Error(t, err)
 		}
+	}
+}
+
+func TestValidateVarsSource(t *testing.T) {
+	validate := validator.New()
+	validate.RegisterStructValidation(ValidateVarsSource, VarsSource{})
+
+	type testCase struct {
+		vs VarsSource
+		e  string
+	}
+
+	tests := []testCase{
+		{vs: VarsSource{Values: uo.New()}}, // no error
+		{vs: VarsSource{}, e: "unknown vars source type"},
+		{vs: VarsSource{Values: uo.New(), File: utils.StrPtr("test")}, e: "more then one vars source type"},
+		{vs: VarsSource{Values: uo.New(), File: utils.StrPtr("test"), SystemEnvVars: uo.New()}, e: "more then one vars source type"},
+	}
+
+	for i, tc := range tests {
+		tc := tc
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			err := validate.Struct(&tc.vs)
+			if tc.e == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tc.e)
+			}
+		})
 	}
 }
