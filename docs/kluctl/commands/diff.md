@@ -40,6 +40,7 @@ Misc arguments:
       --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
                                     documentation for more details.
       --ignore-annotations          Ignores changes in annotations when diffing
+      --ignore-kluctl-metadata      Ignores changes in Kluctl related metadata (e.g. tags, discriminators, ...)
       --ignore-labels               Ignores changes in labels when diffing
       --ignore-tags                 Ignores changes in tags when diffing
       --no-obfuscate                Disable obfuscation of sensitive/secret data

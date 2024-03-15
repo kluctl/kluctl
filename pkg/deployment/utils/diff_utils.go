@@ -16,10 +16,11 @@ type DiffUtil struct {
 	appliedObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	ru             *RemoteObjectUtils
 
-	IgnoreTags        bool
-	IgnoreLabels      bool
-	IgnoreAnnotations bool
-	Swapped           bool
+	IgnoreTags           bool
+	IgnoreLabels         bool
+	IgnoreAnnotations    bool
+	IgnoreKluctlMetadata bool
+	Swapped              bool
 
 	remoteDiffObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
 	ChangedObjects    []result.ChangedObject
@@ -40,7 +41,7 @@ func (u *DiffUtil) DiffDeploymentItems(deployments []*deployment.DeploymentItem)
 	var wg sync.WaitGroup
 
 	for _, d := range deployments {
-		ignoreForDiffs := d.Project.GetIgnoreForDiffs(u.IgnoreTags, u.IgnoreLabels, u.IgnoreAnnotations)
+		ignoreForDiffs := d.Project.GetIgnoreForDiffs(u.IgnoreTags, u.IgnoreLabels, u.IgnoreAnnotations, u.IgnoreKluctlMetadata)
 		u.diffObjects(d.Objects, ignoreForDiffs, &wg)
 	}
 	wg.Wait()
