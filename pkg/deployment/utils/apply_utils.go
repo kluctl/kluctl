@@ -520,6 +520,12 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 				if didLog {
 					a.sctx.InfoFallbackf("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
 				}
+				for _, e := range v.Errors {
+					a.HandleError(ref, errors2.New(e.Message))
+				}
+				for _, e := range v.Warnings {
+					a.HandleWarning(ref, errors2.New(e.Message))
+				}
 				return true
 			}
 			if len(v.Errors) != 0 {
@@ -527,7 +533,10 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 					status.Warningf(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
 				}
 				for _, e := range v.Errors {
-					a.HandleError(ref, fmt.Errorf(e.Message))
+					a.HandleError(ref, errors2.New(e.Message))
+				}
+				for _, e := range v.Warnings {
+					a.HandleWarning(ref, errors2.New(e.Message))
 				}
 				return false
 			}
