@@ -1,8 +1,10 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +46,7 @@ const (
 	reactNotReady
 )
 
-func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret result.ValidateResult) {
+func ValidateObject(ctx context.Context, k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret result.ValidateResult) {
 	ref := o.GetK8sRef()
 
 	// We assume all is good in case no validation is performed
@@ -131,34 +133,22 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 			addNotReady("no status available yet")
 			return
 		}
-		if k == nil {
-			// can't really say anything...
-			return
-		}
-		s, err := k.GetSchemaForGVK(ref.GroupVersionKind())
-		if err != nil && !errors.IsNotFound(err) {
-			addError(err.Error())
-			return
-		}
-		if s == nil {
-			return
-		} else {
-			_, ok, _ := s.GetNestedObject("properties", "status")
-			if !ok {
-				// it has no status, so all is good
-				return
-			}
 
+		required, err := checkStatusRequired(ctx, k, o.GetK8sRef())
+		if err != nil {
+			addError(err.Error())
+		} else if required == statusRequiredYes {
 			age := time.Now().Sub(o.GetK8sCreationTime())
 			if age > 15*time.Second {
 				// TODO this is a hack for CRDs that pretend that a status should be there but the corresponding
 				// controllers/operators don't set it for whatever reason (e.g. cilium)
 				return
 			}
-
 			addNotReady("no status available yet")
-			return
+		} else if required == statusRequiredUnknown {
+			addWarning("unable to determine if a status is expected. This usually happens when you don't have permission to list CRDs or status sub-resources")
 		}
+		return
 	}
 
 	findConditions := func(typ string, er errorReaction, doRaise bool) []condition {
@@ -409,4 +399,44 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 		}
 	}
 	return
+}
+
+type statusRequired int
+
+const (
+	statusRequiredYes statusRequired = iota
+	statusRequiredNo
+	statusRequiredUnknown
+)
+
+func checkStatusRequired(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	if k == nil {
+		// can't really say anything...
+		return statusRequiredUnknown, nil
+	}
+
+	ret, err := checkStatusRequiredByCRD(ctx, k, ref)
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+	if ret != statusRequiredUnknown {
+		return ret, nil
+	}
+	return ret, nil
+}
+
+func checkStatusRequiredByCRD(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	s, err := k.GetSchemaForGVK(ref.GroupVersionKind())
+	if err == nil {
+		_, ok, _ := s.GetNestedObject("properties", "status")
+		if !ok {
+			// it has no status, so all is good
+			return statusRequiredNo, nil
+		}
+		return statusRequiredYes, nil
+	} else if errors.IsNotFound(err) || errors.IsForbidden(err) {
+		return statusRequiredUnknown, nil
+	} else {
+		return statusRequiredUnknown, err
+	}
 }

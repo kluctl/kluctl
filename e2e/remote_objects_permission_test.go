@@ -3,67 +3,76 @@ package e2e
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"strings"
 	"testing"
 )
 
-func buildSingleNamespaceRbac(username string, namespace string) string {
-	rbac := strings.NewReplacer(
-		"USERNAME", username,
-		"NAMESPACE", namespace,
-	).Replace(`
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-rules:
-  - apiGroups: [""]
-    resources: ["namespaces"]
-    resourceNames: ["NAMESPACE"]
-    verbs: ["create", "update", "patch", "get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["*"]
-    verbs: ["create", "update",  "patch", "get", "list", "watch"]
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-  namespace: NAMESPACE
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "update", "patch", "get", "list", "watch"]
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-subjects:
-  - kind: User
-    name: USERNAME
-roleRef:
-  kind: ClusterRole
-  name: USERNAME
-  apiGroup: rbac.authorization.k8s.io
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-  namespace: NAMESPACE
-subjects:
-  - kind: User
-    name: USERNAME
-roleRef:
-  kind: Role
-  name: USERNAME
-  apiGroup: rbac.authorization.k8s.io
-`)
+func buildSingleNamespaceRbac(username string, namespace string, resources []schema.GroupResource) []*uo.UnstructuredObject {
+	var ret []*uo.UnstructuredObject
 
-	return rbac
+	var clusterRole v1.ClusterRole
+	clusterRole.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ClusterRole"))
+	clusterRole.Name = username
+	clusterRole.Rules = append(clusterRole.Rules, v1.PolicyRule{
+		APIGroups:     []string{""},
+		Resources:     []string{"namespaces"},
+		ResourceNames: []string{namespace},
+		Verbs:         []string{"create", "update", "patch", "get", "list", "watch"},
+	})
+	clusterRole.Rules = append(clusterRole.Rules, v1.PolicyRule{
+		APIGroups: []string{"rbac.authorization.k8s.io"},
+		Resources: []string{"*"},
+		Verbs:     []string{"create", "update", "patch", "get", "list", "watch"},
+	})
+	ret = append(ret, uo.FromStructMust(clusterRole))
+
+	var role v1.Role
+	role.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("Role"))
+	role.Name = username
+	role.Namespace = namespace
+	for _, r := range resources {
+		role.Rules = append(role.Rules, v1.PolicyRule{
+			APIGroups: []string{r.Group},
+			Resources: []string{r.Resource},
+			Verbs:     []string{"create", "update", "patch", "get", "list", "watch"},
+		})
+	}
+	ret = append(ret, uo.FromStructMust(role))
+
+	var clusterRoleBinding v1.ClusterRoleBinding
+	clusterRoleBinding.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ClusterRoleBinding"))
+	clusterRoleBinding.Name = username
+	clusterRoleBinding.Subjects = append(clusterRoleBinding.Subjects, v1.Subject{
+		Kind: "User",
+		Name: username,
+	})
+	clusterRoleBinding.RoleRef = v1.RoleRef{
+		Kind:     "ClusterRole",
+		Name:     username,
+		APIGroup: "rbac.authorization.k8s.io",
+	}
+	ret = append(ret, uo.FromStructMust(clusterRoleBinding))
+
+	var roleBinding v1.ClusterRoleBinding
+	roleBinding.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("RoleBinding"))
+	roleBinding.Name = username
+	roleBinding.Namespace = namespace
+	roleBinding.Subjects = append(roleBinding.Subjects, v1.Subject{
+		Kind: "User",
+		Name: username,
+	})
+	roleBinding.RoleRef = v1.RoleRef{
+		Kind:     "Role",
+		Name:     username,
+		APIGroup: "rbac.authorization.k8s.io",
+	}
+	ret = append(ret, uo.FromStructMust(roleBinding))
+
+	return ret
 }
 
 func TestRemoteObjectUtils_PermissionErrors(t *testing.T) {
@@ -211,7 +220,7 @@ func TestOnlyOneNamespacePermissions(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	rbac := buildSingleNamespaceRbac(username, p.TestSlug())
+	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), []schema.GroupResource{{Group: "", Resource: "configmaps"}})
 	p.AddKustomizeDeployment("rbac", []test_project.KustomizeResource{
 		{Name: "rbac.yaml", Content: rbac},
 	}, nil)
