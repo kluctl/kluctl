@@ -197,6 +197,7 @@ func TestValidateWithoutPermissions(t *testing.T) {
 	assert.NoError(t, err)
 
 	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), nil, []schema.GroupResource{
+		{Group: "", Resource: "configmaps"},
 		{Group: "stable.example.com", Resource: "crontabs"},
 		{Group: "stable.example.com", Resource: "crontabstatuses"},
 	})
@@ -224,6 +225,14 @@ func TestValidateWithoutPermissions(t *testing.T) {
 		{Name: "crontab.yaml", Content: cronTab},
 		{Name: "crontab2.yaml", Content: cronTab2},
 	}, nil)
+	// a configmap should always be considered ready thanks to the scheme based check
+	addConfigMapDeployment(p, "cm", nil, resourceOpts{
+		name:      "cm",
+		namespace: p.TestSlug(),
+		annotations: map[string]string{
+			"kluctl.io/wait-readiness": "true",
+		},
+	})
 
 	// this should succeed but emit a warning about the wait not knowing if a status is expected
 	stdout, _, err := p.Kluctl(t, "deploy", "--yes")
@@ -257,6 +266,7 @@ func TestValidateWithoutPermissions(t *testing.T) {
 
 	// status requirement detection via sub-resource GET
 	testSuccess(nil, []schema.GroupResource{
+		{Group: "", Resource: "configmaps"},
 		{Group: "stable.example.com", Resource: "crontabs"},
 		{Group: "stable.example.com", Resource: "crontabs/status"},
 		{Group: "stable.example.com", Resource: "crontabstatuses"},
@@ -266,6 +276,7 @@ func TestValidateWithoutPermissions(t *testing.T) {
 	testSuccess([]schema.GroupResource{
 		{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"},
 	}, []schema.GroupResource{
+		{Group: "", Resource: "configmaps"},
 		{Group: "stable.example.com", Resource: "crontabs"},
 		{Group: "stable.example.com", Resource: "crontabstatuses"},
 	})
@@ -273,6 +284,7 @@ func TestValidateWithoutPermissions(t *testing.T) {
 	testSuccess([]schema.GroupResource{
 		{Group: "apiextensions.k8s.io", Resource: "customresourcedefinitions"},
 	}, []schema.GroupResource{
+		{Group: "", Resource: "configmaps"},
 		{Group: "stable.example.com", Resource: "crontabs"},
 		{Group: "stable.example.com", Resource: "crontabs/status"},
 		{Group: "stable.example.com", Resource: "crontabstatuses"},
