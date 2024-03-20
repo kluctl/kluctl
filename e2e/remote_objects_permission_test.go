@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func buildSingleNamespaceRbac(username string, namespace string, resources []schema.GroupResource) []*uo.UnstructuredObject {
+func buildSingleNamespaceRbac(username string, namespace string, globalResources []schema.GroupResource, resources []schema.GroupResource) []*uo.UnstructuredObject {
 	var ret []*uo.UnstructuredObject
 
 	var clusterRole v1.ClusterRole
@@ -23,6 +23,13 @@ func buildSingleNamespaceRbac(username string, namespace string, resources []sch
 		ResourceNames: []string{namespace},
 		Verbs:         []string{"create", "update", "patch", "get", "list", "watch"},
 	})
+	for _, r := range globalResources {
+		clusterRole.Rules = append(clusterRole.Rules, v1.PolicyRule{
+			APIGroups: []string{r.Group},
+			Resources: []string{r.Resource},
+			Verbs:     []string{"create", "update", "patch", "get", "list", "watch"},
+		})
+	}
 	ret = append(ret, uo.FromStructMust(clusterRole))
 
 	var role v1.Role
@@ -208,7 +215,7 @@ func TestOnlyOneNamespacePermissions(t *testing.T) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), []schema.GroupResource{{Group: "", Resource: "configmaps"}})
+	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), nil, []schema.GroupResource{{Group: "", Resource: "configmaps"}})
 	for _, x := range rbac {
 		k.MustApply(t, x)
 	}

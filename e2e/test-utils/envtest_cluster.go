@@ -208,3 +208,19 @@ func (c *EnvTestCluster) MustApply(t *testing.T, o *uo.UnstructuredObject) {
 		t.Fatal(err)
 	}
 }
+
+func (c *EnvTestCluster) ApplyStatus(o *uo.UnstructuredObject) error {
+	var x unstructured.Unstructured
+	err := o.ToStruct(&x)
+	if err != nil {
+		return err
+	}
+	return c.Client.SubResource("status").Patch(context.Background(), &x, client.Apply, client.FieldOwner("envtestcluster"))
+}
+
+func (c *EnvTestCluster) MustApplyStatus(t *testing.T, o *uo.UnstructuredObject) {
+	err := c.ApplyStatus(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
