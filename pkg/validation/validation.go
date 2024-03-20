@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"regexp"
 	"strconv"
@@ -422,6 +423,11 @@ func checkStatusRequired(ctx context.Context, k *k8s.K8sCluster, ref k8s2.Object
 	if ret != statusRequiredUnknown {
 		return ret, nil
 	}
+
+	ret, err = checkStatusRequiredBySubresource(ctx, k, ref)
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
 	return ret, nil
 }
 
@@ -435,6 +441,31 @@ func checkStatusRequiredByCRD(ctx context.Context, k *k8s.K8sCluster, ref k8s2.O
 		}
 		return statusRequiredYes, nil
 	} else if errors.IsNotFound(err) || errors.IsForbidden(err) {
+		return statusRequiredUnknown, nil
+	} else {
+		return statusRequiredUnknown, err
+	}
+}
+
+func checkStatusRequiredBySubresource(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	c, err := k.ToClient()
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+
+	// test if status sub-resource can generally be retrieved via a GET on the subresource, which in indicates the
+	// resource is well known to contain a status
+	var o unstructured.Unstructured
+	o.SetNamespace(ref.Namespace)
+	o.SetName(ref.Name)
+	o.SetGroupVersionKind(ref.GroupVersionKind())
+	err = c.SubResource("status").Get(ctx, &o, &unstructured.Unstructured{})
+	if err == nil {
+		return statusRequiredYes, nil
+	} else if errors.IsNotFound(err) {
+		// looks like the resource has no status sub-resource
+		return statusRequiredNo, nil
+	} else if errors.IsForbidden(err) {
 		return statusRequiredUnknown, nil
 	} else {
 		return statusRequiredUnknown, err
