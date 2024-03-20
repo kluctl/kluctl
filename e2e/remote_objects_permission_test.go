@@ -9,6 +9,63 @@ import (
 	"testing"
 )
 
+func buildSingleNamespaceRbac(username string, namespace string) string {
+	rbac := strings.NewReplacer(
+		"USERNAME", username,
+		"NAMESPACE", namespace,
+	).Replace(`
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: USERNAME
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: ["NAMESPACE"]
+    verbs: ["create", "update", "patch", "get", "list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["*"]
+    verbs: ["create", "update",  "patch", "get", "list", "watch"]
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: USERNAME
+  namespace: NAMESPACE
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "update", "patch", "get", "list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: USERNAME
+subjects:
+  - kind: User
+    name: USERNAME
+roleRef:
+  kind: ClusterRole
+  name: USERNAME
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: USERNAME
+  namespace: NAMESPACE
+subjects:
+  - kind: User
+    name: USERNAME
+roleRef:
+  kind: Role
+  name: USERNAME
+  apiGroup: rbac.authorization.k8s.io
+`)
+
+	return rbac
+}
+
 func TestRemoteObjectUtils_PermissionErrors(t *testing.T) {
 	t.Parallel()
 
@@ -154,58 +211,7 @@ func TestOnlyOneNamespacePermissions(t *testing.T) {
 		namespace: p.TestSlug(),
 	})
 
-	rbac := strings.NewReplacer(
-		"USERNAME", username,
-		"SLUG", p.TestSlug(),
-	).Replace(`
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-rules:
-  - apiGroups: [""]
-    resources: ["namespaces"]
-    resourceNames: ["SLUG"]
-    verbs: ["create", "update", "patch", "get", "list", "watch"]
-  - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["*"]
-    verbs: ["create", "update",  "patch", "get", "list", "watch"]
----
-kind: Role
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-  namespace: SLUG
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["create", "update", "patch", "get", "list", "watch"]
----
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-subjects:
-  - kind: User
-    name: USERNAME
-roleRef:
-  kind: ClusterRole
-  name: USERNAME
-  apiGroup: rbac.authorization.k8s.io
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: USERNAME
-  namespace: SLUG
-subjects:
-  - kind: User
-    name: USERNAME
-roleRef:
-  kind: Role
-  name: USERNAME
-  apiGroup: rbac.authorization.k8s.io
-`)
+	rbac := buildSingleNamespaceRbac(username, p.TestSlug())
 	p.AddKustomizeDeployment("rbac", []test_project.KustomizeResource{
 		{Name: "rbac.yaml", Content: rbac},
 	}, nil)
