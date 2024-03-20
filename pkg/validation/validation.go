@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -416,7 +417,15 @@ func checkStatusRequired(ctx context.Context, k *k8s.K8sCluster, ref k8s2.Object
 		return statusRequiredUnknown, nil
 	}
 
-	ret, err := checkStatusRequiredByCRD(ctx, k, ref)
+	ret, err := checkStatusRequiredByScheme(k, ref)
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+	if ret != statusRequiredUnknown {
+		return ret, nil
+	}
+
+	ret, err = checkStatusRequiredByCRD(ctx, k, ref)
 	if err != nil {
 		return statusRequiredUnknown, err
 	}
@@ -429,6 +438,26 @@ func checkStatusRequired(ctx context.Context, k *k8s.K8sCluster, ref k8s2.Object
 		return statusRequiredUnknown, err
 	}
 	return ret, nil
+}
+
+func checkStatusRequiredByScheme(k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	c, err := k.ToClient()
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+
+	x, err := c.Scheme().New(ref.GroupVersionKind())
+	if err != nil {
+		return statusRequiredUnknown, nil
+	}
+
+	t := reflect.Indirect(reflect.ValueOf(x)).Type()
+	f, ok := t.FieldByName("Status")
+	if !ok {
+		return statusRequiredNo, nil
+	}
+	_ = f
+	return statusRequiredYes, nil
 }
 
 func checkStatusRequiredByCRD(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
