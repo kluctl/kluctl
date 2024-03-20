@@ -383,6 +383,16 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		}
 	}
 
+	undoDummyName := func(x *uo.UnstructuredObject) {
+		if !usesDummyName || x == nil {
+			return
+		}
+		tmpName := x.GetK8sName()
+		_ = x.ReplaceKeys(tmpName, ref.Name)
+		_ = x.ReplaceValues(tmpName, ref.Name)
+		x.SetK8sNamespace(ref.Namespace)
+	}
+
 	options := k8s.PatchOptions{
 		ForceDryRun: a.o.DryRun,
 	}
@@ -400,12 +410,10 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		}
 	}
 
-	if r != nil && usesDummyName {
-		tmpName := r.GetK8sName()
-		_ = r.ReplaceKeys(tmpName, ref.Name)
-		_ = r.ReplaceValues(tmpName, ref.Name)
-		r.SetK8sNamespace(ref.Namespace)
-	} else if retryWhenCRDExists {
+	undoDummyName(r)
+	undoDummyName(x)
+
+	if r == nil && retryWhenCRDExists {
 		if a.o.DryRun {
 			if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
 				// simulate that the apply "succeeded"
