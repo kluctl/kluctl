@@ -23,11 +23,6 @@ func buildSingleNamespaceRbac(username string, namespace string, resources []sch
 		ResourceNames: []string{namespace},
 		Verbs:         []string{"create", "update", "patch", "get", "list", "watch"},
 	})
-	clusterRole.Rules = append(clusterRole.Rules, v1.PolicyRule{
-		APIGroups: []string{"rbac.authorization.k8s.io"},
-		Resources: []string{"*"},
-		Verbs:     []string{"create", "update", "patch", "get", "list", "watch"},
-	})
 	ret = append(ret, uo.FromStructMust(clusterRole))
 
 	var role v1.Role
@@ -213,17 +208,17 @@ func TestOnlyOneNamespacePermissions(t *testing.T) {
 
 	createNamespace(t, k, p.TestSlug())
 
+	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), []schema.GroupResource{{Group: "", Resource: "configmaps"}})
+	for _, x := range rbac {
+		k.MustApply(t, x)
+	}
+
 	p.UpdateTarget("test", nil)
 
 	addConfigMapDeployment(p, "cm", nil, resourceOpts{
 		name:      "cm1",
 		namespace: p.TestSlug(),
 	})
-
-	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), []schema.GroupResource{{Group: "", Resource: "configmaps"}})
-	p.AddKustomizeDeployment("rbac", []test_project.KustomizeResource{
-		{Name: "rbac.yaml", Content: rbac},
-	}, nil)
 
 	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")

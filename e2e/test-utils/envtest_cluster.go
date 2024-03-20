@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -190,4 +191,20 @@ func (c *EnvTestCluster) List(gvr schema.GroupVersionResource, namespace string,
 		ret = append(ret, uo.FromUnstructured(&x))
 	}
 	return ret, nil
+}
+
+func (c *EnvTestCluster) Apply(o *uo.UnstructuredObject) error {
+	var x unstructured.Unstructured
+	err := o.ToStruct(&x)
+	if err != nil {
+		return err
+	}
+	return c.Client.Patch(context.Background(), &x, client.Apply, client.FieldOwner("envtestcluster"))
+}
+
+func (c *EnvTestCluster) MustApply(t *testing.T, o *uo.UnstructuredObject) {
+	err := c.Apply(o)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
