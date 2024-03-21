@@ -437,8 +437,8 @@ github.com/klauspost/compress v1.17.7/go.mod h1:Di0epgTjJY877eYKx5yC51cX2A2Vl2ib
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.2.7 h1:ZWSB3igEs+d0qvnxR/ZBzXVmxkgt8DdzP6m9pfuVLDM=
 github.com/klauspost/cpuid/v2 v2.2.7/go.mod h1:Lcz8mBdAVJIBVzewtcLocK12l3Y+JytZYpaMropDUws=
-github.com/kluctl/go-embed-python v0.0.0-3.11.8-20240224-1 h1:iTRFxf3UDQw9vMqs128iCuCKA99u0lptLzp6ceDYfHc=
-github.com/kluctl/go-embed-python v0.0.0-3.11.8-20240224-1/go.mod h1:FJ7V83X5BIqrkPpy2Lmlu2zoDpUnQfVfGpMeRbI0hQ4=
+github.com/kluctl/go-embed-python v0.0.0-3.12.2-20240224-1 h1:24tIzQxakGNqGCgkyJT55yA7VQzGntUGqMtWkG0Vrtc=
+github.com/kluctl/go-embed-python v0.0.0-3.12.2-20240224-1/go.mod h1:FJ7V83X5BIqrkPpy2Lmlu2zoDpUnQfVfGpMeRbI0hQ4=
 github.com/kluctl/go-jinja2 v0.0.0-20240321095105-c4279600dc1c h1:RJRccOHbOwGaxy2TF8tsixgUMEiWyoXhdHGvH5Gojrg=
 github.com/kluctl/go-jinja2 v0.0.0-20240321095105-c4279600dc1c/go.mod h1:GkpC2+7HUb0iE8BFOmBii3iYWEJmdh9+qr1XhL3zXF8=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
