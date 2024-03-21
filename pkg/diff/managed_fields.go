@@ -2,6 +2,7 @@ package diff
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
@@ -24,6 +25,10 @@ var overwriteAllowedManagers = []*regexp.Regexp{
 	regexp.MustCompile("^kubectl-.*$"),
 	regexp.MustCompile("^rancher$"),
 	regexp.MustCompile("^k9s$"),
+}
+
+type ConflictResolver struct {
+	Configs []types.ConflictResolutionConfig
 }
 
 func checkListItemMatch(o interface{}, pathElement fieldpath.PathElement, index int) (bool, error) {
@@ -99,25 +104,139 @@ func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) (uo.Ke
 	return ret, true, nil
 }
 
-func collectFields(o *uo.UnstructuredObject, regex *regexp.Regexp) (map[string]bool, error) {
-	result := map[string]bool{}
-	for _, v := range o.GetK8sAnnotationsWithRegex(regex) {
-		j, err := uo.NewMyJsonPath(v)
-		if err != nil {
-			return nil, err
+func (cr *ConflictResolver) buildConflictResolutionConfigs(local *uo.UnstructuredObject) []types.ConflictResolutionConfig {
+	var ret []types.ConflictResolutionConfig
+	ret = append(ret, cr.Configs...)
+
+	forceApplyAll := local.GetK8sAnnotationBoolNoError("kluctl.io/force-apply", false)
+	ignoreConflictsAll := local.GetK8sAnnotationBoolNoError("kluctl.io/ignore-conflicts", false)
+
+	// order is important here. foce-apply actions must come before ignore actions so that the ignore actions always
+	// take precedence
+
+	if forceApplyAll {
+		ret = append(ret, types.ConflictResolutionConfig{
+			FieldPath: []string{".."}, // match all fields
+			Action:    types.ConflictResolutionForceApply,
+		})
+	}
+	for _, v := range local.GetK8sAnnotationsWithRegex(forceApplyFieldAnnotationRegex) {
+		ret = append(ret, types.ConflictResolutionConfig{
+			FieldPath: []string{v},
+			Action:    types.ConflictResolutionForceApply,
+		})
+	}
+
+	if ignoreConflictsAll {
+		ret = append(ret, types.ConflictResolutionConfig{
+			FieldPath: []string{".."}, // match all fields
+			Action:    types.ConflictResolutionIgnore,
+		})
+	}
+	for _, v := range local.GetK8sAnnotationsWithRegex(ignoreConflictsFieldAnnotationRegex) {
+		ret = append(ret, types.ConflictResolutionConfig{
+			FieldPath: []string{v},
+			Action:    types.ConflictResolutionIgnore,
+		})
+	}
+
+	return ret
+}
+
+func (cr *ConflictResolver) collectFields(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, configs []types.ConflictResolutionConfig) (map[string]types.ConflictResolutionAction, error) {
+	result := map[string]types.ConflictResolutionAction{}
+
+	checkMatch := func(v string, m *string) bool {
+		if v == "" || m == nil {
+			return true
 		}
-		fields, err := j.ListMatchingFields(o)
-		if err != nil {
-			return nil, err
+		return v == *m
+	}
+
+	var allFields map[string]bool
+	initAllFields := func() error {
+		if allFields != nil {
+			return nil
 		}
-		for _, f := range fields {
-			result[f.ToJsonPath()] = true
+		allFields = map[string]bool{}
+
+		jp := uo.NewMyJsonPathMust("..")
+		l, err := jp.ListMatchingFields(local)
+		if err != nil {
+			return err
+		}
+		for _, x := range l {
+			allFields[x.ToJsonPath()] = true
+		}
+		l, err = jp.ListMatchingFields(local)
+		if err != nil {
+			return err
+		}
+		for _, x := range l {
+			allFields[x.ToJsonPath()] = true
+		}
+		return nil
+	}
+
+	ref := local.GetK8sRef()
+
+	for _, cfg := range configs {
+		if !checkMatch(ref.Group, cfg.Group) {
+			continue
+		}
+		if !checkMatch(ref.Kind, cfg.Kind) {
+			continue
+		}
+		if !checkMatch(ref.Namespace, cfg.Namespace) {
+			continue
+		}
+		if !checkMatch(ref.Name, cfg.Name) {
+			continue
+		}
+
+		for _, fp := range cfg.FieldPath {
+			jp, err := uo.NewMyJsonPath(fp)
+			if err != nil {
+				return nil, err
+			}
+
+			fields, err := jp.ListMatchingFields(local)
+			if err != nil {
+				return nil, err
+			}
+			for _, f := range fields {
+				result[f.ToJsonPath()] = cfg.Action
+			}
+
+			fields, err = jp.ListMatchingFields(remote)
+			if err != nil {
+				return nil, err
+			}
+			for _, f := range fields {
+				result[f.ToJsonPath()] = cfg.Action
+			}
+		}
+
+		for _, fp := range cfg.FieldPathRegex {
+			rx, err := regexp.Compile(fp)
+			if err != nil {
+				return nil, err
+			}
+			err = initAllFields()
+			if err != nil {
+				return nil, err
+			}
+			for f, _ := range allFields {
+				if rx.MatchString(f) {
+					result[f] = cfg.Action
+				}
+			}
 		}
 	}
 	return result, nil
 }
 
-func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
+func (cr *ConflictResolver) ResolveConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
 	managedFields := remote.GetK8sManagedFields()
 
 	type managersByField struct {
@@ -171,20 +290,13 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 		})
 	}
 
+	resolutionConfigs := cr.buildConflictResolutionConfigs(local)
+	resolutionFields, err := cr.collectFields(local, remote, resolutionConfigs)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	ret := local.Clone()
-
-	forceApplyAll := local.GetK8sAnnotationBoolNoError("kluctl.io/force-apply", false)
-	ignoreConflictsAll := local.GetK8sAnnotationBoolNoError("kluctl.io/ignore-conflicts", false)
-
-	forceApplyFields, err := collectFields(ret, forceApplyFieldAnnotationRegex)
-	if err != nil {
-		return nil, nil, err
-	}
-	ignoreConflictFields, err := collectFields(ret, ignoreConflictsFieldAnnotationRegex)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	var lostOwnership []LostOwnership
 	for _, cause := range conflictStatus.Details.Causes {
 		if cause.Type != metav1.CauseTypeFieldManagerConflict {
@@ -226,23 +338,19 @@ func ResolveFieldManagerConflicts(local *uo.UnstructuredObject, remote *uo.Unstr
 		}
 
 		ignoreConflict := false
-		if ignoreConflictsAll {
-			ignoreConflict = true
-		} else if _, ok := ignoreConflictFields[localKeyPath.ToJsonPath()]; ok {
-			ignoreConflict = true
-		} else if _, ok := ignoreConflictFields[remoteKeyPath.ToJsonPath()]; ok {
-			ignoreConflict = true
+		overwrite := false
+
+		action, ok := resolutionFields[localKeyPath.ToJsonPath()]
+		if !ok {
+			action, ok = resolutionFields[remoteKeyPath.ToJsonPath()]
+		}
+		if ok {
+			ignoreConflict = action == types.ConflictResolutionIgnore
+			overwrite = action == types.ConflictResolutionForceApply
 		}
 
-		overwrite := false
 		if !ignoreConflict {
-			if forceApplyAll {
-				overwrite = true
-			} else if _, ok := forceApplyFields[localKeyPath.ToJsonPath()]; ok {
-				overwrite = true
-			} else if _, ok := forceApplyFields[remoteKeyPath.ToJsonPath()]; ok {
-				overwrite = true
-			}
+			// only force-apply known user facing editors when not explicitly ignored
 			for _, mfn := range mf.managers {
 				found := false
 				for _, oa := range overwriteAllowedManagers {

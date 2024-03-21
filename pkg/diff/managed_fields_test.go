@@ -219,7 +219,8 @@ func TestResolveFieldManagerConflicts(t *testing.T) {
 				}
 			}
 
-			r, l, err := ResolveFieldManagerConflicts(tc.local, tc.remote, tc.status)
+			cr := ConflictResolver{}
+			r, l, err := cr.ResolveConflicts(tc.local, tc.remote, tc.status)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.result, r)
 			assert.Equal(t, tc.lost, l)

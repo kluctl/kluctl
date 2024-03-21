@@ -36,10 +36,13 @@ type HooksUtil struct {
 }
 
 func NewHooksUtil(a *ApplyUtil) *HooksUtil {
-	return &HooksUtil{a: a}
+	return &HooksUtil{
+		a: a,
+	}
 }
 
 type hook struct {
+	di             *deployment.DeploymentItem
 	object         *uo.UnstructuredObject
 	hooks          map[string]bool
 	weight         int
@@ -50,7 +53,7 @@ type hook struct {
 
 func (u *HooksUtil) DetermineHooks(d *deployment.DeploymentItem, hooks []string) []*hook {
 	var l []*hook
-	for _, h := range u.getSortedHooksList(d.Objects) {
+	for _, h := range u.getSortedHooksList(d) {
 		for h2 := range h.hooks {
 			if utils.FindStrInSlice(hooks, h2) != -1 {
 				l = append(l, h)
@@ -100,7 +103,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
 		u.a.sctx.UpdateAndInfoFallbackf("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
-		u.a.ApplyObject(h.object, replaced, true)
+		u.a.ApplyObject(h.di, h.object, replaced, true)
 		u.a.sctx.Increment()
 
 		if u.a.HadError(ref) {
@@ -139,7 +142,7 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 	}
 }
 
-func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
+func (u *HooksUtil) GetHook(di *deployment.DeploymentItem, o *uo.UnstructuredObject) *hook {
 	ref := o.GetK8sRef()
 	getSet := func(name string) map[string]bool {
 		ret := make(map[string]bool)
@@ -237,6 +240,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 
 	return &hook{
+		di:             di,
 		object:         o,
 		hooks:          hooks,
 		weight:         int(weight),
@@ -246,10 +250,10 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 }
 
-func (u *HooksUtil) getSortedHooksList(objects []*uo.UnstructuredObject) []*hook {
+func (u *HooksUtil) getSortedHooksList(d *deployment.DeploymentItem) []*hook {
 	var ret []*hook
-	for _, o := range objects {
-		h := u.GetHook(o)
+	for _, o := range d.Objects {
+		h := u.GetHook(d, o)
 		if h == nil {
 			continue
 		}
