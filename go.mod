@@ -17,8 +17,8 @@ require (
 	github.com/imdario/mergo v0.3.16
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/go-embed-python v0.0.0-3.11.7-20240107-1
-	github.com/kluctl/go-jinja2 v0.0.0-20240304095917-f7191e3c936e
+	github.com/kluctl/go-embed-python v0.0.0-3.11.8-20240224-1
+	github.com/kluctl/go-jinja2 v0.0.0-20240321095105-c4279600dc1c
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.15
@@ -214,7 +214,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/karrick/godirwalk v1.17.0 // indirect
-	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
