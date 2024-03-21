@@ -490,4 +490,65 @@ This property is optional. If specified, only objects with a matching `namespace
 ### name
 This property is optional. If specified, only objects with a matching `name` will be considered.
 
+## conflictResolution
 
+A list of rules used to determine how to handle conflict resolution.
+
+As an alternative, [annotations](./annotations/all-resources.md#control-deploy-behavior) can be used to control
+conflict resolution of individual resources.
+
+Consider the following example:
+
+```yaml
+deployments:
+  - ...
+
+conflictResolution:
+  - kind: ValidatingWebhookConfiguration
+    fieldPath: webhooks.*.*
+    action: ignore
+```
+
+This will cause Kluctl to ignore conflicts on all matching fields of all `ValidatingWebhookConfiguration` objects.
+
+Using regex expressions instead of JSON Pathes is also supported:
+
+```yaml
+deployments:
+  - ...
+
+conflictResolution:
+  - kind: ValidatingWebhookConfiguration
+    fieldPathRegex: webhooks\..
+    action: ignore
+```
+
+The following properties are supported in `conflictResolution` items.
+
+### fieldPath
+If specified, must be a valid [JSON Path](https://goessner.net/articles/JsonPath/). Kluctl will ignore conflicts for
+all matching fields of all matching objects (see the other properties).
+
+Either `fieldPath` or `fieldPathRegex` must be provided.
+
+### fieldPathRegex
+If specified, must be a valid regex. Kluctl will ignore conflicts for all matching fields of all matching objects
+(see the other properties).
+
+Either `fieldPath` or `fieldPathRegex` must be provided.
+
+### action
+This field is required and must be either `ignore` or `force-apply`. 
+
+### group
+This property is optional. If specified, only objects with a matching api group will be considered. Please note that this
+field should NOT include the version of the api group.
+
+### kind
+This property is optional. If specified, only objects with a matching `kind` will be considered.
+
+### namespace
+This property is optional. If specified, only objects with a matching `namespace` will be considered.
+
+### name
+This property is optional. If specified, only objects with a matching `name` will be considered.
