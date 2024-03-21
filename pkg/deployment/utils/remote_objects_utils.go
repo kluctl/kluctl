@@ -54,7 +54,7 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	errCount := 0
 	permissionErrCount := 0
 
-	gvks, err := k.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
+	ars, err := k.GetFilteredPreferredAPIResources(func(ar *v1.APIResource) bool {
 		if onlyUsedGKs != nil {
 			gk := schema.GroupKind{
 				Group: ar.Group,
@@ -71,8 +71,13 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	}
 
 	g := utils.NewGoHelper(u.ctx, 0)
-	for _, gvk := range gvks {
-		gvk := gvk
+	for _, ar := range ars {
+		ar := ar
+		gvk := schema.GroupVersionKind{
+			Group:   ar.Group,
+			Version: ar.Version,
+			Kind:    ar.Kind,
+		}
 		g.Run(func() {
 			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
 			u.dew.AddApiWarnings(k8s2.ObjectRef{

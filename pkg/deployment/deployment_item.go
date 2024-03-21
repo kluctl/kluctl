@@ -129,6 +129,9 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	excludePatterns = append(excludePatterns, "**/.git")
 
 	err = filepath.WalkDir(*di.dir, func(p string, d fs.DirEntry, err error) error {
+		if d == nil {
+			return nil
+		}
 		if d.IsDir() {
 			relDir, err := filepath.Rel(*di.dir, p)
 			if err != nil {

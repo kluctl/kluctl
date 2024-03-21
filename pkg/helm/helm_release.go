@@ -295,14 +295,17 @@ func (hr *Release) getApiVersions(k *k8s.K8sCluster) (chartutil.VersionSet, erro
 
 	m := map[string]bool{}
 
-	gvks, err := k.GetFilteredGVKs(nil)
+	ars, err := k.GetAllAPIResources()
 	if err != nil {
 		return nil, err
 	}
-	for _, gvk := range gvks {
-		gvStr := gvk.GroupVersion().String()
+	for _, ar := range ars {
+		gvStr := ar.Version
+		if ar.Group != "" {
+			gvStr = ar.Group + "/" + ar.Version
+		}
 		m[gvStr] = true
-		gvkStr := fmt.Sprintf("%s/%s", gvStr, gvk.Kind)
+		gvkStr := fmt.Sprintf("%s/%s", gvStr, ar.Kind)
 		m[gvkStr] = true
 	}
 

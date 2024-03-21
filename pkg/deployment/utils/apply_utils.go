@@ -573,12 +573,12 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 }
 
 func (a *ApplyUtil) convertObjectRef(x types2.ObjectRefItem, refs map[k8s2.ObjectRef]bool) {
-	gvks, err := a.k.GetFilteredPreferredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
+	ars, err := a.k.GetFilteredPreferredAPIResources(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
 	if err != nil {
 		a.HandleError(k8s2.ObjectRef{}, err)
 		return
 	}
-	if len(gvks) == 0 {
+	if len(ars) == 0 {
 		nameAndNs := x.Name
 		if x.Namespace != "" {
 			nameAndNs = x.Namespace + "/" + x.Name
@@ -593,11 +593,11 @@ func (a *ApplyUtil) convertObjectRef(x types2.ObjectRefItem, refs map[k8s2.Objec
 		a.HandleError(k8s2.ObjectRef{}, fmt.Errorf("failed to wait for readiness of %s. resource with group/kind %s not found", nameAndNs, gk.String()))
 		return
 	}
-	for _, gvk := range gvks {
+	for _, ar := range ars {
 		ref := k8s2.ObjectRef{
-			Group:     gvk.Group,
-			Version:   gvk.Version,
-			Kind:      gvk.Kind,
+			Group:     ar.Group,
+			Version:   ar.Version,
+			Kind:      ar.Kind,
 			Name:      x.Name,
 			Namespace: x.Namespace,
 		}

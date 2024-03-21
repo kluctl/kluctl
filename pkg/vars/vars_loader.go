@@ -474,19 +474,23 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 		gvk.Group = gv.Group
 		gvk.Version = gv.Version
 	} else {
-		gvks, err := v.k.GetFilteredPreferredGVKs(func(ar *metav1.APIResource) bool {
+		ars, err := v.k.GetFilteredPreferredAPIResources(func(ar *metav1.APIResource) bool {
 			return ar.Kind == varsSource.Kind
 		})
 		if err != nil {
 			return nil, err
 		}
-		if len(gvks) == 0 {
+		if len(ars) == 0 {
 			return nil, fmt.Errorf("no matching resource found for kind %s", varsSource.Kind)
 		}
-		if len(gvks) != 1 {
+		if len(ars) != 1 {
 			return nil, fmt.Errorf("more then one matching resources found for kind %s, consider also specifying apiVersion", varsSource.Kind)
 		}
-		gvk = gvks[0]
+		gvk = schema.GroupVersionKind{
+			Group:   ars[0].Group,
+			Version: ars[0].Version,
+			Kind:    ars[0].Kind,
+		}
 	}
 
 	var objs []*uo.UnstructuredObject
