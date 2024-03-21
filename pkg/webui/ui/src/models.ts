@@ -88,6 +88,28 @@ export class ResultObject {
 	    return a;
 	}
 }
+export class ConflictResolutionConfig {
+    fieldPath?: string[];
+    fieldPathRegex?: string[];
+    manager?: string[];
+    group?: string;
+    kind?: string;
+    name?: string;
+    namespace?: string;
+    action: string;
+
+    constructor(source: any = {}) {
+        if ('string' === typeof source) source = JSON.parse(source);
+        this.fieldPath = source["fieldPath"];
+        this.fieldPathRegex = source["fieldPathRegex"];
+        this.manager = source["manager"];
+        this.group = source["group"];
+        this.kind = source["kind"];
+        this.name = source["name"];
+        this.namespace = source["namespace"];
+        this.action = source["action"];
+    }
+}
 export class IgnoreForDiffItemConfig {
     fieldPath?: string[];
     fieldPathRegex?: string[];
@@ -514,6 +536,7 @@ export class DeploymentProjectConfig {
     overrideNamespace?: string;
     tags?: string[];
     ignoreForDiff?: IgnoreForDiffItemConfig[];
+    conflictResolution?: ConflictResolutionConfig[];
 
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
@@ -526,6 +549,7 @@ export class DeploymentProjectConfig {
         this.overrideNamespace = source["overrideNamespace"];
         this.tags = source["tags"];
         this.ignoreForDiff = this.convertValues(source["ignoreForDiff"], IgnoreForDiffItemConfig);
+        this.conflictResolution = this.convertValues(source["conflictResolution"], ConflictResolutionConfig);
     }
 
 	convertValues(a: any, classs: any, asMap: boolean = false): any {
