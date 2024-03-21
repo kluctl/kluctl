@@ -65,7 +65,7 @@ func waitReadiness(k *test_utils.EnvTestCluster, x *uo.UnstructuredObject) {
 		if err != nil {
 			panic(err)
 		}
-		vr := validation.ValidateObject(nil, uo.FromUnstructured(u), true, true)
+		vr := validation.ValidateObject(context.TODO(), nil, uo.FromUnstructured(u), true, true)
 		if vr.Ready {
 			break
 		} else {

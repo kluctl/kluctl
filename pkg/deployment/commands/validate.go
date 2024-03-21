@@ -91,7 +91,7 @@ func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
 			ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
 			continue
 		}
-		r := validation.ValidateObject(cmd.targetCtx.SharedContext.K, remoteObject, true, false)
+		r := validation.ValidateObject(ctx, cmd.targetCtx.SharedContext.K, remoteObject, true, false)
 		if !r.Ready {
 			ret.Ready = false
 		}
