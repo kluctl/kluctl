@@ -98,9 +98,11 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	}
 
 	meta := client.Metadata{
-		Source:      gitInfo.Url.String(),
 		Revision:    gitInfo.Commit,
 		Annotations: annotations,
+	}
+	if gitInfo.Url != nil {
+		meta.Source = gitInfo.Url.String()
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, cmd.Timeout)
