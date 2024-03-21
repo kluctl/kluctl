@@ -371,16 +371,26 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		// result
 		usesDummyName = true
 		x = x.Clone()
-		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+		x.SetK8sName(utils.RandomizeSuffix(ref.Name, 8, 63))
 	} else if a.o.DryRun && remoteNamespace == nil && ref.Namespace != "" {
 		if _, ok := a.allNamespaces.Load(ref.Namespace); ok {
 			// The namespace does not really exist, but would have been created if dryRun would be false.
 			// So let's pretend we deploy it to the default namespace with a dummy name
 			usesDummyName = true
 			x = x.Clone()
-			x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+			x.SetK8sName(utils.RandomizeSuffix(ref.Name, 8, 63))
 			x.SetK8sNamespace("default")
 		}
+	}
+
+	undoDummyName := func(x *uo.UnstructuredObject) {
+		if !usesDummyName || x == nil {
+			return
+		}
+		tmpName := x.GetK8sName()
+		_ = x.ReplaceKeys(tmpName, ref.Name)
+		_ = x.ReplaceValues(tmpName, ref.Name)
+		x.SetK8sNamespace(ref.Namespace)
 	}
 
 	options := k8s.PatchOptions{
@@ -400,12 +410,10 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		}
 	}
 
-	if r != nil && usesDummyName {
-		tmpName := r.GetK8sName()
-		_ = r.ReplaceKeys(tmpName, ref.Name)
-		_ = r.ReplaceValues(tmpName, ref.Name)
-		r.SetK8sNamespace(ref.Namespace)
-	} else if retryWhenCRDExists {
+	undoDummyName(r)
+	undoDummyName(x)
+
+	if r == nil && retryWhenCRDExists {
 		if a.o.DryRun {
 			if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
 				// simulate that the apply "succeeded"
