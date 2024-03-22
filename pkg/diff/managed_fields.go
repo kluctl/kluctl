@@ -105,10 +105,8 @@ func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) (uo.Ke
 }
 
 type managersByField struct {
-	// "stupid" because the string representation of field pathes might be ambiguous as k8s does not escape dots
-	stupidPath string
-	pathes     []fieldpath.Path
-	managers   []string
+	pathes   []fieldpath.Path
+	managers []string
 }
 
 // buildManagersByField returns a map indexed by field path and another map indexed by manager name
@@ -337,6 +335,9 @@ func (cr *ConflictResolver) ResolveConflicts(local *uo.UnstructuredObject, remot
 			return nil, nil, fmt.Errorf("unknown type %s", cause.Type)
 		}
 
+		// TODO fields are ambiguous at this point because the apiserver serializes fieldpath.Path as a string
+		// this causes maps with keys that allow dots to be possibly ambiguous.
+		// Not sure what we should do about this.
 		mf, ok := managersByFields[cause.Field]
 		if !ok {
 			return nil, nil, fmt.Errorf("%s. Could not find matching field for path '%s'", cause.Message, cause.Field)
