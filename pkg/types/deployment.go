@@ -146,6 +146,7 @@ const (
 type ConflictResolutionConfig struct {
 	FieldPath      SingleStringOrList       `json:"fieldPath,omitempty"`
 	FieldPathRegex SingleStringOrList       `json:"fieldPathRegex,omitempty"`
+	Manager        SingleStringOrList       `json:"manager,omitempty"`
 	Group          *string                  `json:"group,omitempty"`
 	Kind           *string                  `json:"kind,omitempty"`
 	Name           *string                  `json:"name,omitempty"`
@@ -155,8 +156,8 @@ type ConflictResolutionConfig struct {
 
 func ValidateConflictResolutionConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(ConflictResolutionConfig)
-	if len(s.FieldPath)+len(s.FieldPathRegex) == 0 {
-		sl.ReportError(s, "self", "self", "at least one of fieldPath or fieldPathRegex must be set", "")
+	if len(s.FieldPath)+len(s.FieldPathRegex)+len(s.Manager) == 0 {
+		sl.ReportError(s, "self", "self", "at least one of fieldPath, fieldPathRegex or manager must be set", "")
 	}
 }
 

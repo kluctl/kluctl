@@ -111,30 +111,32 @@ type managersByField struct {
 	managers   []string
 }
 
-func (cr *ConflictResolver) buildManagersByField(remote *uo.UnstructuredObject) (map[string]*managersByField, error) {
+// buildManagersByField returns a map indexed by field path and another map indexed by manager name
+func (cr *ConflictResolver) buildManagersByField(remote *uo.UnstructuredObject) (map[string]*managersByField, map[string][]*managersByField, error) {
 	managedFields := remote.GetK8sManagedFields()
 
-	managersByFields := make(map[string]*managersByField)
+	managersByFields := map[string]*managersByField{}
+	fieldsByManagers := map[string][]*managersByField{}
 
 	for _, mf := range managedFields {
 		fields, ok, err := mf.GetNestedObject("fieldsV1")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !ok {
 			continue
 		}
 		fieldSet, _, err := convertManagedFields(fields.Object)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		mgr, ok, err := mf.GetNestedString("manager")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !ok {
-			return nil, fmt.Errorf("manager field is missing")
+			return nil, nil, fmt.Errorf("manager field is missing")
 		}
 
 		fieldSet.Iterate(func(path fieldpath.Path) {
@@ -155,10 +157,11 @@ func (cr *ConflictResolver) buildManagersByField(remote *uo.UnstructuredObject) 
 				m.pathes = append(m.pathes, path)
 			}
 			m.managers = append(m.managers, mgr)
+			fieldsByManagers[mgr] = append(fieldsByManagers[mgr], m)
 		})
 	}
 
-	return managersByFields, nil
+	return managersByFields, fieldsByManagers, nil
 }
 
 func (cr *ConflictResolver) buildConflictResolutionConfigs(local *uo.UnstructuredObject) []types.ConflictResolutionConfig {
@@ -200,7 +203,7 @@ func (cr *ConflictResolver) buildConflictResolutionConfigs(local *uo.Unstructure
 	return ret
 }
 
-func (cr *ConflictResolver) collectFields(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, configs []types.ConflictResolutionConfig) (map[string]types.ConflictResolutionAction, error) {
+func (cr *ConflictResolver) collectFields(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, fieldsByManager map[string][]*managersByField, configs []types.ConflictResolutionConfig) (map[string]types.ConflictResolutionAction, error) {
 	result := map[string]types.ConflictResolutionAction{}
 
 	checkMatch := func(v string, m *string) bool {
@@ -289,18 +292,40 @@ func (cr *ConflictResolver) collectFields(local *uo.UnstructuredObject, remote *
 				}
 			}
 		}
+
+		for _, m := range cfg.Manager {
+			rx, err := regexp.Compile(m)
+			if err != nil {
+				return nil, err
+			}
+			for mgrName, mfs := range fieldsByManager {
+				if rx.MatchString(mgrName) {
+					for _, mf := range mfs {
+						for _, p := range mf.pathes {
+							kl, found, err := convertToKeyList(remote, p)
+							if err != nil {
+								return nil, err
+							}
+							if found {
+								result[kl.ToJsonPath()] = cfg.Action
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	return result, nil
 }
 
 func (cr *ConflictResolver) ResolveConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
-	managersByFields, err := cr.buildManagersByField(remote)
+	managersByFields, fieldsByManager, err := cr.buildManagersByField(remote)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	resolutionConfigs := cr.buildConflictResolutionConfigs(local)
-	resolutionFields, err := cr.collectFields(local, remote, resolutionConfigs)
+	resolutionFields, err := cr.collectFields(local, remote, fieldsByManager, resolutionConfigs)
 	if err != nil {
 		return nil, nil, err
 	}
