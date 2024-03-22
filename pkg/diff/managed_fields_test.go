@@ -138,6 +138,24 @@ func TestResolveFieldManagerConflicts(t *testing.T) {
 			anns:   buildAnnotations("kluctl.io/force-apply-field-123", "data.d3"),
 		},
 		{
+			name:   "force-apply-manager",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c2"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}),
+			lost:   buildLost("d3"),
+			anns:   buildAnnotations("kluctl.io/force-apply-manager", "c1"),
+		},
+		{
+			name:   "force-apply-manager-xxx",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c2x"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			lost:   buildLost("d1"),
+			anns:   buildAnnotations("kluctl.io/force-apply-manager-123", "c2.*"), // also test with a regex
+		},
+		{
 			name:   "ignore-conflicts",
 			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c1"}),
 			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
@@ -163,6 +181,24 @@ func TestResolveFieldManagerConflicts(t *testing.T) {
 			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}),
 			lost:   buildLost("d1"),
 			anns:   buildAnnotations("kluctl.io/ignore-conflicts-field-123", "data.d3"),
+		},
+		{
+			name:   "ignore-conflicts-manager",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c2"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}),
+			lost:   buildLost("d3"),
+			anns:   buildAnnotations("kluctl.io/ignore-conflicts-manager", "c1"),
+		},
+		{
+			name:   "ignore-conflicts-manager-xxx",
+			remote: buildConfigMap(fieldInfo{"d1", "v1", "c1"}, fieldInfo{"d2", "v2", "m1"}, fieldInfo{"d3", "v3", "c2x"}),
+			local:  buildConfigMap(fieldInfo{"d1", "x", "m1"}, fieldInfo{"d2", "x", "m1"}, fieldInfo{"d3", "x", "m1"}),
+			status: buildConflicts("d1", "d3"),
+			result: buildConfigMap(fieldInfo{"d2", "x", "m1"}),
+			lost:   buildLost("d1"),
+			anns:   buildAnnotations("kluctl.io/ignore-conflicts-manager-123", "c2.*"), // also test with a regex
 		},
 		{
 			name:   "force-apply-object-ignore-conflicts",

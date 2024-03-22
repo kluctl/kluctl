@@ -17,7 +17,10 @@ type LostOwnership struct {
 }
 
 var forceApplyFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/force-apply-field(-\d*)?$`)
+var forceApplyManagerAnnotationRegex = regexp.MustCompile(`^kluctl.io/force-apply-manager(-\d*)?$`)
 var ignoreConflictsFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-conflicts-field(-\d*)?$`)
+var ignoreConflictsManagerAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-conflicts-manager(-\d*)?$`)
+
 var overwriteAllowedManagers = []*regexp.Regexp{
 	regexp.MustCompile("^kluctl$"),
 	regexp.MustCompile("^kluctl-.*$"),
@@ -141,7 +144,7 @@ func (cr *ConflictResolver) buildManagersByField(remote *uo.UnstructuredObject) 
 			path = path.Copy()
 			s := path.String()
 			if _, ok := managersByFields[s]; !ok {
-				managersByFields[s] = &managersByField{stupidPath: s}
+				managersByFields[s] = &managersByField{}
 			}
 			m, _ := managersByFields[s]
 			found := false
@@ -169,13 +172,19 @@ func (cr *ConflictResolver) buildConflictResolutionConfigs(local *uo.Unstructure
 	forceApplyAll := local.GetK8sAnnotationBoolNoError("kluctl.io/force-apply", false)
 	ignoreConflictsAll := local.GetK8sAnnotationBoolNoError("kluctl.io/ignore-conflicts", false)
 
-	// order is important here. foce-apply actions must come before ignore actions so that the ignore actions always
+	// order is important here. force-apply actions must come before ignore actions so that the ignore actions always
 	// take precedence
 
 	if forceApplyAll {
 		ret = append(ret, types.ConflictResolutionConfig{
 			FieldPath: []string{".."}, // match all fields
 			Action:    types.ConflictResolutionForceApply,
+		})
+	}
+	for _, v := range local.GetK8sAnnotationsWithRegex(forceApplyManagerAnnotationRegex) {
+		ret = append(ret, types.ConflictResolutionConfig{
+			Manager: []string{v},
+			Action:  types.ConflictResolutionForceApply,
 		})
 	}
 	for _, v := range local.GetK8sAnnotationsWithRegex(forceApplyFieldAnnotationRegex) {
@@ -189,6 +198,12 @@ func (cr *ConflictResolver) buildConflictResolutionConfigs(local *uo.Unstructure
 		ret = append(ret, types.ConflictResolutionConfig{
 			FieldPath: []string{".."}, // match all fields
 			Action:    types.ConflictResolutionIgnore,
+		})
+	}
+	for _, v := range local.GetK8sAnnotationsWithRegex(ignoreConflictsManagerAnnotationRegex) {
+		ret = append(ret, types.ConflictResolutionConfig{
+			Manager: []string{v},
+			Action:  types.ConflictResolutionIgnore,
 		})
 	}
 	for _, v := range local.GetK8sAnnotationsWithRegex(ignoreConflictsFieldAnnotationRegex) {
