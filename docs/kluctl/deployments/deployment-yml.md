@@ -523,19 +523,39 @@ conflictResolution:
     action: ignore
 ```
 
+In some cases, it's easier to match fields by manager name:
+
+```yaml
+deployments:
+  - ...
+
+conflictResolution:
+  - manager: clusterrole-aggregation-controller
+    action: ignore
+  - manager: cert-manager-cainjector
+    action: ignore
+```
+
 The following properties are supported in `conflictResolution` items.
 
 ### fieldPath
 If specified, must be a valid [JSON Path](https://goessner.net/articles/JsonPath/). Kluctl will ignore conflicts for
 all matching fields of all matching objects (see the other properties).
 
-Either `fieldPath` or `fieldPathRegex` must be provided.
+Either `fieldPath`, `fieldPathRegex` or `manager` must be provided.
 
 ### fieldPathRegex
 If specified, must be a valid regex. Kluctl will ignore conflicts for all matching fields of all matching objects
 (see the other properties).
 
-Either `fieldPath` or `fieldPathRegex` must be provided.
+Either `fieldPath`, `fieldPathRegex` or `manager` must be provided.
+
+### manager
+If specified, must be a valid regex. Kluctl will ignore conflicts for all fields that currently have a matching field
+manager assigned. This is useful if a mutating webhook or controller is known to modify fields after they have been
+applied.
+
+Either `fieldPath`, `fieldPathRegex` or `manager` must be provided.
 
 ### action
 This field is required and must be either `ignore` or `force-apply`. 
