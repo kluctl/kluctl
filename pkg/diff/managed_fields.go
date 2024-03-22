@@ -104,6 +104,63 @@ func convertToKeyList(remote *uo.UnstructuredObject, path fieldpath.Path) (uo.Ke
 	return ret, true, nil
 }
 
+type managersByField struct {
+	// "stupid" because the string representation of field pathes might be ambiguous as k8s does not escape dots
+	stupidPath string
+	pathes     []fieldpath.Path
+	managers   []string
+}
+
+func (cr *ConflictResolver) buildManagersByField(remote *uo.UnstructuredObject) (map[string]*managersByField, error) {
+	managedFields := remote.GetK8sManagedFields()
+
+	managersByFields := make(map[string]*managersByField)
+
+	for _, mf := range managedFields {
+		fields, ok, err := mf.GetNestedObject("fieldsV1")
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+		fieldSet, _, err := convertManagedFields(fields.Object)
+		if err != nil {
+			return nil, err
+		}
+
+		mgr, ok, err := mf.GetNestedString("manager")
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("manager field is missing")
+		}
+
+		fieldSet.Iterate(func(path fieldpath.Path) {
+			path = path.Copy()
+			s := path.String()
+			if _, ok := managersByFields[s]; !ok {
+				managersByFields[s] = &managersByField{stupidPath: s}
+			}
+			m, _ := managersByFields[s]
+			found := false
+			for _, p := range m.pathes {
+				if p.Equals(path) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				m.pathes = append(m.pathes, path)
+			}
+			m.managers = append(m.managers, mgr)
+		})
+	}
+
+	return managersByFields, nil
+}
+
 func (cr *ConflictResolver) buildConflictResolutionConfigs(local *uo.UnstructuredObject) []types.ConflictResolutionConfig {
 	var ret []types.ConflictResolutionConfig
 	ret = append(ret, cr.Configs...)
@@ -237,57 +294,9 @@ func (cr *ConflictResolver) collectFields(local *uo.UnstructuredObject, remote *
 }
 
 func (cr *ConflictResolver) ResolveConflicts(local *uo.UnstructuredObject, remote *uo.UnstructuredObject, conflictStatus metav1.Status) (*uo.UnstructuredObject, []LostOwnership, error) {
-	managedFields := remote.GetK8sManagedFields()
-
-	type managersByField struct {
-		// "stupid" because the string representation of field pathes might be ambiguous as k8s does not escape dots
-		stupidPath string
-		pathes     []fieldpath.Path
-		managers   []string
-	}
-
-	managersByFields := make(map[string]*managersByField)
-
-	for _, mf := range managedFields {
-		fields, ok, err := mf.GetNestedObject("fieldsV1")
-		if err != nil {
-			return nil, nil, err
-		}
-		if !ok {
-			continue
-		}
-		fieldSet, _, err := convertManagedFields(fields.Object)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		mgr, ok, err := mf.GetNestedString("manager")
-		if err != nil {
-			return nil, nil, err
-		}
-		if !ok {
-			return nil, nil, fmt.Errorf("manager field is missing")
-		}
-
-		fieldSet.Iterate(func(path fieldpath.Path) {
-			path = path.Copy()
-			s := path.String()
-			if _, ok := managersByFields[s]; !ok {
-				managersByFields[s] = &managersByField{stupidPath: s}
-			}
-			m, _ := managersByFields[s]
-			found := false
-			for _, p := range m.pathes {
-				if p.Equals(path) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				m.pathes = append(m.pathes, path)
-			}
-			m.managers = append(m.managers, mgr)
-		})
+	managersByFields, err := cr.buildManagersByField(remote)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	resolutionConfigs := cr.buildConflictResolutionConfigs(local)
