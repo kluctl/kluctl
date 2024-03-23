@@ -432,23 +432,24 @@ See [tags](./tags.md) for more details.
 
 ## ignoreForDiff
 
-A list of objects and fields to ignore while performing diffs. Consider the following example:
+A list of rules used to determine which differences should be ignored in diff outputs.
+
+As an alternative, [annotations](./annotations/all-resources.md#control-diff-behavior) can be used to control
+diff behavior of individual resources.
+
+Consider the following example:
 
 ```yaml
 deployments:
   - ...
 
 ignoreForDiff:
-  - group: apps
-    kind: Deployment
-    namespace: my-namespace
+  - kind: Deployment
     name: my-deployment
     fieldPath: spec.replicas
 ```
 
-This will remove the `spec.replicas` field from every resource that matches the object.
-`group`, `kind`, `namespace` and `name` can be omitted, which results in all objects matching. `fieldPath` must be a
-valid [JSON Path](https://goessner.net/articles/JsonPath/). `fieldPath` may also be a list of JSON paths.
+This will ignore differences for the `spec.replicas` field in the `Deployment` with the name `my-deployment`.
 
 Using regex expressions instead of JSON Pathes is also supported:
 
@@ -457,12 +458,117 @@ deployments:
   - ...
 
 ignoreForDiff:
-  - group: apps
-    kind: Deployment
-    namespace: my-namespace
+  - kind: Deployment
     name: my-deployment
     fieldPathRegex: metadata.labels.my-label-.*
 ```
 
-As an alternative, [annotations](./annotations/all-resources.md#control-diff-behavior) can be used to control
-diff behavior of individual resources.
+The following properties are supported in `ignoreForDiff` items.
+
+### fieldPath
+If specified, must be a valid [JSON Path](https://goessner.net/articles/JsonPath/). Kluctl will ignore differences for
+all matching fields of all matching objects (see the other properties).
+
+Either `fieldPath` or `fieldPathRegex` must be provided.
+
+### fieldPathRegex
+If specified, must be a valid regex. Kluctl will ignore differences for all matching fields of all matching objects
+(see the other properties).
+
+Either `fieldPath` or `fieldPathRegex` must be provided.
+
+### group
+This property is optional. If specified, only objects with a matching api group will be considered. Please note that this
+field should NOT include the version of the api group.
+
+### kind
+This property is optional. If specified, only objects with a matching `kind` will be considered.
+
+### namespace
+This property is optional. If specified, only objects with a matching `namespace` will be considered.
+
+### name
+This property is optional. If specified, only objects with a matching `name` will be considered.
+
+## conflictResolution
+
+A list of rules used to determine how to handle conflict resolution.
+
+As an alternative, [annotations](./annotations/all-resources.md#control-deploy-behavior) can be used to control
+conflict resolution of individual resources.
+
+Consider the following example:
+
+```yaml
+deployments:
+  - ...
+
+conflictResolution:
+  - kind: ValidatingWebhookConfiguration
+    fieldPath: webhooks.*.*
+    action: ignore
+```
+
+This will cause Kluctl to ignore conflicts on all matching fields of all `ValidatingWebhookConfiguration` objects.
+
+Using regex expressions instead of JSON Pathes is also supported:
+
+```yaml
+deployments:
+  - ...
+
+conflictResolution:
+  - kind: ValidatingWebhookConfiguration
+    fieldPathRegex: webhooks\..
+    action: ignore
+```
+
+In some cases, it's easier to match fields by manager name:
+
+```yaml
+deployments:
+  - ...
+
+conflictResolution:
+  - manager: clusterrole-aggregation-controller
+    action: ignore
+  - manager: cert-manager-cainjector
+    action: ignore
+```
+
+The following properties are supported in `conflictResolution` items.
+
+### fieldPath
+If specified, must be a valid [JSON Path](https://goessner.net/articles/JsonPath/). Kluctl will ignore conflicts for
+all matching fields of all matching objects (see the other properties).
+
+Either `fieldPath`, `fieldPathRegex` or `manager` must be provided.
+
+### fieldPathRegex
+If specified, must be a valid regex. Kluctl will ignore conflicts for all matching fields of all matching objects
+(see the other properties).
+
+Either `fieldPath`, `fieldPathRegex` or `manager` must be provided.
+
+### manager
+If specified, must be a valid regex. Kluctl will ignore conflicts for all fields that currently have a matching field
+manager assigned. This is useful if a mutating webhook or controller is known to modify fields after they have been
+applied.
+
+Either `fieldPath`, `fieldPathRegex` or `manager` must be provided.
+
+### action
+This field is required and must be either `ignore` or `force-apply`. 
+
+### group
+This property is optional. If specified, only objects with a matching api group will be considered. Please note that this
+field should NOT include the version of the api group.
+
+### kind
+This property is optional. If specified, only objects with a matching `kind` will be considered.
+
+### namespace
+This property is optional. If specified, only objects with a matching `namespace` will be considered.
+
+### name
+This property is optional. If specified, only objects with a matching `name` will be considered.

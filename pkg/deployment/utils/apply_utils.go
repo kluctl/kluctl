@@ -296,7 +296,7 @@ func (a *ApplyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, r
 	a.handleResult(r, hook)
 }
 
-func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
+func (a *ApplyUtil) retryApplyWithConflicts(d *deployment.DeploymentItem, x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
 
 	if remoteObject == nil {
@@ -312,7 +312,10 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 			return
 		}
 
-		x3, lostOwnership, err := diff.ResolveFieldManagerConflicts(x, remoteObject, statusError.ErrStatus)
+		cr := diff.ConflictResolver{
+			Configs: d.Project.GetConflictResolutionConfigs(),
+		}
+		x3, lostOwnership, err := cr.ResolveConflicts(x, remoteObject, statusError.ErrStatus)
 		if err != nil {
 			a.HandleError(ref, err)
 			return
@@ -338,7 +341,7 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 	}
 }
 
-func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bool) {
+func (a *ApplyUtil) ApplyObject(d *deployment.DeploymentItem, x *uo.UnstructuredObject, replaced bool, hook bool) {
 	ref := x.GetK8sRef()
 
 	x = a.k.FixObjectForPatch(x)
@@ -457,7 +460,7 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	} else if meta.IsNoMatchError(err) {
 		a.HandleError(ref, err)
 	} else if errors.IsConflict(err) {
-		a.retryApplyWithConflicts(x, hook, remoteObject, err)
+		a.retryApplyWithConflicts(d, x, hook, remoteObject, err)
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
 	}
@@ -640,7 +643,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 		// hooks have their own waitReadiness logic, so we must skip them here. Otherwise we'd wait for an object
 		// didn't even get deployed yet (e.g. post-deploy hooks).
-		if h.GetHook(x) == nil {
+		if h.GetHook(d, x) == nil {
 			waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || x.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
 			if waitReadiness {
 				toWaitReadiness[x.GetK8sRef()] = true
@@ -657,7 +660,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 	var applyObjects []*uo.UnstructuredObject
 	for _, o := range d.Objects {
-		if h.GetHook(o) != nil {
+		if h.GetHook(d, o) != nil {
 			continue
 		}
 		if _, ok := toDelete[o.GetK8sRef()]; ok {
@@ -705,7 +708,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 		ref := o.GetK8sRef()
 		a.sctx.Updatef("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects))
-		a.ApplyObject(o, false, false)
+		a.ApplyObject(d, o, false, false)
 		a.sctx.Increment()
 		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
 			a.sctx.InfoFallbackf("...applied %d of %d objects", i+1, len(applyObjects))

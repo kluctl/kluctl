@@ -136,6 +136,31 @@ func ValidateIgnoreForDiffItemConfig(sl validator.StructLevel) {
 	}
 }
 
+type ConflictResolutionAction string
+
+const (
+	ConflictResolutionIgnore     ConflictResolutionAction = "ignore"
+	ConflictResolutionForceApply ConflictResolutionAction = "force-apply"
+)
+
+type ConflictResolutionConfig struct {
+	FieldPath      SingleStringOrList       `json:"fieldPath,omitempty"`
+	FieldPathRegex SingleStringOrList       `json:"fieldPathRegex,omitempty"`
+	Manager        SingleStringOrList       `json:"manager,omitempty"`
+	Group          *string                  `json:"group,omitempty"`
+	Kind           *string                  `json:"kind,omitempty"`
+	Name           *string                  `json:"name,omitempty"`
+	Namespace      *string                  `json:"namespace,omitempty"`
+	Action         ConflictResolutionAction `json:"action" validate:"required,oneof=ignore force-apply"`
+}
+
+func ValidateConflictResolutionConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(ConflictResolutionConfig)
+	if len(s.FieldPath)+len(s.FieldPathRegex)+len(s.Manager) == 0 {
+		sl.ReportError(s, "self", "self", "at least one of fieldPath, fieldPathRegex or manager must be set", "")
+	}
+}
+
 type DeploymentProjectConfig struct {
 	Vars          []VarsSource         `json:"vars,omitempty"`
 	SealedSecrets *SealedSecretsConfig `json:"sealedSecrets,omitempty"`
@@ -149,7 +174,8 @@ type DeploymentProjectConfig struct {
 	OverrideNamespace *string           `json:"overrideNamespace,omitempty"`
 	Tags              []string          `json:"tags,omitempty"`
 
-	IgnoreForDiff []IgnoreForDiffItemConfig `json:"ignoreForDiff,omitempty"`
+	IgnoreForDiff      []IgnoreForDiffItemConfig  `json:"ignoreForDiff,omitempty"`
+	ConflictResolution []ConflictResolutionConfig `json:"conflictResolution,omitempty"`
 }
 
 func init() {
@@ -157,4 +183,5 @@ func init() {
 	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
 	yaml.Validator.RegisterStructValidation(ValidateWaitReadinessObjectItemConfig, WaitReadinessObjectItemConfig{})
 	yaml.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
+	yaml.Validator.RegisterStructValidation(ValidateConflictResolutionConfig, ConflictResolutionConfig{})
 }

@@ -403,3 +403,11 @@ func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAn
 	}
 	return ret
 }
+
+func (p *DeploymentProject) GetConflictResolutionConfigs() []types.ConflictResolutionConfig {
+	var ret []types.ConflictResolutionConfig
+	for _, e := range p.getParents() {
+		ret = append(ret, e.p.Config.ConflictResolution...)
+	}
+	return ret
+}
