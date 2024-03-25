@@ -68,7 +68,7 @@ require (
 	github.com/docker/cli v26.0.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/getsops/sops/v3 v3.8.1
-	github.com/gin-contrib/sessions v0.0.5
+	github.com/gin-contrib/sessions v1.0.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-errors/errors v1.5.1
 	github.com/go-git/go-git/v5 v5.11.1-0.20240110114741-f7c30f52dca0
