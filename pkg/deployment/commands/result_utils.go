@@ -41,7 +41,9 @@ func newCommandResult(targetCtx *target_context.TargetContext, startTime time.Ti
 		})
 	}
 
-	r.ClusterInfo = buildClusterInfo(targetCtx.SharedContext.K, &r.Warnings)
+	if targetCtx.SharedContext.K != nil {
+		r.ClusterInfo = buildClusterInfo(targetCtx.SharedContext.K, &r.Warnings)
+	}
 
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
@@ -64,11 +66,13 @@ func newValidateCommandResult(targetCtx *target_context.TargetContext, startTime
 		})
 	}
 
-	clusterInfo := buildClusterInfo(targetCtx.SharedContext.K, &r.Warnings)
-
 	r.TargetKey.TargetName = targetCtx.Target.Name
 	r.TargetKey.Discriminator = targetCtx.Target.Discriminator
-	r.TargetKey.ClusterId = clusterInfo.ClusterId
+
+	if targetCtx.SharedContext.K != nil {
+		clusterInfo := buildClusterInfo(targetCtx.SharedContext.K, &r.Warnings)
+		r.TargetKey.ClusterId = clusterInfo.ClusterId
+	}
 
 	return r
 }
@@ -86,8 +90,9 @@ func newDeleteCommandResult(k *k8s2.K8sCluster, startTime time.Time, inclusion *
 	r.Command.IncludeDeploymentDirs = inclusion.GetIncludes("deploymentItemDir")
 	r.Command.ExcludeDeploymentDirs = inclusion.GetExcludes("deploymentItemDir")
 
-	r.ClusterInfo = buildClusterInfo(k, &r.Warnings)
-
+	if k != nil {
+		r.ClusterInfo = buildClusterInfo(k, &r.Warnings)
+	}
 	return r
 }
 
