@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -161,6 +162,10 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 }
 
 func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.UnstructuredObject, inclusionHasTags bool, excludedObjects []k8s2.ObjectRef) ([]k8s2.ObjectRef, error) {
+	if k == nil {
+		return nil, fmt.Errorf("can not determine orphan objects without a Kubernetes API client")
+	}
+
 	excludedObjectsMap := make(map[k8s2.ObjectRef]bool)
 	for _, ref := range excludedObjects {
 		excludedObjectsMap[objectRefForExclusion(k, ref)] = true

@@ -780,6 +780,11 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 }
 
 func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.DeploymentItem) {
+	if a.k == nil {
+		a.dew.AddError(k8s2.ObjectRef{}, fmt.Errorf("can not apply objects without a Kubernetes API client"))
+		return
+	}
+
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(8)
 
