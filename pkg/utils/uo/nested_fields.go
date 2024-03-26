@@ -250,11 +250,13 @@ func (uo *UnstructuredObject) GetNestedStringMapCopy(keys ...interface{}) (map[s
 	}
 	ret := make(map[string]string)
 	for k, v := range m {
-		s, ok := v.(string)
-		if !ok {
+		if v == nil {
+			ret[k] = ""
+		} else if s, ok := v.(string); ok {
+			ret[k] = s
+		} else {
 			return nil, false, fmt.Errorf("value at %s.%s is not a string", KeyPath(keys).ToJsonPath(), k)
 		}
-		ret[k] = s
 	}
 
 	return ret, true, nil
