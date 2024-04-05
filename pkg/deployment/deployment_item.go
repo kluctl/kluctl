@@ -185,13 +185,17 @@ func (di *DeploymentItem) newHelmRelease(subDir string) (*helm.Release, error) {
 	configPath := yaml.FixPathExt(filepath.Join(di.RenderedDir, subDir, "helm-chart.yaml"))
 
 	var helmChartsDir string
-	if di.Project.source == di.Project.getRootProject().source {
-		// deployment item is part of the root project repo, so it's allowed to be in a relative dir
-		helmChartsDir = filepath.Join(di.Project.source.dir, di.Project.getRootProject().relDir, ".helm-charts")
-	} else {
-		// deployment item is part of a git-included project, so it must be at the repo root
-		// TODO this limitation should be lifted in some way (search multiple pathes?)
-		helmChartsDir = filepath.Join(di.Project.source.dir, ".helm-charts")
+	relDir := di.RelToSourceItemDir
+	for {
+		p := filepath.Join(di.Project.source.dir, relDir, ".helm-charts")
+		if utils.IsDirectory(p) {
+			helmChartsDir = p
+			break
+		}
+		if relDir == "." {
+			break
+		}
+		relDir = filepath.Dir(relDir)
 	}
 
 	hr, err := helm.NewRelease(di.ctx.Ctx, di.Project.source.dir, filepath.Join(di.RelToSourceItemDir, subDir), configPath, helmChartsDir, di.ctx.HelmAuthProvider, di.ctx.OciAuthProvider)
