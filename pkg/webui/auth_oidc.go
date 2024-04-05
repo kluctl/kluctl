@@ -22,17 +22,17 @@ type oidcTokenInfo struct {
 	User         *User
 }
 
-func (s *authHandler) setupOidcProvider(ctx context.Context, authConfig AuthConfig) error {
-	if authConfig.OidcIssuerUrl == "" {
+func (s *authHandler) setupOidcProvider(ctx context.Context) error {
+	if s.authConfig.OidcIssuerUrl == "" {
 		return nil
 	}
 
-	clientSecret, err := s.getSecret(authConfig.OidcClientSecretName, authConfig.OidcClientSecretKey, false)
+	clientSecret, err := s.getSecret(s.authConfig.OidcClientSecretName, s.authConfig.OidcClientSecretKey, false)
 	if err != nil {
 		return err
 	}
 
-	provider, err := oidc.NewProvider(ctx, authConfig.OidcIssuerUrl)
+	provider, err := oidc.NewProvider(ctx, s.authConfig.OidcIssuerUrl)
 	if err != nil {
 		return err
 	}
@@ -44,10 +44,10 @@ func (s *authHandler) setupOidcProvider(ctx context.Context, authConfig AuthConf
 	}
 
 	s.oauth2Config = &oauth2.Config{
-		ClientID:     authConfig.OidcClientId,
+		ClientID:     s.authConfig.OidcClientId,
 		ClientSecret: clientSecret,
-		RedirectURL:  authConfig.OidcRedirectUrl,
-		Scopes:       authConfig.OidcScopes,
+		RedirectURL:  s.authConfig.OidcRedirectUrl,
+		Scopes:       s.authConfig.OidcScopes,
 		Endpoint:     provider.Endpoint(),
 	}
 
@@ -157,7 +157,11 @@ func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
 }
 
 func (s *authHandler) oidcRefresh(c *gin.Context, session sessions.Session, tokenInfo *oidcTokenInfo) error {
-	ts := s.oauth2Config.TokenSource(c, &oauth2.Token{
+	// We must use a copy of the config to avoid poisoning the authStyleCache
+	// See https://github.com/golang/oauth2/issues/718
+	cfgCopy := *s.oauth2Config
+
+	ts := cfgCopy.TokenSource(c, &oauth2.Token{
 		RefreshToken: tokenInfo.RefreshToken,
 	})
 	newToken, err := ts.Token()

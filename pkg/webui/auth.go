@@ -108,7 +108,7 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, controllerN
 		ret.viewerPassword = x
 	}
 
-	err = ret.setupOidcProvider(ctx, authConfig)
+	err = ret.setupOidcProvider(ctx)
 	if err != nil {
 		return nil, err
 	}
