@@ -277,6 +277,7 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 
 	var o map[string]any
+	isNew := false
 	if _, err := os.Stat(fullPath); err == nil {
 		b, err := os.ReadFile(fullPath)
 		if err != nil {
@@ -288,6 +289,7 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 		}
 	} else {
 		o = map[string]any{}
+		isNew = true
 	}
 
 	var orig map[string]any
@@ -300,7 +302,7 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	if reflect.DeepEqual(o, orig) {
+	if !isNew && reflect.DeepEqual(o, orig) {
 		return
 	}
 	p.CommitYaml(repo, pth, message, o)
