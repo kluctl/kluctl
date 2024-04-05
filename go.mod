@@ -59,7 +59,7 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/rogpeppe/go-internal v1.12.0
-	github.com/sergi/go-diff v1.3.1
+	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
@@ -67,12 +67,12 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tkrajina/typescriptify-golang-structs v0.1.11
 	github.com/xanzy/ssh-agent v0.3.3
-	golang.org/x/crypto v0.21.0
-	golang.org/x/net v0.22.0
+	golang.org/x/crypto v0.22.0
+	golang.org/x/net v0.24.0
 	golang.org/x/oauth2 v0.18.0
 	golang.org/x/sync v0.6.0
-	golang.org/x/sys v0.18.0
-	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/sys v0.19.0
+	golang.org/x/term v0.19.0 // indirect
 	golang.org/x/text v0.14.0
 	google.golang.org/genproto v0.0.0-20240318140521-94a12d6c2237
 	google.golang.org/grpc v1.62.1
@@ -303,3 +303,6 @@ require (
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
+
+// Includes https://github.com/go-git/go-git/pull/1066
+replace github.com/go-git/go-git/v5 => github.com/codablock/go-git/v5 v5.0.0-20240405213533-d3aec576098e
