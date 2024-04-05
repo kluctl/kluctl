@@ -162,14 +162,20 @@ func renameWithFallback(src, dst string) error {
 
 	f2, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return err
+		return fmt.Errorf("rename fallback failed: cannot rename %s to %s: %w", src, dst, err)
 	}
 	defer f2.Close()
 
 	_, err = io.Copy(f2, f)
 	if err != nil {
-		return err
+		return fmt.Errorf("rename fallback failed: cannot rename %s to %s: %w", src, dst, err)
 	}
+
+	err = os.Remove(src)
+	if err != nil {
+		return fmt.Errorf("rename fallback failed: cannot delete %s", src)
+	}
+
 	return nil
 }
 
