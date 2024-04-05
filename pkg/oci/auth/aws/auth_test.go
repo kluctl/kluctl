@@ -58,6 +58,29 @@ func TestParseRegistry(t *testing.T) {
 			wantOK:        true,
 		},
 		{
+			registry:      "https://012345678901.dkr.ecr.us-east-1.amazonaws.com/v2/part/part",
+			wantAccountID: "012345678901",
+			wantRegion:    "us-east-1",
+			wantOK:        true,
+		},
+		{
+			registry:      "012345678901.dkr.ecr.cn-north-1.amazonaws.com.cn/foo",
+			wantAccountID: "012345678901",
+			wantRegion:    "cn-north-1",
+			wantOK:        true,
+		},
+		{
+			registry:      "012345678901.dkr.ecr-fips.us-gov-west-1.amazonaws.com",
+			wantAccountID: "012345678901",
+			wantRegion:    "us-gov-west-1",
+			wantOK:        true,
+		},
+		// TODO: Fix: this invalid registry is allowed by the regex.
+		// {
+		// 	registry: ".dkr.ecr.error.amazonaws.com",
+		// 	wantOK:   false,
+		// },
+		{
 			registry: "gcr.io/foo/bar:baz",
 			wantOK:   false,
 		},

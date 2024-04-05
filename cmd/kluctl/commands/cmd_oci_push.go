@@ -130,7 +130,7 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	}
 
 	ociClient := client.NewClient(opts)
-	digestURL, err := ociClient.Push(ctx, url, path, meta, ignorePatterns)
+	digestURL, err := ociClient.Push(ctx, url, path, client.WithPushIgnorePatterns(ignorePatterns), client.WithPushMetadata(meta))
 	if err != nil {
 		return fmt.Errorf("pushing artifact failed: %w", err)
 	}

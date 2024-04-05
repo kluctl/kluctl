@@ -32,6 +32,17 @@ import (
 // Build archives the given directory as a tarball to the given local path.
 // While archiving, any environment specific data (for example, the user and group name) is stripped from file headers.
 func (c *Client) Build(artifactPath, sourceDir string, ignorePatterns []gitignore.Pattern) (err error) {
+	return buildWithIgnorePatterns(artifactPath, sourceDir, ignorePatterns)
+}
+
+func buildWithIgnorePaths(artifactPath, sourceDir string, ignorePaths []string) (err error) {
+	absPath, _ := filepath.Abs(sourceDir)
+	domain := strings.Split(absPath, string(filepath.Separator))
+	patterns := sourceignore.ReadPatterns(strings.NewReader(strings.Join(ignorePaths, "\n")), domain)
+	return buildWithIgnorePatterns(artifactPath, sourceDir, patterns)
+}
+
+func buildWithIgnorePatterns(artifactPath, sourceDir string, ignorePatterns []gitignore.Pattern) (err error) {
 	absDir, err := filepath.Abs(sourceDir)
 	if err != nil {
 		return err

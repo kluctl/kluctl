@@ -34,7 +34,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/oci"
 )
 
-var registryPartRe = regexp.MustCompile(`([0-9+]*).dkr.ecr.([^/.]*)\.(amazonaws\.com[.cn]*)`)
+var registryPartRe = regexp.MustCompile(`([0-9+]*).dkr.ecr(?:-fips)?\.([^/.]*)\.(amazonaws\.com[.cn]*)`)
 
 // ParseRegistry returns the AWS account ID and region and `true` if
 // the image registry/repository is hosted in AWS's Elastic Container Registry,

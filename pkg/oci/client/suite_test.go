@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/distribution/distribution/v3/configuration"
-	dcontext "github.com/distribution/distribution/v3/context"
 	"github.com/distribution/distribution/v3/registry"
 	_ "github.com/distribution/distribution/v3/registry/auth/htpasswd"
 	_ "github.com/distribution/distribution/v3/registry/storage/driver/inmemory"
@@ -44,9 +43,8 @@ func setupRegistryServer(ctx context.Context) error {
 	config := &configuration.Configuration{}
 	config.Log.AccessLog.Disabled = true
 	config.Log.Level = "error"
-	logger := logrus.New()
-	logger.SetOutput(io.Discard)
-	dcontext.SetDefaultLogger(logrus.NewEntry(logger))
+	logrus.SetOutput(io.Discard)
+
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		return fmt.Errorf("failed to get free port: %s", err)
