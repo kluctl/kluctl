@@ -330,8 +330,30 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, p *test_project.TestPro
 	}
 }
 
-func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool, useProcess bool) (*test_project.TestProject, *test_utils.TestHelmRepo, error) {
-	p := test_project.NewTestProject(t, test_project.WithUseProcess(useProcess))
+func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTestCase, prePull bool, useProcess bool, libraryMode libraryTestMode) (*test_project.TestProject, *test_utils.TestHelmRepo, error) {
+	gitServer := test_utils.NewTestGitServer(t)
+	gitSubDir := ""
+
+	if libraryMode == includeLibrary {
+		gitSubDir = "include"
+	}
+
+	p := test_project.NewTestProject(t,
+		test_project.WithUseProcess(useProcess),
+		test_project.WithBareProject(),
+		test_project.WithGitServer(gitServer),
+		test_project.WithGitSubDir(gitSubDir),
+	)
+
+	if libraryMode != noLibrary {
+		p.UpdateYaml(".kluctl-library.yaml", func(o *uo.UnstructuredObject) error {
+			return nil
+		}, "")
+	} else {
+		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {
+			return nil
+		})
+	}
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -384,7 +406,7 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 			assert.NoError(t, err)
 			assert.FileExists(t, getChartFile(t, p, repo.URL.String(), "test-chart1", "0.1.0"))
 
-			p.GitServer().CommitFiles(p.GitRepoName(), []string{".helm-charts"}, true, "helm-pull")
+			p.GitServer().CommitFiles(p.GitRepoName(), []string{filepath.Join(gitSubDir, ".helm-charts")}, true, "helm-pull")
 		}
 	} else {
 		p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
@@ -393,10 +415,42 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 		}, "")
 	}
 
+	if libraryMode == gitLibrary {
+		p2 := test_project.NewTestProject(t,
+			test_project.WithUseProcess(useProcess),
+			test_project.WithBareProject(),
+		)
+		p2.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
+			"git": map[string]any{
+				"url": p.GitUrl(),
+			},
+		}))
+		return p2, repo, nil
+	} else if libraryMode == includeLibrary {
+		p2 := test_project.NewTestProject(t,
+			test_project.WithUseProcess(useProcess),
+			test_project.WithBareProject(),
+			test_project.WithGitServer(gitServer),
+			test_project.WithGitSubDir("project"),
+		)
+		p2.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
+			"include": "../include",
+		}))
+		return p2, repo, nil
+	}
+
 	return p, repo, nil
 }
 
-func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool) {
+type libraryTestMode int
+
+const (
+	noLibrary = iota
+	gitLibrary
+	includeLibrary
+)
+
+func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool, libraryMode libraryTestMode) {
 	useProcess := credsViaEnv
 
 	// uncomment this if you want to debug this when credsViaEnv==true
@@ -407,7 +461,7 @@ func testHelmPull(t *testing.T, tc helmTestCase, prePull bool, credsViaEnv bool)
 	}
 
 	k := defaultCluster1
-	p, repo, err := prepareHelmTestCase(t, k, tc, prePull, useProcess)
+	p, repo, err := prepareHelmTestCase(t, k, tc, prePull, useProcess, libraryMode)
 	if err != nil {
 		if tc.expectedPrepareError == "" {
 			assert.Fail(t, "did not expect error")
@@ -445,7 +499,7 @@ func TestHelmPull(t *testing.T) {
 	for _, tc := range helmTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			testHelmPull(t, tc, false, false)
+			testHelmPull(t, tc, false, false, noLibrary)
 		})
 	}
 }
@@ -454,7 +508,7 @@ func TestHelmPrePull(t *testing.T) {
 	for _, tc := range helmTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			testHelmPull(t, tc, true, false)
+			testHelmPull(t, tc, true, false, noLibrary)
 		})
 	}
 }
@@ -463,7 +517,25 @@ func TestHelmPullCredsViaEnv(t *testing.T) {
 	for _, tc := range helmTests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			testHelmPull(t, tc, false, true)
+			testHelmPull(t, tc, false, true, noLibrary)
+		})
+	}
+}
+
+func TestHelmInGitLibrary(t *testing.T) {
+	for _, tc := range helmTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			testHelmPull(t, tc, true, false, gitLibrary)
+		})
+	}
+}
+
+func TestHelmInIncludeLibrary(t *testing.T) {
+	for _, tc := range helmTests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			testHelmPull(t, tc, true, false, includeLibrary)
 		})
 	}
 }

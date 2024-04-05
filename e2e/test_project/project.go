@@ -88,7 +88,9 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	if p.gitServer == nil {
 		p.gitServer = git2.NewTestGitServer(t)
 	}
-	p.gitServer.GitInit(p.gitRepoName)
+	if !utils.IsDirectory(p.gitServer.LocalWorkDir(p.gitRepoName)) {
+		p.gitServer.GitInit(p.gitRepoName)
+	}
 
 	if !p.bare {
 		p.UpdateKluctlYaml(func(o *uo.UnstructuredObject) error {

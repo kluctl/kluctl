@@ -22,7 +22,7 @@ func TestGitOpsHelm(t *testing.T) {
 func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	g := NewWithT(suite.T())
 
-	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull, false)
+	p, repo, err := prepareHelmTestCase(suite.T(), suite.k, tc, prePull, false, noLibrary)
 	if err != nil {
 		if tc.expectedPrepareError == "" {
 			assert.Fail(suite.T(), "did not expect error")
