@@ -157,7 +157,11 @@ func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
 }
 
 func (s *authHandler) oidcRefresh(c *gin.Context, session sessions.Session, tokenInfo *oidcTokenInfo) error {
-	ts := s.oauth2Config.TokenSource(c, &oauth2.Token{
+	// We must use a copy of the config to avoid poisoning the authStyleCache
+	// See https://github.com/golang/oauth2/issues/718
+	cfgCopy := *s.oauth2Config
+
+	ts := cfgCopy.TokenSource(c, &oauth2.Token{
 		RefreshToken: tokenInfo.RefreshToken,
 	})
 	newToken, err := ts.Token()
