@@ -102,7 +102,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		})
 	}
 
-	key := suite.createKluctlDeployment2(p, "test", map[string]any{
+	key := suite.createKluctlDeployment2(p, "", map[string]any{
 		"namespace": p.TestSlug(),
 	}, func(kd *kluctlv1.KluctlDeployment) {
 		kd.Spec.Source = kluctlv1.ProjectSource{
