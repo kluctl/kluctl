@@ -33,7 +33,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
+	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) && !yaml.Exists(filepath.Join(projectDir, ".kluctl-library.yaml")) {
 		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
 	}
 
