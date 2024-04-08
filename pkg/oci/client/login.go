@@ -81,7 +81,7 @@ func (c *Client) LoginWithProvider(ctx context.Context, url string, provider oci
 	case oci.ProviderAzure:
 		authenticator, err = azure.NewClient().Login(ctx, true, url, ref)
 	default:
-		return errors.New(fmt.Sprintf("unsupported provider"))
+		return errors.New("unsupported provider")
 	}
 
 	if err != nil {

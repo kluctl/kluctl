@@ -46,7 +46,7 @@ func (c *Client) Diff(ctx context.Context, url, dir string, ignorePatterns []git
 
 	tmpFile := filepath.Join(tmpBuildDir, "artifact.tgz")
 
-	if err := c.Build(tmpFile, dir, ignorePatterns); err != nil {
+	if err := buildWithIgnorePatterns(tmpFile, dir, ignorePatterns); err != nil {
 		return fmt.Errorf("building artifact failed: %w", err)
 	}
 

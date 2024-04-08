@@ -41,7 +41,7 @@ func TestClient_Diff(t *testing.T) {
 	}
 
 	testDir := "testdata/artifact"
-	_, err := c.Push(ctx, url, testDir, metadata, nil)
+	_, err := c.Push(ctx, url, testDir, WithPushMetadata(metadata))
 	g.Expect(err).ToNot(HaveOccurred())
 
 	err = c.Diff(ctx, url, testDir, nil)
@@ -56,7 +56,7 @@ func TestClient_Diff(t *testing.T) {
 	newTag := "v0.0.2"
 	url = fmt.Sprintf("%s/%s:%s", dockerReg, repo, newTag)
 
-	_, err = c.Push(ctx, url, tmpBuildDir, metadata, nil)
+	_, err = c.Push(ctx, url, tmpBuildDir, WithPushMetadata(metadata))
 	g.Expect(err).ToNot(HaveOccurred())
 
 	err = c.Diff(ctx, url, testDir, nil)

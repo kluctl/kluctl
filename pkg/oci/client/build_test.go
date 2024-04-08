@@ -19,7 +19,6 @@ package client
 import (
 	"bytes"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 	"io"
 	"os"
 	"path/filepath"
@@ -32,7 +31,6 @@ import (
 
 func TestBuild(t *testing.T) {
 	g := NewWithT(t)
-	c := NewClient(DefaultOptions())
 
 	absPath := fmt.Sprintf("%s/deployment.yaml", t.TempDir())
 	err := copyFile(absPath, "testdata/artifact/deployment.yaml")
@@ -98,10 +96,7 @@ func TestBuild(t *testing.T) {
 			tmpDir := t.TempDir()
 			artifactPath := filepath.Join(tmpDir, "files.tar.gz")
 
-			absPath, _ := filepath.Abs(tt.path)
-			domain := strings.Split(absPath, string(filepath.Separator))
-			patterns := sourceignore.ReadPatterns(strings.NewReader(strings.Join(tt.ignorePath, "\n")), domain)
-			err := c.Build(artifactPath, tt.path, patterns)
+			err := buildWithIgnorePaths(artifactPath, tt.path, tt.ignorePath)
 			if tt.expectErr {
 				g.Expect(err).To(HaveOccurred())
 				return

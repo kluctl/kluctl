@@ -19,7 +19,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -68,7 +68,7 @@ func Test_Login(t *testing.T) {
 			transportFunc := mockTransport{
 				response: &http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{}`)),
+					Body:       io.NopCloser(strings.NewReader(`{}`)),
 				},
 			}
 

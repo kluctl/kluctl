@@ -16,14 +16,21 @@ limitations under the License.
 
 package oci
 
-import "github.com/google/go-containerregistry/pkg/v1/types"
+import (
+	"fmt"
+
+	"github.com/google/go-containerregistry/pkg/v1/types"
+)
 
 var (
 	// CanonicalConfigMediaType is the OCI media type for the config layer.
 	CanonicalConfigMediaType types.MediaType = "application/vnd.io.kluctl.config.v1+json"
 
+	// CanonicalMediaTypePrefix is the suffix for OCI media type for the content layer.
+	CanonicalMediaTypePrefix types.MediaType = "application/vnd.io.kluctl.content.v1"
+
 	// CanonicalContentMediaType is the OCI media type for the content layer.
-	CanonicalContentMediaType types.MediaType = "application/vnd.io.kluctl.content.v1.tar+gzip"
+	CanonicalContentMediaType = types.MediaType(fmt.Sprintf("%s.tar+gzip", CanonicalMediaTypePrefix))
 
 	// UserAgent string used for OCI calls.
 	UserAgent = "kluctl/v2"

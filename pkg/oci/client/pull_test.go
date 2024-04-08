@@ -43,7 +43,7 @@ func Test_PullAnyTarball(t *testing.T) {
 	dst := fmt.Sprintf("%s/%s:%s", dockerReg, repo, tag)
 
 	artifact := filepath.Join(t.TempDir(), "artifact.tgz")
-	g.Expect(c.Build(artifact, testDir, nil)).To(Succeed())
+	g.Expect(buildWithIgnorePaths(artifact, testDir, nil)).To(Succeed())
 
 	img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
 	img = mutate.ConfigMediaType(img, oci.CanonicalConfigMediaType)

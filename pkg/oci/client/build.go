@@ -21,6 +21,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/kluctl/kluctl/v2/pkg/oci/client/internal/fs"
 	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 	"io"
 	"os"
@@ -32,6 +33,17 @@ import (
 // Build archives the given directory as a tarball to the given local path.
 // While archiving, any environment specific data (for example, the user and group name) is stripped from file headers.
 func (c *Client) Build(artifactPath, sourceDir string, ignorePatterns []gitignore.Pattern) (err error) {
+	return buildWithIgnorePatterns(artifactPath, sourceDir, ignorePatterns)
+}
+
+func buildWithIgnorePaths(artifactPath, sourceDir string, ignorePaths []string) (err error) {
+	absPath, _ := filepath.Abs(sourceDir)
+	domain := strings.Split(absPath, string(filepath.Separator))
+	patterns := sourceignore.ReadPatterns(strings.NewReader(strings.Join(ignorePaths, "\n")), domain)
+	return buildWithIgnorePatterns(artifactPath, sourceDir, patterns)
+}
+
+func buildWithIgnorePatterns(artifactPath, sourceDir string, ignorePatterns []gitignore.Pattern) (err error) {
 	absDir, err := filepath.Abs(sourceDir)
 	if err != nil {
 		return err
@@ -145,32 +157,7 @@ func (c *Client) Build(artifactPath, sourceDir string, ignorePatterns []gitignor
 		return err
 	}
 
-	return renameWithFallback(tmpName, artifactPath)
-}
-
-func renameWithFallback(src, dst string) error {
-	err := os.Rename(src, dst)
-	if err == nil {
-		return nil
-	}
-
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	f2, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer f2.Close()
-
-	_, err = io.Copy(f2, f)
-	if err != nil {
-		return err
-	}
-	return nil
+	return fs.RenameWithFallback(tmpName, artifactPath)
 }
 
 type writeCounter struct {
