@@ -3,17 +3,45 @@ module github.com/kluctl/kluctl/v2
 go 1.22
 
 require (
+	cloud.google.com/go/secretmanager v1.12.0
+	filippo.io/age v1.1.1
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.1
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1
+	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+	github.com/aws/aws-sdk-go-v2 v1.26.1
+	github.com/aws/aws-sdk-go-v2/config v1.27.11
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.11
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.27.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.28.6
+	github.com/aws/aws-sdk-go-v2/service/sts v1.28.6
+	github.com/aws/smithy-go v1.20.2
 	github.com/bitnami-labs/sealed-secrets v0.26.1
+	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/cyphar/filepath-securejoin v0.2.4
+	github.com/dimchansky/utfbom v1.1.1
+	github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2
+	github.com/docker/cli v26.0.0+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
+	github.com/evanphx/json-patch/v5 v5.9.0
+	github.com/getsops/sops/v3 v3.8.1
+	github.com/gin-contrib/sessions v1.0.0
+	github.com/gin-gonic/gin v1.9.1
+	github.com/go-errors/errors v1.5.1
+	github.com/go-git/go-git/v5 v5.11.1-0.20240110114741-f7c30f52dca0
+	github.com/go-logr/logr v1.4.1
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-containerregistry v0.19.1
+	github.com/google/gops v0.3.28
+	github.com/google/uuid v1.6.0
+	github.com/googleapis/gax-go/v2 v2.12.3
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/vault/api v1.12.2
 	github.com/hexops/gotextdiff v1.0.3
+	github.com/huandu/xstrings v1.4.0
 	github.com/imdario/mergo v0.3.16
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
@@ -24,75 +52,44 @@ require (
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.21.4
+	github.com/onsi/gomega v1.32.0
+	github.com/otiai10/copy v1.14.0
+	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.19.0
 	github.com/r3labs/diff/v2 v2.15.1
 	github.com/rogpeppe/go-internal v1.12.0
+	github.com/sergi/go-diff v1.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
+	github.com/tkrajina/typescriptify-golang-structs v0.1.11
 	github.com/xanzy/ssh-agent v0.3.3
 	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.22.0
+	golang.org/x/oauth2 v0.18.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.18.0
 	golang.org/x/term v0.18.0 // indirect
 	golang.org/x/text v0.14.0
+	google.golang.org/genproto v0.0.0-20240318140521-94a12d6c2237
+	google.golang.org/grpc v1.62.1
+	google.golang.org/protobuf v1.33.0
+	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.14.3
 	k8s.io/api v0.29.3
 	k8s.io/apiextensions-apiserver v0.29.3
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
 	k8s.io/klog/v2 v2.120.1
-	sigs.k8s.io/kustomize/kyaml v0.16.0
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
-)
-
-require (
-	cloud.google.com/go/secretmanager v1.12.0
-	filippo.io/age v1.1.1
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.11.1
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1
-	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
-	github.com/aws/aws-sdk-go-v2 v1.26.1
-	github.com/aws/aws-sdk-go-v2/config v1.27.11
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.11
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.27.4
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.28.6
-	github.com/aws/aws-sdk-go-v2/service/sts v1.28.6
-	github.com/aws/smithy-go v1.20.2
-	github.com/coreos/go-oidc/v3 v3.10.0
-	github.com/dimchansky/utfbom v1.1.1
-	github.com/distribution/distribution/v3 v3.0.0-20221208165359-362910506bc2
-	github.com/docker/cli v26.0.0+incompatible
-	github.com/evanphx/json-patch/v5 v5.9.0
-	github.com/getsops/sops/v3 v3.8.1
-	github.com/gin-contrib/sessions v1.0.0
-	github.com/gin-gonic/gin v1.9.1
-	github.com/go-errors/errors v1.5.1
-	github.com/go-git/go-git/v5 v5.11.1-0.20240110114741-f7c30f52dca0
-	github.com/go-logr/logr v1.4.1
-	github.com/google/gops v0.3.28
-	github.com/google/uuid v1.6.0
-	github.com/googleapis/gax-go/v2 v2.12.3
-	github.com/hashicorp/go-multierror v1.1.1
-	github.com/huandu/xstrings v1.4.0
-	github.com/onsi/gomega v1.32.0
-	github.com/otiai10/copy v1.14.0
-	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
-	github.com/prometheus/client_golang v1.19.0
-	github.com/sergi/go-diff v1.3.1
-	github.com/tkrajina/typescriptify-golang-structs v0.1.11
-	golang.org/x/oauth2 v0.18.0
-	google.golang.org/genproto v0.0.0-20240318140521-94a12d6c2237
-	google.golang.org/grpc v1.62.1
-	google.golang.org/protobuf v1.33.0
-	gotest.tools v2.2.0+incompatible
 	nhooyr.io/websocket v1.8.10
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.17.2
 	sigs.k8s.io/kustomize/api v0.16.0
+	sigs.k8s.io/kustomize/kyaml v0.16.0
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
