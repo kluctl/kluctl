@@ -35,14 +35,14 @@ archives:
     format: tar.gz
     files:
       - none*
-    strip_parent_binary_folder: true
+    strip_binary_directory: true
   - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     id: windows
     builds: [windows]
     format: zip
     files:
       - none*
-    strip_parent_binary_folder: true
+    strip_binary_directory: true
 source:
   enabled: true
   name_template: '{{ .ProjectName }}_v{{ .Version }}_source_code'
@@ -122,7 +122,7 @@ brews:
       owner: kluctl
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    folder: Formula
+    directory: Formula
     homepage: "https://kluctl.io/"
     description: "kluctl"
     install: |
