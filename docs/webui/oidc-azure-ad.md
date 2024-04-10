@@ -59,7 +59,7 @@ deployments:
       url: https://github.com/kluctl/kluctl.git
       subDir: install/webui
       ref:
-         tag: v2.24.0
+         tag: v2.24.1
     vars:
       - values:
           args:
