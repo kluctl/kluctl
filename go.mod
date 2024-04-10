@@ -84,7 +84,7 @@ require (
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
 	k8s.io/klog/v2 v2.120.1
-	nhooyr.io/websocket v1.8.10
+	nhooyr.io/websocket v1.8.11
 	sigs.k8s.io/cli-utils v0.35.0
 	sigs.k8s.io/controller-runtime v0.17.3
 	sigs.k8s.io/kustomize/api v0.17.1
