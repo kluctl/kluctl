@@ -373,7 +373,7 @@ func (c *Chart) PullInProject(ctx context.Context, baseDir string, version strin
 	}
 	defer lock.Close()
 
-	pc, err := c.GetPulledChart(baseDir, version)
+	pc, err := c.GetPrePulledChart(baseDir, version)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (c *Chart) PullInProject(ctx context.Context, baseDir string, version strin
 	return pc, nil
 }
 
-func (c *Chart) GetPulledChart(baseDir string, version string) (*PulledChart, error) {
+func (c *Chart) GetPrePulledChart(baseDir string, version string) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
 	}

@@ -122,7 +122,7 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 		return NewPulledChart(hr.Chart, version, hr.Chart.GetLocalPath(), false), nil
 	}
 
-	pc, err := hr.Chart.GetPulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
+	pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
 	if err != nil {
 		return nil, err
 	}
