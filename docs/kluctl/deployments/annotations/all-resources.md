@@ -26,7 +26,7 @@ api server.
 If set to "true", the whole resource will be force-applied, meaning that all fields will be overwritten in case of
 field manager conflicts.
 
-An alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
+As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/force-apply-field
 Specifies a [JSON Path](https://goessner.net/articles/JsonPath/) for fields that should be force-applied. Matching
@@ -34,7 +34,7 @@ fields will be overwritten in case of field manager conflicts.
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
-An alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
+As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/force-apply-manager
 Specifies a regex for managers that should be force-applied. Fields with matching managers will be overwritten in
@@ -42,13 +42,13 @@ case of field manager conflicts.
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
-An alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
+As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/ignore-conflicts
 If set to "true", the whole all fields of the object are going to be ignored when conflicts arise.
 This effectively disables the warnings that are shown when field ownership is lost.
 
-An alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
+As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/ignore-conflicts-field
 Specifies a [JSON Path](https://goessner.net/articles/JsonPath/) for fields that should be ignored when conflicts arise.
@@ -56,7 +56,7 @@ This effectively disables the warnings that are shown when field ownership is lo
 
 If more than one field needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
-An alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
+As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/ignore-conflicts-manager
 Specifies a regex for field managers that should be ignored when conflicts arise.
@@ -64,7 +64,7 @@ This effectively disables the warnings that are shown when field ownership is lo
 
 If more than one manager needs to be specified, add `-xxx` to the annotation key, where `xxx` is an arbitrary number.
 
-An alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
+As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/wait-readiness
 If set to `true`, kluctl will wait for readiness of this object. Readiness is defined
