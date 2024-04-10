@@ -30,7 +30,7 @@ require (
 	github.com/gin-contrib/sessions v1.0.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-errors/errors v1.5.1
-	github.com/go-git/go-git/v5 v5.11.1-0.20240110114741-f7c30f52dca0
+	github.com/go-git/go-git/v5 v5.12.1-0.20240409060936-cd6633c3c665
 	github.com/go-logr/logr v1.4.1
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/gobwas/glob v0.2.3
@@ -304,6 +304,3 @@ require (
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
-
-// Includes https://github.com/go-git/go-git/pull/1066
-replace github.com/go-git/go-git/v5 => github.com/codablock/go-git/v5 v5.0.0-20240405213533-d3aec576098e
