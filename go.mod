@@ -86,7 +86,7 @@ require (
 	k8s.io/klog/v2 v2.120.1
 	nhooyr.io/websocket v1.8.10
 	sigs.k8s.io/cli-utils v0.35.0
-	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime v0.17.3
 	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/kustomize/kyaml v0.17.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
