@@ -112,6 +112,10 @@ func (c *Chart) GetLocalChartVersion() (string, error) {
 }
 
 func (c *Chart) BuildPulledChartDir(baseDir string, version string) (string, error) {
+	if baseDir == "" {
+		return "", fmt.Errorf("can't determine pulled chart dir. No base dir for charts found")
+	}
+
 	u, err := url.Parse(c.repo)
 	if err != nil {
 		return "", err
