@@ -34,7 +34,7 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	}
 
 	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) && !yaml.Exists(filepath.Join(projectDir, ".kluctl-library.yaml")) {
-		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
+		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml or .kluctl-library.yaml file")
 	}
 
 	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
