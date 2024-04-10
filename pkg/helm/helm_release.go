@@ -122,37 +122,41 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 		return NewPulledChart(hr.Chart, version, hr.Chart.GetLocalPath(), false), nil
 	}
 
-	pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
-	if err != nil {
-		return nil, err
-	}
-	if needsPull {
-		if !hr.Config.SkipPrePull {
-			//goland:noinspection ALL
-			return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
-				"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
-		}
-		if versionChanged {
-			return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
-				"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
+	if !hr.Config.SkipPrePull {
+		pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
+		if err != nil {
+			return nil, err
 		}
 
+		needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
+		if err != nil {
+			return nil, err
+		}
+
+		if needsPull {
+			if versionChanged {
+				return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
+					"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
+			} else {
+				//goland:noinspection ALL
+				return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
+					"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
+			}
+		}
+
+		return pc, nil
+	} else {
 		s := status.Startf(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.Config.ChartVersion)
 		defer s.Failed()
 
-		pc, err = hr.Chart.PullCached(ctx, hr.Config.ChartVersion)
+		pc, err := hr.Chart.PullCached(ctx, hr.Config.ChartVersion)
 		if err != nil {
 			return nil, err
 		}
 		s.Success()
-	}
 
-	return pc, nil
+		return pc, nil
+	}
 }
 
 func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter *decryptor.Decryptor) error {
