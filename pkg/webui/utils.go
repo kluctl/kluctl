@@ -20,7 +20,7 @@ func acceptWebsocket(ctx *gin.Context) (*websocket.Conn, error) {
 
 	conn, err := websocket.Accept(ctx.Writer, ctx.Request, acceptOptions)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	return conn, err
