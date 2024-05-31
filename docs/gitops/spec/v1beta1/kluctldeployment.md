@@ -159,7 +159,7 @@ see [poke-images](../../../kluctl/commands/poke-images.md) for details on the co
 field to `poke-images`.
 
 Example:
-```
+```yaml
 apiVersion: gitops.kluctl.io/v1beta1
 kind: KluctlDeployment
 metadata:
@@ -228,7 +228,7 @@ The above example is equivalent to calling `kluctl deploy -t prod -a arg1=value1
 `spec.images` specifies a list of fixed images to be used by
 [`image.get_image(...)`](../../../kluctl/deployments/images.md#imagesget_image). Example:
 
-```
+```yaml
 apiVersion: gitops.kluctl.io/v1beta1
 kind: KluctlDeployment
 metadata:
@@ -393,6 +393,7 @@ matching.
 Example:
 
 ```yaml
+...
 spec:
   source:
     git:
@@ -403,6 +404,7 @@ spec:
         path: my-org/*
         secretRef:
           name: my-git-secrets
+...
 ```
 
 Each entry has the following fields:
@@ -494,6 +496,7 @@ matching.
 Example:
 
 ```yaml
+...
 spec:
   source:
     git:
@@ -504,6 +507,7 @@ spec:
         path: some-path/*
         secretRef:
           name: my-helm-secrets
+...
 ```
 
 Each entry has the following fields:
@@ -570,6 +574,7 @@ matching. This also includes OCI registry usages via the [Helm integration](../.
 Example:
 
 ```yaml
+...
 spec:
   source:
     git:
@@ -580,6 +585,7 @@ spec:
         repository: my-org/*
         secretRef:
           name: my-oci-secrets
+...
 ```
 
 Each entry has the following fields:
@@ -660,7 +666,7 @@ mirrors how the [Secrets Decryption configuration](https://fluxcd.io/flux/compon
 of the Flux Kustomize Controller. To configure it in the `KluctlDeployment`, simply set the `decryption` field in the
 spec:
 
-```
+```yaml
 apiVersion: gitops.kluctl.io/v1beta1
 kind: KluctlDeployment
 metadata:
@@ -731,6 +737,7 @@ When the controller completes a deployments, it reports the result in the `statu
 A successful reconciliation sets the ready condition to `true`.
 
 ```yaml
+...
 status:
   conditions:
   - lastTransitionTime: "2022-07-07T11:48:14Z"
@@ -755,6 +762,7 @@ kubectl wait kluctldeployment/backend --for=condition=ready
 A failed reconciliation sets the ready condition to `false`:
 
 ```yaml
+...
 status:
   conditions:
   - lastTransitionTime: "2022-05-04T10:18:11Z"
