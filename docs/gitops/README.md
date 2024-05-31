@@ -17,6 +17,9 @@ The Kluctl Controller is a Kubernetes operator which implements the [`KluctlDepl
 custom resource. This resource allows to define a Kluctl deployment that should be constantly reconciled (re-deployed)
 whenever the deployment changes.
 
+It is suggested to read through the [GitOps Recipe](https://kluctl.io/docs/recipes/gitops/) to get a basic
+understanding of how to use it.
+
 ## Motivation and Philosophy
 
 Kluctl tries its best to implement all its features via [Kluctl projects](../kluctl/kluctl-project/README.md), meaning that
@@ -35,7 +38,8 @@ documentation of [`KluctlDeployment`](spec/v1beta1/kluctldeployment.md#spec-fiel
 Kluctl GitOps deployments can be controlled via the Kluctl CLI interface, e.g. with
 `kluctl gitops deploy --namespace my-ns --name my-deployment`, which will trigger a deployment and wait for it to finish.
 
-See [commands](../kluctl/commands/README.md) for more details.
+See [commands](../kluctl/commands/README.md) and the
+[GitOps recipe](https://kluctl.io/docs/recipes/gitops/#gitops-commands) for more details.
 
 ## Kluctl Webui
 
