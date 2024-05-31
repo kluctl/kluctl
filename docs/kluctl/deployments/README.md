@@ -22,7 +22,7 @@ description: >
 9. [Tags](./tags.md)
 10. [Annotations](./annotations)
 
-A deployment project is collection of deployment items and sub-deployments. Deployment items are usually
+A deployment project is a collection of deployment items and sub-deployments. Deployment items are usually
 [Kustomize](./kustomize.md) deployments, but can also integrate [Helm Charts](./helm.md).
 
 ## Basic structure
