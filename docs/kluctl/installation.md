@@ -47,20 +47,20 @@ The install script does the following:
 Clone the repository:
 
 ```bash
-git clone https://github.com/kluctl/kluctl
-cd kluctl
+$ git clone https://github.com/kluctl/kluctl
+$ cd kluctl
 ```
 
 Build the `kluctl` binary (requires go >= 1.19):
 
 ```bash
-make build
+$ make build
 ```
 
 Run the binary:
 
 ```bash
-./bin/kluctl -h
+$ ./bin/kluctl -h
 ```
 
 

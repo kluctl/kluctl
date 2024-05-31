@@ -511,10 +511,10 @@ vars:
 SDK [azure-sdk-for-go](https://github.com/Azure/azure-sdk-for-go) supports `az login`
 or Environment Variables
 ```bash
-  export AZURE_CLIENT_ID="__CLIENT_ID__"
-  export AZURE_CLIENT_SECRET="__CLIENT_SECRET__"
-  export AZURE_TENANT_ID="__TENANT_ID__"
-  export AZURE_SUBSCRIPTION_ID="__SUBSCRIPTION_ID__"
+$ export AZURE_CLIENT_ID="__CLIENT_ID__"
+$ export AZURE_CLIENT_SECRET="__CLIENT_SECRET__"
+$ export AZURE_TENANT_ID="__TENANT_ID__"
+$ export AZURE_SUBSCRIPTION_ID="__SUBSCRIPTION_ID__"
 ```
 
 ### vault
