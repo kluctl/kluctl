@@ -24,16 +24,16 @@ the binaries can be downloaded form GitHub
 
 With [Homebrew](https://brew.sh) for macOS and Linux:
 
-```sh
-brew install kluctl/tap/kluctl
+```shell
+$ brew install kluctl/tap/kluctl
 ```
 
 ### Installation with Bash
 
 With [Bash](https://www.gnu.org/software/bash/) for macOS and Linux:
 
-```sh
-curl -s https://kluctl.io/install.sh | bash
+```shell
+$ curl -s https://kluctl.io/install.sh | bash
 ```
 
 The install script does the following:
@@ -78,8 +78,8 @@ choco install kluctl
 <!-- TODO uncomment this when completion is implemented
 To configure your shell to load `kluctl` [bash completions](./cmd/kluctl_completion_bash.md) add to your profile:
 
-```sh
-. <(kluctl completion bash)
+```shell
+$ . <(kluctl completion bash)
 ```
 
 [`zsh`](./cmd/kluctl_completion_zsh.md), [`fish`](./cmd/kluctl_completion_fish.md),
