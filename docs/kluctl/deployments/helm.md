@@ -94,7 +94,6 @@ OCI based repositories are also supported, for example:
 ```yaml
 helmChart:
   repo: oci://r.myreg.io/mycharts/pepper
-  chartName: pepper
   chartVersion: 1.2.3
   releaseName: pepper
   namespace: pepper
