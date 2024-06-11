@@ -8,7 +8,8 @@ FROM --platform=$TARGETPLATFORM cgr.dev/chainguard/wolfi-base@$WOLFI_DIGEST
 ARG TARGETPLATFORM
 
 # We need git for kustomize to support overlays from git
-RUN apk update && apk add git tzdata
+# gpg is needed for SOPS
+RUN apk update && apk add git tzdata gpg gpg-agent
 
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
