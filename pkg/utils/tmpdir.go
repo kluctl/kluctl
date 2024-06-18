@@ -35,6 +35,15 @@ func WithCacheDir(ctx context.Context, cacheDir string) context.Context {
 	})
 }
 
+func GetTmpBaseDirNoDefault(ctx context.Context) string {
+	v := ctx.Value(tmpBaseDirKey{})
+	if v == nil {
+		return ""
+	}
+	v2 := v.(*dirValue)
+	return v2.dir
+}
+
 func GetTmpBaseDir(ctx context.Context) string {
 	v := ctx.Value(tmpBaseDirKey{})
 	if v == nil {
@@ -45,6 +54,16 @@ func GetTmpBaseDir(ctx context.Context) string {
 		v2.dir = createTmpBaseDir(v2.dir)
 	})
 	return v2.dir
+}
+
+func GetCacheDirNoDefault(ctx context.Context) string {
+	v := ctx.Value(cacheDirKey{})
+	if v == nil {
+		return ""
+	} else {
+		v2 := v.(*dirValue)
+		return v2.dir
+	}
 }
 
 func GetCacheDir(ctx context.Context) string {

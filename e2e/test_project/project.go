@@ -26,6 +26,9 @@ import (
 type TestProject struct {
 	initialName string
 
+	tmpBaseDir string
+	cacheDir   string
+
 	extraEnv          utils.OrderedMap[string, string]
 	extraArgs         []string
 	useProcess        bool
@@ -38,6 +41,18 @@ type TestProject struct {
 }
 
 type TestProjectOption func(p *TestProject)
+
+func WithTmpBaseDir(baseDir string) TestProjectOption {
+	return func(p *TestProject) {
+		p.tmpBaseDir = baseDir
+	}
+}
+
+func WithCacheDir(dir string) TestProjectOption {
+	return func(p *TestProject) {
+		p.cacheDir = dir
+	}
+}
 
 func WithUseProcess(useProcess bool) TestProjectOption {
 	return func(p *TestProject) {
@@ -83,6 +98,13 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 
 	for _, o := range opts {
 		o(p)
+	}
+
+	if p.tmpBaseDir == "" {
+		p.tmpBaseDir = t.TempDir()
+	}
+	if p.cacheDir == "" {
+		p.cacheDir = t.TempDir()
 	}
 
 	if p.gitServer == nil {
@@ -508,8 +530,8 @@ func (p *TestProject) KluctlProcess(t *testing.T, argsIn ...string) (string, str
 
 	// this will cause the init() function from call_kluctl_hack.go to invoke the kluctl root command and then exit
 	env = append(env, "CALL_KLUCTL=true")
-	env = append(env, fmt.Sprintf("KLUCTL_BASE_TMP_DIR=%s", t.TempDir()))
-	env = append(env, fmt.Sprintf("KLUCTL_CACHE_DIR=%s", t.TempDir()))
+	env = append(env, fmt.Sprintf("KLUCTL_BASE_TMP_DIR=%s", p.tmpBaseDir))
+	env = append(env, fmt.Sprintf("KLUCTL_CACHE_DIR=%s", p.cacheDir))
 
 	t.Logf("Runnning kluctl: %s", strings.Join(args, " "))
 
@@ -547,7 +569,15 @@ func (p *TestProject) KluctlExecute(t *testing.T, argsIn ...string) (string, str
 	}
 	args = append(args, argsIn...)
 
-	return KluctlExecute(t, context.Background(), t.Log, args...)
+	ctx := context.Background()
+	if p.tmpBaseDir != "" {
+		ctx = utils.WithTmpBaseDir(ctx, p.tmpBaseDir)
+	}
+	if p.cacheDir != "" {
+		ctx = utils.WithCacheDir(ctx, p.cacheDir)
+	}
+
+	return KluctlExecute(t, ctx, t.Log, args...)
 }
 
 func (p *TestProject) Kluctl(t *testing.T, argsIn ...string) (string, string, error) {
