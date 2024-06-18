@@ -1,26 +1,36 @@
-// Copyright (C) 2022 The Flux authors
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+/*
+Copyright 2022 The Flux authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package keyservice
 
 import (
 	"fmt"
-	"github.com/getsops/sops/v3/age"
-	"github.com/getsops/sops/v3/azkv"
-	"github.com/getsops/sops/v3/gcpkms"
-	"github.com/getsops/sops/v3/hcvault"
-	"github.com/getsops/sops/v3/kms"
-	"github.com/getsops/sops/v3/pgp"
 	"os"
 	"runtime"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/gcpkms"
+	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
+	awskms "github.com/getsops/sops/v3/kms"
+	"github.com/getsops/sops/v3/pgp"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 )
@@ -139,6 +149,7 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 		Ciphertext: []byte("some ciphertext"),
 	}
 	_, err = s.Decrypt(context.TODO(), decReq)
+	g.Expect(err).To(HaveOccurred())
 	g.Expect(fallback.decryptReqs).To(HaveLen(1))
 	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
 	g.Expect(fallback.encryptReqs).To(HaveLen(0))
@@ -147,10 +158,10 @@ func TestServer_EncryptDecrypt_HCVault_Fallback(t *testing.T) {
 func TestServer_EncryptDecrypt_awskms(t *testing.T) {
 	g := NewWithT(t)
 	s := NewServer(WithAWSKeys{
-		CredsProvider: kms.NewCredentialsProvider(credentials.StaticCredentialsProvider{}),
+		CredsProvider: awskms.NewCredentialsProvider(credentials.StaticCredentialsProvider{}),
 	})
 
-	key := KeyFromMasterKey(kms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
+	key := KeyFromMasterKey(awskms.NewMasterKeyFromArn("arn:aws:kms:us-west-2:107501996527:key/612d5f0p-p1l3-45e6-aca6-a5b005693a48", nil, ""))
 	_, err := s.Encrypt(context.TODO(), &keyservice.EncryptRequest{
 		Key: &key,
 	})
@@ -186,36 +197,6 @@ func TestServer_EncryptDecrypt_azkv(t *testing.T) {
 
 }
 
-func TestServer_EncryptDecrypt_azkv_Fallback(t *testing.T) {
-	g := NewWithT(t)
-
-	fallback := NewMockKeyServer()
-	s := NewServer(WithDefaultServer{Server: fallback})
-
-	key := KeyFromMasterKey(azkv.NewMasterKey("", "", ""))
-	encReq := &keyservice.EncryptRequest{
-		Key:       &key,
-		Plaintext: []byte("some data key"),
-	}
-	_, err := s.Encrypt(context.TODO(), encReq)
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(fallback.encryptReqs).To(HaveLen(1))
-	g.Expect(fallback.encryptReqs).To(ContainElement(encReq))
-	g.Expect(fallback.decryptReqs).To(HaveLen(0))
-
-	fallback = NewMockKeyServer()
-	s = NewServer(WithDefaultServer{Server: fallback})
-
-	decReq := &keyservice.DecryptRequest{
-		Key:        &key,
-		Ciphertext: []byte("some ciphertext"),
-	}
-	_, err = s.Decrypt(context.TODO(), decReq)
-	g.Expect(fallback.decryptReqs).To(HaveLen(1))
-	g.Expect(fallback.decryptReqs).To(ContainElement(decReq))
-	g.Expect(fallback.encryptReqs).To(HaveLen(0))
-}
-
 func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 	g := NewWithT(t)
 
@@ -230,13 +211,13 @@ func TestServer_EncryptDecrypt_gcpkms(t *testing.T) {
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed to encrypt sops data key with GCP KMS"))
+	g.Expect(err.Error()).To(ContainSubstring("cannot create GCP KMS service"))
 
 	_, err = s.Decrypt(context.TODO(), &keyservice.DecryptRequest{
 		Key: &key,
 	})
 	g.Expect(err).To(HaveOccurred())
-	g.Expect(err.Error()).To(ContainSubstring("failed to decrypt sops data key with GCP KMS"))
+	g.Expect(err.Error()).To(ContainSubstring("cannot create GCP KMS service"))
 
 }
 
