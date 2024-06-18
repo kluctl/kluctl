@@ -262,7 +262,10 @@ func Main() {
 
 	didSetupStatusHandler := false
 
-	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags *GlobalFlags) (context.Context, error) {
+	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context) (context.Context, error) {
+		cmd := getCobraCommand(ctxIn)
+		flags := getCobraGlobalFlags(ctxIn)
+
 		err := setupGops(flags)
 		if err != nil {
 			return ctx, err
@@ -312,6 +315,7 @@ func Main() {
 }
 
 type cobraCmdContextKey struct{}
+type cobraGlobalFlagsKey struct{}
 
 func getCobraCommand(ctx context.Context) *cobra.Command {
 	v := ctx.Value(cobraCmdContextKey{})
@@ -321,7 +325,15 @@ func getCobraCommand(ctx context.Context) *cobra.Command {
 	return nil
 }
 
-func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags *GlobalFlags) (context.Context, error)) error {
+func getCobraGlobalFlags(ctx context.Context) *GlobalFlags {
+	v := ctx.Value(cobraGlobalFlagsKey{})
+	if x, ok := v.(*GlobalFlags); ok {
+		return x
+	}
+	panic("missing global flags")
+}
+
+func Execute(ctx context.Context, args []string, preRun func(ctx context.Context) (context.Context, error)) error {
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
 		"Deploy and manage complex deployments on Kubernetes",
@@ -350,8 +362,13 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 			return err
 		}
 
+		ctx = context.WithValue(ctx, cobraGlobalFlagsKey{}, &root.GlobalFlags)
+		for c := cmd; c != nil; c = c.Parent() {
+			c.SetContext(ctx)
+		}
+
 		if preRun != nil {
-			ctx, err = preRun(ctx, cmd, &root.GlobalFlags)
+			ctx, err = preRun(ctx)
 			if ctx != nil {
 				for c := cmd; c != nil; c = c.Parent() {
 					c.SetContext(ctx)
