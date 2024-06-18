@@ -24,19 +24,17 @@ type DeploymentCollection struct {
 	Project   *DeploymentProject
 	Images    *Images
 	Inclusion *utils.Inclusion
-	forSeal   bool
 
 	Deployments []*DeploymentItem
 	mutex       sync.Mutex
 }
 
-func NewDeploymentCollection(ctx SharedContext, project *DeploymentProject, images *Images, inclusion *utils.Inclusion, forSeal bool) (*DeploymentCollection, error) {
+func NewDeploymentCollection(ctx SharedContext, project *DeploymentProject, images *Images, inclusion *utils.Inclusion) (*DeploymentCollection, error) {
 	dc := &DeploymentCollection{
 		ctx:       ctx,
 		Project:   project,
 		Images:    images,
 		Inclusion: inclusion,
-		forSeal:   forSeal,
 	}
 
 	indexes := make(map[string]int)
@@ -139,7 +137,7 @@ func (c *DeploymentCollection) RenderDeployments() error {
 	for _, d := range c.Deployments {
 		d := d
 		g.RunE(func() error {
-			return d.render(c.forSeal)
+			return d.render()
 		})
 	}
 	g.Wait()
@@ -166,20 +164,6 @@ func (c *DeploymentCollection) renderHelmCharts() error {
 		s.Success()
 	}
 	return g.ErrorOrNil()
-}
-
-func (c *DeploymentCollection) resolveSealedSecrets() error {
-	if c.forSeal {
-		return nil
-	}
-
-	for _, d := range c.Deployments {
-		err := d.resolveSealedSecrets()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *DeploymentCollection) buildKustomizeObjects() error {
@@ -350,10 +334,6 @@ func (c *DeploymentCollection) Prepare() error {
 		return err
 	}
 	err = c.renderHelmCharts()
-	if err != nil {
-		return err
-	}
-	err = c.resolveSealedSecrets()
 	if err != nil {
 		return err
 	}

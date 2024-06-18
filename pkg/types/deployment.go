@@ -98,10 +98,6 @@ func ValidateWaitReadinessObjectItemConfig(sl validator.StructLevel) {
 	}
 }
 
-type SealedSecretsConfig struct {
-	OutputPattern *string `json:"outputPattern,omitempty"`
-}
-
 type SingleStringOrList []string
 
 func (s *SingleStringOrList) UnmarshalJSON(b []byte) error {
@@ -162,8 +158,7 @@ func ValidateConflictResolutionConfig(sl validator.StructLevel) {
 }
 
 type DeploymentProjectConfig struct {
-	Vars          []VarsSource         `json:"vars,omitempty"`
-	SealedSecrets *SealedSecretsConfig `json:"sealedSecrets,omitempty"`
+	Vars []VarsSource `json:"vars,omitempty"`
 
 	When string `json:"when,omitempty"`
 

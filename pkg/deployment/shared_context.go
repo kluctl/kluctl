@@ -21,8 +21,6 @@ type SharedContext struct {
 	HelmAuthProvider helm_auth.HelmAuthProvider
 	OciAuthProvider  auth_provider.OciAuthProvider
 
-	Discriminator                     string
-	RenderDir                         string
-	SealedSecretsDir                  string
-	DefaultSealedSecretsOutputPattern string
+	Discriminator string
+	RenderDir     string
 }

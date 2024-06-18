@@ -72,7 +72,6 @@ type cli struct {
 	PokeImages  pokeImagesCmd  `cmd:"" help:"Replace all images in target"`
 	Prune       pruneCmd       `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
 	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
-	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
 	Gitops      gitopsCmd      `cmd:"" help:"GitOps sub-commands"`

@@ -6,7 +6,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -60,26 +59,6 @@ func (c *LoadedKluctlProject) loadKluctlProject(ctx context.Context) error {
 			return err
 		}
 	}
-
-	s := status.Start(ctx, "Loading kluctl project")
-	defer s.Failed()
-
-	c.SealedSecretsDir = filepath.Join(c.LoadArgs.ProjectDir, ".sealed-secrets")
-
-	sealedSecretsUsed := false
-	if c.Config.SecretsConfig != nil {
-		sealedSecretsUsed = true
-	}
-	for _, t := range c.Config.Targets {
-		if t.SealingConfig != nil {
-			sealedSecretsUsed = true
-		}
-	}
-	if sealedSecretsUsed {
-		status.Deprecation(ctx, "sealed-secrets", "The SealedSecrets integration is deprecated and will be completely removed in an upcoming version. Please switch to using the SOPS integration instead.")
-	}
-
-	s.Success()
 
 	return nil
 }

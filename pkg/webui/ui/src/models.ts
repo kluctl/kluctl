@@ -302,14 +302,6 @@ export class DeploymentItemConfig {
 	    return a;
 	}
 }
-export class SealedSecretsConfig {
-    outputPattern?: string;
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.outputPattern = source["outputPattern"];
-    }
-}
 export class VarSourceAzureKeyVault {
     vaultUri: string;
     secretName: string;
@@ -528,7 +520,6 @@ export class VarsSource {
 }
 export class DeploymentProjectConfig {
     vars?: VarsSource[];
-    sealedSecrets?: SealedSecretsConfig;
     when?: string;
     deployments?: DeploymentItemConfig[];
     commonLabels?: {[key: string]: string};
@@ -541,7 +532,6 @@ export class DeploymentProjectConfig {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.vars = this.convertValues(source["vars"], VarsSource);
-        this.sealedSecrets = this.convertValues(source["sealedSecrets"], SealedSecretsConfig);
         this.when = source["when"];
         this.deployments = this.convertValues(source["deployments"], DeploymentItemConfig);
         this.commonLabels = source["commonLabels"];
@@ -766,23 +756,10 @@ export class AwsConfig {
 	    return a;
 	}
 }
-export class SealingConfig {
-    args?: any;
-    secretSets?: string[];
-    certFile?: string;
-
-    constructor(source: any = {}) {
-        if ('string' === typeof source) source = JSON.parse(source);
-        this.args = source["args"];
-        this.secretSets = source["secretSets"];
-        this.certFile = source["certFile"];
-    }
-}
 export class Target {
     name: string;
     context?: string;
     args?: any;
-    sealingConfig?: SealingConfig;
     aws?: AwsConfig;
     images?: FixedImage[];
     discriminator?: string;
@@ -792,7 +769,6 @@ export class Target {
         this.name = source["name"];
         this.context = source["context"];
         this.args = source["args"];
-        this.sealingConfig = this.convertValues(source["sealingConfig"], SealingConfig);
         this.aws = this.convertValues(source["aws"], AwsConfig);
         this.images = this.convertValues(source["images"], FixedImage);
         this.discriminator = source["discriminator"];

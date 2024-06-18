@@ -20,8 +20,6 @@ import (
 	"strings"
 )
 
-const SealmeExt = ".sealme"
-
 type DeploymentItem struct {
 	ctx SharedContext
 
@@ -115,7 +113,7 @@ func (di *DeploymentItem) getCommonAnnotations() map[string]string {
 	return a
 }
 
-func (di *DeploymentItem) render(forSeal bool) error {
+func (di *DeploymentItem) render() error {
 	if di.dir == nil {
 		return nil
 	}
@@ -149,11 +147,6 @@ func (di *DeploymentItem) render(forSeal bool) error {
 	})
 	if err != nil {
 		return err
-	}
-
-	if !forSeal {
-		// .sealme files are rendered while sealing and not while deploying
-		excludePatterns = append(excludePatterns, "**.sealme")
 	}
 
 	searchDirs := di.Project.getRenderSearchDirs()
@@ -250,129 +243,6 @@ func (di *DeploymentItem) renderHelmCharts() error {
 	return nil
 }
 
-func (di *DeploymentItem) ListSealedSecrets(subdir string) ([]string, error) {
-	var ret []string
-
-	if di.dir == nil {
-		return nil, nil
-	}
-
-	renderedDir := filepath.Join(di.RenderedDir, subdir)
-
-	// ensure we're not leaving the project
-	err := utils.CheckSubInDir(di.Project.source.dir, filepath.Join(di.RelRenderedDir, subdir))
-	if err != nil {
-		return nil, err
-	}
-
-	y, err := di.readKustomizationYaml(subdir)
-	if err != nil {
-		return nil, err
-	}
-	if y == nil {
-		y, err = di.generateKustomizationYaml(subdir)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	resources, _, err := y.GetNestedStringList("resources")
-	if err != nil {
-		return nil, err
-	}
-
-	for _, resource := range resources {
-		p := filepath.Clean(filepath.Join(renderedDir, resource))
-
-		isDir := utils.IsDirectory(p)
-		isSealedSecret := !utils.Exists(p) && utils.Exists(p+SealmeExt)
-		if !isDir && !isSealedSecret {
-			continue
-		}
-
-		relPath, err := filepath.Rel(di.RenderedDir, p)
-		if err != nil {
-			return nil, err
-		}
-
-		relPath = filepath.Clean(relPath)
-
-		// ensure we're not leaving the project
-		err = utils.CheckSubInDir(di.Project.source.dir, filepath.Join(di.RelRenderedDir, relPath))
-		if err != nil {
-			return nil, err
-		}
-
-		if isDir {
-			ret2, err := di.ListSealedSecrets(relPath)
-			if err != nil {
-				return nil, err
-			}
-			ret = append(ret, ret2...)
-		} else {
-			ret = append(ret, relPath)
-		}
-	}
-	return ret, nil
-}
-
-func (di *DeploymentItem) BuildSealedSecretPath(relPath string) (string, error) {
-	sealedSecretsDir := di.Project.getRenderedOutputPattern()
-	baseSourcePath := di.Project.ctx.SealedSecretsDir
-
-	relDir := filepath.Dir(relPath)
-	fname := filepath.Base(relPath)
-
-	// ensure we're not leaving the .sealed-secrets dir
-	sourcePath := filepath.Join(baseSourcePath, di.RelRenderedDir, relDir, sealedSecretsDir, fname)
-	err := utils.CheckInDir(baseSourcePath, sourcePath)
-	if err != nil {
-		return "", err
-	}
-	sourcePath = filepath.Clean(sourcePath)
-	return sourcePath, nil
-}
-
-func (di *DeploymentItem) resolveSealedSecrets() error {
-	if di.dir == nil {
-		return nil
-	}
-
-	sealedSecrets, err := di.ListSealedSecrets("")
-	if err != nil {
-		return err
-	}
-
-	for _, relPath := range sealedSecrets {
-		relDir := filepath.Dir(relPath)
-		if err != nil {
-			return err
-		}
-		fname := filepath.Base(relPath)
-
-		baseError := fmt.Sprintf("failed to resolve SealedSecret %s", relPath)
-
-		sourcePath, err := di.BuildSealedSecretPath(relPath)
-		if err != nil {
-			return fmt.Errorf("%s: %w", baseError, err)
-		}
-
-		targetPath := filepath.Join(di.RenderedDir, relDir, fname)
-		if !utils.IsFile(sourcePath) {
-			return fmt.Errorf("%s. %s not found. You might need to seal it first", baseError, sourcePath)
-		}
-		b, err := os.ReadFile(sourcePath)
-		if err != nil {
-			return fmt.Errorf("failed to read source secret file %s: %w", sourcePath, err)
-		}
-		err = os.WriteFile(targetPath, b, 0o600)
-		if err != nil {
-			return fmt.Errorf("failed to write target secret file %s: %w", targetPath, err)
-		}
-	}
-	return nil
-}
-
 func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
 	var values []utils.InclusionEntry
 	for _, t := range di.Tags.ListKeys() {
@@ -454,8 +324,6 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 			}
 		} else if strings.HasSuffix(lname, ".yml") || strings.HasSuffix(lname, ".yaml") {
 			resourcePath = de.Name()
-		} else if strings.HasSuffix(lname, ".yml"+SealmeExt) || strings.HasSuffix(lname, ".yaml"+SealmeExt) {
-			resourcePath = de.Name()[:len(de.Name())-len(SealmeExt)]
 		}
 
 		if resourcePath != "" {

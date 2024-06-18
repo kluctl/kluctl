@@ -5,7 +5,6 @@
 
 *.kubeconfig
 .secrets.yml
-.sealed-secrets
 
 /kluctl
 /kluctl.exe

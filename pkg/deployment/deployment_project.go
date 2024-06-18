@@ -66,10 +66,6 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 		return nil, fmt.Errorf("failed to load includes for %s: %w", dir, err)
 	}
 
-	if dp.Config.SealedSecrets != nil {
-		status.Deprecation(ctx.Ctx, "sealed-secrets-config", "'sealedSecrets' is deprecated in deployment projects. Support for it will be removed in a future kluctl release.")
-	}
-
 	return dp, nil
 }
 
@@ -281,15 +277,6 @@ func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, inc *
 	}
 
 	return newProject, nil
-}
-
-func (p *DeploymentProject) getRenderedOutputPattern() string {
-	for _, x := range p.getParents() {
-		if x.p.Config.SealedSecrets != nil && x.p.Config.SealedSecrets.OutputPattern != nil {
-			return *x.p.Config.SealedSecrets.OutputPattern
-		}
-	}
-	return p.ctx.DefaultSealedSecretsOutputPattern
 }
 
 func (p *DeploymentProject) getRootProject() *DeploymentProject {

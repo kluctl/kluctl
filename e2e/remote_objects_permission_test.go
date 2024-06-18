@@ -95,7 +95,7 @@ func TestRemoteObjectUtils_PermissionErrors(t *testing.T) {
 	addSecretDeployment(p, "secret", nil, resourceOpts{
 		name:      "secret",
 		namespace: p.TestSlug(),
-	}, false)
+	})
 	addConfigMapDeployment(p, "cm", nil, resourceOpts{
 		name:      "cm",
 		namespace: p.TestSlug(),
