@@ -81,6 +81,7 @@ func findDeploymentItemIndex(project *DeploymentProject, pth *string, indexes ma
 	index, _ = indexes[absDir]
 	indexes[absDir] = index + 1
 	dir2 = &absDir
+
 	return index, dir2
 }
 
