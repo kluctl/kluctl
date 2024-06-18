@@ -61,7 +61,7 @@ func TestDiscriminatorArgWithoutTarget(t *testing.T) {
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertNestedFieldEquals(t, cm, "test-discriminator", "metadata", "labels", "kluctl.io/discriminator")
 
-	p.KluctlMust(t, "deploy", "--yes", "--discriminator", "test-discriminator-{{ args.a }}", "-a", "a=x")
+	p.KluctlMust(t, "deploy", "--yes", "--discriminator", "test-discriminator-x")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertNestedFieldEquals(t, cm, "test-discriminator-x", "metadata", "labels", "kluctl.io/discriminator")
 
@@ -98,7 +98,7 @@ func TestDiscriminatorArgWithTarget(t *testing.T) {
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertNestedFieldEquals(t, cm, "test-discriminator", "metadata", "labels", "kluctl.io/discriminator")
 
-	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--discriminator", "test-discriminator-{{ target.name }}-{{ args.a }}", "-a", "a=x")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--discriminator", "test-discriminator-test-x", "-a", "a=x")
 	cm = assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertNestedFieldEquals(t, cm, "test-discriminator-test-x", "metadata", "labels", "kluctl.io/discriminator")
 

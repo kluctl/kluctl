@@ -15,6 +15,8 @@ type LoadedKluctlProject struct {
 	Config  types2.KluctlProject
 	Targets []*types2.Target
 
+	NoNameTarget *types2.Target
+
 	J2    *jinja2.Jinja2
 	GitRP *repocache.GitRepoCache
 	OciRP *repocache.OciRepoCache

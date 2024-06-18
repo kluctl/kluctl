@@ -15,6 +15,19 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 	targetNames := make(map[string]bool)
 	c.Targets = nil
 
+	if len(c.Config.Targets) == 0 {
+		target, err := c.buildTarget(&types.Target{})
+		if err != nil {
+			return err
+		}
+		err = c.renderTarget(target)
+		if err != nil {
+			return err
+		}
+		c.NoNameTarget = target
+		return nil
+	}
+
 	for i, configTarget := range c.Config.Targets {
 		if configTarget.Name == "" {
 			status.Errorf(ctx, "Target at index %d has no name", i)
@@ -27,7 +40,7 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 			continue
 		}
 
-		err = c.RenderTarget(target)
+		err = c.renderTarget(target)
 		if err != nil {
 			status.Warningf(ctx, "Failed to load target %s: %v", target.Name, err)
 			continue
@@ -46,7 +59,7 @@ func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
 	return nil
 }
 
-func (c *LoadedKluctlProject) RenderTarget(target *types.Target) error {
+func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 	// Try rendering the target multiple times, until all values can be rendered successfully. This allows the target
 	// to reference itself in complex ways. We'll also try loading the cluster vars in each iteration.
 
