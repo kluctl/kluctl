@@ -47,7 +47,7 @@ for a given cluster.
 
 ## Install Kluctl
 
-The `kluctl` command-line interface (CLI) is required to perform deployments. Read the [installation instructions](installation.md)
+The `kluctl` command-line interface (CLI) is required to perform deployments. Read the [installation instructions](./installation.md)
 to figure out how to install it.
 
 ## Use Kluctl with a plain Kustomize deployment

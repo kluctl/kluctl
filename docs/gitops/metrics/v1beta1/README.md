@@ -16,4 +16,4 @@ controller is based on [controller-runtime](https://github.com/kubernetes-sigs/c
 the [default metrics](https://book.kubebuilder.io/reference/metrics-reference.html) as well as the
 following controller-specific custom metrics are exported:
 
-- [kluctldeployment_controller](kluctldeployment_controller.md)
+- [kluctldeployment_controller](./kluctldeployment_controller.md)

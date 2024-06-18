@@ -15,10 +15,10 @@ of Kluctl Deployments.
 
 ## Specification
 
-- [KluctlDeployment CRD](kluctldeployment.md)
-    + [Spec fields](kluctldeployment.md#spec-fields)
-    + [Reconciliation](kluctldeployment.md#reconciliation)
-    + [Kubeconfigs and RBAC](kluctldeployment.md#kubeconfigs-and-rbac)
+- [KluctlDeployment CRD](./kluctldeployment.md)
+    + [Spec fields](./kluctldeployment.md#spec-fields)
+    + [Reconciliation](./kluctldeployment.md#reconciliation)
+    + [Kubeconfigs and RBAC](./kluctldeployment.md#kubeconfigs-and-rbac)
     + [Credentilas](kluctldeployment.md#credentials)
-    + [Secrets Decryption](kluctldeployment.md#secrets-decryption)
-    + [Status](kluctldeployment.md#status)
+    + [Secrets Decryption](./kluctldeployment.md#secrets-decryption)
+    + [Status](./kluctldeployment.md#status)
