@@ -11,7 +11,7 @@ description: >
 
 # SOPS Integration
 
-Kluctl integrates natively with [SOPS](https://github.com/mozilla/sops). Kluctl is able to decrypt all resources
+Kluctl integrates natively with [SOPS](https://github.com/getsops/sops). Kluctl is able to decrypt all resources
 referenced by [Kustomize](./kustomize.md) deployment items (including [simple deployments](./deployment-yml.md#simple-deployments)).
 In addition, Kluctl will also decrypt all variable sources of the types [file](../templating/variable-sources.md#file)
 and [git](../templating/variable-sources.md#git).
