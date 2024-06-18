@@ -1,22 +1,32 @@
-// Copyright (C) 2022 The Flux authors
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+/*
+Copyright 2023 The Flux authors
 
-package sops
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package azkv
 
 import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/dimchansky/utfbom"
-	"io/ioutil"
+	"io"
 	"unicode/utf16"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/dimchansky/utfbom"
 	"sigs.k8s.io/yaml"
 )
 
@@ -55,7 +65,7 @@ type AZConfig struct {
 	Password string `json:"password,omitempty"`
 }
 
-// TokenFromAADConfig attempts to construct a Token using the AADConfig values.
+// TokenCredentialFromAADConfig attempts to construct a Token using the AADConfig values.
 // It detects credentials in the following order:
 //
 //   - azidentity.ClientSecretCredential when `tenantId`, `clientId` and
@@ -69,53 +79,40 @@ type AZConfig struct {
 //
 // If no set of credentials is found or the azcore.TokenCredential can not be
 // created, an error is returned.
-func TokenFromAADConfig(c AADConfig) (_ azcore.TokenCredential, err error) {
-	var token azcore.TokenCredential
+func TokenCredentialFromAADConfig(c AADConfig) (token azcore.TokenCredential, err error) {
 	if c.TenantID != "" && c.ClientID != "" {
 		if c.ClientSecret != "" {
-			if token, err = azidentity.NewClientSecretCredential(c.TenantID, c.ClientID, c.ClientSecret, &azidentity.ClientSecretCredentialOptions{
+			return azidentity.NewClientSecretCredential(c.TenantID, c.ClientID, c.ClientSecret, &azidentity.ClientSecretCredentialOptions{
 				ClientOptions: azcore.ClientOptions{
 					Cloud: c.GetCloudConfig(),
 				},
-			}); err != nil {
-				return
-			}
-			return token, nil
+			})
 		}
 		if c.ClientCertificate != "" {
 			certs, pk, err := azidentity.ParseCertificates([]byte(c.ClientCertificate), []byte(c.ClientCertificatePassword))
 			if err != nil {
 				return nil, err
 			}
-			if token, err = azidentity.NewClientCertificateCredential(c.TenantID, c.ClientID, certs, pk, &azidentity.ClientCertificateCredentialOptions{
+			return azidentity.NewClientCertificateCredential(c.TenantID, c.ClientID, certs, pk, &azidentity.ClientCertificateCredentialOptions{
 				SendCertificateChain: c.ClientCertificateSendChain,
 				ClientOptions: azcore.ClientOptions{
 					Cloud: c.GetCloudConfig(),
 				},
-			}); err != nil {
-				return nil, err
-			}
-			return token, nil
+			})
 		}
 	}
 
 	switch {
 	case c.Tenant != "" && c.AppID != "" && c.Password != "":
-		if token, err = azidentity.NewClientSecretCredential(c.Tenant, c.AppID, c.Password, &azidentity.ClientSecretCredentialOptions{
+		return azidentity.NewClientSecretCredential(c.Tenant, c.AppID, c.Password, &azidentity.ClientSecretCredentialOptions{
 			ClientOptions: azcore.ClientOptions{
 				Cloud: c.GetCloudConfig(),
 			},
-		}); err != nil {
-			return
-		}
-		return token, nil
+		})
 	case c.ClientID != "":
-		if token, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
+		return azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
 			ID: azidentity.ClientID(c.ClientID),
-		}); err != nil {
-			return
-		}
-		return token, nil
+		})
 	default:
 		return nil, fmt.Errorf("invalid data: requires a '%s' field, a combination of '%s', '%s' and '%s', or '%s', '%s' and '%s'",
 			"clientId", "tenantId", "clientId", "clientSecret", "tenantId", "clientId", "clientCertificate")
@@ -152,5 +149,5 @@ func decode(b []byte) ([]byte, error) {
 		}
 		return []byte(string(utf16.Decode(u16))), nil
 	}
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }

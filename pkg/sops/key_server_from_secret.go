@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/getsops/sops/v3/age"
 	"github.com/getsops/sops/v3/azkv"
+	"github.com/getsops/sops/v3/kms"
+	"github.com/kluctl/kluctl/v2/pkg/sops/awskms"
+	azkv2 "github.com/kluctl/kluctl/v2/pkg/sops/azkv"
+
 	"github.com/getsops/sops/v3/hcvault"
 	"github.com/getsops/sops/v3/keyservice"
-	"github.com/getsops/sops/v3/kms"
 	"github.com/getsops/sops/v3/pgp"
 	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	corev1 "k8s.io/api/core/v1"
@@ -42,7 +46,7 @@ func BuildSopsKeyServerFromSecret(secret *corev1.Secret, gnuPGHomeDir string, op
 
 	var ageIdentities age.ParsedIdentities
 	var vaultToken hcvault.Token
-	var awsCredsProvider *kms.CredentialsProvider
+	var awsCredsProvider credentials.StaticCredentialsProvider
 	var azureToken azcore.TokenCredential
 	var gcpCredsJSON []byte
 
@@ -67,18 +71,18 @@ func BuildSopsKeyServerFromSecret(secret *corev1.Secret, gnuPGHomeDir string, op
 			}
 		case filepath.Ext(DecryptionAWSKmsFile):
 			if name == DecryptionAWSKmsFile {
-				if awsCredsProvider, err = LoadCredsProviderFromYaml(value); err != nil {
+				if awsCredsProvider, err = awskms.LoadStaticCredentialsFromYAML(value); err != nil {
 					return nil, fmt.Errorf("failed to import data from decryption Secret '%s': %w", name, err)
 				}
 			}
 		case filepath.Ext(DecryptionAzureAuthFile):
 			// Make sure we have the absolute name
 			if name == DecryptionAzureAuthFile {
-				conf := AADConfig{}
-				if err = LoadAADConfigFromBytes(value, &conf); err != nil {
+				conf := azkv2.AADConfig{}
+				if err = azkv2.LoadAADConfigFromBytes(value, &conf); err != nil {
 					return nil, fmt.Errorf("failed to import '%s' data from decryption Secret: %w", name, err)
 				}
-				if azureToken, err = TokenFromAADConfig(conf); err != nil {
+				if azureToken, err = azkv2.TokenCredentialFromAADConfig(conf); err != nil {
 					return nil, fmt.Errorf("failed to import '%s' data from decryption Secret: %w", name, err)
 				}
 			}
@@ -99,7 +103,7 @@ func BuildSopsKeyServerFromSecret(secret *corev1.Secret, gnuPGHomeDir string, op
 	if azureToken != nil {
 		serverOpts = append(serverOpts, intkeyservice.WithAzureToken{Token: azkv.NewTokenCredential(azureToken)})
 	}
-	serverOpts = append(serverOpts, intkeyservice.WithAWSKeys{CredsProvider: awsCredsProvider})
+	serverOpts = append(serverOpts, intkeyservice.WithAWSKeys{CredsProvider: kms.NewCredentialsProvider(awsCredsProvider)})
 	server := intkeyservice.NewServer(serverOpts...)
 
 	return keyservice.NewCustomLocalClient(server), nil
