@@ -638,7 +638,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 
 	_, stderr := p.KluctlMust(t, args...)
 	assert.Contains(t, stderr, "helm1: Chart test-chart1 (old version 0.1.0) has new version 0.2.0 available")
-	assert.Contains(t, stderr, "helm2: Chart test-chart2-0.1.0 has new version 0.3.0 available")
+	assert.Contains(t, stderr, "helm2: Chart test-chart2 (old version 0.1.0) has new version 0.3.0 available")
 	assert.Contains(t, stderr, "helm3: Skipped update to version 0.2.0")
 
 	if upgrade {
@@ -749,9 +749,9 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 	args := []string{"helm-update", "--upgrade"}
 
 	_, stderr := p.KluctlMust(t, args...)
-	assert.Contains(t, stderr, "helm1: Chart test-chart1-0.1.0 has new version 0.1.1 available")
-	assert.Contains(t, stderr, "helm2: Chart test-chart1-0.1.0 has new version 0.2.0 available")
-	assert.Contains(t, stderr, "helm3: Chart test-chart1-0.1.0 has new version 1.2.1 available")
+	assert.Contains(t, stderr, "helm1: Chart test-chart1 (old version 0.1.0) has new version 0.1.1 available")
+	assert.Contains(t, stderr, "helm2: Chart test-chart1 (old version 0.1.0) has new version 0.2.0 available")
+	assert.Contains(t, stderr, "helm3: Chart test-chart1 (old version 0.1.0) has new version 1.2.1 available")
 
 	c1 := p.GetYaml("helm1/helm-chart.yaml")
 	c2 := p.GetYaml("helm2/helm-chart.yaml")
