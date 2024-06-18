@@ -20,7 +20,7 @@ Declares a resource to be a hook, which is deployed/executed as described in [ho
 annotation determines when the hook is deployed/executed.
 
 ### kluctl.io/hook-weight
-Specifies a weight for the hook, used to determine deployment/execution order.
+Specifies a weight for the hook, used to determine deployment/execution order. For resources with the same `kluctl.io/hook` annotation, hooks are executed in ascending order based on hook-weight.
 
 ### kluctl.io/hook-delete-policy
 Defines when to delete the hook resource.
