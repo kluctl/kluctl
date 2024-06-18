@@ -41,7 +41,7 @@ Controller, which then allows you to use `KluctlDeployment` custom resources to 
 Kluctl also offers a [Webui](https://kluctl.io/docs/webui/) that allows you to visualise and control your Kluctl
 deployments. It works for deployments performed by the CLI and for deployments performed via GitOps.
 
-[Here](https://medium.com/kluctl/introducing-the-kluctl-webui-bcd3ea4b264d) is an introduction to the Webui together
+[Here](https://kluctl.io/blog/2023/09/12/introducing-the-kluctl-webui/) is an introduction to the Webui together
 with a tutorial.
 
 ## Where do I start?
