@@ -51,6 +51,23 @@ For an example of an OIDC provider configurations, see [Azure AD Integration](./
 
 ## Customization
 
+### Serving under a different path
+
+By default, the webui is served under the `/`path. To change the path, pass the `--prefix-path` argument to the webui:
+
+```yaml
+deployments:
+  - git:
+      url: https://github.com/kluctl/kluctl.git
+      subDir: install/webui
+      ref:
+        tag: v2.24.1
+    vars:
+      - values:
+          webui_args:
+            - --path-prefix=/my-custom-prefix
+```
+
 ### Overriding the version
 
 The image version of the Webui can be overriden with the `kluctl_version` arg:
