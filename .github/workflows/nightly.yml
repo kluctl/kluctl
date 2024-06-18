@@ -58,7 +58,7 @@ jobs:
         run: |
           cat .goreleaser.yaml | sed 's/draft: true/draft: false/g' > .goreleaser.yaml.tmp && mv .goreleaser.yaml.tmp .goreleaser.yaml
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
           version: latest
