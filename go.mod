@@ -38,7 +38,7 @@ require (
 	github.com/google/go-containerregistry v0.19.2
 	github.com/google/gops v0.3.28
 	github.com/google/uuid v1.6.0
-	github.com/googleapis/gax-go/v2 v2.12.4
+	github.com/googleapis/gax-go/v2 v2.12.5
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/vault/api v1.14.0
 	github.com/hexops/gotextdiff v1.0.3
