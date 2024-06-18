@@ -4,7 +4,6 @@ import (
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sort"
@@ -35,14 +34,9 @@ func TestDiffName(t *testing.T) {
 	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-1", "-a", "v=a")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-1")
 
-	resultStr, _ := p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-2", "-a", "v=b", "-oyaml")
+	r, _ := p.KluctlMustCommandResult(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-2", "-a", "v=b", "-oyaml")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-2")
 
-	var cr result.CompactedCommandResult
-	err := yaml.ReadYamlString(resultStr, &cr)
-	assert.NoError(t, err)
-
-	r := cr.ToNonCompacted()
 	sort.Slice(r.Objects, func(i, j int) bool {
 		return r.Objects[i].Ref.String() < r.Objects[j].Ref.String()
 	})
@@ -59,12 +53,8 @@ func TestDiffName(t *testing.T) {
 		Orphan: true,
 	}, r.Objects[1].BaseObject)
 
-	resultStr, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-3", "-a", "v=c", "-oyaml")
+	r, _ = p.KluctlMustCommandResult(t, "deploy", "--yes", "-t", "test", "-a", "cm_name=cm-3", "-a", "v=c", "-oyaml")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-2")
-	err = yaml.ReadYamlString(resultStr, &cr)
-	assert.NoError(t, err)
-
-	r = cr.ToNonCompacted()
 	sort.Slice(r.Objects, func(i, j int) bool {
 		return r.Objects[i].Ref.String() < r.Objects[j].Ref.String()
 	})

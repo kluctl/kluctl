@@ -8,6 +8,7 @@ import (
 	"github.com/jinzhu/copier"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
@@ -564,4 +565,27 @@ func (p *TestProject) KluctlMust(t *testing.T, argsIn ...string) (string, string
 		t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr
+}
+
+func (p *TestProject) KluctlCommandResult(t *testing.T, argsIn ...string) (*result.CommandResult, string, error) {
+	stdout, stderr, err := p.Kluctl(t, argsIn...)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var ret result.CompactedCommandResult
+	err = yaml.ReadYamlString(stdout, &ret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return ret.ToNonCompacted(), stderr, nil
+}
+
+func (p *TestProject) KluctlMustCommandResult(t *testing.T, argsIn ...string) (*result.CommandResult, string) {
+	ret, stderr, err := p.KluctlCommandResult(t, argsIn...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ret, stderr
 }
