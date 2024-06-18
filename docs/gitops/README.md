@@ -13,7 +13,7 @@ weight: 20
 GitOps in Kluctl is implemented through the Kluctl Controller, which must be [installed](./installation.md)
 to your target cluster.
 
-The Kluctl Controller is a Kubernetes operator which implements the [`KluctlDeployment`](spec/v1beta1/kluctldeployment.md#kluctldeployment)
+The Kluctl Controller is a Kubernetes operator which implements the [`KluctlDeployment`](./spec/v1beta1/kluctldeployment.md#kluctldeployment)
 custom resource. This resource allows to define a Kluctl deployment that should be constantly reconciled (re-deployed)
 whenever the deployment changes.
 
@@ -31,7 +31,7 @@ functionality and options as offered by the CLI, but through a custom resource i
 
 As an example, arguments passed via `-a arg=value` can be passed to the custom resource via the `spec.args` field.
 The same applies to options like `--dry-run`, which equals to `spec.dryRun: true` in the custom resource. Check the
-documentation of [`KluctlDeployment`](spec/v1beta1/kluctldeployment.md#spec-fields) for more such options.
+documentation of [`KluctlDeployment`](./spec/v1beta1/kluctldeployment.md#spec-fields) for more such options.
 
 ## GitOps Commands
 
@@ -60,20 +60,20 @@ The reconciliation process consists of multiple steps which are constantly repea
 - **validate** the deployment status via [kluctl validate](../kluctl/commands/validate.md)
 - **drift-detection** is performed to allow the [Kluctl Webui](../webui/README.md) to show drift.
 
-Reconciliation is performed on a configurable [interval](spec/v1beta1/kluctldeployment.md#interval). A single
+Reconciliation is performed on a configurable [interval](./spec/v1beta1/kluctldeployment.md#interval). A single
 reconciliation iteration will first clone and prepare the project. Only when the rendered resources indicate a change
 (by using a hash internally), the controller will initiate a deployment. After the deployment, the controller will
-also perform pruning (only if [prune: true](spec/v1beta1/kluctldeployment.md#prune) is set).
+also perform pruning (only if [prune: true](./spec/v1beta1/kluctldeployment.md#prune) is set).
 
 When the `KluctlDeployment` is removed from the cluster, the controller cal also delete all resources belonging to
-that deployment. This will only happen if [delete: true](spec/v1beta1/kluctldeployment.md#delete) is set.
+that deployment. This will only happen if [delete: true](./spec/v1beta1/kluctldeployment.md#delete) is set.
 
 Deletion and pruning is based on the [discriminator](../kluctl/kluctl-project/README.md#discriminator) of the given target.
 
-A `KluctlDeployment` can be [suspended](spec/v1beta1/kluctldeployment.md#suspend). While suspended, the controller
+A `KluctlDeployment` can be [suspended](./spec/v1beta1/kluctldeployment.md#suspend). While suspended, the controller
 will skip reconciliation, including deletion and pruning.
 
-The API design of the controller can be found at [kluctldeployment.gitops.kluctl.io/v1beta1](spec/v1beta1/README.md).
+The API design of the controller can be found at [kluctldeployment.gitops.kluctl.io/v1beta1](./spec/v1beta1/README.md).
 
 ## Example
 

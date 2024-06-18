@@ -95,7 +95,7 @@ vars:
 
 After which all included deployments and sub-deployments can use the jinja2 variables from `vars1.yaml`.
 
-Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
+Kluctl also supports variable files encrypted with [SOPS](https://github.com/getsops/sops). See the
 [sops integration](../deployments/sops.md) integration for more details.
 
 ### values
@@ -156,7 +156,7 @@ vars:
 
 The ref field has the same format at found in [Git includes](../deployments/deployment-yml.md#git-includes)
 
-Kluctl also supports variable files encrypted with [SOPS](https://github.com/mozilla/sops). See the
+Kluctl also supports variable files encrypted with [SOPS](https://github.com/getsops/sops). See the
 [sops integration](../deployments/sops.md) integration for more details.
 
 ### gitFiles
