@@ -33,6 +33,9 @@ Misc arguments:
       --in-cluster-context string     The context to use fo in-cluster functionality.
       --kubeconfig existingfile       Overrides the kubeconfig to use.
       --only-api                      Only serve API without the actual UI.
+      --path-prefix string            Specify the prefix of the path to serve the webui on. This is required when
+                                      using a reverse proxy, ingress or gateway that serves the webui on another
+                                      path than /. (default "/")
       --port int                      Port to bind to. (default 8080)
 
 ```

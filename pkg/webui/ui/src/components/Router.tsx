@@ -7,6 +7,7 @@ import { TargetsView } from "./target-view/TargetsView";
 import { CommandResultSummary } from "../models";
 import { buildTargetPath, ProjectSummary, TargetSummary } from "../project-summaries";
 import { Loading } from "./Loading";
+import { rootPath } from "../api";
 
 function ErrorPage() {
     const error = useRouteError() as any;
@@ -109,14 +110,14 @@ function RedirectToTarget(props: {}) {
     useEffect(() => {
         if (timedout) {
             console.log("timed out waiting for results/projects")
-            window.location.replace("/#/targets")
+            window.location.replace(rootPath + "/#/targets")
             return
         }
         if (!redirectPath) {
             return
         }
 
-        window.location.replace("/#" + redirectPath)
+        window.location.replace(rootPath + "/#" + redirectPath)
     }, [redirectPath, timedout]);
 
     return <Loading/>

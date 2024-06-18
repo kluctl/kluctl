@@ -47,7 +47,8 @@ type CommandResultsServer struct {
 	auth   *authHandler
 	events *eventsHandler
 
-	onlyApi bool
+	pathPrefix string
+	onlyApi    bool
 }
 
 func NewCommandResultsServer(
@@ -58,6 +59,7 @@ func NewCommandResultsServer(
 	serverConfig *rest.Config,
 	serverClient client.Client,
 	authConfig AuthConfig,
+	pathPrefix string,
 	onlyApi bool) (*CommandResultsServer, error) {
 
 	ret := &CommandResultsServer{
@@ -67,6 +69,7 @@ func NewCommandResultsServer(
 			ctx: ctx,
 		},
 		serverClient: serverClient,
+		pathPrefix:   pathPrefix,
 		onlyApi:      onlyApi,
 	}
 
@@ -104,11 +107,20 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router := gin.New()
-	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+	engine := gin.New()
+	engine.Use(gin.LoggerWithConfig(gin.LoggerConfig{
 		SkipPaths: []string{"/healthz", "/readyz"},
 	}))
-	router.Use(gin.Recovery())
+	engine.Use(gin.Recovery())
+
+	engine.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	engine.GET("/readyz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	router := engine.Group(s.pathPrefix)
 
 	err = s.auth.setupRoutes(router)
 	if err != nil {
@@ -121,13 +133,6 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 			return err
 		}
 	}
-
-	router.GET("/healthz", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
-	router.GET("/readyz", func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
 
 	api := router.Group("/api", s.auth.authHandler)
 	api.GET("/getShortNames", s.getShortNames)
@@ -160,7 +165,7 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 		BaseContext: func(listener net.Listener) context.Context {
 			return s.ctx
 		},
-		Handler: router.Handler(),
+		Handler: engine.Handler(),
 	}
 
 	if host != "" {

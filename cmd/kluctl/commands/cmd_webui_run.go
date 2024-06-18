@@ -14,8 +14,9 @@ import (
 )
 
 type webuiRunCmd struct {
-	Host string `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to 'localhost' when run locally and to all hosts when run in-cluster."`
-	Port int    `group:"misc" help:"Port to bind to." default:"8080"`
+	Host       string `group:"misc" help:"Host to bind to. Pass an empty string to bind to all addresses. Defaults to 'localhost' when run locally and to all hosts when run in-cluster."`
+	Port       int    `group:"misc" help:"Port to bind to." default:"8080"`
+	PathPrefix string `group:"misc" help:"Specify the prefix of the path to serve the webui on. This is required when using a reverse proxy, ingress or gateway that serves the webui on another path than /." default:"/"`
 
 	Kubeconfig  args.ExistingFileType `group:"misc" help:"Overrides the kubeconfig to use."`
 	Context     []string              `group:"misc" help:"List of kubernetes contexts to use."`
@@ -154,7 +155,7 @@ func (cmd *webuiRunCmd) Run(ctx context.Context) error {
 	collector := results.NewResultsCollector(ctx, stores)
 	collector.Start()
 
-	server, err := webui.NewCommandResultsServer(ctx, collector, configs, cmd.ControllerNamespace, inClusterConfig, inClusterClient, authConfig, cmd.OnlyApi)
+	server, err := webui.NewCommandResultsServer(ctx, collector, configs, cmd.ControllerNamespace, inClusterConfig, inClusterClient, authConfig, cmd.PathPrefix, cmd.OnlyApi)
 	if err != nil {
 		return err
 	}
