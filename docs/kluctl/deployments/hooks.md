@@ -54,4 +54,4 @@ It is possible to disable waiting for hook readiness by setting the annotation `
 
 ## Hook Annotations
 
-More control over hook behavior can be configured using additional annotations as describe in [annotations/hooks](./annotations/hooks.md)
+More control over hook behavior can be configured using additional annotations as described in [annotations/hooks](./annotations/hooks.md)
