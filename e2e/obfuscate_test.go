@@ -24,15 +24,15 @@ func TestObfuscateSecrets(t *testing.T) {
 	}, resourceOpts{
 		name:      "secret",
 		namespace: p.TestSlug(),
-	}, false)
+	})
 	addSecretDeployment(p, "secret2", nil, resourceOpts{
 		name:      "secret2",
 		namespace: p.TestSlug(),
-	}, false)
+	})
 	addSecretDeployment(p, "secret3", nil, resourceOpts{
 		name:      "secret3",
 		namespace: p.TestSlug(),
-	}, false)
+	})
 
 	stdout, _ := p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertSecretExists(t, k, p.TestSlug(), "secret")

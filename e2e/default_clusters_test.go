@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/imdario/mergo"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/e2e/test_resources"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -33,7 +32,6 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		test_resources.ApplyYaml(nil, "sealed-secrets.yaml", defaultCluster1)
 	}()
 	go func() {
 		defer wg.Done()
@@ -44,7 +42,6 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
-		test_resources.ApplyYaml(nil, "sealed-secrets.yaml", defaultCluster2)
 	}()
 	go func() {
 		defer wg.Done()

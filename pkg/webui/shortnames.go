@@ -47,7 +47,6 @@ elasticsearchautoscalers                  esa                 autoscaling.k8s.el
 cronjobs                                  cj                  batch/v1                                    true         CronJob
 jobs                                                          batch/v1                                    true         Job
 beats                                     beat                beat.k8s.elastic.co/v1beta1                 true         Beat
-sealedsecrets                                                 bitnami.com/v1alpha1                        true         SealedSecret
 certificaterequests                       cr,crs              cert-manager.io/v1                          true         CertificateRequest
 certificates                              cert,certs          cert-manager.io/v1                          true         Certificate
 clusterissuers                                                cert-manager.io/v1                          false        ClusterIssuer

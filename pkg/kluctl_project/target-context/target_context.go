@@ -38,7 +38,6 @@ type TargetContextParams struct {
 	OfflineK8s         bool
 	K8sVersion         string
 	DryRun             bool
-	ForSeal            bool
 	Images             *deployment.Images
 	Inclusion          *utils.Inclusion
 	HelmAuthProvider   auth.HelmAuthProvider
@@ -94,7 +93,7 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 		}
 	}
 
-	varsCtx, err := p.BuildVars(target, params.ForSeal)
+	varsCtx, err := p.BuildVars(target)
 	if err != nil {
 		return nil, err
 	}
@@ -114,19 +113,17 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 	varsLoader := vars.NewVarsLoader(ctx, k, sopsDecryptor, p.GitRP, aws.NewClientFactory(client, target.Aws), gcp.NewClientFactory())
 
 	dctx := deployment.SharedContext{
-		Ctx:                               ctx,
-		K:                                 k,
-		K8sVersion:                        params.K8sVersion,
-		GitRP:                             p.GitRP,
-		OciRP:                             p.OciRP,
-		SopsDecrypter:                     sopsDecryptor,
-		VarsLoader:                        varsLoader,
-		HelmAuthProvider:                  params.HelmAuthProvider,
-		OciAuthProvider:                   params.OciAuthProvider,
-		Discriminator:                     target.Discriminator,
-		RenderDir:                         params.RenderOutputDir,
-		SealedSecretsDir:                  p.SealedSecretsDir,
-		DefaultSealedSecretsOutputPattern: target.Name,
+		Ctx:              ctx,
+		K:                k,
+		K8sVersion:       params.K8sVersion,
+		GitRP:            p.GitRP,
+		OciRP:            p.OciRP,
+		SopsDecrypter:    sopsDecryptor,
+		VarsLoader:       varsLoader,
+		HelmAuthProvider: params.HelmAuthProvider,
+		OciAuthProvider:  params.OciAuthProvider,
+		Discriminator:    target.Discriminator,
+		RenderDir:        params.RenderOutputDir,
 	}
 
 	targetCtx := &TargetContext{
@@ -137,49 +134,17 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 		ClusterContext: contextName,
 	}
 
-	if params.ForSeal {
-		err = targetCtx.loadSecrets(ctx, target, varsCtx, varsLoader)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	d, err := deployment.NewDeploymentProject(dctx, varsCtx, deployment.NewSource(repoRoot), relProjectDir, nil)
 	if err != nil {
 		return targetCtx, err
 	}
 	targetCtx.DeploymentProject = d
 
-	c, err := deployment.NewDeploymentCollection(dctx, d, params.Images, params.Inclusion, params.ForSeal)
+	c, err := deployment.NewDeploymentCollection(dctx, d, params.Images, params.Inclusion)
 	if err != nil {
 		return targetCtx, err
 	}
 	targetCtx.DeploymentCollection = c
 
 	return targetCtx, nil
-}
-
-func (tc *TargetContext) findSecretsEntry(name string) (*types.SecretSet, error) {
-	for _, e := range tc.KluctlProject.Config.SecretsConfig.SecretSets {
-		if e.Name == name {
-			return &e, nil
-		}
-	}
-	return nil, fmt.Errorf("secret Set with name %s was not found", name)
-}
-
-func (tc *TargetContext) loadSecrets(ctx context.Context, target *types.Target, varsCtx *vars.VarsCtx, varsLoader *vars.VarsLoader) error {
-	searchDirs := []string{tc.KluctlProject.LoadArgs.ProjectDir}
-
-	for _, secretSetName := range target.SealingConfig.SecretSets {
-		secretEntry, err := tc.findSecretsEntry(secretSetName)
-		if err != nil {
-			return err
-		}
-		err = varsLoader.LoadVarsList(ctx, varsCtx, secretEntry.Vars, searchDirs, "secrets")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 )
 
-func (p *LoadedKluctlProject) BuildVars(target *types.Target, forSeal bool) (*vars.VarsCtx, error) {
+func (p *LoadedKluctlProject) BuildVars(target *types.Target) (*vars.VarsCtx, error) {
 	varsCtx := vars.NewVarsCtx(p.J2)
 
 	targetVars, err := uo.FromStruct(target)
@@ -17,15 +17,8 @@ func (p *LoadedKluctlProject) BuildVars(target *types.Target, forSeal bool) (*va
 
 	allArgs := uo.New()
 
-	if target != nil {
-		if target.Args != nil {
-			allArgs.Merge(target.Args)
-		}
-		if forSeal {
-			if target.SealingConfig.Args != nil {
-				allArgs.Merge(target.SealingConfig.Args)
-			}
-		}
+	if target != nil && target.Args != nil {
+		allArgs.Merge(target.Args)
 	}
 	if p.LoadArgs.ExternalArgs != nil {
 		allArgs.Merge(p.LoadArgs.ExternalArgs)

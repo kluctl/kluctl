@@ -133,7 +133,6 @@ type projectTargetCommandArgs struct {
 	discriminator string
 
 	internalDeploy    bool
-	forSeal           bool
 	forCompletion     bool
 	offlineKubernetes bool
 	kubernetesVersion string
@@ -194,7 +193,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		OfflineK8s:         args.offlineKubernetes,
 		K8sVersion:         args.kubernetesVersion,
 		DryRun:             args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
-		ForSeal:            args.forSeal,
 		Images:             images,
 		Inclusion:          inclusion,
 		OciAuthProvider:    p.LoadArgs.OciAuthProvider,
@@ -239,7 +237,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		return err
 	}
 
-	if !args.forSeal && !args.forCompletion {
+	if !args.forCompletion {
 		err = targetCtx.DeploymentCollection.Prepare()
 		if err != nil {
 			return err
