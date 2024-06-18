@@ -175,7 +175,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			continue
 		}
 
-		status.Infof(ctx, "%s: Chart %s-%s has new version %s available", relDir, hr.Chart.GetChartName(), hr.Config.HelmChartConfig2.ChartVersion, latestVersion)
+		status.Infof(ctx, "%s: Chart %s (old version %s) has new version %s available", relDir, hr.Chart.GetChartName(), hr.Config.HelmChartConfig2.ChartVersion, latestVersion)
 
 		if !cmd.Upgrade {
 			continue
