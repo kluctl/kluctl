@@ -37,6 +37,7 @@ type KluctlDeploymentReconciler struct {
 	ControllerName        string
 	ControllerNamespace   string
 	DefaultServiceAccount string
+	UseSystemPython       bool
 	DryRun                bool
 
 	SshPool *ssh_pool.SshPool

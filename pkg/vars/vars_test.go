@@ -10,7 +10,7 @@ import (
 )
 
 func newJinja2Must(t *testing.T) *jinja2.Jinja2 {
-	j2, err := kluctl_jinja2.NewKluctlJinja2(context.Background(), true)
+	j2, err := kluctl_jinja2.NewKluctlJinja2(context.Background(), true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

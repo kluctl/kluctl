@@ -55,6 +55,8 @@ type GlobalFlags struct {
 	CpuProfile    string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
 	GopsAgent     bool   `group:"global" help:"Start gops agent in the background"`
 	GopsAgentAddr string `group:"global" help:"Specify the address:port to use for the gops agent" default:"127.0.0.1:0"`
+
+	UseSystemPython bool `group:"global" help:"Use the system Python instead of the embedded Python."`
 }
 
 type cli struct {

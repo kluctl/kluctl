@@ -31,7 +31,9 @@ import (
 )
 
 func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.KubeconfigFlags, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	j2, err := kluctl_jinja2.NewKluctlJinja2(ctx, strictTemplates)
+	globalFlags := getCobraGlobalFlags(ctx)
+
+	j2, err := kluctl_jinja2.NewKluctlJinja2(ctx, strictTemplates, globalFlags.UseSystemPython)
 	if err != nil {
 		return err
 	}

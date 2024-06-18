@@ -77,6 +77,8 @@ func (cmd *controllerRunCmd) initScheme() {
 func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	cmd.initScheme()
 
+	globalFlags := getCobraGlobalFlags(ctx)
+
 	metricsRecorder := metrics.NewRecorder()
 	if cmd.MetricsBindAddress != "0" {
 		metricsRecorder = metrics.NewRecorder()
@@ -176,6 +178,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		ControllerNamespace:   cmd.ControllerNamespace,
 		DefaultServiceAccount: cmd.DefaultServiceAccount,
 		DryRun:                cmd.DryRun,
+		UseSystemPython:       globalFlags.UseSystemPython,
 		RestConfig:            restConfig,
 		ApiReader:             mgr.GetAPIReader(),
 		Client:                mgr.GetClient(),
