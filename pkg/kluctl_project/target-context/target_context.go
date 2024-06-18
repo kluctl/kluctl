@@ -56,7 +56,6 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 	}
 
 	var target *types.Target
-	needRender := false
 	if params.TargetName != "" {
 		t, err := p.FindTarget(params.TargetName)
 		if err != nil {
@@ -67,31 +66,21 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 		if len(p.Targets) != 0 {
 			status.Deprecation(ctx, "no-target", "Warning, tried to use Kluctl without explicitly specifying a target, while the Kluctl project contains target definitions. This was allowed in older version of Kluctl, but is forbidden since v2.23.0. If mixing deployments with and without targets was actually intended, please switch to creating and using a dedicated target that serves as a replacement for no-target deployments.")
 			return nil, fmt.Errorf("a target must be explicitly selected when targets are defined in the Kluctl project")
+		} else if p.NoNameTarget == nil {
+			return nil, fmt.Errorf("missing no-name target, which is unexpected")
 		}
-		target = &types.Target{
-			Discriminator: p.Config.Discriminator,
-		}
-		needRender = true
+		target = &*p.NoNameTarget
 	}
 	if params.TargetNameOverride != "" {
 		target.Name = params.TargetNameOverride
 	}
 	if params.Discriminator != "" {
 		target.Discriminator = params.Discriminator
-		needRender = true
 	}
 
 	params.Images.PrependFixedImages(target.Images)
 
 	target.Context = &contextName
-
-	if needRender {
-		// we must render the target after handling overrides
-		err = p.RenderTarget(target)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	varsCtx, err := p.BuildVars(target)
 	if err != nil {
