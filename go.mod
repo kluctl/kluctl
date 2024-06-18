@@ -53,7 +53,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/ohler55/ojg v1.22.0
-	github.com/onsi/gomega v1.32.0
+	github.com/onsi/gomega v1.33.1
 	github.com/otiai10/copy v1.14.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
@@ -183,7 +183,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20230821062121-407c9e7a662f // indirect
+	github.com/google/pprof v0.0.0-20240424215950-a892ee059fd6 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
@@ -299,9 +299,9 @@ require (
 	k8s.io/apiserver v0.30.2 // indirect
 	k8s.io/cli-runtime v0.30.2 // indirect
 	k8s.io/component-base v0.30.2 // indirect
-	k8s.io/kube-openapi v0.0.0-20240403164606-bc84c2ddaf99 // indirect
+	k8s.io/kube-openapi v0.0.0-20240521193020-835d969ad83a // indirect
 	k8s.io/kubectl v0.30.2 // indirect
-	k8s.io/utils v0.0.0-20240310230437-4693a0247e57 // indirect
+	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 // indirect
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
