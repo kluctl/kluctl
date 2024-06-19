@@ -46,6 +46,35 @@ data:
 
 `digest_len` is an optional parameter that allows to limit the length of the returned hex digest.
 
+### load_base64(file, width)
+Loads the given file into memory and returns the base64 representation of the binary data.
+The width parameter is optional and causes `load_base64` to wrap the base64 string into a multiline string.
+
+The filename given to `load_base64` is treated the same as in `load_template`.
+
+This function is useful if you need to include binary data in your deployment. For example:
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+data:
+  binarySecret: "{{ load_base64("secret.bin") }}"
+```
+
+To use wrapped base64, use:
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-secret
+data:
+  binarySecret: |
+    "{{ load_base64("large-secret.bin") | indent(4) }}"
+```
+
 ### get_var(field_path, default)
 Convenience method to navigate through the current context variables via a
 [JSON Path](https://goessner.net/articles/JsonPath/). Let's assume you currently have these variables defined
