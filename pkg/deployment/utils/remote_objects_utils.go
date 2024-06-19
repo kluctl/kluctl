@@ -80,11 +80,9 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 		}
 		g.Run(func() {
 			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
-			u.dew.AddApiWarnings(k8s2.ObjectRef{
-				Group:   gvk.Group,
-				Version: gvk.Version,
-				Kind:    gvk.Kind,
-			}, apiWarnings)
+			for _, w := range apiWarnings {
+				status.Tracef(u.ctx, "API warning while getting %s by discriminator: code=%d, agent=%s, text=%s", gvk.String(), w.Code, w.Agent, w.Text)
+			}
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {
