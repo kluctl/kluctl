@@ -128,12 +128,14 @@ func (k *K8sCluster) doList(l client.ObjectList, namespace string, labels map[st
 }
 func (k *K8sCluster) ListObjects(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	var l unstructured.UnstructuredList
+	gvk.Kind += "List"
 	l.SetGroupVersionKind(gvk)
 	return k.doList(&l, namespace, labels)
 }
 
 func (k *K8sCluster) ListMetadata(gvk schema.GroupVersionKind, namespace string, labels map[string]string) ([]*uo.UnstructuredObject, []ApiWarning, error) {
 	var l v1.PartialObjectMetadataList
+	gvk.Kind += "List"
 	l.SetGroupVersionKind(gvk)
 	return k.doList(&l, namespace, labels)
 }
