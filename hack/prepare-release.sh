@@ -38,7 +38,12 @@ FILES="$FILES docs/webui/oidc-azure-ad.md"
 for f in $FILES; do
   cat $f | sed "s/$VERSION_REGEX_SED/$VERSION/g" > $f.tmp
   mv $f.tmp $f
+done
 
+(cd internal && go run ./generate-install)
+FILES="$FILES install/controller/files.json"
+
+for f in $FILES; do
   git add $f
 done
 
