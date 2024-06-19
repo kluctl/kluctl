@@ -78,6 +78,8 @@ func TestNormalizeMisc(t *testing.T) {
 	testCases := []testCase{
 		{remote: buildObject(`{"spec": {"template": {"metadata": {"labels": {"controller-uid": "test", "good": "keep"}}}}, "selector": {"controller-uid": "test", "good": "keep"}}`), local: buildObject(), result: buildResultObject(`{"metadata":{"annotations":{},"labels":{}},"selector":{"controller-uid":"test","good":"keep"},"spec":{"template":{"metadata":{"labels":{"good":"keep"}}}}}`)},
 		{remote: buildObject(`{"status": {"test": "test"}}`), local: buildObject(), result: buildResultObject()},
+		{remote: buildObject(`{"spec": {"template": {"metadata": {"labels": {"batch.kubernetes.io/controller-uid": "test", "good": "keep"}}}}, "selector": {"batch.kubernetes.io/controller-uid": "test", "good": "keep"}}`), local: buildObject(), result: buildResultObject(`{"metadata":{"annotations":{},"labels":{}},"selector":{"batch.kubernetes.io/controller-uid":"test","good":"keep"},"spec":{"template":{"metadata":{"labels":{"good":"keep"}}}}}`)},
+		{remote: buildObject(`{"status": {"test": "test"}}`), local: buildObject(), result: buildResultObject()},
 	}
 	runTests(t, testCases)
 }

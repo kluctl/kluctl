@@ -109,9 +109,13 @@ func normalizeMetadata(o *uo.UnstructuredObject) {
 }
 
 func normalizeMisc(o *uo.UnstructuredObject) {
-	// These are random values found in Jobs
+	// See https://kubernetes.io/docs/reference/labels-annotations-taints/#controller-uid
 	_ = o.RemoveNestedField("spec", "template", "metadata", "labels", "controller-uid")
 	_ = o.RemoveNestedField("spec", "selector", "matchLabels", "controller-uid")
+
+	// See https://kubernetes.io/docs/reference/labels-annotations-taints/#batchkubernetesio-controller-uid
+	_ = o.RemoveNestedField("spec", "template", "metadata", "labels", "batch.kubernetes.io/controller-uid")
+	_ = o.RemoveNestedField("spec", "selector", "matchLabels", "batch.kubernetes.io/controller-uid")
 
 	_ = o.RemoveNestedField("status")
 }
