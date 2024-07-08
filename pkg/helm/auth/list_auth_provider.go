@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 	"github.com/gobwas/glob"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/repo"
 	"net/url"

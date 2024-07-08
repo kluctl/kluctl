@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +30,8 @@ import (
 const webuiManager = "kluctl-webui"
 
 type ProjectTargetKey struct {
-	Project result.ProjectKey `json:"project"`
-	Target  result.TargetKey  `json:"target"`
+	Project gittypes.ProjectKey `json:"project"`
+	Target  result.TargetKey    `json:"target"`
 }
 
 type CommandResultsServer struct {

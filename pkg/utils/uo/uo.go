@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jinzhu/copier"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 )

@@ -3,9 +3,8 @@ package e2e
 import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
-	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	copy2 "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -50,7 +49,7 @@ func TestNGitNoRepo(t *testing.T) {
 
 	// no repo at all
 	r, _ := p.KluctlMustCommandResult(t, "deploy", "--project-dir", tmp, "--yes", "-oyaml")
-	assert.Equal(t, result.GitInfo{}, r.GitInfo)
+	assert.Equal(t, gittypes.GitInfo{}, r.GitInfo)
 }
 
 func TestGitNoCommit(t *testing.T) {
@@ -62,7 +61,7 @@ func TestGitNoCommit(t *testing.T) {
 	_, err := git.PlainInit(tmp, false)
 	assert.NoError(t, err)
 	r, _ := p.KluctlMustCommandResult(t, "deploy", "--project-dir", tmp, "--yes", "-oyaml")
-	assert.Equal(t, result.GitInfo{
+	assert.Equal(t, gittypes.GitInfo{
 		Dirty: true,
 	}, r.GitInfo)
 }
@@ -94,8 +93,8 @@ func TestGitSingleCommit(t *testing.T) {
 	assert.NoError(t, err)
 
 	r, _ := p.KluctlMustCommandResult(t, "deploy", "--project-dir", tmp, "--yes", "-oyaml")
-	assert.Equal(t, result.GitInfo{
-		Ref: &types.GitRef{
+	assert.Equal(t, gittypes.GitInfo{
+		Ref: &gittypes.GitRef{
 			Branch: "master",
 		},
 		Commit: c.String(),
@@ -109,9 +108,9 @@ func TestGitSingleCommit(t *testing.T) {
 	assert.NoError(t, err)
 
 	r, _ = p.KluctlMustCommandResult(t, "deploy", "--project-dir", tmp, "--yes", "-oyaml")
-	assert.Equal(t, result.GitInfo{
-		Url: types.ParseGitUrlMust("https://example.com"),
-		Ref: &types.GitRef{
+	assert.Equal(t, gittypes.GitInfo{
+		Url: gittypes.ParseGitUrlMust("https://example.com"),
+		Ref: &gittypes.GitRef{
 			Branch: "master",
 		},
 		Commit: c.String(),

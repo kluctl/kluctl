@@ -2,9 +2,9 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
+	yaml2 "github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type DeploymentItemConfig struct {
@@ -102,14 +102,14 @@ type SingleStringOrList []string
 
 func (s *SingleStringOrList) UnmarshalJSON(b []byte) error {
 	var single string
-	if err := yaml.ReadYamlBytes(b, &single); err == nil {
+	if err := yaml2.ReadYamlBytes(b, &single); err == nil {
 		// it's a single project
 		*s = []string{single}
 		return nil
 	}
 	// try as array
 	var arr []string
-	if err := yaml.ReadYamlBytes(b, &arr); err != nil {
+	if err := yaml2.ReadYamlBytes(b, &arr); err != nil {
 		return err
 	}
 	*s = arr
@@ -174,9 +174,9 @@ type DeploymentProjectConfig struct {
 }
 
 func init() {
-	yaml.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
-	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
-	yaml.Validator.RegisterStructValidation(ValidateWaitReadinessObjectItemConfig, WaitReadinessObjectItemConfig{})
-	yaml.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
-	yaml.Validator.RegisterStructValidation(ValidateConflictResolutionConfig, ConflictResolutionConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateWaitReadinessObjectItemConfig, WaitReadinessObjectItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateConflictResolutionConfig, ConflictResolutionConfig{})
 }

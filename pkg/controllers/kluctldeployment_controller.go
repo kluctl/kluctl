@@ -5,15 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-multierror"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	status2 "github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -67,7 +67,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	log := ctrl.LoggerFrom(ctx)
 
-	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(level status.Level, message string) {
+	ctx = status2.NewContext(ctx, status2.NewSimpleStatusHandler(func(level status2.Level, message string) {
 		log.Info(message)
 	}, false))
 

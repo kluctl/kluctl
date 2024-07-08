@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"context"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
@@ -53,8 +53,8 @@ func TestWriteResult(t *testing.T) {
 	assert.NoError(t, err)
 
 	opts := results.ListResultSummariesOptions{
-		ProjectFilter: &result.ProjectKey{
-			RepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
+		ProjectFilter: &gittypes.ProjectKey{
+			RepoKey: gittypes.ParseGitUrlMust(p.GitUrl()).RepoKey(),
 		},
 	}
 

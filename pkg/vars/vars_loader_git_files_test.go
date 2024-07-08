@@ -5,13 +5,14 @@ import (
 	"github.com/getsops/sops/v3/age"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	"strings"
@@ -205,7 +206,7 @@ test1:
 
 	// master branch, single file
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
@@ -221,7 +222,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "master",
 				},
 				Files: []types.GitFileMatch{
@@ -238,7 +239,7 @@ test1:
 
 	// master branch, multiple files
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
@@ -254,7 +255,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "master",
 				},
 				Files: []types.GitFileMatch{
@@ -277,7 +278,7 @@ test1:
 
 	// master branch, multiple files in subdirs
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
@@ -293,7 +294,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "master",
 				},
 				Files: []types.GitFileMatch{
@@ -316,11 +317,11 @@ test1:
 
 	// b1+b2 branches, no files
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "b.*",
 				},
 			},
@@ -330,13 +331,13 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b1",
 				},
 				Files: []types.GitFileMatch{},
 			},
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b2",
 				},
 				Files: []types.GitFileMatch{},
@@ -346,11 +347,11 @@ test1:
 
 	// b1 branch, multiple files
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "b1",
 				},
 				Files: []types.GitFile{
@@ -365,7 +366,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b1",
 				},
 				Files: []types.GitFileMatch{
@@ -388,11 +389,11 @@ test1:
 
 	// b1+b2 branch, single file
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "b.*",
 				},
 				Files: []types.GitFile{
@@ -407,7 +408,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b1",
 				},
 				Files: []types.GitFileMatch{
@@ -420,7 +421,7 @@ test1:
 				},
 			},
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b2",
 				},
 				Files: []types.GitFileMatch{
@@ -437,11 +438,11 @@ test1:
 
 	// b1+b2 branch, multiple files
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "b.*",
 				},
 				Files: []types.GitFile{
@@ -456,7 +457,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b1",
 				},
 				Files: []types.GitFileMatch{
@@ -475,7 +476,7 @@ test1:
 				},
 			},
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b2",
 				},
 				Files: []types.GitFileMatch{
@@ -498,11 +499,11 @@ test1:
 
 	// b1+b2+c1 branch but with multiple file patterns and parsed yaml
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "b.*",
 				},
 				Files: []types.GitFile{
@@ -521,7 +522,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b1",
 				},
 				Files: []types.GitFileMatch{
@@ -541,7 +542,7 @@ test1:
 				},
 			},
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "b2",
 				},
 				Files: []types.GitFileMatch{
@@ -565,11 +566,11 @@ test1:
 
 	// c1 branch multidoc.yaml
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "c1",
 				},
 				Files: []types.GitFile{
@@ -586,7 +587,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "c1",
 				},
 				Files: []types.GitFileMatch{
@@ -604,11 +605,11 @@ test1:
 
 	// c1 branch rendered.yaml
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "c1",
 				},
 				Files: []types.GitFile{
@@ -626,7 +627,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "c1",
 				},
 				Files: []types.GitFileMatch{
@@ -645,11 +646,11 @@ test1:
 
 	// c1 branch sops.yaml
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			GitFiles: &types.VarsSourceGitFiles{
 				Url: *url,
-				Ref: &types.GitRef{
+				Ref: &gittypes.GitRef{
 					Branch: "c1",
 				},
 				Files: []types.GitFile{
@@ -665,7 +666,7 @@ test1:
 
 		assertResults(vc, "my.target", []types.GitFilesRefMatch{
 			{
-				Ref: types.GitRef{
+				Ref: gittypes.GitRef{
 					Branch: "c1",
 				},
 				Files: []types.GitFileMatch{

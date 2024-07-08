@@ -2,6 +2,7 @@ package result
 
 import (
 	"fmt"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -14,7 +15,7 @@ type DriftedObject struct {
 type DriftDetectionResult struct {
 	Id                  string                `json:"id"`
 	ReconcileId         string                `json:"reconcileId"`
-	ProjectKey          ProjectKey            `json:"projectKey"`
+	ProjectKey          gittypes.ProjectKey   `json:"projectKey"`
 	TargetKey           TargetKey             `json:"targetKey"`
 	KluctlDeployment    *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
 	RenderedObjectsHash string                `json:"renderedObjectsHash,omitempty"`

@@ -5,11 +5,10 @@ import (
 	"container/list"
 	"context"
 	"github.com/gin-gonic/gin"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"net/http"
 	"nhooyr.io/websocket"
 	"sync"
@@ -243,9 +242,9 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		return
 	}
 
-	var filter *result.ProjectKey
+	var filter *types.ProjectKey
 	if args.FilterProject != "" {
-		filter = &result.ProjectKey{
+		filter = &types.ProjectKey{
 			RepoKey: repoKey,
 			SubDir:  args.FilterSubDir,
 		}
@@ -267,7 +266,7 @@ func (h *eventsHandler) handler(c *gin.Context) {
 	}
 }
 
-func (h *eventsHandler) wsHandle(c *websocket.Conn, filter *result.ProjectKey) error {
+func (h *eventsHandler) wsHandle(c *websocket.Conn, filter *types.ProjectKey) error {
 	ctx := c.CloseRead(h.server.ctx)
 
 	getNewEvents := func(seq int64) ([]string, int64) {

@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/git"
+	"github.com/kluctl/kluctl/lib/git/sourceignore"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,6 @@ import (
 
 	reg "github.com/google/go-containerregistry/pkg/name"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
-	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 )
 
 var excludeOCI = append(strings.Split(sourceignore.ExcludeVCS, ","), strings.Split(sourceignore.ExcludeExt, ",")...)

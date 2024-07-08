@@ -11,12 +11,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
-	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
-	_ "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
+	auth2 "github.com/kluctl/kluctl/lib/git/auth"
+	_ "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"os"
 	"path/filepath"
@@ -275,7 +274,7 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		// go-git does not respect the context deadline in some situations, especially after errors occur internally.
 		// This leads to hanging fetches, which can easily deadlock the whole kluctl process. The only way to handle
 		// this currently is to panic when the deadline is exceeded too much.
-		err = utils.RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
+		err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
 			return remote.FetchContext(g.ctx, &git.FetchOptions{
 				Auth:     auth.AuthMethod,
 				CABundle: auth.CABundle,

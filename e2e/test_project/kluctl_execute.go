@@ -3,8 +3,8 @@ package test_project
 import (
 	"bytes"
 	"context"
+	status2 "github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"strings"
 	"sync"
@@ -19,13 +19,13 @@ func KluctlExecute(t *testing.T, ctx context.Context, logFn func(args ...any), a
 	stdoutBuf := bytes.NewBuffer(nil)
 	stderrBuf := bytes.NewBuffer(nil)
 
-	stdout := status.NewLineRedirector(func(line string) {
+	stdout := status2.NewLineRedirector(func(line string) {
 		m.Lock()
 		defer m.Unlock()
 		logFn(line)
 		stdoutBuf.WriteString(line + "\n")
 	})
-	stderr := status.NewLineRedirector(func(line string) {
+	stderr := status2.NewLineRedirector(func(line string) {
 		m.Lock()
 		defer m.Unlock()
 		logFn(line)
@@ -39,7 +39,7 @@ func KluctlExecute(t *testing.T, ctx context.Context, logFn func(args ...any), a
 		ctx = utils.WithCacheDir(ctx, t.TempDir())
 	}
 	ctx = commands.WithStdStreams(ctx, stdout, stderr)
-	sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
+	sh := status2.NewSimpleStatusHandler(func(level status2.Level, message string) {
 		_, _ = stderr.Write([]byte(message + "\n"))
 	}, true)
 	defer func() {
@@ -47,7 +47,7 @@ func KluctlExecute(t *testing.T, ctx context.Context, logFn func(args ...any), a
 			sh.Stop()
 		}
 	}()
-	ctx = status.NewContext(ctx, sh)
+	ctx = status2.NewContext(ctx, sh)
 	err := commands.Execute(ctx, args, nil)
 	sh.Stop()
 	sh = nil

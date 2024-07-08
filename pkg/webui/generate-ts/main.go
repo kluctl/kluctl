@@ -1,6 +1,7 @@
 package main
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -23,9 +24,9 @@ func main() {
 		Add(uo.UnstructuredObject{}).
 		Add(webui.ProjectTargetKey{}).
 		Add(webui.AuthInfo{}).
-		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
-		ManageType(types.GitRef{}, typescriptify.TypeOptions{TSType: "GitRef", TSTransform: "new GitRef(__VALUE__)"}).
-		ManageType(types.RepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(gittypes.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(gittypes.GitRef{}, typescriptify.TypeOptions{TSType: "GitRef", TSTransform: "new GitRef(__VALUE__)"}).
+		ManageType(gittypes.RepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.YamlUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(uo.UnstructuredObject{}, typescriptify.TypeOptions{TSType: "any"}).
 		ManageType(metav1.Time{}, typescriptify.TypeOptions{TSType: "string"}).

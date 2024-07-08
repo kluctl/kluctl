@@ -3,13 +3,13 @@ package deployment
 import (
 	"fmt"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"path/filepath"
 	"strings"
 )

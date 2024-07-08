@@ -2,12 +2,13 @@ package results
 
 import (
 	"context"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type ListResultSummariesOptions struct {
-	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
+	ProjectFilter *gittypes.ProjectKey `json:"projectFilter,omitempty"`
 }
 
 type GetCommandResultOptions struct {
@@ -53,7 +54,7 @@ type ResultStore interface {
 	GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error)
 }
 
-func FilterProject(x result.ProjectKey, filter *result.ProjectKey) bool {
+func FilterProject(x gittypes.ProjectKey, filter *gittypes.ProjectKey) bool {
 	if filter != nil {
 		if filter.RepoKey.String() != "" && x.RepoKey != filter.RepoKey {
 			return false

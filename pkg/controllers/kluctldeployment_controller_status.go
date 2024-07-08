@@ -5,10 +5,10 @@ import (
 	errors2 "errors"
 	"fmt"
 	"github.com/hashicorp/go-multierror"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -77,31 +77,31 @@ func (r *KluctlDeploymentReconciler) patchProgressingCondition(ctx context.Conte
 func (r *KluctlDeploymentReconciler) patchProjectKey(ctx context.Context, obj *kluctlv1.KluctlDeployment) error {
 	key := client.ObjectKeyFromObject(obj)
 
-	var newProjectKey result.ProjectKey
+	var newProjectKey gittypes.ProjectKey
 	if obj.Spec.Source.Git != nil {
-		repoKey, err := types.NewRepoKeyFromGitUrl(obj.Spec.Source.Git.URL)
+		repoKey, err := gittypes.NewRepoKeyFromGitUrl(obj.Spec.Source.Git.URL)
 		if err != nil {
 			return err
 		}
-		newProjectKey = result.ProjectKey{
+		newProjectKey = gittypes.ProjectKey{
 			RepoKey: repoKey,
 			SubDir:  path.Clean(obj.Spec.Source.Git.Path),
 		}
 	} else if obj.Spec.Source.Oci != nil {
-		repoKey, err := types.NewRepoKeyFromUrl(obj.Spec.Source.Oci.URL)
+		repoKey, err := gittypes.NewRepoKeyFromUrl(obj.Spec.Source.Oci.URL)
 		if err != nil {
 			return err
 		}
-		newProjectKey = result.ProjectKey{
+		newProjectKey = gittypes.ProjectKey{
 			RepoKey: repoKey,
 			SubDir:  path.Clean(obj.Spec.Source.Oci.Path),
 		}
 	} else if obj.Spec.Source.URL != nil {
-		repoKey, err := types.NewRepoKeyFromGitUrl(*obj.Spec.Source.URL)
+		repoKey, err := gittypes.NewRepoKeyFromGitUrl(*obj.Spec.Source.URL)
 		if err != nil {
 			return err
 		}
-		newProjectKey = result.ProjectKey{
+		newProjectKey = gittypes.ProjectKey{
 			RepoKey: repoKey,
 			SubDir:  path.Clean(obj.Spec.Source.Path),
 		}

@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/git/auth"
+	"github.com/kluctl/kluctl/lib/git/auth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
 	"sync"

@@ -2,7 +2,7 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"helm.sh/helm/v3/pkg/registry"
 )
 

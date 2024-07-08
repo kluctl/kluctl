@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/go-multierror"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/term"
+	"github.com/kluctl/kluctl/lib/envutils"
+	"github.com/kluctl/kluctl/lib/term"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -289,7 +289,7 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 		envName = strings.ToUpper(envName)
 		envName = fmt.Sprintf("KLUCTL_%s", envName)
 
-		for _, v := range utils.ParseEnvConfigList(envName) {
+		for _, v := range envutils.ParseEnvConfigList(envName) {
 			a = append(a, v)
 		}
 

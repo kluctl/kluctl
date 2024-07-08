@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/gobwas/glob"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/lib/envutils"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/repo"
 	"net/url"
@@ -21,7 +22,7 @@ type HelmEnvAuthProvider struct {
 }
 
 func (a *HelmEnvAuthProvider) isDefaultInsecureSkipTlsVerify(ctx context.Context) bool {
-	defaultInsecure, err := utils.ParseEnvBool(fmt.Sprintf("%s_DEFAULT_INSECURE_SKIP_TLS_VERIFY", a.Prefix), false)
+	defaultInsecure, err := envutils.ParseEnvBool(fmt.Sprintf("%s_DEFAULT_INSECURE_SKIP_TLS_VERIFY", a.Prefix), false)
 	if err != nil {
 		status.Warningf(ctx, "Failed to parse %s_DEFAULT_INSECURE_SKIP_TLS_VERIFY: %s", a.Prefix, err)
 		return false
@@ -47,7 +48,7 @@ func (a *HelmEnvAuthProvider) doBuildList(ctx context.Context) error {
 
 	defaultInsecure := a.isDefaultInsecureSkipTlsVerify(ctx)
 
-	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
+	for _, s := range envutils.ParseEnvConfigSets(a.Prefix) {
 		m := s.Map
 		host := m["HOST"]
 		cid := m["CREDENTIALS_ID"]

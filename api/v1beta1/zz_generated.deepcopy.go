@@ -21,6 +21,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -269,7 +270,7 @@ func (in *KluctlDeploymentStatus) DeepCopyInto(out *KluctlDeploymentStatus) {
 	}
 	if in.ProjectKey != nil {
 		in, out := &in.ProjectKey, &out.ProjectKey
-		*out = new(result.ProjectKey)
+		*out = new(gittypes.ProjectKey)
 		**out = **in
 	}
 	if in.TargetKey != nil {
@@ -500,7 +501,7 @@ func (in *ProjectSource) DeepCopyInto(out *ProjectSource) {
 	}
 	if in.Ref != nil {
 		in, out := &in.Ref, &out.Ref
-		*out = new(types.GitRef)
+		*out = new(gittypes.GitRef)
 		**out = **in
 	}
 	if in.SecretRef != nil {
@@ -530,7 +531,7 @@ func (in *ProjectSourceGit) DeepCopyInto(out *ProjectSourceGit) {
 	*out = *in
 	if in.Ref != nil {
 		in, out := &in.Ref, &out.Ref
-		*out = new(types.GitRef)
+		*out = new(gittypes.GitRef)
 		**out = **in
 	}
 }

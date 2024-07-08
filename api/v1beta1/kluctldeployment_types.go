@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"time"
@@ -268,7 +269,7 @@ type ProjectSource struct {
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
 	// +optional
-	Ref *types.GitRef `json:"ref,omitempty"`
+	Ref *gittypes.GitRef `json:"ref,omitempty"`
 
 	// Path specifies the sub-directory to be used as project directory
 	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.
@@ -297,7 +298,7 @@ type ProjectSourceGit struct {
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// +optional
-	Ref *types.GitRef `json:"ref,omitempty"`
+	Ref *gittypes.GitRef `json:"ref,omitempty"`
 
 	// Path specifies the sub-directory to be used as project directory
 	// +optional
@@ -321,7 +322,7 @@ type ProjectSourceOci struct {
 
 type SourceOverride struct {
 	// +required
-	RepoKey types.RepoKey `json:"repoKey"`
+	RepoKey gittypes.RepoKey `json:"repoKey"`
 	// +required
 	Url string `json:"url"`
 	// +optional
@@ -503,7 +504,7 @@ type KluctlDeploymentStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
-	ProjectKey *result.ProjectKey `json:"projectKey,omitempty"`
+	ProjectKey *gittypes.ProjectKey `json:"projectKey,omitempty"`
 
 	// +optional
 	TargetKey *result.TargetKey `json:"targetKey,omitempty"`

@@ -1,8 +1,8 @@
 module github.com/kluctl/kluctl/v2
 
-go 1.22.0
+go 1.22.4
 
-toolchain go1.22.4
+replace github.com/kluctl/kluctl/lib => ./lib
 
 require (
 	cloud.google.com/go/secretmanager v1.13.1
@@ -12,7 +12,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/keyvault/azsecrets v0.12.0
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 	github.com/Masterminds/semver/v3 v3.2.1
-	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/aws/aws-sdk-go-v2 v1.29.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.20
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.20
@@ -30,7 +30,7 @@ require (
 	github.com/getsops/sops/v3 v3.8.1
 	github.com/gin-contrib/sessions v1.0.1
 	github.com/gin-gonic/gin v1.10.0
-	github.com/go-errors/errors v1.5.1
+	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-git/go-git/v5 v5.12.1-0.20240409060936-cd6633c3c665
 	github.com/go-logr/logr v1.4.2
 	github.com/go-playground/validator/v10 v10.22.0
@@ -45,13 +45,14 @@ require (
 	github.com/huandu/xstrings v1.5.0
 	github.com/imdario/mergo v0.3.16
 	github.com/jinzhu/copier v0.4.0
-	github.com/kevinburke/ssh_config v1.2.0
+	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.11.9-20240415-1
 	github.com/kluctl/go-jinja2 v0.0.0-20240619083358-c137395943eb
+	github.com/kluctl/kluctl/lib v0.0.0-20240708100510-73c5efc22b9a
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
-	github.com/mattn/go-runewidth v0.0.15
-	github.com/mitchellh/reflectwalk v1.0.2
+	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/ohler55/ojg v1.22.0
 	github.com/onsi/gomega v1.33.1
 	github.com/otiai10/copy v1.14.0
@@ -67,18 +68,17 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
 	github.com/tkrajina/typescriptify-golang-structs v0.1.11
-	github.com/xanzy/ssh-agent v0.3.3
-	golang.org/x/crypto v0.24.0
-	golang.org/x/net v0.26.0
+	github.com/xanzy/ssh-agent v0.3.3 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
+	golang.org/x/net v0.27.0
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.21.0
-	golang.org/x/term v0.21.0 // indirect
-	golang.org/x/text v0.16.0
+	golang.org/x/sys v0.22.0
+	golang.org/x/term v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/genproto v0.0.0-20240617180043-68d350f18fd4
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2
-	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.15.2
 	k8s.io/api v0.30.2
 	k8s.io/apiextensions-apiserver v0.30.2

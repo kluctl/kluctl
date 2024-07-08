@@ -3,7 +3,7 @@ package kluctl_project
 import (
 	"context"
 	"github.com/kluctl/go-jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/lib/status"
 	"time"
 )
 

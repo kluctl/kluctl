@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"fmt"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,8 +60,8 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 	})
 
 	suite.Run("deploy with overridden git source", func() {
-		u1, _ := types.ParseGitUrl(pt.ip1.GitUrl())
-		u2, _ := types.ParseGitUrl(pt.ip2.GitUrl())
+		u1, _ := gittypes.ParseGitUrl(pt.ip1.GitUrl())
+		u2, _ := gittypes.ParseGitUrl(pt.ip2.GitUrl())
 		k1 := u1.RepoKey().String()
 		k2 := u2.RepoKey().String()
 
@@ -79,7 +79,7 @@ func (suite *GitOpsLocalSourceOverrideSuite) TestLocalGitOverrides() {
 	})
 
 	suite.Run("deploy with overridden git group source", func() {
-		u1, _ := types.ParseGitUrl(pt.p.GitServer().GitUrl() + "/repos")
+		u1, _ := gittypes.ParseGitUrl(pt.p.GitServer().GitUrl() + "/repos")
 		k1 := u1.RepoKey().String()
 
 		suite.assertOverridesDidNotHappen(key, &pt)

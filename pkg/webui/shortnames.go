@@ -158,7 +158,6 @@ gitlabcomments                                                templates.kluctl.i
 gitprojectors                                                 templates.kluctl.io/v1alpha1                true         GitProjector
 listgithubpullrequests                                        templates.kluctl.io/v1alpha1                true         ListGithubPullRequests
 listgitlabmergerequests                                       templates.kluctl.io/v1alpha1                true         ListGitlabMergeRequests
-objecthandlers                                                templates.kluctl.io/v1alpha1                true         ObjectHandler
 objecttemplates                                               templates.kluctl.io/v1alpha1                true         ObjectTemplate
 texttemplates                                                 templates.kluctl.io/v1alpha1                true         TextTemplate
 backuprepositories                                            velero.io/v1                                true         BackupRepository

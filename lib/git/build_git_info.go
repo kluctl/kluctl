@@ -5,15 +5,14 @@ import (
 	"errors"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"os"
 	"path/filepath"
 )
 
-func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (result.GitInfo, result.ProjectKey, error) {
-	var gitInfo result.GitInfo
-	var projectKey result.ProjectKey
+func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (types.GitInfo, types.ProjectKey, error) {
+	var gitInfo types.GitInfo
+	var projectKey types.ProjectKey
 	if repoRoot == "" {
 		return gitInfo, projectKey, nil
 	}
@@ -59,7 +58,7 @@ func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (resu
 		}
 	}
 
-	gitInfo = result.GitInfo{
+	gitInfo = types.GitInfo{
 		Url:    originUrl,
 		SubDir: subDir,
 		Dirty:  !s.IsClean(),

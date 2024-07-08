@@ -3,10 +3,10 @@ package commands
 import (
 	"context"
 	"fmt"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	log "github.com/sirupsen/logrus"

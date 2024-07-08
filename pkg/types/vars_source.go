@@ -2,21 +2,22 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 )
 
 type VarsSourceGit struct {
-	Url  GitUrl  `json:"url" validate:"required"`
-	Ref  *GitRef `json:"ref,omitempty"`
-	Path string  `json:"path" validate:"required"`
+	Url  types.GitUrl  `json:"url" validate:"required"`
+	Ref  *types.GitRef `json:"ref,omitempty"`
+	Path string        `json:"path" validate:"required"`
 }
 
 type VarsSourceGitFiles struct {
-	Url GitUrl  `json:"url" validate:"required"`
-	Ref *GitRef `json:"ref,omitempty"`
+	Url types.GitUrl  `json:"url" validate:"required"`
+	Ref *types.GitRef `json:"ref,omitempty"`
 
 	Files []GitFile `json:"files,omitempty"`
 }
@@ -37,8 +38,8 @@ type GitFileMatch struct {
 }
 
 type GitFilesRefMatch struct {
-	Ref    GitRef `json:"ref"`
-	RefStr string `json:"refStr"`
+	Ref    types.GitRef `json:"ref"`
+	RefStr string       `json:"refStr"`
 
 	Files       []GitFileMatch          `json:"files"`
 	FilesByPath map[string]GitFileMatch `json:"filesByPath"`

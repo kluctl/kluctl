@@ -20,6 +20,8 @@ import (
 	"fmt"
 	go_container_logs "github.com/google/go-containerregistry/pkg/logs"
 	"github.com/google/gops/agent"
+	status2 "github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	flag "github.com/spf13/pflag"
 	"io"
@@ -33,11 +35,9 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/version"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -102,18 +102,18 @@ var origStderr = os.Stderr
 var isTerminal = isatty.IsTerminal(os.Stderr.Fd())
 
 func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) context.Context {
-	var sh status.StatusHandler
+	var sh status2.StatusHandler
 	var pp prompts.PromptProvider
 	if !debug && isTerminal {
-		sh = status.NewMultiLineStatusHandler(ctx, origStderr, isTerminal && !noColor, false)
+		sh = status2.NewMultiLineStatusHandler(ctx, origStderr, isTerminal && !noColor, false)
 		pp = &prompts.StatusAndStdinPromptProvider{}
 	} else {
-		sh = status.NewSimpleStatusHandler(func(level status.Level, message string) {
+		sh = status2.NewSimpleStatusHandler(func(level status2.Level, message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
 		}, debug)
 		pp = &prompts.SimplePromptProvider{Out: origStderr}
 	}
-	ctx = status.NewContext(ctx, sh)
+	ctx = status2.NewContext(ctx, sh)
 	ctx = prompts.NewContext(ctx, pp)
 
 	return ctx
@@ -121,19 +121,19 @@ func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) 
 
 func redirectLogsAndStderr(ctx context.Context) {
 	f := func(line string) {
-		status.Info(ctx, line)
+		status2.Info(ctx, line)
 	}
 
-	lr1 := status.NewLineRedirector(f)
-	lr2 := status.NewLineRedirector(f)
+	lr1 := status2.NewLineRedirector(f)
+	lr2 := status2.NewLineRedirector(f)
 
 	klog.LogToStderr(false)
 	klog.SetOutput(lr1)
 	log.SetOutput(lr2)
 	ctrl.SetLogger(klog.NewKlogr())
 
-	go_container_logs.Warn.SetOutput(status.NewLineRedirector(func(line string) {
-		status.Warning(ctx, line)
+	go_container_logs.Warn.SetOutput(status2.NewLineRedirector(func(line string) {
+		status2.Warning(ctx, line)
 	}))
 
 	pr, pw, err := os.Pipe()
@@ -142,7 +142,7 @@ func redirectLogsAndStderr(ctx context.Context) {
 	}
 
 	go func() {
-		x := status.NewLineRedirector(f)
+		x := status2.NewLineRedirector(f)
 		_, _ = io.Copy(x, pr)
 	}()
 
@@ -200,7 +200,7 @@ func checkNewVersion(ctx context.Context) {
 	versionCheckState.LastVersionCheck = time.Now()
 	_ = yaml.WriteYamlFile(versionCheckPath, &versionCheckState)
 
-	s := status.Start(ctx, "Checking for new kluctl version")
+	s := status2.Start(ctx, "Checking for new kluctl version")
 	defer s.Failed()
 
 	r, err := http.Get(latestReleaseUrl)
@@ -299,13 +299,13 @@ func Main() {
 
 	if err != nil {
 		if didSetupStatusHandler {
-			status.Error(ctx, err.Error())
+			status2.Error(ctx, err.Error())
 		} else {
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		}
 	}
 
-	sh := status.FromContext(ctx)
+	sh := status2.FromContext(ctx)
 	if sh != nil {
 		sh.Stop()
 	}

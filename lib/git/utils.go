@@ -5,15 +5,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/go-errors/errors"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/lib/git/sourceignore"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 type CheckoutInfo struct {
@@ -123,4 +126,33 @@ func LoadGitignore(p string) ([]gitignore.Pattern, error) {
 	}
 	ignorePatterns = append(ignorePatterns, sourceignore.ReadPatterns(strings.NewReader(".git"), domain)...)
 	return ignorePatterns, nil
+}
+
+func RunWithDeadlineAndPanic(ctx context.Context, extraDeadline time.Duration, f func() error) error {
+	deadline, hasDeadline := ctx.Deadline()
+
+	if !hasDeadline {
+		return f()
+	}
+
+	var finished atomic.Bool
+
+	wait := deadline.Sub(time.Now()) + extraDeadline
+	if wait < 0 {
+		return ctx.Err()
+	}
+
+	deadlineErr := errors.New(fmt.Errorf("deadline exceeded while calling function"))
+
+	t := time.AfterFunc(wait, func() {
+		if !finished.Load() {
+			panic(deadlineErr.ErrorStack())
+		}
+	})
+	defer t.Stop()
+
+	err := f()
+	finished.Store(true)
+
+	return err
 }

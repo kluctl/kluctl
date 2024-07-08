@@ -7,9 +7,10 @@ import (
 	"github.com/getsops/sops/v3/kms"
 	"github.com/google/uuid"
 	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/lib/git"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
-	"github.com/kluctl/kluctl/v2/pkg/git"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
@@ -19,7 +20,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
@@ -688,7 +688,7 @@ func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *r
 	}
 
 	// the ref is not properly set by addGitInfo due to the way the repo cache checks out by commit
-	if pt.pp.co.CheckedOutRef != (types2.GitRef{}) {
+	if pt.pp.co.CheckedOutRef != (gittypes.GitRef{}) {
 		cmdResult.GitInfo.Ref = &pt.pp.co.CheckedOutRef
 	}
 

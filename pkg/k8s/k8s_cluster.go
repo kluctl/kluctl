@@ -3,6 +3,8 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/envutils"
+	"github.com/kluctl/kluctl/lib/status"
 	"io"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,9 +17,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -391,7 +391,7 @@ func (k *K8sCluster) UpdateObject(o *uo.UnstructuredObject, options UpdateOption
 
 // envtestProxyGet checks the environment variables KLUCTL_K8S_SERVICE_PROXY_XXX to enable testing of proxy requests with envtest
 func (k *K8sCluster) envtestProxyGet(scheme, namespace, name, port, path string, params map[string]string) (io.ReadCloser, error) {
-	for _, s := range utils.ParseEnvConfigSets("KLUCTL_K8S_SERVICE_PROXY") {
+	for _, s := range envutils.ParseEnvConfigSets("KLUCTL_K8S_SERVICE_PROXY") {
 		m := s.Map
 		envApiHost := strings.TrimSuffix(m["API_HOST"], "/")
 		envNamespace := m["SERVICE_NAMESPACE"]
