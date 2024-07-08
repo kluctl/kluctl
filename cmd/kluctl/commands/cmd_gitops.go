@@ -8,7 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/lib/git"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
@@ -16,7 +16,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	flag "github.com/spf13/pflag"
@@ -58,8 +57,8 @@ type gitopsCmdHelper struct {
 	noArgsReact noArgsReact
 
 	projectGitRoot string
-	projectGitInfo *result.GitInfo
-	projectKey     *result.ProjectKey
+	projectGitInfo *gittypes.GitInfo
+	projectKey     *gittypes.ProjectKey
 
 	kds []v1beta1.KluctlDeployment
 
@@ -232,7 +231,7 @@ func (g *gitopsCmdHelper) collectLocalProjectInfo(ctx context.Context) error {
 		return err
 	}
 
-	if projectKey.RepoKey == (types.RepoKey{}) {
+	if projectKey.RepoKey == (gittypes.RepoKey{}) {
 		return fmt.Errorf("failed to determine repo key")
 	}
 
@@ -278,11 +277,11 @@ func (g *gitopsCmdHelper) autoDetectDeployment(ctx context.Context) error {
 			u = *kd.Spec.Source.URL
 			subDir = kd.Spec.Source.Path
 		}
-		var repoKey types.RepoKey
+		var repoKey gittypes.RepoKey
 		if isGit {
-			repoKey, err = types.NewRepoKeyFromGitUrl(u)
+			repoKey, err = gittypes.NewRepoKeyFromGitUrl(u)
 		} else {
-			repoKey, err = types.NewRepoKeyFromUrl(u)
+			repoKey, err = gittypes.NewRepoKeyFromUrl(u)
 		}
 		if err != nil {
 			status.Warningf(ctx, "Failed to determine repo key for KluctlDeployment %s/%s with source url %s: %s", kd.Namespace, kd.Name, u, err.Error())

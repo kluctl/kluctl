@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/results"
@@ -29,8 +30,8 @@ import (
 const webuiManager = "kluctl-webui"
 
 type ProjectTargetKey struct {
-	Project result.ProjectKey `json:"project"`
-	Target  result.TargetKey  `json:"target"`
+	Project gittypes.ProjectKey `json:"project"`
+	Target  result.TargetKey    `json:"target"`
 }
 
 type CommandResultsServer struct {

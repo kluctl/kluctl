@@ -504,7 +504,7 @@ type KluctlDeploymentStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
-	ProjectKey *result.ProjectKey `json:"projectKey,omitempty"`
+	ProjectKey *gittypes.ProjectKey `json:"projectKey,omitempty"`
 
 	// +optional
 	TargetKey *result.TargetKey `json:"targetKey,omitempty"`

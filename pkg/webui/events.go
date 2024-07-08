@@ -9,7 +9,6 @@ import (
 	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"net/http"
 	"nhooyr.io/websocket"
 	"sync"
@@ -243,9 +242,9 @@ func (h *eventsHandler) handler(c *gin.Context) {
 		return
 	}
 
-	var filter *result.ProjectKey
+	var filter *types.ProjectKey
 	if args.FilterProject != "" {
-		filter = &result.ProjectKey{
+		filter = &types.ProjectKey{
 			RepoKey: repoKey,
 			SubDir:  args.FilterSubDir,
 		}
@@ -267,7 +266,7 @@ func (h *eventsHandler) handler(c *gin.Context) {
 	}
 }
 
-func (h *eventsHandler) wsHandle(c *websocket.Conn, filter *result.ProjectKey) error {
+func (h *eventsHandler) wsHandle(c *websocket.Conn, filter *types.ProjectKey) error {
 	ctx := c.CloseRead(h.server.ctx)
 
 	getNewEvents := func(seq int64) ([]string, int64) {

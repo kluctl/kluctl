@@ -270,7 +270,7 @@ func (in *KluctlDeploymentStatus) DeepCopyInto(out *KluctlDeploymentStatus) {
 	}
 	if in.ProjectKey != nil {
 		in, out := &in.ProjectKey, &out.ProjectKey
-		*out = new(result.ProjectKey)
+		*out = new(gittypes.ProjectKey)
 		**out = **in
 	}
 	if in.TargetKey != nil {

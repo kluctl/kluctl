@@ -8,7 +8,7 @@ import (
 type CommandResultSummary struct {
 	Id               string                `json:"id"`
 	ReconcileId      string                `json:"reconcileId"`
-	ProjectKey       ProjectKey            `json:"projectKey"`
+	ProjectKey       gittypes.ProjectKey   `json:"projectKey"`
 	TargetKey        TargetKey             `json:"targetKey"`
 	Target           types.Target          `json:"target"`
 	Command          CommandInfo           `json:"commandInfo"`

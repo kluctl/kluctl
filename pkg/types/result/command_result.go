@@ -40,21 +40,6 @@ const (
 	CommandInititiator_KluctlDeployment                  = "KluctlDeployment"
 )
 
-type ProjectKey struct {
-	RepoKey gittypes.RepoKey `json:"repoKey,omitempty"`
-	SubDir  string           `json:"subDir,omitempty"`
-}
-
-func (k ProjectKey) Less(o ProjectKey) bool {
-	if k.RepoKey != o.RepoKey {
-		return k.RepoKey.String() < o.RepoKey.String()
-	}
-	if k.SubDir != o.SubDir {
-		return k.SubDir < o.SubDir
-	}
-	return false
-}
-
 type TargetKey struct {
 	TargetName    string `json:"targetName,omitempty"`
 	ClusterId     string `json:"clusterId"`
@@ -121,7 +106,7 @@ type ResultObject struct {
 type CommandResult struct {
 	Id               string                         `json:"id"`
 	ReconcileId      string                         `json:"reconcileId"`
-	ProjectKey       ProjectKey                     `json:"projectKey"`
+	ProjectKey       gittypes.ProjectKey            `json:"projectKey"`
 	TargetKey        TargetKey                      `json:"targetKey"`
 	Target           types.Target                   `json:"target"`
 	Command          CommandInfo                    `json:"command,omitempty"`

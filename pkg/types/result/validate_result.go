@@ -1,6 +1,7 @@
 package result
 
 import (
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ type ValidateResultEntry struct {
 type ValidateResult struct {
 	Id                  string                 `json:"id"`
 	ReconcileId         string                 `json:"reconcileId"`
-	ProjectKey          ProjectKey             `json:"projectKey"`
+	ProjectKey          gittypes.ProjectKey    `json:"projectKey"`
 	TargetKey           TargetKey              `json:"targetKey"`
 	KluctlDeployment    *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	OverridesPatch      *uo.UnstructuredObject `json:"overridesPatch,omitempty"`
@@ -31,7 +32,7 @@ type ValidateResult struct {
 type ValidateResultSummary struct {
 	Id                  string                `json:"id"`
 	ReconcileId         string                `json:"reconcileId"`
-	ProjectKey          ProjectKey            `json:"projectKey"`
+	ProjectKey          gittypes.ProjectKey   `json:"projectKey"`
 	TargetKey           TargetKey             `json:"targetKey"`
 	KluctlDeployment    *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
 	RenderedObjectsHash string                `json:"renderedObjectsHash,omitempty"`

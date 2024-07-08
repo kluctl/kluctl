@@ -6,14 +6,13 @@ import (
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kluctl/kluctl/v2/lib/git/types"
-	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"os"
 	"path/filepath"
 )
 
-func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (types.GitInfo, result.ProjectKey, error) {
+func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (types.GitInfo, types.ProjectKey, error) {
 	var gitInfo types.GitInfo
-	var projectKey result.ProjectKey
+	var projectKey types.ProjectKey
 	if repoRoot == "" {
 		return gitInfo, projectKey, nil
 	}

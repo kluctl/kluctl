@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
@@ -87,7 +88,7 @@ func NewResultStoreSecrets(ctx context.Context, config *rest.Config, client_ cli
 
 var invalidChars = regexp.MustCompile(`[^a-zA-Z0-9-]`)
 
-func (s *ResultStoreSecrets) buildName(prefix string, id string, projectKey result.ProjectKey) string {
+func (s *ResultStoreSecrets) buildName(prefix string, id string, projectKey gittypes.ProjectKey) string {
 	name := ""
 
 	if projectKey.RepoKey.Path != "" {
@@ -307,7 +308,7 @@ func (s *ResultStoreSecrets) WriteValidateResult(vr *result.ValidateResult) erro
 	return nil
 }
 
-func (s *ResultStoreSecrets) cleanupOldCommandResults(project result.ProjectKey, target result.TargetKey) error {
+func (s *ResultStoreSecrets) cleanupOldCommandResults(project gittypes.ProjectKey, target result.TargetKey) error {
 	if !s.allowWrite {
 		return fmt.Errorf("result store is read-only")
 	}
@@ -427,7 +428,7 @@ func (s *ResultStoreSecrets) StartCleanupOrphans() error {
 	return nil
 }
 
-func (s *ResultStoreSecrets) cleanupValidateResults(project result.ProjectKey, target result.TargetKey) error {
+func (s *ResultStoreSecrets) cleanupValidateResults(project gittypes.ProjectKey, target result.TargetKey) error {
 	results, err := s.ListValidateResultSummaries(ListResultSummariesOptions{
 		ProjectFilter: &project,
 	})
