@@ -47,7 +47,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.11.9-20240415-1
-	github.com/kluctl/go-jinja2 v0.0.0-20240619083358-c137395943eb
+	github.com/kluctl/go-jinja2 v0.0.0-20240708212116-03ee7eefba4f
 	github.com/kluctl/kluctl/lib v0.0.0-20240708100510-73c5efc22b9a
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
