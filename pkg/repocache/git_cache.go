@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	"github.com/kluctl/kluctl/v2/lib/git"
+	"github.com/kluctl/kluctl/v2/lib/git/auth"
+	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	cp "github.com/otiai10/copy"

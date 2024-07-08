@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/lib/git"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"

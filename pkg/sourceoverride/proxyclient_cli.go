@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	"github.com/kluctl/kluctl/v2/pkg/git"
+	"github.com/kluctl/kluctl/v2/lib/git"
 	oci_client "github.com/kluctl/kluctl/v2/pkg/oci/client"
 	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"

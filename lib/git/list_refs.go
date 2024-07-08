@@ -9,8 +9,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v5/storage/memory"
-	auth2 "github.com/kluctl/kluctl/v2/pkg/git/auth"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	auth2 "github.com/kluctl/kluctl/v2/lib/git/auth"
+	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"strconv"
 )

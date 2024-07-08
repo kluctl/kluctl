@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/kluctl/kluctl/v2/pkg/git/messages"
+	"github.com/kluctl/kluctl/v2/lib/git/messages"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
 	"os"
