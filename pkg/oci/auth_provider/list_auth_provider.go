@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	"strings"
 )
 

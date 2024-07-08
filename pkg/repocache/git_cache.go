@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"os"
@@ -17,7 +18,6 @@ import (
 	"github.com/kluctl/kluctl/v2/lib/git"
 	"github.com/kluctl/kluctl/v2/lib/git/auth"
 	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	cp "github.com/otiai10/copy"
 )

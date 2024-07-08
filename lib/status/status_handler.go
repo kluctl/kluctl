@@ -3,7 +3,7 @@ package status
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/status/multiline"
+	multiline2 "github.com/kluctl/kluctl/v2/lib/status/multiline"
 	"io"
 	"sync"
 )
@@ -14,12 +14,12 @@ type MultiLineStatusHandler struct {
 	enableColor bool
 	trace       bool
 
-	ml *multiline.MultiLinePrinter
+	ml *multiline2.MultiLinePrinter
 }
 
 type statusLine struct {
 	slh *MultiLineStatusHandler
-	l   *multiline.Line
+	l   *multiline2.Line
 
 	current int
 	total   int
@@ -56,7 +56,7 @@ func (s *MultiLineStatusHandler) SetTrace(trace bool) {
 }
 
 func (s *MultiLineStatusHandler) start() {
-	s.ml = &multiline.MultiLinePrinter{}
+	s.ml = &multiline2.MultiLinePrinter{}
 	s.ml.Start(s.out)
 }
 
@@ -148,7 +148,7 @@ func (sl *statusLine) lineFunc() string {
 		return fmt.Sprintf("%s %s", sl.barOverride, sl.message)
 	}
 
-	s := multiline.Spinner()
+	s := multiline2.Spinner()
 	return fmt.Sprintf("%s %s", s, sl.message)
 }
 

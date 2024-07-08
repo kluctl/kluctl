@@ -2,9 +2,9 @@ package commands
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"time"

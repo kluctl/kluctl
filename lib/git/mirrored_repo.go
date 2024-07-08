@@ -14,7 +14,7 @@ import (
 	auth2 "github.com/kluctl/kluctl/v2/lib/git/auth"
 	_ "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
 	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/rogpeppe/go-internal/lockedfile"

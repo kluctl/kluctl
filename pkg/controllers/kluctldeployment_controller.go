@@ -7,10 +7,9 @@ import (
 	"github.com/hashicorp/go-multierror"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	status2 "github.com/kluctl/kluctl/v2/lib/status"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
@@ -67,7 +66,7 @@ func (r *KluctlDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	log := ctrl.LoggerFrom(ctx)
 
-	ctx = status.NewContext(ctx, status.NewSimpleStatusHandler(func(level status.Level, message string) {
+	ctx = status2.NewContext(ctx, status2.NewSimpleStatusHandler(func(level status2.Level, message string) {
 		log.Info(message)
 	}, false))
 

@@ -3,8 +3,8 @@ package commands
 import (
 	"context"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"io/ioutil"
 	"os"

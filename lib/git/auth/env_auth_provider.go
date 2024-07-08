@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/lib/git/messages"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"

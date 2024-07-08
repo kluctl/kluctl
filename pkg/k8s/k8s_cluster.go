@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/v2/lib/status"
 	"io"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"

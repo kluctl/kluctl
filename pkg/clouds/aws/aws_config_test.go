@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	status2 "github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -154,10 +154,10 @@ func TestAwsConfig(t *testing.T) {
 			}
 
 			var sls []string
-			sh := status.NewSimpleStatusHandler(func(level status.Level, message string) {
+			sh := status2.NewSimpleStatusHandler(func(level status2.Level, message string) {
 				sls = append(sls, message)
 			}, false)
-			ctx := status.NewContext(context.Background(), sh)
+			ctx := status2.NewContext(context.Background(), sh)
 
 			cfg, err := LoadAwsConfigHelper(ctx, c, &awsConfig, argProfile)
 			assert.NoError(t, err)
