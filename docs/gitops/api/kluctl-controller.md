@@ -1242,7 +1242,7 @@ string
 <td>
 <code>projectKey</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types/result.ProjectKey
+github.com/kluctl/kluctl/lib/git/types.ProjectKey
 </em>
 </td>
 <td>
@@ -1943,7 +1943,7 @@ DEPRECATED this field is deprecated and will be removed in the next API version 
 <td>
 <code>ref</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types.GitRef
+github.com/kluctl/kluctl/lib/git/types.GitRef
 </em>
 </td>
 <td>
@@ -2034,7 +2034,7 @@ use spec.credentials.git to specify those.</p>
 <td>
 <code>ref</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types.GitRef
+github.com/kluctl/kluctl/lib/git/types.GitRef
 </em>
 </td>
 <td>
@@ -2213,7 +2213,7 @@ string
 <td>
 <code>repoKey</code><br>
 <em>
-github.com/kluctl/kluctl/v2/pkg/types.RepoKey
+github.com/kluctl/kluctl/lib/git/types.RepoKey
 </em>
 </td>
 <td>
