@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/lib/git"
+	"github.com/kluctl/kluctl/v2/lib/git/sourceignore"
 	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
@@ -16,7 +17,6 @@ import (
 
 	reg "github.com/google/go-containerregistry/pkg/name"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
-	"github.com/kluctl/kluctl/v2/pkg/oci/sourceignore"
 )
 
 var excludeOCI = append(strings.Split(sourceignore.ExcludeVCS, ","), strings.Split(sourceignore.ExcludeExt, ",")...)
