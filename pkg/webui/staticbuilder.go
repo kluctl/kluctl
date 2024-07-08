@@ -3,8 +3,8 @@ package webui
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/status"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"

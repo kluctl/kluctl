@@ -2,7 +2,7 @@ package sourceoverride
 
 import (
 	"context"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
+	"github.com/kluctl/kluctl/lib/git/types"
 )
 
 type ChainedResolver struct {

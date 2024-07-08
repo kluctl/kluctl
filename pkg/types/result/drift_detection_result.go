@@ -2,7 +2,7 @@ package result
 
 import (
 	"fmt"
-	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

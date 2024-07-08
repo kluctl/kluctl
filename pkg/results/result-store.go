@@ -2,8 +2,8 @@ package results
 
 import (
 	"context"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 

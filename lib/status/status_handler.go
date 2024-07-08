@@ -3,7 +3,7 @@ package status
 import (
 	"context"
 	"fmt"
-	multiline2 "github.com/kluctl/kluctl/v2/lib/status/multiline"
+	multiline2 "github.com/kluctl/kluctl/lib/status/multiline"
 	"io"
 	"sync"
 )

@@ -3,7 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"

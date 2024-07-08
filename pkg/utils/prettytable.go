@@ -2,7 +2,7 @@ package utils
 
 import (
 	"bytes"
-	"github.com/kluctl/kluctl/v2/lib/term"
+	"github.com/kluctl/kluctl/lib/term"
 	"sort"
 	"strings"
 )

@@ -21,7 +21,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/kluctl/kluctl/v2/lib/git/sourceignore"
+	"github.com/kluctl/kluctl/lib/git/sourceignore"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client/internal/fs"
 	"io"
 	"os"

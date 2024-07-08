@@ -3,8 +3,8 @@ package helm
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/status"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"os"

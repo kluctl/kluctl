@@ -2,7 +2,7 @@ package args
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"strings"
 )

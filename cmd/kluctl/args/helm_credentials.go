@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gobwas/glob"
-	"github.com/kluctl/kluctl/v2/lib/status"
+	"github.com/kluctl/kluctl/lib/status"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"

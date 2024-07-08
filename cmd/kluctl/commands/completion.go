@@ -2,9 +2,9 @@ package commands
 
 import (
 	"context"
+	"github.com/kluctl/kluctl/lib/status"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/spf13/cobra"

@@ -6,8 +6,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	ssh2 "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/hashicorp/go-multierror"
-	"github.com/kluctl/kluctl/v2/lib/git/messages"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"golang.org/x/crypto/ssh"
 )
 

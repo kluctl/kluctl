@@ -1,7 +1,7 @@
 package helm
 
 import (
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"os"

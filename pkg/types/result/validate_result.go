@@ -1,7 +1,7 @@
 package result
 
 import (
-	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

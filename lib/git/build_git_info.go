@@ -5,7 +5,7 @@ import (
 	"errors"
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"os"
 	"path/filepath"
 )

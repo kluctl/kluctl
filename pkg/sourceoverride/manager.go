@@ -3,7 +3,7 @@ package sourceoverride
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"path"

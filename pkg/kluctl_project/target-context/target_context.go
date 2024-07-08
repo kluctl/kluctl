@@ -3,7 +3,7 @@ package target_context
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/status"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"

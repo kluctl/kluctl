@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"github.com/kluctl/kluctl/v2/lib/git"
+	"github.com/kluctl/kluctl/lib/git"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"

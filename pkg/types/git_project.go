@@ -2,8 +2,8 @@ package types
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"regexp"
 	"strings"
 

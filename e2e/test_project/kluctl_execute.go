@@ -3,8 +3,8 @@ package test_project
 import (
 	"bytes"
 	"context"
+	status2 "github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/commands"
-	status2 "github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"strings"
 	"sync"

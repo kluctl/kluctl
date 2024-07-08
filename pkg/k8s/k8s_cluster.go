@@ -3,8 +3,8 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/envutils"
-	"github.com/kluctl/kluctl/v2/lib/status"
+	"github.com/kluctl/kluctl/lib/envutils"
+	"github.com/kluctl/kluctl/lib/status"
 	"io"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

@@ -1,7 +1,7 @@
 package result
 
 import (
-	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 

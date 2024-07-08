@@ -2,7 +2,7 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
-	yaml2 "github.com/kluctl/kluctl/v2/lib/yaml"
+	yaml2 "github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )

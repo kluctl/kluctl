@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/kluctl/kluctl/v2/lib/git/types"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/tar"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"google.golang.org/grpc"

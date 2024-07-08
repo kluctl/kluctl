@@ -3,8 +3,8 @@ package test_resources
 import (
 	"context"
 	"embed"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

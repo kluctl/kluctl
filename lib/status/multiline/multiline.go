@@ -3,7 +3,7 @@ package multiline
 import (
 	"fmt"
 	"github.com/acarl005/stripansi"
-	"github.com/kluctl/kluctl/v2/lib/term"
+	"github.com/kluctl/kluctl/lib/term"
 	"github.com/mattn/go-runewidth"
 	"io"
 	"strings"

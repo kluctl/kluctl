@@ -21,7 +21,7 @@ limitations under the License.
 package types
 
 import (
-	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"

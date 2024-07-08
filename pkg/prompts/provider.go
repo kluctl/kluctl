@@ -3,8 +3,8 @@ package prompts
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/status"
-	"github.com/kluctl/kluctl/v2/lib/term"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/term"
 	"os"
 	"strings"
 	"syscall"

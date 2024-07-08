@@ -3,8 +3,8 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/lib/git/auth/goph"
-	"github.com/kluctl/kluctl/v2/lib/git/messages"
+	"github.com/kluctl/kluctl/lib/git/auth/goph"
+	"github.com/kluctl/kluctl/lib/git/messages"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"net"
