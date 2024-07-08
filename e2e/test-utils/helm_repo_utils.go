@@ -2,8 +2,8 @@ package test_utils
 
 import (
 	"github.com/kluctl/kluctl/v2/e2e/test-utils/test-helm-chart"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"

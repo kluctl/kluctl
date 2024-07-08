@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 	"io"
@@ -213,9 +212,10 @@ func FixNameExt(dir string, name string) string {
 }
 
 func FixPathExt(p string) string {
-	if utils.Exists(p) {
+	if _, err := os.Stat(p); err == nil {
 		return p
 	}
+
 	var p2 string
 	if strings.HasSuffix(p, ".yml") {
 		p2 = p[:len(p)-4] + ".yaml"
@@ -225,7 +225,7 @@ func FixPathExt(p string) string {
 		return p
 	}
 
-	if utils.Exists(p2) {
+	if _, err := os.Stat(p2); err == nil {
 		return p2
 	}
 	return p
@@ -233,5 +233,8 @@ func FixPathExt(p string) string {
 
 func Exists(p string) bool {
 	p = FixPathExt(p)
-	return utils.Exists(p)
+	if _, err := os.Stat(p); err == nil {
+		return true
+	}
+	return false
 }

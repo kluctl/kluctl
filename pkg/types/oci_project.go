@@ -3,7 +3,7 @@ package types
 import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 )
 
 type OciProject struct {

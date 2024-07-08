@@ -3,6 +3,7 @@ package deployment
 import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
@@ -12,7 +13,6 @@ import (
 	securefs "github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/kustomize/filesys"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"os"
 	"path"

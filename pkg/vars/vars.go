@@ -2,9 +2,9 @@ package vars
 
 import (
 	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type VarsCtx struct {

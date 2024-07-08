@@ -3,11 +3,11 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	yaml2 "github.com/kluctl/kluctl/v2/lib/yaml"
 	"regexp"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 // gitDirPatternNeg defines forbidden characters on git directory path/subDir
@@ -20,12 +20,12 @@ type GitProject struct {
 }
 
 func (gp *GitProject) UnmarshalJSON(b []byte) error {
-	if err := yaml.ReadYamlBytes(b, &gp.Url); err == nil {
+	if err := yaml2.ReadYamlBytes(b, &gp.Url); err == nil {
 		// it's a simple string
 		return nil
 	}
 	type raw GitProject
-	return yaml.ReadYamlBytes(b, (*raw)(gp))
+	return yaml2.ReadYamlBytes(b, (*raw)(gp))
 }
 
 type GitRef struct {
@@ -47,13 +47,13 @@ type GitRef struct {
 }
 
 func (ref *GitRef) UnmarshalJSON(b []byte) error {
-	if err := yaml.ReadYamlBytes(b, &ref.Ref); err == nil {
+	if err := yaml2.ReadYamlBytes(b, &ref.Ref); err == nil {
 		// it's a simple string
 		return nil
 	}
 	ref.Ref = ""
 	type raw GitRef
-	err := yaml.ReadYamlBytes(b, (*raw)(ref))
+	err := yaml2.ReadYamlBytes(b, (*raw)(ref))
 	if err != nil {
 		return err
 	}
@@ -134,5 +134,5 @@ func ValidateGitProject(sl validator.StructLevel) {
 }
 
 func init() {
-	yaml.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
+	yaml2.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
 }

@@ -2,8 +2,8 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
 type FixedImage struct {
