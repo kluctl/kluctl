@@ -57,6 +57,8 @@ type ApplyUtil struct {
 	allNamespaces *sync.Map
 	allCRDs       *sync.Map
 
+	crdCache *k8s.CrdCache
+
 	ru   *RemoteObjectUtils
 	k    *k8s.K8sCluster
 	o    *ApplyUtilOptions
@@ -78,6 +80,8 @@ type ApplyDeploymentsUtil struct {
 	// This is only used to simulate dryRun apply
 	allNamespaces sync.Map
 	allCRDs       sync.Map
+
+	crdCache k8s.CrdCache
 
 	resultsMutex sync.Mutex
 	results      []*ApplyUtil
@@ -110,6 +114,7 @@ func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *sta
 		abortSignal:        &ad.abortSignal,
 		allNamespaces:      &ad.allNamespaces,
 		allCRDs:            &ad.allCRDs,
+		crdCache:           &ad.crdCache,
 		ru:                 ad.ru,
 		k:                  ad.k,
 		o:                  ad.o,
@@ -425,26 +430,22 @@ func (a *ApplyUtil) ApplyObject(d *deployment.DeploymentItem, x *uo.Unstructured
 				return
 			}
 		} else {
-			// let's do a metadata lookup for the guessed CRD and check if it appeared in the meantime. If yes,
-			// invalidate discovery cache and retry. This case happens when the current deployment applied some
-			// form of controller that then applies CRDs in the background, missed by Kluctl due to the discovery cache.
-			plural, _ := meta.UnsafeGuessKindToResource(ref.GroupVersionKind())
-			crdName := plural.Resource + "." + plural.Group
-			crdRef := k8s2.NewObjectRef("apiextensions.k8s.io", "v1", "CustomResourceDefinition", crdName, "")
-
-			_, _, tmpErr := a.k.GetSingleObjectMetadata(crdRef)
-			if tmpErr == nil {
-				// CRD might be so fresh that it is not accepted/ready yet, so lets wait for readiness
-				if !a.WaitReadiness(crdRef, 5*time.Second) {
-					a.HandleError(ref, err)
-					return
-				}
-				status.Tracef(a.ctx, "resource unknown, and CRD %s is available, retrying with invalidated caches", crdName)
-				// retry with invalidated discovery
-				a.k.ResetMapper()
-				r, apiWarnings, err = a.k.ApplyObject(x, options)
+			c, tmpErr := a.k.ToClient()
+			if tmpErr != nil {
+				status.Errorf(a.ctx, "Unexpectadly failed to create k8s client: %s", tmpErr.Error())
+				a.HandleError(ref, err)
+				return
+			}
+			tmpErr = a.crdCache.UpdateForGroup(a.ctx, c, ref.Group)
+			if tmpErr != nil {
+				status.Tracef(a.ctx, "failed figure out if CRD appeared, so we can't retry with invalidated discovery: %s", tmpErr.Error())
 			} else {
-				status.Tracef(a.ctx, "resource unknown, and CRD %s not available", crdName)
+				if crd := a.crdCache.GetCRDByGK(ref.GroupKind()); crd != nil {
+					status.Tracef(a.ctx, "resource unknown, and CRD %s is available now, retrying with invalidated caches", crd.Name)
+					// retry with invalidated discovery
+					a.k.ResetMapper()
+					r, apiWarnings, err = a.k.ApplyObject(x, options)
+				}
 			}
 		}
 	}
