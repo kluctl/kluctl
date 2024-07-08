@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/huandu/xstrings"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
@@ -279,7 +280,7 @@ func (s *VarsLoaderTestSuite) TestGit() {
 	}, "")
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
@@ -293,7 +294,7 @@ func (s *VarsLoaderTestSuite) TestGit() {
 	})
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		b := true
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
@@ -330,12 +331,12 @@ func (s *VarsLoaderTestSuite) TestGitBranch() {
 	assert.NoError(s.T(), err)
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
-		url, _ := types.ParseGitUrl(gs.GitRepoUrl("repo"))
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
 		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			Git: &types.VarsSourceGit{
 				Url:  *url,
 				Path: "test.yaml",
-				Ref:  &types.GitRef{Branch: "testbranch"},
+				Ref:  &gittypes.GitRef{Branch: "testbranch"},
 			},
 		}, nil, "")
 		assert.NoError(s.T(), err)

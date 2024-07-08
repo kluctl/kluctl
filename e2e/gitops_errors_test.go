@@ -1,9 +1,9 @@
 package e2e
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -195,10 +195,10 @@ data:
 		suite.waitForCommit(key, getHeadRevision(suite.T(), p))
 	})
 	suite.Run("non existing git branch", func() {
-		var backup *types.GitRef
+		var backup *gittypes.GitRef
 		suite.updateKluctlDeployment(key, func(kd *kluctlv1.KluctlDeployment) {
 			backup = kd.Spec.Source.Git.Ref
-			kd.Spec.Source.Git.Ref = &types.GitRef{
+			kd.Spec.Source.Git.Ref = &gittypes.GitRef{
 				Branch: "invalid",
 			}
 		})

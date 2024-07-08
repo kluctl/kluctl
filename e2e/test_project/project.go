@@ -6,9 +6,9 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -479,7 +479,7 @@ func (p *TestProject) GitUrl() string {
 }
 
 func (p *TestProject) GitUrlPath() string {
-	u, err := types.ParseGitUrl(p.GitUrl())
+	u, err := gittypes.ParseGitUrl(p.GitUrl())
 	if err != nil {
 		panic(err)
 	}

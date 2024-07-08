@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
@@ -27,7 +28,7 @@ func TestValidateGitProjectSubDir(t *testing.T) {
 	validate.RegisterStructValidation(ValidateGitProject, GitProject{})
 
 	for _, item := range subDirItems {
-		u := ParseGitUrlMust("http://example.com/test")
+		u := gittypes.ParseGitUrlMust("http://example.com/test")
 		gp := GitProject{Url: *u, SubDir: item.have}
 		err := validate.Struct(gp)
 		if item.want {

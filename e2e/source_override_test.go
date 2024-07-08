@@ -2,10 +2,10 @@ package e2e
 
 import (
 	"fmt"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
@@ -111,8 +111,8 @@ func TestLocalGitOverride(t *testing.T) {
 	k := defaultCluster1
 	pt := prepareLocalSourceOverrideTest(t, k, nil, false)
 
-	u1, _ := types.ParseGitUrl(pt.ip1.GitUrl())
-	u2, _ := types.ParseGitUrl(pt.ip2.GitUrl())
+	u1, _ := gittypes.ParseGitUrl(pt.ip1.GitUrl())
+	u2, _ := gittypes.ParseGitUrl(pt.ip2.GitUrl())
 	k1 := u1.RepoKey().String()
 	k2 := u2.RepoKey().String()
 
@@ -133,7 +133,7 @@ func TestGitGroup(t *testing.T) {
 	gs := test_utils.NewTestGitServer(t)
 	pt := prepareLocalSourceOverrideTest(t, k, gs, false)
 
-	u1, _ := types.ParseGitUrl(pt.p.GitServer().GitUrl() + "/repos")
+	u1, _ := gittypes.ParseGitUrl(pt.p.GitServer().GitUrl() + "/repos")
 	k1 := u1.RepoKey().String()
 
 	pt.p.KluctlMust(t, "deploy", "--yes", "-t", "test",
