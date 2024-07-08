@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/gobwas/glob"
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
@@ -52,7 +53,7 @@ func (v *VarsLoader) loadGitFiles(ctx context.Context, varsCtx *VarsCtx, gitFile
 
 	results := make([]*uo.UnstructuredObject, 0, len(matchingRefs))
 	for ref, hash := range matchingRefs {
-		dir, _, err := ge.GetClonedDir(&types.GitRef{
+		dir, _, err := ge.GetClonedDir(&gittypes.GitRef{
 			Commit: hash,
 		})
 		if err != nil {
@@ -171,9 +172,9 @@ func (v *VarsLoader) loadGitFiles(ctx context.Context, varsCtx *VarsCtx, gitFile
 	return results, sensible, nil
 }
 
-func (v *VarsLoader) filterGitRefs(ref *types.GitRef, ge *repocache.GitCacheEntry) (map[types.GitRef]string, error) {
+func (v *VarsLoader) filterGitRefs(ref *gittypes.GitRef, ge *repocache.GitCacheEntry) (map[gittypes.GitRef]string, error) {
 	var err error
-	matchingRefs := map[types.GitRef]string{}
+	matchingRefs := map[gittypes.GitRef]string{}
 
 	ri := ge.GetRepoInfo()
 
@@ -191,7 +192,7 @@ func (v *VarsLoader) filterGitRefs(ref *types.GitRef, ge *repocache.GitCacheEntr
 		found := false
 		for name, hash := range ri.RemoteRefs {
 			if hash == ref.Commit {
-				ref2, err := types.ParseGitRef(name)
+				ref2, err := gittypes.ParseGitRef(name)
 				if err != nil {
 					return nil, err
 				}
@@ -223,7 +224,7 @@ func (v *VarsLoader) filterGitRefs(ref *types.GitRef, ge *repocache.GitCacheEntr
 
 	for name, hash := range ri.RemoteRefs {
 		if regex.MatchString(name) {
-			ref2, err := types.ParseGitRef(name)
+			ref2, err := gittypes.ParseGitRef(name)
 			if err != nil {
 				return nil, err
 			}

@@ -5,7 +5,7 @@ import (
 	"context"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/kluctl/kluctl/v2/lib/git/messages"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/lib/git/types"
 	"net/url"
 	"os"
 	"path/filepath"

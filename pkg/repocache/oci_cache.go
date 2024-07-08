@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/kluctl/kluctl/v2/lib/git"
+	types2 "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/oci/client"
@@ -28,7 +29,7 @@ type OciRepoCache struct {
 
 	ociAuthProvider auth_provider.OciAuthProvider
 
-	repos      map[types.RepoKey]*OciCacheEntry
+	repos      map[types2.RepoKey]*OciCacheEntry
 	reposMutex sync.Mutex
 
 	repoOverrides sourceoverride.Resolver
@@ -53,7 +54,7 @@ func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthP
 		ctx:             ctx,
 		updateInterval:  updateInterval,
 		ociAuthProvider: ociAuthProvider,
-		repos:           map[types.RepoKey]*OciCacheEntry{},
+		repos:           map[types2.RepoKey]*OciCacheEntry{},
 		repoOverrides:   repoOverrides,
 	}
 }
@@ -80,7 +81,7 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		return nil, fmt.Errorf("unsupported scheme %s, must be oci://", urlN.Scheme)
 	}
 
-	repoKey := types.NewRepoKey("oci", urlN.Host, urlN.Path)
+	repoKey := types2.NewRepoKey("oci", urlN.Host, urlN.Path)
 
 	var overridePath string
 	if rp.repoOverrides != nil {

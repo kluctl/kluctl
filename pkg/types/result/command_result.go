@@ -1,6 +1,7 @@
 package result
 
 import (
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -40,8 +41,8 @@ const (
 )
 
 type ProjectKey struct {
-	RepoKey types.RepoKey `json:"repoKey,omitempty"`
-	SubDir  string        `json:"subDir,omitempty"`
+	RepoKey gittypes.RepoKey `json:"repoKey,omitempty"`
+	SubDir  string           `json:"subDir,omitempty"`
 }
 
 func (k ProjectKey) Less(o ProjectKey) bool {
@@ -95,14 +96,6 @@ type CommandInfo struct {
 	ExcludeDeploymentDirs []string               `json:"excludeDeploymentDirs,omitempty"`
 }
 
-type GitInfo struct {
-	Url    *types.GitUrl `json:"url"`
-	Ref    *types.GitRef `json:"ref"`
-	SubDir string        `json:"subDir"`
-	Commit string        `json:"commit"`
-	Dirty  bool          `json:"dirty"`
-}
-
 type ClusterInfo struct {
 	ClusterId string `json:"clusterId"`
 }
@@ -134,7 +127,7 @@ type CommandResult struct {
 	Command          CommandInfo                    `json:"command,omitempty"`
 	KluctlDeployment *KluctlDeploymentInfo          `json:"kluctlDeployment,omitempty"`
 	OverridesPatch   *uo.UnstructuredObject         `json:"overridesPatch,omitempty"`
-	GitInfo          GitInfo                        `json:"gitInfo,omitempty"`
+	GitInfo          gittypes.GitInfo               `json:"gitInfo,omitempty"`
 	ClusterInfo      ClusterInfo                    `json:"clusterInfo"`
 	Deployment       *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 

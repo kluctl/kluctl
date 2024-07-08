@@ -1,6 +1,7 @@
 package result
 
 import (
+	gittypes "github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 )
 
@@ -12,7 +13,7 @@ type CommandResultSummary struct {
 	Target           types.Target          `json:"target"`
 	Command          CommandInfo           `json:"commandInfo"`
 	KluctlDeployment *KluctlDeploymentInfo `json:"kluctlDeployment,omitempty"`
-	GitInfo          GitInfo               `json:"gitInfo,omitempty"`
+	GitInfo          gittypes.GitInfo      `json:"gitInfo,omitempty"`
 	ClusterInfo      ClusterInfo           `json:"clusterInfo,omitempty"`
 
 	RenderedObjectsHash string `json:"renderedObjectsHash,omitempty"`

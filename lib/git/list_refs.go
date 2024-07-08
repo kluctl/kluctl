@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	auth2 "github.com/kluctl/kluctl/v2/lib/git/auth"
 	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/lib/git/types"
 	"strconv"
 )
 
