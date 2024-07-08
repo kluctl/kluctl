@@ -8,6 +8,7 @@ import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	ssh_pool "github.com/kluctl/kluctl/v2/lib/git/ssh-pool"
 	status2 "github.com/kluctl/kluctl/v2/lib/status"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/results"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"

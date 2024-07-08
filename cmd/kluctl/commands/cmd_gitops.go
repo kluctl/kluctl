@@ -9,6 +9,7 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/lib/git"
 	"github.com/kluctl/kluctl/v2/lib/status"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"

@@ -8,6 +8,7 @@ import (
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	git2 "github.com/kluctl/kluctl/v2/lib/git"
 	"github.com/kluctl/kluctl/v2/lib/status"
+	"github.com/kluctl/kluctl/v2/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
