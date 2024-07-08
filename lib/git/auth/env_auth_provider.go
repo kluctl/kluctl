@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/gobwas/glob"
+	"github.com/kluctl/kluctl/v2/lib/envutils"
 	"github.com/kluctl/kluctl/v2/lib/git/messages"
 	"github.com/kluctl/kluctl/v2/lib/git/types"
 	"github.com/kluctl/kluctl/v2/lib/status"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"sync"
 )
@@ -38,7 +38,7 @@ func (a *GitEnvAuthProvider) buildList(ctx context.Context) error {
 func (a *GitEnvAuthProvider) doBuildList(ctx context.Context) error {
 	a.list = &ListAuthProvider{}
 
-	for _, s := range utils.ParseEnvConfigSets(a.Prefix) {
+	for _, s := range envutils.ParseEnvConfigSets(a.Prefix) {
 		m := s.Map
 		e := AuthEntry{
 			Host:     m["HOST"],
