@@ -3,7 +3,6 @@ package status
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
 // StatusContext is used to report user-facing status/progress
@@ -60,8 +59,8 @@ type StatusHandler interface {
 type contextKey struct{}
 type contextValue struct {
 	slh             StatusHandler
-	warningOnce     utils.OnceByKey
-	deprecationOnce utils.OnceByKey
+	warningOnce     OnceByKey
+	deprecationOnce OnceByKey
 }
 
 var noopContextValue = contextValue{
