@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/lib/envutils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/term"
+	"github.com/kluctl/kluctl/v2/lib/term"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
