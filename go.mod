@@ -1,6 +1,6 @@
 module github.com/kluctl/kluctl/v2
 
-go 1.22.4
+go 1.22.0
 
 replace github.com/kluctl/kluctl/lib => ./lib
 

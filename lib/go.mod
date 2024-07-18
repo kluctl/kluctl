@@ -1,6 +1,6 @@
 module github.com/kluctl/kluctl/lib
 
-go 1.22.4
+go 1.22.0
 
 require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
