@@ -114,7 +114,7 @@ deployments:
       url: https://github.com/kluctl/kluctl.git
       subDir: install/controller
       ref:
-        tag: v2.25.0
+        tag: v2.25.1
 ```
 
 ## Installing the Kluctl Webui
