@@ -104,6 +104,14 @@ func (c *Chart) IsLocalChart() bool {
 	return c.localPath != ""
 }
 
+func (c *Chart) IsRegistryChart() bool {
+	return c.repo != ""
+}
+
+func (c *Chart) IsRepositoryChart() bool {
+	return c.git != types.GitInfo{}
+}
+
 func (c *Chart) GetLocalChartVersion() (string, error) {
 	chartYaml, err := uo.FromFile(yaml.FixPathExt(filepath.Join(c.localPath, "Chart.yaml")))
 	if err != nil {
