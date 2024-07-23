@@ -2,6 +2,7 @@ package helm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -56,8 +57,8 @@ func NewChart(repo string, localPath string, chartName string, git types.GitInfo
 		ociRp:            ociRp,
 	}
 
-	if localPath == "" && repo == "" {
-		return nil, fmt.Errorf("repo and localPath are missing")
+	if localPath == "" && repo == "" && git == (types.GitInfo{}) {
+		return nil, fmt.Errorf("repo, localPath and git are missing")
 	}
 
 	if hc.IsLocalChart() {
@@ -83,6 +84,17 @@ func NewChart(repo string, localPath string, chartName string, git types.GitInfo
 			return nil, fmt.Errorf("invalid oci chart url: %s", repo)
 		}
 		hc.chartName = chartName
+	} else if hc.IsRepositoryChart() {
+		if chartName != "" {
+			return nil, fmt.Errorf("chartName can't be specified when using git repos")
+		}
+		s := strings.Split(hc.git.Url.String(), "/")
+		chartName := strings.Join(s[len(s)-2:len(s)], "-")
+		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
+			return nil, fmt.Errorf("invalid git url: %s", hc.git.Url.String())
+		}
+		hc.chartName = chartName
+
 	} else if chartName == "" {
 		return nil, fmt.Errorf("chartName is missing")
 	} else {
@@ -110,6 +122,22 @@ func (c *Chart) IsRegistryChart() bool {
 
 func (c *Chart) IsRepositoryChart() bool {
 	return c.git != types.GitInfo{}
+}
+
+func (c *Chart) HasGitBranchDefined() bool {
+	return c.IsRepositoryChart() && c.git.Ref.Branch != ""
+}
+
+func (c *Chart) HasGitTagDefined() bool {
+	return c.IsRepositoryChart() && c.git.Ref.Tag != ""
+}
+
+func (c *Chart) GetGitBranch() string {
+	return c.git.Ref.Branch
+}
+
+func (c *Chart) GetGitTag() string {
+	return c.git.Ref.Branch
 }
 
 func (c *Chart) GetLocalChartVersion() (string, error) {
@@ -155,13 +183,12 @@ func (c *Chart) BuildRegistryPulledChartDir(baseDir string) (string, error) {
 	if port != "" {
 		scheme += "_" + port
 	}
-
 	dir := filepath.Join(
 		baseDir,
 		fmt.Sprintf("%s_%s", scheme, strings.ToLower(u.Hostname())),
 		filepath.FromSlash(strings.ToLower(u.Path)),
 	)
-	if scheme != "oci" {
+	if u.Scheme != "oci" {
 		dir = filepath.Join(dir, c.chartName)
 	}
 	return dir, nil
@@ -248,7 +275,6 @@ func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version string) (st
 	if err != nil {
 		return "", err
 	}
-
 	return dir, nil
 }
 
@@ -295,32 +321,21 @@ func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings
 	return registryClient, cleanup, nil
 }
 
-func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, error) {
-	if c.IsLocalChart() {
-		return nil, fmt.Errorf("can not pull local charts")
-	}
-
+func (c *Chart) PullFromRegistry(ctx context.Context, version string, tmpPullDir string, chartDir string) error {
 	u, err := url.Parse(c.repo)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	tmpPullDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), c.chartName+"-pull-")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tmpPullDir)
-
 	settings := cli.New()
 	registryClient, cleanup, err := c.newRegistryClient(ctx, settings)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer cleanup()
 
 	cfg, err := buildHelmConfig(nil, registryClient)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	a := action.NewPullWithOpts(action.WithConfig(cfg))
@@ -331,14 +346,14 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 
 	if c.credentialsId != "" {
 		if registry.IsOCI(c.repo) {
-			return nil, fmt.Errorf("OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments")
+			return fmt.Errorf("OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments")
 		}
 	}
 
 	if !registry.IsOCI(c.repo) {
 		helmCreds, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		defer cf()
 
@@ -364,24 +379,85 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 		status.Infof(ctx, "Message from Helm:\n%s", out)
 	}
 	if err != nil {
+		return err
+	}
+	// move chart
+	des, err := os.ReadDir(filepath.Join(tmpPullDir, c.chartName))
+	if err != nil {
+		return err
+	}
+	for _, de := range des {
+		err = os.Rename(filepath.Join(tmpPullDir, c.chartName, de.Name()), filepath.Join(chartDir, de.Name()))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Chart) PullFromRepository(ctx context.Context, chartDir string) error {
+	m, err := c.gitRp.GetEntry(c.git.Url.String())
+	if err != nil {
+		return err
+	}
+	err = m.Update()
+	if err != nil {
+		return err
+	}
+	cd, gitInfo, err := m.GetClonedDir(c.git.Ref)
+	if err != nil {
+		return err
+	}
+	des, err := os.ReadDir(filepath.Join(cd, c.git.SubDir))
+	if err != nil {
+		return err
+	}
+
+	for _, de := range des {
+		err = os.Rename(filepath.Join(cd, c.git.SubDir, de.Name()), filepath.Join(chartDir, de.Name()))
+		if err != nil {
+			return err
+		}
+	}
+	if err != nil {
+		return err
+	}
+
+	out, err := json.Marshal(gitInfo)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(filepath.Join(chartDir, ".git-info"), out, 0o755)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, error) {
+	if c.IsLocalChart() {
+		return nil, fmt.Errorf("can not pull local charts")
+	}
+
+	tmpPullDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), c.chartName+"-pull-")
+	if err != nil {
 		return nil, err
 	}
+	defer os.RemoveAll(tmpPullDir)
 
 	chartDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), c.chartName+"-pulled-")
 	if err != nil {
 		return nil, err
 	}
-
-	// move chart
-	des, err := os.ReadDir(filepath.Join(tmpPullDir, c.chartName))
+	if c.IsRegistryChart() {
+		err = c.PullFromRegistry(ctx, version, tmpPullDir, chartDir)
+	} else if c.IsRepositoryChart() {
+		err = c.PullFromRepository(ctx, chartDir)
+	} else {
+		return nil, fmt.Errorf("unknown type of helm chart source")
+	}
 	if err != nil {
 		return nil, err
-	}
-	for _, de := range des {
-		err = os.Rename(filepath.Join(tmpPullDir, c.chartName, de.Name()), filepath.Join(chartDir, de.Name()))
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return NewPulledChart(c, version, chartDir, true), nil
@@ -499,11 +575,17 @@ func (c *Chart) QueryVersions(ctx context.Context) error {
 	if c.IsLocalChart() {
 		return fmt.Errorf("can not query versions for local charts")
 	}
-
-	if registry.IsOCI(c.repo) {
-		return c.queryVersionsOci(ctx)
+	if c.IsRegistryChart() {
+		if registry.IsOCI(c.repo) {
+			return c.queryVersionsOci(ctx)
+		} else {
+			return c.queryVersionsHelmRepo(ctx)
+		}
 	}
-	return c.queryVersionsHelmRepo(ctx)
+	if c.IsRepositoryChart() {
+		return c.queryVersionsGitRepo(ctx)
+	}
+	return fmt.Errorf("chart type is not supported! Please use a local, registry or repository chart.")
 }
 
 func (c *Chart) queryVersionsOci(ctx context.Context) error {
@@ -530,6 +612,16 @@ func (c *Chart) queryVersionsOci(ctx context.Context) error {
 	c.versions = tags
 
 	return nil
+}
+
+func (c *Chart) queryVersionsGitRepo(ctx context.Context) error {
+	if c.HasGitBranchDefined() {
+		return nil
+	}
+	if c.HasGitTagDefined() {
+		return nil
+	}
+	return fmt.Errorf("neither branch nor tag is specified")
 }
 
 func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
@@ -589,10 +681,12 @@ func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
 }
 
 func (c *Chart) GetLatestVersion(constraints *string) (string, error) {
-	if len(c.versions) == 0 {
-		return "", fmt.Errorf("no versions found or queried")
+	if c.IsRegistryChart() && len(c.versions) == 0 {
+		return "", fmt.Errorf("no versions found or queried: %s", c.GetChartName())
 	}
-
+	if c.IsRepositoryChart() && c.HasGitBranchDefined() {
+		return "", nil
+	}
 	var err error
 	var updateConstraints *semver.Constraints
 	if constraints != nil {

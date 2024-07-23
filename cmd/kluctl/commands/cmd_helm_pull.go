@@ -81,14 +81,22 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 	for _, chart := range charts {
 		chart := chart
 		statusPrefix := chart.GetChartName()
-
 		versionsToPull := map[string]bool{}
 		for _, hr := range releases {
 			if hr.Config.SkipPrePull {
 				continue
 			}
 			if hr.Chart == chart {
-				versionsToPull[hr.Config.ChartVersion] = true
+				if hr.Chart.IsRegistryChart() {
+					versionsToPull[hr.Config.ChartVersion] = true
+				}
+				if hr.Chart.IsRepositoryChart() {
+					ref, _, err := hr.Config.GetGitRef()
+					if err != nil {
+						return actions, err
+					}
+					versionsToPull[ref] = true
+				}
 			}
 		}
 
