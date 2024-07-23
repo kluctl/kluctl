@@ -3,12 +3,21 @@ package helm
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	cp "github.com/otiai10/copy"
@@ -18,34 +27,33 @@ import (
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
-	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
-	"strings"
 )
 
 type Chart struct {
-	repo      string
-	localPath string
-	chartName string
-
-	helmAuthProvider auth.HelmAuthProvider
-	ociAuthProvider  auth_provider.OciAuthProvider
+	repo             string
+	localPath        string
+	chartName        string
+	git              types.GitInfo
+	helmAuthProvider helmauth.HelmAuthProvider
+	ociAuthProvider  ociauth.OciAuthProvider
+	gitRp            *repocache.GitRepoCache
+	ociRp            *repocache.OciRepoCache
 
 	credentialsId string
 
 	versions []string
 }
 
-func NewChart(repo string, localPath string, chartName string, helmAuthProvider auth.HelmAuthProvider, credentialsId string, ociAuthProvider auth_provider.OciAuthProvider) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, git types.GitInfo, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
+		git:              git,
 		localPath:        localPath,
 		helmAuthProvider: helmAuthProvider,
 		credentialsId:    credentialsId,
 		ociAuthProvider:  ociAuthProvider,
+		gitRp:            gitRp,
+		ociRp:            ociRp,
 	}
 
 	if localPath == "" && repo == "" {

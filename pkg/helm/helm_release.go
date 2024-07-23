@@ -3,17 +3,19 @@ package helm
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -40,13 +42,12 @@ type Release struct {
 	baseChartsDir string
 }
 
-func NewRelease(ctx context.Context, projectRoot string, relDirInProject string, configFile string, baseChartsDir string, helmAuthProvider auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider) (*Release, error) {
+func NewRelease(ctx context.Context, projectRoot string, relDirInProject string, configFile string, baseChartsDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Release, error) {
 	var config types.HelmChartConfig
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
 	}
-
 	if config.ChartVersion != "" {
 		_, err = semver.NewVersion(config.ChartVersion)
 		if err != nil {
@@ -77,7 +78,7 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 	if credentialsId != "" {
 		status.Deprecation(ctx, "helm-release-credentials-id", "'credentialsId' in helm-chart.yaml is deprecated and support for it will be removed in a future version of Kluctl.")
 	}
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, helmAuthProvider, credentialsId, ociAuthProvider)
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsId, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return nil, err
 	}

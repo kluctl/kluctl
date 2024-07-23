@@ -3,16 +3,21 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"time"
+
+	gitauth "github.com/kluctl/kluctl/lib/git/auth"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
-	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"io/fs"
-	"os"
-	"path/filepath"
 )
 
 type helmPullCmd struct {
@@ -36,9 +41,10 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) && !yaml.Exists(filepath.Join(projectDir, ".kluctl-library.yaml")) {
 		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml or .kluctl-library.yaml file")
 	}
-
-	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
-	helmAuthProvider := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	sshPool := &ssh_pool.SshPool{}
+	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", nil)
+	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
 	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
 		return err
 	} else {
@@ -50,16 +56,22 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		ociAuthProvider.RegisterAuthProvider(x, false)
 	}
 
-	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, false, true)
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuthProvider, nil, time.Second*60)
+	defer gitRp.Clear()
+
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, time.Second*60)
+	defer ociRp.Clear()
+
+	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp, false, true)
 	return err
 }
 
-func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider, dryRun bool, force bool) (int, error) {
+func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache, dryRun bool, force bool) (int, error) {
 	actions := 0
 
 	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
 
-	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider)
+	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return actions, err
 	}
@@ -140,7 +152,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helm_au
 	return actions, nil
 }
 
-func loadHelmReleases(ctx context.Context, projectDir string, baseChartsDir string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider) ([]*helm.Release, []*helm.Chart, error) {
+func loadHelmReleases(ctx context.Context, projectDir string, baseChartsDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) ([]*helm.Release, []*helm.Chart, error) {
 	var releases []*helm.Release
 	chartsMap := make(map[string]*helm.Chart)
 	err := filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
@@ -154,7 +166,7 @@ func loadHelmReleases(ctx context.Context, projectDir string, baseChartsDir stri
 			return err
 		}
 
-		hr, err := helm.NewRelease(ctx, projectDir, relDir, p, baseChartsDir, helmAuthProvider, ociAuthProvider)
+		hr, err := helm.NewRelease(ctx, projectDir, relDir, p, baseChartsDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 		if err != nil {
 			return err
 		}

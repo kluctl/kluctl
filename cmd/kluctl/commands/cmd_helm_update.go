@@ -3,21 +3,26 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/index"
-	git2 "github.com/kluctl/kluctl/lib/git"
-	"github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
-	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
-	"github.com/kluctl/kluctl/v2/pkg/prompts"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/index"
+	git2 "github.com/kluctl/kluctl/lib/git"
+	gitauth "github.com/kluctl/kluctl/lib/git/auth"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
 type helmUpdateCmd struct {
@@ -49,9 +54,10 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
-	helmAuthProvider := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	sshPool := &ssh_pool.SshPool{}
+	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", nil)
+	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
 	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
 		return err
 	} else {
@@ -62,7 +68,12 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	} else {
 		ociAuthProvider.RegisterAuthProvider(x, false)
 	}
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuthProvider, nil, time.Second*60)
+	defer gitRp.Clear()
 
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, time.Second*60)
+
+	defer ociRp.Clear()
 	if cmd.Commit {
 		gitStatus, err := git2.GetWorktreeStatus(ctx, gitRootPath)
 		if err != nil {
@@ -84,13 +95,13 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 	g := utils.NewGoHelper(ctx, 8)
 
-	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider)
+	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return err
 	}
 
 	if cmd.Commit {
-		actions, err := doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, true, false)
+		actions, err := doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp, true, false)
 		if err != nil {
 			return err
 		}
@@ -205,7 +216,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	for k, hrs := range upgrades {
-		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion, helmAuthProvider, ociAuthProvider)
+		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 		if err != nil {
 			return err
 		}
@@ -235,7 +246,7 @@ func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]os.
 	return err
 }
 
-func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider *auth_provider.OciAuthProviders) error {
+func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider *oci_auth.OciAuthProviders, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) error {
 	chart := hrs[0].Chart
 	newVersion := hrs[0].Config.ChartVersion
 
@@ -280,7 +291,7 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 		}
 	}
 
-	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, false, false)
+	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp, false, false)
 	if err != nil {
 		return doError(err)
 	}
