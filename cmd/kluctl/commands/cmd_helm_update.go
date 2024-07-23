@@ -163,7 +163,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	upgrades := map[helmUpgradeKey][]*helm.Release{}
 
 	for _, hr := range releases {
-		cd, err := hr.Chart.BuildPulledChartDir(baseChartsDir, "")
+		cd, err := hr.Chart.BuildPulledChartDir(baseChartsDir)
 		if err != nil {
 			return err
 		}

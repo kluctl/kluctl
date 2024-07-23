@@ -127,11 +127,7 @@ func (c *Chart) GetLocalChartVersion() (string, error) {
 	return x, nil
 }
 
-func (c *Chart) BuildPulledChartDir(baseDir string, version string) (string, error) {
-	if baseDir == "" {
-		return "", fmt.Errorf("can't determine pulled chart dir. No base dir for charts found")
-	}
-
+func (c *Chart) BuildRegistryPulledChartDir(baseDir string) (string, error) {
 	u, err := url.Parse(c.repo)
 	if err != nil {
 		return "", err
@@ -165,11 +161,88 @@ func (c *Chart) BuildPulledChartDir(baseDir string, version string) (string, err
 		fmt.Sprintf("%s_%s", scheme, strings.ToLower(u.Hostname())),
 		filepath.FromSlash(strings.ToLower(u.Path)),
 	)
-	if u.Scheme != "oci" {
+	if scheme != "oci" {
 		dir = filepath.Join(dir, c.chartName)
+	}
+	return dir, nil
+}
+
+func (c *Chart) BuildVersionedRegistryPulledChartDir(baseDir string, version string) (string, error) {
+	dir, err := c.BuildRegistryPulledChartDir(baseDir)
+	if err != nil {
+		return "", err
 	}
 	if version != "" {
 		dir = filepath.Join(dir, version)
+	}
+	return dir, nil
+}
+
+func (c *Chart) BuildRepositoryPulledChartDir(baseDir string) (string, error) {
+	scheme := c.git.Url.Scheme
+	port := c.git.Url.NormalizePort()
+	hostname := c.git.Url.Hostname()
+	path := c.git.Url.Path
+	if port != "" {
+		scheme += "_" + port
+	}
+	dir := filepath.Join(
+		baseDir,
+		fmt.Sprintf("%s_%s", scheme, strings.ToLower(hostname)),
+		filepath.FromSlash(strings.ToLower(path)),
+	)
+	return dir, nil
+}
+
+func (c *Chart) BuildVersionedRepositoryPulledChartDir(baseDir string, version string) (string, error) {
+	dir, err := c.BuildRepositoryPulledChartDir(baseDir)
+	if err != nil {
+		return "", err
+	}
+	dir = filepath.Join(dir, version)
+	return dir, nil
+}
+
+func (c *Chart) BuildPulledChartDir(baseDir string) (string, error) {
+	var dir string
+	var err error
+	if baseDir == "" {
+		return "", fmt.Errorf("can't determine pulled chart dir. No base dir for charts found")
+	}
+	if c.IsRegistryChart() {
+		dir, err = c.BuildRegistryPulledChartDir(baseDir)
+		if err != nil {
+			return "", err
+		}
+	} else if c.IsRepositoryChart() {
+		dir, err = c.BuildRepositoryPulledChartDir(baseDir)
+		if err != nil {
+			return "", err
+		}
+	}
+	err = utils.CheckInDir(baseDir, dir)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version string) (string, error) {
+	var dir string
+	var err error
+	if baseDir == "" {
+		return "", fmt.Errorf("can't determine pulled chart dir. No base dir for charts found")
+	}
+	if c.IsRegistryChart() {
+		dir, err = c.BuildVersionedRegistryPulledChartDir(baseDir, version)
+		if err != nil {
+			return "", err
+		}
+	} else if c.IsRepositoryChart() {
+		dir, err = c.BuildVersionedRepositoryPulledChartDir(baseDir, version)
+		if err != nil {
+			return "", err
+		}
 	}
 	err = utils.CheckInDir(baseDir, dir)
 	if err != nil {
@@ -342,7 +415,7 @@ func (c *Chart) Pull(ctx context.Context, pc *PulledChart) error {
 
 func (c *Chart) doPullCached(ctx context.Context, version string) (*PulledChart, *lockedfile.File, error) {
 	baseDir := filepath.Join(utils.GetCacheDir(ctx), "helm-charts")
-	cacheDir, err := c.BuildPulledChartDir(baseDir, version)
+	cacheDir, err := c.BuildVersionedPulledChartDir(baseDir, version)
 	_ = os.MkdirAll(cacheDir, 0o755)
 
 	lock, err := lockedfile.Create(cacheDir + ".lock")
@@ -415,8 +488,7 @@ func (c *Chart) GetPrePulledChart(baseDir string, version string) (*PulledChart,
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
 	}
-
-	chartDir, err := c.BuildPulledChartDir(baseDir, version)
+	chartDir, err := c.BuildVersionedPulledChartDir(baseDir, version)
 	if err != nil {
 		return nil, err
 	}

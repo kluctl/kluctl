@@ -92,7 +92,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 			}
 		}
 
-		chartsDir, err := chart.BuildPulledChartDir(baseChartsDir, "")
+		chartsDir, err := chart.BuildPulledChartDir(baseChartsDir)
 		if err != nil {
 			return actions, err
 		}
