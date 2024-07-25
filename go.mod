@@ -80,11 +80,11 @@ require (
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2
 	helm.sh/helm/v3 v3.15.2
-	k8s.io/api v0.30.2
-	k8s.io/apiextensions-apiserver v0.30.2
-	k8s.io/apimachinery v0.30.2
-	k8s.io/client-go v0.30.2
-	k8s.io/klog/v2 v2.130.0
+	k8s.io/api v0.30.3
+	k8s.io/apiextensions-apiserver v0.30.3
+	k8s.io/apimachinery v0.30.3
+	k8s.io/client-go v0.30.3
+	k8s.io/klog/v2 v2.130.1
 	nhooyr.io/websocket v1.8.11
 	sigs.k8s.io/cli-utils v0.36.0
 	sigs.k8s.io/controller-runtime v0.18.4
@@ -308,9 +308,9 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.30.2 // indirect
+	k8s.io/apiserver v0.30.3 // indirect
 	k8s.io/cli-runtime v0.30.2 // indirect
-	k8s.io/component-base v0.30.2 // indirect
+	k8s.io/component-base v0.30.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20240521193020-835d969ad83a // indirect
 	k8s.io/kubectl v0.30.2 // indirect
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 // indirect
