@@ -66,6 +66,30 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	return err
 }
 
+func cleanupUnusedCharts(ctx context.Context, versionsToPull map[string]bool, dryRun bool, chartsDir string) (int, error) {
+	actions := 0
+	des, err := os.ReadDir(chartsDir)
+	if err != nil && !os.IsNotExist(err) {
+		return actions, err
+	}
+	for _, de := range des {
+		if !de.IsDir() {
+			continue
+		}
+		if _, ok := versionsToPull[de.Name()]; !ok {
+			actions++
+			if !dryRun {
+				status.Infof(ctx, "Removing unused Chart with version or ref %s", de.Name())
+				err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
+				if err != nil {
+					return actions, err
+				}
+			}
+		}
+	}
+	return actions, nil
+}
+
 func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache, dryRun bool, force bool) (int, error) {
 	actions := 0
 
@@ -104,25 +128,8 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 		if err != nil {
 			return actions, err
 		}
-		des, err := os.ReadDir(chartsDir)
-		if err != nil && !os.IsNotExist(err) {
-			return actions, err
-		}
-		for _, de := range des {
-			if !de.IsDir() {
-				continue
-			}
-			if _, ok := versionsToPull[de.Name()]; !ok {
-				actions++
-				if !dryRun {
-					status.Infof(ctx, "Removing unused Chart with version %s", de.Name())
-					err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
-					if err != nil {
-						return actions, err
-					}
-				}
-			}
-		}
+		cleanupActions, err := cleanupUnusedCharts(ctx, versionsToPull, dryRun, chartsDir)
+		actions += cleanupActions
 
 		for version, _ := range versionsToPull {
 			version := version
