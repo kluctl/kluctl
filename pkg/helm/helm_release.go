@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
@@ -47,12 +46,6 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
-	}
-	if config.ChartVersion != "" {
-		_, err = semver.NewVersion(config.ChartVersion)
-		if err != nil {
-			return nil, fmt.Errorf("invalid chart version '%s': %w", config.ChartVersion, err)
-		}
 	}
 
 	if config.IsLocalChart() {
