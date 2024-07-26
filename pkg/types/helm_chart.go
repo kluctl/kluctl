@@ -117,6 +117,20 @@ func (c *HelmChartConfig2) GetGitRef() (string, string, error) {
 	return "", "", fmt.Errorf("neither branch, tag nor commit defined")
 }
 
+func (c *HelmChartConfig2) GetAbstractVersion() (string, error) {
+	if c.IsRegistryChart() {
+		return c.ChartVersion, nil
+	}
+	if c.IsGitRepositoryChart() {
+		ref, _, err := c.GetGitRef()
+		if err != nil {
+			return "", err
+		}
+		return ref, nil
+	}
+	return "", fmt.Errorf("neither chart version nor tag, commit or branch are defined")
+}
+
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateHelmChartConfig2, HelmChartConfig2{})
 }
