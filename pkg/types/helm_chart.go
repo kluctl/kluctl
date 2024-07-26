@@ -87,6 +87,10 @@ func (c *HelmChartConfig2) GetAbsoluteLocalPath(projectRoot string, relDirInProj
 	return localPath, nil
 }
 
+func (c *HelmChartConfig2) IsRegistryChart() bool {
+	return c.IsOciRegistryChart() || c.IsHelmRegistryChart()
+}
+
 func (c *HelmChartConfig2) IsOciRegistryChart() bool {
 	return c.Repo != "" && registry.IsOCI(c.Repo)
 }
