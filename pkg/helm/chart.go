@@ -124,20 +124,18 @@ func (c *Chart) IsRepositoryChart() bool {
 	return c.git != types.GitInfo{}
 }
 
-func (c *Chart) HasGitBranchDefined() bool {
-	return c.IsRepositoryChart() && c.git.Ref.Branch != ""
-}
+func (c *Chart) GetGitRef() (string, string, error) {
+	if c.git.Ref.Branch != "" {
+		return c.git.Ref.Branch, "branch", nil
+	}
+	if c.git.Ref.Tag != "" {
+		return c.git.Ref.Tag, "tag", nil
+	}
 
-func (c *Chart) HasGitTagDefined() bool {
-	return c.IsRepositoryChart() && c.git.Ref.Tag != ""
-}
-
-func (c *Chart) GetGitBranch() string {
-	return c.git.Ref.Branch
-}
-
-func (c *Chart) GetGitTag() string {
-	return c.git.Ref.Branch
+	if c.git.Ref.Commit != "" {
+		return c.git.Ref.Commit, "commit", nil
+	}
+	return "", "", fmt.Errorf("neither branch, tag nor commit defined")
 }
 
 func (c *Chart) GetLocalChartVersion() (string, error) {
@@ -615,13 +613,37 @@ func (c *Chart) queryVersionsOci(ctx context.Context) error {
 }
 
 func (c *Chart) queryVersionsGitRepo(ctx context.Context) error {
-	if c.HasGitBranchDefined() {
+	ref, refType, err := c.GetGitRef()
+	if err != nil {
+		return err
+	}
+	if refType == "branch" {
 		return nil
 	}
-	if c.HasGitTagDefined() {
+	if refType == "commit" {
+		// Could be implemented at some point
 		return nil
 	}
-	return fmt.Errorf("neither branch nor tag is specified")
+	if refType == "tag" {
+		if IsSemantic(ref) {
+			m, err := c.gitRp.GetEntry(c.git.Url.String())
+			if err != nil {
+				return err
+			}
+			m.Update()
+			refs := m.GetRepoInfo().RemoteRefs
+			var semanticTags []string
+			for ref, _ := range refs {
+				after, found := strings.CutPrefix(ref, "refs/tags/")
+				if found {
+					semanticTags = append(semanticTags, after)
+				}
+			}
+			c.versions = semanticTags
+			return nil
+		}
+	}
+	return nil
 }
 
 func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
@@ -681,11 +703,8 @@ func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
 }
 
 func (c *Chart) GetLatestVersion(constraints *string) (string, error) {
-	if c.IsRegistryChart() && len(c.versions) == 0 {
+	if len(c.versions) == 0 {
 		return "", fmt.Errorf("no versions found or queried: %s", c.GetChartName())
-	}
-	if c.IsRepositoryChart() && c.HasGitBranchDefined() {
-		return "", nil
 	}
 	var err error
 	var updateConstraints *semver.Constraints

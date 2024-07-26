@@ -137,13 +137,32 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			if hr.Chart != chart {
 				continue
 			}
-			versionsToPull[hr.Config.ChartVersion] = true
+			if hr.Config.IsRegistryChart() {
+				versionsToPull[hr.Config.ChartVersion] = true
+			}
+			if hr.Config.IsGitRepositoryChart() {
+				ref, _, err := hr.Config.GetGitRef()
+				if err != nil {
+					return err
+				}
+				versionsToPull[ref] = true
+			}
 		}
 
 		for version, _ := range versionsToPull {
-			version := version
+			var out string
+			if chart.IsRegistryChart() {
+				out = fmt.Sprintf("%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
+			}
+			if chart.IsRepositoryChart() {
+				ref, _, err := chart.GetGitRef()
+				if err != nil {
+					return err
+				}
+				out = fmt.Sprintf("%s: Downloading Chart with branch, tag or commit %s into cache", chart.GetChartName(), ref)
+			}
 			g.RunE(func() error {
-				s := status.Startf(ctx, "%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
+				s := status.Startf(ctx, out)
 				defer s.Failed()
 				_, err := chart.PullCached(ctx, version)
 				if err != nil {
@@ -177,7 +196,12 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if hr.Config.ChartVersion == latestVersion {
+		currentVersion, err := hr.Config.GetAbstractVersion()
+		if err != nil {
+			return err
+		}
+
+		if currentVersion == latestVersion {
 			continue
 		}
 
@@ -186,7 +210,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			continue
 		}
 
-		status.Infof(ctx, "%s: Chart %s (old version %s) has new version %s available", relDir, hr.Chart.GetChartName(), hr.Config.HelmChartConfig2.ChartVersion, latestVersion)
+		status.Infof(ctx, "%s: Chart %s (old version %s) has new version %s available", relDir, hr.Chart.GetChartName(), currentVersion, latestVersion)
 
 		if !cmd.Upgrade {
 			continue
@@ -199,7 +223,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			}
 		}
 
-		oldVersion := hr.Config.ChartVersion
+		oldVersion := currentVersion
 		hr.Config.ChartVersion = latestVersion
 		err = hr.Save()
 		if err != nil {
@@ -246,7 +270,7 @@ func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]os.
 	return err
 }
 
-func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string, helmAuthProvider helm_auth.HelmAuthProvider, ociAuthProvider *oci_auth.OciAuthProviders, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) error {
+func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider *ociauth.OciAuthProviders, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) error {
 	chart := hrs[0].Chart
 	newVersion := hrs[0].Config.ChartVersion
 
