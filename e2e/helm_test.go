@@ -979,7 +979,7 @@ func TestHelmSkipPrePull(t *testing.T) {
 		return nil
 	}, "")
 	_, stderr = p.KluctlMust(t, args...)
-	assert.Contains(t, stderr, "Removing unused Chart with version 0.1.0")
+	assert.Contains(t, stderr, "Removing unused Chart with version or ref 0.1.0")
 	assert.NotContains(t, stderr, "version 0.1.1")
 	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.0", repo.URL.Port())))
 	assert.NoDirExists(t, filepath.Join(p.LocalProjectDir(), fmt.Sprintf(".helm-charts/http_%s_127.0.0.1/test-chart1/0.1.1", repo.URL.Port())))
