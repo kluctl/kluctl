@@ -13,6 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/format/index"
 	git2 "github.com/kluctl/kluctl/lib/git"
 	gitauth "github.com/kluctl/kluctl/lib/git/auth"
+	"github.com/kluctl/kluctl/lib/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
@@ -55,7 +56,13 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		return err
 	}
 	sshPool := &ssh_pool.SshPool{}
-	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", nil)
+	messageCallbacks := &messages.MessageCallbacks{
+		WarningFn:            func(s string) { status.Warning(ctx, s) },
+		TraceFn:              func(s string) { status.Trace(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
+	}
+	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
 	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
 	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {

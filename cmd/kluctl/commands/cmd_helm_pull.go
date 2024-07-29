@@ -9,6 +9,7 @@ import (
 	"time"
 
 	gitauth "github.com/kluctl/kluctl/lib/git/auth"
+	"github.com/kluctl/kluctl/lib/git/messages"
 	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
@@ -16,6 +17,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/helm"
 	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
@@ -42,7 +44,13 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml or .kluctl-library.yaml file")
 	}
 	sshPool := &ssh_pool.SshPool{}
-	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", nil)
+	messageCallbacks := &messages.MessageCallbacks{
+		WarningFn:            func(s string) { status.Warning(ctx, s) },
+		TraceFn:              func(s string) { status.Trace(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
+	}
+	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
 	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
 	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
