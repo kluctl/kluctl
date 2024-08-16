@@ -144,16 +144,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			if hr.Chart != chart {
 				continue
 			}
-			if hr.Config.IsRegistryChart() {
-				versionsToPull[hr.Config.ChartVersion] = true
-			}
-			if hr.Config.IsGitRepositoryChart() {
-				ref, _, err := hr.Config.GetGitRef()
+				version, err := hr.Config.GetAbstractVersion()
 				if err != nil {
 					return err
 				}
-				versionsToPull[ref] = true
-			}
+				versionsToPull[version] = true
 		}
 
 		for version, _ := range versionsToPull {
