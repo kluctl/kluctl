@@ -208,6 +208,7 @@ func (c *Chart) BuildGitRepositoryPulledChartDir(baseDir string) (string, error)
 	port := c.git.Url.NormalizePort()
 	hostname := c.git.Url.Hostname()
 	path := c.git.Url.Path
+	subDir := c.git.SubDir
 	if port != "" {
 		scheme += "_" + port
 	}
@@ -215,6 +216,7 @@ func (c *Chart) BuildGitRepositoryPulledChartDir(baseDir string) (string, error)
 		baseDir,
 		fmt.Sprintf("%s_%s", scheme, strings.ToLower(hostname)),
 		filepath.FromSlash(strings.ToLower(path)),
+		filepath.FromSlash(strings.ToLower(subDir)),
 	)
 	return dir, nil
 }
