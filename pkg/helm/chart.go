@@ -163,19 +163,19 @@ func (c *Chart) BuildRegistryPulledChartDir(baseDir string) (string, error) {
 		return "", err
 	}
 
-	scheme := ""
+	pathPrefix := ""
 	port := ""
 	switch {
 	case u.Scheme == "oci":
-		scheme = "oci"
+		pathPrefix = "oci"
 		port = u.Port()
 	case u.Scheme == "http":
-		scheme = "http"
+		pathPrefix = "http"
 		if u.Port() != "80" {
 			port = u.Port()
 		}
 	case u.Scheme == "https":
-		scheme = "https"
+		pathPrefix = "https"
 		if u.Port() != "443" {
 			port = u.Port()
 		}
@@ -183,11 +183,11 @@ func (c *Chart) BuildRegistryPulledChartDir(baseDir string) (string, error) {
 		return "", fmt.Errorf("unsupported scheme in %s", u.String())
 	}
 	if port != "" {
-		scheme += "_" + port
+		pathPrefix += "_" + port
 	}
 	dir := filepath.Join(
 		baseDir,
-		fmt.Sprintf("%s_%s", scheme, strings.ToLower(u.Hostname())),
+		fmt.Sprintf("%s_%s", pathPrefix, strings.ToLower(u.Hostname())),
 		filepath.FromSlash(strings.ToLower(u.Path)),
 	)
 	if u.Scheme != "oci" {
@@ -208,17 +208,17 @@ func (c *Chart) BuildVersionedRegistryPulledChartDir(baseDir string, version str
 }
 
 func (c *Chart) BuildGitRepositoryPulledChartDir(baseDir string) (string, error) {
-	scheme := c.git.Url.Scheme
+	pathPrefix := c.git.Url.Scheme
 	port := c.git.Url.NormalizePort()
 	hostname := c.git.Url.Hostname()
 	path := c.git.Url.Path
 	subDir := c.git.SubDir
 	if port != "" {
-		scheme += "_" + port
+		pathPrefix += "_" + port
 	}
 	dir := filepath.Join(
 		baseDir,
-		fmt.Sprintf("%s_%s", scheme, strings.ToLower(hostname)),
+		fmt.Sprintf("%s_%s", pathPrefix, strings.ToLower(hostname)),
 		filepath.FromSlash(strings.ToLower(path)),
 		filepath.FromSlash(strings.ToLower(subDir)),
 	)
