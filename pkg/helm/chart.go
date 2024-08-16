@@ -84,7 +84,7 @@ func NewChart(repo string, localPath string, chartName string, git *types.GitInf
 			return nil, fmt.Errorf("invalid oci chart url: %s", repo)
 		}
 		hc.chartName = chartName
-	} else if hc.IsRepositoryChart() {
+	} else if hc.IsGitRepositoryChart() {
 		if chartName != "" {
 			return nil, fmt.Errorf("chartName can't be specified when using git repos")
 		}
@@ -120,7 +120,7 @@ func (c *Chart) IsRegistryChart() bool {
 	return c.repo != ""
 }
 
-func (c *Chart) IsRepositoryChart() bool {
+func (c *Chart) IsGitRepositoryChart() bool {
 	return c.git != nil
 }
 
@@ -203,7 +203,7 @@ func (c *Chart) BuildVersionedRegistryPulledChartDir(baseDir string, version str
 	return dir, nil
 }
 
-func (c *Chart) BuildRepositoryPulledChartDir(baseDir string) (string, error) {
+func (c *Chart) BuildGitRepositoryPulledChartDir(baseDir string) (string, error) {
 	scheme := c.git.Url.Scheme
 	port := c.git.Url.NormalizePort()
 	hostname := c.git.Url.Hostname()
@@ -220,7 +220,7 @@ func (c *Chart) BuildRepositoryPulledChartDir(baseDir string) (string, error) {
 }
 
 func (c *Chart) BuildVersionedRepositoryPulledChartDir(baseDir string, version string) (string, error) {
-	dir, err := c.BuildRepositoryPulledChartDir(baseDir)
+	dir, err := c.BuildGitRepositoryPulledChartDir(baseDir)
 	if err != nil {
 		return "", err
 	}
@@ -239,8 +239,8 @@ func (c *Chart) BuildPulledChartDir(baseDir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-	} else if c.IsRepositoryChart() {
-		dir, err = c.BuildRepositoryPulledChartDir(baseDir)
+	} else if c.IsGitRepositoryChart() {
+		dir, err = c.BuildGitRepositoryPulledChartDir(baseDir)
 		if err != nil {
 			return "", err
 		}
@@ -263,7 +263,7 @@ func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version string) (st
 		if err != nil {
 			return "", err
 		}
-	} else if c.IsRepositoryChart() {
+	} else if c.IsGitRepositoryChart() {
 		dir, err = c.BuildVersionedRepositoryPulledChartDir(baseDir, version)
 		if err != nil {
 			return "", err
@@ -393,7 +393,7 @@ func (c *Chart) PullFromRegistry(ctx context.Context, version string, tmpPullDir
 	return nil
 }
 
-func (c *Chart) PullFromRepository(ctx context.Context, chartDir string) error {
+func (c *Chart) PullFromGitRepository(ctx context.Context, chartDir string) error {
 	m, err := c.gitRp.GetEntry(c.git.Url.String())
 	if err != nil {
 		return err
@@ -449,8 +449,8 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 	}
 	if c.IsRegistryChart() {
 		err = c.PullFromRegistry(ctx, version, tmpPullDir, chartDir)
-	} else if c.IsRepositoryChart() {
-		err = c.PullFromRepository(ctx, chartDir)
+	} else if c.IsGitRepositoryChart() {
+		err = c.PullFromGitRepository(ctx, chartDir)
 	} else {
 		return nil, fmt.Errorf("unknown type of helm chart source")
 	}
@@ -580,7 +580,7 @@ func (c *Chart) QueryVersions(ctx context.Context) error {
 			return c.queryVersionsHelmRepo(ctx)
 		}
 	}
-	if c.IsRepositoryChart() {
+	if c.IsGitRepositoryChart() {
 		return c.queryVersionsGitRepo(ctx)
 	}
 	return fmt.Errorf("chart type is not supported! Please use a local, registry or repository chart.")

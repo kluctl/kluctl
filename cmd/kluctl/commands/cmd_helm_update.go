@@ -161,7 +161,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			if chart.IsRegistryChart() {
 				out = fmt.Sprintf("%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
 			}
-			if chart.IsRepositoryChart() {
+			if chart.IsGitRepositoryChart() {
 				ref, _, err := chart.GetGitRef()
 				if err != nil {
 					return err

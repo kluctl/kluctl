@@ -67,7 +67,7 @@ func (pc *PulledChart) CheckNeedsPull() (bool, bool, string, error) {
 		}
 	}
 
-	if pc.chart.IsRepositoryChart() {
+	if pc.chart.IsGitRepositoryChart() {
 		// Update git cache and check if git-info differs
 		// If something is missing, re-pull
 		m, err := pc.chart.gitRp.GetEntry(pc.chart.git.Url.String())

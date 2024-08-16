@@ -145,10 +145,11 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 			return pc, nil
 		}
 	}
-	if hr.Chart.IsRepositoryChart() {
+	if hr.Chart.IsGitRepositoryChart() {
 		var pc *PulledChart
 		var err error
 		ref, _, err := hr.Config.GetGitRef()
+
 		if !hr.Config.SkipPrePull {
 			pc, err = hr.Chart.GetPrePulledChart(hr.baseChartsDir, ref)
 			if err != nil {
