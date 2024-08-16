@@ -13,7 +13,7 @@ import (
 
 type HelmChartConfig2 struct {
 	Repo              string        `json:"repo,omitempty"`
-	Git               types.GitInfo `json:"git,omitempty" validate:"required"`
+	Git               *types.GitInfo `json:"git,omitempty"`
 	Path              string        `json:"path,omitempty"`
 	CredentialsId     *string       `json:"credentialsId,omitempty"`
 	ChartName         string        `json:"chartName,omitempty"`
@@ -29,7 +29,7 @@ type HelmChartConfig2 struct {
 
 func ValidateHelmChartConfig2(sl validator.StructLevel) {
 	c := sl.Current().Interface().(HelmChartConfig2)
-	if c.Repo == "" && c.Path == "" && c.Git == (types.GitInfo{}) {
+	if c.Repo == "" && c.Path == "" && c.Git == nil {
 		sl.ReportError("self", "repo", "repo", "either repo, path or git must be specified", "")
 	} else if c.Repo != "" && c.Path != "" {
 		sl.ReportError("self", "repo", "repo", "only one of repo and path can be specified", "")
@@ -100,7 +100,7 @@ func (c *HelmChartConfig2) IsHelmRegistryChart() bool {
 }
 
 func (c *HelmChartConfig2) IsGitRepositoryChart() bool {
-	return c.Git != (types.GitInfo{})
+	return c.Git != nil
 }
 
 func (c *HelmChartConfig2) GetGitRef() (string, string, error) {

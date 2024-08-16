@@ -34,7 +34,7 @@ type Chart struct {
 	repo             string
 	localPath        string
 	chartName        string
-	git              types.GitInfo
+	git              *types.GitInfo
 	helmAuthProvider helmauth.HelmAuthProvider
 	ociAuthProvider  ociauth.OciAuthProvider
 	gitRp            *repocache.GitRepoCache
@@ -45,7 +45,7 @@ type Chart struct {
 	versions []string
 }
 
-func NewChart(repo string, localPath string, chartName string, git types.GitInfo, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, git *types.GitInfo, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
 		git:              git,
@@ -57,7 +57,7 @@ func NewChart(repo string, localPath string, chartName string, git types.GitInfo
 		ociRp:            ociRp,
 	}
 
-	if localPath == "" && repo == "" && git == (types.GitInfo{}) {
+	if localPath == "" && repo == "" && git == nil {
 		return nil, fmt.Errorf("repo, localPath and git are missing")
 	}
 
@@ -121,7 +121,7 @@ func (c *Chart) IsRegistryChart() bool {
 }
 
 func (c *Chart) IsRepositoryChart() bool {
-	return c.git != types.GitInfo{}
+	return c.git != nil
 }
 
 func (c *Chart) GetGitRef() (string, string, error) {

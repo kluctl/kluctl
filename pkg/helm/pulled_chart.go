@@ -88,10 +88,6 @@ func (pc *PulledChart) CheckNeedsPull() (bool, bool, string, error) {
 		}
 		out, err := json.Marshal(gitInfo)
 		if err != nil {
-			return true, false, "", nil
-
-		}
-		if err != nil {
 			return true, false, "", err
 		}
 		if bytes.Equal(out, gif) {
