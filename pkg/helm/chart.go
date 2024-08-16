@@ -319,7 +319,7 @@ func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings
 	return registryClient, cleanup, nil
 }
 
-func (c *Chart) PullFromRegistry(ctx context.Context, version string, tmpPullDir string, chartDir string) error {
+func (c *Chart) pullFromRegistry(ctx context.Context, version string, tmpPullDir string, chartDir string) error {
 	u, err := url.Parse(c.repo)
 	if err != nil {
 		return err
@@ -393,7 +393,7 @@ func (c *Chart) PullFromRegistry(ctx context.Context, version string, tmpPullDir
 	return nil
 }
 
-func (c *Chart) PullFromGitRepository(ctx context.Context, chartDir string) error {
+func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) error {
 	m, err := c.gitRp.GetEntry(c.git.Url.String())
 	if err != nil {
 		return err
@@ -448,9 +448,9 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 		return nil, err
 	}
 	if c.IsRegistryChart() {
-		err = c.PullFromRegistry(ctx, version, tmpPullDir, chartDir)
+		err = c.pullFromRegistry(ctx, version, tmpPullDir, chartDir)
 	} else if c.IsGitRepositoryChart() {
-		err = c.PullFromGitRepository(ctx, chartDir)
+		err = c.pullFromGitRepository(ctx, chartDir)
 	} else {
 		return nil, fmt.Errorf("unknown type of helm chart source")
 	}
