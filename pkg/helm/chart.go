@@ -411,17 +411,7 @@ func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) erro
 	if err != nil {
 		return err
 	}
-	des, err := os.ReadDir(filepath.Join(cd, c.git.SubDir))
-	if err != nil {
-		return err
-	}
-
-	for _, de := range des {
-		err = os.Rename(filepath.Join(cd, c.git.SubDir, de.Name()), filepath.Join(chartDir, de.Name()))
-		if err != nil {
-			return err
-		}
-	}
+    err = cp.Copy(filepath.Join(cd, c.git.SubDir), chartDir)
 	if err != nil {
 		return err
 	}
