@@ -404,7 +404,6 @@ func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) erro
 	if err != nil {
 		return err
 	}
-	err = m.Update()
 	if err != nil {
 		return err
 	}
@@ -636,7 +635,6 @@ func (c *Chart) queryVersionsGitRepo(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			m.Update()
 			refs := m.GetRepoInfo().RemoteRefs
 			var semanticTags []string
 			for ref, _ := range refs {

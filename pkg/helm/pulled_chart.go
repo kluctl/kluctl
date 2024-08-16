@@ -74,10 +74,6 @@ func (pc *PulledChart) CheckNeedsPull() (bool, bool, string, error) {
 		if err != nil {
 			return true, false, "", err
 		}
-		err = m.Update()
-		if err != nil {
-			return true, false, "", err
-		}
 		_, gitInfo, err := m.GetClonedDir(pc.chart.git.Ref)
 		if err != nil {
 			return true, false, "", err
