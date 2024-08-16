@@ -112,7 +112,9 @@ The name of the chart that can be found in the repository.
 The version of the chart. Must be a valid semantic version.
 
 ### git
-Instead of using `repo` for OCI/Helm registries or `path` for local charts, you can also pull Charts from Git repositories. You have to set the `url` as well as the `branch`, `tag` or `commit`. If the chart itself is in a sub directory, you can also specify a `subDir`:
+Instead of using `repo` for OCI/Helm registries or `path` for local charts, you can also pull Charts from Git repositories.
+This is helpful in cases where you don't want to publish a chart to a registry or as page, e.g. because of the overhead or other internal restrictions.
+You have to set the `url` as well as the `branch`, `tag` or `commit`. If the chart itself is in a sub directory, you can also specify a `subDir`:
 
 ```yaml
 helmChart:
