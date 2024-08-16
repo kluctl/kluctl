@@ -2,7 +2,6 @@ package helm
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -416,11 +415,7 @@ func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) erro
 		return err
 	}
 
-	out, err := json.Marshal(gitInfo)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(filepath.Join(chartDir, ".git-info"), out, 0o755)
+	err = yaml.WriteYamlFile(filepath.Join(chartDir, ".git-info.yaml"), gitInfo)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package helm
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"time"
@@ -78,11 +77,11 @@ func (pc *PulledChart) CheckNeedsPull() (bool, bool, string, error) {
 		if err != nil {
 			return true, false, "", err
 		}
-		gif, err := os.ReadFile(filepath.Join(pc.dir, ".git-info"))
+		gif, err := os.ReadFile(filepath.Join(pc.dir, ".git-info.yaml"))
 		if err != nil {
 			return true, false, "", nil
 		}
-		out, err := json.Marshal(gitInfo)
+		out, err := yaml.WriteYamlBytes(gitInfo)
 		if err != nil {
 			return true, false, "", err
 		}
