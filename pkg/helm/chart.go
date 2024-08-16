@@ -88,8 +88,12 @@ func NewChart(repo string, localPath string, chartName string, git *types.GitInf
 		if chartName != "" {
 			return nil, fmt.Errorf("chartName can't be specified when using git repos")
 		}
+		// Use the subDir if possible otherwise use the URL
 		s := strings.Split(hc.git.Url.String(), "/")
-		chartName := strings.Join(s[len(s)-2:len(s)], "-")
+		if hc.git.SubDir != "" {
+		 s = strings.Split(hc.git.SubDir, "/")
+		}
+		chartName := strings.Join(s[len(s)-1:len(s)], "-")
 		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
 			return nil, fmt.Errorf("invalid git url: %s", hc.git.Url.String())
 		}
