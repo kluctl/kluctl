@@ -123,7 +123,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 					versionsToPull[hr.Config.ChartVersion] = true
 				}
 				if hr.Chart.IsGitRepositoryChart() {
-					ref, _, err := hr.Config.GetGitRef()
+					ref, _, err := hr.Chart.GetGitRef()
 					if err != nil {
 						return actions, err
 					}

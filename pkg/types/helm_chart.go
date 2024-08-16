@@ -1,13 +1,9 @@
 package types
 
 import (
-	"fmt"
-	"path/filepath"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/registry"
 )
 
@@ -61,74 +57,6 @@ func ValidateHelmChartConfig2(sl validator.StructLevel) {
 
 type HelmChartConfig struct {
 	HelmChartConfig2 `json:"helmChart" validate:"required"`
-}
-
-func (c *HelmChartConfig2) IsLocalChart() bool {
-	return c.Path != ""
-}
-func (c *HelmChartConfig2) ErrWhenLocalPathInvalid() error {
-	if filepath.IsAbs(c.Path) {
-		return fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
-	}
-	return nil
-}
-
-func (c *HelmChartConfig2) GetAbsoluteLocalPath(projectRoot string, relDirInProject string) (string, error) {
-	localPath := ""
-	localPath = filepath.Join(projectRoot, relDirInProject, c.Path)
-	localPath, err := filepath.Abs(localPath)
-	if err != nil {
-		return "", err
-	}
-	err = utils.CheckInDir(projectRoot, localPath)
-	if err != nil {
-		return "", err
-	}
-	return localPath, nil
-}
-
-func (c *HelmChartConfig2) IsRegistryChart() bool {
-	return c.IsOciRegistryChart() || c.IsHelmRegistryChart()
-}
-
-func (c *HelmChartConfig2) IsOciRegistryChart() bool {
-	return c.Repo != "" && registry.IsOCI(c.Repo)
-}
-
-func (c *HelmChartConfig2) IsHelmRegistryChart() bool {
-	return c.Repo != "" && !registry.IsOCI(c.Repo)
-}
-
-func (c *HelmChartConfig2) IsGitRepositoryChart() bool {
-	return c.Git != nil
-}
-
-func (c *HelmChartConfig2) GetGitRef() (string, string, error) {
-	if c.Git.Ref.Branch != "" {
-		return c.Git.Ref.Branch, "branch", nil
-	}
-	if c.Git.Ref.Tag != "" {
-		return c.Git.Ref.Tag, "tag", nil
-	}
-
-	if c.Git.Ref.Commit != "" {
-		return c.Git.Ref.Commit, "commit", nil
-	}
-	return "", "", fmt.Errorf("neither branch, tag nor commit defined")
-}
-
-func (c *HelmChartConfig2) GetAbstractVersion() (string, error) {
-	if c.IsRegistryChart() {
-		return c.ChartVersion, nil
-	}
-	if c.IsGitRepositoryChart() {
-		ref, _, err := c.GetGitRef()
-		if err != nil {
-			return "", err
-		}
-		return ref, nil
-	}
-	return "", fmt.Errorf("neither chart version nor tag, commit or branch are defined")
 }
 
 func init() {

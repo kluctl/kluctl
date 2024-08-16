@@ -106,21 +106,40 @@ func NewChart(repo string, localPath string, chartName string, git *types.GitInf
 
 	return hc, nil
 }
-
-func (c *Chart) GetRepo() string {
-	return c.repo
-}
-
-func (c *Chart) GetLocalPath() string {
-	return c.localPath
-}
-
 func (c *Chart) IsLocalChart() bool {
 	return c.localPath != ""
 }
+func (c *Chart) ErrWhenLocalPathInvalid() error {
+	if filepath.IsAbs(c.localPath) {
+		return fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
+	}
+	return nil
+}
+
+func (c *Chart) GetAbsoluteLocalPath(projectRoot string, relDirInProject string) (string, error) {
+	localPath := ""
+	localPath = filepath.Join(projectRoot, relDirInProject, c.localPath)
+	localPath, err := filepath.Abs(localPath)
+	if err != nil {
+		return "", err
+	}
+	err = utils.CheckInDir(projectRoot, localPath)
+	if err != nil {
+		return "", err
+	}
+	return localPath, nil
+}
 
 func (c *Chart) IsRegistryChart() bool {
-	return c.repo != ""
+	return c.IsOciRegistryChart() || c.IsHelmRegistryChart()
+}
+
+func (c *Chart) IsOciRegistryChart() bool {
+	return c.repo != "" && registry.IsOCI(c.repo)
+}
+
+func (c *Chart) IsHelmRegistryChart() bool {
+	return c.repo != "" && !registry.IsOCI(c.repo)
 }
 
 func (c *Chart) IsGitRepositoryChart() bool {
@@ -139,6 +158,14 @@ func (c *Chart) GetGitRef() (string, string, error) {
 		return c.git.Ref.Commit, "commit", nil
 	}
 	return "", "", fmt.Errorf("neither branch, tag nor commit defined")
+}
+
+func (c *Chart) GetRepo() string {
+	return c.repo
+}
+
+func (c *Chart) GetLocalPath() string {
+	return c.localPath
 }
 
 func (c *Chart) GetLocalChartVersion() (string, error) {

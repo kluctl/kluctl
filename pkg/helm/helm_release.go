@@ -48,12 +48,12 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 		return nil, err
 	}
 
-	if config.IsLocalChart() {
-		err := config.ErrWhenLocalPathInvalid()
+	if isLocalChart(config) {
+		err := errWhenLocalPathInvalid(config)
 		if err != nil {
 			return nil, err
 		}
-		localPath, err = config.GetAbsoluteLocalPath(projectRoot, relDirInProject)
+		localPath, err = getAbsoluteLocalPath(projectRoot, relDirInProject, config)
 		if err != nil {
 			return nil, err
 		}
@@ -77,6 +77,20 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 	}
 
 	return hr, nil
+}
+
+func (hr *Release) GetAbstractVersion() (string, error) {
+	if hr.Chart.IsRegistryChart() {
+		return hr.Config.ChartVersion, nil
+	}
+	if hr.Chart.IsGitRepositoryChart() {
+		ref, _, err := hr.Chart.GetGitRef()
+		if err != nil {
+			return "", err
+		}
+		return ref, nil
+	}
+	return "", fmt.Errorf("neither chart version nor tag, commit or branch are defined")
 }
 
 func (hr *Release) GetOutputPath() string {
@@ -148,7 +162,7 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 	if hr.Chart.IsGitRepositoryChart() {
 		var pc *PulledChart
 		var err error
-		ref, _, err := hr.Config.GetGitRef()
+		ref, _, err := hr.Chart.GetGitRef()
 		if err != nil {
 			return nil, err
 		}
@@ -392,4 +406,28 @@ func isTestHook(h *release.Hook) bool {
 		}
 	}
 	return false
+}
+
+func isLocalChart(config types.HelmChartConfig) bool {
+	return config.Path != ""
+}
+func errWhenLocalPathInvalid(config types.HelmChartConfig) error {
+	if filepath.IsAbs(config.Path) {
+		return fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
+	}
+	return nil
+}
+
+func getAbsoluteLocalPath(projectRoot string, relDirInProject string, config types.HelmChartConfig) (string, error) {
+	localPath := ""
+	localPath = filepath.Join(projectRoot, relDirInProject, config.Path)
+	localPath, err := filepath.Abs(localPath)
+	if err != nil {
+		return "", err
+	}
+	err = utils.CheckInDir(projectRoot, localPath)
+	if err != nil {
+		return "", err
+	}
+	return localPath, nil
 }

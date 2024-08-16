@@ -144,7 +144,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			if hr.Chart != chart {
 				continue
 			}
-				version, err := hr.Config.GetAbstractVersion()
+				version, err := hr.GetAbstractVersion()
 				if err != nil {
 					return err
 				}
@@ -198,7 +198,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		currentVersion, err := hr.Config.GetAbstractVersion()
+		currentVersion, err := hr.GetAbstractVersion()
 		if err != nil {
 			return err
 		}
