@@ -3,17 +3,17 @@ package helm
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/pkg/helm/auth"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Masterminds/semver/v3"
 	securejoin "github.com/cyphar/filepath-securejoin"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	"github.com/kluctl/kluctl/v2/pkg/types"
@@ -40,44 +40,31 @@ type Release struct {
 	baseChartsDir string
 }
 
-func NewRelease(ctx context.Context, projectRoot string, relDirInProject string, configFile string, baseChartsDir string, helmAuthProvider auth.HelmAuthProvider, ociAuthProvider auth_provider.OciAuthProvider) (*Release, error) {
+func NewRelease(ctx context.Context, projectRoot string, relDirInProject string, configFile string, baseChartsDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Release, error) {
 	var config types.HelmChartConfig
+	var localPath string
 	err := yaml.ReadYamlFile(configFile, &config)
 	if err != nil {
 		return nil, err
 	}
 
-	if config.ChartVersion != "" {
-		_, err = semver.NewVersion(config.ChartVersion)
-		if err != nil {
-			return nil, fmt.Errorf("invalid chart version '%s': %w", config.ChartVersion, err)
-		}
-	}
-
-	localPath := ""
-	if config.Path != "" {
-		if filepath.IsAbs(config.Path) {
-			return nil, fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
-		}
-		localPath = filepath.Join(projectRoot, relDirInProject, config.Path)
-		localPath, err = filepath.Abs(localPath)
+	if isLocalChart(config) {
+		err := errWhenLocalPathInvalid(config)
 		if err != nil {
 			return nil, err
 		}
-		err = utils.CheckInDir(projectRoot, localPath)
+		localPath, err = getAbsoluteLocalPath(projectRoot, relDirInProject, config)
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	credentialsId := ""
+	credentialsIdValue := ""
 	if config.CredentialsId != nil {
-		credentialsId = *config.CredentialsId
-	}
-	if credentialsId != "" {
 		status.Deprecation(ctx, "helm-release-credentials-id", "'credentialsId' in helm-chart.yaml is deprecated and support for it will be removed in a future version of Kluctl.")
+		credentialsIdValue = *config.CredentialsId
 	}
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, helmAuthProvider, credentialsId, ociAuthProvider)
+
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsIdValue, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +77,20 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 	}
 
 	return hr, nil
+}
+
+func (hr *Release) GetAbstractVersion() (string, error) {
+	if hr.Chart.IsRegistryChart() {
+		return hr.Config.ChartVersion, nil
+	}
+	if hr.Chart.IsGitRepositoryChart() {
+		ref, _, err := hr.Chart.GetGitRef()
+		if err != nil {
+			return "", err
+		}
+		return ref, nil
+	}
+	return "", fmt.Errorf("neither chart version nor tag, commit or branch are defined")
 }
 
 func (hr *Release) GetOutputPath() string {
@@ -121,42 +122,85 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 		}
 		return NewPulledChart(hr.Chart, version, hr.Chart.GetLocalPath(), false), nil
 	}
-
-	if !hr.Config.SkipPrePull {
-		pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
-		if err != nil {
-			return nil, err
-		}
-
-		if needsPull {
-			if versionChanged {
-				return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
-					"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
-			} else {
-				//goland:noinspection ALL
-				return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
-					"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
+	if hr.Chart.IsRegistryChart() {
+		if !hr.Config.SkipPrePull {
+			pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
+			if err != nil {
+				return nil, err
 			}
+
+			needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
+			if err != nil {
+				return nil, err
+			}
+
+			if needsPull {
+				if versionChanged {
+					return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
+						"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
+				} else {
+					//goland:noinspection ALL
+					return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
+						"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
+				}
+			}
+
+			return pc, nil
+		} else {
+			s := status.Startf(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.Config.ChartVersion)
+			defer s.Failed()
+
+			pc, err := hr.Chart.PullCached(ctx, hr.Config.ChartVersion)
+			if err != nil {
+				return nil, err
+			}
+			s.Success()
+
+			return pc, nil
 		}
-
-		return pc, nil
-	} else {
-		s := status.Startf(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.Config.ChartVersion)
-		defer s.Failed()
-
-		pc, err := hr.Chart.PullCached(ctx, hr.Config.ChartVersion)
+	}
+	if hr.Chart.IsGitRepositoryChart() {
+		var pc *PulledChart
+		var err error
+		ref, _, err := hr.Chart.GetGitRef()
 		if err != nil {
 			return nil, err
 		}
-		s.Success()
+		if !hr.Config.SkipPrePull {
+			pc, err = hr.Chart.GetPrePulledChart(hr.baseChartsDir, ref)
+			if err != nil {
+				return nil, err
+			}
+			needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
+			if err != nil {
+				return nil, err
+			}
 
-		return pc, nil
+			if needsPull {
+				if versionChanged {
+					return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
+						"Desired ref is %s while pre-pulled ref is %s", hr.Chart.GetChartName(), ref, prePulledVersion)
+				} else {
+					//goland:noinspection ALL
+					return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
+						"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
+				}
+			}
+			return pc, nil
+		} else {
+			s := status.Startf(ctx, "Pulling Helm Chart %s with branch, tag or commit %s", hr.Chart.GetChartName(), ref)
+			defer s.Failed()
+
+			pc, err := hr.Chart.PullCached(ctx, ref)
+			if err != nil {
+				return nil, err
+			}
+			s.Success()
+
+			return pc, nil
+		}
 	}
+	return nil, fmt.Errorf("Unkown source of Helm Chart. Please set either path, repo or git.")
 }
 
 func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter *decryptor.Decryptor) error {
@@ -362,4 +406,28 @@ func isTestHook(h *release.Hook) bool {
 		}
 	}
 	return false
+}
+
+func isLocalChart(config types.HelmChartConfig) bool {
+	return config.Path != ""
+}
+func errWhenLocalPathInvalid(config types.HelmChartConfig) error {
+	if filepath.IsAbs(config.Path) {
+		return fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
+	}
+	return nil
+}
+
+func getAbsoluteLocalPath(projectRoot string, relDirInProject string, config types.HelmChartConfig) (string, error) {
+	localPath := ""
+	localPath = filepath.Join(projectRoot, relDirInProject, config.Path)
+	localPath, err := filepath.Abs(localPath)
+	if err != nil {
+		return "", err
+	}
+	err = utils.CheckInDir(projectRoot, localPath)
+	if err != nil {
+		return "", err
+	}
+	return localPath, nil
 }
