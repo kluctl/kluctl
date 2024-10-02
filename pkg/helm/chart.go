@@ -6,6 +6,7 @@ import (
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -88,16 +89,17 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 			return nil, fmt.Errorf("chartName can't be specified when using git repos")
 		}
 		// Use the subDir if possible otherwise use the URL
-		s := strings.Split(hc.git.Url.String(), "/")
 		if hc.git.SubDir != "" {
-			s = strings.Split(hc.git.SubDir, "/")
+			hc.chartName = path.Base(hc.git.SubDir)
+			if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, hc.chartName); !m {
+				return nil, fmt.Errorf("invalid git subDir: %s", hc.git.SubDir)
+			}
+		} else {
+			hc.chartName = path.Base(hc.git.Url.Normalize().Path)
+			if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, hc.chartName); !m {
+				return nil, fmt.Errorf("invalid git url: %s", hc.git.Url.String())
+			}
 		}
-		chartName := strings.Join(s[len(s)-1:len(s)], "-")
-		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
-			return nil, fmt.Errorf("invalid git url: %s", hc.git.Url.String())
-		}
-		hc.chartName = chartName
-
 	} else if chartName == "" {
 		return nil, fmt.Errorf("chartName is missing")
 	} else {
@@ -427,9 +429,6 @@ func (c *Chart) pullFromRegistry(ctx context.Context, version string, tmpPullDir
 
 func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) error {
 	m, err := c.gitRp.GetEntry(c.git.Url.String())
-	if err != nil {
-		return err
-	}
 	if err != nil {
 		return err
 	}
