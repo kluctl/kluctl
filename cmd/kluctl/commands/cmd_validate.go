@@ -15,6 +15,7 @@ type validateCmd struct {
 	args.TargetFlags
 	args.ArgsFlags
 	args.InclusionFlags
+	args.GitCredentials
 	args.HelmCredentials
 	args.RegistryCredentials
 	args.OutputFlags
@@ -38,6 +39,7 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
 		registryCredentials:  cmd.RegistryCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,

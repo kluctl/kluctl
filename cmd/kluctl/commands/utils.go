@@ -30,7 +30,12 @@ import (
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.KubeconfigFlags, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, helmCredentials *args.HelmCredentials, registryCredentials *args.RegistryCredentials, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.KubeconfigFlags, projectFlags args.ProjectFlags,
+	argsFlags *args.ArgsFlags,
+	gitCredentials *args.GitCredentials,
+	helmCredentials *args.HelmCredentials,
+	registryCredentials *args.RegistryCredentials,
+	internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	globalFlags := getCobraGlobalFlags(ctx)
 
 	j2, err := kluctl_jinja2.NewKluctlJinja2(ctx, strictTemplates, globalFlags.UseSystemPython)
@@ -75,6 +80,11 @@ func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.Kubeco
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 	ociAuth := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
 	helmAuth := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := gitCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		gitAuth.RegisterAuthProvider(x, false)
+	}
 	if x, err := helmCredentials.BuildAuthProvider(ctx); err != nil {
 		return err
 	} else {
@@ -124,6 +134,7 @@ type projectTargetCommandArgs struct {
 	argsFlags            args.ArgsFlags
 	imageFlags           args.ImageFlags
 	inclusionFlags       args.InclusionFlags
+	gitCredentials       args.GitCredentials
 	helmCredentials      args.HelmCredentials
 	registryCredentials  args.RegistryCredentials
 	dryRunArgs           *args.DryRunFlags
@@ -148,7 +159,7 @@ type commandCtx struct {
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, &args.kubeconfigFlags, args.projectFlags, &args.argsFlags, &args.helmCredentials, &args.registryCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, &args.kubeconfigFlags, args.projectFlags, &args.argsFlags, &args.gitCredentials, &args.helmCredentials, &args.registryCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }

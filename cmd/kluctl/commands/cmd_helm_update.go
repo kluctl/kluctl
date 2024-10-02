@@ -28,6 +28,7 @@ import (
 
 type helmUpdateCmd struct {
 	args.ProjectDir
+	args.GitCredentials
 	args.HelmCredentials
 	args.RegistryCredentials
 
@@ -65,6 +66,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
 	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
 	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := cmd.GitCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		gitAuthProvider.RegisterAuthProvider(x, false)
+	}
 	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
 		return err
 	} else {
