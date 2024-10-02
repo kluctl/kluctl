@@ -111,26 +111,6 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 func (c *Chart) IsLocalChart() bool {
 	return c.localPath != ""
 }
-func (c *Chart) ErrWhenLocalPathInvalid() error {
-	if filepath.IsAbs(c.localPath) {
-		return fmt.Errorf("absolute path is not allowed in helm-chart.yaml")
-	}
-	return nil
-}
-
-func (c *Chart) GetAbsoluteLocalPath(projectRoot string, relDirInProject string) (string, error) {
-	localPath := ""
-	localPath = filepath.Join(projectRoot, relDirInProject, c.localPath)
-	localPath, err := filepath.Abs(localPath)
-	if err != nil {
-		return "", err
-	}
-	err = utils.CheckInDir(projectRoot, localPath)
-	if err != nil {
-		return "", err
-	}
-	return localPath, nil
-}
 
 func (c *Chart) IsRegistryChart() bool {
 	return c.IsOciRegistryChart() || c.IsHelmRegistryChart()
