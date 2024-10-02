@@ -236,13 +236,13 @@ func (c *Chart) BuildVersionedRegistryPulledChartDir(baseDir string, version str
 }
 
 func (c *Chart) BuildGitRepositoryPulledChartDir(baseDir string) (string, error) {
-	pathPrefix := c.git.Url.Scheme
-	port := c.git.Url.NormalizePort()
-	hostname := c.git.Url.Hostname()
-	path := c.git.Url.Path
+	u := c.git.Url.Normalize()
+	pathPrefix := u.Scheme
+	hostname := u.Hostname()
+	path := u.Path
 	subDir := c.git.SubDir
-	if port != "" {
-		pathPrefix += "_" + port
+	if u.Port() != "" {
+		pathPrefix += "_" + u.Port()
 	}
 	dir := filepath.Join(
 		baseDir,
