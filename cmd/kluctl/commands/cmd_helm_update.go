@@ -144,11 +144,11 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 			if hr.Chart != chart {
 				continue
 			}
-				version, err := hr.GetAbstractVersion()
-				if err != nil {
-					return err
-				}
-				versionsToPull[version] = true
+			version, err := hr.GetAbstractVersion()
+			if err != nil {
+				return err
+			}
+			versionsToPull[version] = true
 		}
 
 		for version, _ := range versionsToPull {
