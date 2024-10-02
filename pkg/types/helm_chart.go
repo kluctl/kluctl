@@ -2,25 +2,24 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
-	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"helm.sh/helm/v3/pkg/registry"
 )
 
 type HelmChartConfig2 struct {
-	Repo              string        `json:"repo,omitempty"`
-	Git               *types.GitInfo `json:"git,omitempty"`
-	Path              string        `json:"path,omitempty"`
-	CredentialsId     *string       `json:"credentialsId,omitempty"`
-	ChartName         string        `json:"chartName,omitempty"`
-	ChartVersion      string        `json:"chartVersion,omitempty"`
-	UpdateConstraints *string       `json:"updateConstraints,omitempty"`
-	ReleaseName       string        `json:"releaseName" validate:"required"`
-	Namespace         *string       `json:"namespace,omitempty"`
-	Output            *string       `json:"output,omitempty"`
-	SkipCRDs          bool          `json:"skipCRDs,omitempty"`
-	SkipUpdate        bool          `json:"skipUpdate,omitempty"`
-	SkipPrePull       bool          `json:"skipPrePull,omitempty"`
+	Repo              string      `json:"repo,omitempty"`
+	Git               *GitProject `json:"git,omitempty"`
+	Path              string      `json:"path,omitempty"`
+	CredentialsId     *string     `json:"credentialsId,omitempty"`
+	ChartName         string      `json:"chartName,omitempty"`
+	ChartVersion      string      `json:"chartVersion,omitempty"`
+	UpdateConstraints *string     `json:"updateConstraints,omitempty"`
+	ReleaseName       string      `json:"releaseName" validate:"required"`
+	Namespace         *string     `json:"namespace,omitempty"`
+	Output            *string     `json:"output,omitempty"`
+	SkipCRDs          bool        `json:"skipCRDs,omitempty"`
+	SkipUpdate        bool        `json:"skipUpdate,omitempty"`
+	SkipPrePull       bool        `json:"skipPrePull,omitempty"`
 }
 
 func ValidateHelmChartConfig2(sl validator.StructLevel) {

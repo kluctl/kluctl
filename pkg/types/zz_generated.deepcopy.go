@@ -484,7 +484,7 @@ func (in *HelmChartConfig2) DeepCopyInto(out *HelmChartConfig2) {
 	*out = *in
 	if in.Git != nil {
 		in, out := &in.Git, &out.Git
-		*out = new(gittypes.GitInfo)
+		*out = new(GitProject)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.CredentialsId != nil {

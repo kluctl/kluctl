@@ -3,6 +3,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
 	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
@@ -33,7 +33,7 @@ type Chart struct {
 	repo             string
 	localPath        string
 	chartName        string
-	git              *types.GitInfo
+	git              *types2.GitProject
 	helmAuthProvider helmauth.HelmAuthProvider
 	ociAuthProvider  ociauth.OciAuthProvider
 	gitRp            *repocache.GitRepoCache
@@ -44,7 +44,7 @@ type Chart struct {
 	versions []string
 }
 
-func NewChart(repo string, localPath string, chartName string, git *types.GitInfo, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
 		git:              git,
@@ -90,7 +90,7 @@ func NewChart(repo string, localPath string, chartName string, git *types.GitInf
 		// Use the subDir if possible otherwise use the URL
 		s := strings.Split(hc.git.Url.String(), "/")
 		if hc.git.SubDir != "" {
-		 s = strings.Split(hc.git.SubDir, "/")
+			s = strings.Split(hc.git.SubDir, "/")
 		}
 		chartName := strings.Join(s[len(s)-1:len(s)], "-")
 		if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, chartName); !m {
@@ -437,7 +437,7 @@ func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) erro
 	if err != nil {
 		return err
 	}
-    err = cp.Copy(filepath.Join(cd, c.git.SubDir), chartDir)
+	err = cp.Copy(filepath.Join(cd, c.git.SubDir), chartDir)
 	if err != nil {
 		return err
 	}
