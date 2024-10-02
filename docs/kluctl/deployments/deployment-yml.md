@@ -21,7 +21,7 @@ deployments:
 - path: my-app
 - include: monitoring
 - git:
-    url: git@github.com/example/example.git
+    url: git@github.com:example/example.git
 - oci:
     url: oci://ghcr.io/kluctl/kluctl-examples/simple
 
@@ -96,17 +96,17 @@ For library projects, [args](#args) is the preferred way to pass configuration.
 Simple example:
 ```yaml
 deployments:
-- git: git@github.com/example/example.git
+- git: git@github.com:example/example.git
 ```
 
-This will clone the git repository at `git@github.com/example/example.git`, checkout the default branch and include it
+This will clone the git repository at `git@github.com:example/example.git`, checkout the default branch and include it
 into the current project.
 
 Advanced Example:
 ```yaml
 deployments:
 - git:
-    url: git@github.com/example/example.git
+    url: git@github.com:example/example.git
     ref:
       branch: my-branch
     subDir: some/sub/dir

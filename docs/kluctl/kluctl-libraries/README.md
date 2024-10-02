@@ -28,7 +28,7 @@ Consider the following root `deployment.yaml` inside your root project:
 ```yaml
 deployments:
   - git:
-      url: git@github.com/example/example-library.git
+      url: git@github.com:example/example-library.git
     args:
       arg1: value1
 ```
