@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.31.3
 	github.com/aws/smithy-go v1.21.0
 	github.com/coreos/go-oidc/v3 v3.10.0
-	github.com/cyphar/filepath-securejoin v0.2.5
+	github.com/cyphar/filepath-securejoin v0.3.3
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-alpha.1
 	github.com/docker/cli v27.3.1+incompatible
