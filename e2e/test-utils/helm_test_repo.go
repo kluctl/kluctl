@@ -16,10 +16,18 @@ import (
 	"testing"
 )
 
-type TestHelmRepo struct {
-	TestHttpServer
+type TestHelmRepoType int
 
-	Oci bool
+const (
+	TestHelmRepo_Helm TestHelmRepoType = iota
+	TestHelmRepo_Oci
+	TestHelmRepo_Git
+)
+
+type TestHelmRepo struct {
+	HttpServer TestHttpServer
+
+	Type TestHelmRepoType
 
 	Path   string
 	Charts []RepoChart
@@ -32,8 +40,22 @@ type RepoChart struct {
 	Version   string
 }
 
+func NewHelmTestRepoHttp(helmType TestHelmRepoType, path string, username string, password string, tlsEnabled bool, tlsClientCertEnabled bool) *TestHelmRepo {
+	return &TestHelmRepo{
+		HttpServer: TestHttpServer{
+			Username:               username,
+			Password:               password,
+			NoLoopbackProxyEnabled: true,
+			TLSEnabled:             tlsEnabled,
+			TLSClientCertEnabled:   tlsClientCertEnabled,
+		},
+		Type: helmType,
+		Path: path,
+	}
+}
+
 func (s *TestHelmRepo) Start(t *testing.T) {
-	if s.Oci {
+	if s.Type == TestHelmRepo_Oci {
 		s.startOciRepo(t)
 	} else {
 		s.startHelmRepo(t)
@@ -49,9 +71,9 @@ func (s *TestHelmRepo) startHelmRepo(t *testing.T) {
 	}
 
 	fs := http.FileServer(http.FS(os.DirFS(tmpDir)))
-	s.TestHttpServer.Start(t, fs)
+	s.HttpServer.Start(t, fs)
 
-	i, err := repo.IndexDirectory(tmpDir, s.Server.URL)
+	i, err := repo.IndexDirectory(tmpDir, s.HttpServer.Server.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,19 +89,19 @@ func (s *TestHelmRepo) startHelmRepo(t *testing.T) {
 		path = "/" + path
 	}
 
-	u, _ := url.Parse(s.Server.URL + path)
+	u, _ := url.Parse(s.HttpServer.Server.URL + path)
 	s.URL = *u
 }
 
 func (s *TestHelmRepo) buildOciRegistryClient(t *testing.T) *registry2.Client {
 	var opts []registry2.ClientOption
-	if !s.TLSEnabled {
+	if !s.HttpServer.TLSEnabled {
 		opts = append(opts, registry2.ClientOptPlainHTTP())
 	}
 
-	opts = append(opts, registry2.ClientOptHTTPClient(s.Server.Client()))
+	opts = append(opts, registry2.ClientOptHTTPClient(s.HttpServer.Server.Client()))
 
-	if s.Password != "" {
+	if s.HttpServer.Password != "" {
 		tmpConfigFile := filepath.Join(t.TempDir(), "config.json")
 		opts = append(opts, registry2.ClientOptCredentialsFile(tmpConfigFile))
 	}
@@ -89,10 +111,10 @@ func (s *TestHelmRepo) buildOciRegistryClient(t *testing.T) *registry2.Client {
 		t.Fatal(err)
 	}
 
-	if s.Password != "" {
+	if s.HttpServer.Password != "" {
 		var loginOpts []registry2.LoginOption
-		loginOpts = append(loginOpts, registry2.LoginOptBasicAuth(s.Username, s.Password))
-		if !s.TLSEnabled {
+		loginOpts = append(loginOpts, registry2.LoginOptBasicAuth(s.HttpServer.Username, s.HttpServer.Password))
+		if !s.HttpServer.TLSEnabled {
 			loginOpts = append(loginOpts, registry2.LoginOptInsecure(true))
 		}
 		err = registryClient.Login(s.URL.Host, loginOpts...)
@@ -108,9 +130,9 @@ func (s *TestHelmRepo) startOciRepo(t *testing.T) {
 
 	ociRegistry := registry.New()
 
-	s.TestHttpServer.Start(t, http.HandlerFunc(ociRegistry.ServeHTTP))
+	s.HttpServer.Start(t, http.HandlerFunc(ociRegistry.ServeHTTP))
 
-	u, _ := url.Parse(s.Server.URL)
+	u, _ := url.Parse(s.HttpServer.Server.URL)
 	s.URL = *u
 	s.URL.Scheme = "oci"
 

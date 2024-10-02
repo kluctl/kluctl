@@ -23,7 +23,7 @@ import (
 type helmTestCase struct {
 	path              string
 	name              string
-	oci               bool
+	helmType          test_utils.TestHelmRepoType
 	testAuth          bool
 	testTLS           bool
 	testTLSClientCert bool
@@ -44,7 +44,7 @@ type helmTestCase struct {
 
 var helmTests = []helmTestCase{
 	{name: "helm-no-creds"},
-	{name: "oci-no-creds", oci: true},
+	{name: "oci-no-creds", helmType: test_utils.TestHelmRepo_Oci},
 
 	// tls tests
 	{
@@ -75,19 +75,19 @@ var helmTests = []helmTestCase{
 	},
 
 	{
-		name: "oci-tls-missing-ca", oci: true, testTLS: true,
+		name: "oci-tls-missing-ca", helmType: test_utils.TestHelmRepo_Oci, testTLS: true,
 		argPassCA:            false,
 		argCredsHost:         "<host>",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "failed to verify certificate",
 	},
 	{
-		name: "oci-tls-valid-ca", oci: true, testTLS: true,
+		name: "oci-tls-valid-ca", helmType: test_utils.TestHelmRepo_Oci, testTLS: true,
 		argPassCA:    true,
 		argCredsHost: "<host>",
 	},
 	{
-		name: "oci-tls-missing-cert", oci: true, testTLS: true, testTLSClientCert: true,
+		name: "oci-tls-missing-cert", helmType: test_utils.TestHelmRepo_Oci, testTLS: true, testTLSClientCert: true,
 		argPassCA:            true,
 		argPassClientCert:    false,
 		argCredsHost:         "<host>",
@@ -95,7 +95,7 @@ var helmTests = []helmTestCase{
 		expectedPrepareError: "certificate required",
 	},
 	{
-		name: "oci-tls-valid-cert", oci: true, testTLS: true, testTLSClientCert: true,
+		name: "oci-tls-valid-cert", helmType: test_utils.TestHelmRepo_Oci, testTLS: true, testTLSClientCert: true,
 		argPassCA:         true,
 		argPassClientCert: true,
 		argCredsHost:      "<host>",
@@ -103,22 +103,22 @@ var helmTests = []helmTestCase{
 
 	// deprecated helm credentials flags
 	{
-		name: "dep-helm-creds-missing", oci: false, testAuth: true, credsId: "test-creds",
+		name: "dep-helm-creds-missing", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, credsId: "test-creds",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "dep-helm-creds-invalid", oci: false, testAuth: true, credsId: "test-creds",
+		name: "dep-helm-creds-invalid", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, credsId: "test-creds",
 		argCredsId: "test-creds", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "dep-helm-creds-valid", oci: false, testAuth: true, credsId: "test-creds",
+		name: "dep-helm-creds-valid", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, credsId: "test-creds",
 		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
 	},
 	{
-		name: "dep-oci-creds-fail", oci: true, testAuth: true, credsId: "test-creds",
+		name: "dep-oci-creds-fail", helmType: test_utils.TestHelmRepo_Oci, testAuth: true, credsId: "test-creds",
 		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments",
@@ -126,69 +126,69 @@ var helmTests = []helmTestCase{
 
 	// new helm credentials flags
 	{
-		name: "helm-creds-missing", oci: false, testAuth: true,
+		name: "helm-creds-missing", helmType: test_utils.TestHelmRepo_Helm, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "helm-creds-invalid", oci: false, testAuth: true,
+		name: "helm-creds-invalid", helmType: test_utils.TestHelmRepo_Helm, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "helm-creds-valid", oci: false, testAuth: true,
+		name: "helm-creds-valid", helmType: test_utils.TestHelmRepo_Helm, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "secret-password",
 	},
 	{
-		name: "helm-creds-missing-path", oci: false, testAuth: true, path: "path1",
+		name: "helm-creds-missing-path", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, path: "path1",
 		argCredsHost: "<host>", argCredsPath: "path2", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "helm-creds-invalid-path", oci: false, testAuth: true, path: "path1",
+		name: "helm-creds-invalid-path", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, path: "path1",
 		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "helm-creds-valid-path", oci: false, testAuth: true, path: "path1",
+		name: "helm-creds-valid-path", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, path: "path1",
 		argCredsHost: "<host>", argCredsPath: "path1", argUsername: "test-user", argPassword: "secret-password",
 	},
 
 	// oci creds
 	{
-		name: "oci-creds-missing", oci: true, testAuth: true,
+		name: "oci-creds-missing", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "no basic auth credentials",
 	},
 	{
-		name: "oci-creds-invalid", oci: true, testAuth: true,
+		name: "oci-creds-invalid", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "oci-creds-valid", oci: true, testAuth: true,
+		name: "oci-creds-valid", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "secret-password",
 	},
 	{
-		name: "oci-creds-missing-path", oci: true, testAuth: true,
+		name: "oci-creds-missing-path", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart2", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "no basic auth credentials",
 	},
 	{
-		name: "oci-creds-invalid-path", oci: true, testAuth: true,
+		name: "oci-creds-invalid-path", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
 		expectedPrepareError: "401 Unauthorized",
 	},
 	{
-		name: "oci-creds-valid-path", oci: true, testAuth: true,
+		name: "oci-creds-valid-path", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "secret-password",
 	},
 }
@@ -202,7 +202,7 @@ func newTmpFile(t *testing.T, b []byte) string {
 
 func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.TestHelmRepo) []string {
 	var ret []string
-	if tc.oci {
+	if tc.helmType == test_utils.TestHelmRepo_Oci {
 		if tc.argCredsHost != "" {
 			r := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 			if tc.argCredsPath != "" {
@@ -214,11 +214,11 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 			} else {
 				ret = append(ret, fmt.Sprintf("--registry-creds=%s=%s:%s", r, tc.argUsername, tc.argPassword))
 			}
-			if !repo.TLSEnabled {
+			if !repo.HttpServer.TLSEnabled {
 				ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", r))
 			}
 		}
-		if !repo.TLSEnabled {
+		if !repo.HttpServer.TLSEnabled {
 			r := repo.URL.Host
 			if tc.argCredsPath != "" {
 				r += "/" + tc.argCredsPath
@@ -227,14 +227,14 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 		}
 		if tc.testTLS {
 			if tc.argPassCA {
-				ret = append(ret, fmt.Sprintf("--registry-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ServerCAs)))
+				ret = append(ret, fmt.Sprintf("--registry-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.HttpServer.ServerCAs)))
 			}
 			if tc.argPassClientCert {
-				ret = append(ret, fmt.Sprintf("--registry-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientCert)))
-				ret = append(ret, fmt.Sprintf("--registry-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientKey)))
+				ret = append(ret, fmt.Sprintf("--registry-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.HttpServer.ClientCert)))
+				ret = append(ret, fmt.Sprintf("--registry-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.HttpServer.ClientKey)))
 			}
 		}
-	} else {
+	} else if tc.helmType == test_utils.TestHelmRepo_Helm {
 		if tc.argCredsId != "" {
 			ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
 			ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
@@ -252,16 +252,16 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 		}
 		if tc.testTLS {
 			if tc.argPassCA {
-				ret = append(ret, fmt.Sprintf("--helm-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ServerCAs)))
+				ret = append(ret, fmt.Sprintf("--helm-ca-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.HttpServer.ServerCAs)))
 			}
 			if tc.argPassClientCert {
-				ret = append(ret, fmt.Sprintf("--helm-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientCert)))
-				ret = append(ret, fmt.Sprintf("--helm-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.ClientKey)))
+				ret = append(ret, fmt.Sprintf("--helm-cert-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.HttpServer.ClientCert)))
+				ret = append(ret, fmt.Sprintf("--helm-key-file=%s=%s", repo.URL.Host, newTmpFile(t, repo.HttpServer.ClientKey)))
 			}
 		}
 	}
 	// add a fallback that enables plain_http in case we have no matching creds
-	if tc.oci && !repo.TLSEnabled {
+	if tc.helmType == test_utils.TestHelmRepo_Oci && !repo.HttpServer.TLSEnabled {
 		ret = append(ret, fmt.Sprintf("--registry-plain-http=%s", repo.URL.Host))
 	}
 	return ret
@@ -276,7 +276,7 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, p *test_project.TestPro
 		}
 	}
 
-	if tc.oci {
+	if tc.helmType == test_utils.TestHelmRepo_Oci {
 		if tc.argCredsHost != "" {
 			setEnv("KLUCTL_REGISTRY_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
 		}
@@ -289,17 +289,17 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, p *test_project.TestPro
 		if tc.argPassword != "" {
 			setEnv("KLUCTL_REGISTRY_PASSWORD", tc.argPassword)
 		}
-		if !repo.TLSEnabled {
+		if !repo.HttpServer.TLSEnabled {
 			setEnv("KLUCTL_REGISTRY_PLAIN_HTTP", "true")
 		}
 		if tc.argPassCA {
-			setEnv("KLUCTL_REGISTRY_CA_FILE", newTmpFile(t, repo.ServerCAs))
+			setEnv("KLUCTL_REGISTRY_CA_FILE", newTmpFile(t, repo.HttpServer.ServerCAs))
 		}
 		if tc.argPassClientCert {
-			setEnv("KLUCTL_REGISTRY_CERT_FILE", newTmpFile(t, repo.ClientCert))
-			setEnv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.ClientKey))
+			setEnv("KLUCTL_REGISTRY_CERT_FILE", newTmpFile(t, repo.HttpServer.ClientCert))
+			setEnv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.HttpServer.ClientKey))
 		}
-	} else {
+	} else if tc.helmType == test_utils.TestHelmRepo_Helm {
 		if tc.argCredsId != "" {
 			setEnv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
 		}
@@ -316,15 +316,15 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, p *test_project.TestPro
 			setEnv("KLUCTL_HELM_PASSWORD", tc.argPassword)
 		}
 		if tc.argPassCA {
-			setEnv("KLUCTL_HELM_CA_FILE", newTmpFile(t, repo.ServerCAs))
+			setEnv("KLUCTL_HELM_CA_FILE", newTmpFile(t, repo.HttpServer.ServerCAs))
 		}
 		if tc.argPassClientCert {
-			setEnv("KLUCTL_HELM_CERT_FILE", newTmpFile(t, repo.ClientCert))
-			setEnv("KLUCTL_HELM_KEY_FILE", newTmpFile(t, repo.ClientKey))
+			setEnv("KLUCTL_HELM_CERT_FILE", newTmpFile(t, repo.HttpServer.ClientCert))
+			setEnv("KLUCTL_HELM_KEY_FILE", newTmpFile(t, repo.HttpServer.ClientKey))
 		}
 	}
 	// add a fallback that enables plain_http in case we have no matching creds
-	if tc.oci && !repo.TLSEnabled {
+	if tc.helmType == test_utils.TestHelmRepo_Oci && !repo.HttpServer.TLSEnabled {
 		setEnv("KLUCTL_REGISTRY_1_HOST", repo.URL.Host)
 		setEnv("KLUCTL_REGISTRY_1_PLAIN_HTTP", "true")
 	}
@@ -364,20 +364,13 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 		password = "secret-password"
 	}
 
-	repo := &test_utils.TestHelmRepo{
-		TestHttpServer: test_utils.TestHttpServer{
-			Username:               user,
-			Password:               password,
-			NoLoopbackProxyEnabled: true,
-			TLSEnabled:             tc.testTLS,
-			TLSClientCertEnabled:   tc.testTLSClientCert,
-		},
-		Charts: []test_utils.RepoChart{
-			{ChartName: "test-chart1", Version: "0.1.0"},
-		},
-		Oci:  tc.oci,
-		Path: tc.path,
+	var repo *test_utils.TestHelmRepo
+	if tc.helmType == test_utils.TestHelmRepo_Helm || tc.helmType == test_utils.TestHelmRepo_Oci {
+		repo = test_utils.NewHelmTestRepoHttp(tc.helmType, tc.path, user, password, tc.testTLS, tc.testTLSClientCert)
 	}
+	repo.Charts = append(repo.Charts,
+		test_utils.RepoChart{ChartName: "test-chart1", Version: "0.1.0"},
+	)
 	repo.Start(t)
 
 	extraArgs := buildHelmTestExtraArgs(t, tc, repo)
@@ -540,7 +533,7 @@ func TestHelmInIncludeLibrary(t *testing.T) {
 	}
 }
 
-func testHelmManualUpgrade(t *testing.T, oci bool) {
+func testHelmManualUpgrade(t *testing.T, helmType test_utils.TestHelmRepoType) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -550,7 +543,7 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 	createNamespace(t, k, p.TestSlug())
 
 	repo := &test_utils.TestHelmRepo{
-		Oci: oci,
+		Type: helmType,
 		Charts: []test_utils.RepoChart{
 			{ChartName: "test-chart1", Version: "0.1.0"},
 			{ChartName: "test-chart1", Version: "0.2.0"},
@@ -582,14 +575,14 @@ func testHelmManualUpgrade(t *testing.T, oci bool) {
 }
 
 func TestHelmManualUpgrade(t *testing.T) {
-	testHelmManualUpgrade(t, false)
+	testHelmManualUpgrade(t, test_utils.TestHelmRepo_Helm)
 }
 
 func TestHelmManualUpgradeOci(t *testing.T) {
-	testHelmManualUpgrade(t, true)
+	testHelmManualUpgrade(t, test_utils.TestHelmRepo_Oci)
 }
 
-func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
+func testHelmUpdate(t *testing.T, helmType test_utils.TestHelmRepoType, upgrade bool, commit bool) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -599,7 +592,7 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 	createNamespace(t, k, p.TestSlug())
 
 	repo := &test_utils.TestHelmRepo{
-		Oci: oci,
+		Type: helmType,
 		Charts: []test_utils.RepoChart{
 			{ChartName: "test-chart1", Version: "0.1.0"},
 			{ChartName: "test-chart1", Version: "0.2.0"},
@@ -684,30 +677,30 @@ func testHelmUpdate(t *testing.T, oci bool, upgrade bool, commit bool) {
 }
 
 func TestHelmUpdate(t *testing.T) {
-	testHelmUpdate(t, false, false, false)
+	testHelmUpdate(t, test_utils.TestHelmRepo_Helm, false, false)
 }
 
 func TestHelmUpdateOci(t *testing.T) {
-	testHelmUpdate(t, true, false, false)
+	testHelmUpdate(t, test_utils.TestHelmRepo_Oci, false, false)
 }
 
 func TestHelmUpdateAndUpgrade(t *testing.T) {
-	testHelmUpdate(t, false, true, false)
+	testHelmUpdate(t, test_utils.TestHelmRepo_Helm, true, false)
 }
 
 func TestHelmUpdateAndUpgradeOci(t *testing.T) {
-	testHelmUpdate(t, true, true, false)
+	testHelmUpdate(t, test_utils.TestHelmRepo_Oci, true, false)
 }
 
 func TestHelmUpdateAndUpgradeAndCommit(t *testing.T) {
-	testHelmUpdate(t, false, true, true)
+	testHelmUpdate(t, test_utils.TestHelmRepo_Helm, true, true)
 }
 
 func TestHelmUpdateAndUpgradeAndCommitOci(t *testing.T) {
-	testHelmUpdate(t, true, true, true)
+	testHelmUpdate(t, test_utils.TestHelmRepo_Oci, true, true)
 }
 
-func testHelmUpdateConstraints(t *testing.T, oci bool) {
+func testHelmUpdateConstraints(t *testing.T, helmType test_utils.TestHelmRepoType) {
 	t.Parallel()
 
 	k := defaultCluster1
@@ -717,7 +710,7 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 	createNamespace(t, k, p.TestSlug())
 
 	repo := &test_utils.TestHelmRepo{
-		Oci: oci,
+		Type: helmType,
 		Charts: []test_utils.RepoChart{
 			{ChartName: "test-chart1", Version: "0.1.0"},
 			{ChartName: "test-chart1", Version: "0.1.1"},
@@ -766,11 +759,11 @@ func testHelmUpdateConstraints(t *testing.T, oci bool) {
 }
 
 func TestHelmUpdateConstraints(t *testing.T) {
-	testHelmUpdateConstraints(t, false)
+	testHelmUpdateConstraints(t, test_utils.TestHelmRepo_Helm)
 }
 
 func TestHelmUpdateConstraintsOci(t *testing.T) {
-	testHelmUpdateConstraints(t, true)
+	testHelmUpdateConstraints(t, test_utils.TestHelmRepo_Oci)
 }
 
 func TestHelmValues(t *testing.T) {

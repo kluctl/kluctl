@@ -23,7 +23,7 @@ func TestOciIncludeMultipleRepos(t *testing.T) {
 	ip2 := prepareIncludeProject(t, "include2", "subDir", nil)
 
 	repo := &test_utils.TestHelmRepo{
-		Oci: true,
+		Type: test_utils.TestHelmRepo_Oci,
 	}
 	repo.Start(t)
 
@@ -64,13 +64,7 @@ func TestOciIncludeWithCreds(t *testing.T) {
 	ip3 := prepareIncludeProject(t, "include3", "", nil)
 
 	createRepo := func(user, pass string) *test_utils.TestHelmRepo {
-		repo := &test_utils.TestHelmRepo{
-			TestHttpServer: test_utils.TestHttpServer{
-				Username: user,
-				Password: pass,
-			},
-			Oci: true,
-		}
+		repo := test_utils.NewHelmTestRepoHttp(test_utils.TestHelmRepo_Oci, "", user, pass, false, false)
 		repo.Start(t)
 		return repo
 	}
@@ -170,7 +164,7 @@ func TestOciIncludeTagsAndDigests(t *testing.T) {
 	ip1 := prepareIncludeProject(t, "include1", "", nil)
 
 	repo := test_utils.TestHelmRepo{
-		Oci: true,
+		Type: test_utils.TestHelmRepo_Oci,
 	}
 	repo.Start(t)
 

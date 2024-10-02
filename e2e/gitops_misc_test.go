@@ -63,10 +63,7 @@ func (suite *GitOpsMiscSuite) TestOciSourceWithPath() {
 		namespace: p.TestSlug(),
 	})
 
-	repo := &test_utils.TestHelmRepo{
-		TestHttpServer: test_utils.TestHttpServer{},
-		Oci:            true,
-	}
+	repo := test_utils.NewHelmTestRepoHttp(test_utils.TestHelmRepo_Oci, "", "", "", false, false)
 	repo.Start(suite.T())
 
 	repoUrl := repo.URL.String() + "/org/repo"

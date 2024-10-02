@@ -2,6 +2,7 @@ package e2e
 
 import (
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -44,22 +45,22 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		})
 	} else if tc.argCredsHost != "" {
 		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
-		if tc.oci {
+		if tc.helmType == test_utils.TestHelmRepo_Oci {
 			m := map[string]string{
 				"username": tc.argUsername,
 				"password": tc.argPassword,
 			}
-			if !repo.TLSEnabled {
+			if !repo.HttpServer.TLSEnabled {
 				m["plainHttp"] = "true"
 			}
 			if tc.argPassCA {
-				m["ca"] = string(repo.ServerCAs)
+				m["ca"] = string(repo.HttpServer.ServerCAs)
 			}
 			if tc.argPassClientCert {
-				m["cert"] = string(repo.ClientCert)
+				m["cert"] = string(repo.HttpServer.ClientCert)
 			}
 			if tc.argPassClientCert {
-				m["key"] = string(repo.ClientKey)
+				m["key"] = string(repo.HttpServer.ClientKey)
 			}
 			name := suite.createGitopsSecret(m)
 			projectCreds.Oci = append(projectCreds.Oci, kluctlv1.ProjectCredentialsOci{
@@ -67,19 +68,19 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 				Repository: tc.argCredsPath,
 				SecretRef:  kluctlv1.LocalObjectReference{Name: name},
 			})
-		} else {
+		} else if tc.helmType == test_utils.TestHelmRepo_Helm {
 			m := map[string]string{
 				"username": tc.argUsername,
 				"password": tc.argPassword,
 			}
 			if tc.argPassCA {
-				m["ca"] = string(repo.ServerCAs)
+				m["ca"] = string(repo.HttpServer.ServerCAs)
 			}
 			if tc.argPassClientCert {
-				m["cert"] = string(repo.ClientCert)
+				m["cert"] = string(repo.HttpServer.ClientCert)
 			}
 			if tc.argPassClientCert {
-				m["key"] = string(repo.ClientKey)
+				m["key"] = string(repo.HttpServer.ClientKey)
 			}
 			name := suite.createGitopsSecret(m)
 			projectCreds.Helm = append(projectCreds.Helm, kluctlv1.ProjectCredentialsHelm{
@@ -91,7 +92,7 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 	}
 
 	// add a fallback secret that enables plainHttp in case we have no matching creds
-	if tc.oci && !repo.TLSEnabled {
+	if tc.helmType == test_utils.TestHelmRepo_Oci && !repo.HttpServer.TLSEnabled {
 		m := map[string]string{
 			"plainHttp": "true",
 		}
