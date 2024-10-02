@@ -3,6 +3,7 @@ package helm
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/git/types"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
 	"os"
@@ -34,7 +35,8 @@ type Chart struct {
 	repo             string
 	localPath        string
 	chartName        string
-	git              *types2.GitProject
+	gitUrl           *types.GitUrl
+	gitSubDir        string
 	helmAuthProvider helmauth.HelmAuthProvider
 	ociAuthProvider  ociauth.OciAuthProvider
 	gitRp            *repocache.GitRepoCache
@@ -42,13 +44,12 @@ type Chart struct {
 
 	credentialsId string
 
-	versions []string
+	versions []ChartVersion
 }
 
 func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
-		git:              git,
 		localPath:        localPath,
 		helmAuthProvider: helmAuthProvider,
 		credentialsId:    credentialsId,
@@ -84,20 +85,23 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 			return nil, fmt.Errorf("invalid oci chart url: %s", repo)
 		}
 		hc.chartName = chartName
-	} else if hc.IsGitRepositoryChart() {
+	} else if git != nil {
+		hc.gitUrl = &git.Url
+		hc.gitSubDir = git.SubDir
+
 		if chartName != "" {
 			return nil, fmt.Errorf("chartName can't be specified when using git repos")
 		}
 		// Use the subDir if possible otherwise use the URL
-		if hc.git.SubDir != "" {
-			hc.chartName = path.Base(hc.git.SubDir)
+		if git.SubDir != "" {
+			hc.chartName = path.Base(git.SubDir)
 			if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, hc.chartName); !m {
-				return nil, fmt.Errorf("invalid git subDir: %s", hc.git.SubDir)
+				return nil, fmt.Errorf("invalid git subDir: %s", git.SubDir)
 			}
 		} else {
-			hc.chartName = path.Base(hc.git.Url.Normalize().Path)
+			hc.chartName = path.Base(git.Url.Normalize().Path)
 			if m, _ := regexp.MatchString(`[a-zA-Z_-]+`, hc.chartName); !m {
-				return nil, fmt.Errorf("invalid git url: %s", hc.git.Url.String())
+				return nil, fmt.Errorf("invalid git url: %s", git.Url.String())
 			}
 		}
 	} else if chartName == "" {
@@ -125,21 +129,7 @@ func (c *Chart) IsHelmRegistryChart() bool {
 }
 
 func (c *Chart) IsGitRepositoryChart() bool {
-	return c.git != nil
-}
-
-func (c *Chart) GetGitRef() (string, string, error) {
-	if c.git.Ref.Branch != "" {
-		return c.git.Ref.Branch, "branch", nil
-	}
-	if c.git.Ref.Tag != "" {
-		return c.git.Ref.Tag, "tag", nil
-	}
-
-	if c.git.Ref.Commit != "" {
-		return c.git.Ref.Commit, "commit", nil
-	}
-	return "", "", fmt.Errorf("neither branch, tag nor commit defined")
+	return c.gitUrl != nil
 }
 
 func (c *Chart) GetRepo() string {
@@ -204,41 +194,40 @@ func (c *Chart) BuildRegistryPulledChartDir(baseDir string) (string, error) {
 	return dir, nil
 }
 
-func (c *Chart) BuildVersionedRegistryPulledChartDir(baseDir string, version string) (string, error) {
+func (c *Chart) BuildVersionedRegistryPulledChartDir(baseDir string, version ChartVersion) (string, error) {
 	dir, err := c.BuildRegistryPulledChartDir(baseDir)
 	if err != nil {
 		return "", err
 	}
-	if version != "" {
-		dir = filepath.Join(dir, version)
+	if version.Version != nil {
+		dir = filepath.Join(dir, *version.Version)
 	}
 	return dir, nil
 }
 
 func (c *Chart) BuildGitRepositoryPulledChartDir(baseDir string) (string, error) {
-	u := c.git.Url.Normalize()
-	pathPrefix := u.Scheme
+	u := c.gitUrl.Normalize()
+	pathPrefix := "git_" + u.Scheme
 	hostname := u.Hostname()
-	path := u.Path
-	subDir := c.git.SubDir
 	if u.Port() != "" {
 		pathPrefix += "_" + u.Port()
 	}
 	dir := filepath.Join(
 		baseDir,
 		fmt.Sprintf("%s_%s", pathPrefix, strings.ToLower(hostname)),
-		filepath.FromSlash(strings.ToLower(path)),
-		filepath.FromSlash(strings.ToLower(subDir)),
+		filepath.FromSlash(strings.ToLower(u.Path)),
+		filepath.FromSlash(strings.ToLower(c.gitSubDir)),
 	)
 	return dir, nil
 }
 
-func (c *Chart) BuildVersionedRepositoryPulledChartDir(baseDir string, version string) (string, error) {
+func (c *Chart) BuildVersionedGitRepositoryPulledChartDir(baseDir string, version ChartVersion) (string, error) {
 	dir, err := c.BuildGitRepositoryPulledChartDir(baseDir)
 	if err != nil {
 		return "", err
 	}
-	dir = filepath.Join(dir, version)
+	gitVersion := version.String()
+	dir = filepath.Join(dir, filepath.FromSlash(gitVersion))
 	return dir, nil
 }
 
@@ -266,7 +255,7 @@ func (c *Chart) BuildPulledChartDir(baseDir string) (string, error) {
 	return dir, nil
 }
 
-func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version string) (string, error) {
+func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version ChartVersion) (string, error) {
 	var dir string
 	var err error
 	if baseDir == "" {
@@ -278,7 +267,7 @@ func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version string) (st
 			return "", err
 		}
 	} else if c.IsGitRepositoryChart() {
-		dir, err = c.BuildVersionedRepositoryPulledChartDir(baseDir, version)
+		dir, err = c.BuildVersionedGitRepositoryPulledChartDir(baseDir, version)
 		if err != nil {
 			return "", err
 		}
@@ -333,7 +322,7 @@ func (c *Chart) newRegistryClient(ctx context.Context, settings *cli.EnvSettings
 	return registryClient, cleanup, nil
 }
 
-func (c *Chart) pullFromRegistry(ctx context.Context, version string, tmpPullDir string, chartDir string) error {
+func (c *Chart) pullFromRegistry(ctx context.Context, version ChartVersion, tmpPullDir string, chartDir string) error {
 	u, err := url.Parse(c.repo)
 	if err != nil {
 		return err
@@ -354,7 +343,9 @@ func (c *Chart) pullFromRegistry(ctx context.Context, version string, tmpPullDir
 	a.Settings = settings
 	a.Untar = true
 	a.DestDir = tmpPullDir
-	a.Version = version
+	if version.Version != nil {
+		a.Version = *version.Version
+	}
 
 	if c.credentialsId != "" {
 		if registry.IsOCI(c.repo) {
@@ -407,16 +398,16 @@ func (c *Chart) pullFromRegistry(ctx context.Context, version string, tmpPullDir
 	return nil
 }
 
-func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) error {
-	m, err := c.gitRp.GetEntry(c.git.Url.String())
+func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string, version ChartVersion) error {
+	m, err := c.gitRp.GetEntry(c.gitUrl.String())
 	if err != nil {
 		return err
 	}
-	cd, gitInfo, err := m.GetClonedDir(c.git.Ref)
+	cd, gitInfo, err := m.GetClonedDir(version.GitRef)
 	if err != nil {
 		return err
 	}
-	err = cp.Copy(filepath.Join(cd, c.git.SubDir), chartDir)
+	err = cp.Copy(filepath.Join(cd, c.gitSubDir), chartDir)
 	if err != nil {
 		return err
 	}
@@ -428,7 +419,7 @@ func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string) erro
 	return nil
 }
 
-func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, error) {
+func (c *Chart) PullToTmp(ctx context.Context, version ChartVersion) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
 	}
@@ -446,7 +437,7 @@ func (c *Chart) PullToTmp(ctx context.Context, version string) (*PulledChart, er
 	if c.IsRegistryChart() {
 		err = c.pullFromRegistry(ctx, version, tmpPullDir, chartDir)
 	} else if c.IsGitRepositoryChart() {
-		err = c.pullFromGitRepository(ctx, chartDir)
+		err = c.pullFromGitRepository(ctx, chartDir, version)
 	} else {
 		return nil, fmt.Errorf("unknown type of helm chart source")
 	}
@@ -483,7 +474,7 @@ func (c *Chart) Pull(ctx context.Context, pc *PulledChart) error {
 	return nil
 }
 
-func (c *Chart) doPullCached(ctx context.Context, version string) (*PulledChart, *lockedfile.File, error) {
+func (c *Chart) doPullCached(ctx context.Context, version ChartVersion) (*PulledChart, *lockedfile.File, error) {
 	baseDir := filepath.Join(utils.GetCacheDir(ctx), "helm-charts")
 	cacheDir, err := c.BuildVersionedPulledChartDir(baseDir, version)
 	_ = os.MkdirAll(cacheDir, 0o755)
@@ -512,7 +503,7 @@ func (c *Chart) doPullCached(ctx context.Context, version string) (*PulledChart,
 	return cached, lock, nil
 }
 
-func (c *Chart) PullCached(ctx context.Context, version string) (*PulledChart, error) {
+func (c *Chart) PullCached(ctx context.Context, version ChartVersion) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
 	}
@@ -525,7 +516,7 @@ func (c *Chart) PullCached(ctx context.Context, version string) (*PulledChart, e
 	return pc, nil
 }
 
-func (c *Chart) PullInProject(ctx context.Context, baseDir string, version string) (*PulledChart, error) {
+func (c *Chart) PullInProject(ctx context.Context, baseDir string, version ChartVersion) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
 	}
@@ -554,7 +545,7 @@ func (c *Chart) PullInProject(ctx context.Context, baseDir string, version strin
 	return pc, nil
 }
 
-func (c *Chart) GetPrePulledChart(baseDir string, version string) (*PulledChart, error) {
+func (c *Chart) GetPrePulledChart(baseDir string, version ChartVersion) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
 	}
@@ -603,41 +594,34 @@ func (c *Chart) queryVersionsOci(ctx context.Context) error {
 		return err
 	}
 
-	c.versions = tags
+	c.versions = make([]ChartVersion, 0, len(tags))
+	for _, tag := range tags {
+		c.versions = append(c.versions, ChartVersion{
+			Version: &tag,
+		})
+	}
 
 	return nil
 }
 
 func (c *Chart) queryVersionsGitRepo(ctx context.Context) error {
-	ref, refType, err := c.GetGitRef()
+	m, err := c.gitRp.GetEntry(c.gitUrl.String())
 	if err != nil {
 		return err
 	}
-	if refType == "branch" {
-		return nil
-	}
-	if refType == "commit" {
-		// Could be implemented at some point
-		return nil
-	}
-	if refType == "tag" {
-		if IsSemantic(ref) {
-			m, err := c.gitRp.GetEntry(c.git.Url.String())
-			if err != nil {
-				return err
-			}
-			refs := m.GetRepoInfo().RemoteRefs
-			var semanticTags []string
-			for ref, _ := range refs {
-				after, found := strings.CutPrefix(ref, "refs/tags/")
-				if found {
-					semanticTags = append(semanticTags, after)
-				}
-			}
-			c.versions = semanticTags
-			return nil
+	refs := m.GetRepoInfo().RemoteRefs
+
+	c.versions = make([]ChartVersion, 0, len(refs))
+	for ref, _ := range refs {
+		pref, err := types.ParseGitRef(ref)
+		if err != nil {
+			continue
+		}
+		if pref.Tag != "" {
+			c.versions = append(c.versions, ChartVersion{GitRef: &pref})
 		}
 	}
+
 	return nil
 }
 
@@ -689,31 +673,35 @@ func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
 		return fmt.Errorf("helm chart %s not found in Repo index", c.chartName)
 	}
 
-	c.versions = make([]string, 0, indexEntry.Len())
+	c.versions = make([]ChartVersion, 0, indexEntry.Len())
 	for _, x := range indexEntry {
-		c.versions = append(c.versions, x.Version)
+		c.versions = append(c.versions, ChartVersion{
+			Version: &x.Version,
+		})
 	}
 
 	return nil
 }
 
-func (c *Chart) GetLatestVersion(constraints *string) (string, error) {
+func (c *Chart) GetLatestVersion(constraints *string) (ChartVersion, error) {
+	var nullVersion ChartVersion
+
 	if len(c.versions) == 0 {
-		return "", fmt.Errorf("no versions found or queried: %s", c.GetChartName())
+		return nullVersion, fmt.Errorf("no versions found or queried: %s", c.GetChartName())
 	}
 	var err error
 	var updateConstraints *semver.Constraints
 	if constraints != nil {
 		updateConstraints, err = semver.NewConstraint(*constraints)
 		if err != nil {
-			return "", fmt.Errorf("invalid constraints '%s': %w", *constraints, err)
+			return nullVersion, fmt.Errorf("invalid constraints '%s': %w", *constraints, err)
 		}
 	}
 
-	var versions semver.Collection
+	var versions []ChartVersion
 	for _, x := range c.versions {
-		v, err := semver.NewVersion(x)
-		if err != nil {
+		v := x.Semver()
+		if v == nil {
 			continue
 		}
 
@@ -725,17 +713,21 @@ func (c *Chart) GetLatestVersion(constraints *string) (string, error) {
 		} else if !updateConstraints.Check(v) {
 			continue
 		}
-		versions = append(versions, v)
+		versions = append(versions, x)
 	}
 	if len(versions) == 0 {
 		if constraints == nil {
-			return "", fmt.Errorf("no version found")
+			return nullVersion, fmt.Errorf("no version found")
 		} else {
-			return "", fmt.Errorf("no version found that satisfies constraints '%s'", *constraints)
+			return nullVersion, fmt.Errorf("no version found that satisfies constraints '%s'", *constraints)
 		}
 	}
 
-	sort.Stable(versions)
-	latestVersion := versions[len(versions)-1].Original()
+	sort.SliceStable(versions, func(i, j int) bool {
+		a := versions[i].Semver()
+		b := versions[j].Semver()
+		return a.LessThan(b)
+	})
+	latestVersion := versions[len(versions)-1]
 	return latestVersion, nil
 }

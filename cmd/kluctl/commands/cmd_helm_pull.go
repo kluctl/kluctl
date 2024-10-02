@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -80,7 +81,11 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 	return err
 }
 
-func cleanupUnusedCharts(ctx context.Context, versionsToPull map[string]bool, dryRun bool, chartsDir string) (int, error) {
+func cleanupUnusedCharts(ctx context.Context, versionsToPull map[string]helm.ChartVersion, dryRun bool, chartsDir string, isGitHelmChart bool) (int, error) {
+	if isGitHelmChart {
+		chartsDir = filepath.Join(chartsDir, "refs", "tags")
+	}
+
 	actions := 0
 	des, err := os.ReadDir(chartsDir)
 	if err != nil && !os.IsNotExist(err) {
@@ -90,10 +95,18 @@ func cleanupUnusedCharts(ctx context.Context, versionsToPull map[string]bool, dr
 		if !de.IsDir() {
 			continue
 		}
-		if _, ok := versionsToPull[de.Name()]; !ok {
+		var testVersion helm.ChartVersion
+		if isGitHelmChart {
+			testVersion.GitRef = &types.GitRef{
+				Tag: de.Name(),
+			}
+		} else {
+			testVersion.Version = utils.Ptr(de.Name())
+		}
+		if _, ok := versionsToPull[testVersion.String()]; !ok {
 			actions++
 			if !dryRun {
-				status.Infof(ctx, "Removing unused Chart with version or ref %s", de.Name())
+				status.Infof(ctx, "Removing unused Chart with version %s", testVersion.String())
 				err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
 				if err != nil {
 					return actions, err
@@ -117,24 +130,21 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 	g := utils.NewGoHelper(ctx, 8)
 
 	for _, chart := range charts {
-		chart := chart
 		statusPrefix := chart.GetChartName()
-		versionsToPull := map[string]bool{}
+		versionsToPull := map[string]helm.ChartVersion{}
 		for _, hr := range releases {
 			if hr.Config.SkipPrePull {
 				continue
 			}
 			if hr.Chart == chart {
+				var v helm.ChartVersion
 				if hr.Chart.IsRegistryChart() {
-					versionsToPull[hr.Config.ChartVersion] = true
+					v.Version = hr.Config.ChartVersion
 				}
 				if hr.Chart.IsGitRepositoryChart() {
-					ref, _, err := hr.Chart.GetGitRef()
-					if err != nil {
-						return actions, err
-					}
-					versionsToPull[ref] = true
+					v.GitRef = hr.Config.Git.Ref
 				}
+				versionsToPull[v.String()] = v
 			}
 		}
 
@@ -142,13 +152,11 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 		if err != nil {
 			return actions, err
 		}
-		cleanupActions, err := cleanupUnusedCharts(ctx, versionsToPull, dryRun, chartsDir)
+		cleanupActions, err := cleanupUnusedCharts(ctx, versionsToPull, dryRun, chartsDir, chart.IsGitRepositoryChart())
 		actions += cleanupActions
 
-		for version, _ := range versionsToPull {
-			version := version
-
-			if yaml.Exists(filepath.Join(chartsDir, version, "Chart.yaml")) && !force {
+		for _, version := range versionsToPull {
+			if yaml.Exists(filepath.Join(chartsDir, version.String(), "Chart.yaml")) && !force {
 				continue
 			}
 
@@ -158,7 +166,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmaut
 				continue
 			}
 			g.RunE(func() error {
-				s := status.Startf(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
+				s := status.Startf(ctx, "%s: Pulling Chart with version %s", statusPrefix, version.String())
 				defer s.Failed()
 
 				_, err := chart.PullInProject(ctx, baseChartsDir, version)
