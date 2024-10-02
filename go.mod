@@ -33,7 +33,7 @@ require (
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-git/go-git/v5 v5.12.1-0.20240409060936-cd6633c3c665
 	github.com/go-logr/logr v1.4.2
-	github.com/go-playground/validator/v10 v10.22.0
+	github.com/go-playground/validator/v10 v10.22.1
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-containerregistry v0.19.2
 	github.com/google/gops v0.3.28
