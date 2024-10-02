@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	config2 "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/huandu/xstrings"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
 	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
@@ -195,7 +196,7 @@ func (p *TestGitServer) GitInit(repo string) {
 	}
 }
 
-func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message string) {
+func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message string) plumbing.Hash {
 	r, err := git.PlainOpen(p.LocalWorkDir(repo))
 	if err != nil {
 		p.t.Fatal(err)
@@ -210,12 +211,13 @@ func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message
 			p.t.Fatal(err)
 		}
 	}
-	_, err = wt.Commit(message, &git.CommitOptions{
+	hash, err := wt.Commit(message, &git.CommitOptions{
 		All: all,
 	})
 	if err != nil {
 		p.t.Fatal(err)
 	}
+	return hash
 }
 
 func (p *TestGitServer) CommitYaml(repo string, pth string, message string, o map[string]any) {

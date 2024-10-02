@@ -88,6 +88,17 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 				Path:      tc.argCredsPath,
 				SecretRef: kluctlv1.LocalObjectReference{Name: name},
 			})
+		} else if tc.helmType == test_utils.TestHelmRepo_Git {
+			m := map[string]string{
+				"username": tc.argUsername,
+				"password": tc.argPassword,
+			}
+			name := suite.createGitopsSecret(m)
+			projectCreds.Git = append(projectCreds.Git, kluctlv1.ProjectCredentialsGit{
+				Host:      host,
+				Path:      tc.argCredsPath,
+				SecretRef: kluctlv1.LocalObjectReference{Name: name},
+			})
 		}
 	}
 

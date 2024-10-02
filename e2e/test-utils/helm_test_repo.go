@@ -1,7 +1,10 @@
 package test_utils
 
 import (
+	"fmt"
+	"github.com/go-git/go-git/v5"
 	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/kluctl/kluctl/lib/git/types"
 	cp "github.com/otiai10/copy"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/pusher"
@@ -22,10 +25,12 @@ const (
 	TestHelmRepo_Helm TestHelmRepoType = iota
 	TestHelmRepo_Oci
 	TestHelmRepo_Git
+	TestHelmRepo_Local
 )
 
 type TestHelmRepo struct {
 	HttpServer TestHttpServer
+	GitServer  *TestGitServer
 
 	Type TestHelmRepoType
 
@@ -40,25 +45,35 @@ type RepoChart struct {
 	Version   string
 }
 
-func NewHelmTestRepoHttp(helmType TestHelmRepoType, path string, username string, password string, tlsEnabled bool, tlsClientCertEnabled bool) *TestHelmRepo {
+func NewHelmTestRepo(helmType TestHelmRepoType, path string, charts []RepoChart) *TestHelmRepo {
 	return &TestHelmRepo{
-		HttpServer: TestHttpServer{
-			Username:               username,
-			Password:               password,
-			NoLoopbackProxyEnabled: true,
-			TLSEnabled:             tlsEnabled,
-			TLSClientCertEnabled:   tlsClientCertEnabled,
-		},
-		Type: helmType,
+		Type:   helmType,
+		Path:   path,
+		Charts: charts,
+	}
+}
+
+func NewHelmTestRepoGit(t *testing.T, path string, charts []RepoChart, username string, password string) *TestHelmRepo {
+	r := NewHelmTestRepo(TestHelmRepo_Git, path, charts)
+	r.GitServer = NewTestGitServer(t, WithTestGitServerAuth(username, password))
+	return r
+}
+
+func NewHelmTestRepoLocal(path string) *TestHelmRepo {
+	return &TestHelmRepo{
+		Type: TestHelmRepo_Local,
 		Path: path,
 	}
 }
 
 func (s *TestHelmRepo) Start(t *testing.T) {
-	if s.Type == TestHelmRepo_Oci {
-		s.startOciRepo(t)
-	} else {
+	switch s.Type {
+	case TestHelmRepo_Helm:
 		s.startHelmRepo(t)
+	case TestHelmRepo_Oci:
+		s.startOciRepo(t)
+	case TestHelmRepo_Git:
+		s.startGitRepo(t)
 	}
 }
 
@@ -160,4 +175,26 @@ func (s *TestHelmRepo) startOciRepo(t *testing.T) {
 	if registryClient != nil {
 		registryClient.Logout(s.URL.Host)
 	}
+}
+
+func (s *TestHelmRepo) startGitRepo(t *testing.T) {
+	s.GitServer.GitInit("helm-repo")
+
+	for _, c := range s.Charts {
+		dir := s.GitServer.LocalWorkDir("helm-repo")
+		dir = filepath.Join(dir, s.Path, c.ChartName)
+		_ = os.MkdirAll(dir, 0700)
+		CreateHelmDir(t, c.ChartName, c.Version, dir)
+		msg := fmt.Sprintf("chart %s version %s", c.ChartName, c.Version)
+		hash := s.GitServer.CommitFiles("helm-repo", []string{c.ChartName}, false, msg)
+		_, err := s.GitServer.GetGitRepo("helm-repo").CreateTag(c.Version, hash, &git.CreateTagOptions{
+			Message: msg,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	u := types.ParseGitUrlMust(s.GitServer.GitRepoUrl("helm-repo"))
+	s.URL = u.URL
 }

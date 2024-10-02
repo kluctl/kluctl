@@ -36,9 +36,7 @@ func prepareLocalSourceOverrideTest(t *testing.T, k *test_utils.EnvTestCluster, 
 
 	p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
 
-	repo := &test_utils.TestHelmRepo{
-		Type: test_utils.TestHelmRepo_Oci,
-	}
+	repo := test_utils.NewHelmTestRepo(test_utils.TestHelmRepo_Oci, "", nil)
 	if oci {
 		repo.Start(t)
 	}
