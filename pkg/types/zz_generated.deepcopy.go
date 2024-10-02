@@ -492,6 +492,11 @@ func (in *HelmChartConfig2) DeepCopyInto(out *HelmChartConfig2) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ChartVersion != nil {
+		in, out := &in.ChartVersion, &out.ChartVersion
+		*out = new(string)
+		**out = **in
+	}
 	if in.UpdateConstraints != nil {
 		in, out := &in.UpdateConstraints, &out.UpdateConstraints
 		*out = new(string)
