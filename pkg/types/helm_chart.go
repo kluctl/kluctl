@@ -25,10 +25,20 @@ type HelmChartConfig2 struct {
 
 func ValidateHelmChartConfig2(sl validator.StructLevel) {
 	c := sl.Current().Interface().(HelmChartConfig2)
-	if c.Repo == "" && c.Path == "" && c.Git == nil {
+	cnt := 0
+	if c.Repo != "" {
+		cnt++
+	}
+	if c.Path != "" {
+		cnt++
+	}
+	if c.Git != nil {
+		cnt++
+	}
+	if cnt == 0 {
 		sl.ReportError("self", "repo", "repo", "either repo, path or git must be specified", "")
-	} else if c.Repo != "" && c.Path != "" {
-		sl.ReportError("self", "repo", "repo", "only one of repo and path can be specified", "")
+	} else if cnt > 1 {
+		sl.ReportError("self", "repo", "repo", "only one of repo, path and git can be specified", "")
 	} else if c.Repo != "" {
 		if c.ChartVersion == "" {
 			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion must be specified when repo is specified", "")
