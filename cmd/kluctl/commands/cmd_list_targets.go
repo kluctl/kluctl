@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"strings"
 
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
@@ -32,7 +33,11 @@ func (cmd *listTargetsCmd) Run(ctx context.Context) error {
 			for _, target := range result {
 				targetNames = append(targetNames, target.Name)
 			}
-			return outputYamlResult(ctx, cmd.Output, targetNames, false)
+			targetNamesStr := strings.Join(targetNames, "\n")
+			if targetNamesStr != "" {
+				targetNamesStr += "\n"
+			}
+			return outputResult2(ctx, cmd.Output, targetNamesStr)
 		}
 		return outputYamlResult(ctx, cmd.Output, result, false)
 	})
