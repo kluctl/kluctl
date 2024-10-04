@@ -8,13 +8,11 @@ import (
 	"github.com/jinzhu/copier"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
-	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	cp "github.com/otiai10/copy"
-	registry2 "helm.sh/helm/v3/pkg/registry"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -36,7 +34,7 @@ type TestProject struct {
 	skipProjectDirArg bool
 	bare              bool
 
-	gitServer   *git2.TestGitServer
+	gitServer   *test_utils.TestGitServer
 	gitRepoName string
 	gitSubDir   string
 }
@@ -61,7 +59,7 @@ func WithUseProcess(useProcess bool) TestProjectOption {
 	}
 }
 
-func WithGitServer(s *git2.TestGitServer) TestProjectOption {
+func WithGitServer(s *test_utils.TestGitServer) TestProjectOption {
 	return func(p *TestProject) {
 		p.gitServer = s
 	}
@@ -109,7 +107,7 @@ func NewTestProject(t *testing.T, opts ...TestProjectOption) *TestProject {
 	}
 
 	if p.gitServer == nil {
-		p.gitServer = git2.NewTestGitServer(t)
+		p.gitServer = test_utils.NewTestGitServer(t)
 	}
 	if !utils.IsDirectory(p.gitServer.LocalWorkDir(p.gitRepoName)) {
 		p.gitServer.GitInit(p.gitRepoName)
@@ -135,7 +133,7 @@ func (p *TestProject) IsUseProcess() bool {
 	return p.useProcess
 }
 
-func (p *TestProject) GitServer() *git2.TestGitServer {
+func (p *TestProject) GitServer() *test_utils.TestGitServer {
 	return p.gitServer
 }
 
@@ -358,14 +356,30 @@ func (p *TestProject) AddKustomizeDeployment(dir string, resources []KustomizeRe
 	})
 }
 
-func (p *TestProject) AddHelmDeployment(dir string, repoUrl string, chartName, version string, releaseName string, namespace string, values map[string]any) {
-	localPath := ""
-	if u, err := url.Parse(repoUrl); err != nil || u.Host == "" {
-		localPath = repoUrl
-		repoUrl = ""
-	} else if registry2.IsOCI(repoUrl) {
-		repoUrl += "/" + chartName
-		chartName = ""
+func (p *TestProject) AddHelmDeployment(dir string, repo *test_utils.TestHelmRepo, chartName, version string, releaseName string, namespace string, values map[string]any) {
+	helmChartDef := map[string]any{
+		"releaseName": releaseName,
+		"namespace":   namespace,
+	}
+
+	switch repo.Type {
+	case test_utils.TestHelmRepo_Helm:
+		helmChartDef["repo"] = repo.URL.String()
+		helmChartDef["chartName"] = chartName
+		helmChartDef["chartVersion"] = version
+	case test_utils.TestHelmRepo_Oci:
+		helmChartDef["repo"] = repo.URL.String() + "/" + chartName
+		helmChartDef["chartVersion"] = version
+	case test_utils.TestHelmRepo_Local:
+		helmChartDef["path"] = repo.Path
+	case test_utils.TestHelmRepo_Git:
+		helmChartDef["git"] = map[string]any{
+			"url": repo.URL.String(),
+			"ref": map[string]any{
+				"tag": version,
+			},
+			"subDir": chartName,
+		}
 	}
 
 	p.AddKustomizeDeployment(dir, []KustomizeResource{
@@ -374,17 +388,8 @@ func (p *TestProject) AddHelmDeployment(dir string, repoUrl string, chartName, v
 
 	p.UpdateYaml(filepath.Join(dir, "helm-chart.yaml"), func(o *uo.UnstructuredObject) error {
 		*o = *uo.FromMap(map[string]interface{}{
-			"helmChart": map[string]any{
-				"repo":         repoUrl,
-				"path":         localPath,
-				"chartVersion": version,
-				"releaseName":  releaseName,
-				"namespace":    namespace,
-			},
+			"helmChart": helmChartDef,
 		})
-		if chartName != "" {
-			_ = o.SetNestedField(chartName, "helmChart", "chartName")
-		}
 		return nil
 	}, "")
 

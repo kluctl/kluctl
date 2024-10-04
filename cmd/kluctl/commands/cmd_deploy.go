@@ -17,6 +17,7 @@ type deployCmd struct {
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.GitCredentials
 	args.HelmCredentials
 	args.RegistryCredentials
 	args.YesFlags
@@ -56,6 +57,7 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
 		registryCredentials:  cmd.RegistryCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,

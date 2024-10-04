@@ -91,6 +91,7 @@ var flagGroups = []groupInfo{
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
 	{group: "logs", title: "Log arguments:", description: "Configure logging."},
 	{group: "override", title: "GitOps overrides:", description: "Override settings for GitOps deployments."},
+	{group: "git", title: "Git arguments:", description: "Configure Git authentication."},
 	{group: "helm", title: "Helm arguments:", description: "Configure Helm authentication."},
 	{group: "registry", title: "Registry arguments:", description: "Configure OCI registry authentication."},
 	{group: "auth", title: "Auth arguments:", description: "Configure authentication."},

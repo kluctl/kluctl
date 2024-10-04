@@ -118,15 +118,15 @@ You have to set the `url` as well as the `branch`, `tag` or `commit`. If the cha
 
 ```yaml
 helmChart:
- git:
-  url: https://github.com/mycharts/salt
-  ref:
-   branch: main
-   #tag: v1.0.0 -- branch, tag and commit are mutually exclusive
-   #commit: 015244630b53eb69d77858e5587641b741e91706 -- branch, tag and commit are mutually exclusive
-  subDir: charts/path/to/chart
- releaseName: salt
- namespace: salt
+  git:
+    url: https://github.com/mycharts/salt
+    ref:
+      branch: main
+      #tag: v1.0.0 -- branch, tag and commit are mutually exclusive
+      #commit: 015244630b53eb69d77858e5587641b741e91706 -- branch, tag and commit are mutually exclusive
+    subDir: charts/path/to/chart
+  releaseName: salt
+  namespace: salt
 ```
 In order to be able to use the `helm-update` command, the branch or tag has to be semantic. If this is not the case, the update is skipped.
 

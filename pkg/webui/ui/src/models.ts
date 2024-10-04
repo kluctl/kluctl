@@ -130,7 +130,7 @@ export class IgnoreForDiffItemConfig {
 }
 export class HelmChartConfig {
     repo?: string;
-    git?: GitInfo;
+    git?: GitProject;
     path?: string;
     credentialsId?: string;
     chartName?: string;
@@ -146,7 +146,7 @@ export class HelmChartConfig {
     constructor(source: any = {}) {
         if ('string' === typeof source) source = JSON.parse(source);
         this.repo = source["repo"];
-        this.git = this.convertValues(source["git"], GitInfo);
+        this.git = this.convertValues(source["git"], GitProject);
         this.path = source["path"];
         this.credentialsId = source["credentialsId"];
         this.chartName = source["chartName"];

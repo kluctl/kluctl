@@ -32,13 +32,9 @@ func (suite *GitOpsOciIncludeSuite) TestGitOpsOciIncludeCredentials() {
 	ip3 := prepareIncludeProject(suite.T(), "include3", "", nil)
 
 	createRepo := func(user, pass string) *test_utils.TestHelmRepo {
-		repo := &test_utils.TestHelmRepo{
-			TestHttpServer: test_utils.TestHttpServer{
-				Username: user,
-				Password: pass,
-			},
-			Oci: true,
-		}
+		repo := test_utils.NewHelmTestRepo(test_utils.TestHelmRepo_Oci, "", nil)
+		repo.HttpServer.Username = user
+		repo.HttpServer.Password = pass
 		repo.Start(suite.T())
 		return repo
 	}

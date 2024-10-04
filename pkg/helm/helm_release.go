@@ -79,18 +79,17 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 	return hr, nil
 }
 
-func (hr *Release) GetAbstractVersion() (string, error) {
+func (hr *Release) GetAbstractVersion() ChartVersion {
 	if hr.Chart.IsRegistryChart() {
-		return hr.Config.ChartVersion, nil
-	}
-	if hr.Chart.IsGitRepositoryChart() {
-		ref, _, err := hr.Chart.GetGitRef()
-		if err != nil {
-			return "", err
+		return ChartVersion{
+			Version: hr.Config.ChartVersion,
 		}
-		return ref, nil
+	} else if hr.Chart.IsGitRepositoryChart() {
+		return ChartVersion{
+			GitRef: hr.Config.Git.Ref,
+		}
 	}
-	return "", fmt.Errorf("neither chart version nor tag, commit or branch are defined")
+	panic("neither chart version nor tag, commit or branch are defined")
 }
 
 func (hr *Release) GetOutputPath() string {
@@ -116,91 +115,60 @@ func (hr *Release) Render(ctx context.Context, k *k8s.K8sCluster, k8sVersion str
 
 func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 	if hr.Chart.IsLocalChart() {
-		version, err := hr.Chart.GetLocalChartVersion()
+		localChartVersion, err := hr.Chart.GetLocalChartVersion()
+		version := ChartVersion{
+			Version: &localChartVersion,
+		}
 		if err != nil {
 			return nil, err
 		}
 		return NewPulledChart(hr.Chart, version, hr.Chart.GetLocalPath(), false), nil
 	}
-	if hr.Chart.IsRegistryChart() {
-		if !hr.Config.SkipPrePull {
-			pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, hr.Config.ChartVersion)
-			if err != nil {
-				return nil, err
-			}
 
-			needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
-			if err != nil {
-				return nil, err
-			}
-
-			if needsPull {
-				if versionChanged {
-					return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
-						"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), hr.Config.ChartVersion, prePulledVersion)
-				} else {
-					//goland:noinspection ALL
-					return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
-						"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
-				}
-			}
-
-			return pc, nil
-		} else {
-			s := status.Startf(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.Config.ChartVersion)
-			defer s.Failed()
-
-			pc, err := hr.Chart.PullCached(ctx, hr.Config.ChartVersion)
-			if err != nil {
-				return nil, err
-			}
-			s.Success()
-
-			return pc, nil
-		}
-	}
+	var version ChartVersion
 	if hr.Chart.IsGitRepositoryChart() {
-		var pc *PulledChart
-		var err error
-		ref, _, err := hr.Chart.GetGitRef()
+		version.GitRef = hr.Config.Git.Ref
+	} else if hr.Chart.IsRegistryChart() {
+		version.Version = hr.Config.ChartVersion
+	} else {
+		return nil, fmt.Errorf("unkown source of Helm Chart. Please set either path, repo or git")
+	}
+
+	if !hr.Config.SkipPrePull {
+		pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, version)
 		if err != nil {
 			return nil, err
 		}
-		if !hr.Config.SkipPrePull {
-			pc, err = hr.Chart.GetPrePulledChart(hr.baseChartsDir, ref)
-			if err != nil {
-				return nil, err
-			}
-			needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
-			if err != nil {
-				return nil, err
-			}
 
-			if needsPull {
-				if versionChanged {
-					return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
-						"Desired ref is %s while pre-pulled ref is %s", hr.Chart.GetChartName(), ref, prePulledVersion)
-				} else {
-					//goland:noinspection ALL
-					return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
-						"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
-				}
-			}
-			return pc, nil
-		} else {
-			s := status.Startf(ctx, "Pulling Helm Chart %s with branch, tag or commit %s", hr.Chart.GetChartName(), ref)
-			defer s.Failed()
-
-			pc, err := hr.Chart.PullCached(ctx, ref)
-			if err != nil {
-				return nil, err
-			}
-			s.Success()
-
-			return pc, nil
+		needsPull, versionChanged, prePulledVersion, err := pc.CheckNeedsPull()
+		if err != nil {
+			return nil, err
 		}
+
+		if needsPull {
+			if versionChanged {
+				return nil, fmt.Errorf("pre-pulled Helm Chart %s need to be pulled (call 'kluctl helm-pull'). "+
+					"Desired version is %s while pre-pulled version is %s", hr.Chart.GetChartName(), version.String(), prePulledVersion.String())
+			} else {
+				//goland:noinspection ALL
+				return nil, fmt.Errorf("Helm Chart %s has not been pre-pulled, which is not allowed when skipPrePull is not enabled. "+
+					"Run 'kluctl helm-pull' to pre-pull all Helm Charts", hr.Chart.GetChartName())
+			}
+		}
+
+		return pc, nil
+	} else {
+		s := status.Startf(ctx, "Pulling Helm Chart %s with version %s", hr.Chart.GetChartName(), hr.GetAbstractVersion().String())
+		defer s.Failed()
+
+		pc, err := hr.Chart.PullCached(ctx, version)
+		if err != nil {
+			return nil, err
+		}
+		s.Success()
+
+		return pc, nil
 	}
-	return nil, fmt.Errorf("Unkown source of Helm Chart. Please set either path, repo or git.")
 }
 
 func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter *decryptor.Decryptor) error {

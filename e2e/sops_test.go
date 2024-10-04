@@ -98,11 +98,11 @@ func TestSopsHelmValues(t *testing.T) {
 
 	createNamespace(t, k, p.TestSlug())
 
-	repo := &test_utils.TestHelmRepo{
-		Charts: []test_utils.RepoChart{
-			{ChartName: "test-chart1", Version: "0.1.0"},
-		},
+	charts := []test_utils.RepoChart{
+		{ChartName: "test-chart1", Version: "0.1.0"},
 	}
+	repo := test_utils.NewHelmTestRepo(test_utils.TestHelmRepo_Oci, "", charts)
+
 	repo.Start(t)
 
 	valuesBytes, err := sops_test_resources.TestResources.ReadFile("helm-values.yaml")
@@ -111,7 +111,7 @@ func TestSopsHelmValues(t *testing.T) {
 	assert.NoError(t, err)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repo.URL.String(), "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1.Object)
+	p.AddHelmDeployment("helm1", repo, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1.Object)
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
 		return nil
