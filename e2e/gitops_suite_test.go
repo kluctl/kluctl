@@ -104,6 +104,7 @@ func (suite *GitopsTestSuite) startController() {
 		suite.gitopsNamespace,
 		"--command-result-namespace",
 		suite.gitopsNamespace + "-results",
+		"--controller-name", fmt.Sprintf("kluctl-controller-%s", suite.gitopsNamespace),
 		"--controller-namespace",
 		controllerNamespace,
 		"--metrics-bind-address=0",
