@@ -1,6 +1,7 @@
 module github.com/kluctl/kluctl/v2
 
 go 1.22.0
+toolchain go1.22.8
 
 replace github.com/kluctl/kluctl/lib => ./lib
 
@@ -89,7 +90,7 @@ require (
 	sigs.k8s.io/cli-utils v0.36.0
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/kustomize/api v0.17.2
-	sigs.k8s.io/kustomize/kyaml v0.17.1
+	sigs.k8s.io/kustomize/kyaml v0.18.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -293,7 +294,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.27.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
-	go.starlark.net v0.0.0-20240520160348-046347dcd104 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
