@@ -294,9 +294,6 @@ func outputValidateResult2(ctx context.Context, output []string, vr *result.Vali
 func outputYamlResult(ctx context.Context, output []string, result interface{}, multiDoc bool) error {
 	status.Flush(ctx)
 
-	if len(output) == 0 {
-		output = []string{"-"}
-	}
 	var s string
 	if multiDoc {
 		l, ok := result.([]interface{})
@@ -315,13 +312,7 @@ func outputYamlResult(ctx context.Context, output []string, result interface{}, 
 		}
 		s = x
 	}
-	for _, path := range output {
-		err := outputResult(ctx, &path, s)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return outputResult2(ctx, output, s)
 }
 
 func outputResult(ctx context.Context, f *string, result string) error {
@@ -340,4 +331,17 @@ func outputResult(ctx context.Context, f *string, result string) error {
 	}
 	_, err := w.Write([]byte(result))
 	return err
+}
+
+func outputResult2(ctx context.Context, output []string, result string) error {
+	if len(output) == 0 {
+		output = []string{"-"}
+	}
+	for _, o := range output {
+		err := outputResult(ctx, &o, result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
