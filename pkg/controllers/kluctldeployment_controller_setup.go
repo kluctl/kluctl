@@ -16,6 +16,7 @@ func (r *KluctlDeploymentReconciler) SetupWithManager(ctx context.Context, mgr c
 	r.resourceVersionsMap = map[client.ObjectKey]map[k8s.ObjectRef]string{}
 
 	return ctrl.NewControllerManagedBy(mgr).
+		Named(r.ControllerName).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: opts.Concurrency,
 		}).

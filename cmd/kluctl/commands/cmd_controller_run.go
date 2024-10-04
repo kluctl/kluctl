@@ -34,14 +34,13 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-const controllerName = "kluctl-controller"
-
 type controllerRunCmd struct {
 	scheme *runtime.Scheme
 
 	Kubeconfig string `group:"misc" help:"Override the kubeconfig to use."`
 	Context    string `group:"misc" help:"Override the context to use."`
 
+	ControllerName      string `group:"misc" help:"The controller name used for metrics and logs." default:"kluctl-controller"`
 	ControllerNamespace string `group:"misc" help:"The namespace where the controller runs in." default:"kluctl-system"`
 	Namespace           string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
 
@@ -156,7 +155,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		os.Exit(1)
 	}
 
-	eventRecorder := mgr.GetEventRecorderFor(controllerName)
+	eventRecorder := mgr.GetEventRecorderFor(cmd.ControllerName)
 
 	sshPool := &ssh_pool.SshPool{}
 
@@ -174,7 +173,7 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	}
 
 	r := controllers.KluctlDeploymentReconciler{
-		ControllerName:        controllerName,
+		ControllerName:        cmd.ControllerName,
 		ControllerNamespace:   cmd.ControllerNamespace,
 		DefaultServiceAccount: cmd.DefaultServiceAccount,
 		DryRun:                cmd.DryRun,
