@@ -33,7 +33,7 @@ func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings)
 	}
 }
 
-func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminator *string, onlyUsedGKs map[schema.GroupKind]bool) error {
+func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminator *string, usedNamespaces map[string]bool, onlyUsedGKs map[schema.GroupKind]bool) error {
 	var mutex sync.Mutex
 	if discriminator == nil {
 		return nil
@@ -85,24 +85,36 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 			}
 			mutex.Lock()
 			defer mutex.Unlock()
-			if err != nil {
-				if errors2.IsNotFound(err) {
-					return
-				}
+			if errors2.IsNotFound(err) {
+				// ignore this error
+				return
+			} else if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {
 				errCount += 1
-				if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {
-					permissionErrCount += 1
-					return
+				permissionErrCount += 1
+
+				// fall back to ListObjects per namespace
+				for ns, _ := range usedNamespaces {
+					l2, _, err2 := k.ListObjects(gvk, ns, labels)
+					if err2 == nil && len(l2) != 0 {
+						u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("listing objects by discriminator on global level failed due to permission errors, so Kluctl reverted to listing on namespace level. "+
+							"This is not realiable and might end up missing detection for some orphan object"))
+						for _, o := range l2 {
+							u.remoteObjects[o.GetK8sRef()] = o
+						}
+					}
 				}
+			} else if err != nil {
+				errCount += 1
 				u.dew.AddWarning(k8s2.ObjectRef{
 					Group:   gvk.Group,
 					Version: gvk.Version,
 					Kind:    gvk.Kind,
 				}, err)
-				return
-			}
-			for _, o := range l {
-				u.remoteObjects[o.GetK8sRef()] = o
+			} else {
+				// no error
+				for _, o := range l {
+					u.remoteObjects[o.GetK8sRef()] = o
+				}
 			}
 		})
 	}
@@ -189,8 +201,20 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 		return nil
 	}
 
-	var usedGKs map[schema.GroupKind]bool
+	usedNamespaces := map[string]bool{}
+	nsKind := schema.GroupKind{
+		Group: "",
+		Kind:  "Namespace",
+	}
+	for _, ref := range refs {
+		if ref.GroupKind() == nsKind {
+			usedNamespaces[ref.Name] = true
+		} else if ref.Namespace != "" {
+			usedNamespaces[ref.Namespace] = true
+		}
+	}
 
+	var usedGKs map[schema.GroupKind]bool
 	if onlyUsedGKs {
 		usedGKs = map[schema.GroupKind]bool{}
 		for _, ref := range refs {
@@ -198,7 +222,7 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 		}
 	}
 
-	err := u.getAllByDiscriminator(k, discriminator, usedGKs)
+	err := u.getAllByDiscriminator(k, discriminator, usedNamespaces, usedGKs)
 	if err != nil {
 		return err
 	}
