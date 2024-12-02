@@ -63,5 +63,7 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: kluctl-webui
       terminationGracePeriodSeconds: 10
