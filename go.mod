@@ -20,6 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.33.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.31.3
 	github.com/aws/smithy-go v1.21.0
+	github.com/coder/websocket v1.8.12
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/cyphar/filepath-securejoin v0.3.3
 	github.com/dimchansky/utfbom v1.1.1
@@ -85,7 +86,6 @@ require (
 	k8s.io/apimachinery v0.31.1
 	k8s.io/client-go v0.31.1
 	k8s.io/klog/v2 v2.130.1
-	nhooyr.io/websocket v1.8.11
 	sigs.k8s.io/cli-utils v0.36.0
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/kustomize/api v0.17.2

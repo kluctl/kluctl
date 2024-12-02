@@ -1,8 +1,8 @@
 package webui
 
 import (
+	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
-	"nhooyr.io/websocket"
 	"strings"
 )
 
