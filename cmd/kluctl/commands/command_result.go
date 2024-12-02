@@ -221,8 +221,8 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 	return nil
 }
 
-func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
-	cr.Id = ctx.resultId
+func outputCommandResult(ctx context.Context, cmdCtx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
+	cr.Id = cmdCtx.resultId
 	cr.Command.Initiator = result.CommandInititiator_CommandLine
 
 	if !flags.NoObfuscate {
@@ -234,8 +234,8 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 	}
 
 	var resultStoreErr error
-	if writeToResultStore && ctx.resultStore != nil {
-		s := status.Start(ctx.ctx, "Writing command result")
+	if writeToResultStore && cmdCtx.resultStore != nil {
+		s := status.Start(ctx, "Writing command result")
 		defer s.Failed()
 
 		didWarn := false
@@ -244,11 +244,11 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 			cr.Warnings = append(cr.Warnings, result.DeploymentError{
 				Message: warning,
 			})
-			status.Warning(ctx.ctx, warning)
+			status.Warning(ctx, warning)
 			didWarn = true
 		}
 
-		resultStoreErr = ctx.resultStore.WriteCommandResult(cr)
+		resultStoreErr = cmdCtx.resultStore.WriteCommandResult(cr)
 		if resultStoreErr != nil {
 			s.FailedWithMessagef("Failed to write result to result store: %s", resultStoreErr.Error())
 		} else {
@@ -259,7 +259,7 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 			}
 		}
 	}
-	err := outputCommandResult2(ctx.ctx, flags, cr)
+	err := outputCommandResult2(ctx, flags, cr)
 	if err == nil && resultStoreErr != nil {
 		return resultStoreErr
 	}
@@ -275,10 +275,10 @@ func outputCommandResult2(ctx context.Context, flags args.OutputFormatFlags, cr 
 	return err
 }
 
-func outputValidateResult(ctx *commandCtx, output []string, vr *result.ValidateResult) error {
-	vr.Id = ctx.resultId
+func outputValidateResult(ctx context.Context, cmdCtx *commandCtx, output []string, vr *result.ValidateResult) error {
+	vr.Id = cmdCtx.resultId
 
-	return outputValidateResult2(ctx.ctx, output, vr)
+	return outputValidateResult2(ctx, output, vr)
 }
 
 func outputValidateResult2(ctx context.Context, output []string, vr *result.ValidateResult) error {

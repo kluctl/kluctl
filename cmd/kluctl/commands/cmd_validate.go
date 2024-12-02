@@ -47,23 +47,23 @@ func (cmd *validateCmd) Run(ctx context.Context) error {
 
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		cmd2 := commands.NewValidateCommand("", cmdCtx.targetCtx)
-		return cmd.doValidate(cmdCtx, cmd2)
+		return cmd.doValidate(ctx, cmdCtx, cmd2)
 	})
 }
 
-func (cmd *validateCmd) doValidate(ctx *commandCtx, cmd2 *commands.ValidateCommand) error {
+func (cmd *validateCmd) doValidate(ctx context.Context, cmdCtx *commandCtx, cmd2 *commands.ValidateCommand) error {
 	startTime := time.Now()
 	for true {
-		result := cmd2.Run(ctx.ctx)
+		result := cmd2.Run(ctx)
 		failed := len(result.Errors) != 0 || (cmd.WarningsAsErrors && len(result.Warnings) != 0)
 
-		err := outputValidateResult(ctx, cmd.Output, result)
+		err := outputValidateResult(ctx, cmdCtx, cmd.Output, result)
 		if err != nil {
 			return err
 		}
 
 		if !failed {
-			status.Info(ctx.ctx, "Validation succeeded")
+			status.Info(ctx, "Validation succeeded")
 			return nil
 		}
 

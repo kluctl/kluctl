@@ -67,13 +67,13 @@ func (cmd *deployCmd) Run(ctx context.Context) error {
 		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdDeploy(cmdCtx)
+		return cmd.runCmdDeploy(ctx, cmdCtx)
 	})
 }
 
-func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
-	status.Trace(cmdCtx.ctx, "enter runCmdDeploy")
-	defer status.Trace(cmdCtx.ctx, "leave runCmdDeploy")
+func (cmd *deployCmd) runCmdDeploy(ctx context.Context, cmdCtx *commandCtx) error {
+	status.Trace(ctx, "enter runCmdDeploy")
+	defer status.Trace(ctx, "leave runCmdDeploy")
 
 	cmd2 := commands.NewDeployCommand(cmdCtx.targetCtx)
 	cmd2.ForceApply = cmd.ForceApply
@@ -86,14 +86,14 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	cmd2.WaitPrune = !cmd.NoWait
 
 	cb := func(diffResult *result.CommandResult) error {
-		return cmd.diffResultCb(cmdCtx, diffResult)
+		return cmd.diffResultCb(ctx, cmdCtx, diffResult)
 	}
 	if cmd.Yes || cmd.DryRun {
 		cb = nil
 	}
 
 	result := cmd2.Run(cb)
-	err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+	err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}
@@ -103,11 +103,11 @@ func (cmd *deployCmd) runCmdDeploy(cmdCtx *commandCtx) error {
 	return nil
 }
 
-func (cmd *deployCmd) diffResultCb(ctx *commandCtx, diffResult *result.CommandResult) error {
+func (cmd *deployCmd) diffResultCb(ctx context.Context, cmdCtx *commandCtx, diffResult *result.CommandResult) error {
 	flags := cmd.OutputFormatFlags
 	flags.OutputFormat = nil // use default output format
 
-	err := outputCommandResult(ctx, flags, diffResult, false)
+	err := outputCommandResult(ctx, cmdCtx, flags, diffResult, false)
 	if err != nil {
 		return err
 	}
@@ -115,11 +115,11 @@ func (cmd *deployCmd) diffResultCb(ctx *commandCtx, diffResult *result.CommandRe
 		return nil
 	}
 	if len(diffResult.Errors) != 0 {
-		if !prompts.AskForConfirmation(ctx.ctx, "The diff resulted in errors, do you still want to proceed?") {
+		if !prompts.AskForConfirmation(ctx, "The diff resulted in errors, do you still want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	} else {
-		if !prompts.AskForConfirmation(ctx.ctx, "The diff succeeded, do you want to proceed?") {
+		if !prompts.AskForConfirmation(ctx, "The diff succeeded, do you want to proceed?") {
 			return fmt.Errorf("aborted")
 		}
 	}

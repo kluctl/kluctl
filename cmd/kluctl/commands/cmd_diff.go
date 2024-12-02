@@ -57,7 +57,7 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
 		cmd2.IgnoreKluctlMetadata = cmd.IgnoreKluctlMetadata
 		result := cmd2.Run()
-		err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, false)
+		err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, false)
 		if err != nil {
 			return err
 		}

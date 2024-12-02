@@ -52,16 +52,16 @@ func (cmd *pruneCmd) Run(ctx context.Context) error {
 		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdPrune(cmdCtx)
+		return cmd.runCmdPrune(ctx, cmdCtx)
 	})
 }
 
-func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
+func (cmd *pruneCmd) runCmdPrune(ctx context.Context, cmdCtx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx, true)
 	result := cmd2.Run(func(refs []k8s2.ObjectRef) error {
-		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
+		return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
 	})
-	err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+	err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}

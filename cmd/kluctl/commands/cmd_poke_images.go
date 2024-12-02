@@ -56,7 +56,7 @@ func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 		cmd2 := commands.NewPokeImagesCommand(cmdCtx.targetCtx)
 
 		result := cmd2.Run()
-		err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+		err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 		if err != nil {
 			return err
 		}

@@ -60,7 +60,7 @@ func (cmd *deleteCmd) Run(ctx context.Context) error {
 			return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
 		})
 
-		err := outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+		err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 		if err != nil {
 			return err
 		}

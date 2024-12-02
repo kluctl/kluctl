@@ -150,7 +150,6 @@ type projectTargetCommandArgs struct {
 }
 
 type commandCtx struct {
-	ctx       context.Context
 	targetCtx *target_context.TargetContext
 	images    *deployment.Images
 
@@ -255,7 +254,6 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		}
 	}
 	cmdCtx := &commandCtx{
-		ctx:         ctx,
 		targetCtx:   targetCtx,
 		images:      images,
 		resultId:    commandResultId,
