@@ -67,10 +67,10 @@ func (cmd *renderCmd) Run(ctx context.Context) error {
 			if isTmp {
 				defer os.RemoveAll(cmd.RenderOutputDir)
 			}
-			status.Flush(cmdCtx.ctx)
+			status.Flush(ctx)
 			return yaml.WriteYamlAllStream(getStdout(ctx), all)
 		} else {
-			status.Infof(cmdCtx.ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
+			status.Infof(ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
 		}
 		return nil
 	})
