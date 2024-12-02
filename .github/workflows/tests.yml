@@ -46,6 +46,15 @@ jobs:
       - name: Check links on changed files
         run: |
           make markdown-link-check
+      - name: Verify go.mod and go.sum are clean
+        run: |
+          go mod tidy
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "go mod tidy must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
       - name: Verify commands help is up-to-date
         run: |
           make replace-commands-help
@@ -78,15 +87,6 @@ jobs:
           make api-docs
           if [ ! -z "$(git status --porcelain)" ]; then
             echo "make api-docs must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
-      - name: Verify go.mod and go.sum are clean
-        run: |
-          go mod tidy
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "go mod tidy must be invoked and the result committed"
             git status
             git diff
             exit 1
