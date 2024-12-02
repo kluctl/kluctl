@@ -3,10 +3,10 @@ package webui
 import (
 	"context"
 	"encoding/json"
+	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/kluctl/kluctl/v2/pkg/controllers/logs"
 	"net/http"
-	"nhooyr.io/websocket"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
