@@ -1,6 +1,7 @@
 module github.com/kluctl/kluctl/v2
 
 go 1.22.0
+toolchain go1.22.9
 
 replace github.com/kluctl/kluctl/lib => ./lib
 
@@ -78,7 +79,7 @@ require (
 	golang.org/x/term v0.26.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/genproto v0.0.0-20240930140551-af27646dc61f
-	google.golang.org/grpc v1.67.1
+	google.golang.org/grpc v1.68.0
 	google.golang.org/protobuf v1.34.2
 	helm.sh/helm/v3 v3.16.1
 	k8s.io/api v0.31.1
