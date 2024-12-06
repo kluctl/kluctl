@@ -1,6 +1,7 @@
 package result
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -29,6 +30,7 @@ type DeploymentError struct {
 type KluctlDeploymentInfo struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
+	ClusterId string `json:"clusterId"`
 }
 
 type CommandInitiator string
@@ -37,21 +39,6 @@ const (
 	CommandInititiator_CommandLine      CommandInitiator = "CommandLine"
 	CommandInititiator_KluctlDeployment                  = "KluctlDeployment"
 )
-
-type ProjectKey struct {
-	GitRepoKey types.GitRepoKey `json:"gitRepoKey,omitempty"`
-	SubDir     string           `json:"subDir,omitempty"`
-}
-
-func (k ProjectKey) Less(o ProjectKey) bool {
-	if k.GitRepoKey != o.GitRepoKey {
-		return k.GitRepoKey.String() < o.GitRepoKey.String()
-	}
-	if k.SubDir != o.SubDir {
-		return k.SubDir < o.SubDir
-	}
-	return false
-}
 
 type TargetKey struct {
 	TargetName    string `json:"targetName,omitempty"`
@@ -76,7 +63,6 @@ type CommandInfo struct {
 	Initiator             CommandInitiator       `json:"initiator" validate:"oneof=CommandLine KluctlDeployment"`
 	StartTime             metav1.Time            `json:"startTime"`
 	EndTime               metav1.Time            `json:"endTime"`
-	KluctlDeployment      *KluctlDeploymentInfo  `json:"kluctlDeployment,omitempty"`
 	Command               string                 `json:"command,omitempty"`
 	Target                string                 `json:"target,omitempty"`
 	TargetNameOverride    string                 `json:"targetNameOverride,omitempty"`
@@ -93,14 +79,6 @@ type CommandInfo struct {
 	ExcludeTags           []string               `json:"excludeTags,omitempty"`
 	IncludeDeploymentDirs []string               `json:"includeDeploymentDirs,omitempty"`
 	ExcludeDeploymentDirs []string               `json:"excludeDeploymentDirs,omitempty"`
-}
-
-type GitInfo struct {
-	Url    *types.GitUrl `json:"url"`
-	Ref    string        `json:"ref"`
-	SubDir string        `json:"subDir"`
-	Commit string        `json:"commit"`
-	Dirty  bool          `json:"dirty"`
 }
 
 type ClusterInfo struct {
@@ -126,16 +104,20 @@ type ResultObject struct {
 }
 
 type CommandResult struct {
-	Id          string                         `json:"id"`
-	ProjectKey  ProjectKey                     `json:"projectKey"`
-	TargetKey   TargetKey                      `json:"targetKey"`
-	Target      types.Target                   `json:"target"`
-	Command     CommandInfo                    `json:"command,omitempty"`
-	GitInfo     GitInfo                        `json:"gitInfo,omitempty"`
-	ClusterInfo ClusterInfo                    `json:"clusterInfo"`
-	Deployment  *types.DeploymentProjectConfig `json:"deployment,omitempty"`
+	Id               string                         `json:"id"`
+	ReconcileId      string                         `json:"reconcileId"`
+	ProjectKey       gittypes.ProjectKey            `json:"projectKey"`
+	TargetKey        TargetKey                      `json:"targetKey"`
+	Target           types.Target                   `json:"target"`
+	Command          CommandInfo                    `json:"command,omitempty"`
+	KluctlDeployment *KluctlDeploymentInfo          `json:"kluctlDeployment,omitempty"`
+	OverridesPatch   *uo.UnstructuredObject         `json:"overridesPatch,omitempty"`
+	GitInfo          gittypes.GitInfo               `json:"gitInfo,omitempty"`
+	ClusterInfo      ClusterInfo                    `json:"clusterInfo"`
+	Deployment       *types.DeploymentProjectConfig `json:"deployment,omitempty"`
 
-	Objects []ResultObject `json:"objects,omitempty"`
+	RenderedObjectsHash string         `json:"renderedObjectsHash,omitempty"`
+	Objects             []ResultObject `json:"objects,omitempty"`
 
 	Errors     []DeploymentError  `json:"errors,omitempty"`
 	Warnings   []DeploymentError  `json:"warnings,omitempty"`
@@ -156,9 +138,9 @@ func (cr *CommandResult) ToReducedObjects() *CommandResult {
 	ret.Objects = make([]ResultObject, len(ret.Objects))
 	for i, o := range cr.Objects {
 		ret.Objects[i] = o
-		ret.Objects[i].Rendered = buildReducedObject(o.Rendered)
-		ret.Objects[i].Remote = buildReducedObject(o.Remote)
-		ret.Objects[i].Applied = buildReducedObject(o.Applied)
+		ret.Objects[i].Rendered = BuildReducedObject(o.Rendered)
+		ret.Objects[i].Remote = BuildReducedObject(o.Remote)
+		ret.Objects[i].Applied = BuildReducedObject(o.Applied)
 	}
 	return &ret
 }
@@ -175,22 +157,4 @@ func (ccr *CompactedCommandResult) ToNonCompacted() *CommandResult {
 		ret.Objects = ccr.CompactedObjects
 	}
 	return &ret
-}
-
-type ValidateResultEntry struct {
-	Ref        k8s.ObjectRef `json:"ref"`
-	Annotation string        `json:"annotation"`
-	Message    string        `json:"message"`
-}
-
-type ValidateResult struct {
-	Id        string                `json:"id"`
-	StartTime metav1.Time           `json:"startTime"`
-	EndTime   metav1.Time           `json:"endTime"`
-	Ready     bool                  `json:"ready"`
-	Warnings  []DeploymentError     `json:"warnings,omitempty"`
-	Errors    []DeploymentError     `json:"errors,omitempty"`
-	Results   []ValidateResultEntry `json:"results,omitempty"`
-
-	Drift []ChangedObject `json:"drift,omitempty"`
 }

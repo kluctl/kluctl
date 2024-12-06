@@ -3,8 +3,8 @@ package utils
 import (
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -16,10 +16,12 @@ import (
 )
 
 type RemoteObjectUtils struct {
-	ctx              context.Context
-	dew              *DeploymentErrorsAndWarnings
-	remoteObjects    map[k8s2.ObjectRef]*uo.UnstructuredObject
-	remoteNamespaces map[string]*uo.UnstructuredObject
+	ctx           context.Context
+	dew           *DeploymentErrorsAndWarnings
+	remoteObjects map[k8s2.ObjectRef]*uo.UnstructuredObject
+
+	remoteNamespacesOk bool
+	remoteNamespaces   map[string]*uo.UnstructuredObject
 }
 
 func NewRemoteObjectsUtil(ctx context.Context, dew *DeploymentErrorsAndWarnings) *RemoteObjectUtils {
@@ -52,7 +54,7 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	errCount := 0
 	permissionErrCount := 0
 
-	gvks, err := k.GetFilteredPreferredGVKs(func(ar *v1.APIResource) bool {
+	ars, err := k.GetFilteredPreferredAPIResources(func(ar *v1.APIResource) bool {
 		if onlyUsedGKs != nil {
 			gk := schema.GroupKind{
 				Group: ar.Group,
@@ -69,15 +71,18 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	}
 
 	g := utils.NewGoHelper(u.ctx, 0)
-	for _, gvk := range gvks {
-		gvk := gvk
+	for _, ar := range ars {
+		ar := ar
+		gvk := schema.GroupVersionKind{
+			Group:   ar.Group,
+			Version: ar.Version,
+			Kind:    ar.Kind,
+		}
 		g.Run(func() {
 			l, apiWarnings, err := k.ListObjects(gvk, "", labels)
-			u.dew.AddApiWarnings(k8s2.ObjectRef{
-				Group:   gvk.Group,
-				Version: gvk.Version,
-				Kind:    gvk.Kind,
-			}, apiWarnings)
+			for _, w := range apiWarnings {
+				status.Tracef(u.ctx, "API warning while getting %s by discriminator: code=%d, agent=%s, text=%s", gvk.String(), w.Code, w.Agent, w.Text)
+			}
 			mutex.Lock()
 			defer mutex.Unlock()
 			if err != nil {
@@ -104,7 +109,7 @@ func (u *RemoteObjectUtils) getAllByDiscriminator(k *k8s.K8sCluster, discriminat
 	g.Wait()
 	if g.ErrorOrNil() == nil {
 		if errCount != 0 {
-			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
+			s.UpdateAndInfoFallbackf("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
 			if permissionErrCount != 0 {
 				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering objects by discriminator labels. This might result in orphan object detection to not work properly"))
@@ -149,7 +154,9 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 					return
 				}
 				if errors2.IsForbidden(err) || errors2.IsUnauthorized(err) {
+					mutex.Lock()
 					permissionErrCount += 1
+					mutex.Unlock()
 					return
 				}
 				u.dew.AddError(ref, err)
@@ -165,7 +172,7 @@ func (u *RemoteObjectUtils) getMissingObjects(k *k8s.K8sCluster, refs []k8s2.Obj
 	g.Wait()
 	if g.ErrorOrNil() == nil {
 		if errCount != 0 {
-			s.UpdateAndInfoFallback("%s: Failed with %d errors", baseStatus, errCount)
+			s.UpdateAndInfoFallbackf("%s: Failed with %d errors", baseStatus, errCount)
 			s.Warning()
 			if permissionErrCount != 0 {
 				u.dew.AddWarning(k8s2.ObjectRef{}, fmt.Errorf("at least one permission error was encountered while gathering known objects. This might result in orphan object detection and diffs to not work properly"))
@@ -210,10 +217,16 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 		Kind:    "Namespace",
 	}, "", nil)
 	if err != nil {
-		return err
-	}
-	for _, o := range r {
-		u.remoteNamespaces[o.GetK8sName()] = o
+		// listing namespaces might be forbidden by the user, while getting individual ones is allowed
+		// in that case, GetRemoteNamespace will do a GET
+		if !errors2.IsForbidden(err) {
+			return err
+		}
+	} else {
+		u.remoteNamespacesOk = true
+		for _, o := range r {
+			u.remoteNamespaces[o.GetK8sName()] = o
+		}
 	}
 
 	s.Success()
@@ -222,13 +235,21 @@ func (u *RemoteObjectUtils) UpdateRemoteObjects(k *k8s.K8sCluster, discriminator
 }
 
 func (u *RemoteObjectUtils) GetRemoteObject(ref k8s2.ObjectRef) *uo.UnstructuredObject {
-	o, _ := u.remoteObjects[ref]
-	return o
+	return u.remoteObjects[ref]
 }
 
-func (u *RemoteObjectUtils) GetRemoteNamespace(name string) *uo.UnstructuredObject {
-	o, _ := u.remoteNamespaces[name]
-	return o
+func (u *RemoteObjectUtils) GetRemoteNamespace(k *k8s.K8sCluster, name string) (*uo.UnstructuredObject, error) {
+	if u.remoteNamespacesOk {
+		return u.remoteNamespaces[name], nil
+	}
+
+	ref := k8s2.NewObjectRef("", "v1", "Namespace", name, "")
+	o, _, err := k.GetSingleObject(ref)
+	if err != nil && !errors2.IsNotFound(err) {
+		return nil, err
+	}
+
+	return o, nil
 }
 
 func (u *RemoteObjectUtils) ForgetRemoteObject(ref k8s2.ObjectRef) {

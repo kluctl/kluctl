@@ -2,19 +2,13 @@ package results
 
 import (
 	"context"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
-type ListProjectsOptions struct {
-	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
-}
-
-type ListTargetsOptions struct {
-	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
-}
-
-type ListCommandResultSummariesOptions struct {
-	ProjectFilter *result.ProjectKey `json:"projectFilter,omitempty"`
+type ListResultSummariesOptions struct {
+	ProjectFilter *gittypes.ProjectKey `json:"projectFilter,omitempty"`
 }
 
 type GetCommandResultOptions struct {
@@ -22,40 +16,75 @@ type GetCommandResultOptions struct {
 	Reduced bool   `json:"reduced,omitempty"`
 }
 
+type GetValidateResultOptions struct {
+	Id string `json:"id"`
+}
+
 type WatchCommandResultSummaryEvent struct {
 	Summary *result.CommandResultSummary `json:"summary"`
 	Delete  bool                         `json:"delete"`
 }
 
-type ResultStore interface {
-	WriteCommandResult(cr *result.CommandResult) error
-
-	ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error)
-	WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
-	HasCommandResult(id string) (bool, error)
-	GetCommandResultSummary(id string) (*result.CommandResultSummary, error)
-	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
+type WatchValidateResultSummaryEvent struct {
+	Summary *result.ValidateResultSummary `json:"summary"`
+	Delete  bool                          `json:"delete"`
 }
 
-func FilterSummary(x *result.CommandResultSummary, filter *result.ProjectKey) bool {
-	if filter == nil {
-		return true
-	}
-	if x.ProjectKey.GitRepoKey != filter.GitRepoKey {
-		return false
-	}
-	if x.ProjectKey.SubDir != filter.SubDir {
-		return false
+type WatchKluctlDeploymentEvent struct {
+	ClusterId  string                     `json:"clusterId"`
+	Deployment *kluctlv1.KluctlDeployment `json:"deployment"`
+	Delete     bool                       `json:"delete"`
+}
+
+type ResultStore interface {
+	WriteCommandResult(cr *result.CommandResult) error
+	WriteValidateResult(vr *result.ValidateResult) error
+	DeleteCommandResult(rsId string) error
+
+	ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error)
+	WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error)
+	GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error)
+
+	ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error)
+	WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error)
+	GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error)
+
+	ListKluctlDeployments() ([]WatchKluctlDeploymentEvent, error)
+	WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error)
+	GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error)
+}
+
+func FilterProject(x gittypes.ProjectKey, filter *gittypes.ProjectKey) bool {
+	if filter != nil {
+		if filter.RepoKey.String() != "" && x.RepoKey != filter.RepoKey {
+			return false
+		}
+		if filter.SubDir != "" && x.SubDir != filter.SubDir {
+			return false
+		}
 	}
 	return true
 }
 
-func lessSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
+func lessCommandSummary(a *result.CommandResultSummary, b *result.CommandResultSummary) bool {
 	if a.Command.StartTime != b.Command.StartTime {
 		return a.Command.StartTime.After(b.Command.StartTime.Time)
 	}
 	if a.Command.EndTime != b.Command.EndTime {
 		return a.Command.EndTime.After(b.Command.EndTime.Time)
 	}
-	return a.Command.Command < b.Command.Command
+	if a.Command.Command != b.Command.Command {
+		return a.Command.Command < b.Command.Command
+	}
+	return a.Id < b.Id
+}
+
+func lessValidateSummary(a *result.ValidateResultSummary, b *result.ValidateResultSummary) bool {
+	if a.StartTime != b.StartTime {
+		return a.StartTime.After(b.StartTime.Time)
+	}
+	if a.EndTime != b.EndTime {
+		return a.EndTime.After(b.EndTime.Time)
+	}
+	return a.Id < b.Id
 }

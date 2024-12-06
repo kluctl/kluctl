@@ -3,15 +3,13 @@ package test_resources
 import (
 	"context"
 	"embed"
-	"fmt"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -22,23 +20,18 @@ import (
 //go:embed *.yaml
 var Yamls embed.FS
 
-func GetYamlTmpFile(name string) string {
-	tmpFile, err := os.CreateTemp("", "")
-	if err != nil {
-		panic(err)
-	}
-	tmpFile.Close()
-
+func GetYamlDocs(t *testing.T, name string) []*uo.UnstructuredObject {
 	b, err := Yamls.ReadFile(name)
 	if err != nil {
 		panic(err)
 	}
-	err = os.WriteFile(tmpFile.Name(), b, 0o600)
+
+	docs, err := uo.FromStringMulti(string(b))
 	if err != nil {
 		panic(err)
 	}
 
-	return tmpFile.Name()
+	return docs
 }
 
 // poor mans resource mapper :)
@@ -72,7 +65,7 @@ func waitReadiness(k *test_utils.EnvTestCluster, x *uo.UnstructuredObject) {
 		if err != nil {
 			panic(err)
 		}
-		vr := validation.ValidateObject(nil, uo.FromUnstructured(u), true, true)
+		vr := validation.ValidateObject(context.TODO(), nil, uo.FromUnstructured(u), true, true)
 		if vr.Ready {
 			break
 		} else {
@@ -82,9 +75,6 @@ func waitReadiness(k *test_utils.EnvTestCluster, x *uo.UnstructuredObject) {
 }
 
 func ApplyYaml(t *testing.T, name string, k *test_utils.EnvTestCluster) {
-	tmpFile := GetYamlTmpFile(name)
-	defer os.Remove(tmpFile)
-
 	doPanic := func(err error) {
 		if t != nil {
 			t.Fatal(err)
@@ -93,20 +83,7 @@ func ApplyYaml(t *testing.T, name string, k *test_utils.EnvTestCluster) {
 		}
 	}
 
-	docs, err := yaml.ReadYamlAllFile(tmpFile)
-	if err != nil {
-		doPanic(err)
-	}
-
-	var objects []*uo.UnstructuredObject
-	for _, doc := range docs {
-		m, ok := doc.(map[string]any)
-		if !ok {
-			doPanic(fmt.Errorf("not a map!"))
-		}
-		x := uo.FromMap(m)
-		objects = append(objects, x)
-	}
+	objects := GetYamlDocs(t, name)
 
 	sort.SliceStable(objects, func(i, j int) bool {
 		return prio(objects[i]) > prio(objects[j])

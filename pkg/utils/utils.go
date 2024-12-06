@@ -22,6 +22,15 @@ func DeepCopy(dst interface{}, src interface{}) error {
 	})
 }
 
+func DeepClone[T any](src *T) (*T, error) {
+	ret := new(T)
+	err := DeepCopy(ret, src)
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
+}
+
 func FindStrInSlice(a []string, s string) int {
 	for i, v := range a {
 		if v == s {
@@ -31,17 +40,35 @@ func FindStrInSlice(a []string, s string) int {
 	return -1
 }
 
-func ParseBoolOrFalse(s *string) bool {
+func ParseBoolOrFalsePtr(s *string) bool {
 	if s == nil {
 		return false
 	}
-	b, err := strconv.ParseBool(*s)
+	return ParseBoolOrFalse(*s)
+}
+
+func ParseBoolOrFalse(s string) bool {
+	return ParseBoolOrDefault(s, false)
+}
+
+func ParseBoolOrDefault(s string, def bool) bool {
+	b, err := strconv.ParseBool(s)
 	if err != nil {
-		return false
+		return def
 	}
 	return b
 }
 
-func StrPtr(s string) *string {
-	return &s
+func Ptr[T any](v T) *T {
+	return &v
+}
+
+func StrPtrEquals(s1 *string, s2 *string) bool {
+	if s1 == nil && s2 == nil {
+		return true
+	}
+	if (s1 == nil) != (s2 == nil) {
+		return false
+	}
+	return *s1 == *s2
 }

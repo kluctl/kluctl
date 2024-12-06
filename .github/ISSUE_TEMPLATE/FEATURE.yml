@@ -27,7 +27,6 @@ body:
         - label: "poke-images"
         - label: "prune"
         - label: "render"
-        - label: "seal"
         - label: "validate"
         - label: "version"
   - type: input

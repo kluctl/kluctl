@@ -31,9 +31,10 @@ type HookFlags struct {
 }
 
 type IgnoreFlags struct {
-	IgnoreTags        bool `group:"misc" help:"Ignores changes in tags when diffing"`
-	IgnoreLabels      bool `group:"misc" help:"Ignores changes in labels when diffing"`
-	IgnoreAnnotations bool `group:"misc" help:"Ignores changes in annotations when diffing"`
+	IgnoreTags           bool `group:"misc" help:"Ignores changes in tags when diffing"`
+	IgnoreLabels         bool `group:"misc" help:"Ignores changes in labels when diffing"`
+	IgnoreAnnotations    bool `group:"misc" help:"Ignores changes in annotations when diffing"`
+	IgnoreKluctlMetadata bool `group:"misc" help:"Ignores changes in Kluctl related metadata (e.g. tags, discriminators, ...)"`
 }
 
 type AbortOnErrorFlags struct {

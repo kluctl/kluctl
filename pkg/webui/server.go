@@ -4,78 +4,234 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"io/fs"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"net"
 	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
 const webuiManager = "kluctl-webui"
 
-type CommandResultsServer struct {
-	ctx       context.Context
-	collector *results.ResultsCollector
-	cam       *clusterAccessorManager
-	vam       *validatorManager
+type ProjectTargetKey struct {
+	Project gittypes.ProjectKey `json:"project"`
+	Target  result.TargetKey    `json:"target"`
 }
 
-func NewCommandResultsServer(ctx context.Context, collector *results.ResultsCollector, configs []*rest.Config) *CommandResultsServer {
+type CommandResultsServer struct {
+	ctx   context.Context
+	store results.ResultStore
+	cam   *clusterAccessorManager
+
+	controllerNamespace string
+
+	// this is the client for the k8s cluster where the server runs on
+	serverClient       client.Client
+	serverCoreV1Client *corev1.CoreV1Client
+
+	auth   *authHandler
+	events *eventsHandler
+
+	pathPrefix string
+	onlyApi    bool
+}
+
+func NewCommandResultsServer(
+	ctx context.Context,
+	store *results.ResultsCollector,
+	configs []*rest.Config,
+	controllerNamespace string,
+	serverConfig *rest.Config,
+	serverClient client.Client,
+	authConfig AuthConfig,
+	pathPrefix string,
+	onlyApi bool) (*CommandResultsServer, error) {
+
 	ret := &CommandResultsServer{
-		ctx:       ctx,
-		collector: collector,
+		ctx:   ctx,
+		store: store,
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
+		serverClient: serverClient,
+		pathPrefix:   pathPrefix,
+		onlyApi:      onlyApi,
+	}
+
+	var err error
+	if serverConfig != nil {
+		ret.serverCoreV1Client, err = corev1.NewForConfig(serverConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ret.events = newEventsHandler(ret)
+
+	ret.auth, err = newAuthHandler(ctx, serverClient, controllerNamespace, authConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, config := range configs {
 		ret.cam.add(config)
 	}
 
-	ret.vam = newValidatorManager(ctx, collector, ret.cam)
-
-	return ret
+	return ret, nil
 }
 
-func (s *CommandResultsServer) Run(port int) error {
-	l, ch, cancel, err := s.collector.WatchCommandResultSummaries(results.ListCommandResultSummariesOptions{})
+func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) error {
+	err := s.startUpdateLogs()
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
-	printEvent := func(id string, deleted bool) {
-		if deleted {
-			status.Info(s.ctx, "Deleted result summary for %s", id)
-		} else {
-			status.Info(s.ctx, "Updated result summary for %s", id)
+	s.cam.start()
+
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	engine := gin.New()
+	engine.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/healthz", "/readyz"},
+	}))
+	engine.Use(gin.Recovery())
+
+	engine.GET("/healthz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	engine.GET("/readyz", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	router := engine.Group(s.pathPrefix)
+
+	err = s.auth.setupRoutes(router)
+	if err != nil {
+		return err
+	}
+
+	if !s.onlyApi {
+		err = s.setupStaticRoutes(router)
+		if err != nil {
+			return err
 		}
 	}
-	for _, x := range l {
-		printEvent(x.Id, false)
+
+	api := router.Group("/api", s.auth.authHandler)
+	api.GET("/getShortNames", s.getShortNames)
+	api.GET("/getCommandResult", s.getCommandResult)
+	api.GET("/getCommandResultObject", s.getCommandResultObject)
+	api.GET("/getValidateResult", s.getValidateResult)
+	api.POST("/validateNow", s.validateNow)
+	api.POST("/reconcileNow", s.reconcileNow)
+	api.POST("/deployNow", s.deployNow)
+	api.POST("/pruneNow", s.pruneNow)
+	api.POST("/setSuspended", s.setSuspended)
+	api.POST("/setManualObjectsHash", s.setManualObjectsHash)
+
+	err = s.events.startEventsWatcher()
+	if err != nil {
+		return err
+	}
+	api.Any("/events", s.events.handler)
+
+	api.Any("/logs", s.logsHandler)
+
+	address := fmt.Sprintf("%s:%d", host, port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return err
+	}
+
+	httpServer := http.Server{
+		Addr: address,
+		BaseContext: func(listener net.Listener) context.Context {
+			return s.ctx
+		},
+		Handler: engine.Handler(),
+	}
+
+	if host != "" {
+		url := fmt.Sprintf("http://%s", address)
+		status.Infof(s.ctx, "Webui is available at: %s\n", url)
+
+		if openBrowser {
+			status.Infof(s.ctx, "Opening browser")
+			_ = utils.OpenBrowser(url)
+		}
+	}
+
+	return httpServer.Serve(listener)
+}
+
+func (s *CommandResultsServer) startUpdateLogs() error {
+	ch1, cancel1, err := s.store.WatchCommandResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+
+	ch2, cancel2, err := s.store.WatchValidateResultSummaries(results.ListResultSummariesOptions{})
+	if err != nil {
+		cancel1()
+		return err
+	}
+
+	ch3, cancel3, err := s.store.WatchKluctlDeployments()
+	if err != nil {
+		cancel1()
+		cancel2()
+		return err
 	}
 
 	go func() {
-		for event := range ch {
-			printEvent(event.Summary.Id, event.Delete)
+		defer cancel1()
+		defer cancel2()
+		defer cancel3()
+
+		printEvent := func(id string, type_ string, deleted bool) {
+			if deleted {
+				status.Infof(s.ctx, "Deleted %s for %s", type_, id)
+			} else {
+				status.Infof(s.ctx, "Updated %s for %s", type_, id)
+			}
+		}
+
+		for {
+			select {
+			case event := <-ch1:
+				printEvent(event.Summary.Id, "command result summary", event.Delete)
+			case event := <-ch2:
+				printEvent(event.Summary.Id, "validate result summary", event.Delete)
+			case event := <-ch3:
+				printEvent(event.Deployment.Name, "KluctlDeployment", event.Delete)
+			case <-s.ctx.Done():
+				return
+			}
 		}
 	}()
 
-	s.cam.start()
-	s.vam.start()
+	return nil
+}
 
-	router := gin.Default()
-
+func (s *CommandResultsServer) setupStaticRoutes(router gin.IRouter) error {
 	dis, err := fs.ReadDir(uiFS, ".")
 	if err != nil {
 		return err
@@ -100,32 +256,7 @@ func (s *CommandResultsServer) Run(port int) error {
 		}
 		c.Data(http.StatusOK, "text/html; charset=utf-8", b)
 	})
-
-	api := router.Group("/api")
-	api.GET("/getShortNames", s.getShortNames)
-	api.GET("/getResult", s.getResult)
-	api.GET("/getResultSummary", s.getResultSummary)
-	api.GET("/getResultObject", s.getResultObject)
-	api.POST("/validateNow", s.validateNow)
-	api.POST("/reconcileNow", s.reconcileNow)
-	api.POST("/deployNow", s.deployNow)
-	api.Any("/ws", s.ws)
-
-	address := fmt.Sprintf(":%d", port)
-	listener, err := net.Listen("tcp", address)
-	if err != nil {
-		return err
-	}
-
-	httpServer := http.Server{
-		Addr: address,
-		BaseContext: func(listener net.Listener) context.Context {
-			return s.ctx
-		},
-		Handler: router.Handler(),
-	}
-
-	return httpServer.Serve(listener)
+	return nil
 }
 
 func (s *CommandResultsServer) getShortNames(c *gin.Context) {
@@ -156,7 +287,56 @@ func (ref refParam) toK8sRef() k8s.ObjectRef {
 	}
 }
 
-func (s *CommandResultsServer) getResult(c *gin.Context) {
+func (s *CommandResultsServer) redactSensitiveVars(user *User, d *types.DeploymentProjectConfig) {
+	if d == nil {
+		return
+	}
+	if user.IsAdmin {
+		// don't redact vars
+		return
+	}
+
+	doRedact := func(vars *types.VarsSource) {
+		if vars.RenderedSensitive {
+			vars.RenderedVars = nil
+		}
+	}
+
+	for i, _ := range d.Vars {
+		doRedact(&d.Vars[i])
+	}
+
+	for _, di := range d.Deployments {
+		for i, _ := range di.Vars {
+			doRedact(&di.Vars[i])
+		}
+		s.redactSensitiveVars(user, di.RenderedInclude)
+	}
+}
+
+func (s *CommandResultsServer) checkObjectAccess(c *gin.Context, user *User, o *uo.UnstructuredObject, objectType string) (bool, *uo.UnstructuredObject) {
+	if user.IsAdmin {
+		// everything allowed
+		return true, o
+	}
+	if o == nil {
+		return true, o
+	}
+
+	// non-admins can only see the rendered version
+	if objectType != "rendered" {
+		return false, o
+	}
+
+	// but no secrets
+	if o.GetK8sRef().GroupKind() == (schema.GroupKind{Kind: "Secret"}) {
+		return false, nil
+	}
+
+	return true, o
+}
+
+func (s *CommandResultsServer) getCommandResult(c *gin.Context) {
 	var params resultIdParam
 
 	err := c.Bind(&params)
@@ -165,7 +345,7 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResult(results.GetCommandResultOptions{
+	sr, err := s.store.GetCommandResult(results.GetCommandResultOptions{
 		Id:      params.ResultId,
 		Reduced: true,
 	})
@@ -178,32 +358,21 @@ func (s *CommandResultsServer) getResult(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, sr)
-}
+	user := s.auth.getUser(c)
 
-func (s *CommandResultsServer) getResultSummary(c *gin.Context) {
-	var params resultIdParam
+	s.redactSensitiveVars(user, sr.Deployment)
 
-	err := c.Bind(&params)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	sr, err := s.collector.GetCommandResultSummary(params.ResultId)
-	if err != nil {
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	if sr == nil {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
+	for i, _ := range sr.Objects {
+		o := &sr.Objects[i]
+		_, o.Rendered = s.checkObjectAccess(c, user, o.Rendered, "rendered")
+		_, o.Remote = s.checkObjectAccess(c, user, o.Remote, "remote")
+		_, o.Applied = s.checkObjectAccess(c, user, o.Applied, "applied")
 	}
 
 	c.JSON(http.StatusOK, sr)
 }
 
-func (s *CommandResultsServer) getResultObject(c *gin.Context) {
+func (s *CommandResultsServer) getCommandResultObject(c *gin.Context) {
 	var params resultIdParam
 	var ref refParam
 	var objectType objectTypeParams
@@ -224,7 +393,7 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 		return
 	}
 
-	sr, err := s.collector.GetCommandResult(results.GetCommandResultOptions{
+	sr, err := s.store.GetCommandResult(results.GetCommandResultOptions{
 		Id:      params.ResultId,
 		Reduced: false,
 	})
@@ -251,16 +420,26 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 		return
 	}
 
+	user := s.auth.getUser(c)
+
+	var ok bool
 	var o2 *uo.UnstructuredObject
 	switch objectType.ObjectType {
 	case "rendered":
-		o2 = found.Rendered
+		ok, o2 = s.checkObjectAccess(c, user, found.Rendered, objectType.ObjectType)
 	case "remote":
-		o2 = found.Remote
+		ok, o2 = s.checkObjectAccess(c, user, found.Remote, objectType.ObjectType)
 	case "applied":
-		o2 = found.Applied
+		ok, o2 = s.checkObjectAccess(c, user, found.Applied, objectType.ObjectType)
+	default:
+		c.AbortWithStatus(http.StatusNotFound)
+		return
 	}
-	if o2 == nil {
+
+	if !ok {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	} else if o2 == nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -268,44 +447,43 @@ func (s *CommandResultsServer) getResultObject(c *gin.Context) {
 	c.JSON(http.StatusOK, o2)
 }
 
-func (s *CommandResultsServer) validateNow(c *gin.Context) {
-	var params ProjectTargetKey
+func (s *CommandResultsServer) getValidateResult(c *gin.Context) {
+	var params resultIdParam
+
 	err := c.Bind(&params)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	key := ProjectTargetKey{
-		Project: params.Project,
-		Target:  params.Target,
-	}
-
-	if !s.vam.validateNow(key) {
-		_ = c.AbortWithError(http.StatusNotFound, err)
-		return
-	}
-
-	c.Status(http.StatusOK)
-}
-
-type kluctlDeploymentParam struct {
-	Cluster   string `json:"cluster"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-}
-
-func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {
-	var params kluctlDeploymentParam
-	err := c.Bind(&params)
+	vr, err := s.store.GetValidateResult(results.GetValidateResultOptions{
+		Id: params.ResultId,
+	})
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	if vr == nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
 
-	ca := s.cam.getForClusterId(params.Cluster)
+	c.JSON(http.StatusOK, vr)
+}
+
+func (s *CommandResultsServer) doModifyKluctlDeployment(c *gin.Context, clusterId string, name string, namespace string, update func(obj *kluctlv1.KluctlDeployment) error) {
+	user := s.auth.getUser(c)
+
+	ca := s.cam.getForClusterId(clusterId)
 	if ca == nil {
-		_ = c.AbortWithError(http.StatusNotFound, err)
+		_ = c.AbortWithError(http.StatusNotFound, fmt.Errorf("cluster %s not found", clusterId))
+		return
+	}
+
+	rbacUser := s.auth.getRbacUser(user)
+	kc, err := ca.getClient(rbacUser, nil)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -313,7 +491,7 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	defer cancel()
 
 	var kd kluctlv1.KluctlDeployment
-	err = ca.getClient().Get(ctx, client.ObjectKey{Name: params.Name, Namespace: params.Namespace}, &kd)
+	err = kc.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &kd)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			_ = c.AbortWithError(http.StatusNotFound, err)
@@ -324,8 +502,14 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	}
 
 	patch := client.MergeFrom(kd.DeepCopy())
-	metav1.SetMetaDataAnnotation(&kd.ObjectMeta, aname, avalue)
-	err = ca.getClient().Patch(ctx, &kd, patch, client.FieldOwner(webuiManager))
+
+	err = update(&kd)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	err = kc.Patch(ctx, &kd, patch, client.FieldOwner(webuiManager))
 	if err != nil {
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -334,10 +518,83 @@ func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, ava
 	c.Status(http.StatusOK)
 }
 
+type KluctlDeploymentParam struct {
+	Cluster   string `json:"cluster" form:"cluster"`
+	Name      string `json:"name" form:"name"`
+	Namespace string `json:"namespace" form:"namespace"`
+}
+
+func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {
+	var params KluctlDeploymentParam
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
+		metav1.SetMetaDataAnnotation(&obj.ObjectMeta, aname, avalue)
+		return nil
+	})
+}
+
+func (s *CommandResultsServer) manualRequest(c *gin.Context, annotationName string) {
+	mr := &kluctlv1.ManualRequest{
+		RequestValue: time.Now().Format(time.RFC3339Nano),
+	}
+
+	s.doSetAnnotation(c, annotationName, yaml.WriteJsonStringMust(mr))
+}
+
+func (s *CommandResultsServer) validateNow(c *gin.Context) {
+	s.manualRequest(c, kluctlv1.KluctlRequestValidateAnnotation)
+}
+
 func (s *CommandResultsServer) reconcileNow(c *gin.Context) {
-	s.doSetAnnotation(c, kluctlv1.KluctlRequestReconcileAnnotation, time.Now().Format(time.RFC3339Nano))
+	s.manualRequest(c, kluctlv1.KluctlRequestReconcileAnnotation)
 }
 
 func (s *CommandResultsServer) deployNow(c *gin.Context) {
-	s.doSetAnnotation(c, kluctlv1.KluctlRequestDeployAnnotation, time.Now().Format(time.RFC3339Nano))
+	s.manualRequest(c, kluctlv1.KluctlRequestDeployAnnotation)
+}
+
+func (s *CommandResultsServer) pruneNow(c *gin.Context) {
+	s.manualRequest(c, kluctlv1.KluctlRequestPruneAnnotation)
+}
+
+func (s *CommandResultsServer) setSuspended(c *gin.Context) {
+	var params struct {
+		KluctlDeploymentParam
+		Suspend bool `json:"suspend"`
+	}
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
+		obj.Spec.Suspend = params.Suspend
+		return nil
+	})
+}
+
+func (s *CommandResultsServer) setManualObjectsHash(c *gin.Context) {
+	var params struct {
+		KluctlDeploymentParam
+		ObjectsHash string `json:"objectsHash"`
+	}
+	err := c.Bind(&params)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	s.doModifyKluctlDeployment(c, params.Cluster, params.Name, params.Namespace, func(obj *kluctlv1.KluctlDeployment) error {
+		if params.ObjectsHash == "" {
+			obj.Spec.ManualObjectsHash = nil
+		} else {
+			obj.Spec.ManualObjectsHash = &params.ObjectsHash
+		}
+		return nil
+	})
 }

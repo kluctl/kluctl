@@ -6,12 +6,16 @@ import (
 	"strings"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
 	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"path/filepath"
+	"strings"
 )
 
 type DeploymentProject struct {
@@ -66,15 +70,11 @@ func NewDeploymentProject(ctx SharedContext, varsCtx *vars.VarsCtx, source Sourc
 		return nil, fmt.Errorf("failed to load includes for %s: %w", dir, err)
 	}
 
-	if dp.Config.SealedSecrets != nil {
-		status.Deprecation(ctx.Ctx, "sealed-secrets-config", "'sealedSecrets' is deprecated in deployment projects. Support for it will be removed in a future kluctl release.")
-	}
-
 	return dp, nil
 }
 
-func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []*types.VarsSource) error {
-	return p.ctx.VarsLoader.LoadVarsList(varsCtx, varsList, p.getRenderSearchDirs(), "")
+func (p *DeploymentProject) loadVarsList(varsCtx *vars.VarsCtx, varsList []types.VarsSource) error {
+	return p.ctx.VarsLoader.LoadVarsList(p.ctx.Ctx, varsCtx, varsList, p.getRenderSearchDirs(), "")
 }
 
 func (p *DeploymentProject) loadConfig() error {
@@ -101,8 +101,8 @@ func (p *DeploymentProject) loadConfig() error {
 }
 
 func (p *DeploymentProject) generateSingleKustomizeProject() error {
-	p.Config.Deployments = append(p.Config.Deployments, &types.DeploymentItemConfig{
-		Path: utils.StrPtr("."),
+	p.Config.Deployments = append(p.Config.Deployments, types.DeploymentItemConfig{
+		Path: utils.Ptr("."),
 	})
 	return nil
 }
@@ -127,7 +127,8 @@ func (p *DeploymentProject) processConfig() error {
 
 	// If there are no explicit tags set, interpret the path as a tag, which allows to
 	// enable/disable single deployments via included/excluded tags
-	for _, item := range p.Config.Deployments {
+	for i, _ := range p.Config.Deployments {
+		item := &p.Config.Deployments[i]
 		if len(item.Tags) != 0 {
 			continue
 		}
@@ -184,7 +185,8 @@ func (p *DeploymentProject) CheckWhenTrue() (bool, error) {
 }
 
 func (p *DeploymentProject) loadIncludes() error {
-	for i, inc := range p.Config.Deployments {
+	for i, _ := range p.Config.Deployments {
+		inc := &p.Config.Deployments[i]
 		var err error
 		var newProject *DeploymentProject
 
@@ -197,20 +199,38 @@ func (p *DeploymentProject) loadIncludes() error {
 		}
 
 		if inc.Include != nil {
-			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc.Vars)
+			newProject, err = p.loadLocalInclude(p.source, filepath.Join(p.relDir, *inc.Include), inc)
 			if err != nil {
 				return err
 			}
 		} else if inc.Git != nil {
-			ge, err := p.ctx.RP.GetEntry(inc.Git.Url)
+			ge, err := p.ctx.GitRP.GetEntry(inc.Git.Url.String())
 			if err != nil {
 				return err
+			}
+			if inc.Git.Ref != nil && inc.Git.Ref.Ref != "" {
+				status.Deprecation(p.ctx.Ctx, "git-include-string-ref", "Passing 'ref' as string into git includes is "+
+					"deprecated and support for this will be removed in a future version of Kluctl. Please refer to the "+
+					"documentation for details: https://kluctl.io/docs/kluctl/reference/deployments/deployment-yml/#git-includes")
 			}
 			cloneDir, _, err := ge.GetClonedDir(inc.Git.Ref)
 			if err != nil {
 				return err
 			}
-			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc.Vars)
+			newProject, err = p.loadLocalInclude(NewSource(cloneDir), inc.Git.SubDir, inc)
+			if err != nil {
+				return err
+			}
+		} else if inc.Oci != nil {
+			oe, err := p.ctx.OciRP.GetEntry(inc.Oci.Url)
+			if err != nil {
+				return err
+			}
+			extractedDir, _, err := oe.GetExtractedDir(inc.Oci.Ref)
+			if err != nil {
+				return err
+			}
+			newProject, err = p.loadLocalInclude(NewSource(extractedDir), inc.Oci.SubDir, inc)
 			if err != nil {
 				return err
 			}
@@ -224,9 +244,37 @@ func (p *DeploymentProject) loadIncludes() error {
 	return nil
 }
 
-func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, vars []*types.VarsSource) (*DeploymentProject, error) {
-	varsCtx := p.VarsCtx.Copy()
-	err := p.loadVarsList(varsCtx, vars)
+func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, inc *types.DeploymentItemConfig) (*DeploymentProject, error) {
+	varsCtx := vars.NewVarsCtx(p.VarsCtx.J2)
+
+	libraryFile := yaml.FixPathExt(filepath.Join(source.dir, incDir, ".kluctl-library.yaml"))
+	if yaml.Exists(libraryFile) {
+		var lib types.KluctlLibraryProject
+		err := yaml.ReadYamlFile(libraryFile, &lib)
+		if err != nil {
+			return nil, err
+		}
+
+		if inc.PassVars {
+			varsCtx.Vars = p.VarsCtx.Vars.Clone()
+			_ = varsCtx.Vars.RemoveNestedField("args") // args should not be merged but taken 1:1
+		}
+
+		args := uo.New()
+		if inc.Args != nil {
+			args = inc.Args.Clone()
+		}
+
+		err = kluctl_project.LoadDefaultArgs(lib.Args, args)
+		if err != nil {
+			return nil, err
+		}
+		varsCtx.UpdateChild("args", args)
+	} else {
+		varsCtx = p.VarsCtx.Copy()
+	}
+
+	err := p.loadVarsList(varsCtx, inc.Vars)
 	if err != nil {
 		return nil, err
 	}
@@ -237,15 +285,6 @@ func (p *DeploymentProject) loadLocalInclude(source Source, incDir string, vars 
 	}
 
 	return newProject, nil
-}
-
-func (p *DeploymentProject) getRenderedOutputPattern() string {
-	for _, x := range p.getParents() {
-		if x.p.Config.SealedSecrets != nil && x.p.Config.SealedSecrets.OutputPattern != nil {
-			return *x.p.Config.SealedSecrets.OutputPattern
-		}
-	}
-	return p.ctx.DefaultSealedSecretsOutputPattern
 }
 
 func (p *DeploymentProject) getRootProject() *DeploymentProject {
@@ -327,8 +366,8 @@ func (p *DeploymentProject) getOverrideNamespace() *string {
 	return nil
 }
 
-func (p *DeploymentProject) getTags() *utils.OrderedMap {
-	var tags utils.OrderedMap
+func (p *DeploymentProject) getTags() *utils.OrderedMap[string, bool] {
+	var tags utils.OrderedMap[string, bool]
 	for _, e := range p.getParents() {
 		if e.inc != nil {
 			tags.SetMultiple(e.inc.Tags, true)
@@ -338,19 +377,32 @@ func (p *DeploymentProject) getTags() *utils.OrderedMap {
 	return &tags
 }
 
-func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations bool) []*types.IgnoreForDiffItemConfig {
-	var ret []*types.IgnoreForDiffItemConfig
+func (p *DeploymentProject) GetIgnoreForDiffs(ignoreTags, ignoreLabels, ignoreAnnotations, ignoreKluctlMetadata bool) []types.IgnoreForDiffItemConfig {
+	var ret []types.IgnoreForDiffItemConfig
 	for _, e := range p.getParents() {
 		ret = append(ret, e.p.Config.IgnoreForDiff...)
 	}
 	if ignoreTags {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
 	}
 	if ignoreLabels {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels.*`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.labels.*`}})
 	}
 	if ignoreAnnotations {
-		ret = append(ret, &types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.annotations.*`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPath: []string{`metadata.annotations.*`}})
+	}
+	if ignoreKluctlMetadata {
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/tag-.*"\]`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.labels\["kluctl\.io/discriminator"\]`}})
+		ret = append(ret, types.IgnoreForDiffItemConfig{FieldPathRegex: []string{`metadata\.annotations\["kluctl\.io/deployment-item-dir"\]`}})
+	}
+	return ret
+}
+
+func (p *DeploymentProject) GetConflictResolutionConfigs() []types.ConflictResolutionConfig {
+	var ret []types.ConflictResolutionConfig
+	for _, e := range p.getParents() {
+		ret = append(ret, e.p.Config.ConflictResolution...)
 	}
 	return ret
 }

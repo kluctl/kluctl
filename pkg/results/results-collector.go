@@ -3,7 +3,9 @@ package results
 import (
 	"context"
 	"fmt"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
+	"k8s.io/apimachinery/pkg/types"
 	"sort"
 	"sync"
 	"time"
@@ -14,33 +16,55 @@ type ResultsCollector struct {
 
 	stores []ResultStore
 
-	resultSummaries map[string]summaryEntry
-	watches         []*watchEntry
+	commandResultSummaries map[string]commandSummaryEntry
+	commandResultWatches   []*commandResultWatchEntry
 
-	initialWG sync.WaitGroup
-	mutex     sync.Mutex
+	validateResultSummaries map[string]validateSummaryEntry
+	validateResultWatches   []*validateResultWatchEntry
+
+	kluctlDeployments       map[types.UID]kluctlDeploymentEntry
+	kluctlDeploymentWatches []*kluctlDeploymentWatchEntry
+
+	mutex sync.Mutex
 }
 
-type summaryEntry struct {
+type commandSummaryEntry struct {
 	store   ResultStore
 	summary *result.CommandResultSummary
 }
 
-type watchEntry struct {
-	options ListCommandResultSummariesOptions
-	ch      chan WatchCommandResultSummaryEvent
+type validateSummaryEntry struct {
+	store   ResultStore
+	summary *result.ValidateResultSummary
+}
 
-	initialQueue []*result.CommandResultSummary
+type kluctlDeploymentEntry struct {
+	store ResultStore
+	event WatchKluctlDeploymentEvent
+}
+
+type commandResultWatchEntry struct {
+	options ListResultSummariesOptions
+	ch      chan WatchCommandResultSummaryEvent
+}
+
+type validateResultWatchEntry struct {
+	options ListResultSummariesOptions
+	ch      chan WatchValidateResultSummaryEvent
+}
+
+type kluctlDeploymentWatchEntry struct {
+	ch chan WatchKluctlDeploymentEvent
 }
 
 func NewResultsCollector(ctx context.Context, stores []ResultStore) *ResultsCollector {
 	ret := &ResultsCollector{
-		ctx:             ctx,
-		stores:          stores,
-		resultSummaries: map[string]summaryEntry{},
+		ctx:                     ctx,
+		stores:                  stores,
+		commandResultSummaries:  map[string]commandSummaryEntry{},
+		validateResultSummaries: map[string]validateSummaryEntry{},
+		kluctlDeployments:       map[types.UID]kluctlDeploymentEntry{},
 	}
-
-	ret.initialWG.Add(len(stores))
 
 	return ret
 }
@@ -49,43 +73,62 @@ func (rc *ResultsCollector) Start() {
 	rc.startWatchResults()
 }
 
-func (rc *ResultsCollector) WaitForInitialSync() {
-	rc.initialWG.Wait()
+func (rc *ResultsCollector) WaitForResults(idleTimeout time.Duration, totalTimeout time.Duration) error {
+	ch1, cancel1, err := rc.WatchCommandResultSummaries(ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	defer cancel1()
+
+	ch2, cancel2, err := rc.WatchValidateResultSummaries(ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	defer cancel2()
+
+	ch3, cancel3, err := rc.WatchValidateResultSummaries(ListResultSummariesOptions{})
+	if err != nil {
+		return err
+	}
+	defer cancel3()
+
+	totalCh := time.After(totalTimeout)
+	for {
+		idleCh := time.After(idleTimeout)
+		select {
+		case <-ch1:
+			continue
+		case <-ch2:
+			continue
+		case <-ch3:
+			continue
+		case <-idleCh:
+			return nil
+		case <-totalCh:
+			return fmt.Errorf("result collector kept receiving results even after the total timeout")
+		}
+	}
 }
 
 func (rc *ResultsCollector) startWatchResults() {
 	for _, store := range rc.stores {
-		go rc.runWatchResults(store)
+		go rc.runWatchCommandResults(store)
+		go rc.runWatchValidateResults(store)
+		go rc.runWatchKluctlDeployments(store)
 	}
 }
 
-func (rc *ResultsCollector) runWatchResults(store ResultStore) {
-	initial := true
+func (rc *ResultsCollector) runWatchCommandResults(store ResultStore) {
 	for {
-		l, ch, _, err := store.WatchCommandResultSummaries(ListCommandResultSummariesOptions{})
+		ch, _, err := store.WatchCommandResultSummaries(ListResultSummariesOptions{})
 		if err != nil {
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		if initial {
-			rc.initialWG.Done()
-			initial = false
-		}
-
-		for _, rs := range l {
-			rc.handleUpdate(store, WatchCommandResultSummaryEvent{
-				Summary: rs,
-			})
-		}
-
 		go func() {
-			for {
-				event, ok := <-ch
-				if !ok {
-					break
-				}
-				rc.handleUpdate(store, event)
+			for event := range ch {
+				rc.handleCommandResultUpdate(store, event)
 			}
 		}()
 
@@ -93,26 +136,106 @@ func (rc *ResultsCollector) runWatchResults(store ResultStore) {
 	}
 }
 
-func (rc *ResultsCollector) handleUpdate(store ResultStore, event WatchCommandResultSummaryEvent) {
+func (rc *ResultsCollector) runWatchValidateResults(store ResultStore) {
+	for {
+		ch, _, err := store.WatchValidateResultSummaries(ListResultSummariesOptions{})
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		go func() {
+			for event := range ch {
+				rc.handleValidateResultUpdate(store, event)
+			}
+		}()
+
+		break
+	}
+}
+
+func (rc *ResultsCollector) runWatchKluctlDeployments(store ResultStore) {
+	for {
+		ch, _, err := store.WatchKluctlDeployments()
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		go func() {
+			for event := range ch {
+				rc.handleKluctlDeploymentUpdate(store, event)
+			}
+		}()
+
+		break
+	}
+}
+
+func (rc *ResultsCollector) handleCommandResultUpdate(store ResultStore, event WatchCommandResultSummaryEvent) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
 	if event.Delete {
-		_, ok := rc.resultSummaries[event.Summary.Id]
+		_, ok := rc.commandResultSummaries[event.Summary.Id]
 		if ok {
-			delete(rc.resultSummaries, event.Summary.Id)
+			delete(rc.commandResultSummaries, event.Summary.Id)
 		}
 	} else {
-		rc.resultSummaries[event.Summary.Id] = summaryEntry{
+		rc.commandResultSummaries[event.Summary.Id] = commandSummaryEntry{
 			store:   store,
 			summary: event.Summary,
 		}
 	}
 
-	for _, w := range rc.watches {
-		if FilterSummary(event.Summary, w.options.ProjectFilter) {
+	for _, w := range rc.commandResultWatches {
+		if FilterProject(event.Summary.ProjectKey, w.options.ProjectFilter) {
 			w.ch <- event
 		}
+	}
+}
+
+func (rc *ResultsCollector) handleValidateResultUpdate(store ResultStore, event WatchValidateResultSummaryEvent) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
+	if event.Delete {
+		_, ok := rc.validateResultSummaries[event.Summary.Id]
+		if ok {
+			delete(rc.validateResultSummaries, event.Summary.Id)
+		}
+	} else {
+		rc.validateResultSummaries[event.Summary.Id] = validateSummaryEntry{
+			store:   store,
+			summary: event.Summary,
+		}
+	}
+
+	for _, w := range rc.validateResultWatches {
+		if FilterProject(event.Summary.ProjectKey, w.options.ProjectFilter) {
+			w.ch <- event
+		}
+	}
+}
+
+func (rc *ResultsCollector) handleKluctlDeploymentUpdate(store ResultStore, event WatchKluctlDeploymentEvent) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
+	if event.Delete {
+		_, ok := rc.kluctlDeployments[event.Deployment.UID]
+		if ok {
+			delete(rc.kluctlDeployments, event.Deployment.UID)
+		}
+	} else {
+		rc.kluctlDeployments[event.Deployment.UID] = kluctlDeploymentEntry{
+			store: store,
+			event: event,
+		}
+	}
+
+	for _, w := range rc.kluctlDeploymentWatches {
+		w.ch <- event
 	}
 }
 
@@ -120,46 +243,66 @@ func (rc *ResultsCollector) WriteCommandResult(cr *result.CommandResult) error {
 	return fmt.Errorf("WriteCommandResult is not supported in ResultsCollector")
 }
 
-func (rc *ResultsCollector) ListCommandResultSummaries(options ListCommandResultSummariesOptions) ([]result.CommandResultSummary, error) {
+func (rc *ResultsCollector) WriteValidateResult(vr *result.ValidateResult) error {
+	return fmt.Errorf("WriteValidateResult is not supported in ResultsCollector")
+}
+
+func (rc *ResultsCollector) DeleteCommandResult(rsId string) error {
+	return fmt.Errorf("DeleteCommandResult is not supported in ResultsCollector")
+}
+
+func (rc *ResultsCollector) ListCommandResultSummaries(options ListResultSummariesOptions) ([]result.CommandResultSummary, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	summaries := make([]result.CommandResultSummary, 0, len(rc.resultSummaries))
-	for _, x := range rc.resultSummaries {
-		if !FilterSummary(x.summary, options.ProjectFilter) {
+	summaries := make([]result.CommandResultSummary, 0, len(rc.commandResultSummaries))
+	for _, x := range rc.commandResultSummaries {
+		if !FilterProject(x.summary.ProjectKey, options.ProjectFilter) {
 			continue
 		}
 		summaries = append(summaries, *x.summary)
 	}
 	sort.Slice(summaries, func(i, j int) bool {
-		return lessSummary(&summaries[i], &summaries[j])
+		return lessCommandSummary(&summaries[i], &summaries[j])
 	})
 	return summaries, nil
 }
 
-func (rc *ResultsCollector) WatchCommandResultSummaries(options ListCommandResultSummariesOptions) ([]*result.CommandResultSummary, <-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
+func (rc *ResultsCollector) WatchCommandResultSummaries(options ListResultSummariesOptions) (<-chan WatchCommandResultSummaryEvent, context.CancelFunc, error) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 
-	w := &watchEntry{
+	isCancelled := false
+
+	w := &commandResultWatchEntry{
 		options: options,
 		ch:      make(chan WatchCommandResultSummaryEvent),
 	}
 
-	rc.watches = append(rc.watches, w)
+	go func() {
+		rc.mutex.Lock()
+		defer rc.mutex.Unlock()
 
-	var initial []*result.CommandResultSummary
-
-	for _, se := range rc.resultSummaries {
-		if FilterSummary(se.summary, options.ProjectFilter) {
-			initial = append(initial, se.summary)
+		if isCancelled {
+			return
 		}
-	}
+
+		for _, se := range rc.commandResultSummaries {
+			if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
+				w.ch <- WatchCommandResultSummaryEvent{
+					Summary: se.summary,
+				}
+			}
+		}
+
+		rc.commandResultWatches = append(rc.commandResultWatches, w)
+	}()
 
 	cancel := func() {
 		rc.mutex.Lock()
-		for i, w2 := range rc.watches {
+		isCancelled = true
+		for i, w2 := range rc.commandResultWatches {
 			if w2 == w {
-				rc.watches = append(rc.watches[:i], rc.watches[i+1:]...)
+				rc.commandResultWatches = append(rc.commandResultWatches[:i], rc.commandResultWatches[i+1:]...)
 				break
 			}
 		}
@@ -167,32 +310,150 @@ func (rc *ResultsCollector) WatchCommandResultSummaries(options ListCommandResul
 		close(w.ch)
 	}
 
-	return initial, w.ch, cancel, nil
-}
-
-func (rc *ResultsCollector) HasCommandResult(id string) (bool, error) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
-	_, ok := rc.resultSummaries[id]
-	return ok, nil
-}
-
-func (rc *ResultsCollector) GetCommandResultSummary(id string) (*result.CommandResultSummary, error) {
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
-	rs, ok := rc.resultSummaries[id]
-	if !ok {
-		return nil, nil
-	}
-	return rs.summary, nil
+	return w.ch, cancel, nil
 }
 
 func (rc *ResultsCollector) GetCommandResult(options GetCommandResultOptions) (*result.CommandResult, error) {
 	rc.mutex.Lock()
-	se, ok := rc.resultSummaries[options.Id]
+	se, ok := rc.commandResultSummaries[options.Id]
 	rc.mutex.Unlock()
 	if !ok {
 		return nil, nil
 	}
 	return se.store.GetCommandResult(options)
+}
+
+func (rc *ResultsCollector) ListValidateResultSummaries(options ListResultSummariesOptions) ([]result.ValidateResultSummary, error) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+	summaries := make([]result.ValidateResultSummary, 0, len(rc.validateResultSummaries))
+	for _, x := range rc.validateResultSummaries {
+		if !FilterProject(x.summary.ProjectKey, options.ProjectFilter) {
+			continue
+		}
+		summaries = append(summaries, *x.summary)
+	}
+	sort.Slice(summaries, func(i, j int) bool {
+		return lessValidateSummary(&summaries[i], &summaries[j])
+	})
+	return summaries, nil
+}
+
+func (rc *ResultsCollector) WatchValidateResultSummaries(options ListResultSummariesOptions) (<-chan WatchValidateResultSummaryEvent, context.CancelFunc, error) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
+	isCancelled := false
+
+	w := &validateResultWatchEntry{
+		options: options,
+		ch:      make(chan WatchValidateResultSummaryEvent),
+	}
+
+	go func() {
+		rc.mutex.Lock()
+		defer rc.mutex.Unlock()
+
+		if isCancelled {
+			return
+		}
+
+		for _, se := range rc.validateResultSummaries {
+			if FilterProject(se.summary.ProjectKey, options.ProjectFilter) {
+				w.ch <- WatchValidateResultSummaryEvent{
+					Summary: se.summary,
+				}
+			}
+		}
+
+		rc.validateResultWatches = append(rc.validateResultWatches, w)
+	}()
+
+	cancel := func() {
+		rc.mutex.Lock()
+		isCancelled = true
+		for i, w2 := range rc.validateResultWatches {
+			if w2 == w {
+				rc.validateResultWatches = append(rc.validateResultWatches[:i], rc.validateResultWatches[i+1:]...)
+				break
+			}
+		}
+		rc.mutex.Unlock()
+		close(w.ch)
+	}
+
+	return w.ch, cancel, nil
+}
+
+func (rc *ResultsCollector) GetValidateResult(options GetValidateResultOptions) (*result.ValidateResult, error) {
+	rc.mutex.Lock()
+	se, ok := rc.validateResultSummaries[options.Id]
+	rc.mutex.Unlock()
+	if !ok {
+		return nil, nil
+	}
+	return se.store.GetValidateResult(options)
+}
+
+func (rc *ResultsCollector) ListKluctlDeployments() ([]WatchKluctlDeploymentEvent, error) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+	ret := make([]WatchKluctlDeploymentEvent, 0, len(rc.kluctlDeployments))
+	for _, x := range rc.kluctlDeployments {
+		ret = append(ret, x.event)
+	}
+	return ret, nil
+}
+
+func (rc *ResultsCollector) WatchKluctlDeployments() (<-chan WatchKluctlDeploymentEvent, context.CancelFunc, error) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
+	isCancelled := false
+
+	w := &kluctlDeploymentWatchEntry{
+		ch: make(chan WatchKluctlDeploymentEvent),
+	}
+
+	go func() {
+		rc.mutex.Lock()
+		defer rc.mutex.Unlock()
+
+		if isCancelled {
+			return
+		}
+
+		for _, e := range rc.kluctlDeployments {
+			w.ch <- e.event
+		}
+
+		rc.kluctlDeploymentWatches = append(rc.kluctlDeploymentWatches, w)
+	}()
+
+	cancel := func() {
+		rc.mutex.Lock()
+		isCancelled = true
+		for i, w2 := range rc.kluctlDeploymentWatches {
+			if w2 == w {
+				rc.kluctlDeploymentWatches = append(rc.kluctlDeploymentWatches[:i], rc.kluctlDeploymentWatches[i+1:]...)
+				break
+			}
+		}
+		rc.mutex.Unlock()
+		close(w.ch)
+	}
+
+	return w.ch, cancel, nil
+}
+
+func (rc *ResultsCollector) GetKluctlDeployment(clusterId string, name string, namespace string) (*kluctlv1.KluctlDeployment, error) {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+
+	for _, kd := range rc.kluctlDeployments {
+		if kd.event.ClusterId == clusterId && kd.event.Deployment.Name == name && kd.event.Deployment.Namespace == namespace {
+			return kd.event.Deployment, nil
+		}
+	}
+	return nil, nil
 }

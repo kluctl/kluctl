@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jinzhu/copier"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 )
@@ -23,7 +23,7 @@ func (uo *UnstructuredObject) UnmarshalJSON(b []byte) error {
 }
 
 func (uo *UnstructuredObject) IsZero() bool {
-	return len(uo.Object) == 0
+	return uo == nil || len(uo.Object) == 0
 }
 
 func New() *UnstructuredObject {
@@ -54,6 +54,14 @@ func FromStruct(o interface{}) (*UnstructuredObject, error) {
 		return nil, err
 	}
 	return FromMap(m), nil
+}
+
+func FromStructMust(o interface{}) *UnstructuredObject {
+	x, err := FromStruct(o)
+	if err != nil {
+		panic(err)
+	}
+	return x
 }
 
 func (uo *UnstructuredObject) ToStruct(out interface{}) error {

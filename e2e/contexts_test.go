@@ -1,13 +1,13 @@
 package e2e
 
 import (
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"testing"
 )
 
-func prepareContextTest(t *testing.T) *test_utils.TestProject {
-	p := test_utils.NewTestProject(t)
+func prepareContextTest(t *testing.T) *test_project.TestProject {
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, defaultCluster1, p.TestSlug())
 	createNamespace(t, defaultCluster2, p.TestSlug())
@@ -27,13 +27,13 @@ func TestContextCurrent(t *testing.T) {
 		// no context set, assume the current one is used
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 
 	setMergedKubeconfigContext(t, defaultCluster2.Context)
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 }
 
@@ -46,7 +46,7 @@ func TestContext1(t *testing.T) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 }
@@ -60,7 +60,7 @@ func TestContext2(t *testing.T) {
 		_ = target.SetNestedField(defaultCluster2.Context, "context")
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster1, p.TestSlug(), "cm")
 }
@@ -77,11 +77,11 @@ func TestContext1And2(t *testing.T) {
 		_ = target.SetNestedField(defaultCluster2.Context, "context")
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test2")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test2")
 	assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 }
 
@@ -94,7 +94,7 @@ func TestContextSwitch(t *testing.T) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 
@@ -102,7 +102,7 @@ func TestContextSwitch(t *testing.T) {
 		_ = target.SetNestedField(defaultCluster2.Context, "context")
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 }
 
@@ -115,10 +115,10 @@ func TestContextOverride(t *testing.T) {
 		_ = target.SetNestedField(defaultCluster1.Context, "context")
 	})
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1")
 	assertConfigMapExists(t, defaultCluster1, p.TestSlug(), "cm")
 	assertConfigMapNotExists(t, defaultCluster2, p.TestSlug(), "cm")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test1", "--context", defaultCluster2.Context)
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test1", "--context", defaultCluster2.Context)
 	assertConfigMapExists(t, defaultCluster2, p.TestSlug(), "cm")
 }

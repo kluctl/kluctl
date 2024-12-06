@@ -10,16 +10,21 @@ import (
 
 type pruneCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
 	args.CommandResultFlags
+
+	Discriminator string `group:"misc" help:"Override the target discriminator."`
 }
 
 func (cmd *pruneCmd) Help() string {
@@ -33,29 +38,30 @@ func (cmd *pruneCmd) Help() string {
 func (cmd *pruneCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
+		registryCredentials:  cmd.RegistryCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
+		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		return cmd.runCmdPrune(cmdCtx)
+		return cmd.runCmdPrune(ctx, cmdCtx)
 	})
 }
 
-func (cmd *pruneCmd) runCmdPrune(cmdCtx *commandCtx) error {
+func (cmd *pruneCmd) runCmdPrune(ctx context.Context, cmdCtx *commandCtx) error {
 	cmd2 := commands.NewPruneCommand(cmdCtx.targetCtx.Target.Discriminator, cmdCtx.targetCtx, true)
-	result, err := cmd2.Run(func(refs []k8s2.ObjectRef) error {
-		return confirmDeletion(cmdCtx.ctx, refs, cmd.DryRun, cmd.Yes)
+	result := cmd2.Run(func(refs []k8s2.ObjectRef) error {
+		return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
 	})
-	if err != nil {
-		return err
-	}
-	err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+	err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 	if err != nil {
 		return err
 	}

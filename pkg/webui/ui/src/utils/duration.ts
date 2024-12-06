@@ -13,25 +13,18 @@ export function formatDuration(ms: number, withMs?: boolean) {
         .join(', ');
 }
 
-export function formatDurationShort(ms: number) {
+export function formatDurationShort(ms: number, withMs?: boolean) {
     if (ms < 0) ms = -ms;
     const time = {
         d: Math.floor(ms / 86400000),
         h: Math.floor(ms / 3600000) % 24,
         m: Math.floor(ms / 60000) % 60,
         s: Math.floor(ms / 1000) % 60,
-        ms: Math.floor(ms) % 1000
+        ms: withMs ? Math.floor(ms) % 1000 : 0
     };
     const f = Object.entries(time).find(val => val[1] > 0)
     if (f === undefined) {
         return "0s"
     }
     return f[1] + f[0]
-}
-
-export const calcAgo = (startTime: string) => {
-    const t1 = new Date(startTime)
-    const t2 = new Date()
-    const d = t2.getTime() - t1.getTime()
-    return formatDurationShort(d)
 }

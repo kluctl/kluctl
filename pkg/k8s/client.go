@@ -3,20 +3,21 @@ package k8s
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type k8sClients struct {
-	ctx           context.Context
-	clientFactory ClientFactory
-	clientPool    chan *parallelClientEntry
-	count         int
+	k          *K8sCluster
+	clientPool chan *parallelClientEntry
+	count      int
 }
 
 type parallelClientEntry struct {
-	client client.Client
-	corev1 corev1.CoreV1Interface
+	config     *rest.Config
+	httpClient *http.Client
+	client     client.Client
 
 	warnings []ApiWarning
 }
@@ -35,59 +36,71 @@ func (p *parallelClientEntry) HandleWarningHeader(code int, agent string, text s
 	})
 }
 
-func newK8sClients(ctx context.Context, clientFactory ClientFactory, count int) (*k8sClients, error) {
-	var err error
-
-	k := &k8sClients{
-		ctx:           ctx,
-		clientFactory: clientFactory,
-		clientPool:    make(chan *parallelClientEntry, count),
-		count:         count,
+func newK8sClients(k *K8sCluster, count int) (*k8sClients, error) {
+	kc := &k8sClients{
+		k:          k,
+		clientPool: make(chan *parallelClientEntry, count),
+		count:      count,
 	}
 
 	for i := 0; i < count; i++ {
-		p := &parallelClientEntry{}
-
-		p.client, err = clientFactory.Client(p)
+		p, err := kc.newClientEntry()
 		if err != nil {
 			return nil, err
 		}
 
-		p.corev1, err = clientFactory.CoreV1Client(p)
-		if err != nil {
-			return nil, err
-		}
-
-		k.clientPool <- p
+		kc.clientPool <- p
 	}
-	return k, nil
+	return kc, nil
+}
+
+func (kc *k8sClients) newClientEntry() (*parallelClientEntry, error) {
+	p := &parallelClientEntry{}
+
+	p.config = rest.CopyConfig(kc.k.config)
+	p.config.QPS = 10
+	p.config.Burst = 20
+	p.config.WarningHandler = p
+
+	var err error
+	p.httpClient, err = rest.HTTPClientFor(p.config)
+
+	p.client, err = client.New(p.config, client.Options{
+		HTTPClient: p.httpClient,
+		Mapper:     kc.k.mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (k *k8sClients) close() {
-	k.clientFactory.CloseIdleConnections()
 	if k.clientPool != nil {
 		for i := 0; i < k.count; i++ {
-			_ = <-k.clientPool
+			p := <-k.clientPool
+			p.httpClient.CloseIdleConnections()
 		}
 	}
 	k.clientPool = nil
 	k.count = 0
 }
 
-func (k *k8sClients) withClientFromPool(cb func(p *parallelClientEntry) error) ([]ApiWarning, error) {
+func (k *k8sClients) withClientFromPool(ctx context.Context, cb func(p *parallelClientEntry) error) ([]ApiWarning, error) {
 	select {
 	case p := <-k.clientPool:
 		defer func() { k.clientPool <- p }()
 		p.warnings = nil
 		err := cb(p)
 		return append([]ApiWarning(nil), p.warnings...), err
-	case <-k.ctx.Done():
-		return nil, fmt.Errorf("failed waiting for free client: %w", k.ctx.Err())
+	case <-ctx.Done():
+		return nil, fmt.Errorf("failed waiting for free client: %w", ctx.Err())
 	}
 }
 
-func (k *k8sClients) withCClientFromPool(dryRun bool, cb func(c client.Client) error) ([]ApiWarning, error) {
-	return k.withClientFromPool(func(p *parallelClientEntry) error {
+func (k *k8sClients) withCClientFromPool(ctx context.Context, dryRun bool, cb func(c client.Client) error) ([]ApiWarning, error) {
+	return k.withClientFromPool(ctx, func(p *parallelClientEntry) error {
 		c := p.client
 		if dryRun {
 			c = client.NewDryRunClient(c)

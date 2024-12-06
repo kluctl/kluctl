@@ -10,12 +10,13 @@ import (
 )
 
 type controllerInstallCmd struct {
+	args.KubeconfigFlags
 	args.YesFlags
 	args.DryRunFlags
 	args.CommandResultFlags
 
-	Context           string `group:"misc" help:"Override the context to use."`
-	ControllerVersion string `group:"misc" help:"Specify the controller version to install."`
+	Context       string `group:"misc" help:"Override the context to use."`
+	KluctlVersion string `group:"misc" help:"Specify the controller version to install."`
 }
 
 func (cmd *controllerInstallCmd) Help() string {
@@ -29,8 +30,8 @@ func (cmd *controllerInstallCmd) Run(ctx context.Context) error {
 	}
 
 	var deployArgs []string
-	if cmd.ControllerVersion != "" {
-		deployArgs = append(deployArgs, fmt.Sprintf("controller_version=%s", cmd.ControllerVersion))
+	if cmd.KluctlVersion != "" {
+		deployArgs = append(deployArgs, fmt.Sprintf("kluctl_version=%s", cmd.KluctlVersion))
 	}
 
 	cmd2 := deployCmd{
@@ -40,14 +41,17 @@ func (cmd *controllerInstallCmd) Run(ctx context.Context) error {
 			},
 			Timeout: 10 * time.Minute,
 		},
+		KubeconfigFlags: cmd.KubeconfigFlags,
 		TargetFlags: args.TargetFlags{
 			Context: cmd.Context,
 		},
 		ArgsFlags: args.ArgsFlags{
 			Arg: deployArgs,
 		},
+		YesFlags:           cmd.YesFlags,
 		DryRunFlags:        cmd.DryRunFlags,
 		CommandResultFlags: cmd.CommandResultFlags,
+		Discriminator:      "kluctl.io-controller",
 		internal:           true,
 	}
 	return cmd2.Run(ctx)

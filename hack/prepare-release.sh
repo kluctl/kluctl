@@ -24,12 +24,26 @@ fi
 
 echo VERSION=$VERSION
 
-FILES="install/controller/.kluctl.yaml install/controller/controller/kustomization.yaml docs/installation.md"
+FILES=""
+FILES="$FILES install/controller/.kluctl-library.yaml"
+FILES="$FILES install/controller/controller/kustomization.yaml"
+FILES="$FILES install/webui/.kluctl-library.yaml"
+FILES="$FILES install/webui/webui/deployment.yaml"
+FILES="$FILES install/webui/webui/kustomization.yaml"
+FILES="$FILES docs/kluctl/installation.md"
+FILES="$FILES docs/gitops/installation.md"
+FILES="$FILES docs/webui/installation.md"
+FILES="$FILES docs/webui/oidc-azure-ad.md"
 
 for f in $FILES; do
   cat $f | sed "s/$VERSION_REGEX_SED/$VERSION/g" > $f.tmp
   mv $f.tmp $f
+done
 
+(cd internal && go run ./generate-install)
+FILES="$FILES install/controller/files.json"
+
+for f in $FILES; do
   git add $f
 done
 

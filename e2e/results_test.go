@@ -2,9 +2,9 @@ package e2e
 
 import (
 	"context"
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
@@ -39,15 +39,22 @@ func TestWriteResult(t *testing.T) {
 		name:      "cm",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
-	rs, err := results.NewResultStoreSecrets(context.Background(), k.Client, "kluctl-results", 0)
+	// we must ensure that at least a second passes between deployments, as otherwise command result sorting becomes
+	// unstable
+	b := newSecondPassedBarrier(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	rs, err := results.NewResultStoreSecrets(ctx, k.RESTConfig(), k.Client, false, "kluctl-results", 0, 0)
 	assert.NoError(t, err)
 
-	opts := results.ListCommandResultSummariesOptions{
-		ProjectFilter: &result.ProjectKey{
-			GitRepoKey: types.ParseGitUrlMust(p.GitUrl()).RepoKey(),
+	opts := results.ListResultSummariesOptions{
+		ProjectFilter: &gittypes.ProjectKey{
+			RepoKey: gittypes.ParseGitUrlMust(p.GitUrl()).RepoKey(),
 		},
 	}
 
@@ -67,7 +74,9 @@ func TestWriteResult(t *testing.T) {
 		_ = o.SetNestedField("v2", "data", "d1")
 		return nil
 	}, "")
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
+
+	b.Wait()
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
@@ -84,7 +93,8 @@ func TestWriteResult(t *testing.T) {
 		_ = o.RemoveNestedField("deployments", 1)
 		return nil
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--write-command-result")
+	b.Wait()
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)
@@ -95,7 +105,8 @@ func TestWriteResult(t *testing.T) {
 		OrphanObjects:  1,
 	}, summaries[0])
 
-	p.KluctlMust("prune", "--yes", "-t", "test", "--write-command-result")
+	b.Wait()
+	p.KluctlMust(t, "prune", "--yes", "-t", "test")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
 
 	summaries, err = rs.ListCommandResultSummaries(opts)

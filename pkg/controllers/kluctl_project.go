@@ -3,12 +3,23 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/getsops/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/kms"
+	"github.com/google/uuid"
 	"github.com/kluctl/go-jinja2"
-	"github.com/kluctl/kluctl/v2/pkg/controllers/internal/sops"
+	"github.com/kluctl/kluctl/lib/git"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,7 +27,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -42,12 +52,19 @@ type preparedProject struct {
 
 	startTime time.Time
 
-	rp *repocache.GitRepoCache
+	j2    *jinja2.Jinja2
+	gitRP *repocache.GitRepoCache
+	ociRP *repocache.OciRepoCache
 
-	commit     string
+	helmAuthProvider helm_auth.HelmAuthProvider
+	ociAuthProvider  auth_provider.OciAuthProvider
+
+	co         git.CheckoutInfo
 	tmpDir     string
 	repoDir    string
 	projectDir string
+
+	soClients []*sourceoverride.ProxyClientController
 }
 
 type preparedTarget struct {
@@ -59,18 +76,13 @@ func prepareProject(ctx context.Context,
 	obj *kluctlv1.KluctlDeployment,
 	doCloneSource bool) (*preparedProject, error) {
 
+	cleanup := true
+
 	pp := &preparedProject{
 		r:         r,
 		obj:       obj,
 		startTime: time.Now(),
 	}
-
-	// create tmp dir
-	tmpDir, err := os.MkdirTemp("", obj.GetName()+"-")
-	if err != nil {
-		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
-	}
-	cleanup := true
 	defer func() {
 		if !cleanup {
 			return
@@ -78,34 +90,100 @@ func prepareProject(ctx context.Context,
 		pp.cleanup()
 	}()
 
-	pp.tmpDir = tmpDir
-
-	gitSecret, err := r.getGitSecret(ctx, &pp.obj.Spec.Source, obj.GetNamespace())
+	var err error
+	pp.j2, err = kluctl_jinja2.NewKluctlJinja2(ctx, true, r.UseSystemPython)
 	if err != nil {
 		return nil, err
 	}
 
-	pp.rp, err = r.buildRepoCache(ctx, gitSecret)
+	// create tmp dir
+	pp.tmpDir, err = os.MkdirTemp("", obj.GetName()+"-")
+	if err != nil {
+		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
+	}
+
+	pp.soClients, err = r.buildSourceOverridesClients(ctx, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	var resolvers []sourceoverride.Resolver
+	for _, x := range pp.soClients {
+		resolvers = append(resolvers, x)
+	}
+	resolver := sourceoverride.NewChainedResolver(resolvers)
+
+	gitSecrets, err := r.getGitSecrets(ctx, pp.obj.Spec.Source, pp.obj.Spec.Credentials, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	ociSecrets, err := r.getOciSecrets(ctx, pp.obj.Spec.Credentials, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	helmSecrets, err := r.getHelmSecrets(ctx, pp.obj, obj.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+
+	pp.gitRP, err = r.buildGitRepoCache(ctx, gitSecrets, resolver)
+	if err != nil {
+		return nil, err
+	}
+
+	pp.ociRP, pp.ociAuthProvider, err = r.buildOciRepoCache(ctx, ociSecrets, resolver)
+	if err != nil {
+		return nil, err
+	}
+
+	pp.helmAuthProvider, err = r.buildHelmAuth(ctx, helmSecrets)
 	if err != nil {
 		return nil, err
 	}
 
 	if doCloneSource {
-		rpEntry, err := pp.rp.GetEntry(pp.obj.Spec.Source.URL)
-		if err != nil {
-			return nil, fmt.Errorf("failed clone source: %w", err)
-		}
+		pth := ""
+		if pp.obj.Spec.Source.Git != nil {
+			pth = pp.obj.Spec.Source.Git.Path
+			rpEntry, err := pp.gitRP.GetEntry(pp.obj.Spec.Source.Git.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone git source: %w", err)
+			}
 
-		clonedDir, gi, err := rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref.String())
-		if err != nil {
-			return nil, err
-		}
+			pp.repoDir, pp.co, err = rpEntry.GetClonedDir(pp.obj.Spec.Source.Git.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else if pp.obj.Spec.Source.Oci != nil {
+			pth = pp.obj.Spec.Source.Oci.Path
+			rpEntry, err := pp.ociRP.GetEntry(pp.obj.Spec.Source.Oci.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to pull OCI source: %w", err)
+			}
 
-		pp.commit = gi.CheckedOutCommit
-		pp.repoDir = clonedDir
+			pp.repoDir, pp.co, err = rpEntry.GetExtractedDir(pp.obj.Spec.Source.Oci.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else if pp.obj.Spec.Source.URL != nil {
+			pth = pp.obj.Spec.Source.Path
+			rpEntry, err := pp.gitRP.GetEntry(*pp.obj.Spec.Source.URL)
+			if err != nil {
+				return nil, fmt.Errorf("failed to clone git source: %w", err)
+			}
+
+			pp.repoDir, pp.co, err = rpEntry.GetClonedDir(pp.obj.Spec.Source.Ref)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("missing source spec")
+		}
 
 		// check kluctl project path exists
-		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pp.obj.Spec.Source.Path)
+		pp.projectDir, err = securejoin.SecureJoin(pp.repoDir, pth)
 		if err != nil {
 			return pp, err
 		}
@@ -119,10 +197,19 @@ func prepareProject(ctx context.Context,
 }
 
 func (pp *preparedProject) cleanup() {
-	_ = os.RemoveAll(pp.tmpDir)
-	if pp.rp != nil {
-		pp.rp.Clear()
-		pp.rp = nil
+	if pp.tmpDir != "" {
+		_ = os.RemoveAll(pp.tmpDir)
+	}
+	if pp.gitRP != nil {
+		pp.gitRP.Clear()
+		pp.gitRP = nil
+	}
+	for _, c := range pp.soClients {
+		_ = c.Close()
+		c.Cleanup()
+	}
+	if pp.j2 != nil {
+		pp.j2.Close()
 	}
 }
 
@@ -176,7 +263,7 @@ func (pt *preparedTarget) getKubeconfigFromSecret(ctx context.Context) ([]byte, 
 	}
 
 	var secret corev1.Secret
-	if err := pt.pp.r.Get(ctx, secretName, &secret); err != nil {
+	if err := pt.pp.r.Client.Get(ctx, secretName, &secret); err != nil {
 		return nil, fmt.Errorf("unable to read KubeConfig secret '%s' error: %w", secretName.String(), err)
 	}
 
@@ -367,75 +454,6 @@ func (p helmCredentialsProvider) FindCredentials(repoUrl string, credentialsId *
 	return nil
 }
 
-func (pt *preparedTarget) buildHelmCredentials(ctx context.Context) (helm.HelmCredentialsProvider, error) {
-	var creds []repo.Entry
-
-	tmpDirBase := filepath.Join(pt.pp.tmpDir, "helm-certs")
-	_ = os.MkdirAll(tmpDirBase, 0o700)
-
-	var writeTmpFilErr error
-	writeTmpFile := func(secretData map[string][]byte, name string) string {
-		b, ok := secretData["certFile"]
-		if ok {
-			tmpFile, err := os.CreateTemp(tmpDirBase, name+"-")
-			if err != nil {
-				writeTmpFilErr = err
-				return ""
-			}
-			defer tmpFile.Close()
-			_, err = tmpFile.Write(b)
-			if err != nil {
-				writeTmpFilErr = err
-			}
-			return tmpFile.Name()
-		}
-		return ""
-	}
-
-	for _, e := range pt.pp.obj.Spec.HelmCredentials {
-		var secret corev1.Secret
-		err := pt.pp.r.Client.Get(ctx, types.NamespacedName{
-			Namespace: pt.pp.obj.GetNamespace(),
-			Name:      e.SecretRef.Name,
-		}, &secret)
-		if err != nil {
-			return nil, err
-		}
-
-		var entry repo.Entry
-
-		credentialsId := string(secret.Data["credentialsId"])
-		url := string(secret.Data["url"])
-		if credentialsId == "" && url == "" {
-			return nil, fmt.Errorf("secret %s must at least contain 'credentialsId' or 'url'", e.SecretRef.Name)
-		}
-		entry.Name = credentialsId
-		entry.URL = url
-		entry.Username = string(secret.Data["username"])
-		entry.Password = string(secret.Data["password"])
-		entry.CertFile = writeTmpFile(secret.Data, "certFile")
-		entry.KeyFile = writeTmpFile(secret.Data, "keyFile")
-		entry.CAFile = writeTmpFile(secret.Data, "caFile")
-		if writeTmpFilErr != nil {
-			return nil, writeTmpFilErr
-		}
-
-		b, _ := secret.Data["insecureSkipTlsVerify"]
-		s := string(b)
-		if utils.ParseBoolOrFalse(&s) {
-			entry.InsecureSkipTLSverify = true
-		}
-		b, _ = secret.Data["passCredentialsAll"]
-		s = string(b)
-		if utils.ParseBoolOrFalse(&s) {
-			entry.PassCredentialsAll = true
-		}
-		creds = append(creds, entry)
-	}
-
-	return helmCredentialsProvider(creds), nil
-}
-
 func (pt *preparedTarget) buildInclusion() *utils.Inclusion {
 	inc := utils.NewInclusion()
 	for _, x := range pt.pp.obj.Spec.IncludeTags {
@@ -480,25 +498,23 @@ func (pt *preparedTarget) clientConfigGetter(ctx context.Context) func(context *
 	}
 }
 
-func (pp *preparedProject) buildSopsDecrypter(ctx context.Context) (*decryptor.Decryptor, error) {
+func (pp *preparedProject) addKeyServers(ctx context.Context, d *decryptor.Decryptor) error {
 	if pp.obj.Spec.Decryption == nil {
-		return nil, nil
+		return nil
 	}
 	if pp.obj.Spec.Decryption.Provider != "sops" {
-		return nil, fmt.Errorf("not supported decryption provider %s", pp.obj.Spec.Decryption.Provider)
+		return fmt.Errorf("not supported decryption provider %s", pp.obj.Spec.Decryption.Provider)
 	}
-
-	d := decryptor.NewDecryptor(filepath.Join(pp.tmpDir, "project"), decryptor.MaxEncryptedFileSize)
 
 	err := pp.addSecretBasedKeyServers(ctx, d)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = pp.addServiceAccountBasedKeyServers(ctx, d)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return d, nil
+	return nil
 }
 
 func (pp *preparedProject) addSecretBasedKeyServers(ctx context.Context, d *decryptor.Decryptor) error {
@@ -512,7 +528,7 @@ func (pp *preparedProject) addSecretBasedKeyServers(ctx context.Context, d *decr
 	}
 
 	var secret corev1.Secret
-	if err := pp.r.Get(ctx, secretName, &secret); err != nil {
+	if err := pp.r.Client.Get(ctx, secretName, &secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return err
 		}
@@ -545,49 +561,44 @@ func (pp *preparedProject) addServiceAccountBasedKeyServers(ctx context.Context,
 	if name == "" {
 		return nil
 	}
-	var sa corev1.ServiceAccount
-	err := pp.r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: pp.obj.Namespace}, &sa)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve service account %s: %w", name, err)
-	}
 
-	ks, err := sops.BuildSopsKeyServerFromServiceAccount(ctx, pp.r.Client, &sa)
-	if err != nil {
+	creds, err := aws.BuildCredentialsFromServiceAccount(ctx, pp.r.Client, name, pp.obj.Namespace, "kluctl-controller")
+	if err != nil || creds == nil {
 		return err
 	}
-	if ks != nil {
-		d.AddKeyServiceClient(ks)
-	}
+
+	server := intkeyservice.NewServer(intkeyservice.WithAWSKeys{CredsProvider: kms.NewCredentialsProvider(creds)})
+	ks := keyservice.NewCustomLocalClient(server)
+	d.AddKeyServiceClient(ks)
 	return nil
 }
 
-func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTarget, j2 *jinja2.Jinja2) (*kluctl_project.LoadedKluctlProject, error) {
+func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTarget) (*kluctl_project.LoadedKluctlProject, error) {
 	var err error
-	var sopsDecrypter *decryptor.Decryptor
-	if pp.obj.Spec.Decryption != nil {
-		sopsDecrypter, err = pp.buildSopsDecrypter(ctx)
+
+	var externalArgs *uo.UnstructuredObject
+	if pt.pp.obj.Spec.Args != nil {
+		externalArgs, err = uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	externalArgs, err := uo.FromString(string(pt.pp.obj.Spec.Args.Raw))
-	if err != nil {
-		return nil, err
-	}
-
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
-		RepoRoot:      pp.repoDir,
-		ExternalArgs:  externalArgs,
-		ProjectDir:    pp.projectDir,
-		RP:            pp.rp,
-		SopsDecrypter: sopsDecrypter,
+		RepoRoot:     pp.repoDir,
+		ExternalArgs: externalArgs,
+		ProjectDir:   pp.projectDir,
+		GitRP:        pp.gitRP,
+		OciRP:        pp.ociRP,
+		AddKeyServersFunc: func(ctx context.Context, d *decryptor.Decryptor) error {
+			return pp.addKeyServers(ctx, d)
+		},
 	}
 	if pt != nil {
 		loadArgs.ClientConfigGetter = pt.clientConfigGetter(ctx)
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, filepath.Join(pp.tmpDir, "project"), j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, pp.j2)
 	if err != nil {
 		return nil, err
 	}
@@ -595,7 +606,7 @@ func (pp *preparedProject) loadKluctlProject(ctx context.Context, pt *preparedTa
 	return p, nil
 }
 
-func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject) (*kluctl_project.TargetContext, error) {
+func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.LoadedKluctlProject) (*target_context.TargetContext, error) {
 	renderOutputDir, err := os.MkdirTemp(pt.pp.tmpDir, "render-")
 	if err != nil {
 		return nil, err
@@ -604,18 +615,16 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	if err != nil {
 		return nil, err
 	}
-	helmCredentials, err := pt.buildHelmCredentials(ctx)
-	if err != nil {
-		return nil, err
-	}
+
 	inclusion := pt.buildInclusion()
 
-	props := kluctl_project.TargetContextParams{
-		DryRun:          pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
-		Images:          images,
-		Inclusion:       inclusion,
-		HelmCredentials: helmCredentials,
-		RenderOutputDir: renderOutputDir,
+	props := target_context.TargetContextParams{
+		DryRun:           pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun,
+		Images:           images,
+		Inclusion:        inclusion,
+		HelmAuthProvider: pt.pp.helmAuthProvider,
+		OciAuthProvider:  pt.pp.ociAuthProvider,
+		RenderOutputDir:  renderOutputDir,
 	}
 	if pt.pp.obj.Spec.Target != nil {
 		props.TargetName = *pt.pp.obj.Spec.Target
@@ -626,37 +635,93 @@ func (pt *preparedTarget) loadTarget(ctx context.Context, p *kluctl_project.Load
 	if pt.pp.obj.Spec.Context != nil {
 		props.ContextOverride = *pt.pp.obj.Spec.Context
 	}
-	targetContext, err := p.NewTargetContext(ctx, props)
+
+	restConfig, contextName, err := p.LoadK8sConfig(ctx, props.TargetName, props.ContextOverride, props.OfflineK8s)
 	if err != nil {
 		return nil, err
 	}
-	err = targetContext.DeploymentCollection.Prepare()
+
+	discovery, mapper, err := k8s2.CreateDiscoveryAndMapper(ctx, restConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	k, err := k8s2.NewK8sCluster(ctx, restConfig, discovery, mapper, props.DryRun)
+	if err != nil {
+		return nil, err
+	}
+
+	targetContext, err := target_context.NewTargetContext(ctx, p, contextName, k, props)
+	if err != nil {
+		return targetContext, err
+	}
+	err = targetContext.DeploymentCollection.Prepare()
+	if err != nil {
+		return targetContext, err
 	}
 	return targetContext, nil
 }
 
-func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error, cmdResult *result.CommandResult, commandName string) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	if cmdErr != nil {
-		pt.pp.r.event(ctx, pt.pp.obj, true, fmt.Sprintf("%s failed. %s", commandName, cmdErr.Error()), nil)
-		return cmdErr
+func (pt *preparedTarget) addCommandResultInfo(ctx context.Context, cmdResult *result.CommandResult, rr *kluctlv1.ManualRequestResult, reconcileId string, objectsHash string) error {
+	if cmdResult == nil {
+		// this might happen if something has gone so wrong that nothing succeeded
+		return nil
 	}
 
+	cmdResult.Id = uuid.NewString()
+	cmdResult.ReconcileId = reconcileId
 	cmdResult.Command.Initiator = result.CommandInititiator_KluctlDeployment
-	cmdResult.Command.KluctlDeployment = &result.KluctlDeploymentInfo{
+	cmdResult.KluctlDeployment = &result.KluctlDeploymentInfo{
 		Name:      pt.pp.obj.Name,
 		Namespace: pt.pp.obj.Namespace,
 	}
+	cmdResult.RenderedObjectsHash = objectsHash
 
-	cmdResult.GitInfo.Url = &pt.pp.obj.Spec.Source.URL
-	cmdResult.GitInfo.Ref = pt.pp.obj.Spec.Source.Ref.String()
-	cmdResult.ProjectKey.GitRepoKey = pt.pp.obj.Spec.Source.URL.RepoKey()
+	if rr != nil && rr.Request.OverridesPatch != nil {
+		cmdResult.OverridesPatch = uo.FromStringMust(string(rr.Request.OverridesPatch.Raw))
+	}
 
 	var err error
-	if pt.pp.r.ResultStore != nil {
+	cmdResult.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
+	if err != nil {
+		return err
+	}
+
+	// the ref is not properly set by addGitInfo due to the way the repo cache checks out by commit
+	if pt.pp.co.CheckedOutRef != (gittypes.GitRef{}) {
+		cmdResult.GitInfo.Ref = &pt.pp.co.CheckedOutRef
+	}
+
+	return nil
+}
+
+func (pt *preparedTarget) writeCommandResult(ctx context.Context, cmdResult *result.CommandResult, rr *kluctlv1.ManualRequestResult, commandName string, reconcileId string, objectsHash string, forceStore bool) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	if cmdResult == nil {
+		return fmt.Errorf("command result is nil, which should not happen")
+	}
+
+	err := pt.addCommandResultInfo(ctx, cmdResult, rr, reconcileId, objectsHash)
+	if err != nil {
+		return err
+	}
+
+	summary := cmdResult.BuildSummary()
+	needStore := summary.NewObjects != 0 ||
+		summary.ChangedObjects != 0 ||
+		summary.OrphanObjects != 0 ||
+		summary.DeletedObjects != 0 ||
+		len(summary.Errors) != 0 ||
+		len(summary.Warnings) != 0
+	if !needStore && forceStore {
+		needStore = true
+		log.Info("forcing storing of empty command result because the command was requested")
+	}
+
+	if !needStore {
+		log.Info("skipping storing of empty command result")
+	} else if pt.pp.r.ResultStore != nil {
 		log.Info(fmt.Sprintf("Writing command result %s", cmdResult.Id))
 		err = pt.pp.r.ResultStore.WriteCommandResult(cmdResult)
 		if err != nil {
@@ -664,45 +729,62 @@ func (pt *preparedTarget) handleCommandResult(ctx context.Context, cmdErr error,
 		}
 	}
 
-	summary := cmdResult.BuildSummary()
-
-	log.Info(fmt.Sprintf("command finished with err=%v", cmdErr))
+	log.Info(fmt.Sprintf("command finished with %d errors and %d warnings", len(cmdResult.Errors), len(cmdResult.Warnings)))
 	defer pt.exportCommandResultMetricsToProm(summary)
 
-	msg := fmt.Sprintf("%s succeeded.", commandName)
-	if summary.NewObjects != 0 {
-		msg += fmt.Sprintf(" %d new objects.", summary.NewObjects)
-	}
-	if summary.ChangedObjects != 0 {
-		msg += fmt.Sprintf(" %d changed objects.", summary.ChangedObjects)
-	}
-	if summary.AppliedHookObjects != 0 {
-		msg += fmt.Sprintf(" %d hooks run.", summary.AppliedHookObjects)
-	}
-	if summary.DeletedObjects != 0 {
-		msg += fmt.Sprintf(" %d deleted objects.", summary.DeletedObjects)
-	}
-	if summary.OrphanObjects != 0 {
-		msg += fmt.Sprintf(" %d orphan objects.", summary.OrphanObjects)
-	}
-	if len(cmdResult.Errors) != 0 {
-		msg += fmt.Sprintf(" %d errors.", len(cmdResult.Errors))
-	}
-	if len(cmdResult.Warnings) != 0 {
-		msg += fmt.Sprintf(" %d warnings.", len(cmdResult.Warnings))
-	}
+	msg := pt.pp.r.buildResultMessage(summary, commandName)
+	pt.pp.r.event(ctx, pt.pp.obj, len(cmdResult.Errors) != 0, msg, nil)
 
-	warning := false
-	if len(cmdResult.Errors) != 0 {
-		warning = true
-		err = fmt.Errorf("%s failed with %d errors", commandName, len(cmdResult.Errors))
-	}
-	pt.pp.r.event(ctx, pt.pp.obj, warning, msg, nil)
-
-	return err
+	return nil
 }
 
-func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
+func (pt *preparedTarget) writeValidateResult(ctx context.Context, validateResult *result.ValidateResult, rr *kluctlv1.ManualRequestResult, reconcileId string, objectsHash string) error {
+	log := ctrl.LoggerFrom(ctx)
+
+	if validateResult == nil {
+		return fmt.Errorf("validate result is nil, which should not happen")
+	}
+
+	validateResult.Id = uuid.NewString()
+	validateResult.ReconcileId = reconcileId
+	validateResult.KluctlDeployment = &result.KluctlDeploymentInfo{
+		Name:      pt.pp.obj.Name,
+		Namespace: pt.pp.obj.Namespace,
+	}
+	validateResult.RenderedObjectsHash = objectsHash
+
+	if rr != nil && rr.Request.OverridesPatch != nil {
+		validateResult.OverridesPatch = uo.FromStringMust(string(rr.Request.OverridesPatch.Raw))
+	}
+
+	var err error
+	validateResult.KluctlDeployment.ClusterId, err = k8s2.GetClusterId(ctx, pt.pp.r.Client)
+	if err != nil {
+		return err
+	}
+
+	if pt.pp.r.ResultStore != nil {
+		log.Info(fmt.Sprintf("Writing validate result %s", validateResult.Id))
+		err = pt.pp.r.ResultStore.WriteValidateResult(validateResult)
+		if err != nil {
+			log.Error(err, "Writing validate result failed")
+		}
+	}
+
+	return nil
+}
+
+func (pt *preparedTarget) kluctlDeployOrPokeImages(deployMode string, targetContext *target_context.TargetContext) (*result.CommandResult, error) {
+	if deployMode == kluctlv1.KluctlDeployModeFull {
+		return pt.kluctlDeploy(targetContext), nil
+	} else if deployMode == kluctlv1.KluctlDeployPokeImages {
+		return pt.kluctlPokeImages(targetContext), nil
+	} else {
+		return nil, fmt.Errorf("deployMode '%s' not supported", deployMode)
+	}
+}
+
+func (pt *preparedTarget) kluctlDeploy(targetContext *target_context.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewDeployCommand(targetContext)
@@ -715,33 +797,50 @@ func (pt *preparedTarget) kluctlDeploy(ctx context.Context, targetContext *kluct
 	cmd.Prune = pt.pp.obj.Spec.Prune
 	cmd.WaitPrune = false
 
-	cmdResult, err := cmd.Run(nil)
-	err = pt.handleCommandResult(ctx, err, cmdResult, "deploy")
-	return cmdResult, err
+	cmdResult := cmd.Run(nil)
+	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlPokeImages(ctx context.Context, targetContext *kluctl_project.TargetContext) (*result.CommandResult, error) {
+func (pt *preparedTarget) kluctlPokeImages(targetContext *target_context.TargetContext) *result.CommandResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
 	defer timer.ObserveDuration()
 	cmd := commands.NewPokeImagesCommand(targetContext)
 
-	cmdResult, err := cmd.Run()
-	err = pt.handleCommandResult(ctx, err, cmdResult, "poke-images")
-	return cmdResult, err
+	cmdResult := cmd.Run()
+	return cmdResult
 }
 
-func (pt *preparedTarget) kluctlValidate(ctx context.Context, targetContext *kluctl_project.TargetContext, cmdResult *result.CommandResult) (*result.ValidateResult, error) {
+func (pt *preparedTarget) kluctlPrune(targetContext *target_context.TargetContext) *result.CommandResult {
+	timer := prometheus.NewTimer(internal_metrics.NewKluctlDeploymentDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name, pt.pp.obj.Spec.DeployMode))
+	defer timer.ObserveDuration()
+	cmd := commands.NewPruneCommand("", targetContext, false)
+
+	cmdResult := cmd.Run(func(refs []k8s.ObjectRef) error {
+		pt.printDeletedRefs(targetContext.SharedContext.Ctx, refs)
+		return nil
+	})
+	return cmdResult
+}
+
+func (pt *preparedTarget) kluctlDiff(targetContext *target_context.TargetContext, resourceVersions map[k8s.ObjectRef]string) *result.CommandResult {
+	cmd := commands.NewDiffCommand(targetContext)
+	cmd.ForceApply = pt.pp.obj.Spec.ForceApply
+	cmd.ReplaceOnError = pt.pp.obj.Spec.ReplaceOnError
+	cmd.ForceReplaceOnError = pt.pp.obj.Spec.ForceReplaceOnError
+	cmd.SkipResourceVersions = resourceVersions
+
+	cmdResult := cmd.Run()
+	return cmdResult
+}
+
+func (pt *preparedTarget) kluctlValidate(targetContext *target_context.TargetContext) *result.ValidateResult {
 	timer := prometheus.NewTimer(internal_metrics.NewKluctlValidateDuration(pt.pp.obj.ObjectMeta.Namespace, pt.pp.obj.ObjectMeta.Name))
 	defer timer.ObserveDuration()
 
-	c := targetContext.DeploymentCollection
-	if cmdResult != nil {
-		c = nil
-	}
-	cmd := commands.NewValidateCommand(ctx, targetContext.Target.Discriminator, c, cmdResult)
+	cmd := commands.NewValidateCommand(targetContext.Target.Discriminator, targetContext)
 
-	validateResult, err := cmd.Run(ctx, targetContext.SharedContext.K)
-	return validateResult, err
+	validateResult := cmd.Run(targetContext.SharedContext.Ctx)
+	return validateResult
 }
 
 func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string) (*result.CommandResult, error) {
@@ -760,22 +859,21 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	if err != nil {
 		return nil, err
 	}
-	clientFactory, err := k8s2.NewClientFactory(ctx, restConfig)
-	if err != nil {
-		return nil, err
-	}
-	k, err := k8s2.NewK8sCluster(ctx, clientFactory, pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun)
+
+	discovery, mapper, err := k8s2.CreateDiscoveryAndMapper(ctx, restConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	cmdResult, err := cmd.Run(ctx, k, func(refs []k8s.ObjectRef) error {
-		pt.printDeletedRefs(ctx, refs)
-		return nil
-	})
+	k, err := k8s2.NewK8sCluster(ctx, restConfig, discovery, mapper, pt.pp.r.DryRun || pt.pp.obj.Spec.DryRun)
 	if err != nil {
 		return nil, err
 	}
+
+	cmdResult := cmd.Run(ctx, k, func(refs []k8s.ObjectRef) error {
+		pt.printDeletedRefs(ctx, refs)
+		return nil
+	})
 
 	if pt.pp.obj.Spec.Target != nil {
 		cmdResult.TargetKey.TargetName = *pt.pp.obj.Spec.Target
@@ -787,7 +885,6 @@ func (pt *preparedTarget) kluctlDelete(ctx context.Context, discriminator string
 	cmdResult.TargetKey.Discriminator = discriminator
 	cmdResult.TargetKey.ClusterId = cmdResult.ClusterInfo.ClusterId
 
-	err = pt.handleCommandResult(ctx, err, cmdResult, "delete")
 	return cmdResult, err
 }
 

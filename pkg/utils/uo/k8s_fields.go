@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -184,6 +185,13 @@ func (uo *UnstructuredObject) SetK8sAnnotation(name string, value string) {
 	}
 }
 
+func (uo *UnstructuredObject) RemoveK8sAnnotation(name string) {
+	err := uo.RemoveNestedField("metadata", "annotations", name)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[string]string {
 	p := uo.getRegexp(r)
 
@@ -194,6 +202,34 @@ func (uo *UnstructuredObject) GetK8sAnnotationsWithRegex(r interface{}) map[stri
 		}
 	}
 	return ret
+}
+
+func (uo *UnstructuredObject) GetK8sAnnotationBoolPtr(name string) (*bool, error) {
+	s := uo.GetK8sAnnotation(name)
+	if s == nil {
+		return nil, nil
+	}
+	b, err := strconv.ParseBool(*s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse annotation %s=%v as bool", name, *s)
+	}
+	return &b, nil
+}
+
+func (uo *UnstructuredObject) GetK8sAnnotationBool(name string, defaultValue bool) (bool, error) {
+	b, err := uo.GetK8sAnnotationBoolPtr(name)
+	if err != nil {
+		return defaultValue, err
+	}
+	if b == nil {
+		return defaultValue, nil
+	}
+	return *b, nil
+}
+
+func (uo *UnstructuredObject) GetK8sAnnotationBoolNoError(name string, defaultValue bool) bool {
+	b, _ := uo.GetK8sAnnotationBool(name, defaultValue)
+	return b
 }
 
 func (uo *UnstructuredObject) GetK8sGeneration() int64 {
@@ -223,6 +259,10 @@ func (uo *UnstructuredObject) SetK8sResourceVersion(rv string) {
 func (uo *UnstructuredObject) GetK8sOwnerReferences() []*UnstructuredObject {
 	ret, _, _ := uo.GetNestedObjectList("metadata", "ownerReferences")
 	return ret
+}
+
+func (uo *UnstructuredObject) SetK8sOwnerReferences(l []*UnstructuredObject) {
+	_ = uo.SetNestedField(l, "metadata", "ownerReferences")
 }
 
 func (uo *UnstructuredObject) GetK8sManagedFields() []*UnstructuredObject {

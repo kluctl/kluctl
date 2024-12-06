@@ -9,3 +9,11 @@ data:
   b: {{ .Values.data.b }}
   version: {{ .Chart.Version }}
   kubeVersion: {{ .Capabilities.KubeVersion }}
+  {{ if .Values.lookup }}
+  {{ $lookupObj := lookup "v1" "ConfigMap" .Values.lookupNamespace .Values.lookupName }}
+  {{ if $lookupObj }}
+  lookup: {{ $lookupObj.data.a -}}
+  {{ else }}
+  lookup: lookupReturnedNil
+  {{ end }}
+  {{ end }}

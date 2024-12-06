@@ -1,9 +1,11 @@
+version: 2
+
 before:
   hooks:
-    - go mod tidy
+    - make build-webui
 builds:
   - <<: &build_defaults
-      binary: kluctl
+      binary: bin/kluctl
       env:
         - CGO_ENABLED=0
       main: ./cmd
@@ -35,12 +37,14 @@ archives:
     format: tar.gz
     files:
       - none*
+    strip_binary_directory: true
   - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     id: windows
     builds: [windows]
     format: zip
     files:
       - none*
+    strip_binary_directory: true
 source:
   enabled: true
   name_template: '{{ .ProjectName }}_v{{ .Version }}_source_code'
@@ -86,7 +90,6 @@ dockers:
     goarch: amd64
     build_flag_templates:
       - "--pull"
-      - "--build-arg=ARCH=linux-amd64"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -100,7 +103,6 @@ dockers:
     goarch: arm64
     build_flag_templates:
       - "--pull"
-      - "--build-arg=ARCH=linux-arm64"
       - "--label=org.opencontainers.image.created={{ .Date }}"
       - "--label=org.opencontainers.image.name={{ .ProjectName }}"
       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
@@ -118,11 +120,11 @@ docker_manifests:
 
 brews:
   - name: kluctl
-    tap:
+    repository:
       owner: kluctl
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    folder: Formula
+    directory: Formula
     homepage: "https://kluctl.io/"
     description: "kluctl"
     install: |

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
 	"os"
 	"strings"
@@ -18,11 +18,6 @@ import (
 
 func formatCommandResultText(cr *result.CommandResult, short bool) string {
 	buf := bytes.NewBuffer(nil)
-
-	if len(cr.Warnings) != 0 {
-		buf.WriteString("\nWarnings:\n")
-		prettyErrors(buf, cr.Warnings)
-	}
 
 	var newObjects []k8s.ObjectRef
 	var changedObjects []k8s.ObjectRef
@@ -82,6 +77,11 @@ func formatCommandResultText(cr *result.CommandResult, short bool) string {
 	if len(orphanObjects) != 0 {
 		buf.WriteString("\nOrphan objects:\n")
 		prettyObjectRefs(buf, orphanObjects)
+	}
+
+	if len(cr.Warnings) != 0 {
+		buf.WriteString("\nWarnings:\n")
+		prettyErrors(buf, cr.Warnings)
 	}
 
 	if len(cr.Errors) != 0 {
@@ -175,22 +175,6 @@ func formatValidateResultText(vr *result.ValidateResult) string {
 		prettyValidationResults(buf, vr.Results)
 	}
 
-	if len(vr.Drift) != 0 {
-		if buf.Len() != 0 {
-			buf.WriteString("\n")
-		}
-		buf.WriteString("Drift:\n")
-		for i, o := range vr.Drift {
-			if len(o.Changes) == 0 {
-				continue
-			}
-			if i != 0 {
-				buf.WriteString("\n")
-			}
-			prettyChanges(buf, o.Ref, o.Changes)
-		}
-	}
-
 	return buf.String()
 }
 
@@ -237,9 +221,8 @@ func outputHelper(ctx context.Context, output []string, cb func(format string) (
 	return nil
 }
 
-func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
-	status.Flush(ctx.ctx)
-
+func outputCommandResult(ctx context.Context, cmdCtx *commandCtx, flags args.OutputFormatFlags, cr *result.CommandResult, writeToResultStore bool) error {
+	cr.Id = cmdCtx.resultId
 	cr.Command.Initiator = result.CommandInititiator_CommandLine
 
 	if !flags.NoObfuscate {
@@ -251,40 +234,66 @@ func outputCommandResult(ctx *commandCtx, flags args.OutputFormatFlags, cr *resu
 	}
 
 	var resultStoreErr error
-	if writeToResultStore && ctx.resultStore != nil {
-		s := status.Start(ctx.ctx, "Writing command result")
+	if writeToResultStore && cmdCtx.resultStore != nil {
+		s := status.Start(ctx, "Writing command result")
 		defer s.Failed()
-		resultStoreErr = ctx.resultStore.WriteCommandResult(cr)
+
+		didWarn := false
+		if cr.ClusterInfo.ClusterId == "" {
+			warning := "failed to determine cluster ID due to missing get/list permissions for the kube-system namespace. This might result in follow up issues in regard to cluster differentiation stored command results"
+			cr.Warnings = append(cr.Warnings, result.DeploymentError{
+				Message: warning,
+			})
+			status.Warning(ctx, warning)
+			didWarn = true
+		}
+
+		resultStoreErr = cmdCtx.resultStore.WriteCommandResult(cr)
 		if resultStoreErr != nil {
-			s.FailedWithMessage("Failed to write result to result store: %s", resultStoreErr.Error())
+			s.FailedWithMessagef("Failed to write result to result store: %s", resultStoreErr.Error())
 		} else {
-			s.Success()
+			if didWarn {
+				s.Warning()
+			} else {
+				s.Success()
+			}
 		}
 	}
-
-	err := outputHelper(ctx.ctx, flags.OutputFormat, func(format string) (string, error) {
-		return formatCommandResult(cr, format, flags.ShortOutput)
-	})
+	err := outputCommandResult2(ctx, flags, cr)
 	if err == nil && resultStoreErr != nil {
 		return resultStoreErr
 	}
 	return err
 }
 
-func outputValidateResult(ctx context.Context, output []string, vr *result.ValidateResult) error {
+func outputCommandResult2(ctx context.Context, flags args.OutputFormatFlags, cr *result.CommandResult) error {
+	status.Flush(ctx)
+	err := outputHelper(ctx, flags.OutputFormat, func(format string) (string, error) {
+		return formatCommandResult(cr, format, flags.ShortOutput)
+	})
+	status.Flush(ctx)
+	return err
+}
+
+func outputValidateResult(ctx context.Context, cmdCtx *commandCtx, output []string, vr *result.ValidateResult) error {
+	vr.Id = cmdCtx.resultId
+
+	return outputValidateResult2(ctx, output, vr)
+}
+
+func outputValidateResult2(ctx context.Context, output []string, vr *result.ValidateResult) error {
 	status.Flush(ctx)
 
-	return outputHelper(ctx, output, func(format string) (string, error) {
+	err := outputHelper(ctx, output, func(format string) (string, error) {
 		return formatValidateResult(vr, format)
 	})
+	status.Flush(ctx)
+	return err
 }
 
 func outputYamlResult(ctx context.Context, output []string, result interface{}, multiDoc bool) error {
 	status.Flush(ctx)
 
-	if len(output) == 0 {
-		output = []string{"-"}
-	}
 	var s string
 	if multiDoc {
 		l, ok := result.([]interface{})
@@ -303,16 +312,13 @@ func outputYamlResult(ctx context.Context, output []string, result interface{}, 
 		}
 		s = x
 	}
-	for _, path := range output {
-		err := outputResult(ctx, &path, s)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return outputResult2(ctx, output, s)
 }
 
 func outputResult(ctx context.Context, f *string, result string) error {
+	// make sure there is no pending render of a status line
+	status.Flush(ctx)
+
 	var w io.Writer
 	w = getStdout(ctx)
 	if f != nil && *f != "-" {
@@ -325,4 +331,17 @@ func outputResult(ctx context.Context, f *string, result string) error {
 	}
 	_, err := w.Write([]byte(result))
 	return err
+}
+
+func outputResult2(ctx context.Context, output []string, result string) error {
+	if len(output) == 0 {
+		output = []string{"-"}
+	}
+	for _, o := range output {
+		err := outputResult(ctx, &o, result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -1,3 +1,4 @@
+# Warning, this file is generated via "make manifests", don't edit it directly but instead change the files in config/rbac
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -78,20 +79,6 @@ rules:
   verbs:
   - create
   - patch
-- apiGroups:
-  - flux.kluctl.io
-  resources:
-  - kluctldeployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - flux.kluctl.io
-  resources:
-  - kluctldeployments/status
-  verbs:
-  - get
 - apiGroups:
   - gitops.kluctl.io
   resources:

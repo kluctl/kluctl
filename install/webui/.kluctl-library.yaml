@@ -1,0 +1,17 @@
+args:
+  - name: kluctl_image
+    default: ghcr.io/kluctl/kluctl
+  - name: kluctl_version
+    default: v2.25.1
+  - name: webui_args
+    default: []
+  - name: webui_envs
+    default: []
+  - name: webui_resources
+    default: {}
+  - name: webui_node_selectors
+    default: {}
+  - name: webui_tolerations
+    default: []
+  - name: webui_priority_class_name
+    default: {}

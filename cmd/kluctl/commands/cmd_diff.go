@@ -9,16 +9,21 @@ import (
 
 type diffCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.InclusionFlags
 	args.ImageFlags
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.ForceApplyFlags
 	args.ReplaceOnErrorFlags
 	args.IgnoreFlags
 	args.OutputFormatFlags
 	args.RenderOutputDirFlags
+
+	Discriminator string `group:"misc" help:"Override the target discriminator."`
 }
 
 func (cmd *diffCmd) Help() string {
@@ -31,12 +36,16 @@ After the diff is performed, the command will also search for prunable objects a
 func (cmd *diffCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
+		registryCredentials:  cmd.RegistryCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
+		discriminator:        cmd.Discriminator,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		cmd2 := commands.NewDiffCommand(cmdCtx.targetCtx)
@@ -46,11 +55,9 @@ func (cmd *diffCmd) Run(ctx context.Context) error {
 		cmd2.IgnoreTags = cmd.IgnoreTags
 		cmd2.IgnoreLabels = cmd.IgnoreLabels
 		cmd2.IgnoreAnnotations = cmd.IgnoreAnnotations
-		result, err := cmd2.Run()
-		if err != nil {
-			return err
-		}
-		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, false)
+		cmd2.IgnoreKluctlMetadata = cmd.IgnoreKluctlMetadata
+		result := cmd2.Run()
+		err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, false)
 		if err != nil {
 			return err
 		}

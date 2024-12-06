@@ -4,24 +4,27 @@ import (
 	"context"
 	errors2 "errors"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	"github.com/kluctl/kluctl/v2/pkg/diff"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"golang.org/x/sync/semaphore"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 )
 
@@ -33,6 +36,8 @@ type ApplyUtilOptions struct {
 	AbortOnError        bool
 	ReadinessTimeout    time.Duration
 	NoWait              bool
+
+	SkipResourceVersions map[k8s2.ObjectRef]string
 }
 
 type ApplyUtil struct {
@@ -51,6 +56,8 @@ type ApplyUtil struct {
 	abortSignal   *atomic.Value
 	allNamespaces *sync.Map
 	allCRDs       *sync.Map
+
+	crdCache *k8s.CrdCache
 
 	ru   *RemoteObjectUtils
 	k    *k8s.K8sCluster
@@ -73,6 +80,8 @@ type ApplyDeploymentsUtil struct {
 	// This is only used to simulate dryRun apply
 	allNamespaces sync.Map
 	allCRDs       sync.Map
+
+	crdCache k8s.CrdCache
 
 	resultsMutex sync.Mutex
 	results      []*ApplyUtil
@@ -105,6 +114,7 @@ func (ad *ApplyDeploymentsUtil) NewApplyUtil(ctx context.Context, statusCtx *sta
 		abortSignal:        &ad.abortSignal,
 		allNamespaces:      &ad.allNamespaces,
 		allCRDs:            &ad.allCRDs,
+		crdCache:           &ad.crdCache,
 		ru:                 ad.ru,
 		k:                  ad.k,
 		o:                  ad.o,
@@ -233,7 +243,7 @@ func (a *ApplyUtil) retryApplyForceReplace(x *uo.UnstructuredObject, hook bool, 
 		skipDelete = skipDelete || isSkipDelete(remoteObject)
 	}
 	if skipDelete {
-		status.Warning(a.ctx, "skipped forced replace of %s", ref.String())
+		status.Warningf(a.ctx, "skipped forced replace of %s", ref.String())
 		a.HandleError(ref, applyError)
 		return
 	}
@@ -291,7 +301,7 @@ func (a *ApplyUtil) retryApplyWithReplace(x *uo.UnstructuredObject, hook bool, r
 	a.handleResult(r, hook)
 }
 
-func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
+func (a *ApplyUtil) retryApplyWithConflicts(d *deployment.DeploymentItem, x *uo.UnstructuredObject, hook bool, remoteObject *uo.UnstructuredObject, applyError error) {
 	ref := x.GetK8sRef()
 
 	if remoteObject == nil {
@@ -307,7 +317,10 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 			return
 		}
 
-		x3, lostOwnership, err := diff.ResolveFieldManagerConflicts(x, remoteObject, statusError.ErrStatus)
+		cr := diff.ConflictResolver{
+			Configs: d.Project.GetConflictResolutionConfigs(),
+		}
+		x3, lostOwnership, err := cr.ResolveConflicts(x, remoteObject, statusError.ErrStatus)
 		if err != nil {
 			a.HandleError(ref, err)
 			return
@@ -326,22 +339,36 @@ func (a *ApplyUtil) retryApplyWithConflicts(x *uo.UnstructuredObject, hook bool,
 	}
 	r, apiWarnings, err := a.k.ApplyObject(x2, options)
 	a.handleApiWarnings(ref, apiWarnings)
-	if err != nil {
-		// We didn't manage to solve it, better to abort (and not retry with replace!)
-		a.HandleError(ref, err)
-		return
+	if err == nil {
+		a.handleResult(r, hook)
+	} else {
+		a.retryApplyForceReplace(x, hook, remoteObject, err)
 	}
-	a.handleResult(r, hook)
 }
 
-func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bool) {
+func (a *ApplyUtil) ApplyObject(d *deployment.DeploymentItem, x *uo.UnstructuredObject, replaced bool, hook bool) {
 	ref := x.GetK8sRef()
 
 	x = a.k.FixObjectForPatch(x)
 	remoteObject := a.ru.GetRemoteObject(ref)
+
+	if a.o.SkipResourceVersions != nil && remoteObject != nil {
+		remoteResourceVersion := remoteObject.GetK8sResourceVersion()
+		skipVersion, ok := a.o.SkipResourceVersions[ref]
+		if ok && skipVersion == remoteResourceVersion {
+			a.handleResult(remoteObject, hook)
+			return
+		}
+	}
+
 	var remoteNamespace *uo.UnstructuredObject
 	if ref.Namespace != "" {
-		remoteNamespace = a.ru.GetRemoteNamespace(ref.Namespace)
+		var err error
+		remoteNamespace, err = a.ru.GetRemoteNamespace(a.k, ref.Namespace)
+		if err != nil {
+			a.HandleError(ref, err)
+			return
+		}
 	}
 
 	usesDummyName := false
@@ -352,37 +379,73 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 		// result
 		usesDummyName = true
 		x = x.Clone()
-		x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+		x.SetK8sName(utils.RandomizeSuffix(ref.Name, 8, 63))
 	} else if a.o.DryRun && remoteNamespace == nil && ref.Namespace != "" {
 		if _, ok := a.allNamespaces.Load(ref.Namespace); ok {
 			// The namespace does not really exist, but would have been created if dryRun would be false.
 			// So let's pretend we deploy it to the default namespace with a dummy name
 			usesDummyName = true
 			x = x.Clone()
-			x.SetK8sName(fmt.Sprintf("%s-%s", ref.Name, utils.RandomString(8)))
+			x.SetK8sName(utils.RandomizeSuffix(ref.Name, 8, 63))
 			x.SetK8sNamespace("default")
 		}
+	}
+
+	undoDummyName := func(x *uo.UnstructuredObject) {
+		if !usesDummyName || x == nil {
+			return
+		}
+		tmpName := x.GetK8sName()
+		_ = x.ReplaceKeys(tmpName, ref.Name)
+		_ = x.ReplaceValues(tmpName, ref.Name)
+		x.SetK8sNamespace(ref.Namespace)
 	}
 
 	options := k8s.PatchOptions{
 		ForceDryRun: a.o.DryRun,
 	}
 	r, apiWarnings, err := a.k.ApplyObject(x, options)
-	if r != nil && usesDummyName {
-		tmpName := r.GetK8sName()
-		_ = r.ReplaceKeys(tmpName, ref.Name)
-		_ = r.ReplaceValues(tmpName, ref.Name)
-		r.SetK8sNamespace(ref.Namespace)
-	} else if meta.IsNoMatchError(err) {
-		if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
-			if a.o.DryRun {
+
+	retryWhenCRDExists := meta.IsNoMatchError(err)
+	if errors.IsUnexpectedServerError(err) {
+		reason := errors.ReasonForError(err)
+		if reason == metav1.StatusReasonNotFound {
+			// this happens when a CRD was present in the past, causing the on-disk discovery cache to persist the info
+			// about it. When the CRD is then deleted, the cache gets out-of-date, causing the k8s client to perform
+			// requests against non-existing resources. In that case, we do not get no-match errors but instead unexpected
+			// 404 errors. We simply retry with invalidated caches in that case.
+			retryWhenCRDExists = true
+		}
+	}
+
+	undoDummyName(r)
+	undoDummyName(x)
+
+	if r == nil && retryWhenCRDExists {
+		if a.o.DryRun {
+			if _, ok := a.allCRDs.Load(x.GetK8sGVK()); ok {
+				// simulate that the apply "succeeded"
 				a.handleResult(x, hook)
-				a.HandleWarning(x.GetK8sRef(), fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
+				a.HandleWarning(ref, fmt.Errorf("the underyling custom resource definition for %s has not been applied yet as Kluctl is running in dry-run mode. It is not guaranteed that the object will actually sucessfully apply", x.GetK8sRef().String()))
 				return
+			}
+		} else {
+			c, tmpErr := a.k.ToClient()
+			if tmpErr != nil {
+				status.Errorf(a.ctx, "Unexpectadly failed to create k8s client: %s", tmpErr.Error())
+				a.HandleError(ref, err)
+				return
+			}
+			tmpErr = a.crdCache.UpdateForGroup(a.ctx, c, ref.Group)
+			if tmpErr != nil {
+				status.Tracef(a.ctx, "failed figure out if CRD appeared, so we can't retry with invalidated discovery: %s", tmpErr.Error())
 			} else {
-				// retry with invalidated discovery
-				a.k.ResetMapper()
-				r, apiWarnings, err = a.k.ApplyObject(x, options)
+				if crd := a.crdCache.GetCRDByGK(ref.GroupKind()); crd != nil {
+					status.Tracef(a.ctx, "resource unknown, and CRD %s is available now, retrying with invalidated caches", crd.Name)
+					// retry with invalidated discovery
+					a.k.ResetMapper()
+					r, apiWarnings, err = a.k.ApplyObject(x, options)
+				}
 			}
 		}
 	}
@@ -398,13 +461,15 @@ func (a *ApplyUtil) ApplyObject(x *uo.UnstructuredObject, replaced bool, hook bo
 	} else if meta.IsNoMatchError(err) {
 		a.HandleError(ref, err)
 	} else if errors.IsConflict(err) {
-		a.retryApplyWithConflicts(x, hook, remoteObject, err)
+		a.retryApplyWithConflicts(d, x, hook, remoteObject, err)
 	} else {
 		a.retryApplyWithReplace(x, hook, remoteObject, err)
 	}
 }
 
 func (a *ApplyUtil) handleObservedCRD(r *uo.UnstructuredObject) {
+	status.Tracef(a.ctx, "observed CRD %s", r.GetK8sName())
+
 	y, err := yaml.WriteYamlBytes(r)
 	if err == nil {
 		var crd *apiextensionsv1.CustomResourceDefinition
@@ -432,10 +497,11 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	}
 	timeoutTimer := time.NewTimer(timeout)
 
-	status.Trace(a.ctx, "Waiting for %s to get ready", ref.String())
+	status.Tracef(a.ctx, "Waiting for %s to get ready", ref.String())
 
 	lastLogTime := time.Now()
 	didLog := false
+	seen := false
 	startTime := time.Now()
 	for true {
 		elapsed := int(time.Now().Sub(startTime).Seconds())
@@ -443,41 +509,63 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 		o, apiWarnings, err := a.k.GetSingleObject(ref)
 		a.handleApiWarnings(ref, apiWarnings)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if !errors.IsNotFound(err) {
+				a.HandleError(ref, err)
+				return false
+			}
+		}
+
+		if o == nil {
+			if seen {
 				if didLog {
-					status.Warning(a.ctx, "Cancelled waiting for %s as it disappeared while waiting for it (%ds elapsed)", ref.String(), elapsed)
+					status.Warningf(a.ctx, "Cancelled waiting for %s as it disappeared while waiting for it (%ds elapsed)", ref.String(), elapsed)
 				}
 				a.HandleError(ref, fmt.Errorf("%s disappeared while waiting for it to become ready", ref.String()))
 				return false
 			}
-			a.HandleError(ref, err)
-			return false
-		}
-		v := validation.ValidateObject(a.k, o, false, false)
-		if v.Ready {
-			if didLog {
-				a.sctx.InfoFallback("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
+			a.sctx.Update(fmt.Sprintf("Waiting for %s to appear...", ref.String()))
+		} else {
+			seen = true
+
+			v := validation.ValidateObject(a.ctx, a.k, o, false, false)
+			if v.Ready {
+				if didLog {
+					a.sctx.InfoFallbackf("Finished waiting for %s (%ds elapsed)", ref.String(), elapsed)
+				}
+				for _, e := range v.Errors {
+					a.HandleError(ref, errors2.New(e.Message))
+				}
+				for _, e := range v.Warnings {
+					a.HandleWarning(ref, errors2.New(e.Message))
+				}
+				return true
 			}
-			return true
-		}
-		if len(v.Errors) != 0 {
-			if didLog {
-				status.Warning(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
+			if len(v.Errors) != 0 {
+				if didLog {
+					status.Warningf(a.ctx, "Cancelled waiting for %s due to errors (%ds elapsed)", ref.String(), elapsed)
+				}
+				for _, e := range v.Errors {
+					a.HandleError(ref, errors2.New(e.Message))
+				}
+				for _, e := range v.Warnings {
+					a.HandleWarning(ref, errors2.New(e.Message))
+				}
+				return false
 			}
-			for _, e := range v.Errors {
-				a.HandleError(ref, fmt.Errorf(e.Message))
-			}
-			return false
+			a.sctx.Update(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
 		}
 
-		a.sctx.Update(fmt.Sprintf("Waiting for %s to get ready...", ref.String()))
+		reportStillWaitingTime := 10 * time.Second
+		if testing.Testing() {
+			reportStillWaitingTime = 3 * time.Second
+		}
 
 		if !didLog {
-			a.sctx.InfoFallback("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
+			a.sctx.InfoFallbackf("Waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			didLog = true
 			lastLogTime = time.Now()
-		} else if didLog && time.Now().Sub(lastLogTime) >= 10*time.Second {
-			a.sctx.InfoFallback("Still waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
+		} else if didLog && time.Now().Sub(lastLogTime) >= reportStillWaitingTime {
+			a.sctx.InfoFallbackf("Still waiting for %s to get ready... (%ds elapsed)", ref.String(), elapsed)
 			lastLogTime = time.Now()
 		}
 
@@ -486,7 +574,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			continue
 		case <-timeoutTimer.C:
 			err := fmt.Errorf("timed out while waiting for readiness of %s", ref.String())
-			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
+			status.Warningf(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
 			if status.IsTraceEnabled(a.ctx) {
 				y, err := yaml.WriteYamlString(o)
 				if err == nil {
@@ -497,7 +585,7 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 			return false
 		case <-a.ctx.Done():
 			err := fmt.Errorf("context cancelled while waiting for readiness of %s", ref.String())
-			status.Warning(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
+			status.Warningf(a.ctx, "%s (%ds elapsed)", err.Error(), elapsed)
 			a.HandleError(ref, err)
 			return false
 		}
@@ -505,31 +593,64 @@ func (a *ApplyUtil) WaitReadiness(ref k8s2.ObjectRef, timeout time.Duration) boo
 	return false
 }
 
+func (a *ApplyUtil) convertObjectRef(x types2.ObjectRefItem, refs map[k8s2.ObjectRef]bool) {
+	ars, err := a.k.GetFilteredPreferredAPIResources(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
+	if err != nil {
+		a.HandleError(k8s2.ObjectRef{}, err)
+		return
+	}
+	if len(ars) == 0 {
+		nameAndNs := x.Name
+		if x.Namespace != "" {
+			nameAndNs = x.Namespace + "/" + x.Name
+		}
+		var gk schema.GroupKind
+		if x.Group != nil {
+			gk.Group = *x.Group
+		}
+		if x.Kind != nil {
+			gk.Kind = *x.Kind
+		}
+		a.HandleError(k8s2.ObjectRef{}, fmt.Errorf("failed to wait for readiness of %s. resource with group/kind %s not found", nameAndNs, gk.String()))
+		return
+	}
+	for _, ar := range ars {
+		ref := k8s2.ObjectRef{
+			Group:     ar.Group,
+			Version:   ar.Version,
+			Kind:      ar.Kind,
+			Name:      x.Name,
+			Namespace: x.Namespace,
+		}
+		refs[ref] = true
+	}
+}
+
 func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
+	h := HooksUtil{a: a}
+
 	toDelete := map[k8s2.ObjectRef]bool{}
+	toWaitReadiness := map[k8s2.ObjectRef]bool{}
 	for _, x := range d.Config.DeleteObjects {
-		gvks, err := a.k.GetFilteredGVKs(k8s.BuildGVKFilter(x.Group, nil, x.Kind))
-		if err != nil {
-			a.HandleError(k8s2.ObjectRef{}, err)
-		}
-		for _, gvk := range gvks {
-			ref := k8s2.ObjectRef{
-				Group:     gvk.Group,
-				Version:   gvk.Version,
-				Kind:      gvk.Kind,
-				Name:      x.Name,
-				Namespace: x.Namespace,
-			}
-			toDelete[ref] = true
-		}
+		a.convertObjectRef(x.ObjectRefItem, toDelete)
+	}
+	for _, x := range d.Config.WaitReadinessObjects {
+		a.convertObjectRef(x.ObjectRefItem, toWaitReadiness)
 	}
 	for _, x := range d.Objects {
-		if utils.ParseBoolOrFalse(x.GetK8sAnnotation("kluctl.io/delete")) {
+		if x.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
 			toDelete[x.GetK8sRef()] = true
 		}
-	}
 
-	h := HooksUtil{a: a}
+		// hooks have their own waitReadiness logic, so we must skip them here. Otherwise we'd wait for an object
+		// didn't even get deployed yet (e.g. post-deploy hooks).
+		if h.GetHook(d, x) == nil {
+			waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || x.GetK8sAnnotationBoolNoError("kluctl.io/wait-readiness", false)
+			if waitReadiness {
+				toWaitReadiness[x.GetK8sRef()] = true
+			}
+		}
+	}
 
 	initialDeploy := true
 	for _, o := range d.Objects {
@@ -540,7 +661,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 
 	var applyObjects []*uo.UnstructuredObject
 	for _, o := range d.Objects {
-		if h.GetHook(o) != nil {
+		if h.GetHook(d, o) != nil {
 			continue
 		}
 		if _, ok := toDelete[o.GetK8sRef()]; ok {
@@ -564,7 +685,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	a.sctx.SetTotal(total)
 
 	if len(toDelete) != 0 {
-		a.sctx.InfoFallback("Deleting %d objects", len(toDelete))
+		a.sctx.InfoFallbackf("Deleting %d objects", len(toDelete))
 		i := 0
 		for ref := range toDelete {
 			a.sctx.Update(fmt.Sprintf("Deleting object %s (%d of %d)", ref.String(), i+1, len(toDelete)))
@@ -577,7 +698,7 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 	h.RunHooks(preHooks)
 
 	if len(applyObjects) != 0 {
-		a.sctx.InfoFallback("Applying %d objects", len(applyObjects))
+		a.sctx.InfoFallbackf("Applying %d objects", len(applyObjects))
 	}
 	startTime := time.Now()
 	didLog := false
@@ -587,18 +708,23 @@ func (a *ApplyUtil) applyDeploymentItem(d *deployment.DeploymentItem) {
 		}
 
 		ref := o.GetK8sRef()
-		a.sctx.Update(fmt.Sprintf("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects)))
-		a.ApplyObject(o, false, false)
+		a.sctx.Updatef("Applying object %s (%d of %d)", ref.String(), i+1, len(applyObjects))
+		a.ApplyObject(d, o, false, false)
 		a.sctx.Increment()
 		if time.Now().Sub(startTime) >= 10*time.Second || (didLog && i == len(applyObjects)-1) {
-			a.sctx.InfoFallback("...applied %d of %d objects", i+1, len(applyObjects))
+			a.sctx.InfoFallbackf("...applied %d of %d objects", i+1, len(applyObjects))
 			startTime = time.Now()
 			didLog = true
 		}
+	}
+	// Wait for readiness if needed after we have applied all objects
+	for ref, _ := range toWaitReadiness {
+		if a.abortSignal.Load().(bool) {
+			break
+		}
 
-		waitReadiness := d.Config.WaitReadiness || d.WaitReadiness || utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/wait-readiness"))
-		if !a.o.NoWait && waitReadiness {
-			a.WaitReadiness(o.GetK8sRef(), 0)
+		if !a.o.NoWait {
+			a.WaitReadiness(ref, 0)
 		}
 	}
 	if a.abortSignal.Load().(bool) {
@@ -647,12 +773,18 @@ func (a *ApplyDeploymentsUtil) buildProgressName(d *deployment.DeploymentItem) *
 		s := "<delete>"
 		return &s
 	}
+	if len(d.Config.WaitReadinessObjects) != 0 {
+		s := "<wait>"
+		return &s
+	}
 	return nil
 }
 
 func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.DeploymentItem) {
-	s := status.Start(a.ctx, "Running server-side apply for all objects")
-	defer s.Failed()
+	if a.k == nil {
+		a.dew.AddError(k8s2.ObjectRef{}, fmt.Errorf("can not apply objects without a Kubernetes API client"))
+		return
+	}
 
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(8)
@@ -710,7 +842,6 @@ func (a *ApplyDeploymentsUtil) ApplyDeployments(deployments []*deployment.Deploy
 		}
 	}
 	wg.Wait()
-	s.Success()
 }
 
 func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.UnstructuredObject, callback func(o *uo.UnstructuredObject) (*uo.UnstructuredObject, error)) {
@@ -754,7 +885,7 @@ func (a *ApplyUtil) ReplaceObject(ref k8s2.ObjectRef, firstVersion *uo.Unstructu
 		a.dew.AddApiWarnings(ref, apiWarnings)
 		if err != nil {
 			if errors.IsConflict(err) {
-				status.Trace(a.ctx, "Conflict while patching %s. Retrying...", ref.String())
+				status.Tracef(a.ctx, "Conflict while patching %s. Retrying...", ref.String())
 				continue
 			} else {
 				a.HandleError(ref, err)

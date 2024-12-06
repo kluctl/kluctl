@@ -3,23 +3,34 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/index"
-	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	git2 "github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/format/index"
+	git2 "github.com/kluctl/kluctl/lib/git"
+	gitauth "github.com/kluctl/kluctl/lib/git/auth"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
 type helmUpdateCmd struct {
 	args.ProjectDir
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 
 	Upgrade bool `group:"misc" help:"Write new versions into helm-chart.yaml and perform helm-pull afterwards"`
 	Commit  bool `group:"misc" help:"Create a git commit for every updated chart"`
@@ -37,33 +48,57 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
-		return fmt.Errorf("helm-update can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
+	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) && !yaml.Exists(filepath.Join(projectDir, ".kluctl-library.yaml")) {
+		return fmt.Errorf("helm-update can only be used on the root of a Kluctl project that must have a .kluctl.yaml or .kluctl-library.yaml file")
 	}
 
 	gitRootPath, err := git2.DetectGitRepositoryRoot(projectDir)
 	if err != nil {
 		return err
 	}
+	sshPool := &ssh_pool.SshPool{}
+	messageCallbacks := &messages.MessageCallbacks{
+		WarningFn:            func(s string) { status.Warning(ctx, s) },
+		TraceFn:              func(s string) { status.Trace(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
+	}
+	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
+	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := cmd.GitCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		gitAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuthProvider.RegisterAuthProvider(x, false)
+	}
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuthProvider, nil, time.Second*60)
+	defer gitRp.Clear()
 
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, time.Second*60)
+
+	defer ociRp.Clear()
 	if cmd.Commit {
-		g, err := git.PlainOpen(gitRootPath)
-		if err != nil {
-			return err
-		}
-		wt, err := g.Worktree()
-		if err != nil {
-			return err
-		}
-		gitStatus, err := wt.Status()
+		gitStatus, err := git2.GetWorktreeStatus(ctx, gitRootPath)
 		if err != nil {
 			return err
 		}
 		for pth, s := range gitStatus {
 			if strings.HasPrefix(pth, ".helm-charts/") {
+				status.Tracef(ctx, "gitStatus=%s", gitStatus.String())
 				return fmt.Errorf("--commit can only be used when .helm-chart directory is clean")
 			}
 			if (s.Staging != git.Untracked && s.Staging != git.Unmodified) || (s.Worktree != git.Untracked && s.Worktree != git.Unmodified) {
+				status.Tracef(ctx, "gitStatus=%s", gitStatus.String())
 				return fmt.Errorf("--commit can only be used when the git worktree is unmodified")
 			}
 		}
@@ -73,13 +108,13 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 
 	g := utils.NewGoHelper(ctx, 8)
 
-	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, &cmd.HelmCredentials)
+	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return err
 	}
 
 	if cmd.Commit {
-		actions, err := doHelmPull(ctx, projectDir, &cmd.HelmCredentials, true, false)
+		actions, err := doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp, true, false)
 		if err != nil {
 			return err
 		}
@@ -89,13 +124,13 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	for _, chart := range charts {
-		chart := chart
 		g.RunE(func() error {
-			s := status.Start(ctx, "%s: Querying versions", chart.GetChartName())
+			s := status.Startf(ctx, "%s: Querying versions", chart.GetChartName())
 			defer s.Failed()
+			chart.GetLocalChartVersion()
 			err := chart.QueryVersions(ctx)
 			if err != nil {
-				s.FailedWithMessage("%s: %s", chart.GetChartName(), err.Error())
+				s.FailedWithMessagef("%s: %s", chart.GetChartName(), err.Error())
 				return err
 			}
 			s.Success()
@@ -108,24 +143,29 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	for _, chart := range charts {
-		chart := chart
-
-		versionsToPull := map[string]bool{}
+		versionsToPull := map[string]helm.ChartVersion{}
 		for _, hr := range releases {
 			if hr.Chart != chart {
 				continue
 			}
-			versionsToPull[hr.Config.ChartVersion] = true
+			version := hr.GetAbstractVersion()
+			versionsToPull[version.String()] = version
 		}
 
-		for version, _ := range versionsToPull {
-			version := version
+		for _, version := range versionsToPull {
+			var out string
+			if chart.IsRegistryChart() {
+				out = fmt.Sprintf("%s: Downloading Chart with version %s into cache", chart.GetChartName(), version.String())
+			}
+			if chart.IsGitRepositoryChart() {
+				out = fmt.Sprintf("%s: Downloading Chart with branch, tag or commit %s into cache", chart.GetChartName(), version.String())
+			}
 			g.RunE(func() error {
-				s := status.Start(ctx, "%s: Downloading Chart with version %s into cache", chart.GetChartName(), version)
+				s := status.Startf(ctx, out)
 				defer s.Failed()
 				_, err := chart.PullCached(ctx, version)
 				if err != nil {
-					s.FailedWithMessage("%s: %s", chart.GetChartName(), err.Error())
+					s.FailedWithMessagef("%s: %s", chart.GetChartName(), err.Error())
 					return err
 				}
 				s.Success()
@@ -141,7 +181,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	upgrades := map[helmUpgradeKey][]*helm.Release{}
 
 	for _, hr := range releases {
-		cd, err := hr.Chart.BuildPulledChartDir(baseChartsDir, "")
+		cd, err := hr.Chart.BuildPulledChartDir(baseChartsDir)
 		if err != nil {
 			return err
 		}
@@ -155,35 +195,50 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if hr.Config.ChartVersion == latestVersion {
+		currentVersion := hr.GetAbstractVersion()
+
+		if currentVersion == latestVersion {
 			continue
 		}
 
 		if hr.Config.SkipUpdate {
-			status.Info(ctx, "%s: Skipped update to version %s", relDir, latestVersion)
+			status.Infof(ctx, "%s: Skipped update to version %s", relDir, latestVersion.String())
 			continue
 		}
 
-		status.Info(ctx, "%s: Chart %s has new version %s available", relDir, hr.Chart.GetChartName(), latestVersion)
+		status.Infof(ctx, "%s: Chart %s (old version %s) has new version %s available",
+			relDir, hr.Chart.GetChartName(), currentVersion.String(), latestVersion.String())
 
 		if !cmd.Upgrade {
 			continue
 		}
 
 		if cmd.Interactive {
-			if !status.AskForConfirmation(ctx, fmt.Sprintf("%s: Do you want to upgrade Chart %s to version %s?",
-				relDir, hr.Chart.GetChartName(), latestVersion)) {
+			if !prompts.AskForConfirmation(ctx, fmt.Sprintf("%s: Do you want to upgrade Chart %s to version %s?",
+				relDir, hr.Chart.GetChartName(), latestVersion.String())) {
 				continue
 			}
 		}
 
-		oldVersion := hr.Config.ChartVersion
-		hr.Config.ChartVersion = latestVersion
+		oldVersion := currentVersion
+		if hr.Chart.IsGitRepositoryChart() {
+			if hr.Config.Git.Ref.Tag == "" {
+				return fmt.Errorf("unexpected error, tag of git chart is empty")
+			}
+			// git object is shared by multiple releases
+			hr.Config.Git, err = utils.DeepClone(hr.Config.Git)
+			if err != nil {
+				return err
+			}
+			hr.Config.Git.Ref = latestVersion.GitRef
+		} else {
+			hr.Config.ChartVersion = latestVersion.Version
+		}
 		err = hr.Save()
 		if err != nil {
 			return err
 		}
-		status.Info(ctx, "%s: Updated Chart version to %s", relDir, latestVersion)
+		status.Infof(ctx, "%s: Updated Chart version to %s", relDir, latestVersion.String())
 
 		k := helmUpgradeKey{
 			chartDir:   cd,
@@ -194,7 +249,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	}
 
 	for k, hrs := range upgrades {
-		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion)
+		err = cmd.pullAndCommit(ctx, projectDir, baseChartsDir, gitRootPath, hrs, k.oldVersion, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 		if err != nil {
 			return err
 		}
@@ -224,15 +279,16 @@ func (cmd *helmUpdateCmd) collectFiles(root string, dir string, m map[string]os.
 	return err
 }
 
-func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion string) error {
+func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, baseChartsDir string, gitRootPath string, hrs []*helm.Release, oldVersion helm.ChartVersion, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider *ociauth.OciAuthProviders, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) error {
 	chart := hrs[0].Chart
-	newVersion := hrs[0].Config.ChartVersion
 
-	s := status.Start(ctx, "Upgrading Chart %s from version %s to %s", chart.GetChartName(), oldVersion, newVersion)
+	newVersion := hrs[0].GetAbstractVersion()
+
+	s := status.Startf(ctx, "Upgrading Chart %s from version %s to %s", chart.GetChartName(), oldVersion.String(), newVersion.String())
 	defer s.Failed()
 
 	doError := func(err error) error {
-		s.FailedWithMessage("%s", err.Error())
+		s.FailedWithMessage(err.Error())
 		return err
 	}
 
@@ -269,7 +325,7 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 		}
 	}
 
-	_, err = doHelmPull(ctx, projectDir, &cmd.HelmCredentials, false, false)
+	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp, false, false)
 	if err != nil {
 		return doError(err)
 	}
@@ -311,13 +367,13 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 			}
 		}
 
-		commitMsg := fmt.Sprintf("Updated helm chart %s from version %s to version %s", chart.GetChartName(), oldVersion, newVersion)
+		commitMsg := fmt.Sprintf("Updated helm chart %s from version %s to version %s", chart.GetChartName(), oldVersion.String(), newVersion.String())
 		_, err = wt.Commit(commitMsg, &git.CommitOptions{})
 		if err != nil {
 			return doError(fmt.Errorf("failed to commit: %w", err))
 		}
 
-		s.UpdateAndInfoFallback("Committed helm chart %s with version %s", chart.GetChartName(), newVersion)
+		s.UpdateAndInfoFallbackf("Committed helm chart %s with version %s", chart.GetChartName(), newVersion.String())
 	}
 	s.Success()
 
@@ -326,6 +382,6 @@ func (cmd *helmUpdateCmd) pullAndCommit(ctx context.Context, projectDir string, 
 
 type helmUpgradeKey struct {
 	chartDir   string
-	oldVersion string
-	newVersion string
+	oldVersion helm.ChartVersion
+	newVersion helm.ChartVersion
 }

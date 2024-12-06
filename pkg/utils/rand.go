@@ -32,3 +32,11 @@ func RandomString(n int) string {
 	}
 	return string(b)
 }
+
+func RandomizeSuffix(s string, randLen int, maxLen int) string {
+	maxPrefixLen := maxLen - 1 - randLen
+	if len(s) > maxPrefixLen {
+		s = s[:maxPrefixLen]
+	}
+	return s + "-" + RandomString(randLen)
+}

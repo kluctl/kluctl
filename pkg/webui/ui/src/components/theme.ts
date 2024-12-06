@@ -95,6 +95,36 @@ export const light = createTheme(common, {
                 }
             }
         },
+        MuiTabs: {
+            styleOverrides: {
+                root: {
+                    height: '36px',
+                    minHeight: 0,
+                    textTransform: 'none'
+                },
+                indicator: {
+                    backgroundColor: '#59A588'
+                }
+            }
+        },
+        MuiTab: {
+            styleOverrides: {
+                root: {
+                    height: '36px',
+                    minHeight: 0,
+                    fontWeight: 400,
+                    fontSize: '16px',
+                    lineHeight: '22px',
+                    letterSpacing: '1px',
+                    textTransform: 'none',
+                    padding: '7px 5px',
+                    color: '#8A8E91',
+                    '&.Mui-selected': {
+                        color: paletteLight.text.primary
+                    }
+                }
+            }
+        },
         MuiAppBar: {
             styleOverrides: {
                 root: {

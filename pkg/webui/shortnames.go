@@ -47,7 +47,6 @@ elasticsearchautoscalers                  esa                 autoscaling.k8s.el
 cronjobs                                  cj                  batch/v1                                    true         CronJob
 jobs                                                          batch/v1                                    true         Job
 beats                                     beat                beat.k8s.elastic.co/v1beta1                 true         Beat
-sealedsecrets                                                 bitnami.com/v1alpha1                        true         SealedSecret
 certificaterequests                       cr,crs              cert-manager.io/v1                          true         CertificateRequest
 certificates                              cert,certs          cert-manager.io/v1                          true         Certificate
 clusterissuers                                                cert-manager.io/v1                          false        ClusterIssuer
@@ -90,7 +89,6 @@ expansiontemplate                                             expansion.gatekeep
 providers                                                     externaldata.gatekeeper.sh/v1beta1          false        Provider
 flowschemas                                                   flowcontrol.apiserver.k8s.io/v1beta2        false        FlowSchema
 prioritylevelconfigurations                                   flowcontrol.apiserver.k8s.io/v1beta2        false        PriorityLevelConfiguration
-kluctldeployments                                             flux.kluctl.io/v1alpha1                     true         KluctlDeployment
 jaegers                                                       jaegertracing.io/v1                         true         Jaeger
 kafkabridges                              kb                  kafka.strimzi.io/v1beta2                    true         KafkaBridge
 kafkaconnectors                           kctr                kafka.strimzi.io/v1beta2                    true         KafkaConnector
@@ -160,7 +158,6 @@ gitlabcomments                                                templates.kluctl.i
 gitprojectors                                                 templates.kluctl.io/v1alpha1                true         GitProjector
 listgithubpullrequests                                        templates.kluctl.io/v1alpha1                true         ListGithubPullRequests
 listgitlabmergerequests                                       templates.kluctl.io/v1alpha1                true         ListGitlabMergeRequests
-objecthandlers                                                templates.kluctl.io/v1alpha1                true         ObjectHandler
 objecttemplates                                               templates.kluctl.io/v1alpha1                true         ObjectTemplate
 texttemplates                                                 templates.kluctl.io/v1alpha1                true         TextTemplate
 backuprepositories                                            velero.io/v1                                true         BackupRepository

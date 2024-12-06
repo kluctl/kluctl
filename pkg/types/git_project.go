@@ -2,20 +2,21 @@ package types
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"regexp"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 )
 
-// gitDirPatternNeg defines forbiden characters on git directory path/subDir
+// gitDirPatternNeg defines forbidden characters on git directory path/subDir
 var gitDirPatternNeg = regexp.MustCompile(`[\\\/:\*?"<>|[:cntrl:]\0^]`)
 
 type GitProject struct {
-	Url    GitUrl `json:"url" validate:"required"`
-	Ref    string `json:"ref,omitempty"`
-	SubDir string `json:"subDir,omitempty"`
+	Url    types.GitUrl  `json:"url" validate:"required"`
+	Ref    *types.GitRef `json:"ref,omitempty"`
+	SubDir string        `json:"subDir,omitempty"`
 }
 
 func (gp *GitProject) UnmarshalJSON(b []byte) error {
@@ -49,21 +50,6 @@ func ValidateGitProject(sl validator.StructLevel) {
 	}
 }
 
-type ExternalProject struct {
-	Project *GitProject `json:"project,omitempty"`
-	Path    *string     `json:"path,omitempty"`
-}
-
-func ValidateExternalProject(sl validator.StructLevel) {
-	p := sl.Current().Interface().(ExternalProject)
-	if p.Project == nil && p.Path == nil {
-		sl.ReportError(p, ".", ".", "either project or path must be set", "")
-	} else if p.Project != nil && p.Path != nil {
-		sl.ReportError(p, ".", ".", "only one of project or path can be set", "")
-	}
-}
-
 func init() {
 	yaml.Validator.RegisterStructValidation(ValidateGitProject, GitProject{})
-	yaml.Validator.RegisterStructValidation(ValidateExternalProject, ExternalProject{})
 }

@@ -1,3 +1,4 @@
+# Warning, this file is generated via "make manifests", don't edit it directly but instead change the files in config/manager
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -50,9 +51,14 @@ spec:
           httpGet:
             path: /healthz
             port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
+          initialDelaySeconds: 5
+          periodSeconds: 10
         name: controller
+        ports:
+        - containerPort: 8080
+          name: metrics
+        - containerPort: 8082
+          name: source-override
         readinessProbe:
           httpGet:
             path: /readyz
@@ -73,5 +79,7 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: kluctl-controller
       terminationGracePeriodSeconds: 10

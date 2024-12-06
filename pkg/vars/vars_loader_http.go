@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/Azure/go-ntlmssp"
 	"github.com/docker/distribution/registry/client/auth/challenge"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io"
 	"net/http"
 	"strings"
@@ -64,12 +64,13 @@ func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, ignoreMissing bool
 	return resp, string(respBody), nil
 }
 
-func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, bool, error) {
+	sensitive := false
 	resp, respBody, err := v.doHttp(source.Http, ignoreMissing, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
 		chgs := challenge.ResponseChallenges(resp)
 		if len(chgs) == 0 {
-			return nil, err
+			return nil, false, err
 		}
 
 		var realms []string
@@ -84,9 +85,9 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 		credsKey := fmt.Sprintf("%s|%s", source.Http.Url.Host, strings.Join(realms, "+"))
 		creds, ok := v.credentialsCache[credsKey]
 		if !ok {
-			username, password, err := status.AskForCredentials(v.ctx, fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
+			username, password, err := prompts.AskForCredentials(v.ctx, fmt.Sprintf("Please enter credentials for host '%s'", source.Http.Url.Host))
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			creds = usernamePassword{
 				username: username,
@@ -97,13 +98,14 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 
 		resp, respBody, err = v.doHttp(source.Http, ignoreMissing, creds.username, creds.password)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
+		sensitive = true
 	} else if err != nil {
 		if ignoreMissing && resp != nil && resp.StatusCode == http.StatusNotFound {
-			return uo.New(), nil
+			return uo.New(), false, nil
 		}
-		return nil, err
+		return nil, false, err
 	}
 
 	var respObj interface{}
@@ -111,34 +113,34 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 
 	err = yaml.ReadYamlString(respBody, &respObj)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if source.Http.JsonPath != nil {
 		p, err := uo.NewMyJsonPath(*source.Http.JsonPath)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		x, ok := p.GetFirstFromAny(respObj)
 		if !ok {
-			return nil, fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
+			return nil, false, fmt.Errorf("%s not found in result from http request %s", *source.Http.JsonPath, source.Http.Url.String())
 		}
 		s, ok := x.(string)
 		if !ok {
-			return nil, fmt.Errorf("%s in result of http request %s is not a string", *source.Http.JsonPath, source.Http.Url.String())
+			return nil, false, fmt.Errorf("%s in result of http request %s is not a string", *source.Http.JsonPath, source.Http.Url.String())
 		}
 		newVars, err = uo.FromString(s)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	} else {
 		x, ok := respObj.(map[string]interface{})
 		if !ok {
-			return nil, fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
+			return nil, false, fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
 		}
 		newVars = uo.FromMap(x)
 	}
-	return newVars, nil
+	return newVars, sensitive, nil
 }

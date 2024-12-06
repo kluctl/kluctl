@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"strings"
 	"sync"
@@ -154,7 +154,7 @@ func (l *CompactedObjects) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func buildReducedObject(o *uo.UnstructuredObject) *uo.UnstructuredObject {
+func BuildReducedObject(o *uo.UnstructuredObject) *uo.UnstructuredObject {
 	if o == nil {
 		return nil
 	}

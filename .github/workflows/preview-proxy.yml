@@ -1,0 +1,161 @@
+name: preview-proxy
+
+on:
+  pull_request_target:
+    types: [labeled, synchronize]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: preview-proxy-${{ github.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview-proxy:
+    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reset PR comment
+        uses: mshick/add-pr-comment@v2
+        with:
+          issue: ${{ github.pull_request.number }}
+          message-id: preview-run-info
+          message: |
+            # 🤖 Preview Environment
+            The preview environment is starting up and will be available soon.
+      - uses: actions/checkout@v4
+        with:
+          # Warning, do not try to checkout the base branch here as it would introduce enormous security risks!
+          # Also don't introduce a cache in this workflow!
+          ref: main
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      - name: Install some tools
+        run: |
+          sudo apt update
+          sudo apt install -y ncat
+          wget https://github.com/FiloSottile/age/releases/download/v1.1.1/age-v1.1.1-linux-amd64.tar.gz
+          tar xzf age-v1.1.1-linux-amd64.tar.gz
+          sudo mv age/age* /usr/bin/
+      - name: Install ipfs
+        run: |
+          wget -q https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+          tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
+          ./kubo/install.sh
+      - name: ipfs init
+        run: |
+          ipfs init
+          ipfs config --json Experimental.Libp2pStreamMounting true
+          ipfs config --json Ipns.UsePubsub true
+          ipfs daemon &
+          sleep 1
+          while ! ipfs id &> /dev/null; do
+            echo "waiting for the daemon"
+            sleep 1
+          done
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+      - name: Start cloudflared tunnel
+        run: |
+          mkdir -p ~/.cloudflared
+          echo ${{ secrets.CLOUDFLARE_TUNNEL_CERT }} | base64 -d > ~/.cloudflared/cert.pem
+          cloudflared tunnel create kluctl-preview-${{ github.event.pull_request.number }}
+          
+          TUNNEL_ID=$(cd ~/.cloudflared && ls *.json | sed 's/\.json//g')
+          echo "TUNNEL_ID=$TUNNEL_ID" >> $GITHUB_ENV
+          
+          cat <<EOF > ~/.cloudflared/config.yml
+          url: http://localhost:9090
+          tunnel: $TUNNEL_ID
+          credentials-file: $HOME/.cloudflared/$TUNNEL_ID.json
+          EOF
+          
+          cloudflared tunnel route dns $TUNNEL_ID kluctl-preview-${{ github.event.pull_request.number }}.kluctl.com
+          cloudflared tunnel run $TUNNEL_ID &
+      - name: Build ipfs-exchange-info
+        run: |
+          (cd ./internal/ipfs-exchange-info && go install .)
+      - name: Receive info
+        id: info
+        run: |
+          echo "${{ secrets.KLUCTL_PREVIEW_AGE_KEY }}" > age.key
+          ipfs-exchange-info -mode subscribe \
+            -topic kluctl-preview-${{ github.event.pull_request.number }} \
+            -pr-number ${{ github.event.pull_request.number }} \
+            -repo-name "${{ github.repository }}" \
+            -age-key-file age.key \
+            -out-file info.json
+
+          cat info.json | jq ".ipfsId" -r > ipfs_id
+          echo "ipfs_id=$(cat ipfs_id)"
+      - name: IPFS forward
+        run: |
+          ipfs p2p forward /x/kluctl-webui /ip4/127.0.0.1/tcp/9090 /p2p/$(cat ipfs_id)
+      - name: Build comment text
+        run: |
+          cat <<EOF > comment.md
+          # 🤖 Preview Environment
+          The preview environment is running.
+          
+          # Accessing the UI
+          The UI is now available at: https://kluctl-preview-${{ github.event.pull_request.number }}.kluctl.com
+          
+          When asked for credentials, use admin:admin or viewer:viewer.
+          
+          # Shutting it down
+          Either cancel the pipeline in the PR or simply wait for 30 minutes until it auto-terminates.
+          EOF
+      - uses: mshick/add-pr-comment@v2
+        with:
+          issue: ${{ github.pull_request.number }}
+          message-id: preview-run-info
+          message-path: |
+            comment.md
+      - name: Wait for preview-run to exit
+        run: |
+          failures=0
+          while true; do
+            if ! ipfs ping $(cat ipfs_id) -n1; then
+              failures=$(($failures+1))
+              if [ "$failures" -ge "5" ]; then
+                break
+              fi
+              sleep 5
+            else
+              sleep 10
+              failures=0
+            fi
+          done
+      - name: Cleanup cloudflare tunnel
+        if: ${{ always() }}
+        run: |
+          killall cloudflared || true
+          sleep 5
+
+          cloudflared tunnel cleanup $TUNNEL_ID || true
+          cloudflared tunnel delete $TUNNEL_ID || true
+          
+          token="${{ secrets.CLOUDFLARE_DNS_API_TOKEN }}"
+          zone_id=$(curl -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones" | jq '.result[] | select(.name == "kluctl.com").id' -r)
+          echo zone_id=$zone_id
+          record_id=$(curl -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" | jq '.result[] | select(.name == "kluctl-preview-${{ github.event.pull_request.number }}.kluctl.com").id' -r)
+          echo record_id=$record_id
+          curl -X DELETE -H "Authorization: Bearer $token" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$record_id"
+      - uses: mshick/add-pr-comment@v2
+        if: ${{ always() }}
+        with:
+          issue: ${{ github.pull_request.number }}
+          message-id: preview-run-info
+          message: |
+            # 🤖 Preview Environment
+            The preview environment has been shut down.

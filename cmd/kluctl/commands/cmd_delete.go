@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 )
 
 type deleteCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
@@ -23,6 +26,8 @@ type deleteCmd struct {
 	args.CommandResultFlags
 
 	Discriminator string `group:"misc" help:"Override the discriminator used to find objects for deletion."`
+
+	NoWait bool `group:"misc" help:"Don't wait for deletion of objects to finish.'"`
 }
 
 func (cmd *deleteCmd) Help() string {
@@ -36,25 +41,26 @@ take the local target/state into account!`
 func (cmd *deleteCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
+		registryCredentials:  cmd.RegistryCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
-		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx, nil, true)
+		cmd2 := commands.NewDeleteCommand(cmd.Discriminator, cmdCtx.targetCtx, nil, !cmd.NoWait)
 
-		result, err := cmd2.Run(cmdCtx.targetCtx.SharedContext.Ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
+		result := cmd2.Run(cmdCtx.targetCtx.SharedContext.Ctx, cmdCtx.targetCtx.SharedContext.K, func(refs []k8s2.ObjectRef) error {
 			return confirmDeletion(ctx, refs, cmd.DryRun, cmd.Yes)
 		})
-		if err != nil {
-			return err
-		}
-		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+
+		err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 		if err != nil {
 			return err
 		}
@@ -72,7 +78,7 @@ func confirmDeletion(ctx context.Context, refs []k8s2.ObjectRef, dryRun bool, fo
 			_, _ = getStderr(ctx).WriteString(fmt.Sprintf("  %s\n", ref.String()))
 		}
 		if !forceYes && !dryRun {
-			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
+			if !prompts.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to delete %d objects?", len(refs))) {
 				return fmt.Errorf("aborted")
 			}
 		}

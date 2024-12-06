@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 )
 
 type pokeImagesCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.YesFlags
 	args.DryRunFlags
 	args.OutputFormatFlags
@@ -31,29 +34,29 @@ replaced`
 func (cmd *pokeImagesCmd) Run(ctx context.Context) error {
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
+		registryCredentials:  cmd.RegistryCredentials,
 		dryRunArgs:           &cmd.DryRunFlags,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		commandResultFlags:   &cmd.CommandResultFlags,
 	}
 	return withProjectCommandContext(ctx, ptArgs, func(cmdCtx *commandCtx) error {
 		if !cmd.Yes && !cmd.DryRun {
-			if !status.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", cmdCtx.targetCtx.ClusterContext)) {
+			if !prompts.AskForConfirmation(ctx, fmt.Sprintf("Do you really want to poke images to the context/cluster %s?", cmdCtx.targetCtx.ClusterContext)) {
 				return fmt.Errorf("aborted")
 			}
 		}
 
 		cmd2 := commands.NewPokeImagesCommand(cmdCtx.targetCtx)
 
-		result, err := cmd2.Run()
-		if err != nil {
-			return err
-		}
-		err = outputCommandResult(cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
+		result := cmd2.Run()
+		err := outputCommandResult(ctx, cmdCtx, cmd.OutputFormatFlags, result, !cmd.DryRun || cmd.ForceWriteCommandResult)
 		if err != nil {
 			return err
 		}

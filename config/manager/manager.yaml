@@ -58,13 +58,8 @@ spec:
       #               - linux
       securityContext:
         runAsNonRoot: true
-        # TODO(user): For common cases that do not require escalating privileges
-        # it is recommended to ensure that all your Pods/Containers are restrictive.
-        # More info: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
-        # Please uncomment the following code if your project does NOT have to work on old Kubernetes
-        # versions < 1.19 or on vendors versions which do NOT support this field by default (i.e. Openshift < 4.11 ).
-        # seccompProfile:
-        #   type: RuntimeDefault
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: controller
         image: ghcr.io/kluctl/kluctl:latest
@@ -76,6 +71,11 @@ spec:
         args:
         - --leader-elect
         env: []
+        ports:
+        - containerPort: 8080
+          name: metrics
+        - containerPort: 8082
+          name: source-override
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -85,8 +85,8 @@ spec:
           httpGet:
             path: /healthz
             port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
+          initialDelaySeconds: 5
+          periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /readyz

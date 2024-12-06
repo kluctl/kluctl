@@ -24,12 +24,11 @@ var supportedKluctlDeletePolicies = []string{
 	"hook-failed",
 }
 
-// delete/rollback hooks are actually not supported, but we won't show warnings about that to not spam the user
 var supportedHelmHooks = []string{
 	"pre-install", "post-install",
 	"pre-upgrade", "post-upgrade",
-	"pre-delete", "post-delete",
-	"pre-rollback", "post-rollback",
+	//"pre-delete", "post-delete", TODO re-add this when we actually support delete
+	//"pre-rollback", "post-rollback", TODO re-add this when we actually support rollback
 }
 
 type HooksUtil struct {
@@ -37,10 +36,13 @@ type HooksUtil struct {
 }
 
 func NewHooksUtil(a *ApplyUtil) *HooksUtil {
-	return &HooksUtil{a: a}
+	return &HooksUtil{
+		a: a,
+	}
 }
 
 type hook struct {
+	di             *deployment.DeploymentItem
 	object         *uo.UnstructuredObject
 	hooks          map[string]bool
 	weight         int
@@ -51,7 +53,7 @@ type hook struct {
 
 func (u *HooksUtil) DetermineHooks(d *deployment.DeploymentItem, hooks []string) []*hook {
 	var l []*hook
-	for _, h := range u.getSortedHooksList(d.Objects) {
+	for _, h := range u.getSortedHooksList(d) {
 		for h2 := range h.hooks {
 			if utils.FindStrInSlice(hooks, h2) != -1 {
 				l = append(l, h)
@@ -82,12 +84,12 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 		for p := range h.deletePolicies {
 			dpStr = append(dpStr, p)
 		}
-		u.a.sctx.UpdateAndInfoFallback("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
+		u.a.sctx.UpdateAndInfoFallbackf("Deleting hook %s due to hook-delete-policy %s (%d of %d)", ref.String(), strings.Join(dpStr, ","), i+1, cnt)
 		return u.a.DeleteObject(ref, true)
 	}
 
 	if len(deleteBeforeObjects) != 0 {
-		u.a.sctx.InfoFallback("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
+		u.a.sctx.InfoFallbackf("Deleting %d hooks before hook execution", len(deleteBeforeObjects))
 	}
 	for i, h := range deleteBeforeObjects {
 		doDeleteForPolicy(h, i, len(deleteBeforeObjects))
@@ -95,13 +97,13 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 
 	waitResults := make(map[k8s.ObjectRef]bool)
 	if len(applyObjects) != 0 {
-		u.a.sctx.InfoFallback("Applying %d hooks", len(applyObjects))
+		u.a.sctx.InfoFallbackf("Applying %d hooks", len(applyObjects))
 	}
 	for i, h := range applyObjects {
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
-		u.a.sctx.UpdateAndInfoFallback("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
-		u.a.ApplyObject(h.object, replaced, true)
+		u.a.sctx.UpdateAndInfoFallbackf("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
+		u.a.ApplyObject(h.di, h.object, replaced, true)
 		u.a.sctx.Increment()
 
 		if u.a.HadError(ref) {
@@ -133,14 +135,14 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 	}
 
 	if len(deleteAfterObjects) != 0 {
-		u.a.sctx.InfoFallback("Deleting %d hooks after hook execution", len(deleteAfterObjects))
+		u.a.sctx.InfoFallbackf("Deleting %d hooks after hook execution", len(deleteAfterObjects))
 	}
 	for i, h := range deleteAfterObjects {
 		doDeleteForPolicy(h, i, len(deleteAfterObjects))
 	}
 }
 
-func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
+func (u *HooksUtil) GetHook(di *deployment.DeploymentItem, o *uo.UnstructuredObject) *hook {
 	ref := o.GetK8sRef()
 	getSet := func(name string) map[string]bool {
 		ret := make(map[string]bool)
@@ -157,7 +159,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		return ret
 	}
 
-	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/delete")) {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
 		return nil
 	}
 
@@ -182,11 +184,13 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 
 	helmCompatibility("pre-install", "pre-deploy-initial")
-	helmCompatibility("pre-upgrade", "pre-deploy-upgrade")
 	helmCompatibility("post-install", "post-deploy-initial")
+	helmCompatibility("pre-delete", "pre-delete")   // actually not implemented, so it will be ignored
+	helmCompatibility("post-delete", "post-delete") // actually not implemented, so it will be ignored
+	helmCompatibility("pre-upgrade", "pre-deploy-upgrade")
 	helmCompatibility("post-upgrade", "post-deploy-upgrade")
-	helmCompatibility("pre-delete", "pre-delete")
-	helmCompatibility("post-delete", "post-delete")
+	helmCompatibility("pre-rollback", "pre-rollback")   // actually not implemented, so it will be ignored
+	helmCompatibility("post-rollback", "post-rollback") // actually not implemented, so it will be ignored
 
 	weightStr := o.GetK8sAnnotation("kluctl.io/hook-weight")
 	if weightStr == nil {
@@ -215,15 +219,9 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 		}
 	}
 
-	waitStr := o.GetK8sAnnotation("kluctl.io/hook-wait")
-	if waitStr == nil {
-		x := "true"
-		waitStr = &x
-	}
-	wait, err := strconv.ParseBool(*waitStr)
+	wait, err := o.GetK8sAnnotationBool("kluctl.io/hook-wait", true)
 	if err != nil {
-		u.a.HandleError(ref, fmt.Errorf("failed to parse %s as bool", *waitStr))
-		wait = true
+		u.a.HandleError(ref, err)
 	}
 
 	timeoutStr := o.GetK8sAnnotation("kluctl.io/hook-timeout")
@@ -242,6 +240,7 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 
 	return &hook{
+		di:             di,
 		object:         o,
 		hooks:          hooks,
 		weight:         int(weight),
@@ -251,10 +250,10 @@ func (u *HooksUtil) GetHook(o *uo.UnstructuredObject) *hook {
 	}
 }
 
-func (u *HooksUtil) getSortedHooksList(objects []*uo.UnstructuredObject) []*hook {
+func (u *HooksUtil) getSortedHooksList(d *deployment.DeploymentItem) []*hook {
 	var ret []*hook
-	for _, o := range objects {
-		h := u.GetHook(o)
+	for _, o := range d.Objects {
+		h := u.GetHook(d, o)
 		if h == nil {
 			continue
 		}
@@ -273,4 +272,28 @@ func (h *hook) IsPersistent() bool {
 		}
 	}
 	return true
+}
+
+func (h *hook) IsOnlyDelete() bool {
+	found := false
+	for x := range h.hooks {
+		if x == "pre-delete" || x == "post-delete" {
+			found = true
+		} else {
+			return false
+		}
+	}
+	return found
+}
+
+func (h *hook) IsOnlyRollback() bool {
+	found := false
+	for x := range h.hooks {
+		if x == "pre-rollback" || x == "post-rollback" {
+			found = true
+		} else {
+			return false
+		}
+	}
+	return found
 }

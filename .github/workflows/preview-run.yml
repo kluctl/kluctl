@@ -1,0 +1,163 @@
+name: preview-run
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+    branches:
+      - main
+
+concurrency:
+  group: preview-run-${{ github.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview-run:
+    if: ${{ github.event.label.name == 'preview' || contains(github.event.pull_request.labels.*.name, 'preview') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: pkg/webui/ui/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-preview-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-preview-build-
+      - name: Install some tools
+        run: |
+          sudo apt update
+          sudo apt install -y ncat
+          wget https://github.com/FiloSottile/age/releases/download/v1.1.1/age-v1.1.1-linux-amd64.tar.gz
+          tar xzf age-v1.1.1-linux-amd64.tar.gz
+          sudo mv age/age* /usr/bin/
+      # SETUP IPFS
+      - name: Install ipfs
+        run: |
+          wget -q https://dist.ipfs.tech/kubo/v0.20.0/kubo_v0.20.0_linux-amd64.tar.gz
+          tar -xvzf kubo_v0.20.0_linux-amd64.tar.gz
+          ./kubo/install.sh
+      - name: Setup ipfs
+        run: |
+          ipfs init
+          ipfs config --json Experimental.Libp2pStreamMounting true
+          ipfs config --json Ipns.UsePubsub true
+          ipfs daemon --enable-pubsub-experiment &
+          sleep 1
+          while ! ipfs id &> /dev/null; do
+            echo "waiting for the daemon"
+            sleep 1
+          done
+      # SETUP SSH
+      - name: Setup ssh
+        run: |
+          mkdir -p ~/.ssh
+          echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCtWJls6XlpszR5zMjiK7cdUnSBI/p7tWaEHykJZrlwHRepNIckPk4ftOsOfiLb+2K/TntPGa0NMWM0uccRNXJ1/hgT5uiA8MpR8d1SGV5QtVwzJkDTXN8iwcTu1zcIUoL2FvQUm/P4hHI4BdcS9GyokOnqh296RRtajnzWZlGtBHRMPt9S7eil9kl5sOuHQIsZHjYkqLb7PSyVWeeMzEEeI28L2ZDrfBBgBNiE4ibVBlRbUeArRO5coV2Vn9uafzOIXT13apo0bhacv5FEmmsEcDGelZWKVInoUQHDnsr7UQPDHS2OsdtZRCluvRYH5ZC4SvrDeuZe4AKjc8iDeNuZLlzn7cgwGZDNHJ1PwAWwEz4/yF0vshA7mfrXLhjJ4+vN4enlQqDYqvudJ3x4uKO67panc+Gmaq76mxh81bJHNnlothEs9K9WfGcXAlBBjuk/0kmIf6I1ICA/dxCKa0sAMbolZHoBuoVUszQdlVrDkwPmzNCenBX/MPDJl08FJFc= ablock@Alexanders-MacBook-Pro.local" >> ~/.ssh/authorized_keys
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
+          ipfs p2p listen /x/ssh /ip4/127.0.0.1/tcp/22
+          
+          ssh-keygen -f scp_key -P ""
+          cat scp_key.pub >> ~/.ssh/authorized_keys
+      # SETUP KIND
+      - name: Setup Kind cluster
+        run: |
+          cat <<EOF > kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          networking:
+            apiServerAddress: "127.0.0.1"
+            apiServerPort: 6443
+          nodes:
+            - role: control-plane
+              kubeadmConfigPatches:
+                - |
+                  kind: InitConfiguration
+                  nodeRegistration:
+                    kubeletExtraArgs:
+                      node-labels: "ingress-ready=true"
+              extraPortMappings:
+                - containerPort: 80
+                  hostPort: 80
+                  protocol: TCP
+                - containerPort: 443
+                  hostPort: 443
+                  protocol: TCP
+          EOF
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          kind create cluster --config kind-config.yaml
+      - name: Kind info
+        run: |
+          kubectl cluster-info
+      # BUILD
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build binary
+        run: |
+          make build-webui
+          make build-bin
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: kluctl:preview
+      # LOAD IMAGE
+      - name: Load image to Kind
+        run: |
+          kind load docker-image kluctl:preview
+      # INSTALL
+      - name: Install Kluctl Controller
+        run: |
+          cd install/controller
+          ../../bin/kluctl deploy --yes -a kluctl_image=kluctl -a kluctl_version=preview
+      - name: Install Kluctl Webui
+        run: |
+          cd install/webui
+          ../../bin/kluctl deploy --yes -a kluctl_image=kluctl -a kluctl_version=preview \
+            -a webui_args='[]'
+          kubectl -n kluctl-system create secret generic webui-secret \
+            --from-literal auth-secret=secret \
+            --from-literal admin-password=admin \
+            --from-literal viewer-password=viewer
+      - name: Run kubectl port-forward
+        run: |
+          kubectl -n kluctl-system port-forward svc/kluctl-webui 9090:8080 &
+      - name: Listen ipfs/p2p
+        run: |
+          ipfs p2p listen /x/k /ip4/127.0.0.1/tcp/6443
+          ipfs p2p listen /x/kluctl-webui /ip4/127.0.0.1/tcp/9090
+          ipfs p2p listen --allow-custom-protocol /http /ip4/127.0.0.1/tcp/9090
+      # SEND INFO
+      - name: Build ipfs-exchange-info
+        run: |
+          (cd ./internal/ipfs-exchange-info && go install .)
+      - name: send info
+        run: |
+          ipfs-exchange-info -mode publish \
+            -topic kluctl-preview-${{ github.event.pull_request.number }} \
+            -ipfs-id $(ipfs id -f "<id>") \
+            -pr-number ${{ github.event.pull_request.number }} \
+            -age-pub-key age1dhueesr5qj8e8uy298k7z8x3ntv620rde89phumg0kvjx2t32elsm759z7
+        env:
+          # we send the GITHUB_TOKEN to the preview-proxy workflow. This token is then verified to be from a workflow
+          # that runs inside this repo, which can only be a workflow that got manually approved. The token is encrypted
+          # via age
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # SLEEP
+      - name: Sleep
+        run: |
+          echo "Sleeping..."
+          sleep 1800

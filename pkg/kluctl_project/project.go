@@ -1,31 +1,25 @@
 package kluctl_project
 
 import (
-	"context"
 	"fmt"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
-	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"time"
 )
 
 type LoadedKluctlProject struct {
-	ctx context.Context
-
 	LoadArgs LoadKluctlProjectArgs
 	LoadTime time.Time
-
-	TmpDir string
-
-	sealedSecretsDir string
 
 	Config  types2.KluctlProject
 	Targets []*types2.Target
 
-	J2            *jinja2.Jinja2
-	RP            *repocache.GitRepoCache
-	SopsDecrypter *decryptor.Decryptor
+	NoNameTarget *types2.Target
+
+	J2    *jinja2.Jinja2
+	GitRP *repocache.GitRepoCache
+	OciRP *repocache.OciRepoCache
 }
 
 func (c *LoadedKluctlProject) FindTarget(name string) (*types2.Target, error) {

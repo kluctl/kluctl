@@ -2,10 +2,10 @@ package diff
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -40,7 +40,7 @@ type testCase struct {
 	remote         *uo.UnstructuredObject
 	local          *uo.UnstructuredObject
 	result         *uo.UnstructuredObject
-	ignoreForDiffs []*types.IgnoreForDiffItemConfig
+	ignoreForDiffs []types.IgnoreForDiffItemConfig
 }
 
 func runTests(t *testing.T, tests []testCase) {
@@ -78,6 +78,8 @@ func TestNormalizeMisc(t *testing.T) {
 	testCases := []testCase{
 		{remote: buildObject(`{"spec": {"template": {"metadata": {"labels": {"controller-uid": "test", "good": "keep"}}}}, "selector": {"controller-uid": "test", "good": "keep"}}`), local: buildObject(), result: buildResultObject(`{"metadata":{"annotations":{},"labels":{}},"selector":{"controller-uid":"test","good":"keep"},"spec":{"template":{"metadata":{"labels":{"good":"keep"}}}}}`)},
 		{remote: buildObject(`{"status": {"test": "test"}}`), local: buildObject(), result: buildResultObject()},
+		{remote: buildObject(`{"spec": {"template": {"metadata": {"labels": {"batch.kubernetes.io/controller-uid": "test", "good": "keep"}}}}, "selector": {"batch.kubernetes.io/controller-uid": "test", "good": "keep"}}`), local: buildObject(), result: buildResultObject(`{"metadata":{"annotations":{},"labels":{}},"selector":{"batch.kubernetes.io/controller-uid":"test","good":"keep"},"spec":{"template":{"metadata":{"labels":{"good":"keep"}}}}}`)},
+		{remote: buildObject(`{"status": {"test": "test"}}`), local: buildObject(), result: buildResultObject()},
 	}
 	runTests(t, testCases)
 }
@@ -112,7 +114,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.l1", "metadata.labels.l2"}},
 			},
 		},
@@ -120,7 +122,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPath: []string{"metadata.labels.*"}},
 			},
 		},
@@ -128,7 +130,7 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
 				{FieldPathRegex: []string{`metadata\.labels\.l.*`}},
 			},
 		},
@@ -136,40 +138,40 @@ func TestNormalizeIgnoreForDiffs(t *testing.T) {
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Group: utils.StrPtr("Nope")},
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
+				{FieldPath: []string{"metadata.labels.*"}, Group: utils.Ptr("Nope")},
 			},
 		},
 		{
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Kind: utils.StrPtr("Nope")},
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
+				{FieldPath: []string{"metadata.labels.*"}, Kind: utils.Ptr("Nope")},
 			},
 		},
 		{
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Name: utils.StrPtr("Nope")},
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
+				{FieldPath: []string{"metadata.labels.*"}, Name: utils.Ptr("Nope")},
 			},
 		},
 		{
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2", "good": "keep"}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Namespace: utils.StrPtr("Nope")},
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
+				{FieldPath: []string{"metadata.labels.*"}, Namespace: utils.Ptr("Nope")},
 			},
 		},
 		{
 			remote: buildObject(`{"metadata": {"labels": {"l1": "v1", "l2": "l2"}}}`),
 			local:  buildObject(),
 			result: buildResultObject(`{"metadata": {"labels": {}}}`),
-			ignoreForDiffs: []*types.IgnoreForDiffItemConfig{
-				{FieldPath: []string{"metadata.labels.*"}, Group: utils.StrPtr("apps"), Kind: utils.StrPtr("Deployment"), Name: utils.StrPtr("test"), Namespace: utils.StrPtr("ns")},
+			ignoreForDiffs: []types.IgnoreForDiffItemConfig{
+				{FieldPath: []string{"metadata.labels.*"}, Group: utils.Ptr("apps"), Kind: utils.Ptr("Deployment"), Name: utils.Ptr("test"), Namespace: utils.Ptr("ns")},
 			},
 		},
 	}

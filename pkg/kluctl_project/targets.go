@@ -1,39 +1,53 @@
 package kluctl_project
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"context"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"sort"
 )
 
-func (c *LoadedKluctlProject) loadTargets() error {
-	status.Trace(c.ctx, "Loading targets")
-	defer status.Trace(c.ctx, "Done loading targets")
+func (c *LoadedKluctlProject) loadTargets(ctx context.Context) error {
+	status.Trace(ctx, "Loading targets")
+	defer status.Trace(ctx, "Done loading targets")
 
 	targetNames := make(map[string]bool)
 	c.Targets = nil
 
+	if len(c.Config.Targets) == 0 {
+		target, err := c.buildTarget(&types.Target{})
+		if err != nil {
+			return err
+		}
+		err = c.renderTarget(target)
+		if err != nil {
+			return err
+		}
+		c.NoNameTarget = target
+		return nil
+	}
+
 	for i, configTarget := range c.Config.Targets {
 		if configTarget.Name == "" {
-			status.Error(c.ctx, "Target at index %d has no name", i)
+			status.Errorf(ctx, "Target at index %d has no name", i)
 			continue
 		}
 
-		target, err := c.buildTarget(configTarget)
+		target, err := c.buildTarget(&configTarget)
 		if err != nil {
-			status.Warning(c.ctx, "Failed to load target config for project: %v", err)
+			status.Warningf(ctx, "Failed to load target config for project: %v", err)
 			continue
 		}
 
 		err = c.renderTarget(target)
 		if err != nil {
-			status.Warning(c.ctx, "Failed to load target %s: %v", target.Name, err)
+			status.Warningf(ctx, "Failed to load target %s: %v", target.Name, err)
 			continue
 		}
 
 		if _, ok := targetNames[target.Name]; ok {
-			status.Warning(c.ctx, "Duplicate target %s", target.Name)
+			status.Warningf(ctx, "Duplicate target %s", target.Name)
 		} else {
 			targetNames[target.Name] = true
 			c.Targets = append(c.Targets, target)
@@ -51,7 +65,7 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 
 	var retErr error
 	for i := 0; i < 10; i++ {
-		varsCtx, err := c.buildVars(target, false)
+		varsCtx, err := c.BuildVars(target)
 		if err != nil {
 			return err
 		}
@@ -66,13 +80,29 @@ func (c *LoadedKluctlProject) renderTarget(target *types.Target) error {
 }
 
 func (c *LoadedKluctlProject) buildTarget(configTarget *types.Target) (*types.Target, error) {
-	var target types.Target
-	err := utils.DeepCopy(&target, configTarget)
+	target, err := utils.DeepClone(configTarget)
 	if err != nil {
 		return nil, err
 	}
 	if target.Discriminator == "" {
 		target.Discriminator = c.Config.Discriminator
 	}
-	return &target, nil
+	if target.Aws == nil {
+		if c.Config.Aws != nil {
+			target.Aws = c.Config.Aws
+		} else {
+			target.Aws = &types.AwsConfig{}
+		}
+	} else if c.Config.Aws != nil {
+		if target.Aws.Profile == nil {
+			target.Aws.Profile = c.Config.Aws.Profile
+		}
+		if target.Aws.ServiceAccount == nil {
+			target.Aws.ServiceAccount = c.Config.Aws.ServiceAccount
+		}
+	}
+	// just to make sure we don't later overwrite stuff from c.Config, which we might have copied into the target a few
+	// lines above this
+	target, err = utils.DeepClone(target)
+	return target, nil
 }

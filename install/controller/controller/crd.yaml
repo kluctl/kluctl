@@ -1,8 +1,9 @@
+# Warning, this file is generated via "make manifests", don't edit it directly but instead change the files in config/crd
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: kluctldeployments.gitops.kluctl.io
 spec:
   group: gitops.kluctl.io
@@ -14,17 +15,20 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.suspend
+      name: Suspend
+      type: boolean
     - jsonPath: .spec.dryRun
       name: DryRun
       type: boolean
-    - jsonPath: .status.lastDeployResult.command.endTime
+    - jsonPath: .status.lastDeployResult.commandInfo.endTime
       name: Deployed
-      type: date
-    - jsonPath: .status.lastPruneResult.command.endTime
-      name: Pruned
       type: date
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
+      type: string
+    - jsonPath: .status.lastDriftDetectionResultMessage
+      name: Drift
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Status
@@ -38,14 +42,19 @@ spec:
         description: KluctlDeployment is the Schema for the kluctldeployments API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -53,19 +62,123 @@ spec:
             properties:
               abortOnError:
                 default: false
-                description: ForceReplaceOnError instructs kluctl to abort deployments
-                  immediately when something fails. Equivalent to using '--abort-on-error'
-                  when calling kluctl.
+                description: |-
+                  ForceReplaceOnError instructs kluctl to abort deployments immediately when something fails.
+                  Equivalent to using '--abort-on-error' when calling kluctl.
                 type: boolean
               args:
                 description: Args specifies dynamic target args.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               context:
-                description: If specified, overrides the context to be used. This
-                  will effectively make kluctl ignore the context specified in the
-                  target.
+                description: |-
+                  If specified, overrides the context to be used. This will effectively make kluctl ignore the context specified
+                  in the target.
                 type: string
+              credentials:
+                description: Credentials specifies the credentials used when pulling
+                  sources
+                properties:
+                  git:
+                    description: Git specifies a list of git credentials
+                    items:
+                      properties:
+                        host:
+                          description: |-
+                            Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
+                            applies to all hosts.
+                            Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+                            You must always set a proper hostname in that case.
+                          type: string
+                        path:
+                          description: |-
+                            Path specifies the path to be used to filter Git repositories. The path can contain wildcards. These credentials
+                            will only be used for matching Git URLs. If omitted, all repositories are considered to match.
+                          type: string
+                        secretRef:
+                          description: |-
+                            SecretRef specifies the Secret containing authentication credentials for
+                            the git repository.
+                            For HTTPS git repositories the Secret must contain 'username' and 'password'
+                            fields.
+                            For SSH git repositories the Secret must contain 'identity'
+                            and 'known_hosts' fields.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - secretRef
+                      type: object
+                    type: array
+                  helm:
+                    description: Helm specifies a list of Helm credentials
+                    items:
+                      properties:
+                        host:
+                          description: Host specifies the hostname that this secret
+                            applies to.
+                          type: string
+                        path:
+                          description: |-
+                            Path specifies the path to be used to filter Helm urls. The path can contain wildcards. These credentials
+                            will only be used for matching URLs. If omitted, all URLs are considered to match.
+                          type: string
+                        secretRef:
+                          description: |-
+                            SecretRef specifies the Secret containing authentication credentials for
+                            the Helm repository.
+                            The secret can either container basic authentication credentials via `username` and `password` or
+                            TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
+                            contacting the repository.
+                            The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.
+                            `passCredentialsAll: "true"` can be specified to make the controller pass credentials to all requests, even if
+                            the hostname changes in-between.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - host
+                      - secretRef
+                      type: object
+                    type: array
+                  oci:
+                    description: Oci specifies a list of OCI credentials
+                    items:
+                      properties:
+                        registry:
+                          description: Registry specifies the hostname that this secret
+                            applies to.
+                          type: string
+                        repository:
+                          description: |-
+                            Repository specifies the org and repo name in the format 'org-name/repo-name'.
+                            Both 'org-name' and 'repo-name' can be specified as '*', meaning that all names are matched.
+                          type: string
+                        secretRef:
+                          description: |-
+                            SecretRef specifies the Secret containing authentication credentials for
+                            the oci repository.
+                            The secret must contain 'username' and 'password'.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - secretRef
+                      type: object
+                    type: array
+                type: object
               decryption:
                 description: Decrypt Kubernetes secrets before applying them on the
                   cluster.
@@ -86,11 +199,10 @@ spec:
                     - name
                     type: object
                   serviceAccount:
-                    description: ServiceAccount specifies the service account used
-                      to authenticate against cloud providers. This is currently only
-                      usable for AWS KMS keys. The specified service account will
-                      be used to authenticate to AWS by signing a token in an IRSA
-                      compliant way.
+                    description: |-
+                      ServiceAccount specifies the service account used to authenticate against cloud providers.
+                      This is currently only usable for AWS KMS keys. The specified service account will be used to authenticate to AWS
+                      by signing a token in an IRSA compliant way.
                     type: string
                 required:
                 - provider
@@ -101,70 +213,72 @@ spec:
                   the KluctlDeployment object gets deleted.
                 type: boolean
               deployInterval:
-                description: DeployInterval specifies the interval at which to deploy
-                  the KluctlDeployment, even in cases the rendered result does not
-                  change.
-                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)|never$
+                description: |-
+                  DeployInterval specifies the interval at which to deploy the KluctlDeployment, even in cases the rendered
+                  result does not change.
+                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)
                 type: string
               deployMode:
                 default: full-deploy
-                description: DeployMode specifies what deploy mode should be used.
-                  The options 'full-deploy' and 'poke-images' are supported. With
-                  the 'poke-images' option, only images are patched into the target
-                  without performing a full deployment.
+                description: |-
+                  DeployMode specifies what deploy mode should be used.
+                  The options 'full-deploy' and 'poke-images' are supported.
+                  With the 'poke-images' option, only images are patched into the target without performing a full deployment.
                 enum:
                 - full-deploy
                 - poke-images
                 type: string
               dryRun:
                 default: false
-                description: DryRun instructs kluctl to run everything in dry-run
-                  mode. Equivalent to using '--dry-run' when calling kluctl.
+                description: |-
+                  DryRun instructs kluctl to run everything in dry-run mode.
+                  Equivalent to using '--dry-run' when calling kluctl.
                 type: boolean
               excludeDeploymentDirs:
-                description: ExcludeDeploymentDirs instructs kluctl to exclude deployments
-                  with the given dir. Equivalent to using '--exclude-deployment-dir'
-                  when calling kluctl.
+                description: |-
+                  ExcludeDeploymentDirs instructs kluctl to exclude deployments with the given dir.
+                  Equivalent to using '--exclude-deployment-dir' when calling kluctl.
                 items:
                   type: string
                 type: array
               excludeTags:
-                description: ExcludeTags instructs kluctl to exclude deployments with
-                  given tags. Equivalent to using '--exclude-tag' when calling kluctl.
+                description: |-
+                  ExcludeTags instructs kluctl to exclude deployments with given tags.
+                  Equivalent to using '--exclude-tag' when calling kluctl.
                 items:
                   type: string
                 type: array
               forceApply:
                 default: false
-                description: ForceApply instructs kluctl to force-apply in case of
-                  SSA conflicts. Equivalent to using '--force-apply' when calling
-                  kluctl.
+                description: |-
+                  ForceApply instructs kluctl to force-apply in case of SSA conflicts.
+                  Equivalent to using '--force-apply' when calling kluctl.
                 type: boolean
               forceReplaceOnError:
                 default: false
-                description: ForceReplaceOnError instructs kluctl to force-replace
-                  resources in case a normal replace fails. Equivalent to using '--force-replace-on-error'
-                  when calling kluctl.
+                description: |-
+                  ForceReplaceOnError instructs kluctl to force-replace resources in case a normal replace fails.
+                  Equivalent to using '--force-replace-on-error' when calling kluctl.
                 type: boolean
               helmCredentials:
-                description: HelmCredentials is a list of Helm credentials used when
-                  non pre-pulled Helm Charts are used inside a Kluctl deployment.
+                description: |-
+                  HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
+                  Kluctl deployment.
+                  DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.
                 items:
                   properties:
                     secretRef:
-                      description: 'SecretRef holds the name of a secret that contains
-                        the Helm credentials. The secret must either contain the fields
-                        `credentialsId` which refers to the credentialsId found in
-                        https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories
-                        or an `url` used to match the credentials found in Kluctl
-                        projects helm-chart.yaml files. The secret can either container
-                        basic authentication credentials via `username` and `password`
-                        or TLS authentication via `certFile` and `keyFile`. `caFile`
-                        can be specified to override the CA to use while contacting
-                        the repository. The secret can also contain `insecureSkipTlsVerify:
-                        "true"`, which will disable TLS verification. `passCredentialsAll:
-                        "true"` can be specified to make the controller pass credentials
-                        to all requests, even if the hostname changes in-between.'
+                      description: |-
+                        SecretRef holds the name of a secret that contains the Helm credentials.
+                        The secret must either contain the fields `credentialsId` which refers to the credentialsId
+                        found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories or an `url` used
+                        to match the credentials found in Kluctl projects helm-chart.yaml files.
+                        The secret can either container basic authentication credentials via `username` and `password` or
+                        TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
+                        contacting the repository.
+                        The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.
+                        `passCredentialsAll: "true"` can be specified to make the controller pass credentials to all requests, even if
+                        the hostname changes in-between.
                       properties:
                         name:
                           description: Name of the referent.
@@ -175,8 +289,9 @@ spec:
                   type: object
                 type: array
               images:
-                description: Images contains a list of fixed image overrides. Equivalent
-                  to using '--fixed-images-file' when calling kluctl.
+                description: |-
+                  Images contains a list of fixed image overrides.
+                  Equivalent to using '--fixed-images-file' when calling kluctl.
                 items:
                   properties:
                     container:
@@ -192,6 +307,8 @@ spec:
                     deploymentDir:
                       type: string
                     image:
+                      type: string
+                    imageRegex:
                       type: string
                     namespace:
                       type: string
@@ -214,46 +331,48 @@ spec:
                     resultImage:
                       type: string
                   required:
-                  - image
                   - resultImage
                   type: object
                 type: array
               includeDeploymentDirs:
-                description: IncludeDeploymentDirs instructs kluctl to only include
-                  deployments with the given dir. Equivalent to using '--include-deployment-dir'
-                  when calling kluctl.
+                description: |-
+                  IncludeDeploymentDirs instructs kluctl to only include deployments with the given dir.
+                  Equivalent to using '--include-deployment-dir' when calling kluctl.
                 items:
                   type: string
                 type: array
               includeTags:
-                description: IncludeTags instructs kluctl to only include deployments
-                  with given tags. Equivalent to using '--include-tag' when calling
-                  kluctl.
+                description: |-
+                  IncludeTags instructs kluctl to only include deployments with given tags.
+                  Equivalent to using '--include-tag' when calling kluctl.
                 items:
                   type: string
                 type: array
               interval:
-                description: The interval at which to reconcile the KluctlDeployment.
-                  Reconciliation means that the deployment is fully rendered and only
-                  deployed when the result changes compared to the last deployment.
+                description: |-
+                  The interval at which to reconcile the KluctlDeployment.
+                  Reconciliation means that the deployment is fully rendered and only deployed when the result changes compared
+                  to the last deployment.
                   To override this behavior, set the DeployInterval value.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               kubeConfig:
-                description: The KubeConfig for deploying to the target cluster. Specifies
-                  the kubeconfig to be used when invoking kluctl. Contexts in this
-                  kubeconfig must match the context found in the kluctl target. As
-                  an alternative, specify the context to be used via 'context'
+                description: |-
+                  The KubeConfig for deploying to the target cluster.
+                  Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
+                  the context found in the kluctl target. As an alternative, specify the context to be used via 'context'
                 properties:
                   secretRef:
-                    description: SecretRef holds the name of a secret that contains
-                      a key with the kubeconfig file as the value. If no key is set,
-                      the key will default to 'value'. The secret must be in the same
-                      namespace as the Kustomization. It is recommended that the kubeconfig
-                      is self-contained, and the secret is regularly updated if credentials
-                      such as a cloud-access-token expire. Cloud specific `cmd-path`
-                      auth helpers will not function without adding binaries and credentials
-                      to the Pod that is responsible for reconciling the KluctlDeployment.
+                    description: |-
+                      SecretRef holds the name of a secret that contains a key with
+                      the kubeconfig file as the value. If no key is set, the key will default
+                      to 'value'. The secret must be in the same namespace as
+                      the Kustomization.
+                      It is recommended that the kubeconfig is self-contained, and the secret
+                      is regularly updated if credentials such as a cloud-access-token expire.
+                      Cloud specific `cmd-path` auth helpers will not function without adding
+                      binaries and credentials to the Pod that is responsible for reconciling
+                      the KluctlDeployment.
                     properties:
                       key:
                         description: Key in the Secret, when not specified an implementation-specific
@@ -266,11 +385,25 @@ spec:
                     - name
                     type: object
                 type: object
+              manual:
+                description: |-
+                  Manual enables manual deployments, meaning that the deployment will initially start as a dry run deployment
+                  and only after manual approval cause a real deployment
+                type: boolean
+              manualObjectsHash:
+                description: |-
+                  ManualObjectsHash specifies the rendered objects hash that is approved for manual deployment.
+                  If Manual is set to true, the controller will skip deployments when the current reconciliation loops calculated
+                  objects hash does not match this value.
+                  There are two ways to use this value properly.
+                  1. Set it manually to the value found in status.lastObjectsHash.
+                  2. Use the Kluctl Webui to manually approve a deployment, which will set this field appropriately.
+                type: string
               noWait:
                 default: false
-                description: NoWait instructs kluctl to not wait for any resources
-                  to become ready, including hooks. Equivalent to using '--no-wait'
-                  when calling kluctl.
+                description: |-
+                  NoWait instructs kluctl to not wait for any resources to become ready, including hooks.
+                  Equivalent to using '--no-wait' when calling kluctl.
                 type: boolean
               prune:
                 default: false
@@ -278,44 +411,149 @@ spec:
                 type: boolean
               replaceOnError:
                 default: false
-                description: ReplaceOnError instructs kluctl to replace resources
-                  on error. Equivalent to using '--replace-on-error' when calling
-                  kluctl.
+                description: |-
+                  ReplaceOnError instructs kluctl to replace resources on error.
+                  Equivalent to using '--replace-on-error' when calling kluctl.
                 type: boolean
               retryInterval:
-                description: The interval at which to retry a previously failed reconciliation.
-                  When not specified, the controller uses the Interval value to retry
-                  failures.
+                description: |-
+                  The interval at which to retry a previously failed reconciliation.
+                  When not specified, the controller uses the Interval
+                  value to retry failures.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               serviceAccountName:
-                description: The name of the Kubernetes service account to use while
-                  deploying. If not specified, the default service account is used.
+                description: |-
+                  The name of the Kubernetes service account to use while deploying.
+                  If not specified, the default service account is used.
                 type: string
               source:
                 description: Specifies the project source location
                 properties:
+                  credentials:
+                    description: |-
+                      Credentials specifies a list of secrets with credentials
+                      DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.
+                    items:
+                      properties:
+                        host:
+                          description: |-
+                            Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
+                            applies to all hosts.
+                            Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+                            You must always set a proper hostname in that case.
+                          type: string
+                        pathPrefix:
+                          description: |-
+                            PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
+                            this set of credentials.
+                          type: string
+                        secretRef:
+                          description: |-
+                            SecretRef specifies the Secret containing authentication credentials for
+                            the git repository.
+                            For HTTPS git repositories the Secret must contain 'username' and 'password'
+                            fields.
+                            For SSH git repositories the Secret must contain 'identity'
+                            and 'known_hosts' fields.
+                          properties:
+                            name:
+                              description: Name of the referent.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                      required:
+                      - secretRef
+                      type: object
+                    type: array
+                  git:
+                    description: Git specifies a git repository as project source
+                    properties:
+                      path:
+                        description: Path specifies the sub-directory to be used as
+                          project directory
+                        type: string
+                      ref:
+                        description: Ref specifies the branch, tag or commit that
+                          should be used. If omitted, the default branch of the repo
+                          is used.
+                        properties:
+                          branch:
+                            description: Branch to use.
+                            type: string
+                          commit:
+                            description: Commit SHA to use.
+                            type: string
+                          tag:
+                            description: Tag to use.
+                            type: string
+                        type: object
+                      url:
+                        description: |-
+                          URL specifies the Git url where the project source is located. If the given Git repository needs authentication,
+                          use spec.credentials.git to specify those.
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  oci:
+                    description: Oci specifies an OCI repository as project source
+                    properties:
+                      path:
+                        description: Path specifies the sub-directory to be used as
+                          project directory
+                        type: string
+                      ref:
+                        description: Ref specifies the tag to be used. If omitted,
+                          the "latest" tag is used.
+                        properties:
+                          digest:
+                            description: |-
+                              Digest is the image digest to pull, takes precedence over SemVer.
+                              The value should be in the format 'sha256:<HASH>'.
+                            type: string
+                          tag:
+                            description: Tag is the image tag to pull, defaults to
+                              latest.
+                            type: string
+                        type: object
+                      url:
+                        description: |-
+                          Url specifies the Git url where the project source is located. If the given OCI repository needs authentication,
+                          use spec.credentials.oci to specify those.
+                        type: string
+                    required:
+                    - url
+                    type: object
                   path:
-                    description: Path specifies the sub-directory to be used as project
-                      directory
+                    description: |-
+                      Path specifies the sub-directory to be used as project directory
+                      DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.
                     type: string
                   ref:
-                    description: Ref specifies the branch, tag or commit that should
-                      be used. If omitted, the default branch of the repo is used.
+                    description: |-
+                      Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
+                      DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
                     properties:
                       branch:
-                        description: Branch to filter for. Can also be a regex.
+                        description: Branch to use.
+                        type: string
+                      commit:
+                        description: Commit SHA to use.
                         type: string
                       tag:
-                        description: Branch to filter for. Can also be a regex.
+                        description: Tag to use.
                         type: string
                     type: object
                   secretRef:
-                    description: SecretRef specifies the Secret containing authentication
-                      credentials for the git repository. For HTTPS repositories the
-                      Secret must contain 'username' and 'password' fields. For SSH
-                      repositories the Secret must contain 'identity' and 'known_hosts'
-                      fields.
+                    description: |-
+                      SecretRef specifies the Secret containing authentication credentials for
+                      See ProjectSourceCredentials.SecretRef for details
+                      DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git
+                      instead.
+                      WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+                      Use spec.credentials.git with a proper Host field instead.
                     properties:
                       name:
                         description: Name of the referent.
@@ -324,22 +562,35 @@ spec:
                     - name
                     type: object
                   url:
-                    description: Url specifies the Git url where the project source
-                      is located
+                    description: |-
+                      Url specifies the Git url where the project source is located
+                      DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.
                     type: string
-                required:
-                - url
                 type: object
+              sourceOverrides:
+                description: Specifies source overrides
+                items:
+                  properties:
+                    isGroup:
+                      type: boolean
+                    repoKey:
+                      type: string
+                    url:
+                      type: string
+                  required:
+                  - repoKey
+                  - url
+                  type: object
+                type: array
               suspend:
-                description: This flag tells the controller to suspend subsequent
-                  kluctl executions, it does not apply to already started executions.
-                  Defaults to false.
+                description: |-
+                  This flag tells the controller to suspend subsequent kluctl executions,
+                  it does not apply to already started executions. Defaults to false.
                 type: boolean
               target:
-                description: Target specifies the kluctl target to deploy. If not
-                  specified, an empty target is used that has no name and no context.
-                  Use 'TargetName' and 'Context' to specify the name and context in
-                  that case.
+                description: |-
+                  Target specifies the kluctl target to deploy. If not specified, an empty target is used that has no name and no
+                  context. Use 'TargetName' and 'Context' to specify the name and context in that case.
                 maxLength: 63
                 minLength: 1
                 type: string
@@ -350,7 +601,9 @@ spec:
                 minLength: 1
                 type: string
               timeout:
-                description: Timeout for all operations. Defaults to 'Interval' duration.
+                description: |-
+                  Timeout for all operations.
+                  Defaults to 'Interval' duration.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               validate:
@@ -358,12 +611,12 @@ spec:
                 description: Validate enables validation after deploying
                 type: boolean
               validateInterval:
-                description: ValidateInterval specifies the interval at which to validate
-                  the KluctlDeployment. Validation is performed the same way as with
-                  'kluctl validate -t <target>'. Defaults to the same value as specified
-                  in Interval. Validate is also performed whenever a deployment is
-                  performed, independent of the value of ValidateInterval
-                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)|never$
+                description: |-
+                  ValidateInterval specifies the interval at which to validate the KluctlDeployment.
+                  Validation is performed the same way as with 'kluctl validate -t <target>'.
+                  Defaults to the same value as specified in Interval.
+                  Validate is also performed whenever a deployment is performed, independent of the value of ValidateInterval
+                pattern: ^(([0-9]+(\.[0-9]+)?(ms|s|m|h))+)
                 type: string
             required:
             - interval
@@ -372,47 +625,45 @@ spec:
           status:
             description: KluctlDeploymentStatus defines the observed state of KluctlDeployment
             properties:
-              LastHandledDeployAt:
-                type: string
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    \n type FooStatus struct{ // Represents the observations of a
-                    foo's current state. // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
-                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
-                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
-                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
                         This field may not be empty.
                       maxLength: 1024
                       minLength: 1
@@ -426,11 +677,12 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -442,24 +694,98 @@ spec:
                   - type
                   type: object
                 type: array
-              lastDeployError:
-                type: string
+              deployRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - request
+                - startTime
+                type: object
+              diffRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - request
+                - startTime
+                type: object
               lastDeployResult:
-                description: LastDeployResult is the result of the last deploy command
+                description: LastDeployResult is the result summary of the last deploy
+                  command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              lastHandledReconcileAt:
-                description: LastHandledReconcileAt holds the value of the most recent
-                  reconcile request value, so a change of the annotation value can
-                  be detected.
+              lastDiffResult:
+                description: LastDiffResult is the result summary of the last diff
+                  command
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              lastDriftDetectionResult:
+                description: |-
+                  LastDriftDetectionResult is the result of the last drift detection command
+                  optional
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              lastDriftDetectionResultMessage:
+                description: |-
+                  LastDriftDetectionResultMessage contains a short message that describes the drift
+                  optional
+                type: string
+              lastManualObjectsHash:
                 type: string
               lastObjectsHash:
                 type: string
-              lastValidateError:
+              lastPrepareError:
                 type: string
               lastValidateResult:
-                description: LastValidateResult is the result of the last validate
-                  command
+                description: LastValidateResult is the result summary of the last
+                  validate command
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               observedCommit:
@@ -471,10 +797,72 @@ spec:
                 type: integer
               projectKey:
                 properties:
-                  gitRepoKey:
+                  repoKey:
                     type: string
                   subDir:
                     type: string
+                type: object
+              pruneRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - request
+                - startTime
+                type: object
+              reconcileRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - request
+                - startTime
                 type: object
               targetKey:
                 properties:
@@ -486,6 +874,37 @@ spec:
                     type: string
                 required:
                 - clusterId
+                type: object
+              validateRequestResult:
+                properties:
+                  commandError:
+                    type: string
+                  endTime:
+                    format: date-time
+                    type: string
+                  reconcileId:
+                    type: string
+                  request:
+                    description: ManualRequest is used in json form inside the manual
+                      request annotations
+                    properties:
+                      overridesPatch:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      requestValue:
+                        type: string
+                    required:
+                    - requestValue
+                    type: object
+                  resultId:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - reconcileId
+                - request
+                - startTime
                 type: object
             type: object
         type: object

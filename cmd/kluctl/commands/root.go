@@ -18,6 +18,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	go_container_logs "github.com/google/go-containerregistry/pkg/logs"
+	"github.com/google/gops/agent"
+	status2 "github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	flag "github.com/spf13/pflag"
 	"io"
 	"log"
@@ -25,15 +30,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/version"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -48,7 +52,11 @@ type GlobalFlags struct {
 	NoUpdateCheck bool `group:"global" help:"Disable update check on startup"`
 	NoColor       bool `group:"global" help:"Disable colored output"`
 
-	CpuProfile string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
+	CpuProfile    string `group:"global" help:"Enable CPU profiling and write the result to the given path"`
+	GopsAgent     bool   `group:"global" help:"Start gops agent in the background"`
+	GopsAgentAddr string `group:"global" help:"Specify the address:port to use for the gops agent" default:"127.0.0.1:0"`
+
+	UseSystemPython bool `group:"global" help:"Use the system Python instead of the embedded Python."`
 }
 
 type cli struct {
@@ -64,10 +72,11 @@ type cli struct {
 	PokeImages  pokeImagesCmd  `cmd:"" help:"Replace all images in target"`
 	Prune       pruneCmd       `cmd:"" help:"Searches the target cluster for prunable objects and deletes them"`
 	Render      renderCmd      `cmd:"" help:"Renders all resources and configuration files"`
-	Seal        sealCmd        `cmd:"" help:"Seal secrets based on target's sealingConfig"`
 	Validate    validateCmd    `cmd:"" help:"Validates the already deployed deployment"`
 	Controller  controllerCmd  `cmd:"" help:"Kluctl controller sub-commands"`
-	Webui       webuiCmd       `cmd:"" help:"TODO"`
+	Gitops      gitopsCmd      `cmd:"" help:"GitOps sub-commands"`
+	Webui       webuiCmd       `cmd:"" help:"Kluctl Webui sub-commands"`
+	Oci         ociCmd         `cmd:"" help:"Oci sub-commands"`
 
 	Version versionCmd `cmd:"" help:"Print kluctl version"`
 }
@@ -77,40 +86,56 @@ var flagGroups = []groupInfo{
 	{group: "project", title: "Project arguments:", description: "Define where and how to load the kluctl project and its components from."},
 	{group: "images", title: "Image arguments:", description: "Control fixed images and update behaviour."},
 	{group: "inclusion", title: "Inclusion/Exclusion arguments:", description: "Control inclusion/exclusion."},
+	{group: "gitops", title: "GitOps arguments:", description: "Specify gitops flags."},
 	{group: "misc", title: "Misc arguments:", description: "Command specific arguments."},
 	{group: "results", title: "Command Results:", description: "Configure how command results are stored."},
+	{group: "logs", title: "Log arguments:", description: "Configure logging."},
+	{group: "override", title: "GitOps overrides:", description: "Override settings for GitOps deployments."},
+	{group: "git", title: "Git arguments:", description: "Configure Git authentication."},
+	{group: "helm", title: "Helm arguments:", description: "Configure Helm authentication."},
+	{group: "registry", title: "Registry arguments:", description: "Configure OCI registry authentication."},
+	{group: "auth", title: "Auth arguments:", description: "Configure authentication."},
 }
 
 var origStderr = os.Stderr
 
-func initStatusHandler(ctx context.Context, debug bool, noColor bool) context.Context {
-	// we must determine isTerminal before we override os.Stderr
-	isTerminal := isatty.IsTerminal(origStderr.Fd())
-	var sh status.StatusHandler
-	if !debug && isatty.IsTerminal(origStderr.Fd()) {
-		sh = status.NewMultiLineStatusHandler(ctx, origStderr, isTerminal, !noColor, false)
+// we must determine isTerminal before we override os.Stderr
+var isTerminal = isatty.IsTerminal(os.Stderr.Fd())
+
+func initStatusHandlerAndPrompts(ctx context.Context, debug bool, noColor bool) context.Context {
+	var sh status2.StatusHandler
+	var pp prompts.PromptProvider
+	if !debug && isTerminal {
+		sh = status2.NewMultiLineStatusHandler(ctx, origStderr, isTerminal && !noColor, false)
+		pp = &prompts.StatusAndStdinPromptProvider{}
 	} else {
-		sh = status.NewSimpleStatusHandler(func(message string) {
+		sh = status2.NewSimpleStatusHandler(func(level status2.Level, message string) {
 			_, _ = fmt.Fprintf(origStderr, "%s\n", message)
-		}, isTerminal, false)
+		}, debug)
+		pp = &prompts.SimplePromptProvider{Out: origStderr}
 	}
-	sh.SetTrace(debug)
-	ctx = status.NewContext(ctx, sh)
+	ctx = status2.NewContext(ctx, sh)
+	ctx = prompts.NewContext(ctx, pp)
+
 	return ctx
 }
 
-func redirectLogsAndStderr(ctxGetter func() context.Context) {
+func redirectLogsAndStderr(ctx context.Context) {
 	f := func(line string) {
-		status.Info(ctxGetter(), line)
+		status2.Info(ctx, line)
 	}
 
-	lr1 := status.NewLineRedirector(f)
-	lr2 := status.NewLineRedirector(f)
+	lr1 := status2.NewLineRedirector(f)
+	lr2 := status2.NewLineRedirector(f)
 
 	klog.LogToStderr(false)
 	klog.SetOutput(lr1)
 	log.SetOutput(lr2)
-	//ctrl.SetLogger(klog.NewKlogr())
+	ctrl.SetLogger(klog.NewKlogr())
+
+	go_container_logs.Warn.SetOutput(status2.NewLineRedirector(func(line string) {
+		status2.Warning(ctx, line)
+	}))
 
 	pr, pw, err := os.Pipe()
 	if err != nil {
@@ -118,11 +143,24 @@ func redirectLogsAndStderr(ctxGetter func() context.Context) {
 	}
 
 	go func() {
-		x := status.NewLineRedirector(f)
+		x := status2.NewLineRedirector(f)
 		_, _ = io.Copy(x, pr)
 	}()
 
 	os.Stderr = pw
+}
+
+func setupGops(flags *GlobalFlags) error {
+	if !flags.GopsAgent {
+		return nil
+	}
+
+	if err := agent.Listen(agent.Options{
+		Addr: flags.GopsAgentAddr,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 var cpuProfileFile *os.File
@@ -151,7 +189,7 @@ func checkNewVersion(ctx context.Context) {
 		return
 	}
 
-	versionCheckPath := filepath.Join(utils.GetTmpBaseDir(ctx), "version_check.yaml")
+	versionCheckPath := filepath.Join(utils.GetCacheDir(ctx), "version_check.yaml")
 	var versionCheckState VersionCheckState
 	err := yaml.ReadYamlFile(versionCheckPath, &versionCheckState)
 	if err == nil {
@@ -163,7 +201,7 @@ func checkNewVersion(ctx context.Context) {
 	versionCheckState.LastVersionCheck = time.Now()
 	_ = yaml.WriteYamlFile(versionCheckPath, &versionCheckState)
 
-	s := status.Start(ctx, "Checking for new kluctl version")
+	s := status2.Start(ctx, "Checking for new kluctl version")
 	defer s.Failed()
 
 	r, err := http.Get(latestReleaseUrl)
@@ -187,16 +225,16 @@ func checkNewVersion(ctx context.Context) {
 	}
 	latestVersion, err := semver.NewVersion(latestVersionStr)
 	if err != nil {
-		s.FailedWithMessage("Failed to parse latest version: %v", err)
+		s.FailedWithMessagef("Failed to parse latest version: %v", err)
 		return
 	}
 	localVersion, err := semver.NewVersion(version.GetVersion())
 	if err != nil {
-		s.FailedWithMessage("Failed to parse local version: %v", err)
+		s.FailedWithMessagef("Failed to parse local version: %v", err)
 		return
 	}
 	if localVersion.LessThan(latestVersion) {
-		s.Update(fmt.Sprintf("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion.String(), latestVersion.String()))
+		s.Updatef("You are using an outdated version (%v) of kluctl. You should update soon to version %v", localVersion.String(), latestVersion.String())
 	} else {
 		s.Update("Your kluctl version is up-to-date")
 	}
@@ -207,14 +245,14 @@ func (c *cli) Run(ctx context.Context) error {
 	return flag.ErrHelp
 }
 
-func initViper(ctx context.Context) {
+func initViper() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("/etc/kluctl/")
 	viper.AddConfigPath("$HOME/.kluctl")
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			status.Error(ctx, err.Error())
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 			os.Exit(1)
 		}
 	}
@@ -224,16 +262,13 @@ func Main() {
 	colorable.EnableColorsStdout(nil)
 	ctx := context.Background()
 
-	ctx = initStatusHandler(ctx, false, true)
-	redirectLogsAndStderr(func() context.Context {
-		// ctx might be replaced later in preRun() of Execute()
-		return ctx
-	})
+	didSetupStatusHandler := false
 
-	initViper(ctx)
+	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context) (context.Context, error) {
+		cmd := getCobraCommand(ctxIn)
+		flags := getCobraGlobalFlags(ctxIn)
 
-	err := Execute(ctx, os.Args[1:], func(ctxIn context.Context, cmd *cobra.Command, flags *GlobalFlags) (context.Context, error) {
-		err := copyViperValuesToCobraCmd(cmd)
+		err := setupGops(flags)
 		if err != nil {
 			return ctx, err
 		}
@@ -241,11 +276,14 @@ func Main() {
 		if err != nil {
 			return ctx, err
 		}
-		oldSh := status.FromContext(ctxIn)
-		if oldSh != nil {
-			oldSh.Stop()
+
+		ctx = initStatusHandlerAndPrompts(ctxIn, flags.Debug, flags.NoColor)
+		didSetupStatusHandler = true
+
+		if cmd.Parent() == nil || (cmd.Name() != "run" && cmd.Parent().Name() != "controller") {
+			redirectLogsAndStderr(ctx)
 		}
-		ctx = initStatusHandler(ctxIn, flags.Debug, flags.NoColor)
+
 		if !flags.NoUpdateCheck {
 			if len(os.Args) < 2 || (os.Args[1] != "completion" && os.Args[1] != "__complete") {
 				checkNewVersion(ctx)
@@ -260,15 +298,44 @@ func Main() {
 		cpuProfileFile = nil
 	}
 
-	sh := status.FromContext(ctx)
-	sh.Stop()
+	if err != nil {
+		if didSetupStatusHandler {
+			status2.Error(ctx, err.Error())
+		} else {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+		}
+	}
+
+	sh := status2.FromContext(ctx)
+	if sh != nil {
+		sh.Stop()
+	}
 
 	if err != nil {
 		os.Exit(1)
 	}
 }
 
-func Execute(ctx context.Context, args []string, preRun func(ctx context.Context, rootCmd *cobra.Command, flags *GlobalFlags) (context.Context, error)) error {
+type cobraCmdContextKey struct{}
+type cobraGlobalFlagsKey struct{}
+
+func getCobraCommand(ctx context.Context) *cobra.Command {
+	v := ctx.Value(cobraCmdContextKey{})
+	if x, ok := v.(*cobra.Command); ok {
+		return x
+	}
+	return nil
+}
+
+func getCobraGlobalFlags(ctx context.Context) *GlobalFlags {
+	v := ctx.Value(cobraGlobalFlagsKey{})
+	if x, ok := v.(*GlobalFlags); ok {
+		return x
+	}
+	panic("missing global flags")
+}
+
+func Execute(ctx context.Context, args []string, preRun func(ctx context.Context) (context.Context, error)) error {
 	root := cli{}
 	rootCmd, err := buildRootCobraCmd(&root, "kluctl",
 		"Deploy and manage complex deployments on Kubernetes",
@@ -287,8 +354,23 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 	rootCmd.SilenceErrors = true
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		ctx = context.WithValue(ctx, cobraCmdContextKey{}, cmd)
+		for c := cmd; c != nil; c = c.Parent() {
+			c.SetContext(ctx)
+		}
+
+		err = copyViperValuesToCobraCmd(cmd)
+		if err != nil {
+			return err
+		}
+
+		ctx = context.WithValue(ctx, cobraGlobalFlagsKey{}, &root.GlobalFlags)
+		for c := cmd; c != nil; c = c.Parent() {
+			c.SetContext(ctx)
+		}
+
 		if preRun != nil {
-			ctx, err = preRun(ctx, cmd, &root.GlobalFlags)
+			ctx, err = preRun(ctx)
 			if ctx != nil {
 				for c := cmd; c != nil; c = c.Parent() {
 					c.SetContext(ctx)
@@ -301,10 +383,9 @@ composed of multiple smaller parts (Helm/Kustomize/...) in a manageable and unif
 		return nil
 	}
 
-	err = rootCmd.Execute()
-	if err != nil {
-		status.Error(ctx, "%s", err.Error())
-		return err
-	}
-	return nil
+	return rootCmd.Execute()
+}
+
+func init() {
+	initViper()
 }

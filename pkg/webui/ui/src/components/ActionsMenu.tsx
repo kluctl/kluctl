@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 export interface ActionMenuItem {
     icon: React.ReactNode
-    text: string
+    text: React.ReactNode
     handler?: () => void
     to?: string
 }
@@ -24,6 +24,10 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
 
     const icon = props.icon || <MoreVert />
 
+    if (!props.menuItems.length) {
+        return <></>
+    }
+
     return <React.Fragment>
         <IconButton
             onClick={handleMenuClick}
@@ -41,6 +45,7 @@ export const ActionsMenu = (props: { icon?: React.ReactNode, menuItems: ActionMe
             open={menuOpen}
             onClose={handleMenuClose}
             onClick={e => { e.stopPropagation(); handleMenuClose() }}
+            sx={{zIndex: 20000}}
             PaperProps={{
                 elevation: 0,
                 sx: {

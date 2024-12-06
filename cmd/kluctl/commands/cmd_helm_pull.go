@@ -3,19 +3,31 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/helm"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/lib/git/types"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
+
+	gitauth "github.com/kluctl/kluctl/lib/git/auth"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/helm"
+	helmauth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	ociauth "github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
+	"github.com/kluctl/kluctl/v2/pkg/repocache"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
 )
 
 type helmPullCmd struct {
 	args.ProjectDir
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 }
 
 func (cmd *helmPullCmd) Help() string {
@@ -30,19 +42,87 @@ func (cmd *helmPullCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) {
-		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml file")
+	if !yaml.Exists(filepath.Join(projectDir, ".kluctl.yaml")) && !yaml.Exists(filepath.Join(projectDir, ".kluctl-library.yaml")) {
+		return fmt.Errorf("helm-pull can only be used on the root of a Kluctl project that must have a .kluctl.yaml or .kluctl-library.yaml file")
 	}
-	_, err = doHelmPull(ctx, projectDir, &cmd.HelmCredentials, false, true)
+	sshPool := &ssh_pool.SshPool{}
+	messageCallbacks := &messages.MessageCallbacks{
+		WarningFn:            func(s string) { status.Warning(ctx, s) },
+		TraceFn:              func(s string) { status.Trace(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
+	}
+	gitAuthProvider := gitauth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
+	ociAuthProvider := ociauth.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuthProvider := helmauth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := cmd.GitCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		gitAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.HelmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuthProvider.RegisterAuthProvider(x, false)
+	}
+	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuthProvider.RegisterAuthProvider(x, false)
+	}
+
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuthProvider, nil, time.Second*60)
+	defer gitRp.Clear()
+
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, time.Second*60)
+	defer ociRp.Clear()
+
+	_, err = doHelmPull(ctx, projectDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp, false, true)
 	return err
 }
 
-func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.HelmCredentials, dryRun bool, force bool) (int, error) {
+func cleanupUnusedCharts(ctx context.Context, versionsToPull map[string]helm.ChartVersion, dryRun bool, chartsDir string, isGitHelmChart bool) (int, error) {
+	if isGitHelmChart {
+		chartsDir = filepath.Join(chartsDir, "refs", "tags")
+	}
+
+	actions := 0
+	des, err := os.ReadDir(chartsDir)
+	if err != nil && !os.IsNotExist(err) {
+		return actions, err
+	}
+	for _, de := range des {
+		if !de.IsDir() {
+			continue
+		}
+		var testVersion helm.ChartVersion
+		if isGitHelmChart {
+			testVersion.GitRef = &types.GitRef{
+				Tag: de.Name(),
+			}
+		} else {
+			testVersion.Version = utils.Ptr(de.Name())
+		}
+		if _, ok := versionsToPull[testVersion.String()]; !ok {
+			actions++
+			if !dryRun {
+				status.Infof(ctx, "Removing unused Chart with version %s", testVersion.String())
+				err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
+				if err != nil {
+					return actions, err
+				}
+			}
+		}
+	}
+	return actions, nil
+}
+
+func doHelmPull(ctx context.Context, projectDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache, dryRun bool, force bool) (int, error) {
 	actions := 0
 
 	baseChartsDir := filepath.Join(projectDir, ".helm-charts")
 
-	releases, charts, err := loadHelmReleases(projectDir, baseChartsDir, helmCredentials)
+	releases, charts, err := loadHelmReleases(ctx, projectDir, baseChartsDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return actions, err
 	}
@@ -50,47 +130,33 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 	g := utils.NewGoHelper(ctx, 8)
 
 	for _, chart := range charts {
-		chart := chart
 		statusPrefix := chart.GetChartName()
-
-		versionsToPull := map[string]bool{}
+		versionsToPull := map[string]helm.ChartVersion{}
 		for _, hr := range releases {
 			if hr.Config.SkipPrePull {
 				continue
 			}
 			if hr.Chart == chart {
-				versionsToPull[hr.Config.ChartVersion] = true
+				var v helm.ChartVersion
+				if hr.Chart.IsRegistryChart() {
+					v.Version = hr.Config.ChartVersion
+				}
+				if hr.Chart.IsGitRepositoryChart() {
+					v.GitRef = hr.Config.Git.Ref
+				}
+				versionsToPull[v.String()] = v
 			}
 		}
 
-		chartsDir, err := chart.BuildPulledChartDir(baseChartsDir, "")
+		chartsDir, err := chart.BuildPulledChartDir(baseChartsDir)
 		if err != nil {
 			return actions, err
 		}
-		des, err := os.ReadDir(chartsDir)
-		if err != nil && !os.IsNotExist(err) {
-			return actions, err
-		}
-		for _, de := range des {
-			if !de.IsDir() {
-				continue
-			}
-			if _, ok := versionsToPull[de.Name()]; !ok {
-				actions++
-				if !dryRun {
-					status.Info(ctx, "Removing unused Chart with version %s", de.Name())
-					err = os.RemoveAll(filepath.Join(chartsDir, de.Name()))
-					if err != nil {
-						return actions, err
-					}
-				}
-			}
-		}
+		cleanupActions, err := cleanupUnusedCharts(ctx, versionsToPull, dryRun, chartsDir, chart.IsGitRepositoryChart())
+		actions += cleanupActions
 
-		for version, _ := range versionsToPull {
-			version := version
-
-			if yaml.Exists(filepath.Join(chartsDir, version, "Chart.yaml")) && !force {
+		for _, version := range versionsToPull {
+			if yaml.Exists(filepath.Join(chartsDir, version.String(), "Chart.yaml")) && !force {
 				continue
 			}
 
@@ -100,12 +166,12 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 				continue
 			}
 			g.RunE(func() error {
-				s := status.Start(ctx, "%s: Pulling Chart with version %s", statusPrefix, version)
+				s := status.Startf(ctx, "%s: Pulling Chart with version %s", statusPrefix, version.String())
 				defer s.Failed()
 
 				_, err := chart.PullInProject(ctx, baseChartsDir, version)
 				if err != nil {
-					s.FailedWithMessage("%s: %s", statusPrefix, err.Error())
+					s.FailedWithMessagef("%s: %s", statusPrefix, err.Error())
 					return err
 				}
 
@@ -123,7 +189,7 @@ func doHelmPull(ctx context.Context, projectDir string, helmCredentials *args.He
 	return actions, nil
 }
 
-func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvider helm.HelmCredentialsProvider) ([]*helm.Release, []*helm.Chart, error) {
+func loadHelmReleases(ctx context.Context, projectDir string, baseChartsDir string, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) ([]*helm.Release, []*helm.Chart, error) {
 	var releases []*helm.Release
 	chartsMap := make(map[string]*helm.Chart)
 	err := filepath.WalkDir(projectDir, func(p string, d fs.DirEntry, err error) error {
@@ -137,7 +203,7 @@ func loadHelmReleases(projectDir string, baseChartsDir string, credentialsProvid
 			return err
 		}
 
-		hr, err := helm.NewRelease(projectDir, relDir, p, baseChartsDir, credentialsProvider)
+		hr, err := helm.NewRelease(ctx, projectDir, relDir, p, baseChartsDir, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 		if err != nil {
 			return err
 		}

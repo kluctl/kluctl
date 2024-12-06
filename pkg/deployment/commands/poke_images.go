@@ -2,9 +2,8 @@ package commands
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
@@ -13,24 +12,31 @@ import (
 )
 
 type PokeImagesCommand struct {
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 }
 
-func NewPokeImagesCommand(targetCtx *kluctl_project.TargetContext) *PokeImagesCommand {
+func NewPokeImagesCommand(targetCtx *target_context.TargetContext) *PokeImagesCommand {
 	return &PokeImagesCommand{
 		targetCtx: targetCtx,
 	}
 }
 
-func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
+func (cmd *PokeImagesCommand) Run() *result.CommandResult {
 	var wg sync.WaitGroup
 
 	dew := utils2.NewDeploymentErrorsAndWarnings()
 
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "poke-images")
+
+	defer func() {
+		finishCommandResult(r, cmd.targetCtx, dew)
+	}()
+
 	ru := utils2.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
 	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, nil, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	allObjects := make(map[k8s2.ObjectRef]*uo.UnstructuredObject)
@@ -96,19 +102,11 @@ func (cmd *PokeImagesCommand) Run() (*result.CommandResult, error) {
 
 	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
-	r := &result.CommandResult{
-		Id:         uuid.New().String(),
-		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
-		Errors:     dew.GetErrorsList(),
-		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}
-	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "deploy")
-	if err != nil {
-		return r, err
-	}
-	return r, nil
+	r.Objects = collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil)
+
+	return r
 }

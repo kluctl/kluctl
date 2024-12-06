@@ -1,11 +1,11 @@
 import {
+    AuthInfo,
     CommandResult,
     CommandResultSummary,
-    ObjectRef,
-    ProjectKey,
+    ObjectRef, OciRef,
     ResultObject,
     ShortName,
-    TargetKey
+    ValidateResult
 } from "./models";
 import _ from "lodash";
 import React from "react";
@@ -13,10 +13,23 @@ import { Box, Typography } from "@mui/material";
 import Tooltip from "@mui/material/Tooltip";
 import "./staticbuild.d.ts"
 import { loadScript } from "./loadscript";
+import { GitRef } from "./models-static";
 import { sleep } from "./utils/misc";
+import { KluctlDeploymentWithClusterId } from "./components/App";
 
-const apiUrl = "/api"
-const staticPath = "./staticdata"
+console.log(window.location)
+
+export let rootPath = window.location.pathname
+if (rootPath.endsWith("/")) {
+    rootPath = rootPath.substring(0, rootPath.length-1)
+}
+if (rootPath.endsWith("index.html")) {
+    rootPath = rootPath.substring(0, rootPath.length-"index.html".length-1)
+}
+const staticPath = rootPath + "/staticdata"
+
+console.log("rootPath=" + rootPath)
+console.log("staticPath=" + staticPath)
 
 export enum ObjectType {
     Rendered = "rendered",
@@ -24,83 +37,114 @@ export enum ObjectType {
     Applied = "applied",
 }
 
-export interface Api {
-    getShortNames(): Promise<ShortName[]>
-    listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
-    getResult(resultId: string): Promise<CommandResult>
-    getResultSummary(resultId: string): Promise<CommandResultSummary>
-    getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
-    validateNow(project: ProjectKey, target: TargetKey): Promise<Response>
-    reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
-    deployNow(cluster: string, name: string, namespace: string): Promise<Response>
+export interface User {
+    username: string
+    isAdmin: boolean
 }
 
-class RealOrStaticApi implements Api {
-    api: Promise<Api>
+export interface Api {
+    getAuthInfo(): Promise<AuthInfo>
+    getUser(): Promise<User>
+    getShortNames(): Promise<ShortName[]>
+    listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void>
+    getCommandResult(resultId: string): Promise<CommandResult>
+    getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any>
+    getValidateResult(resultId: string): Promise<ValidateResult>
+    validateNow(cluster: string, name: string, namespace: string): Promise<Response>
+    reconcileNow(cluster: string, name: string, namespace: string): Promise<Response>
+    deployNow(cluster: string, name: string, namespace: string): Promise<Response>
+    pruneNow(cluster: string, name: string, namespace: string): Promise<Response>
+    setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response>
+    setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response>
+    watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void
+}
 
-    constructor() {
-        this.api = this.buildApi()
+export async function checkStaticBuild() {
+    const p = loadScript(staticPath + "/summaries.js")
+    try {
+        await p
+        return true
+    } catch (error) {
+        return false
+    }
+}
+
+export class RealApi implements Api {
+    onUnauthorized?: () => void;
+
+    constructor(onUnauthorized?: () => void) {
+        this.onUnauthorized = onUnauthorized
     }
 
-    async buildApi(): Promise<Api> {
-        const p = loadScript(staticPath + "/summaries.js")
-        try {
-            await p
-            return new StaticApi()
-        } catch (error) {
-            return new RealApi()
+    handleErrors(response: Response) {
+        if (!response.ok) {
+            if (response.status === 401) {
+                if (this.onUnauthorized) {
+                    this.onUnauthorized()
+                }
+            }
+            throw Error(response.statusText)
         }
     }
 
-    async deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return (await this.api).deployNow(cluster, name, namespace)
+    async doGet(path: string, params?: URLSearchParams, abort?: AbortSignal) {
+        let url = rootPath + path
+        if (params) {
+            url += "?" + params.toString()
+        }
+        const resp = await fetch(url, {
+            method: "GET",
+            signal: abort ? abort : null,
+        })
+        this.handleErrors(resp)
+        return resp.json()
     }
 
-    async getResult(resultId: string): Promise<CommandResult> {
-        return (await this.api).getResult(resultId)
+    async doPost(path: string, body: any) {
+        let url = rootPath + path
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+        const resp = await fetch(url, {
+            method: "POST",
+            body: JSON.stringify(body),
+            headers: headers,
+        })
+        this.handleErrors(resp)
+        return resp
     }
 
-    async getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
-        return (await this.api).getResultObject(resultId, ref, objectType)
-    }
-
-    async getResultSummary(resultId: string): Promise<CommandResultSummary> {
-        return (await this.api).getResultSummary(resultId)
-    }
-
-    async getShortNames(): Promise<ShortName[]> {
-        return (await this.api).getShortNames()
-    }
-
-    async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
-        return (await this.api).listenUpdates(filterProject, filterSubDir, handle)
-    }
-
-    async reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return (await this.api).reconcileNow(cluster, name, namespace)
-    }
-
-    async validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {
-        return (await this.api).validateNow(project, target)
-    }
-}
-
-export const api = new RealOrStaticApi()
-
-class RealApi implements Api {
-    async getShortNames(): Promise<ShortName[]> {
-        let url = `${apiUrl}/getShortNames`
-        return fetch(url)
-            .then(handleErrors)
-            .then((response) => response.json());
-    }
-
-    async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
+    doWebsocket(path: string, params: URLSearchParams) {
         let host = window.location.host
+        let proto = "wss"
         if (process.env.NODE_ENV === 'development') {
             host = "localhost:9090"
         }
-        let url = `ws://${host}${apiUrl}/ws`
+        if (window.location.protocol !== "https:") {
+            proto = "ws"
+        }
+        let url = `${proto}://${host}${rootPath}${path}`
+        url += "?" + params.toString()
+
+        console.log("ws connect: " + url)
+        const ws = new WebSocket(url)
+        return ws
+    }
+
+    async getAuthInfo(): Promise<AuthInfo> {
+        return this.doGet("/auth/info")
+    }
+
+    async getUser(): Promise<User> {
+        return this.doGet("/auth/user")
+    }
+
+    async getShortNames(): Promise<ShortName[]> {
+        return this.doGet("/api/getShortNames")
+    }
+
+    async listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
         const params = new URLSearchParams()
         if (filterProject) {
             params.set("filterProject", filterProject)
@@ -108,18 +152,16 @@ class RealApi implements Api {
         if (filterSubDir) {
             params.set("filterSubDir", filterSubDir)
         }
-        url += "?" + params.toString()
 
         let ws: WebSocket | undefined;
         let cancelled = false
 
-        const connect = () => {
+        const connect = async () => {
             if (cancelled) {
                 return
             }
 
-            console.log("ws connect: " + url)
-            ws = new WebSocket(url);
+            ws = this.doWebsocket("/api/events", params)
             ws.onopen = function () {
                 console.log("ws connected")
             }
@@ -136,12 +178,12 @@ class RealApi implements Api {
                 if (cancelled) {
                     return
                 }
-                const msg = JSON.parse(event.data)
-                handle(msg)
+                const msg: any[] = JSON.parse(event.data)
+                msg.forEach(handle)
             }
         }
 
-        connect()
+        await connect()
 
         return () => {
             console.log("ws cancel")
@@ -152,54 +194,46 @@ class RealApi implements Api {
         }
     }
 
-    async getResult(resultId: string) {
-        let url = `${apiUrl}/getResult?resultId=${resultId}`
-        return fetch(url)
-            .then(handleErrors)
-            .then(response => response.text())
-            .then(json => {
-                return new CommandResult(json)
-            });
+    async getCommandResult(resultId: string) {
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        const json = await this.doGet("/api/getCommandResult", params)
+        return new CommandResult(json)
     }
 
-    async getResultSummary(resultId: string) {
-        let url = `${apiUrl}/getResultSummary?resultId=${resultId}`
-        return fetch(url)
-            .then(handleErrors)
-            .then(response => response.text())
-            .then(json => {
-                return new CommandResultSummary(json)
-            });
+    async getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string) {
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        params.set("objectType", objectType)
+        buildRefParams(ref, params)
+        return await this.doGet("/api/getCommandResultObject", params)
     }
 
-    async getResultObject(resultId: string, ref: ObjectRef, objectType: string) {
-        let url = `${apiUrl}/getResultObject?resultId=${resultId}&${buildRefParams(ref)}&objectType=${objectType}`
-        return fetch(url)
-            .then(handleErrors)
-            .then(response => response.json());
+    async getValidateResult(resultId: string) {
+        const params = new URLSearchParams()
+        params.set("resultId", resultId)
+        const json = await this.doGet("/api/getValidateResult", params)
+        return new ValidateResult(json)
     }
 
-    async doPost(f: string, body: any) {
-        let url = `${apiUrl}/${f}`
-        return fetch(url, {
-            method: "POST",
-            body: JSON.stringify(body),
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-        }).then(handleErrors);
-    }
-
-    async validateNow(project: ProjectKey, target: TargetKey) {
-        return this.doPost("validateNow", {
-            "project": project,
-            "target": target,
+    async validateNow(cluster: string, name: string, namespace: string) {
+        return this.doPost("/api/validateNow", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
         })
     }
 
     async deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return this.doPost("deployNow", {
+        return this.doPost("/api/deployNow", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+        })
+    }
+
+    async pruneNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        return this.doPost("/api/pruneNow", {
             "cluster": cluster,
             "name": name,
             "namespace": namespace,
@@ -207,32 +241,109 @@ class RealApi implements Api {
     }
 
     async reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
-        return this.doPost("reconcileNow", {
+        return this.doPost("/api/reconcileNow", {
             "cluster": cluster,
             "name": name,
             "namespace": namespace,
         })
     }
+
+    async setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response> {
+        return this.doPost("/api/setSuspended", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+            "suspend": suspend,
+        })
+    }
+
+    async setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response> {
+        return this.doPost("/api/setManualObjectsHash", {
+            "cluster": cluster,
+            "name": name,
+            "namespace": namespace,
+            "objectsHash": objectsHash,
+        })
+    }
+
+    watchLogs(cluster: string | undefined, name: string | undefined, namespace: string | undefined, reconcileId: string | undefined, handle: (lines: any[]) => void): () => void {
+        const params = new URLSearchParams()
+        if (cluster) params.set("cluster", cluster)
+        if (name) params.set("name", name)
+        if (namespace) params.set("namespace", namespace)
+        if (reconcileId) params.set("reconcileId", reconcileId)
+
+        const ws = this.doWebsocket("/api/logs", params)
+        let cancelled = false
+
+        ws.onmessage = function (event: MessageEvent) {
+            if (cancelled) {
+                return
+            }
+            try {
+                const line: any = JSON.parse(event.data)
+                handle([line])
+            } catch (e) {
+            }
+        }
+
+        return () => {
+            console.log("cancel logs", params.toString())
+            cancelled = true
+            ws.close()
+        }
+    }
 }
 
-class StaticApi implements Api {
+export class StaticApi implements Api {
+    async getAuthInfo(): Promise<AuthInfo> {
+        const info = new AuthInfo()
+        info.authEnabled = false
+        info.staticLoginEnabled = false
+        return info
+    }
+
+    async getUser(): Promise<User> {
+        return {
+            "username": "no-user",
+            "isAdmin": true,
+        }
+    }
+
     async getShortNames(): Promise<ShortName[]> {
         await loadScript(staticPath + "/shortnames.js")
         return staticShortNames
     }
 
-    async listenUpdates(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
+    async listenEvents(filterProject: string | undefined, filterSubDir: string | undefined, handle: (msg: any) => void): Promise<() => void> {
         await loadScript(staticPath + "/summaries.js")
+        await loadScript(staticPath + "/kluctldeployments.js")
 
-        staticSummaries.forEach(rs => {
-            if (filterProject && filterProject !== rs.project.normalizedGitUrl) {
+        staticKluctlDeployments.forEach(kd_ => {
+            const kd = kd_ as KluctlDeploymentWithClusterId
+            if (filterProject && filterProject !== kd.deployment.status?.projectKey?.repoKey) {
                 return
             }
-            if (filterSubDir && filterSubDir !== rs.project.subDir) {
+            if (filterSubDir && filterSubDir !== kd.deployment.status?.projectKey?.subDir) {
                 return
             }
             handle({
-                "type": "update_summary",
+                "type": "update_kluctl_deployment",
+                "deployment": kd.deployment,
+                "clusterId": kd.clusterId,
+            })
+        })
+
+        staticSummaries.forEach(rs_ => {
+            const rs = rs_ as CommandResultSummary
+            if (filterProject && filterProject !== rs.projectKey.repoKey) {
+                return
+            }
+            if (filterSubDir && filterSubDir !== rs.projectKey.subDir) {
+                return
+            }
+            handle({
+                "type": "update_command_result_summary",
                 "summary": rs,
             })
         })
@@ -240,18 +351,13 @@ class StaticApi implements Api {
         }
     }
 
-    async getResult(resultId: string): Promise<CommandResult> {
+    async getCommandResult(resultId: string): Promise<CommandResult> {
         await loadScript(staticPath + `/result-${resultId}.js`)
         return staticResults.get(resultId)
     }
-    async getResultSummary(resultId: string): Promise<CommandResultSummary> {
-        await loadScript(staticPath + "/summaries.js")
-        return staticSummaries.filter(s => {
-            return s.id === resultId
-        }).at(0)
-    }
-    async getResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
-        const result = await this.getResult(resultId)
+
+    async getCommandResultObject(resultId: string, ref: ObjectRef, objectType: string): Promise<any> {
+        const result = await this.getCommandResult(resultId)
         const object = result.objects?.find(x => _.isEqual(x.ref, ref))
         if (!object) {
             throw new Error("object not found")
@@ -267,26 +373,41 @@ class StaticApi implements Api {
                 throw new Error("unknown object type " + objectType)
         }
     }
-    validateNow(project: ProjectKey, target: TargetKey): Promise<Response> {
+
+    async getValidateResult(resultId: string): Promise<ValidateResult> {
         throw new Error("not implemented")
     }
+
+    validateNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        throw new Error("not implemented")
+    }
+
     reconcileNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
+
     deployNow(cluster: string, name: string, namespace: string): Promise<Response> {
         throw new Error("not implemented")
     }
-}
 
-function handleErrors(response: Response) {
-    if (!response.ok) {
-        throw Error(response.statusText)
+    pruneNow(cluster: string, name: string, namespace: string): Promise<Response> {
+        throw new Error("not implemented")
     }
-    return response
+
+    setSuspended(cluster: string, name: string, namespace: string, suspend: boolean): Promise<Response> {
+        throw new Error("not implemented")
+    }
+
+    setManualObjectsHash(cluster: string, name: string, namespace: string, objectsHash: string): Promise<Response> {
+        throw new Error("not implemented")
+    }
+
+    watchLogs(cluster: string, name: string, namespace: string, reconcileId: string, handle: (lines: any[]) => void): () => void {
+        return () => {}
+    }
 }
 
-function buildRefParams(ref: ObjectRef): string {
-    const params = new URLSearchParams()
+function buildRefParams(ref: ObjectRef, params: URLSearchParams) {
     params.set("kind", ref.kind)
     params.set("name", ref.name)
     if (ref.group) {
@@ -298,7 +419,6 @@ function buildRefParams(ref: ObjectRef): string {
     if (ref.namespace) {
         params.set("namespace", ref.namespace)
     }
-    return params.toString()
 }
 
 export function buildRefString(ref: ObjectRef): string {
@@ -339,6 +459,33 @@ export function buildObjectRefFromObject(obj: any): ObjectRef {
     return ref
 }
 
+export function buildGitRefString(ref?: GitRef) {
+    if (!ref) {
+        return "HEAD"
+    }
+    if (ref.branch) {
+        return ref.branch
+    } else if (ref.tag) {
+        return ref.tag
+    } else {
+        return "<unknown>"
+    }
+}
+
+export function buildOciRefString(ref?: OciRef) {
+    if (!ref) {
+        return "latest"
+    }
+    if (!ref.tag && !ref.digest) {
+        return "latest"
+    }
+    if (ref.tag && ref.digest) {
+        return ref.tag + "@" + ref.digest
+    } else if (ref.tag) {
+        return ref.tag
+    }
+}
+
 export function findObjectByRef(l: ResultObject[] | undefined, ref: ObjectRef, filter?: (o: ResultObject) => boolean): ResultObject | undefined {
     return l?.find(x => {
         if (filter && !filter(x)) {
@@ -346,32 +493,4 @@ export function findObjectByRef(l: ResultObject[] | undefined, ref: ObjectRef, f
         }
         return _.isEqual(x.ref, ref)
     })
-}
-
-export function usePromise<T>(p?: Promise<T>): T  {
-    if (p === undefined) {
-        throw new Promise<T>(() => undefined)
-    }
-
-    const promise = p as any
-    if (promise.status === 'fulfilled') {
-        return promise.value;
-    } else if (promise.status === 'rejected') {
-        throw promise.reason;
-    } else if (promise.status === 'pending') {
-        throw promise;
-    } else {
-        promise.status = 'pending';
-        p.then(
-            result => {
-                promise.status = 'fulfilled';
-                promise.value = result;
-            },
-            reason => {
-                promise.status = 'rejected';
-                promise.reason = reason;
-            },
-        );
-        throw promise;
-    }
 }

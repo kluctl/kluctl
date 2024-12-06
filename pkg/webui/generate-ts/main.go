@@ -1,6 +1,7 @@
 package main
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -16,15 +17,22 @@ func main() {
 		Add(result.CommandResult{}).
 		Add(result.CommandResultSummary{}).
 		Add(result.ValidateResult{}).
+		Add(result.ValidateResultSummary{}).
+		Add(result.DriftDetectionResult{}).
+		Add(result.ChangedObject{}).
 		Add(webui.ShortName{}).
 		Add(uo.UnstructuredObject{}).
 		Add(webui.ProjectTargetKey{}).
-		ManageType(types.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
-		ManageType(types.GitRepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
+		Add(webui.AuthInfo{}).
+		ManageType(gittypes.GitUrl{}, typescriptify.TypeOptions{TSType: "string"}).
+		ManageType(gittypes.GitRef{}, typescriptify.TypeOptions{TSType: "GitRef", TSTransform: "new GitRef(__VALUE__)"}).
+		ManageType(gittypes.RepoKey{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(types.YamlUrl{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(uo.UnstructuredObject{}, typescriptify.TypeOptions{TSType: "any"}).
 		ManageType(metav1.Time{}, typescriptify.TypeOptions{TSType: "string"}).
 		ManageType(apiextensionsv1.JSON{}, typescriptify.TypeOptions{TSType: "any"})
+
+	converter.AddImport("import { GitRef } from './models-static'")
 
 	err := converter.ConvertToFile("ui/src/models.ts")
 	if err != nil {

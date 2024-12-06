@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"path/filepath"
 	"strings"
@@ -79,7 +79,7 @@ func TestWhen(t *testing.T) {
 		}
 	}
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-aa=test", "-ab=test2")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-aa=test", "-ab=test2")
 
 	for _, test := range tests {
 		if test.want {

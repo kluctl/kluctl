@@ -2,33 +2,44 @@ package commands
 
 import (
 	"fmt"
-	"github.com/google/uuid"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/v2/pkg/status"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 )
 
 type DiffCommand struct {
-	targetCtx *kluctl_project.TargetContext
+	targetCtx *target_context.TargetContext
 
-	ForceApply          bool
-	ReplaceOnError      bool
-	ForceReplaceOnError bool
-	IgnoreTags          bool
-	IgnoreLabels        bool
-	IgnoreAnnotations   bool
+	ForceApply           bool
+	ReplaceOnError       bool
+	ForceReplaceOnError  bool
+	IgnoreTags           bool
+	IgnoreLabels         bool
+	IgnoreAnnotations    bool
+	IgnoreKluctlMetadata bool
+
+	SkipResourceVersions map[k8s2.ObjectRef]string
 }
 
-func NewDiffCommand(targetCtx *kluctl_project.TargetContext) *DiffCommand {
+func NewDiffCommand(targetCtx *target_context.TargetContext) *DiffCommand {
 	return &DiffCommand{
 		targetCtx: targetCtx,
 	}
 }
 
-func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
+func (cmd *DiffCommand) Run() *result.CommandResult {
 	dew := utils.NewDeploymentErrorsAndWarnings()
+
+	r := newCommandResult(cmd.targetCtx, cmd.targetCtx.KluctlProject.LoadTime, "diff")
+	r.Command.ForceApply = cmd.ForceApply
+	r.Command.ReplaceOnError = cmd.ReplaceOnError
+	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
+
+	defer func() {
+		finishCommandResult(r, cmd.targetCtx, dew)
+	}()
 
 	if cmd.targetCtx.Target.Discriminator == "" {
 		status.Warning(cmd.targetCtx.SharedContext.Ctx, "No discriminator configured. Orphan object detection will not work")
@@ -38,16 +49,18 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 	ru := utils.NewRemoteObjectsUtil(cmd.targetCtx.SharedContext.Ctx, dew)
 	err := ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &cmd.targetCtx.Target.Discriminator, cmd.targetCtx.DeploymentCollection.LocalObjectRefs(), false)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
 
 	o := &utils.ApplyUtilOptions{
-		ForceApply:          cmd.ForceApply,
-		ReplaceOnError:      cmd.ReplaceOnError,
-		ForceReplaceOnError: cmd.ForceReplaceOnError,
-		DryRun:              true,
-		AbortOnError:        false,
-		ReadinessTimeout:    0,
+		ForceApply:           cmd.ForceApply,
+		ReplaceOnError:       cmd.ReplaceOnError,
+		ForceReplaceOnError:  cmd.ForceReplaceOnError,
+		DryRun:               true,
+		AbortOnError:         false,
+		ReadinessTimeout:     0,
+		SkipResourceVersions: cmd.SkipResourceVersions,
 	}
 	au := utils.NewApplyDeploymentsUtil(cmd.targetCtx.SharedContext.Ctx, dew, ru, cmd.targetCtx.SharedContext.K, o)
 	au.ApplyDeployments(cmd.targetCtx.DeploymentCollection.Deployments)
@@ -56,25 +69,15 @@ func (cmd *DiffCommand) Run() (*result.CommandResult, error) {
 	du.IgnoreTags = cmd.IgnoreTags
 	du.IgnoreLabels = cmd.IgnoreLabels
 	du.IgnoreAnnotations = cmd.IgnoreAnnotations
+	du.IgnoreKluctlMetadata = cmd.IgnoreKluctlMetadata
 	du.DiffDeploymentItems(cmd.targetCtx.DeploymentCollection.Deployments)
 
 	orphanObjects, err := FindOrphanObjects(cmd.targetCtx.SharedContext.K, ru, cmd.targetCtx.DeploymentCollection)
 	if err != nil {
-		return nil, err
+		dew.AddError(k8s2.ObjectRef{}, err)
+		return r
 	}
-	r := &result.CommandResult{
-		Id:         uuid.New().String(),
-		Objects:    collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil),
-		Errors:     dew.GetErrorsList(),
-		Warnings:   dew.GetWarningsList(),
-		SeenImages: cmd.targetCtx.DeploymentCollection.Images.SeenImages(false),
-	}
-	r.Command.ForceApply = cmd.ForceApply
-	r.Command.ReplaceOnError = cmd.ReplaceOnError
-	r.Command.ForceReplaceOnError = cmd.ForceReplaceOnError
-	err = addBaseCommandInfoToResult(cmd.targetCtx, r, "diff")
-	if err != nil {
-		return r, err
-	}
-	return r, nil
+	r.Objects = collectObjects(cmd.targetCtx.DeploymentCollection, ru, au, du, orphanObjects, nil)
+
+	return r
 }

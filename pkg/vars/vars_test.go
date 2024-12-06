@@ -1,6 +1,7 @@
 package vars
 
 import (
+	"context"
 	"github.com/kluctl/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -9,7 +10,7 @@ import (
 )
 
 func newJinja2Must(t *testing.T) *jinja2.Jinja2 {
-	j2, err := kluctl_jinja2.NewKluctlJinja2(true)
+	j2, err := kluctl_jinja2.NewKluctlJinja2(context.Background(), true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

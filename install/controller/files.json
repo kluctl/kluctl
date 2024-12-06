@@ -1,0 +1,45 @@
+{
+  "contentHash": "6addace030e764b304a624c725ea3f002320caa5cc8b62fc1c6394ab9221ff89",
+  "files": [
+    {
+      "name": ".kluctl-library.yaml",
+      "size": 464,
+      "perm": 420
+    },
+    {
+      "name": "controller",
+      "size": 0,
+      "perm": 2147484141
+    },
+    {
+      "name": "controller/crd.yaml",
+      "size": 42735,
+      "perm": 420
+    },
+    {
+      "name": "controller/kustomization.yaml",
+      "size": 2278,
+      "perm": 420
+    },
+    {
+      "name": "controller/manager.yaml",
+      "size": 2303,
+      "perm": 420
+    },
+    {
+      "name": "controller/rbac.yaml",
+      "size": 3452,
+      "perm": 420
+    },
+    {
+      "name": "deployment.yaml",
+      "size": 35,
+      "perm": 420
+    },
+    {
+      "name": "embed.go",
+      "size": 74,
+      "perm": 420
+    }
+  ]
+}

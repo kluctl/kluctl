@@ -1,13 +1,16 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -45,13 +48,13 @@ const (
 	reactNotReady
 )
 
-func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret result.ValidateResult) {
+func ValidateObject(ctx context.Context, k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError bool, forceStatusRequired bool) (ret result.ValidateResult) {
 	ref := o.GetK8sRef()
 
 	// We assume all is good in case no validation is performed
 	ret.Ready = true
 
-	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/validate-ignore")) {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/validate-ignore", false) {
 		return
 	}
 
@@ -116,40 +119,38 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 		}
 	}
 
+	isReadyAnnotation, _ := o.GetK8sAnnotationBoolPtr("kluctl.io/is-ready")
+	if isReadyAnnotation != nil {
+		if !*isReadyAnnotation {
+			addNotReady("kluctl.io/is-ready annotation is set to false")
+			return
+		}
+		// ready
+		return
+	}
+
 	status, _, _ := o.GetNestedObject("status")
 	if status == nil {
 		if forceStatusRequired {
 			addNotReady("no status available yet")
 			return
 		}
-		if k == nil {
-			// can't really say anything...
-			return
-		}
-		s, err := k.GetSchemaForGVK(ref.GroupVersionKind())
-		if err != nil && !errors.IsNotFound(err) {
-			addError(err.Error())
-			return
-		}
-		if s == nil {
-			return
-		} else {
-			_, ok, _ := s.GetNestedObject("properties", "status")
-			if !ok {
-				// it has no status, so all is good
-				return
-			}
 
+		required, err := checkStatusRequired(ctx, k, o.GetK8sRef())
+		if err != nil {
+			addError(err.Error())
+		} else if required == statusRequiredYes {
 			age := time.Now().Sub(o.GetK8sCreationTime())
 			if age > 15*time.Second {
 				// TODO this is a hack for CRDs that pretend that a status should be there but the corresponding
 				// controllers/operators don't set it for whatever reason (e.g. cilium)
 				return
 			}
-
 			addNotReady("no status available yet")
-			return
+		} else if required == statusRequiredUnknown {
+			addWarning("unable to determine if a status is expected. This usually happens when you don't have permission to list CRDs or status sub-resources")
 		}
+		return
 	}
 
 	findConditions := func(typ string, er errorReaction, doRaise bool) []condition {
@@ -366,14 +367,16 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 			if !ok {
 				replicas = 1
 			}
-			updatedReplicas := getStatusFieldInt("updatedReplicas", reactNotReady, true, 0)
-			expectedReplicas := replicas - partition
-			if updatedReplicas != expectedReplicas {
-				addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods have been scheduled", updatedReplicas, expectedReplicas))
-			} else {
-				readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
-				if readyReplicas != replicas {
-					addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods are ready", readyReplicas, replicas))
+			if replicas != 0 {
+				updatedReplicas := getStatusFieldInt("updatedReplicas", reactNotReady, true, 0)
+				expectedReplicas := replicas - partition
+				if updatedReplicas != expectedReplicas {
+					addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods have been scheduled", updatedReplicas, expectedReplicas))
+				} else {
+					readyReplicas := getStatusFieldInt("readyReplicas", reactNotReady, true, 0)
+					if readyReplicas != replicas {
+						addNotReady(fmt.Sprintf("StatefulSet is not ready. %d out of %d expected pods are ready", readyReplicas, replicas))
+					}
 				}
 			}
 		}
@@ -398,4 +401,102 @@ func ValidateObject(k *k8s.K8sCluster, o *uo.UnstructuredObject, notReadyIsError
 		}
 	}
 	return
+}
+
+type statusRequired int
+
+const (
+	statusRequiredYes statusRequired = iota
+	statusRequiredNo
+	statusRequiredUnknown
+)
+
+func checkStatusRequired(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	if k == nil {
+		// can't really say anything...
+		return statusRequiredUnknown, nil
+	}
+
+	ret, err := checkStatusRequiredByScheme(k, ref)
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+	if ret != statusRequiredUnknown {
+		return ret, nil
+	}
+
+	ret, err = checkStatusRequiredByCRD(ctx, k, ref)
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+	if ret != statusRequiredUnknown {
+		return ret, nil
+	}
+
+	ret, err = checkStatusRequiredBySubresource(ctx, k, ref)
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+	return ret, nil
+}
+
+func checkStatusRequiredByScheme(k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	c, err := k.ToClient()
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+
+	x, err := c.Scheme().New(ref.GroupVersionKind())
+	if err != nil {
+		return statusRequiredUnknown, nil
+	}
+
+	t := reflect.Indirect(reflect.ValueOf(x)).Type()
+	f, ok := t.FieldByName("Status")
+	if !ok {
+		return statusRequiredNo, nil
+	}
+	_ = f
+	return statusRequiredYes, nil
+}
+
+func checkStatusRequiredByCRD(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	s, err := k.GetSchemaForGVK(ref.GroupVersionKind())
+	if err == nil {
+		_, ok, _ := s.GetNestedObject("properties", "status")
+		if !ok {
+			// it has no status, so all is good
+			return statusRequiredNo, nil
+		}
+		return statusRequiredYes, nil
+	} else if errors.IsNotFound(err) || errors.IsForbidden(err) {
+		return statusRequiredUnknown, nil
+	} else {
+		return statusRequiredUnknown, err
+	}
+}
+
+func checkStatusRequiredBySubresource(ctx context.Context, k *k8s.K8sCluster, ref k8s2.ObjectRef) (statusRequired, error) {
+	c, err := k.ToClient()
+	if err != nil {
+		return statusRequiredUnknown, err
+	}
+
+	// test if status sub-resource can generally be retrieved via a GET on the subresource, which in indicates the
+	// resource is well known to contain a status
+	var o unstructured.Unstructured
+	o.SetNamespace(ref.Namespace)
+	o.SetName(ref.Name)
+	o.SetGroupVersionKind(ref.GroupVersionKind())
+	err = c.SubResource("status").Get(ctx, &o, &unstructured.Unstructured{})
+	if err == nil {
+		return statusRequiredYes, nil
+	} else if errors.IsNotFound(err) {
+		// looks like the resource has no status sub-resource
+		return statusRequiredNo, nil
+	} else if errors.IsForbidden(err) {
+		return statusRequiredUnknown, nil
+	} else {
+		return statusRequiredUnknown, err
+	}
 }

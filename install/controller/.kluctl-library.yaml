@@ -1,0 +1,19 @@
+args:
+  - name: kluctl_image
+    default: ghcr.io/kluctl/kluctl
+  - name: kluctl_version
+    default: v2.25.1
+  - name: controller_args
+    default: []
+  - name: controller_envs
+    default: []
+  - name: controller_resources
+    default: {}
+  - name: controller_node_selectors
+    default: {}
+  - name: controller_tolerations
+    default: []
+  - name: controller_priority_class_name
+    default: {}
+  - name: controller_service_account_annotations
+    default: {}

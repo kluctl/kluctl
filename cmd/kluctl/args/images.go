@@ -2,8 +2,8 @@ package args
 
 import (
 	"fmt"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"strings"
 )
 
@@ -43,7 +43,7 @@ func buildFixedImageEntryFromArg(arg string) (*types.FixedImage, error) {
 
 	s = strings.Split(image, ":")
 	e := types.FixedImage{
-		Image:       s[0],
+		Image:       &s[0],
 		ResultImage: result,
 	}
 

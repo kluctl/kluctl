@@ -3,11 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/controllers"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
-	"github.com/kluctl/kluctl/v2/pkg/results"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,17 +21,18 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/cli-utils/pkg/flowcontrol"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"testing"
 )
 
 var (
 	setupLog = ctrl.Log.WithName("setup")
 )
-
-const controllerName = "kluctl-controller"
 
 type controllerRunCmd struct {
 	scheme *runtime.Scheme
@@ -39,9 +40,16 @@ type controllerRunCmd struct {
 	Kubeconfig string `group:"misc" help:"Override the kubeconfig to use."`
 	Context    string `group:"misc" help:"Override the context to use."`
 
-	MetricsBindAddress     string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
-	HealthProbeBindAddress string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
-	LeaderElect            bool   `group:"misc" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	ControllerName      string `group:"misc" help:"The controller name used for metrics and logs." default:"kluctl-controller"`
+	ControllerNamespace string `group:"misc" help:"The namespace where the controller runs in." default:"kluctl-system"`
+	Namespace           string `group:"misc" help:"Specify the namespace to watch. If omitted, all namespaces are watched."`
+
+	MetricsBindAddress        string `group:"misc" help:"The address the metric endpoint binds to." default:":8080"`
+	HealthProbeBindAddress    string `group:"misc" help:"The address the probe endpoint binds to." default:":8081"`
+	SourceOverrideBindAddress string `group:"misc" help:"The address the source override manager endpoint binds to." default:":8082"`
+
+	LeaderElect bool `group:"misc" help:"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager."`
+	Concurrency int  `group:"misc" help:"Configures how many KluctlDeployments can be be reconciled concurrently." default:"4"`
 
 	DefaultServiceAccount string `group:"misc" help:"Default service account used for impersonation."`
 	DryRun                bool   `group:"misc" help:"Run all deployments in dryRun=true mode."`
@@ -68,11 +76,17 @@ func (cmd *controllerRunCmd) initScheme() {
 func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 	cmd.initScheme()
 
-	metricsRecorder := metrics.NewRecorder()
-	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+	globalFlags := getCobraGlobalFlags(ctx)
 
-	opts := zap.Options{
-		Development: true,
+	metricsRecorder := metrics.NewRecorder()
+	if cmd.MetricsBindAddress != "0" {
+		metricsRecorder = metrics.NewRecorder()
+		crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
+	}
+
+	opts := zap.Options{}
+	if testing.Testing() {
+		opts.Development = true
 	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -90,10 +104,22 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		restConfig.Burst = -1
 	}
 
+	var cacheNamespaces map[string]cache.Config
+	if cmd.Namespace != "" {
+		cacheNamespaces = map[string]cache.Config{
+			cmd.ControllerNamespace: {},
+			cmd.Namespace:           {},
+		}
+	}
+
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
-		Scheme:                 cmd.scheme,
-		MetricsBindAddress:     cmd.MetricsBindAddress,
-		Port:                   9443,
+		BaseContext: func() context.Context {
+			return ctx
+		},
+		Scheme: cmd.scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: cmd.MetricsBindAddress,
+		},
 		HealthProbeBindAddress: cmd.HealthProbeBindAddress,
 		LeaderElection:         cmd.LeaderElect,
 		LeaderElectionID:       "5ab5d0f9.kluctl.io",
@@ -108,21 +134,52 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
+		Cache: cache.Options{
+			DefaultNamespaces: cacheNamespaces,
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	eventRecorder := mgr.GetEventRecorderFor(controllerName)
+	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		if cmd.SourceOverrideBindAddress == "0" {
+			return nil
+		}
+		setupLog.Info("Initializing source-override server TLS")
+		return sourceoverride.InitControllerSecret(ctx, mgr.GetClient(), cmd.ControllerNamespace)
+	}))
+	if err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	eventRecorder := mgr.GetEventRecorderFor(cmd.ControllerName)
 
 	sshPool := &ssh_pool.SshPool{}
 
+	var soProxyServer *sourceoverride.ProxyServerImpl
+	if cmd.SourceOverrideBindAddress != "0" {
+		soProxyServer = sourceoverride.NewProxyServerImpl(ctx, mgr.GetAPIReader(), cmd.ControllerNamespace)
+		_, err := soProxyServer.Listen(cmd.SourceOverrideBindAddress)
+		if err != nil {
+			return err
+		}
+		go func() {
+			_ = soProxyServer.Serve()
+		}()
+		defer soProxyServer.Stop()
+	}
+
 	r := controllers.KluctlDeploymentReconciler{
-		ControllerName:        controllerName,
+		ControllerName:        cmd.ControllerName,
+		ControllerNamespace:   cmd.ControllerNamespace,
 		DefaultServiceAccount: cmd.DefaultServiceAccount,
 		DryRun:                cmd.DryRun,
+		UseSystemPython:       globalFlags.UseSystemPython,
 		RestConfig:            restConfig,
+		ApiReader:             mgr.GetAPIReader(),
 		Client:                mgr.GetClient(),
 		Scheme:                mgr.GetScheme(),
 		EventRecorder:         eventRecorder,
@@ -130,20 +187,13 @@ func (cmd *controllerRunCmd) Run(ctx context.Context) error {
 		SshPool:               sshPool,
 	}
 
-	if cmd.WriteCommandResult {
-		c, err := client.NewWithWatch(restConfig, client.Options{})
-		if err != nil {
-			return err
-		}
-		resultStore, err := results.NewResultStoreSecrets(ctx, c, cmd.CommandResultNamespace, cmd.KeepCommandResultsCount)
-		if err != nil {
-			return err
-		}
-		r.ResultStore = resultStore
+	r.ResultStore, err = buildResultStoreRW(ctx, restConfig, mgr.GetRESTMapper(), &cmd.CommandResultFlags, true)
+	if err != nil {
+		return err
 	}
 
 	if err = r.SetupWithManager(ctx, mgr, controllers.KluctlDeploymentReconcilerOpts{
-		HTTPRetry: 9,
+		Concurrency: cmd.Concurrency,
 	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", kluctlv1.KluctlDeploymentKind)
 		os.Exit(1)

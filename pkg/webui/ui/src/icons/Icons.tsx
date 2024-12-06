@@ -10,6 +10,7 @@ import { ReactComponent as CpuIconSvg } from './cpu.svg';
 import { ReactComponent as FingerScanIconSvg } from './finger-scan.svg';
 import { ReactComponent as TreeViewIconSvg } from './tree-view.svg';
 import { ReactComponent as CloseIconSvg } from './close.svg';
+import { ReactComponent as CloseLightIconSvg } from './close-light.svg';
 import { ReactComponent as DeployIconSvg } from './deploy.svg';
 import { ReactComponent as PruneIconSvg } from './prune.svg';
 import { ReactComponent as DiffIconSvg } from './diff.svg';
@@ -27,12 +28,18 @@ import { ReactComponent as WarningSignIconSvg } from './warning-sign.svg';
 import { ReactComponent as ChangesIconSvg } from './changes.svg';
 import { ReactComponent as StarIconSvg } from './star.svg';
 import { ReactComponent as TriangleDownIconSvg } from './triangle-down.svg';
+import { ReactComponent as TriangleLeftLightIconSvg } from './triangle-left-light.svg';
+import { ReactComponent as TriangleRightLightIconSvg } from './triangle-right-light.svg';
 import { ReactComponent as TriangleRightIconSvg } from './triangle-right.svg';
 import { ReactComponent as BracketsCurlyIconSvg } from './brackets-curly.svg';
 import { ReactComponent as BracketsSquareIconSvg } from './brackets-square.svg';
 import { ReactComponent as FileIconSvg } from './file.svg';
 import { ReactComponent as ResultIconSvg } from './result.svg';
 import { ReactComponent as IncludeIconSvg } from './include.svg';
+import { ReactComponent as LogoutIconSvg } from './logout.svg';
+import ToysIcon from '@mui/icons-material/Toys';
+import React from "react";
+import { Keyboard } from "@mui/icons-material";
 
 export const KluctlText = () => {
     return <KluctlTextSvg width="115px" height="33px" />
@@ -57,6 +64,10 @@ export const TargetsIcon = () => {
 export const TargetIcon = () => {
     return <TargetIconSvg width="45px" height="45px" />
 }
+export const CLITargetIcon = () => {
+    const size = "45px"
+    return <Keyboard sx={{width: size, height: size}}/>
+}
 export const RelationHLine = () => {
     return <RelationHLineSvg width="169px" height="12px" />
 }
@@ -65,16 +76,24 @@ export const ProjectIcon = () => {
     return <ProjectIconSvg width="45px" height="45px" />
 }
 
-export const DeployIcon = () => {
-    return <DeployIconSvg width="45px" height="45px" />
+export const DeployIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <DeployIconSvg width={size} height={size} />
 }
 
-export const PruneIcon = () => {
-    return <PruneIconSvg width="45px" height="45px" />
+export const DryRunDeployIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <ToysIcon sx={{width: size, height: size}} />
 }
 
-export const DiffIcon = () => {
-    return <DiffIconSvg width="45px" height="45px" />
+export const PruneIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <PruneIconSvg width={size} height={size} />
+}
+
+export const DiffIcon = (props: {size?: string}) => {
+    const size = props.size || "45px"
+    return <DiffIconSvg width={size} height={size} />
 }
 
 export const CpuIcon = () => {
@@ -101,6 +120,10 @@ export const TreeViewIcon = () => {
 
 export const CloseIcon = () => {
     return <CloseIconSvg width="24px" height="24px" />
+}
+
+export const CloseLightIcon = () => {
+    return <CloseLightIconSvg width="24px" height="24px" />
 }
 
 export const WarningIcon = () => {
@@ -159,10 +182,17 @@ export const TriangleDownIcon = () => {
     return <TriangleDownIconSvg width="50px" height="50px" />
 }
 
+export const TriangleLeftLightIcon = () => {
+    return <TriangleLeftLightIconSvg width="50px" height="50px" />
+}
+
+export const TriangleRightLightIcon = () => {
+    return <TriangleRightLightIconSvg width="50px" height="50px" />
+}
+
 export const TriangleRightIcon = () => {
     return <TriangleRightIconSvg width="50px" height="50px" />
 }
-
 export const BracketsCurlyIcon = () => {
     return <BracketsCurlyIconSvg width="22px" height="18px" />
 }
@@ -181,4 +211,8 @@ export const ResultIcon = () => {
 
 export const IncludeIcon = () => {
     return <IncludeIconSvg width="30px" height="30px" />
+}
+
+export const LogoutIcon = () => {
+    return <LogoutIconSvg width="40px" height="40px" />
 }

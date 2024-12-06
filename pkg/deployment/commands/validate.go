@@ -3,127 +3,103 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/kluctl/kluctl/v2/pkg/deployment"
 	utils2 "github.com/kluctl/kluctl/v2/pkg/deployment/utils"
-	"github.com/kluctl/kluctl/v2/pkg/k8s"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/validation"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ValidateCommand struct {
-	c             *deployment.DeploymentCollection
-	r             *result.CommandResult
+	targetCtx     *target_context.TargetContext
 	discriminator string
 
 	dew *utils2.DeploymentErrorsAndWarnings
 	ru  *utils2.RemoteObjectUtils
 }
 
-func NewValidateCommand(ctx context.Context, discriminator string, c *deployment.DeploymentCollection, r *result.CommandResult) *ValidateCommand {
+func NewValidateCommand(discriminator string, targetCtx *target_context.TargetContext) *ValidateCommand {
 	cmd := &ValidateCommand{
-		c:             c,
-		r:             r,
+		targetCtx:     targetCtx,
 		discriminator: discriminator,
 		dew:           utils2.NewDeploymentErrorsAndWarnings(),
 	}
-	cmd.ru = utils2.NewRemoteObjectsUtil(ctx, cmd.dew)
+	cmd.ru = utils2.NewRemoteObjectsUtil(targetCtx.SharedContext.Ctx, cmd.dew)
 	return cmd
 }
 
-func (cmd *ValidateCommand) Run(ctx context.Context, k *k8s.K8sCluster) (*result.ValidateResult, error) {
-	ret := result.ValidateResult{
-		Id:        uuid.New().String(),
-		StartTime: metav1.Now(),
-		Ready:     true,
-	}
+func (cmd *ValidateCommand) Run(ctx context.Context) *result.ValidateResult {
+	startTime := cmd.targetCtx.KluctlProject.LoadTime
 
 	cmd.dew.Init()
 
-	var refs []k8s2.ObjectRef
-	var renderedObjects []*uo.UnstructuredObject
-	appliedObjects := map[k8s2.ObjectRef]*uo.UnstructuredObject{}
-	var discriminator string
+	ret := newValidateCommandResult(cmd.targetCtx, startTime)
+	ret.Ready = true
 
-	if cmd.c != nil && cmd.r != nil {
-		return nil, fmt.Errorf("passing both deployment collection and command result is not allowed")
-	} else if cmd.c != nil {
-		for _, d := range cmd.c.Deployments {
-			for _, o := range d.Objects {
-				ref := o.GetK8sRef()
-				refs = append(refs, ref)
-				renderedObjects = append(renderedObjects, o)
-			}
+	defer func() {
+		finishValidateResult(ret, cmd.targetCtx, cmd.dew)
+	}()
+
+	var refs []k8s2.ObjectRef
+	discriminator := cmd.discriminator
+
+	for _, d := range cmd.targetCtx.DeploymentCollection.Deployments {
+		for _, o := range d.Objects {
+			ref := o.GetK8sRef()
+			refs = append(refs, ref)
 		}
-	} else if cmd.r != nil {
-		for _, o := range cmd.r.Objects {
-			refs = append(refs, o.Ref)
-			if o.Hook {
+	}
+	if discriminator == "" {
+		discriminator = cmd.targetCtx.Target.Discriminator
+	}
+
+	err := cmd.ru.UpdateRemoteObjects(cmd.targetCtx.SharedContext.K, &discriminator, refs, true)
+	if err != nil {
+		cmd.dew.AddError(k8s2.ObjectRef{}, err)
+		return ret
+	}
+
+	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, cmd.targetCtx.SharedContext.K, &utils2.ApplyUtilOptions{})
+	for _, d := range cmd.targetCtx.DeploymentCollection.Deployments {
+		for _, o := range d.Objects {
+			if o.GetK8sAnnotationBoolNoError("kluctl.io/delete", false) {
+				if cmd.ru.GetRemoteObject(o.GetK8sRef()) != nil {
+					cmd.dew.AddError(o.GetK8sRef(), fmt.Errorf("object is marked for deletion but still exists on the target cluster"))
+				}
 				continue
 			}
-			if o.Rendered != nil {
-				renderedObjects = append(renderedObjects, o.Rendered)
+
+			au := ad.NewApplyUtil(ctx, nil)
+			h := utils2.NewHooksUtil(au)
+			if hook := h.GetHook(d, o); hook != nil {
+				if !hook.IsPersistent() {
+					// the hook is not expected to exist after deployment
+					continue
+				}
+				if hook.IsOnlyDelete() || hook.IsOnlyRollback() {
+					// the hook is not expected to be executed
+					continue
+				}
 			}
-			if o.Applied != nil {
-				appliedObjects[o.Ref] = o.Applied
+
+			ref := o.GetK8sRef()
+
+			remoteObject := cmd.ru.GetRemoteObject(ref)
+			if remoteObject == nil {
+				ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
+				continue
 			}
+			r := validation.ValidateObject(ctx, cmd.targetCtx.SharedContext.K, remoteObject, true, false)
+			if !r.Ready {
+				ret.Ready = false
+			}
+			ret.Errors = append(ret.Errors, r.Errors...)
+			ret.Warnings = append(ret.Warnings, r.Warnings...)
+			ret.Results = append(ret.Results, r.Results...)
 		}
-		discriminator = cmd.r.TargetKey.Discriminator
-	} else {
-		return nil, fmt.Errorf("either deployment collection or command result must be passed")
 	}
 
-	if discriminator == "" {
-		discriminator = cmd.discriminator
-	}
-
-	err := cmd.ru.UpdateRemoteObjects(k, &cmd.discriminator, refs, true)
-	if err != nil {
-		return nil, err
-	}
-
-	ad := utils2.NewApplyDeploymentsUtil(ctx, cmd.dew, cmd.ru, k, &utils2.ApplyUtilOptions{})
-	for _, o := range renderedObjects {
-		au := ad.NewApplyUtil(ctx, nil)
-		h := utils2.NewHooksUtil(au)
-		hook := h.GetHook(o)
-		if hook != nil && !hook.IsPersistent() {
-			continue
-		}
-
-		ref := o.GetK8sRef()
-
-		remoteObject := cmd.ru.GetRemoteObject(ref)
-		if remoteObject == nil {
-			ret.Errors = append(ret.Errors, result.DeploymentError{Ref: ref, Message: "object not found"})
-			continue
-		}
-		r := validation.ValidateObject(k, remoteObject, true, false)
-		if !r.Ready {
-			ret.Ready = false
-		}
-		ret.Errors = append(ret.Errors, r.Errors...)
-		ret.Warnings = append(ret.Warnings, r.Warnings...)
-		ret.Results = append(ret.Results, r.Results...)
-	}
-
-	du := utils2.NewDiffUtil(cmd.dew, cmd.ru, appliedObjects)
-	du.Swapped = true
-	du.DiffObjects(renderedObjects)
-
-	ret.Warnings = append(ret.Warnings, cmd.dew.GetWarningsList()...)
-	ret.Errors = append(ret.Errors, cmd.dew.GetErrorsList()...)
-
-	if len(du.ChangedObjects) != 0 {
-		ret.Drift = du.ChangedObjects
-	}
-
-	ret.EndTime = metav1.Now()
-
-	return &ret, nil
+	return ret
 }
 
 func (cmd *ValidateCommand) ForgetRemoteObject(ref k8s2.ObjectRef) {

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -40,13 +41,17 @@ var deleteOrder = [][]string{
 }
 
 func objectRefForExclusion(k *k8s.K8sCluster, ref k8s2.ObjectRef) k8s2.ObjectRef {
-	ref = k.FixNamespaceInRef(ref)
+	namespaced := k.IsNamespaced(ref.GroupVersionKind())
+	if namespaced == nil {
+		return ref
+	}
+	ref = k8s.FixNamespaceInRef(ref, *namespaced, "default")
 	ref.Version = ""
 	return ref
 }
 
 func isSkipDelete(o *uo.UnstructuredObject) bool {
-	if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete")) {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/skip-delete", false) {
 		return true
 	}
 
@@ -59,6 +64,41 @@ func isSkipDelete(o *uo.UnstructuredObject) bool {
 	}
 
 	return false
+}
+
+func isManagedByKluctl(o *uo.UnstructuredObject) bool {
+	if o.GetK8sAnnotationBoolNoError("kluctl.io/force-managed", false) {
+		return true
+	}
+
+	ownerRefs := o.GetK8sOwnerReferences()
+	managedFields := o.GetK8sManagedFields()
+
+	// exclude objects which are owned by some other object
+	if len(ownerRefs) != 0 {
+		return false
+	}
+
+	if len(managedFields) == 0 {
+		// We don't know who manages it...be safe and exclude it
+		return false
+	}
+
+	// check if kluctl is managing this object
+	found := false
+	for _, mf := range managedFields {
+		mgr, _, _ := mf.GetNestedString("manager")
+		if mgr == "kluctl" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		// This object is not managed by kluctl, so we shouldn't delete it
+		return false
+	}
+
+	return true
 }
 
 func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject, apiFilter []string, inclusionHasTags bool, excludedObjects map[k8s2.ObjectRef]bool) ([]*uo.UnstructuredObject, error) {
@@ -75,12 +115,16 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 	}
 
 	filteredResources := make(map[schema.GroupKind]bool)
-	gvks, err := k.GetFilteredPreferredGVKs(filterFunc)
+	ars, err := k.GetFilteredPreferredAPIResources(filterFunc)
 	if err != nil {
 		return nil, err
 	}
-	for _, gvk := range gvks {
-		filteredResources[gvk.GroupKind()] = true
+	for _, ar := range ars {
+		gk := schema.GroupKind{
+			Group: ar.Group,
+			Kind:  ar.Kind,
+		}
+		filteredResources[gk] = true
 	}
 
 	var ret []*uo.UnstructuredObject
@@ -91,35 +135,12 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 			continue
 		}
 
-		ownerRefs := o.GetK8sOwnerReferences()
-		managedFields := o.GetK8sManagedFields()
-
 		// exclude when explicitly requested
 		if isSkipDelete(o) {
 			continue
 		}
 
-		// exclude objects which are owned by some other object
-		if len(ownerRefs) != 0 {
-			continue
-		}
-
-		if len(managedFields) == 0 {
-			// We don't know who manages it...be safe and exclude it
-			continue
-		}
-
-		// check if kluctl is managing this object
-		found := false
-		for _, mf := range managedFields {
-			mgr, _, _ := mf.GetNestedString("manager")
-			if mgr == "kluctl" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			// This object is not managed by kluctl, so we shouldn't delete it
+		if !isManagedByKluctl(o) {
 			continue
 		}
 
@@ -130,7 +151,7 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 
 		// exclude resources which have the 'kluctl.io/skip-delete-if-tags' annotation set
 		if inclusionHasTags {
-			if utils.ParseBoolOrFalse(o.GetK8sAnnotation("kluctl.io/skip-delete-if-tags")) {
+			if o.GetK8sAnnotationBoolNoError("kluctl.io/skip-delete-if-tags", false) {
 				continue
 			}
 		}
@@ -141,6 +162,10 @@ func filterObjectsForDelete(k *k8s.K8sCluster, objects []*uo.UnstructuredObject,
 }
 
 func FindObjectsForDelete(k *k8s.K8sCluster, allClusterObjects []*uo.UnstructuredObject, inclusionHasTags bool, excludedObjects []k8s2.ObjectRef) ([]k8s2.ObjectRef, error) {
+	if k == nil {
+		return nil, fmt.Errorf("can not determine orphan objects without a Kubernetes API client")
+	}
+
 	excludedObjectsMap := make(map[k8s2.ObjectRef]bool)
 	for _, ref := range excludedObjects {
 		excludedObjectsMap[objectRefForExclusion(k, ref)] = true

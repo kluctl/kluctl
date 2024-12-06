@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"time"
@@ -32,14 +33,32 @@ const (
 
 	KluctlDeployModeFull   = "full-deploy"
 	KluctlDeployPokeImages = "poke-images"
+)
 
+// The following annotations are set by the CLI (gitops sub-commands) and the webui. The values contains a JSON serialized
+// ManualRequest
+const (
 	KluctlRequestReconcileAnnotation = "kluctl.io/request-reconcile"
+	KluctlRequestDiffAnnotation      = "kluctl.io/request-diff"
 	KluctlRequestDeployAnnotation    = "kluctl.io/request-deploy"
+	KluctlRequestPruneAnnotation     = "kluctl.io/request-prune"
+	KluctlRequestValidateAnnotation  = "kluctl.io/request-validate"
+
+	// SourceOverrideScheme is used when source overrides are setup via the CLI
+	SourceOverrideScheme = "grpc+source-override"
 )
 
 type KluctlDeploymentSpec struct {
 	// Specifies the project source location
 	Source ProjectSource `json:"source"`
+
+	// Specifies source overrides
+	// +optional
+	SourceOverrides []SourceOverride `json:"sourceOverrides,omitempty"`
+
+	// Credentials specifies the credentials used when pulling sources
+	// +optional
+	Credentials ProjectCredentials `json:"credentials,omitempty"`
 
 	// Decrypt Kubernetes secrets before applying them on the cluster.
 	// +optional
@@ -88,6 +107,7 @@ type KluctlDeploymentSpec struct {
 
 	// HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
 	// Kluctl deployment.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.
 	// +optional
 	HelmCredentials []HelmCredentials `json:"helmCredentials,omitempty"`
 
@@ -100,7 +120,7 @@ type KluctlDeploymentSpec struct {
 	// Specifies the kubeconfig to be used when invoking kluctl. Contexts in this kubeconfig must match
 	// the context found in the kluctl target. As an alternative, specify the context to be used via 'context'
 	// +optional
-	KubeConfig *KubeConfig `json:"kubeConfig"`
+	KubeConfig *KubeConfig `json:"kubeConfig,omitempty"`
 
 	// Target specifies the kluctl target to deploy. If not specified, an empty target is used that has no name and no
 	// context. Use 'TargetName' and 'Context' to specify the name and context in that case.
@@ -123,7 +143,7 @@ type KluctlDeploymentSpec struct {
 	// Args specifies dynamic target args.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Args runtime.RawExtension `json:"args,omitempty"`
+	Args *runtime.RawExtension `json:"args,omitempty"`
 
 	// Images contains a list of fixed image overrides.
 	// Equivalent to using '--fixed-images-file' when calling kluctl.
@@ -208,6 +228,20 @@ type KluctlDeploymentSpec struct {
 	// +kubebuilder:default:=false
 	// +optional
 	Delete bool `json:"delete,omitempty"`
+
+	// Manual enables manual deployments, meaning that the deployment will initially start as a dry run deployment
+	// and only after manual approval cause a real deployment
+	// +optional
+	Manual bool `json:"manual,omitempty"`
+
+	// ManualObjectsHash specifies the rendered objects hash that is approved for manual deployment.
+	// If Manual is set to true, the controller will skip deployments when the current reconciliation loops calculated
+	// objects hash does not match this value.
+	// There are two ways to use this value properly.
+	// 1. Set it manually to the value found in status.lastObjectsHash.
+	// 2. Use the Kluctl Webui to manually approve a deployment, which will set this field appropriately.
+	// +optional
+	ManualObjectsHash *string `json:"manualObjectsHash,omitempty"`
 }
 
 // GetRetryInterval returns the retry interval
@@ -219,26 +253,179 @@ func (in KluctlDeploymentSpec) GetRetryInterval() time.Duration {
 }
 
 type ProjectSource struct {
+	// Git specifies a git repository as project source
+	// +optional
+	Git *ProjectSourceGit `json:"git,omitempty"`
+
+	// Oci specifies an OCI repository as project source
+	// +optional
+	Oci *ProjectSourceOci `json:"oci,omitempty"`
+
 	// Url specifies the Git url where the project source is located
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.
+	// +optional
+	URL *string `json:"url,omitempty"`
+
+	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
+	// +optional
+	Ref *gittypes.GitRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// See ProjectSourceCredentials.SecretRef for details
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git
+	// instead.
+	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
+	// Use spec.credentials.git with a proper Host field instead.
+	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+
+	// Credentials specifies a list of secrets with credentials
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.
+	// +optional
+	Credentials []ProjectCredentialsGitDeprecated `json:"credentials,omitempty"`
+}
+
+type ProjectSourceGit struct {
+	// URL specifies the Git url where the project source is located. If the given Git repository needs authentication,
+	// use spec.credentials.git to specify those.
 	// +required
-	URL types.GitUrl `json:"url"`
+	URL string `json:"url"`
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
 	// +optional
-	Ref *GitRef `json:"ref,omitempty"`
+	Ref *gittypes.GitRef `json:"ref,omitempty"`
 
 	// Path specifies the sub-directory to be used as project directory
+	// +optional
+	Path string `json:"path,omitempty"`
+}
+
+type ProjectSourceOci struct {
+	// Url specifies the Git url where the project source is located. If the given OCI repository needs authentication,
+	// use spec.credentials.oci to specify those.
+	// +required
+	URL string `json:"url"`
+
+	// Ref specifies the tag to be used. If omitted, the "latest" tag is used.
+	// +optional
+	Ref *types.OciRef `json:"ref,omitempty"`
+
+	// Path specifies the sub-directory to be used as project directory
+	// +optional
+	Path string `json:"path,omitempty"`
+}
+
+type SourceOverride struct {
+	// +required
+	RepoKey gittypes.RepoKey `json:"repoKey"`
+	// +required
+	Url string `json:"url"`
+	// +optional
+	IsGroup bool `json:"isGroup,omitempty"`
+}
+
+type ProjectCredentials struct {
+	// Git specifies a list of git credentials
+	// +optional
+	Git []ProjectCredentialsGit `json:"git,omitempty"`
+
+	// Oci specifies a list of OCI credentials
+	// +optional
+	Oci []ProjectCredentialsOci `json:"oci,omitempty"`
+
+	// Helm specifies a list of Helm credentials
+	// +optional
+	Helm []ProjectCredentialsHelm `json:"helm,omitempty"`
+}
+
+type ProjectCredentialsGit struct {
+	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
+	// applies to all hosts.
+	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+	// You must always set a proper hostname in that case.
+	// +required
+	Host string `json:"host,omitempty"`
+
+	// Path specifies the path to be used to filter Git repositories. The path can contain wildcards. These credentials
+	// will only be used for matching Git URLs. If omitted, all repositories are considered to match.
 	// +optional
 	Path string `json:"path,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
 	// the git repository.
-	// For HTTPS repositories the Secret must contain 'username' and 'password'
+	// For HTTPS git repositories the Secret must contain 'username' and 'password'
 	// fields.
-	// For SSH repositories the Secret must contain 'identity'
+	// For SSH git repositories the Secret must contain 'identity'
 	// and 'known_hosts' fields.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsGitDeprecated struct {
+	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
+	// applies to all hosts.
+	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
+	// You must always set a proper hostname in that case.
+	// +required
+	Host string `json:"host,omitempty"`
+
+	// PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
+	// this set of credentials.
 	// +optional
-	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+	PathPrefix string `json:"pathPrefix,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the git repository.
+	// For HTTPS git repositories the Secret must contain 'username' and 'password'
+	// fields.
+	// For SSH git repositories the Secret must contain 'identity'
+	// and 'known_hosts' fields.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsOci struct {
+	// Registry specifies the hostname that this secret applies to.
+	// +required
+	Registry string `json:"registry,omitempty"`
+
+	// Repository specifies the org and repo name in the format 'org-name/repo-name'.
+	// Both 'org-name' and 'repo-name' can be specified as '*', meaning that all names are matched.
+	// +optional
+	Repository string `json:"repository,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the oci repository.
+	// The secret must contain 'username' and 'password'.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
+}
+
+type ProjectCredentialsHelm struct {
+	// Host specifies the hostname that this secret applies to.
+	// +required
+	Host string `json:"host"`
+
+	// Path specifies the path to be used to filter Helm urls. The path can contain wildcards. These credentials
+	// will only be used for matching URLs. If omitted, all URLs are considered to match.
+	// +optional
+	Path string `json:"path,omitempty"`
+
+	// SecretRef specifies the Secret containing authentication credentials for
+	// the Helm repository.
+	// The secret can either container basic authentication credentials via `username` and `password` or
+	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
+	// contacting the repository.
+	// The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.
+	// `passCredentialsAll: "true"` can be specified to make the controller pass credentials to all requests, even if
+	// the hostname changes in-between.
+	// +required
+	SecretRef LocalObjectReference `json:"secretRef"`
 }
 
 // Decryption defines how decryption is handled for Kubernetes manifests.
@@ -262,7 +449,7 @@ type Decryption struct {
 type HelmCredentials struct {
 	// SecretRef holds the name of a secret that contains the Helm credentials.
 	// The secret must either contain the fields `credentialsId` which refers to the credentialsId
-	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-chart-repositories or an `url` used
+	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories or an `url` used
 	// to match the credentials found in Kluctl projects helm-chart.yaml files.
 	// The secret can either container basic authentication credentials via `username` and `password` or
 	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
@@ -291,14 +478,20 @@ type KubeConfig struct {
 
 // KluctlDeploymentStatus defines the observed state of KluctlDeployment
 type KluctlDeploymentStatus struct {
-	// LastHandledReconcileAt holds the value of the most recent
-	// reconcile request value, so a change of the annotation value
-	// can be detected.
 	// +optional
-	LastHandledReconcileAt string `json:"lastHandledReconcileAt,omitempty"`
+	ReconcileRequestResult *ManualRequestResult `json:"reconcileRequestResult,omitempty"`
 
 	// +optional
-	LastHandledDeployAt string `json:"LastHandledDeployAt,omitempty"`
+	DiffRequestResult *ManualRequestResult `json:"diffRequestResult,omitempty"`
+
+	// +optional
+	DeployRequestResult *ManualRequestResult `json:"deployRequestResult,omitempty"`
+
+	// +optional
+	PruneRequestResult *ManualRequestResult `json:"pruneRequestResult,omitempty"`
+
+	// +optional
+	ValidateRequestResult *ManualRequestResult `json:"validateRequestResult,omitempty"`
 
 	// ObservedGeneration is the last reconciled generation.
 	// +optional
@@ -311,7 +504,7 @@ type KluctlDeploymentStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +optional
-	ProjectKey *result.ProjectKey `json:"projectKey,omitempty"`
+	ProjectKey *gittypes.ProjectKey `json:"projectKey,omitempty"`
 
 	// +optional
 	TargetKey *result.TargetKey `json:"targetKey,omitempty"`
@@ -320,52 +513,69 @@ type KluctlDeploymentStatus struct {
 	LastObjectsHash string `json:"lastObjectsHash,omitempty"`
 
 	// +optional
-	LastDeployError string `json:"lastDeployError,omitempty"`
-	// +optional
-	LastValidateError string `json:"lastValidateError,omitempty"`
+	LastManualObjectsHash *string `json:"lastManualObjectsHash,omitempty"`
 
-	// LastDeployResult is the result of the last deploy command
+	// +optional
+	LastPrepareError string `json:"lastPrepareError,omitempty"`
+
+	// LastDiffResult is the result summary of the last diff command
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	LastDiffResult *runtime.RawExtension `json:"lastDiffResult,omitempty"`
+
+	// LastDeployResult is the result summary of the last deploy command
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	LastDeployResult *runtime.RawExtension `json:"lastDeployResult,omitempty"`
 
-	// LastValidateResult is the result of the last validate command
+	// LastValidateResult is the result summary of the last validate command
 	// +optional
 	LastValidateResult *runtime.RawExtension `json:"lastValidateResult,omitempty"`
+
+	// LastDriftDetectionResult is the result of the last drift detection command
+	// optional
+	LastDriftDetectionResult *runtime.RawExtension `json:"lastDriftDetectionResult,omitempty"`
+
+	// LastDriftDetectionResultMessage contains a short message that describes the drift
+	// optional
+	LastDriftDetectionResultMessage string `json:"lastDriftDetectionResultMessage,omitempty"`
 }
 
-func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary, err error) error {
-	s.LastDeployError = ""
-	if err != nil {
-		s.LastDeployError = err.Error()
+func (s *KluctlDeploymentStatus) SetLastDiffResult(crs *result.CommandResultSummary) {
+	if crs == nil {
+		s.LastDiffResult = nil
+	} else {
+		b := yaml.WriteJsonStringMust(crs)
+		s.LastDiffResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
+}
+
+func (s *KluctlDeploymentStatus) SetLastDeployResult(crs *result.CommandResultSummary) {
 	if crs == nil {
 		s.LastDeployResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastDeployResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
 }
 
-func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult, err error) error {
-	s.LastValidateError = ""
-	if err != nil {
-		s.LastValidateError = err.Error()
-	}
+func (s *KluctlDeploymentStatus) SetLastValidateResult(crs *result.ValidateResult) {
 	if crs == nil {
 		s.LastValidateResult = nil
 	} else {
-		b, err := yaml.WriteJsonString(crs)
-		if err != nil {
-			return err
-		}
+		b := yaml.WriteJsonStringMust(crs)
 		s.LastValidateResult = &runtime.RawExtension{Raw: []byte(b)}
 	}
-	return nil
+}
+
+func (s *KluctlDeploymentStatus) SetLastDriftDetectionResult(dr *result.DriftDetectionResult) {
+	if dr == nil {
+		s.LastDriftDetectionResult = nil
+	} else {
+		b := yaml.WriteJsonStringMust(dr)
+		s.LastDriftDetectionResult = &runtime.RawExtension{Raw: []byte(b)}
+		s.LastDriftDetectionResultMessage = dr.BuildShortMessage()
+	}
 }
 
 func (s *KluctlDeploymentStatus) GetLastDeployResult() (*result.CommandResultSummary, error) {
@@ -392,12 +602,25 @@ func (s *KluctlDeploymentStatus) GetLastValidateResult() (*result.ValidateResult
 	return &ret, nil
 }
 
+func (s *KluctlDeploymentStatus) GetDriftDetectionResult() (*result.DriftDetectionResult, error) {
+	if s.LastDriftDetectionResult == nil {
+		return nil, nil
+	}
+	var ret result.DriftDetectionResult
+	err := yaml.ReadYamlBytes(s.LastDriftDetectionResult.Raw, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Suspend",type="boolean",JSONPath=".spec.suspend",description=""
 //+kubebuilder:printcolumn:name="DryRun",type="boolean",JSONPath=".spec.dryRun",description=""
-//+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.command.endTime",description=""
-//+kubebuilder:printcolumn:name="Pruned",type="date",JSONPath=".status.lastPruneResult.command.endTime",description=""
+//+kubebuilder:printcolumn:name="Deployed",type="date",JSONPath=".status.lastDeployResult.commandInfo.endTime",description=""
 //+kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
+//+kubebuilder:printcolumn:name="Drift",type="string",JSONPath=".status.lastDriftDetectionResultMessage",description=""
 //+kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
 

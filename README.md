@@ -21,13 +21,6 @@ Kluctl does not strictly depend on a controller and allows to use the same deplo
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
 local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
 
-If you want to follow a pull based GitOps flow, then you can use the Kluctl Controller, which then allows you to use
-`KluctlDeployment` custom resources to define your Kluctl deployments.
-
-Please note: GitOps support was previously implemented via the now deprecated [flux-kluctl-controller](https://github.com/kluctl/flux-kluctl-controller).
-Historically, the flux-kluctl-controller depended on the Flux ecosystem (the source-controller to be specific), which
-has changed in the meantime, meaning that it runs completely independent and thus is not part of the Flux ecosystem anymore.
-
 ## What can I do with Kluctl?
 
 Kluctl allows you to define a Kluctl project, which in turn defines Kluctl
@@ -38,10 +31,23 @@ and/or clusters.
 
 The Kluctl CLI then allows to deploy, diff, prune, delete, ... your deployments.
 
+## GitOps
+
+If you want to follow a pull based [GitOps](https://kluctl.io/docs/gitops/) flow, then you can use the Kluctl
+Controller, which then allows you to use `KluctlDeployment` custom resources to define your Kluctl deployments.
+
+## Kluctl Webui
+
+Kluctl also offers a [Webui](https://kluctl.io/docs/webui/) that allows you to visualise and control your Kluctl
+deployments. It works for deployments performed by the CLI and for deployments performed via GitOps.
+
+[Here](https://kluctl.io/blog/2023/09/12/introducing-the-kluctl-webui/) is an introduction to the Webui together
+with a tutorial.
+
 ## Where do I start?
 
-Installation instructions can be found [here](./docs/installation.md). For a getting started guide, continue
-[here](./docs/get-started.md).
+Installation instructions can be found [here](docs/kluctl/installation.md). For a getting started guide, continue
+[here](docs/kluctl/get-started.md).
 
 ## Community
 
@@ -83,4 +89,7 @@ handles these matters.
 | 🔐 Encrypted Secrets | Manage encrypted secrets for multiple target environments and clusters. |
 
 ## Demo
-![](https://kluctl.io/asciinema/kluctl.gif)
+
+https://kluctl.io/vhs/demo-cut.mp4
+
+Click on the link to play the video.

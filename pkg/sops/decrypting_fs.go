@@ -3,8 +3,8 @@ package sops
 import (
 	"bytes"
 	"fmt"
+	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
-	"go.mozilla.org/sops/v3/cmd/sops/formats"
 	"io"
 	"os"
 	"sigs.k8s.io/kustomize/kyaml/filesys"

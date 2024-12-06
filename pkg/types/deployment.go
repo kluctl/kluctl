@@ -2,24 +2,33 @@ package types
 
 import (
 	"github.com/go-playground/validator/v10"
+	yaml2 "github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
 type DeploymentItemConfig struct {
-	Path             *string                  `json:"path,omitempty"`
-	Include          *string                  `json:"include,omitempty"`
-	Git              *GitProject              `json:"git,omitempty"`
-	Tags             []string                 `json:"tags,omitempty"`
-	Barrier          bool                     `json:"barrier,omitempty"`
-	Message          *string                  `json:"message,omitempty"`
-	WaitReadiness    bool                     `json:"waitReadiness,omitempty"`
-	Vars             []*VarsSource            `json:"vars,omitempty"`
-	SkipDeleteIfTags bool                     `json:"skipDeleteIfTags,omitempty"`
-	OnlyRender       bool                     `json:"onlyRender,omitempty"`
-	AlwaysDeploy     bool                     `json:"alwaysDeploy,omitempty"`
-	DeleteObjects    []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
-	When             string                   `json:"when,omitempty"`
+	Path          *string                  `json:"path,omitempty"`
+	Include       *string                  `json:"include,omitempty"`
+	Git           *GitProject              `json:"git,omitempty"`
+	Oci           *OciProject              `json:"oci,omitempty"`
+	DeleteObjects []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
+
+	Tags    []string `json:"tags,omitempty"`
+	Barrier bool     `json:"barrier,omitempty"`
+	Message *string  `json:"message,omitempty"`
+
+	WaitReadiness        bool                            `json:"waitReadiness,omitempty"`
+	WaitReadinessObjects []WaitReadinessObjectItemConfig `json:"waitReadinessObjects,omitempty"`
+
+	Args     *uo.UnstructuredObject `json:"args,omitempty"`
+	PassVars bool                   `json:"passVars,omitempty"`
+	Vars     []VarsSource           `json:"vars,omitempty"`
+
+	SkipDeleteIfTags bool   `json:"skipDeleteIfTags,omitempty"`
+	OnlyRender       bool   `json:"onlyRender,omitempty"`
+	AlwaysDeploy     bool   `json:"alwaysDeploy,omitempty"`
+	When             string `json:"when,omitempty"`
 
 	// these are only allowed when writing the command result
 	RenderedHelmChartConfig *HelmChartConfig         `json:"renderedHelmChartConfig,omitempty"`
@@ -30,28 +39,45 @@ type DeploymentItemConfig struct {
 func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	s := sl.Current().Interface().(DeploymentItemConfig)
 	cnt := 0
+	isInclude := false
 	if s.Path != nil {
 		cnt += 1
 	}
 	if s.Include != nil {
 		cnt += 1
+		isInclude = true
 	}
 	if s.Git != nil {
 		cnt += 1
+		isInclude = true
+	}
+	if s.Oci != nil {
+		cnt += 1
+		isInclude = true
 	}
 	if cnt > 1 {
-		sl.ReportError(s, "self", "self", "only one of path, include and git can be set at the same time", "")
+		sl.ReportError(s, "self", "self", "only one of path, include, git and oci can be set at the same time", "")
 	}
 	if s.Path == nil && s.WaitReadiness {
 		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")
 	}
+	if !s.Args.IsZero() && !isInclude {
+		sl.ReportError(s, "self", "self", "args are only allowed when another project is included (via include, git or oci)", "")
+	}
+	if s.PassVars && !isInclude {
+		sl.ReportError(s, "self", "self", "passVars is only allowed when another project is included (via include, git or oci)", "")
+	}
 }
 
-type DeleteObjectItemConfig struct {
+type ObjectRefItem struct {
 	Group     *string `json:"group,omitempty"`
 	Kind      *string `json:"kind,omitempty"`
 	Name      string  `json:"name" validate:"required"`
 	Namespace string  `json:"namespace,omitempty"`
+}
+
+type DeleteObjectItemConfig struct {
+	ObjectRefItem
 }
 
 func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
@@ -61,22 +87,29 @@ func ValidateDeleteObjectItemConfig(sl validator.StructLevel) {
 	}
 }
 
-type SealedSecretsConfig struct {
-	OutputPattern *string `json:"outputPattern,omitempty"`
+type WaitReadinessObjectItemConfig struct {
+	ObjectRefItem
+}
+
+func ValidateWaitReadinessObjectItemConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(WaitReadinessObjectItemConfig)
+	if s.Group == nil && s.Kind == nil {
+		sl.ReportError(s, "self", "self", "at least one of group or kind must be set", "")
+	}
 }
 
 type SingleStringOrList []string
 
 func (s *SingleStringOrList) UnmarshalJSON(b []byte) error {
 	var single string
-	if err := yaml.ReadYamlBytes(b, &single); err == nil {
+	if err := yaml2.ReadYamlBytes(b, &single); err == nil {
 		// it's a single project
 		*s = []string{single}
 		return nil
 	}
 	// try as array
 	var arr []string
-	if err := yaml.ReadYamlBytes(b, &arr); err != nil {
+	if err := yaml2.ReadYamlBytes(b, &arr); err != nil {
 		return err
 	}
 	*s = arr
@@ -99,24 +132,51 @@ func ValidateIgnoreForDiffItemConfig(sl validator.StructLevel) {
 	}
 }
 
+type ConflictResolutionAction string
+
+const (
+	ConflictResolutionIgnore     ConflictResolutionAction = "ignore"
+	ConflictResolutionForceApply ConflictResolutionAction = "force-apply"
+)
+
+type ConflictResolutionConfig struct {
+	FieldPath      SingleStringOrList       `json:"fieldPath,omitempty"`
+	FieldPathRegex SingleStringOrList       `json:"fieldPathRegex,omitempty"`
+	Manager        SingleStringOrList       `json:"manager,omitempty"`
+	Group          *string                  `json:"group,omitempty"`
+	Kind           *string                  `json:"kind,omitempty"`
+	Name           *string                  `json:"name,omitempty"`
+	Namespace      *string                  `json:"namespace,omitempty"`
+	Action         ConflictResolutionAction `json:"action" validate:"required,oneof=ignore force-apply"`
+}
+
+func ValidateConflictResolutionConfig(sl validator.StructLevel) {
+	s := sl.Current().Interface().(ConflictResolutionConfig)
+	if len(s.FieldPath)+len(s.FieldPathRegex)+len(s.Manager) == 0 {
+		sl.ReportError(s, "self", "self", "at least one of fieldPath, fieldPathRegex or manager must be set", "")
+	}
+}
+
 type DeploymentProjectConfig struct {
-	Vars          []*VarsSource        `json:"vars,omitempty"`
-	SealedSecrets *SealedSecretsConfig `json:"sealedSecrets,omitempty"`
+	Vars []VarsSource `json:"vars,omitempty"`
 
 	When string `json:"when,omitempty"`
 
-	Deployments []*DeploymentItemConfig `json:"deployments,omitempty"`
+	Deployments []DeploymentItemConfig `json:"deployments,omitempty"`
 
 	CommonLabels      map[string]string `json:"commonLabels,omitempty"`
 	CommonAnnotations map[string]string `json:"commonAnnotations,omitempty"`
 	OverrideNamespace *string           `json:"overrideNamespace,omitempty"`
 	Tags              []string          `json:"tags,omitempty"`
 
-	IgnoreForDiff []*IgnoreForDiffItemConfig `json:"ignoreForDiff,omitempty"`
+	IgnoreForDiff      []IgnoreForDiffItemConfig  `json:"ignoreForDiff,omitempty"`
+	ConflictResolution []ConflictResolutionConfig `json:"conflictResolution,omitempty"`
 }
 
 func init() {
-	yaml.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
-	yaml.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
-	yaml.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateDeploymentItemConfig, DeploymentItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateDeleteObjectItemConfig, DeleteObjectItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateWaitReadinessObjectItemConfig, WaitReadinessObjectItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateIgnoreForDiffItemConfig, IgnoreForDiffItemConfig{})
+	yaml2.Validator.RegisterStructValidation(ValidateConflictResolutionConfig, ConflictResolutionConfig{})
 }

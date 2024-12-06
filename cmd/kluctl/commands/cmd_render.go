@@ -2,21 +2,24 @@ package commands
 
 import (
 	"context"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
 	"io/ioutil"
 	"os"
 )
 
 type renderCmd struct {
 	args.ProjectFlags
+	args.KubeconfigFlags
 	args.TargetFlags
 	args.ArgsFlags
 	args.ImageFlags
 	args.InclusionFlags
+	args.GitCredentials
 	args.HelmCredentials
+	args.RegistryCredentials
 	args.RenderOutputDirFlags
 	args.OfflineKubernetesFlags
 
@@ -41,11 +44,14 @@ func (cmd *renderCmd) Run(ctx context.Context) error {
 
 	ptArgs := projectTargetCommandArgs{
 		projectFlags:         cmd.ProjectFlags,
+		kubeconfigFlags:      cmd.KubeconfigFlags,
 		targetFlags:          cmd.TargetFlags,
 		argsFlags:            cmd.ArgsFlags,
 		imageFlags:           cmd.ImageFlags,
 		inclusionFlags:       cmd.InclusionFlags,
+		gitCredentials:       cmd.GitCredentials,
 		helmCredentials:      cmd.HelmCredentials,
+		registryCredentials:  cmd.RegistryCredentials,
 		renderOutputDirFlags: cmd.RenderOutputDirFlags,
 		offlineKubernetes:    cmd.OfflineKubernetes,
 		kubernetesVersion:    cmd.KubernetesVersion,
@@ -61,10 +67,10 @@ func (cmd *renderCmd) Run(ctx context.Context) error {
 			if isTmp {
 				defer os.RemoveAll(cmd.RenderOutputDir)
 			}
-			status.Flush(cmdCtx.ctx)
+			status.Flush(ctx)
 			return yaml.WriteYamlAllStream(getStdout(ctx), all)
 		} else {
-			status.Info(cmdCtx.ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
+			status.Infof(ctx, "Rendered into %s", cmdCtx.targetCtx.SharedContext.RenderDir)
 		}
 		return nil
 	})

@@ -2,11 +2,19 @@ package commands
 
 import (
 	"context"
+	"github.com/kluctl/kluctl/lib/status"
+	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/v2/pkg/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"reflect"
 	"strings"
 	"sync"
@@ -20,6 +28,7 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	targetFlags := v.FieldByName("TargetFlags")
 	inclusionFlags := v.FieldByName("InclusionFlags")
 	imageFlags := v.FieldByName("ImageFlags")
+	gitopsFlags := v.FieldByName("GitOpsArgs")
 
 	ctx := context.Background()
 
@@ -44,13 +53,23 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 		_ = ccmd.RegisterFlagCompletionFunc("fixed-image", buildImagesCompletionFunc(ctx, cmdStruct))
 	}
 
+	if gitopsFlags.IsValid() {
+		_ = ccmd.RegisterFlagCompletionFunc("context", buildContextCompletionFunc(ctx, cmdStruct))
+		_ = ccmd.RegisterFlagCompletionFunc("namespace", buildObjectNamespaceCompletionFunc(ctx, cmdStruct))
+		_ = ccmd.RegisterFlagCompletionFunc("name", buildObjectNameCompletionFunc(ctx, cmdStruct, schema.GroupVersionResource{
+			Group:    kluctlv1.GroupVersion.Group,
+			Version:  kluctlv1.GroupVersion.Version,
+			Resource: "kluctldeployments",
+		}))
+	}
+
 	return nil
 }
 
 func withProjectForCompletion(ctx context.Context, projectArgs *args.ProjectFlags, argsFlags *args.ArgsFlags, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	// let's not update git caches too often
 	projectArgs.GitCacheUpdateInterval = time.Second * 60
-	return withKluctlProjectFromArgs(ctx, *projectArgs, argsFlags, false, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, nil, *projectArgs, argsFlags, nil, nil, nil, false, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return cb(ctx, p)
 	})
 }
@@ -100,8 +119,8 @@ func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, fo
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
-		var tags utils.OrderedMap
-		var deploymentItemDirs utils.OrderedMap
+		var tags utils.OrderedMap[string, bool]
+		var deploymentItemDirs utils.OrderedMap[string, bool]
 		var mutex sync.Mutex
 
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
@@ -155,7 +174,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
-		var images utils.OrderedMap
+		var images utils.OrderedMap[string, bool]
 		var mutex sync.Mutex
 
 		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
@@ -183,7 +202,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 						mutex.Lock()
 						defer mutex.Unlock()
 						for _, si := range cmdCtx.images.SeenImages(false) {
-							str := si.Image
+							str := *si.Image
 							if si.Namespace != nil {
 								str += ":" + *si.Namespace
 							}
@@ -208,5 +227,125 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 			return nil, cobra.ShellCompDirectiveError
 		}
 		return images.ListKeys(), cobra.ShellCompDirectiveNoSpace
+	}
+}
+
+func loadKubeconfig(ctx context.Context, cmdStruct interface{}) (api.Config, *rest.Config, error) {
+	var kubeconfigPath string
+	var kubeContext string
+	cmdV := reflect.ValueOf(cmdStruct).Elem()
+	if cmdV.FieldByName("Kubeconfig").IsValid() {
+		kubeconfigPath = cmdV.FieldByName("Kubeconfig").Interface().(string)
+	}
+	if cmdV.FieldByName("Context").IsValid() {
+		kubeContext = cmdV.FieldByName("Context").Interface().(string)
+	}
+
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	if kubeconfigPath != "" {
+		rules.ExplicitPath = kubeconfigPath
+	}
+
+	configOverrides := &clientcmd.ConfigOverrides{
+		CurrentContext: kubeContext,
+	}
+
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		rules, configOverrides)
+
+	rawConfig, err := clientConfig.RawConfig()
+	if err != nil {
+		return api.Config{}, nil, err
+	}
+
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return api.Config{}, nil, err
+	}
+
+	return rawConfig, restConfig, nil
+}
+
+func buildContextCompletionFunc(ctx context.Context, cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if strings.Index(toComplete, "=") != -1 {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+
+		rawConfig, _, err := loadKubeconfig(ctx, cmdStruct)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		var contextNames []string
+		for n, _ := range rawConfig.Contexts {
+			contextNames = append(contextNames, n)
+		}
+		return contextNames, cobra.ShellCompDirectiveNoSpace
+	}
+}
+
+func buildObjectNamespaceCompletionFunc(ctx context.Context, cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if strings.Index(toComplete, "=") != -1 {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+
+		_, restConfig, err := loadKubeconfig(ctx, cmdStruct)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		c, err := v1.NewForConfig(restConfig)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		l, err := c.Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		var names []string
+		for _, x := range l.Items {
+			names = append(names, x.Name)
+		}
+		return names, cobra.ShellCompDirectiveNoSpace
+	}
+}
+
+func buildObjectNameCompletionFunc(ctx context.Context, cmdStruct interface{}, gvr schema.GroupVersionResource) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if strings.Index(toComplete, "=") != -1 {
+			return nil, cobra.ShellCompDirectiveDefault
+		}
+
+		var namespace string
+
+		cmdV := reflect.ValueOf(cmdStruct).Elem()
+		if cmdV.FieldByName("Namespace").IsValid() {
+			namespace = cmdV.FieldByName("Namespace").Interface().(string)
+		}
+
+		_, restConfig, err := loadKubeconfig(ctx, cmdStruct)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		c, err := dynamic.NewForConfig(restConfig)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		l, err := c.Resource(gvr).Namespace(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		var names []string
+		for _, x := range l.Items {
+			names = append(names, x.GetName())
+		}
+		return names, cobra.ShellCompDirectiveNoSpace
 	}
 }

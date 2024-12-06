@@ -3,11 +3,13 @@ package e2e
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
@@ -16,7 +18,7 @@ type hooksTestContext struct {
 	t *testing.T
 	k *test_utils.EnvTestCluster
 
-	p *test_utils.TestProject
+	p *test_project.TestProject
 
 	m              sync.Mutex
 	seenConfigMaps []string
@@ -95,16 +97,27 @@ func (s *hooksTestContext) addConfigMap(dir string, opts resourceOpts) {
 	o.SetK8sGVKs("", "v1", "ConfigMap")
 	mergeMetadata(o, opts)
 	o.SetNestedField(map[string]interface{}{}, "data")
-	s.p.AddKustomizeResources(dir, []test_utils.KustomizeResource{
+	s.p.AddKustomizeResources(dir, []test_project.KustomizeResource{
 		{Name: fmt.Sprintf("%s.yml", opts.name), Content: o},
 	})
 }
 
-func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string) *hooksTestContext {
+func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string, isHelm bool) *hooksTestContext {
+	s := prepareHookTestProjectBase(t)
+
+	s.p.AddKustomizeDeployment("hook", nil, nil)
+
+	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.TestSlug()})
+	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.TestSlug()}, isHelm, hook, hookDeletionPolicy)
+
+	return s
+}
+
+func prepareHookTestProjectBase(t *testing.T) *hooksTestContext {
 	s := &hooksTestContext{
 		t: t,
 		k: defaultCluster2, // use cluster2 as it has webhooks setup
-		p: test_utils.NewTestProject(t),
+		p: test_project.NewTestProject(t),
 	}
 	s.setupWebhook()
 	t.Cleanup(func() {
@@ -116,11 +129,6 @@ func prepareHookTestProject(t *testing.T, hook string, hookDeletionPolicy string
 	s.p.UpdateTarget("test", func(target *uo.UnstructuredObject) {
 		_ = target.SetNestedField(s.k.Context, "context")
 	})
-
-	s.p.AddKustomizeDeployment("hook", nil, nil)
-
-	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.TestSlug()})
-	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.TestSlug()}, false, hook, hookDeletionPolicy)
 
 	return s
 }
@@ -134,59 +142,69 @@ func (s *hooksTestContext) incRunCount() {
 	})
 }
 
-func (s *hooksTestContext) ensureHookExecuted(expectedCms ...string) {
+func (s *hooksTestContext) ensureHookExecuted(t *testing.T, expectedCms ...string) {
+	_, err := s.ensureHookExecuted2(t, 0, expectedCms...)
+	assert.NoError(s.t, err)
+}
+
+func (s *hooksTestContext) ensureHookExecuted2(t *testing.T, timeout time.Duration, expectedCms ...string) (string, error) {
 	s.clearSeenConfigmaps()
 	s.incRunCount()
-	s.p.KluctlMust("deploy", "--yes", "-t", "test")
+	args := []string{"deploy", "--yes", "-t", "test"}
+	if timeout != 0 {
+		args = append(args, "--timeout", timeout.String())
+	}
+	_, stderr, err := s.p.Kluctl(t, args...)
 	assert.Equal(s.t, expectedCms, s.seenConfigMaps)
+	return stderr, err
 }
 
 func TestHooksPreDeployInitial(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "pre-deploy-initial", "")
-	s.ensureHookExecuted("hook1", "cm1")
-	s.ensureHookExecuted("cm1")
+	s := prepareHookTestProject(t, "pre-deploy-initial", "", false)
+	s.ensureHookExecuted(t, "hook1", "cm1")
+	s.ensureHookExecuted(t, "cm1")
 }
 
 func TestHooksPostDeployInitial(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "post-deploy-initial", "")
-	s.ensureHookExecuted("cm1", "hook1")
-	s.ensureHookExecuted("cm1")
+	s := prepareHookTestProject(t, "post-deploy-initial", "", false)
+	s.ensureHookExecuted(t, "cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1")
 }
 
 func TestHooksPreDeployUpgrade(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "pre-deploy-upgrade", "")
-	s.ensureHookExecuted("cm1")
-	s.ensureHookExecuted("hook1", "cm1")
-	s.ensureHookExecuted("hook1", "cm1")
+	s := prepareHookTestProject(t, "pre-deploy-upgrade", "", false)
+	s.ensureHookExecuted(t, "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
 }
 
 func TestHooksPostDeployUpgrade(t *testing.T) {
 	t.Parallel()
-	s := prepareHookTestProject(t, "post-deploy-upgrade", "")
-	s.ensureHookExecuted("cm1")
-	s.ensureHookExecuted("cm1", "hook1")
-	s.ensureHookExecuted("cm1", "hook1")
+	s := prepareHookTestProject(t, "post-deploy-upgrade", "", false)
+	s.ensureHookExecuted(t, "cm1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func doTestHooksPreDeploy(t *testing.T, hooks string) {
-	s := prepareHookTestProject(t, hooks, "")
-	s.ensureHookExecuted("hook1", "cm1")
-	s.ensureHookExecuted("hook1", "cm1")
+	s := prepareHookTestProject(t, hooks, "", false)
+	s.ensureHookExecuted(t, "hook1", "cm1")
+	s.ensureHookExecuted(t, "hook1", "cm1")
 }
 
 func doTestHooksPostDeploy(t *testing.T, hooks string) {
-	s := prepareHookTestProject(t, hooks, "")
-	s.ensureHookExecuted("cm1", "hook1")
-	s.ensureHookExecuted("cm1", "hook1")
+	s := prepareHookTestProject(t, hooks, "", false)
+	s.ensureHookExecuted(t, "cm1", "hook1")
+	s.ensureHookExecuted(t, "cm1", "hook1")
 }
 
 func doTestHooksPrePostDeploy(t *testing.T, hooks string) {
-	s := prepareHookTestProject(t, hooks, "")
-	s.ensureHookExecuted("hook1", "cm1", "hook1")
-	s.ensureHookExecuted("hook1", "cm1", "hook1")
+	s := prepareHookTestProject(t, hooks, "", false)
+	s.ensureHookExecuted(t, "hook1", "cm1", "hook1")
+	s.ensureHookExecuted(t, "hook1", "cm1", "hook1")
 }
 
 func TestHooksPreDeploy(t *testing.T) {
@@ -219,4 +237,86 @@ func TestHooksPrePostDeploy(t *testing.T) {
 func TestHooksPrePostDeploy2(t *testing.T) {
 	t.Parallel()
 	doTestHooksPrePostDeploy(t, "pre-deploy-initial,pre-deploy-upgrade,post-deploy-initial,post-deploy-upgrade")
+}
+
+func TestHooksPreDelete(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "pre-delete", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksPostDelete(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-delete", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksDeleteAndDeploy(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-delete,post-install", "", true)
+	s.ensureHookExecuted(t, "cm1", "hook1")
+}
+
+func TestHooksPreRollback(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "pre-rollback", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksPostRollback(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-rollback", "", true)
+	s.ensureHookExecuted(t, "cm1") // none is executed actually
+}
+
+func TestHooksRollbackAndDeploy(t *testing.T) {
+	t.Parallel()
+	s := prepareHookTestProject(t, "post-rollback,post-install", "", true)
+	s.ensureHookExecuted(t, "cm1", "hook1")
+}
+
+func TestHooksWait(t *testing.T) {
+	t.Parallel()
+
+	s := prepareHookTestProjectBase(t)
+
+	s.p.AddKustomizeDeployment("hook", nil, nil)
+
+	s.addConfigMap("hook", resourceOpts{name: "cm1", namespace: s.p.TestSlug()})
+	s.addHookConfigMap("hook", resourceOpts{name: "hook1", namespace: s.p.TestSlug()}, false, "post-deploy", "")
+	s.addHookConfigMap("hook", resourceOpts{name: "hook2", namespace: s.p.TestSlug(), annotations: map[string]string{
+		"kluctl.io/is-ready": "false",
+	}}, false, "post-deploy", "")
+	s.addHookConfigMap("hook", resourceOpts{name: "hook3", namespace: s.p.TestSlug()}, false, "post-deploy", "")
+
+	stderr, err := s.ensureHookExecuted2(t, 3*time.Second, "cm1", "hook1", "hook2")
+	if err == nil {
+		t.Fatal("err == nil, but it should have timed out")
+	}
+	assert.Contains(t, stderr, "context deadline")
+
+	// we run a goroutine in the background that will wait for a few seconds and then annotate kluctl.io/is-ready=true,
+	// which will then cause the hook to get ready
+	go func() {
+		time.Sleep(10 * time.Second)
+		patchConfigMap(t, s.k, s.p.TestSlug(), "hook2", func(o *uo.UnstructuredObject) {
+			o.SetK8sAnnotation("kluctl.io/is-ready", "true")
+		})
+	}()
+
+	// hook2 appears twice because the patch from above causes the webhook to fire
+	stderr, err = s.ensureHookExecuted2(t, 20*time.Second, "cm1", "hook1", "hook2", "hook2", "hook3")
+	assert.NoError(t, err)
+	assert.Contains(t, stderr, "Still waiting")
+
+	patchConfigMap(t, s.k, s.p.TestSlug(), "hook2", func(o *uo.UnstructuredObject) {
+		o.SetK8sAnnotation("kluctl.io/is-ready", "false")
+	})
+	s.p.UpdateYaml("hook/hook2.yml", func(o *uo.UnstructuredObject) error {
+		o.SetK8sAnnotation("kluctl.io/hook-wait", "false")
+		return nil
+	}, "")
+
+	_, err = s.ensureHookExecuted2(t, 5*time.Second, "cm1", "hook1", "hook2", "hook3")
+	assert.NoError(t, err)
 }

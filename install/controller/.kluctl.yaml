@@ -1,9 +1,0 @@
-discriminator: kluctl.io-controller
-
-args:
-  - name: controller_version
-    default: v2.20.4
-  - name: controller_args
-    default: []
-  - name: controller_envs
-    default: []

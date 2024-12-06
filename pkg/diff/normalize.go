@@ -3,7 +3,6 @@ package diff
 import (
 	"fmt"
 	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"regexp"
 	"strings"
@@ -110,9 +109,13 @@ func normalizeMetadata(o *uo.UnstructuredObject) {
 }
 
 func normalizeMisc(o *uo.UnstructuredObject) {
-	// These are random values found in Jobs
+	// See https://kubernetes.io/docs/reference/labels-annotations-taints/#controller-uid
 	_ = o.RemoveNestedField("spec", "template", "metadata", "labels", "controller-uid")
 	_ = o.RemoveNestedField("spec", "selector", "matchLabels", "controller-uid")
+
+	// See https://kubernetes.io/docs/reference/labels-annotations-taints/#batchkubernetesio-controller-uid
+	_ = o.RemoveNestedField("spec", "template", "metadata", "labels", "batch.kubernetes.io/controller-uid")
+	_ = o.RemoveNestedField("spec", "selector", "matchLabels", "batch.kubernetes.io/controller-uid")
 
 	_ = o.RemoveNestedField("status")
 }
@@ -133,7 +136,7 @@ var ignoreDiffFieldAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-
 var ignoreDiffFieldRegexAnnotationRegex = regexp.MustCompile(`^kluctl.io/ignore-diff-field-regex(-\d*)?$`)
 
 // NormalizeObject Performs some deterministic sorting and other normalizations to avoid ugly diffs due to order changes
-func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
+func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []types.IgnoreForDiffItemConfig, localObject *uo.UnstructuredObject) (*uo.UnstructuredObject, error) {
 	gvk := o_.GetK8sGVK()
 	name := o_.GetK8sName()
 	ns := o_.GetK8sNamespace()
@@ -152,7 +155,7 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		normalizeServiceAccount(o)
 	}
 
-	if utils.ParseBoolOrFalse(localObject.GetK8sAnnotation("kluctl.io/ignore-diff")) {
+	if localObject.GetK8sAnnotationBoolNoError("kluctl.io/ignore-diff", false) {
 		// Return empty object so that diffs will always be empty
 		return &uo.UnstructuredObject{Object: map[string]interface{}{}}, nil
 	}
@@ -164,14 +167,14 @@ func NormalizeObject(o_ *uo.UnstructuredObject, ignoreForDiffs []*types.IgnoreFo
 		return v == *m
 	}
 
-	ignoreForDiffs = append([]*types.IgnoreForDiffItemConfig{}, ignoreForDiffs...)
+	ignoreForDiffs = append([]types.IgnoreForDiffItemConfig{}, ignoreForDiffs...)
 	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldAnnotationRegex) {
-		ignoreForDiffs = append(ignoreForDiffs, &types.IgnoreForDiffItemConfig{
+		ignoreForDiffs = append(ignoreForDiffs, types.IgnoreForDiffItemConfig{
 			FieldPath: []string{v},
 		})
 	}
 	for _, v := range localObject.GetK8sAnnotationsWithRegex(ignoreDiffFieldRegexAnnotationRegex) {
-		ignoreForDiffs = append(ignoreForDiffs, &types.IgnoreForDiffItemConfig{
+		ignoreForDiffs = append(ignoreForDiffs, types.IgnoreForDiffItemConfig{
 			FieldPathRegex: []string{v},
 		})
 	}

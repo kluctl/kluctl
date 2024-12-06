@@ -3,35 +3,42 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/kluctl/kluctl/lib/git"
+	"github.com/kluctl/kluctl/lib/git/auth"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
+	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
-	"github.com/kluctl/kluctl/v2/pkg/git"
-	"github.com/kluctl/kluctl/v2/pkg/git/auth"
-	"github.com/kluctl/kluctl/v2/pkg/git/messages"
-	ssh_pool "github.com/kluctl/kluctl/v2/pkg/git/ssh-pool"
+	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
+	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	"github.com/kluctl/kluctl/v2/pkg/results"
-	"github.com/kluctl/kluctl/v2/pkg/status"
-	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"os"
-	"strings"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFlags, argsFlags *args.ArgsFlags, internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
-	if err != nil {
-		return fmt.Errorf("creating temporary project directory failed: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
+func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.KubeconfigFlags, projectFlags args.ProjectFlags,
+	argsFlags *args.ArgsFlags,
+	gitCredentials *args.GitCredentials,
+	helmCredentials *args.HelmCredentials,
+	registryCredentials *args.RegistryCredentials,
+	internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+	globalFlags := getCobraGlobalFlags(ctx)
 
-	j2, err := kluctl_jinja2.NewKluctlJinja2(strictTemplates)
+	j2, err := kluctl_jinja2.NewKluctlJinja2(ctx, strictTemplates, globalFlags.UseSystemPython)
 	if err != nil {
 		return err
 	}
@@ -59,50 +66,45 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 	sshPool := &ssh_pool.SshPool{}
 
-	var repoOverrides []repocache.RepoOverride
-	for _, x := range projectFlags.LocalGitOverride {
-		ro, err := parseRepoOverride(x, false)
-		if err != nil {
-			return fmt.Errorf("invalid --local-git-override: %w", err)
-		}
-		repoOverrides = append(repoOverrides, ro)
-	}
-	for _, x := range projectFlags.LocalGitGroupOverride {
-		ro, err := parseRepoOverride(x, true)
-		if err != nil {
-			return fmt.Errorf("invalid --local-git-group-override: %w", err)
-		}
-		repoOverrides = append(repoOverrides, ro)
+	sourceOverrides, err := projectFlags.SourceOverrides.ParseOverrides(ctx)
+	if err != nil {
+		return err
 	}
 
 	messageCallbacks := &messages.MessageCallbacks{
 		WarningFn:            func(s string) { status.Warning(ctx, s) },
 		TraceFn:              func(s string) { status.Trace(ctx, s) },
-		AskForPasswordFn:     func(s string) (string, error) { return status.AskForPassword(ctx, s) },
-		AskForConfirmationFn: func(s string) bool { return status.AskForConfirmation(ctx, s) },
+		AskForPasswordFn:     func(s string) (string, error) { return prompts.AskForPassword(ctx, s) },
+		AskForConfirmationFn: func(s string) bool { return prompts.AskForConfirmation(ctx, s) },
 	}
 	gitAuth := auth.NewDefaultAuthProviders("KLUCTL_GIT", messageCallbacks)
+	ociAuth := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
+	helmAuth := helm_auth.NewDefaultAuthProviders("KLUCTL_HELM")
+	if x, err := gitCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		gitAuth.RegisterAuthProvider(x, false)
+	}
+	if x, err := helmCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		helmAuth.RegisterAuthProvider(x, false)
+	}
+	if x, err := registryCredentials.BuildAuthProvider(ctx); err != nil {
+		return err
+	} else {
+		ociAuth.RegisterAuthProvider(x, false)
+	}
 
-	rp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, repoOverrides, projectFlags.GitCacheUpdateInterval)
-	defer rp.Clear()
+	gitRp := repocache.NewGitRepoCache(ctx, sshPool, gitAuth, sourceOverrides, projectFlags.GitCacheUpdateInterval)
+	defer gitRp.Clear()
 
-	var externalArgs *uo.UnstructuredObject
-	if argsFlags != nil {
-		optionArgs, err := deployment.ParseArgs(argsFlags.Arg)
-		if err != nil {
-			return err
-		}
-		externalArgs, err = deployment.ConvertArgsToVars(optionArgs, true)
-		if err != nil {
-			return err
-		}
-		for _, a := range argsFlags.ArgsFromFile {
-			optionArgs2, err := uo.FromFile(a)
-			if err != nil {
-				return err
-			}
-			externalArgs.Merge(optionArgs2)
-		}
+	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, sourceOverrides, projectFlags.GitCacheUpdateInterval)
+	defer gitRp.Clear()
+
+	externalArgs, err := argsFlags.LoadArgs()
+	if err != nil {
+		return err
 	}
 
 	loadArgs := kluctl_project.LoadKluctlProjectArgs{
@@ -110,11 +112,14 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 		ProjectDir:         projectDir,
 		ProjectConfig:      projectFlags.ProjectConfig.String(),
 		ExternalArgs:       externalArgs,
-		RP:                 rp,
-		ClientConfigGetter: clientConfigGetter(forCompletion),
+		GitRP:              gitRp,
+		OciRP:              ociRp,
+		OciAuthProvider:    ociAuth,
+		HelmAuthProvider:   helmAuth,
+		ClientConfigGetter: clientConfigGetter(kubeconfigFlags, forCompletion),
 	}
 
-	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, tmpDir, j2)
+	p, err := kluctl_project.LoadKluctlProject(ctx, loadArgs, j2)
 	if err != nil {
 		return err
 	}
@@ -124,36 +129,47 @@ func withKluctlProjectFromArgs(ctx context.Context, projectFlags args.ProjectFla
 
 type projectTargetCommandArgs struct {
 	projectFlags         args.ProjectFlags
+	kubeconfigFlags      args.KubeconfigFlags
 	targetFlags          args.TargetFlags
 	argsFlags            args.ArgsFlags
 	imageFlags           args.ImageFlags
 	inclusionFlags       args.InclusionFlags
+	gitCredentials       args.GitCredentials
 	helmCredentials      args.HelmCredentials
+	registryCredentials  args.RegistryCredentials
 	dryRunArgs           *args.DryRunFlags
 	renderOutputDirFlags args.RenderOutputDirFlags
 	commandResultFlags   *args.CommandResultFlags
 
+	discriminator string
+
 	internalDeploy    bool
-	forSeal           bool
 	forCompletion     bool
 	offlineKubernetes bool
 	kubernetesVersion string
 }
 
 type commandCtx struct {
-	ctx         context.Context
-	targetCtx   *kluctl_project.TargetContext
-	images      *deployment.Images
+	targetCtx *target_context.TargetContext
+	images    *deployment.Images
+
+	resultId    string
 	resultStore results.ResultStore
 }
 
 func withProjectCommandContext(ctx context.Context, args projectTargetCommandArgs, cb func(cmdCtx *commandCtx) error) error {
-	return withKluctlProjectFromArgs(ctx, args.projectFlags, &args.argsFlags, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, &args.kubeconfigFlags, args.projectFlags, &args.argsFlags, &args.gitCredentials, &args.helmCredentials, &args.registryCredentials, args.internalDeploy, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		return withProjectTargetCommandContext(ctx, args, p, cb)
 	})
 }
 
 func withProjectTargetCommandContext(ctx context.Context, args projectTargetCommandArgs, p *kluctl_project.LoadedKluctlProject, cb func(cmdCtx *commandCtx) error) error {
+	tmpDir, err := os.MkdirTemp(utils.GetTmpBaseDir(ctx), "project-")
+	if err != nil {
+		return fmt.Errorf("creating temporary project directory failed: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	images, err := deployment.NewImages()
 	if err != nil {
 		return err
@@ -171,7 +187,7 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 
 	renderOutputDir := args.renderOutputDirFlags.RenderOutputDir
 	if renderOutputDir == "" {
-		tmpDir, err := os.MkdirTemp(p.TmpDir, "rendered")
+		tmpDir, err := os.MkdirTemp(tmpDir, "rendered")
 		if err != nil {
 			return err
 		}
@@ -179,62 +195,84 @@ func withProjectTargetCommandContext(ctx context.Context, args projectTargetComm
 		renderOutputDir = tmpDir
 	}
 
-	targetParams := kluctl_project.TargetContextParams{
+	targetParams := target_context.TargetContextParams{
 		TargetName:         args.targetFlags.Target,
 		TargetNameOverride: args.targetFlags.TargetNameOverride,
 		ContextOverride:    args.targetFlags.Context,
+		Discriminator:      args.discriminator,
 		OfflineK8s:         args.offlineKubernetes,
 		K8sVersion:         args.kubernetesVersion,
 		DryRun:             args.dryRunArgs == nil || args.dryRunArgs.DryRun || args.forCompletion,
-		ForSeal:            args.forSeal,
 		Images:             images,
 		Inclusion:          inclusion,
-		HelmCredentials:    &args.helmCredentials,
+		OciAuthProvider:    p.LoadArgs.OciAuthProvider,
+		HelmAuthProvider:   p.LoadArgs.HelmAuthProvider,
 		RenderOutputDir:    renderOutputDir,
 	}
 
-	targetCtx, err := p.NewTargetContext(ctx, targetParams)
+	commandResultId := uuid.NewString()
+
+	clientConfig, contextName, err := p.LoadK8sConfig(ctx, targetParams.TargetName, targetParams.ContextOverride, targetParams.OfflineK8s)
 	if err != nil {
 		return err
 	}
 
-	if !args.forSeal && !args.forCompletion {
+	var k *k8s.K8sCluster
+	var resultStore results.ResultStore
+	if clientConfig != nil {
+		discovery, mapper, err := k8s.CreateDiscoveryAndMapper(ctx, clientConfig)
+		if err != nil {
+			return err
+		}
+
+		s := status.Start(ctx, fmt.Sprintf("Initializing k8s client"))
+		k, err = k8s.NewK8sCluster(ctx, clientConfig, discovery, mapper, targetParams.DryRun)
+		if err != nil {
+			s.Failed()
+			return err
+		}
+		s.Success()
+
+		resultStore, err = buildResultStoreRW(ctx, clientConfig, mapper, args.commandResultFlags, false)
+		if err != nil {
+			if !errors.IsForbidden(err) {
+				return err
+			}
+			status.Warningf(ctx, "Not enough permissions to write to the result store.")
+		}
+	}
+
+	targetCtx, err := target_context.NewTargetContext(ctx, p, contextName, k, targetParams)
+	if err != nil {
+		return err
+	}
+
+	if !args.forCompletion {
 		err = targetCtx.DeploymentCollection.Prepare()
 		if err != nil {
 			return err
 		}
 	}
-
-	var resultStore results.ResultStore
-	if args.commandResultFlags != nil && args.commandResultFlags.WriteCommandResult {
-		client, err := targetCtx.SharedContext.K.ToClient()
-		if err != nil {
-			return err
-		}
-
-		resultStore, err = results.NewResultStoreSecrets(ctx, client, args.commandResultFlags.CommandResultNamespace, args.commandResultFlags.KeepCommandResultsCount)
-		if err != nil {
-			return err
-		}
-	}
-
 	cmdCtx := &commandCtx{
-		ctx:         ctx,
 		targetCtx:   targetCtx,
 		images:      images,
+		resultId:    commandResultId,
 		resultStore: resultStore,
 	}
 
 	return cb(cmdCtx)
 }
 
-func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
+func clientConfigGetter(kubeconfigFlags *args.KubeconfigFlags, forCompletion bool) func(context *string) (*rest.Config, *api.Config, error) {
 	return func(context *string) (*rest.Config, *api.Config, error) {
 		if forCompletion {
 			return nil, nil, nil
 		}
 
 		configLoadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		if kubeconfigFlags != nil {
+			configLoadingRules.ExplicitPath = kubeconfigFlags.Kubeconfig.String()
+		}
 		configOverrides := &clientcmd.ConfigOverrides{}
 		if context != nil {
 			configOverrides.CurrentContext = *context
@@ -255,25 +293,49 @@ func clientConfigGetter(forCompletion bool) func(context *string) (*rest.Config,
 	}
 }
 
-func parseRepoOverride(s string, isGroup bool) (ret repocache.RepoOverride, err error) {
-	ret.IsGroup = isGroup
-
-	sp := strings.SplitN(s, "=", 2)
-	if len(sp) != 2 {
-		return repocache.RepoOverride{}, fmt.Errorf("%s", s)
+func buildResultStoreRO(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultReadOnlyFlags) (results.ResultStore, error) {
+	if flags == nil {
+		return nil, nil
 	}
 
-	u, err := types.ParseGitUrl(sp[0])
+	c, err := client2.NewWithWatch(restConfig, client2.Options{
+		Mapper: mapper,
+	})
 	if err != nil {
-		// we need to prepend a dummy scheme to the repo key so that it is properly parsed
-		dummyUrl := fmt.Sprintf("git://%s", sp[0])
-		u, err = types.ParseGitUrl(dummyUrl)
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, false, flags.CommandResultNamespace, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultStore, nil
+}
+
+func buildResultStoreRW(ctx context.Context, restConfig *rest.Config, mapper meta.RESTMapper, flags *args.CommandResultFlags, startCleanup bool) (results.ResultStore, error) {
+	if flags == nil || !flags.WriteCommandResult {
+		return nil, nil
+	}
+
+	c, err := client2.NewWithWatch(restConfig, client2.Options{
+		Mapper: mapper,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resultStore, err := results.NewResultStoreSecrets(ctx, restConfig, c, true, flags.CommandResultNamespace, flags.KeepCommandResultsCount, flags.KeepValidateResultsCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if startCleanup {
+		err = resultStore.StartCleanupOrphans()
 		if err != nil {
-			return repocache.RepoOverride{}, fmt.Errorf("%s: %w", s, err)
+			return nil, err
 		}
 	}
 
-	ret.RepoKey = u.RepoKey()
-	ret.Override = sp[1]
-	return
+	return resultStore, nil
 }

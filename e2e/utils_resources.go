@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"path/filepath"
 )
@@ -55,13 +55,13 @@ func createSecretObject(data map[string]string, opts resourceOpts) *uo.Unstructu
 	return o
 }
 
-func addConfigMapDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts) {
+func addConfigMapDeployment(p *test_project.TestProject, dir string, data map[string]string, opts resourceOpts) {
 	o := createConfigMapObject(data, opts)
 	fname := opts.fname
 	if fname == "" {
 		fname = fmt.Sprintf("configmap-%s.yml", opts.name)
 	}
-	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment(dir, []test_project.KustomizeResource{
 		{Name: fname, Content: o},
 	}, opts.tags)
 	if opts.when != "" {
@@ -72,15 +72,11 @@ func addConfigMapDeployment(p *test_utils.TestProject, dir string, data map[stri
 	}
 }
 
-func addSecretDeployment(p *test_utils.TestProject, dir string, data map[string]string, opts resourceOpts, sealme bool) {
-	sealmeExt := ""
-	if sealme {
-		sealmeExt = ".sealme"
-	}
+func addSecretDeployment(p *test_project.TestProject, dir string, data map[string]string, opts resourceOpts) {
 	o := createSecretObject(data, opts)
 	fname := fmt.Sprintf("secret-%s.yml", opts.name)
-	p.AddKustomizeDeployment(dir, []test_utils.KustomizeResource{
-		{Name: fname, FileName: fname + sealmeExt, Content: o},
+	p.AddKustomizeDeployment(dir, []test_project.KustomizeResource{
+		{Name: fname, FileName: fname, Content: o},
 	}, opts.tags)
 	if opts.when != "" {
 		p.UpdateDeploymentItems(filepath.Dir(dir), func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {

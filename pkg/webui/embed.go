@@ -6,7 +6,7 @@ import (
 	"io/fs"
 )
 
-//go:embed ui/build
+//go:embed all:ui/build
 var uiBuildFS embed.FS
 var uiFS fs.FS
 
@@ -16,4 +16,9 @@ func init() {
 	if err != nil {
 		log.Fatal("failed to get ui fs", err)
 	}
+}
+
+func IsWebUiBuildIncluded() bool {
+	_, err := fs.Stat(uiFS, "index.html")
+	return err == nil
 }

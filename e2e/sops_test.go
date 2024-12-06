@@ -1,18 +1,18 @@
 package e2e
 
 import (
-	"fmt"
+	"github.com/getsops/sops/v3/age"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
-	"go.mozilla.org/sops/v3/age"
 	"testing"
 )
 
-func setSopsKey(p *test_utils.TestProject) {
+func setSopsKey(p *test_project.TestProject) {
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
-	p.AddExtraEnv(fmt.Sprintf("%s=%s", age.SopsAgeKeyEnv, string(key)))
+	p.SetEnv(age.SopsAgeKeyEnv, string(key))
 }
 
 func TestSopsVars(t *testing.T) {
@@ -20,7 +20,7 @@ func TestSopsVars(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
@@ -47,7 +47,7 @@ func TestSopsVars(t *testing.T) {
 		return string(b), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
@@ -60,7 +60,7 @@ func TestSopsResources(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
@@ -71,7 +71,7 @@ func TestSopsResources(t *testing.T) {
 		return nil
 	})
 
-	p.AddKustomizeDeployment("cm", []test_utils.KustomizeResource{
+	p.AddKustomizeDeployment("cm", []test_project.KustomizeResource{
 		{Name: "encrypted-cm.yaml"},
 	}, nil)
 
@@ -80,7 +80,7 @@ func TestSopsResources(t *testing.T) {
 		return string(b), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm := assertConfigMapExists(t, k, p.TestSlug(), "encrypted-cm")
 	assertNestedFieldEquals(t, cm, map[string]any{
@@ -93,14 +93,17 @@ func TestSopsHelmValues(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithUseProcess(true))
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
 	setSopsKey(p)
 
 	createNamespace(t, k, p.TestSlug())
 
-	repoUrl := test_utils.CreateHelmRepo(t, []test_utils.RepoChart{
+	charts := []test_utils.RepoChart{
 		{ChartName: "test-chart1", Version: "0.1.0"},
-	}, "", "")
+	}
+	repo := test_utils.NewHelmTestRepo(test_utils.TestHelmRepo_Oci, "", charts)
+
+	repo.Start(t)
 
 	valuesBytes, err := sops_test_resources.TestResources.ReadFile("helm-values.yaml")
 	assert.NoError(t, err)
@@ -108,13 +111,13 @@ func TestSopsHelmValues(t *testing.T) {
 	assert.NoError(t, err)
 
 	p.UpdateTarget("test", nil)
-	p.AddHelmDeployment("helm1", repoUrl, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1.Object)
+	p.AddHelmDeployment("helm1", repo, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), values1.Object)
 	p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
 		_ = o.SetNestedField(true, "helmChart", "skipPrePull")
 		return nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "test-helm1-test-chart1")
 

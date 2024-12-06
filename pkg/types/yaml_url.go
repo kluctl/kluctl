@@ -2,7 +2,7 @@ package types
 
 import (
 	"encoding/json"
-	"github.com/kluctl/kluctl/v2/pkg/yaml"
+	"github.com/kluctl/kluctl/lib/yaml"
 	"net/url"
 )
 

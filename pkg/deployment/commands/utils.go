@@ -86,13 +86,22 @@ func collectObjects(c *deployment.DeploymentCollection, ru *utils.RemoteObjectUt
 			o.New = true
 		}
 	}
-	for _, x := range orphans {
-		o := getOrCreate(x)
-		o.Orphan = true
-	}
+
+	deletedMap := map[k8s.ObjectRef]bool{}
 	for _, x := range deleted {
 		o := getOrCreate(x)
 		o.Deleted = true
+		deletedMap[o.Ref] = true
+	}
+	for _, x := range orphans {
+		if _, ok := deletedMap[x]; ok {
+			// orphan object also got deleted? This can only mean that deletion did not wait for the object to disappear,
+			// so we should treat this object not as orphan anymore
+			continue
+		}
+		o := getOrCreate(x)
+		o.Orphan = true
+
 	}
 
 	for ref, o := range m {
@@ -111,4 +120,24 @@ func collectObjects(c *deployment.DeploymentCollection, ru *utils.RemoteObjectUt
 		return ret[i].Ref.GroupVersionKind().String() < ret[j].Ref.GroupVersionKind().String()
 	})
 	return ret
+}
+
+func filterDeletedOrphans(orphans []k8s.ObjectRef, deleted []k8s.ObjectRef) []k8s.ObjectRef {
+	deletedMap := map[k8s.ObjectRef]bool{}
+	deletedNamespacesMap := map[string]bool{}
+	for _, x := range deleted {
+		deletedMap[x] = true
+		if x.Group == "" && x.Kind == "Namespace" {
+			deletedNamespacesMap[x.Name] = true
+		}
+	}
+	var tmp []k8s.ObjectRef
+	for _, x := range orphans {
+		_, isDeleted := deletedMap[x]
+		_, isDeletedNs := deletedNamespacesMap[x.Namespace]
+		if !isDeleted && !isDeletedNs {
+			tmp = append(tmp, x)
+		}
+	}
+	return tmp
 }

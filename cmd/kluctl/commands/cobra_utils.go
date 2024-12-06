@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/hashicorp/go-multierror"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils/term"
+	"github.com/kluctl/kluctl/lib/envutils"
+	"github.com/kluctl/kluctl/lib/term"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -78,7 +78,7 @@ func (c *rootCommand) buildCobraCmd(parent *commandAndGroups, cmdStruct interfac
 	if err != nil {
 		return nil, err
 	}
-	err = c.buildCobraArgs(cg, cmdStruct)
+	err = c.buildCobraArgs(cg, cmdStruct, "")
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (c *rootCommand) buildCobraSubCommands(cg *commandAndGroups, cmdStruct inte
 	return nil
 }
 
-func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}) error {
+func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}, groupOverride string) error {
 	v := reflect.ValueOf(cmdStruct).Elem()
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
@@ -139,7 +139,12 @@ func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}
 			continue
 		}
 
-		err := c.buildCobraArg(cg, f, v.Field(i))
+		groupOverride2, _ := f.Tag.Lookup("groupOverride")
+		if groupOverride2 == "" {
+			groupOverride2 = groupOverride
+		}
+
+		err := c.buildCobraArg(cg, f, v.Field(i), groupOverride2)
 		if err != nil {
 			return err
 		}
@@ -147,7 +152,7 @@ func (c *rootCommand) buildCobraArgs(cg *commandAndGroups, cmdStruct interface{}
 	return nil
 }
 
-func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField, v reflect.Value) error {
+func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField, v reflect.Value, groupOverride string) error {
 	v2 := v.Addr().Interface()
 	name := buildCobraName(f.Name)
 
@@ -155,8 +160,12 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 	shortFlag := f.Tag.Get("short")
 	defaultValue := f.Tag.Get("default")
 	required := f.Tag.Get("required") == "true"
+	skipEnv := f.Tag.Get("skipenv")
 
-	group := f.Tag.Get("group")
+	group := groupOverride
+	if group == "" {
+		group = f.Tag.Get("group")
+	}
 	if group != "" {
 		cg.groups[name] = group
 	}
@@ -215,7 +224,7 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 		cg.cmd.PersistentFlags().DurationVarP(v2.(*time.Duration), name, shortFlag, parsedDefault, help)
 	default:
 		if f.Anonymous {
-			return c.buildCobraArgs(cg, v2)
+			return c.buildCobraArgs(cg, v2, groupOverride)
 		}
 		return fmt.Errorf("unknown type %s", f.Type.Name())
 	}
@@ -223,6 +232,8 @@ func (c *rootCommand) buildCobraArg(cg *commandAndGroups, f reflect.StructField,
 	if required {
 		_ = cg.cmd.MarkPersistentFlagRequired(name)
 	}
+
+	_ = cg.cmd.PersistentFlags().SetAnnotation(name, "skipenv", []string{skipEnv})
 
 	return nil
 }
@@ -241,6 +252,10 @@ func copyViperValuesToCobraCmd(cmd *cobra.Command) error {
 func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 	var errs *multierror.Error
 	flags.VisitAll(func(flag *pflag.Flag) {
+		if a := flag.Annotations["skipenv"]; len(a) != 0 && a[0] == "true" {
+			return
+		}
+
 		sliceValue, _ := flag.Value.(pflag.SliceValue)
 		if flag.Changed && sliceValue == nil {
 			return
@@ -274,7 +289,7 @@ func copyViperValuesToCobraFlags(flags *pflag.FlagSet) error {
 		envName = strings.ToUpper(envName)
 		envName = fmt.Sprintf("KLUCTL_%s", envName)
 
-		for _, v := range utils.ParseEnvConfigList(envName) {
+		for _, v := range envutils.ParseEnvConfigList(envName) {
 			a = append(a, v)
 		}
 

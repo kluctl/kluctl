@@ -21,9 +21,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"go.mozilla.org/sops/v3/age"
-	"go.mozilla.org/sops/v3/keys"
-	"go.mozilla.org/sops/v3/pgp"
+	intkeyservice "github.com/kluctl/kluctl/v2/pkg/sops/keyservice"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,11 +30,15 @@ import (
 	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"go.mozilla.org/sops/v3"
-	"go.mozilla.org/sops/v3/aes"
-	"go.mozilla.org/sops/v3/cmd/sops/common"
-	"go.mozilla.org/sops/v3/cmd/sops/formats"
-	"go.mozilla.org/sops/v3/keyservice"
+	"github.com/getsops/sops/v3"
+	"github.com/getsops/sops/v3/aes"
+	"github.com/getsops/sops/v3/age"
+	"github.com/getsops/sops/v3/cmd/sops/common"
+	"github.com/getsops/sops/v3/cmd/sops/formats"
+	"github.com/getsops/sops/v3/config"
+	"github.com/getsops/sops/v3/keys"
+	"github.com/getsops/sops/v3/keyservice"
+	"github.com/getsops/sops/v3/pgp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/kustomize/api/konfig"
@@ -150,7 +152,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		}
 	}()
 
-	store := common.StoreForFormat(inputFormat)
+	store := common.StoreForFormat(inputFormat, config.NewStoresConfig())
 
 	tree, err := store.LoadEncryptedFile(data)
 	if err != nil {
@@ -164,7 +166,14 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		})
 	}
 
-	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(d.keyServices)
+	for _, group := range tree.Metadata.KeyGroups {
+		// Sort MasterKeys in the group so offline ones are tried first
+		sort.SliceStable(group, func(i, j int) bool {
+			return intkeyservice.IsOfflineMethod(group[i]) && !intkeyservice.IsOfflineMethod(group[j])
+		})
+	}
+
+	metadataKey, err := tree.Metadata.GetDataKeyWithKeyServices(d.keyServices, sops.DefaultDecryptionOrder)
 	if err != nil {
 		return nil, sopsUserErr("cannot get sops data key", err)
 	}
@@ -179,7 +188,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		// Compute the hash of the cleartext tree and compare it with
 		// the one that was stored in the document. If they match,
 		// integrity was preserved
-		// Ref: go.mozilla.org/sops/v3/decrypt/decrypt.go
+		// Ref: github.com/getsops/sops/v3/decrypt/decrypt.go
 		originalMac, err := cipher.Decrypt(
 			tree.Metadata.MessageAuthenticationCode,
 			metadataKey,
@@ -197,7 +206,7 @@ func (d *Decryptor) SopsDecryptWithFormat(data []byte, inputFormat, outputFormat
 		}
 	}
 
-	outputStore := common.StoreForFormat(outputFormat)
+	outputStore := common.StoreForFormat(outputFormat, config.NewStoresConfig())
 	out, err := outputStore.EmitPlainFile(tree.Branches)
 	if err != nil {
 		return nil, sopsUserErr(fmt.Sprintf("failed to emit encrypted %s file as decrypted %s",
@@ -384,7 +393,7 @@ func (d *Decryptor) sopsDecryptFile(path string, inputFormat, outputFormat forma
 // and then encrypt the file data with the retrieved data key.
 // It returns the encrypted bytes in the provided output format, or an error.
 func (d *Decryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, inputFormat, outputFormat formats.Format) ([]byte, error) {
-	store := common.StoreForFormat(inputFormat)
+	store := common.StoreForFormat(inputFormat, config.NewStoresConfig())
 
 	branches, err := store.LoadPlainFile(data)
 	if err != nil {
@@ -411,7 +420,7 @@ func (d *Decryptor) sopsEncryptWithFormat(metadata sops.Metadata, data []byte, i
 		return nil, sopsUserErr("cannot encrypt sops data tree", err)
 	}
 
-	outStore := common.StoreForFormat(outputFormat)
+	outStore := common.StoreForFormat(outputFormat, config.NewStoresConfig())
 	out, err := outStore.EmitEncryptedFile(tree)
 	if err != nil {
 		return nil, sopsUserErr("failed to emit sops encrypted file", err)
@@ -539,9 +548,13 @@ func recurseKustomizationFiles(root, path string, visit visitKustomization, visi
 		return err
 	}
 
+	// Components may contain resources as well, ...
+	// ...so we have to process both .resources and .components values
+	resources := append(kus.Resources, kus.Components...)
+
 	// Recurse over other resources in Kustomization,
 	// repeating the above logic per item
-	for _, res := range kus.Resources {
+	for _, res := range resources {
 		if !filepath.IsAbs(res) {
 			res = filepath.Join(path, res)
 		}

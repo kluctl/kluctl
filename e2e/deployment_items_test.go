@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
 	"path/filepath"
@@ -14,7 +14,7 @@ func TestKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -24,16 +24,16 @@ func TestKustomize(t *testing.T) {
 		name:      "cm",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm")
 
 	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
 		name:      "cm2",
 		namespace: p.TestSlug(),
 	})
-	p.KluctlMust("deploy", "--yes", "-t", "test", "--dry-run")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--dry-run")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 }
 
@@ -42,7 +42,7 @@ func TestGeneratedKustomize(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -78,7 +78,7 @@ func TestGeneratedKustomize(t *testing.T) {
 		return nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
@@ -89,7 +89,7 @@ func TestOnlyRender(t *testing.T) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -128,7 +128,7 @@ namespace: %s
 `, p.TestSlug()), nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test", "-a", "a=v1")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "-a", "a=v1")
 	// it should not appear in the default namespace as that would indicate that the component was treated as a deployment item
 	assertConfigMapNotExists(t, k, "default", p.TestSlug()+"-cm")
 	s := assertConfigMapExists(t, k, p.TestSlug(), p.TestSlug()+"-cm")
@@ -137,12 +137,40 @@ namespace: %s
 	})
 }
 
+func TestKustomizeBase(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_project.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+
+	addConfigMapDeployment(p, "base", map[string]string{}, resourceOpts{
+		name:      "base-cm",
+		namespace: p.TestSlug(),
+	})
+	p.UpdateDeploymentItems("", func(items []*uo.UnstructuredObject) []*uo.UnstructuredObject {
+		_ = items[0].SetNestedField(true, "onlyRender")
+		return items
+	})
+
+	p.AddKustomizeDeployment("k1", []test_project.KustomizeResource{{
+		Name: "../base",
+	}}, nil)
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertConfigMapExists(t, k, p.TestSlug(), "base-cm")
+}
+
 func TestTemplateIgnore(t *testing.T) {
 	t.Parallel()
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t)
+	p := test_project.NewTestProject(t)
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -176,7 +204,7 @@ func TestTemplateIgnore(t *testing.T) {
 		return `/configmap-cm3.yml`, nil
 	}, "")
 
-	p.KluctlMust("deploy", "--yes", "-t", "test")
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
 	cm1 := assertConfigMapExists(t, k, p.TestSlug(), "cm1")
 	cm2 := assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	cm3 := assertConfigMapExists(t, k, p.TestSlug(), "cm3")
@@ -197,7 +225,7 @@ func testLocalIncludes(t *testing.T, projectDir string) {
 
 	k := defaultCluster1
 
-	p := test_utils.NewTestProject(t, test_utils.WithBareProject())
+	p := test_project.NewTestProject(t, test_project.WithBareProject())
 
 	createNamespace(t, k, p.TestSlug())
 
@@ -216,7 +244,7 @@ func testLocalIncludes(t *testing.T, projectDir string) {
 		return nil
 	}, "")
 
-	baseDir, _ := filepath.Rel(filepath.Join(p.LocalProjectDir(), projectDir), filepath.Join(p.LocalRepoDir(), "base"))
+	baseDir, _ := filepath.Rel(filepath.Join(p.LocalProjectDir(), projectDir), filepath.Join(p.LocalWorkDir(), "base"))
 	baseDir = filepath.ToSlash(baseDir)
 
 	p.UpdateDeploymentYaml(projectDir, func(o *uo.UnstructuredObject) error {
@@ -247,7 +275,7 @@ func testLocalIncludes(t *testing.T, projectDir string) {
 		return nil
 	})
 
-	p.KluctlMust("deploy", "--yes", "--project-dir", filepath.Join(p.LocalProjectDir(), projectDir))
+	p.KluctlMust(t, "deploy", "--yes", "--project-dir", filepath.Join(p.LocalProjectDir(), projectDir))
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-inc1")
 	assertConfigMapExists(t, k, p.TestSlug(), "cm-inc2")
 }

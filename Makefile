@@ -9,7 +9,7 @@ EXE=.exe
 endif
 
 RACE=
-ifeq ($(GOOS), linux)
+ifneq ($(GOOS), windows)
 RACE=-race
 endif
 
@@ -21,7 +21,7 @@ endif
 # Image URL to use all building/pushing image targets
 IMG ?= kluctl/kluctl:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.1
+ENVTEST_K8S_VERSION = 1.28.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -60,18 +60,21 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen kustomize ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=kluctl-controller-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	$(KUSTOMIZE) build config/crd > install/controller/controller/crd.yaml
-	$(KUSTOMIZE) build config/rbac > install/controller/controller/rbac.yaml
-	$(KUSTOMIZE) build config/manager > install/controller/controller/manager.yaml
+	@echo "# Warning, this file is generated via \"make manifests\", don't edit it directly but instead change the files in config/crd" > install/controller/controller/crd.yaml
+	$(KUSTOMIZE) build config/crd >> install/controller/controller/crd.yaml
+	@echo "# Warning, this file is generated via \"make manifests\", don't edit it directly but instead change the files in config/rbac" > install/controller/controller/rbac.yaml
+	$(KUSTOMIZE) build config/rbac >> install/controller/controller/rbac.yaml
+	@echo "# Warning, this file is generated via \"make manifests\", don't edit it directly but instead change the files in config/manager" > install/controller/controller/manager.yaml
+	$(KUSTOMIZE) build config/manager >> install/controller/controller/manager.yaml
 
 # Generate API reference documentation
 api-docs: gen-crd-api-reference-docs
-	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/reference/gitops/api/kluctl-controller.md
+	$(GEN_CRD_API_REFERENCE_DOCS) -v=4 -api-dir=./api/v1beta1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/gitops/api/kluctl-controller.md
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	go generate ./...
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	go generate ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
@@ -85,34 +88,44 @@ vet: ## Run go vet against code.
 test: manifests generate test-unit test-e2e fmt vet ## Run all tests.
 
 .PHONY: test-unit
-test-unit: ## Run unit tests.
-	go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
+test-unit: envtest ## Run unit tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
 
 .PHONY: test-e2e
-test-e2e: envtest ## Run e2e tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -coverprofile cover.out -test.v
+test-e2e: envtest ## Run all e2e tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -timeout 15m -coverprofile cover.out -test.v
+
+.PHONY: test-e2e-non-gitops
+test-e2e-non-gitops: envtest ## Run non-gitops e2e tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -timeout 15m -coverprofile cover.out -test.v -skip 'TestGitOps.*'
+
+.PHONY: test-e2e-gitops
+test-e2e-gitops: envtest ## Run gitops e2e tests.
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) ./e2e -timeout 15m -coverprofile cover.out -test.v -run 'TestGitOps.*'
 
 replace-commands-help: ## Replace commands help in docs
-	go run ./internal/replace-commands-help --docs-dir ./docs/reference/commands
+	go run ./internal/replace-commands-help --docs-dir ./docs/kluctl/commands
 
-MARKDOWN_LINK_CHECK_VERSION=3.11.2
+LYCHEE_VERSION=0.14
 markdown-link-check: ## Check markdown files for dead links
-	find . -name '*.md' \
-		-and -not -path './docs/reference/gitops/api/kluctl-controller.md' \
-		-and -not -path './pkg/webui/ui/node_modules/*' \
-		-and -not -path './pkg/webui/ui/build/*' | \
-		xargs docker run -v ${PWD}:/tmp:ro --rm -i -w /tmp ghcr.io/tcort/markdown-link-check:$(MARKDOWN_LINK_CHECK_VERSION)
+	docker run --init -i --rm -w /input -v ${PWD}:/input:ro lycheeverse/lychee:$(LYCHEE_VERSION) -- README.md docs install
 
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/kluctl$(EXE) cmd/main.go
+build: manifests generate fmt vet build-webui build-bin ## Build manager binary.
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
+.PHONY: build-bin
+build-bin:
+	go build -o bin/kluctl$(EXE) cmd/main.go
+
+.PHONY: build-webui
+build-webui:
+	cd pkg/webui/ui && npm ci && npm run build
 
 ##@ Deployment
 
@@ -159,7 +172,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.0.3
-CONTROLLER_TOOLS_VERSION ?= v0.12.0
+CONTROLLER_TOOLS_VERSION ?= v0.14.0
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - release-v*
   pull_request:
     branches:
       - main
@@ -13,18 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.19'
-      - uses: actions/setup-node@v3
+          go-version: '1.22'
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: pkg/webui/ui/package-lock.json
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -32,9 +33,28 @@ jobs:
           key: docs-check-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             docs1-check-go-${{ runner.os }}-
+      - name: Install some tools
+        run: |
+          PB_REL="https://github.com/protocolbuffers/protobuf/releases"
+          PB_VER="27.1"
+          curl -LO $PB_REL/download/v$PB_VER/protoc-$PB_VER-linux-x86_64.zip
+          sudo unzip protoc-$PB_VER-linux-x86_64.zip -d /usr/local
+          rm protoc-$PB_VER-linux-x86_64.zip
+
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
       - name: Check links on changed files
         run: |
           make markdown-link-check
+      - name: Verify go.mod and go.sum are clean
+        run: |
+          go mod tidy
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "go mod tidy must be invoked and the result committed"
+            git status
+            git diff
+            exit 1
+          fi
       - name: Verify commands help is up-to-date
         run: |
           make replace-commands-help
@@ -71,38 +91,107 @@ jobs:
             git diff
             exit 1
           fi
-      - name: Verify webui build is up-to-date
+
+  check-npm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: pkg/webui/ui/package-lock.json
+      - name: Verify webui build works
         run: |
-          cd pkg/webui/ui
-          npm install
-          npm run build
-          if [ ! -z "$(git status --porcelain)" ]; then
-            echo "npm run build must be invoked and the result committed"
-            git status
-            git diff
-            exit 1
-          fi
+          make build-webui
+
+  check-docker-images:
+    strategy:
+      matrix:
+        include:
+          - docker_platform: linux/amd64
+            goarch: amd64
+          - docker_platform: linux/arm64
+            goarch: arm64
+      fail-fast: false
+    runs-on: ubuntu-latest
+    name: check-docker-images-${{ matrix.docker_platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: check-docker-images-${{ matrix.docker_platform }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            tests-go-${{ runner.os }}-
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Setup Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build kluctl
+        run: |
+          GOARCH=${{ matrix.goarch }} make build-bin
+      - name: Build docker images
+        run: |
+          docker build -t test-image --platform=${{ matrix.docker_platform }} .
+      - name: Test if git works inside container
+        run: |
+          # test if the git binary is still working, which keep breaking due to wolfi-base updates being missed
+          # If you see this failing, it's time to upgrade the base image in Dockerfile...
+          docker run --platform=${{ matrix.docker_platform }} --rm -i --entrypoint=/bin/sh test-image -c "cd && git clone https://github.com/kluctl/kluctl.git"
+      - name: Test if binary can be executed inside Github actions
+        if: matrix.goarch == 'amd64'
+        run: |
+          cd install/controller
+          ../../bin/kluctl render --offline-kubernetes
 
   tests:
     strategy:
       matrix:
         include:
-          - os: ubuntu-20.04
-            run_on_pull_requests: true
-          - os: macos-11
-            run_on_pull_requests: false
-          - os: windows-2019
-            run_on_pull_requests: false
-        os: [ubuntu-20.04, macos-11, windows-2019]
+          - os: ubuntu-22.04
+            run_unit_tests: false
+            run_e2e_non_gitops: true
+            run_e2e_gitops: false
+            name: ubuntu-non-gitops
+          - os: ubuntu-22.04
+            run_unit_tests: true
+            run_e2e_non_gitops: false
+            run_e2e_gitops: true
+            name: ubuntu-gitops
+          - os: macos-12
+            run_unit_tests: true
+            # only run e2e tests on branches
+            run_e2e_non_gitops: ${{ github.event_name != 'pull_request' }}
+            run_e2e_gitops: ${{ github.event_name != 'pull_request' }}
+            name: macos
+          - os: windows-2022
+            run_unit_tests: true
+            # only run e2e tests on branches
+            run_e2e_non_gitops: ${{ github.event_name != 'pull_request' }}
+            run_e2e_gitops: false # never run gitops tests on windows
+            name: windows
       fail-fast: false
     runs-on: ${{ matrix.os }}
+    name: tests-${{ matrix.name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
+        uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.19'
-      - uses: actions/cache@v3
+          go-version: '1.22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
@@ -111,11 +200,17 @@ jobs:
           restore-keys: |
             tests-go-${{ runner.os }}-
       - name: Run unit tests
+        if: matrix.run_unit_tests
         shell: bash
         run: |
           make test-unit
-      - name: Run e2e tests
-        if: matrix.run_on_pull_requests || github.event_name != 'pull_request'
+      - name: Run e2e-non-gitops tests
+        if: matrix.run_e2e_non_gitops
         shell: bash
         run: |
-          make test-e2e
+          make test-e2e-non-gitops
+      - name: Run e2e-gitops tests
+        if: matrix.run_e2e_gitops
+        shell: bash
+        run: |
+          make test-e2e-gitops
