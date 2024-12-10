@@ -14,6 +14,8 @@ import (
 func buildSingleNamespaceRbac(username string, namespace string, globalResources []schema.GroupResource, resources []schema.GroupResource) []*uo.UnstructuredObject {
 	var ret []*uo.UnstructuredObject
 
+	verbs := []string{"create", "update", "patch", "get", "list", "watch", "delete"}
+
 	var clusterRole v1.ClusterRole
 	clusterRole.SetGroupVersionKind(v1.SchemeGroupVersion.WithKind("ClusterRole"))
 	clusterRole.Name = username
@@ -21,13 +23,13 @@ func buildSingleNamespaceRbac(username string, namespace string, globalResources
 		APIGroups:     []string{""},
 		Resources:     []string{"namespaces"},
 		ResourceNames: []string{namespace},
-		Verbs:         []string{"create", "update", "patch", "get", "list", "watch"},
+		Verbs:         verbs,
 	})
 	for _, r := range globalResources {
 		clusterRole.Rules = append(clusterRole.Rules, v1.PolicyRule{
 			APIGroups: []string{r.Group},
 			Resources: []string{r.Resource},
-			Verbs:     []string{"create", "update", "patch", "get", "list", "watch"},
+			Verbs:     verbs,
 		})
 	}
 	ret = append(ret, uo.FromStructMust(clusterRole))
@@ -40,7 +42,7 @@ func buildSingleNamespaceRbac(username string, namespace string, globalResources
 		role.Rules = append(role.Rules, v1.PolicyRule{
 			APIGroups: []string{r.Group},
 			Resources: []string{r.Resource},
-			Verbs:     []string{"create", "update", "patch", "get", "list", "watch"},
+			Verbs:     verbs,
 		})
 	}
 	ret = append(ret, uo.FromStructMust(role))
@@ -244,4 +246,59 @@ func TestOnlyOneNamespacePermissions(t *testing.T) {
 	assert.NoError(t, err)
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assert.Contains(t, stderr, "Not enough permissions to write to the result store.")
+}
+
+func TestOnlyOneNamespacePrune(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_project.NewTestProject(t)
+
+	username := p.TestSlug()
+	au, err := k.AddUser(envtest.User{Name: username}, nil)
+	assert.NoError(t, err)
+
+	createNamespace(t, k, p.TestSlug())
+
+	rbac := buildSingleNamespaceRbac(username, p.TestSlug(), nil, []schema.GroupResource{{Group: "", Resource: "configmaps"}})
+	for _, x := range rbac {
+		k.MustApply(t, x)
+	}
+
+	kc, err := au.KubeConfig()
+	assert.NoError(t, err)
+
+	p.UpdateTarget("test", nil)
+
+	addConfigMapDeployment(p, "cm1", nil, resourceOpts{
+		name:      "cm1",
+		namespace: p.TestSlug(),
+	})
+	addConfigMapDeployment(p, "cm2", nil, resourceOpts{
+		name:      "cm2",
+		namespace: p.TestSlug(),
+	})
+	addConfigMapDeployment(p, "cm3", nil, resourceOpts{
+		name:      "cm3",
+		namespace: p.TestSlug(),
+	})
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm3")
+
+	// first, with admin privileges
+	p.DeleteKustomizeDeployment("cm2")
+	stdout, _ := p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--prune")
+	assertConfigMapNotExists(t, k, p.TestSlug(), "cm2")
+	assert.NotContains(t, stdout, "listing objects by discriminator on global level failed due to permission errors, so Kluctl reverted to listing on namespace level")
+
+	// now with single namespace privileges
+	p.AddExtraArgs("--kubeconfig", getKubeconfigTmpFile(t, kc))
+	p.DeleteKustomizeDeployment("cm3")
+	stdout, _ = p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--prune")
+	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
+
+	assert.Contains(t, stdout, "listing objects by discriminator on global level failed due to permission errors, so Kluctl reverted to listing on namespace level")
 }
