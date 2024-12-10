@@ -128,10 +128,14 @@ func (p *DeploymentProject) processConfig() error {
 		if len(item.Tags) != 0 {
 			continue
 		}
+		defaultTag := ""
 		if item.Path != nil {
-			item.Tags = []string{filepath.Base(*item.Path)}
+			defaultTag = filepath.Base(*item.Path)
 		} else if item.Include != nil {
-			item.Tags = []string{filepath.Base(*item.Include)}
+			defaultTag = filepath.Base(*item.Include)
+		}
+		if defaultTag != "" && defaultTag != "." && defaultTag != ".." {
+			item.Tags = []string{defaultTag}
 		}
 	}
 
