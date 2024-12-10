@@ -451,7 +451,7 @@ func (r *KluctlDeploymentReconciler) doFinalize(ctx context.Context, obj *kluctl
 	if err != nil {
 		return
 	}
-	defer pp.cleanup()
+	defer pp.cleanup(ctx)
 
 	pt := pp.newTarget()
 
