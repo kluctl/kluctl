@@ -199,7 +199,7 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 	pp, pt, targetContext, err := r.prepareProjectAndTarget(timeoutCtx, obj)
 	if pp != nil {
 		obj.Status.ObservedCommit = pp.co.CheckedOutCommit
-		defer pp.cleanup()
+		defer pp.cleanup(ctx)
 	}
 	if err != nil {
 		return doError("", err)

@@ -1,2 +1,4 @@
 creation_rules:
+  - path_regex: test-gpg.yaml
+    pgp: B59DAF469E8C948138901A649732075EA221A7EA
   - age: age1q69g6x9jcz7lgnrgdxemystmhec4e8cxlzz45x0tt6t7dddp2ppsnkdxe7
