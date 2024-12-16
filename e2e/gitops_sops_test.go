@@ -131,7 +131,7 @@ func (suite *GitOpsSopsSuite) TestGpgAgentKilled() {
 		g.Expect(err).To(Succeed())
 		count := 0
 		for _, ps := range pss {
-			if strings.Index(ps.Command, "gpg-agent") != 1 && strings.Index(ps.Command, "--homedir") != -1 {
+			if strings.Index(ps.Command, "gpg-agent") != -1 && strings.Index(ps.Command, "--homedir") != -1 {
 				count++
 			}
 		}
