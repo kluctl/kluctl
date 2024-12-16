@@ -26,7 +26,7 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"os"
-	"path/filepath"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -61,6 +61,7 @@ type preparedProject struct {
 
 	co         git.CheckoutInfo
 	tmpDir     string
+	gnuPGHome  string
 	repoDir    string
 	projectDir string
 
@@ -87,7 +88,7 @@ func prepareProject(ctx context.Context,
 		if !cleanup {
 			return
 		}
-		pp.cleanup()
+		pp.cleanup(ctx)
 	}()
 
 	var err error
@@ -100,6 +101,12 @@ func prepareProject(ctx context.Context,
 	pp.tmpDir, err = os.MkdirTemp("", obj.GetName()+"-")
 	if err != nil {
 		return pp, fmt.Errorf("failed to create temp dir for kluctl project: %w", err)
+	}
+
+	// the GPG home must be as short as possible as otherwise socket names for gpg-agent will get too long
+	pp.gnuPGHome, err = os.MkdirTemp("", "gpg-")
+	if err != nil {
+		return pp, fmt.Errorf("failed to create gnuPG homedir for kluctl project: %w", err)
 	}
 
 	pp.soClients, err = r.buildSourceOverridesClients(ctx, obj)
@@ -196,7 +203,12 @@ func prepareProject(ctx context.Context,
 	return pp, nil
 }
 
-func (pp *preparedProject) cleanup() {
+func (pp *preparedProject) cleanup(ctx context.Context) {
+	if pp.gnuPGHome != "" {
+		pp.cleanupGpgAgent(ctx)
+		_ = os.RemoveAll(pp.gnuPGHome)
+	}
+
 	if pp.tmpDir != "" {
 		_ = os.RemoveAll(pp.tmpDir)
 	}
@@ -211,6 +223,12 @@ func (pp *preparedProject) cleanup() {
 	if pp.j2 != nil {
 		pp.j2.Close()
 	}
+}
+
+// sops might spawn gpg-agent instances bound to gnuPGHome, which must be killed when we're done with the project
+func (pp *preparedProject) cleanupGpgAgent(ctx context.Context) {
+	cmd := exec.CommandContext(ctx, "gpgconf", "--homedir", pp.gnuPGHome, "--kill", "gpg-agent")
+	_ = cmd.Run()
 }
 
 func (pp *preparedProject) newTarget() *preparedTarget {
@@ -535,13 +553,7 @@ func (pp *preparedProject) addSecretBasedKeyServers(ctx context.Context, d *decr
 		return fmt.Errorf("cannot get decryption Secret '%s': %w", secretName, err)
 	}
 
-	gnuPGHome := filepath.Join(pp.tmpDir, "sops-gnupghome")
-	err := os.MkdirAll(gnuPGHome, 0o700)
-	if err != nil {
-		return err
-	}
-
-	ks, err := sops.BuildSopsKeyServerFromSecret(&secret, gnuPGHome)
+	ks, err := sops.BuildSopsKeyServerFromSecret(&secret, pp.gnuPGHome)
 	if err != nil {
 		return err
 	}

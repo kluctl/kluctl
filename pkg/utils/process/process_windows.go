@@ -3,6 +3,8 @@
 package process
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"syscall"
 
@@ -55,6 +57,13 @@ func TerminateProcess(pid int, _ os.Signal) error {
 	return nil
 }
 
-func KillProcess(process *os.Process) error {
-	return process.Kill()
+func KillProcess(pid int) error {
+	ps := os.Process{
+		Pid: pid,
+	}
+	return ps.Kill()
+}
+
+func ListProcesses(ctx context.Context) ([]Process, error) {
+	return nil, fmt.Errorf("not implemented on windows")
 }

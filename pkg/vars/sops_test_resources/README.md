@@ -1,6 +1,13 @@
 To edit the test.yaml file, run:
 ```sh
-SOPS_AGE_KEY_FILE=$(pwd)/test-key.txt sops test.yaml
-SOPS_AGE_KEY_FILE=$(pwd)/test-key.txt sops test-configmap.yaml
-SOPS_AGE_KEY_FILE=$(pwd)/test-key.txt sops helm-values.yaml
+export SOPS_AGE_KEY_FILE=$(pwd)/test-key.txt
+sops test.yaml
+sops test-configmap.yaml
+sops helm-values.yaml
+```
+
+To edit the test-gpg.yaml file, run:
+```sh
+gpg --import private.gpg
+sops test-gpg.yaml
 ```
