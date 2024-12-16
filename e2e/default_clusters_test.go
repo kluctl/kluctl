@@ -1,8 +1,8 @@
 package e2e
 
 import (
+	"dario.cat/mergo"
 	"fmt"
-	"github.com/imdario/mergo"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
