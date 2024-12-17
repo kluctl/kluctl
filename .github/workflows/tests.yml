@@ -199,11 +199,11 @@ jobs:
           key: tests-go-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             tests-go-${{ runner.os }}-
-      - name: Run unit tests
+      - name: Run unit and lib tests
         if: matrix.run_unit_tests
         shell: bash
         run: |
-          make test-unit
+          make test-unit test-lib
       - name: Run e2e-non-gitops tests
         if: matrix.run_e2e_non_gitops
         shell: bash
