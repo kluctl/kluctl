@@ -461,8 +461,6 @@ github.com/klauspost/cpuid/v2 v2.2.9 h1:66ze0taIn2H33fBvCkXuv9BmCwDfafmiIVpKV9kK
 github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK4QwQ3WMXF8=
 github.com/kluctl/go-embed-python v0.0.0-3.12.3-20240415-2 h1:JcYhVgX7jFN8QcoBxx8/kLxUyeUzE/JnGf5ntulNPPM=
 github.com/kluctl/go-embed-python v0.0.0-3.12.3-20240415-2/go.mod h1:9kqX8IjRCNh4ppXxlKGtLN+QFuvsdSsNGKsTLgdSNRw=
-github.com/kluctl/go-jinja2 v0.0.0-20240708212116-03ee7eefba4f h1:DXcOryOSs9LG2xd7LlllWOL8fPA8i4OTXJzHOPtz6hA=
-github.com/kluctl/go-jinja2 v0.0.0-20240708212116-03ee7eefba4f/go.mod h1:O6CJS5+wwnQE4OorQi/fV3eGFye5ian11tjHIYLJzIY=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=

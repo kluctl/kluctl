@@ -7,7 +7,7 @@ import (
 	"fmt"
 	types2 "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
-	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/lib/go-jinja2"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"

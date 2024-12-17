@@ -1,0 +1,58 @@
+name: tests
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            binary-suffix: linux-amd64
+          - os: macos-12
+            binary-suffix: darwin-amd64
+          - os: windows-2019
+            binary-suffix: windows-amd64
+        os: [ubuntu-22.04, macos-12, windows-2019]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.19
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-embed-python-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-embed-python-
+      - name: Go generate
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          go generate ./...
+      - name: Verify nothing changed
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ ! -z "$(git status --porcelain)" ]; then
+            echo "working directory not clean:"
+            git status
+            git diff
+            exit 1
+          fi
+      - name: Run unit tests
+        shell: bash
+        run: |
+          go test ./...

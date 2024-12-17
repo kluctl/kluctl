@@ -27,6 +27,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.22
+          cache-dependency-path: "**/*.sum"
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -45,14 +46,6 @@ jobs:
           registry: ghcr.io
           username: kluctlbot
           password: ${{ secrets.GHCR_TOKEN }}
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-goreleaser-nightly-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-goreleaser-nightly-
       - name: Set .goreleaser.yaml's release.draft=false
         shell: bash
         run: |

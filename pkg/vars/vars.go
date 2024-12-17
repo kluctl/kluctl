@@ -1,7 +1,7 @@
 package vars
 
 import (
-	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/lib/go-jinja2"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"

@@ -23,6 +23,9 @@ IMG ?= kluctl/kluctl:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.28.0
 
+# This is the last version that supported go 1.22. We can switch back to latest when we don't need to support 1.22 anymore.
+SETUP_ENVTEST_VERSION = v0.0.0-20241011141221-469837099f73
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -85,11 +88,15 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate test-unit test-e2e fmt vet ## Run all tests.
+test: manifests generate test-unit test-lib test-e2e fmt vet ## Run all tests.
 
 .PHONY: test-unit
 test-unit: envtest ## Run unit tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir=$(LOCALBIN) -p path | $(PATHCONF))" go test $(RACE) $(shell go list ./... | grep -v v2/e2e) -coverprofile cover.out -test.v
+
+.PHONY: test-lib
+test-lib: ## Run lib tests.
+	cd lib && go test $(RACE) ./...  -coverprofile cover.out -test.v
 
 .PHONY: test-e2e
 test-e2e: envtest ## Run all e2e tests.
@@ -197,6 +204,5 @@ gen-crd-api-reference-docs:
 	GOBIN=$(LOCALBIN) go install github.com/ahmetb/gen-crd-api-reference-docs@v0.3.0
 
 .PHONY: envtest
-envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
-$(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+envtest: $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@$(SETUP_ENVTEST_VERSION)

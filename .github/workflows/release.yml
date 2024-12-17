@@ -24,6 +24,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 1.22
+          cache-dependency-path: "**/*.sum"
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
       - name: Setup Docker Buildx
@@ -37,14 +38,6 @@ jobs:
           registry: ghcr.io
           username: kluctlbot
           password: ${{ secrets.GHCR_TOKEN }}
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-goreleaser-release-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-goreleaser-release-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
