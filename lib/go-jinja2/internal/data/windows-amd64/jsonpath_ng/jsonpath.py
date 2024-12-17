@@ -369,6 +369,36 @@ class Where(JSONPath):
     def __hash__(self):
         return hash((self.left, self.right))
 
+
+class WhereNot(Where):
+    """
+    Identical to ``Where``, but filters for only those nodes that
+    do *not* have a match on the right.
+
+    >>> jsonpath = WhereNot(Fields('spam'), Fields('spam'))
+    >>> jsonpath.find({"spam": {"spam": 1}})
+    []
+    >>> matches = jsonpath.find({"spam": 1})
+    >>> matches[0].value
+    1
+
+    """
+    def find(self, data):
+        return [subdata for subdata in self.left.find(data)
+                if not self.right.find(subdata)]
+
+    def __str__(self):
+        return '%s wherenot %s' % (self.left, self.right)
+
+    def __eq__(self, other):
+        return (isinstance(other, WhereNot)
+                and other.left == self.left
+                and other.right == self.right)
+
+    def __hash__(self):
+        return hash((self.left, self.right))
+
+
 class Descendants(JSONPath):
     """
     JSONPath that matches first the left expression then any descendant
@@ -597,9 +627,9 @@ class Fields(JSONPath):
     def _update_base(self, data, val, create):
         if data is not None:
             for field in self.reified_fields(DatumInContext.wrap(data)):
-                if field not in data and create:
+                if create and field not in data:
                     data[field] = {}
-                if field in data:
+                if type(data) is not bool and field in data:
                     if hasattr(val, '__call__'):
                         data[field] = val(data[field], data, field)
                     else:

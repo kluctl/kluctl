@@ -116,3 +116,28 @@ class Keys(JSONPath):
 
     def __repr__(self):
         return 'Keys()'
+
+class Path(JSONPath):
+    """The JSONPath referring to the path of the current object.
+    Concrete syntax is 'path`'.
+    """
+
+    def find(self, datum):
+        datum = DatumInContext.wrap(datum)
+        try:
+            value = str(datum.path)
+        except Exception as e:
+            return []
+        else:
+            return [DatumInContext(value,
+                                   context=datum,
+                                   path=Path())]
+
+    def __eq__(self, other):
+        return isinstance(other, Path)
+
+    def __str__(self):
+        return '`path`'
+
+    def __repr__(self):
+        return 'Path()'

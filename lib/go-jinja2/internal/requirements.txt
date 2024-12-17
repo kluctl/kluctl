@@ -1,6 +1,6 @@
 jinja2==3.1.4
 click==8.1.7
-jsonpath-ng==1.6.1
-pyyaml==6.0.1
+jsonpath-ng==1.7.0
+pyyaml==6.0.2
 python-slugify==8.0.4
-MarkupSafe==2.1.5
+MarkupSafe==3.0.2
