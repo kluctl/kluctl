@@ -50,7 +50,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.12.3-20240415-2
-	github.com/kluctl/kluctl/lib v0.0.0-20241216101058-0040b94148ed
+	github.com/kluctl/kluctl/lib v0.0.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.16 // indirect
