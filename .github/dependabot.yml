@@ -26,3 +26,11 @@ updates:
       azure-sdk:
         patterns:
           - "*azure-sdk*"
+  - package-ecosystem: "gomod"
+    directory: "/lib"
+    schedule:
+      interval: "daily"
+    groups:
+      all:
+        patterns:
+          - "*"
