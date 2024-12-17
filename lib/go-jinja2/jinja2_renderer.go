@@ -58,7 +58,7 @@ func newPythonJinja2Renderer(j2 *Jinja2) (*pythonJinja2Renderer, error) {
 
 	err = j2r.cmd.Start()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to start python for Jinja2: %w", err)
 	}
 
 	j2r.stdoutReader = bufio.NewReader(j2r.stdout)
@@ -209,7 +209,7 @@ func (j *pythonJinja2Renderer) renderHelper(jobs []*RenderJob, isString bool, op
 
 	cmdResult, err := j.runCmd(&jargs)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to run jinja2 cmd: %w", err)
 	}
 
 	for i, item := range cmdResult.TemplateResults {
@@ -230,7 +230,7 @@ func (j *pythonJinja2Renderer) runCmd(jargs *jinja2Cmd) (*jinja2CmdResult, error
 	b, err := json.Marshal(jargs)
 	if err != nil {
 		j.Close()
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal jinja2 cmd args: %w", err)
 	}
 	b = append(b, '\n')
 
@@ -243,14 +243,14 @@ func (j *pythonJinja2Renderer) runCmd(jargs *jinja2Cmd) (*jinja2CmdResult, error
 	_, err = j.stdin.Write(b)
 	if err != nil {
 		j.Close()
-		return nil, err
+		return nil, fmt.Errorf("failed to write jinja2 cmd args: %w", err)
 	}
 
 	line := bytes.NewBuffer(nil)
 	for true {
 		l, p, err := j.stdoutReader.ReadLine()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read jinja2 cmd result: %w", err)
 		}
 		line.Write(l)
 		if !p {
@@ -267,7 +267,7 @@ func (j *pythonJinja2Renderer) runCmd(jargs *jinja2Cmd) (*jinja2CmdResult, error
 	var result jinja2CmdResult
 	err = json.Unmarshal(line.Bytes(), &result)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal jinja2 cmd result: %w", err)
 	}
 
 	return &result, nil
