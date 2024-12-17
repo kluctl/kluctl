@@ -16,7 +16,7 @@ export class DeploymentError {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -74,7 +74,7 @@ export class ResultObject {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -164,7 +164,7 @@ export class HelmChartConfig {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -232,7 +232,7 @@ export class OciProject {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -308,7 +308,7 @@ export class DeploymentItemConfig {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -448,7 +448,7 @@ export class VarsSourceGitFiles {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -524,7 +524,7 @@ export class VarsSource {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -566,7 +566,7 @@ export class DeploymentProjectConfig {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -664,7 +664,7 @@ export class CommandInfo {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -724,7 +724,7 @@ export class FixedImage {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -762,7 +762,7 @@ export class AwsConfig {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -798,7 +798,7 @@ export class Target {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -876,7 +876,7 @@ export class CommandResult {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -942,7 +942,7 @@ export class CommandResultSummary {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -972,7 +972,7 @@ export class ValidateResultEntry {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -1022,7 +1022,7 @@ export class ValidateResult {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -1070,7 +1070,7 @@ export class ValidateResultSummary {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -1108,7 +1108,7 @@ export class DriftedObject {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -1154,7 +1154,7 @@ export class DriftDetectionResult {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -1182,7 +1182,7 @@ export class ChangedObject {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
@@ -1230,7 +1230,7 @@ export class ProjectTargetKey {
 	    if (!a) {
 	        return a;
 	    }
-	    if (a.slice) {
+	    if (Array.isArray(a)) {
 	        return (a as any[]).map(elem => this.convertValues(elem, classs));
 	    } else if ("object" === typeof a) {
 	        if (asMap) {
