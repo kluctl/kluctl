@@ -3,13 +3,17 @@ module github.com/kluctl/kluctl/lib
 go 1.22.0
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/go-errors/errors v1.5.1
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/gobwas/glob v0.2.3
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
+	github.com/kluctl/go-embed-python v0.0.0-3.11.9-20240415-1
+	github.com/kluctl/go-jinja2 v0.0.0-20240708212116-03ee7eefba4f
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.15
 	github.com/mitchellh/reflectwalk v1.0.2
@@ -42,7 +46,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
-	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
@@ -50,6 +54,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.2.2 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect

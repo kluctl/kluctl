@@ -13,7 +13,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/lib/go-jinja2"
 )
 
 func main() {

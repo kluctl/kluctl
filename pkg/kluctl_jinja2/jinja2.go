@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/kluctl/go-embed-python/embed_util"
 	"github.com/kluctl/go-embed-python/python"
-	x "github.com/kluctl/go-jinja2"
+	x "github.com/kluctl/kluctl/lib/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"os"
 	"path/filepath"

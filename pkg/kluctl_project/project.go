@@ -2,7 +2,7 @@ package kluctl_project
 
 import (
 	"fmt"
-	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/lib/go-jinja2"
 	"github.com/kluctl/kluctl/v2/pkg/repocache"
 	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"time"

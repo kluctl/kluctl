@@ -3,7 +3,7 @@ package kluctl_jinja2
 import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
-	"github.com/kluctl/go-jinja2"
+	"github.com/kluctl/kluctl/lib/go-jinja2"
 	"strings"
 )
 
