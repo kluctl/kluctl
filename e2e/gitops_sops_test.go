@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/process"
@@ -11,6 +12,8 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"path"
 	"strings"
 	"testing"
 )
@@ -130,8 +133,12 @@ func (suite *GitOpsSopsSuite) TestGpgAgentKilled() {
 		pss, err := process.ListProcesses(context.Background())
 		g.Expect(err).To(Succeed())
 		count := 0
+		suite.T().Logf("counting gpg-agents")
 		for _, ps := range pss {
-			if strings.Index(ps.Command, "gpg-agent") != -1 && strings.Index(ps.Command, "--homedir") != -1 {
+			homeDirPrefix := path.Join(os.TempDir(), "gpg-")
+			homeDirArg := fmt.Sprintf("--homedir %s", homeDirPrefix)
+			if strings.Index(ps.Command, "gpg-agent") != -1 && strings.Index(ps.Command, homeDirArg) != -1 {
+				suite.T().Logf("gpg-agent: pid=%d, cmd=%s", ps.Pid, ps.Command)
 				count++
 			}
 		}

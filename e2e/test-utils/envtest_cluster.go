@@ -27,8 +27,9 @@ import (
 type EnvTestCluster struct {
 	CRDDirectoryPaths []string
 
-	env     envtest.Environment
-	started bool
+	env      envtest.Environment
+	envMutex sync.Mutex
+	started  bool
 
 	user       *envtest.AuthenticatedUser
 	Kubeconfig []byte
@@ -58,6 +59,9 @@ func CreateEnvTestCluster(context string) *EnvTestCluster {
 }
 
 func (k *EnvTestCluster) Start() error {
+	k.envMutex.Lock()
+	defer k.envMutex.Unlock()
+
 	k.env.CRDDirectoryPaths = k.CRDDirectoryPaths
 
 	_, err := k.env.Start()
@@ -123,6 +127,9 @@ func (k *EnvTestCluster) Start() error {
 }
 
 func (c *EnvTestCluster) Stop() {
+	c.envMutex.Lock()
+	defer c.envMutex.Unlock()
+
 	if c.started {
 		_ = c.env.Stop()
 		c.started = false
@@ -134,6 +141,8 @@ func (c *EnvTestCluster) Stop() {
 }
 
 func (c *EnvTestCluster) AddUser(user envtest.User, baseConfig *rest.Config) (*envtest.AuthenticatedUser, error) {
+	c.envMutex.Lock()
+	defer c.envMutex.Unlock()
 	return c.env.AddUser(user, baseConfig)
 }
 
