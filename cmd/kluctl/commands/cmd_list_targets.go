@@ -13,7 +13,7 @@ type listTargetsCmd struct {
 	args.ProjectFlags
 	args.OutputFlags
 
-	OnlyNames bool `group:"list-targets" help:"If provided --only-names will only output "`
+	OnlyNames bool `group:"misc" help:"If provided --only-names will only output "`
 }
 
 func (cmd *listTargetsCmd) Help() string {
