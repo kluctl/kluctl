@@ -9,7 +9,7 @@ replace github.com/kluctl/kluctl/lib => ./lib
 require (
 	cloud.google.com/go/secretmanager v1.14.2
 	dario.cat/mergo v1.0.1
-	filippo.io/age v1.2.0
+	filippo.io/age v1.2.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.3.0
