@@ -246,26 +246,19 @@ func (j *pythonJinja2Renderer) runCmd(jargs *jinja2Cmd) (*jinja2CmdResult, error
 		return nil, fmt.Errorf("failed to write jinja2 cmd args: %w", err)
 	}
 
-	line := bytes.NewBuffer(nil)
-	for true {
-		l, p, err := j.stdoutReader.ReadLine()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read jinja2 cmd result: %w", err)
-		}
-		line.Write(l)
-		if !p {
-			break
-		}
+	line, err := j.stdoutReader.ReadBytes('\n')
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("failed to read jinja2 cmd result: %w", err)
 	}
 
 	if jargs.Opts != nil && jargs.Opts.traceJsonReceive != nil {
 		var m map[string]any
-		_ = json.Unmarshal(line.Bytes(), &m)
+		_ = json.Unmarshal(line, &m)
 		jargs.Opts.traceJsonReceive(m)
 	}
 
 	var result jinja2CmdResult
-	err = json.Unmarshal(line.Bytes(), &result)
+	err = json.Unmarshal(line, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal jinja2 cmd result: %w", err)
 	}
