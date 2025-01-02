@@ -12,13 +12,13 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/go-embed-python v0.0.0-3.12.3-20240415-2
+	github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mitchellh/reflectwalk v1.0.2
 	github.com/otiai10/copy v1.14.0
 	github.com/rogpeppe/go-internal v1.13.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/xanzy/ssh-agent v0.3.3
 	golang.org/x/crypto v0.31.0
 	golang.org/x/net v0.32.0
@@ -43,6 +43,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.6.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
