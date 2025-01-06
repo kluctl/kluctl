@@ -71,12 +71,12 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/tkrajina/typescriptify-golang-structs v0.2.0
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/net v0.32.0
-	golang.org/x/oauth2 v0.24.0
+	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/net v0.34.0
+	golang.org/x/oauth2 v0.25.0
 	golang.org/x/sync v0.10.0
-	golang.org/x/sys v0.28.0
-	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/sys v0.29.0
+	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto v0.0.0-20241216192217-9240e9c98484
 	google.golang.org/grpc v1.70.0-dev.0.20241217033058-e8055ea11f96
