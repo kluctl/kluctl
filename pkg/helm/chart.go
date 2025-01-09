@@ -44,14 +44,14 @@ type Chart struct {
 	ociAuthProvider  ociauth.OciAuthProvider
 	gitRp            *repocache.GitRepoCache
 	ociRp            *repocache.OciRepoCache
-	url              string
+	tarUrl           string
 
 	credentialsId string
 
 	versions []ChartVersion
 }
 
-func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache, url string) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache, tarUrl string) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
 		localPath:        localPath,
@@ -60,10 +60,10 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 		ociAuthProvider:  ociAuthProvider,
 		gitRp:            gitRp,
 		ociRp:            ociRp,
-		url:              url,
+		tarUrl:           tarUrl,
 	}
 
-	if localPath == "" && repo == "" && git == nil && url == "" {
+	if localPath == "" && repo == "" && git == nil && tarUrl == "" {
 		return nil, fmt.Errorf("repo, localPath, git, or url are missing")
 	}
 
@@ -109,8 +109,8 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 				return nil, fmt.Errorf("invalid git url: %s", git.Url.String())
 			}
 		}
-	} else if url != "" {
-		// Handle the case where a URL is specified
+	} else if tarUrl != "" {
+		// Handle the case where a Helm chart Tar URL is specified
 		if chartName == "" {
 			return nil, fmt.Errorf("chartName must be specified when using a URL")
 		}
@@ -126,11 +126,11 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 }
 
 func (c *Chart) IsURLChart() bool {
-	return c.url != ""
+	return c.tarUrl != ""
 }
 
 func (c *Chart) GetURL() string {
-	return c.url
+	return c.tarUrl
 }
 func (c *Chart) IsLocalChart() bool {
 	return c.localPath != ""
@@ -455,9 +455,9 @@ func (c *Chart) pullFromURL(ctx context.Context, chartDir string) error {
 	}
 
 	// Download the chart
-	resp, err := http.Get(c.url)
+	resp, err := http.Get(c.tarUrl)
 	if err != nil {
-		return fmt.Errorf("failed to download chart from URL: %v", err)
+		return fmt.Errorf("failed to download chart from tarUrl: %v", err)
 	}
 	defer resp.Body.Close()
 

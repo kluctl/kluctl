@@ -64,7 +64,7 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 		credentialsIdValue = *config.CredentialsId
 	}
 
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsIdValue, ociAuthProvider, gitRp, ociRp, config.URL)
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsIdValue, ociAuthProvider, gitRp, ociRp, config.TarUrl)
 	if err != nil {
 		return nil, err
 	}

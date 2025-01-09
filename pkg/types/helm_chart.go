@@ -8,7 +8,7 @@ import (
 
 type HelmChartConfig2 struct {
 	Repo              string      `json:"repo,omitempty"`
-	URL               string      `json:"url,omitempty"`
+	TarUrl            string      `json:"tarUrl,omitempty"`
 	Git               *GitProject `json:"git,omitempty"`
 	Path              string      `json:"path,omitempty"`
 	CredentialsId     *string     `json:"credentialsId,omitempty"`
@@ -35,13 +35,13 @@ func ValidateHelmChartConfig2(sl validator.StructLevel) {
 	if c.Git != nil {
 		cnt++
 	}
-	if c.URL != "" {
+	if c.TarUrl != "" {
 		cnt++
 	}
 	if cnt == 0 {
-		sl.ReportError("self", "repo", "repo", "either repo, path, git, or url must be specified", "")
+		sl.ReportError("self", "repo", "repo", "either repo, path, git, or tarUrl must be specified", "")
 	} else if cnt > 1 {
-		sl.ReportError("self", "repo", "repo", "only one of repo, path, git, or url can be specified", "")
+		sl.ReportError("self", "repo", "repo", "only one of repo, path, git, or tarUrl can be specified", "")
 	} else if c.Repo != "" {
 		if c.ChartVersion == nil || *c.ChartVersion == "" {
 			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion must be specified when repo is specified", "")
@@ -72,10 +72,10 @@ func ValidateHelmChartConfig2(sl validator.StructLevel) {
 		if c.ChartVersion != nil {
 			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion cannot be specified for git Helm charts", "")
 		}
-	} else if c.URL != "" {
+	} else if c.TarUrl != "" {
 		// Additional validation for URL if needed
 		if c.ChartName == "" {
-			sl.ReportError("self", "chartName", "chartName", "chartName must be specified when using a URL", "")
+			sl.ReportError("self", "chartName", "chartName", "chartName must be specified when using a tarUrl", "")
 		}
 	}
 }
