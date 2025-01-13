@@ -28,7 +28,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.3.6
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0-rc.1
-	github.com/docker/cli v27.4.0+incompatible
+	github.com/docker/cli v27.5.0+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/getsops/sops/v3 v3.9.2
