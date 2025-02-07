@@ -78,6 +78,7 @@ func (a *sshDefaultIdentityAndAgent) addDefaultIdentities(gitUrl types.GitUrl) {
 	doAdd("id_rsa")
 	doAdd("id_ecdsa")
 	doAdd("id_ed25519")
+	doAdd("id_ed25519_sk")
 	doAdd("id_xmss")
 	doAdd("id_dsa")
 }
