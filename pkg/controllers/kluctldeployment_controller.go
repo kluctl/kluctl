@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -196,9 +197,9 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		ctrlResult.Requeue = true
 	}
 
-	finalStatus, reason := r.buildFinalStatus(ctx, obj)
+	finalStatus, reason, startTime := r.buildFinalStatus(ctx, obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
-		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
+		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name, startTime).Set(0.0)
 		err = fmt.Errorf(finalStatus)
 
 		patchErr = r.patchReadyCondition(ctx, obj, metav1.ConditionFalse, reason, finalStatus)
@@ -209,7 +210,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		return &ctrlResult, err
 	}
 
-	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(1.0)
+	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name, startTime).Set(1.0)
 	patchErr = r.patchReadyCondition(ctx, obj, metav1.ConditionTrue, reason, finalStatus)
 	if patchErr != nil {
 		return nil, patchErr
@@ -299,7 +300,7 @@ func (r *KluctlDeploymentReconciler) buildResultMessage(summary *result.CommandR
 	return msg
 }
 
-func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (string, string) {
+func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (string, string, string) {
 	log := ctrl.LoggerFrom(ctx)
 
 	var lastDeployResult *result.CommandResultSummary
@@ -318,25 +319,26 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 	}
 
 	if lastDeployResult == nil {
-		return "deployment status unknown", kluctlv1.DeployFailedReason
+		return "deployment status unknown", kluctlv1.DeployFailedReason, strconv.FormatInt(time.Now().Unix(), 10)
 	}
+	startTime := strconv.FormatInt(lastDeployResult.Command.StartTime.Unix(), 10)
 
 	msg := r.buildResultMessage(lastDeployResult, "deploy")
 	if obj.Spec.Validate {
 		if lastValidateResult == nil {
-			return msg + " Validation status unknown.", kluctlv1.ValidateFailedReason
+			return msg + " Validation status unknown.", kluctlv1.ValidateFailedReason, startTime
 		}
 		msg += " " + r.buildBaseResultMessage(lastValidateResult.Errors, lastDeployResult.Warnings, "validate")
 	}
 
 	if len(lastDeployResult.Errors) != 0 {
-		return msg, kluctlv1.DeployFailedReason
+		return msg, kluctlv1.DeployFailedReason, startTime
 	}
 	if lastValidateResult != nil && len(lastValidateResult.Errors) != 0 {
-		return msg, kluctlv1.ValidateFailedReason
+		return msg, kluctlv1.ValidateFailedReason, startTime
 	}
 
-	return msg, kluctlv1.ReconciliationSucceededReason
+	return msg, kluctlv1.ReconciliationSucceededReason, startTime
 }
 
 func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment) time.Duration {

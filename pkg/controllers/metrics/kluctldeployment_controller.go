@@ -36,7 +36,7 @@ var (
 		Subsystem: KluctlDeploymentControllerSubsystem,
 		Name:      LastObjectStatusKey,
 		Help:      "Last object status of a single deployment.",
-	}, []string{"namespace", "name"})
+	}, []string{"namespace", "name", "start_time"})
 
 	pruneEnabled = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Subsystem: KluctlDeploymentControllerSubsystem,
@@ -86,8 +86,8 @@ func NewKluctlDryRunEnabled(namespace string, name string) prometheus.Gauge {
 	return dryRunEnabled.WithLabelValues(namespace, name)
 }
 
-func NewKluctlLastObjectStatus(namespace string, name string) prometheus.Gauge {
-	return lastObjectStatus.WithLabelValues(namespace, name)
+func NewKluctlLastObjectStatus(namespace string, name string, startTime string) prometheus.Gauge {
+	return lastObjectStatus.WithLabelValues(namespace, name, startTime)
 }
 
 func NewKluctlPruneEnabled(namespace string, name string) prometheus.Gauge {

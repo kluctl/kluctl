@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/yaml"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	internal_metrics "github.com/kluctl/kluctl/v2/pkg/controllers/metrics"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project/target-context"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +20,7 @@ import (
 	"path"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"time"
 )
 
@@ -35,7 +38,20 @@ func (r *KluctlDeploymentReconciler) patchReadyCondition(ctx context.Context, ob
 
 // patchFail returns the original error + patchErr if required
 func (r *KluctlDeploymentReconciler) patchFail(ctx context.Context, obj *kluctlv1.KluctlDeployment, reason string, err error) error {
-	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
+	var lastDeployResult *result.CommandResultSummary
+	if obj.Status.LastDeployResult != nil {
+		err := yaml.ReadYamlBytes(obj.Status.LastDeployResult.Raw, &lastDeployResult)
+		if err != nil {
+			log.Info(fmt.Sprintf("Failed to parse last deploy result: %s", err.Error()))
+		}
+	}
+
+	startTime := strconv.FormatInt(time.Now().Unix(), 10)
+	if lastDeployResult == nil {
+		startTime = strconv.FormatInt(lastDeployResult.Command.StartTime.Unix(), 10)
+	}
+
+	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name, startTime).Set(0.0)
 	patchErr := r.patchReadyCondition(ctx, obj, metav1.ConditionFalse, reason, err.Error())
 	if patchErr != nil {
 		err = multierror.Append(err, patchErr)
