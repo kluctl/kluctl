@@ -196,7 +196,8 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 		ctrlResult.Requeue = true
 	}
 
-	finalStatus, reason := r.buildFinalStatus(ctx, obj)
+	finalStatus, reason, startTime := r.buildFinalStatus(ctx, obj)
+	internal_metrics.NewKluctlLastDeployStartTime(obj.Namespace, obj.Name).Set(float64(startTime))
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
 		err = fmt.Errorf(finalStatus)
@@ -299,7 +300,7 @@ func (r *KluctlDeploymentReconciler) buildResultMessage(summary *result.CommandR
 	return msg
 }
 
-func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (string, string) {
+func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *kluctlv1.KluctlDeployment) (string, string, int64) {
 	log := ctrl.LoggerFrom(ctx)
 
 	var lastDeployResult *result.CommandResultSummary
@@ -318,25 +319,26 @@ func (r *KluctlDeploymentReconciler) buildFinalStatus(ctx context.Context, obj *
 	}
 
 	if lastDeployResult == nil {
-		return "deployment status unknown", kluctlv1.DeployFailedReason
+		return "deployment status unknown", kluctlv1.DeployFailedReason, time.Now().Unix()
 	}
+	startTime := lastDeployResult.Command.StartTime.Unix()
 
 	msg := r.buildResultMessage(lastDeployResult, "deploy")
 	if obj.Spec.Validate {
 		if lastValidateResult == nil {
-			return msg + " Validation status unknown.", kluctlv1.ValidateFailedReason
+			return msg + " Validation status unknown.", kluctlv1.ValidateFailedReason, startTime
 		}
 		msg += " " + r.buildBaseResultMessage(lastValidateResult.Errors, lastDeployResult.Warnings, "validate")
 	}
 
 	if len(lastDeployResult.Errors) != 0 {
-		return msg, kluctlv1.DeployFailedReason
+		return msg, kluctlv1.DeployFailedReason, startTime
 	}
 	if lastValidateResult != nil && len(lastValidateResult.Errors) != 0 {
-		return msg, kluctlv1.ValidateFailedReason
+		return msg, kluctlv1.ValidateFailedReason, startTime
 	}
 
-	return msg, kluctlv1.ReconciliationSucceededReason
+	return msg, kluctlv1.ReconciliationSucceededReason, startTime
 }
 
 func (r *KluctlDeploymentReconciler) calcTimeout(obj *kluctlv1.KluctlDeployment) time.Duration {
