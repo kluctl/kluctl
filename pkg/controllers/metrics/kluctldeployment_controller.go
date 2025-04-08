@@ -12,7 +12,7 @@ const (
 	DeploymentIntervalKey  = "deployment_interval_seconds"
 	DryRunEnabledKey       = "dry_run_enabled"
 	LastObjectStatusKey    = "last_object_status"
-	LastDeployStartTimeKey = "last_deploy_start_time"
+	LastDeployStartTimeKey = "last_deploy_start_timestamp_seconds"
 	PruneEnabledKey        = "prune_enabled"
 	DeleteEnabledKey       = "delete_enabled"
 	SourceSpecKey          = "source_spec"
