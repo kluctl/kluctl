@@ -45,12 +45,10 @@ func (r *KluctlDeploymentReconciler) patchFail(ctx context.Context, obj *kluctlv
 		}
 	}
 
-	startTime := time.Now().Unix()
 	if lastDeployResult != nil {
-		startTime = lastDeployResult.Command.StartTime.Unix()
+		internal_metrics.NewKluctlLastDeployStartTime(obj.Namespace, obj.Name).Set(float64(lastDeployResult.Command.StartTime.Unix()))
 	}
 
-	internal_metrics.NewKluctlLastDeployStartTime(obj.Namespace, obj.Name).Set(float64(startTime))
 	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
 	patchErr := r.patchReadyCondition(ctx, obj, metav1.ConditionFalse, reason, err.Error())
 	if patchErr != nil {
