@@ -42,11 +42,9 @@ func (r *KluctlDeploymentReconciler) patchFail(ctx context.Context, obj *kluctlv
 		parseErr := yaml.ReadYamlBytes(obj.Status.LastDeployResult.Raw, &lastDeployResult)
 		if parseErr != nil {
 			log.Info(fmt.Sprintf("Failed to parse last deploy result: %s", parseErr.Error()))
+		} else {
+			internal_metrics.NewKluctlLastDeployStartTime(obj.Namespace, obj.Name).Set(float64(lastDeployResult.Command.StartTime.Unix()))
 		}
-	}
-
-	if lastDeployResult != nil {
-		internal_metrics.NewKluctlLastDeployStartTime(obj.Namespace, obj.Name).Set(float64(lastDeployResult.Command.StartTime.Unix()))
 	}
 
 	internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
