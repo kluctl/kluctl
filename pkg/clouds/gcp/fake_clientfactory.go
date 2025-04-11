@@ -25,7 +25,7 @@ func (f *FakeClientFactory) AccessSecretVersion(ctx context.Context, req *secret
 	}
 
 	errMsg := fmt.Sprintf("secret not found: failed to access secret version: rpc error: code = NotFound desc = secret %s not found", req.Name)
-	return nil, status.Errorf(codes.NotFound, errMsg)
+	return nil, status.Error(codes.NotFound, errMsg)
 }
 
 func (f *FakeClientFactory) SecretManagerClient(ctx context.Context) (AccessSecretVersionInterface, error) {

@@ -161,7 +161,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 				out = fmt.Sprintf("%s: Downloading Chart with branch, tag or commit %s into cache", chart.GetChartName(), version.String())
 			}
 			g.RunE(func() error {
-				s := status.Startf(ctx, out)
+				s := status.Start(ctx, out)
 				defer s.Failed()
 				_, err := chart.PullCached(ctx, version)
 				if err != nil {

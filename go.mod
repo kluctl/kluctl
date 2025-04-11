@@ -1,8 +1,8 @@
 module github.com/kluctl/kluctl/v2
 
-go 1.22.7
+go 1.24
 
-toolchain go1.22.9
+toolchain go1.24.2
 
 replace github.com/kluctl/kluctl/lib => ./lib
 
