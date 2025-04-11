@@ -618,7 +618,7 @@ func stripRoot(root, path string) string {
 
 func sopsUserErr(msg string, err error) error {
 	if userErr, ok := err.(sops.UserError); ok {
-		err = fmt.Errorf(userErr.UserError())
+		err = fmt.Errorf("%s", userErr.UserError())
 	}
 	return fmt.Errorf("%s: %w", msg, err)
 }

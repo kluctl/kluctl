@@ -76,7 +76,7 @@ func (dew *DeploymentErrorsAndWarnings) AddError(ref k8s.ObjectRef, err error) {
 
 func (dew *DeploymentErrorsAndWarnings) AddApiWarnings(ref k8s.ObjectRef, warnings []k8s2.ApiWarning) {
 	for _, w := range warnings {
-		dew.AddWarning(ref, fmt.Errorf(w.Text))
+		dew.AddWarning(ref, fmt.Errorf("%s", w.Text))
 	}
 }
 

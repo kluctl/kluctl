@@ -199,7 +199,7 @@ func (r *KluctlDeploymentReconciler) doReconcile(
 	finalStatus, reason := r.buildFinalStatus(ctx, obj)
 	if reason != kluctlv1.ReconciliationSucceededReason {
 		internal_metrics.NewKluctlLastObjectStatus(obj.Namespace, obj.Name).Set(0.0)
-		err = fmt.Errorf(finalStatus)
+		err = fmt.Errorf("%s", finalStatus)
 
 		patchErr = r.patchReadyCondition(ctx, obj, metav1.ConditionFalse, reason, finalStatus)
 		if patchErr != nil {
