@@ -1,6 +1,7 @@
 module github.com/kluctl/kluctl/lib
 
-go 1.22.0
+go 1.24
+
 toolchain go1.24.1
 
 require (
@@ -13,7 +14,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/go-embed-python v0.0.0-3.13.1-20241219-1
+	github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mitchellh/reflectwalk v1.0.2
