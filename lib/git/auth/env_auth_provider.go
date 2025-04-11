@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/envutils"
 	"github.com/kluctl/kluctl/lib/git/messages"
@@ -68,13 +67,13 @@ func (a *GitEnvAuthProvider) doBuildList(ctx context.Context) error {
 
 		ssh_key_path, _ := m["SSH_KEY"]
 
-		a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: adding entry host=%s, path=%s, username=%s, ssh_key=%s", e.Host, e.PathStr, e.Username, ssh_key_path))
+		a.MessageCallbacks.Trace("GitEnvAuthProvider: adding entry host=%s, path=%s, username=%s, ssh_key=%s", e.Host, e.PathStr, e.Username, ssh_key_path)
 
 		if ssh_key_path != "" {
 			ssh_key_path = expandHomeDir(ssh_key_path)
 			b, err := os.ReadFile(ssh_key_path)
 			if err != nil {
-				a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: failed to read key %s: %v", ssh_key_path, err))
+				a.MessageCallbacks.Trace("GitEnvAuthProvider: failed to read key %s: %v", ssh_key_path, err)
 			} else {
 				e.SshKey = b
 			}
@@ -84,7 +83,7 @@ func (a *GitEnvAuthProvider) doBuildList(ctx context.Context) error {
 			ca_bundle_path = expandHomeDir(ca_bundle_path)
 			b, err := os.ReadFile(ca_bundle_path)
 			if err != nil {
-				a.MessageCallbacks.Trace(fmt.Sprintf("GitEnvAuthProvider: failed to read ca bundle %s: %v", ca_bundle_path, err))
+				a.MessageCallbacks.Trace("GitEnvAuthProvider: failed to read ca bundle %s: %v", ca_bundle_path, err)
 			} else {
 				e.CABundle = b
 			}
