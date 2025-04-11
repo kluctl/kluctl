@@ -99,6 +99,7 @@ headers = []
 exclude = [
     '^https://kubernetes\.io/docs/reference/generated/kubernetes-api/v1\.18/',
     '.*#getvarfieldpath-default', # lychee seems to not understand this one
+    'https://www.gnu.org/software/bash/', # this times out very often, no idea why
 ]
 
 # Exclude these filesystem paths from getting checked.
