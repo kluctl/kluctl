@@ -8,6 +8,7 @@ import (
 
 type HelmChartConfig2 struct {
 	Repo              string      `json:"repo,omitempty"`
+	TarUrl            string      `json:"tarUrl,omitempty"`
 	Git               *GitProject `json:"git,omitempty"`
 	Path              string      `json:"path,omitempty"`
 	CredentialsId     *string     `json:"credentialsId,omitempty"`
@@ -34,39 +35,47 @@ func ValidateHelmChartConfig2(sl validator.StructLevel) {
 	if c.Git != nil {
 		cnt++
 	}
+	if c.TarUrl != "" {
+		cnt++
+	}
 	if cnt == 0 {
-		sl.ReportError("self", "repo", "repo", "either repo, path or git must be specified", "")
+		sl.ReportError("self", "repo", "repo", "either repo, path, git, or tarUrl must be specified", "")
 	} else if cnt > 1 {
-		sl.ReportError("self", "repo", "repo", "only one of repo, path and git can be specified", "")
+		sl.ReportError("self", "repo", "repo", "only one of repo, path, git, or tarUrl can be specified", "")
 	} else if c.Repo != "" {
 		if c.ChartVersion == nil || *c.ChartVersion == "" {
 			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion must be specified when repo is specified", "")
 		}
 		if registry.IsOCI(c.Repo) {
 			if c.ChartName != "" {
-				sl.ReportError("self", "chartName", "chartName", "chartName can not be specified when repo is a OCI url", "")
+				sl.ReportError("self", "chartName", "chartName", "chartName cannot be specified when repo is an OCI url", "")
 			}
 		} else {
 			if c.ChartName == "" {
-				sl.ReportError("self", "chartName", "chartName", "chartName must be specified when repo is normal Helm repo", "")
+				sl.ReportError("self", "chartName", "chartName", "chartName must be specified when repo is a normal Helm repo", "")
 			}
 		}
 	} else if c.Path != "" {
 		if c.ChartName != "" {
-			sl.ReportError("self", "chartName", "chartName", "chartName can not be specified for local Helm charts", "")
+			sl.ReportError("self", "chartName", "chartName", "chartName cannot be specified for local Helm charts", "")
 		}
 		if c.ChartVersion != nil {
-			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion can not be specified for local Helm charts", "")
+			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion cannot be specified for local Helm charts", "")
 		}
 		if c.UpdateConstraints != nil {
-			sl.ReportError("self", "updateConstraints", "updateConstraints", "updateConstraints can not be specified for local Helm charts", "")
+			sl.ReportError("self", "updateConstraints", "updateConstraints", "updateConstraints cannot be specified for local Helm charts", "")
 		}
 	} else if c.Git != nil {
 		if c.ChartName != "" {
-			sl.ReportError("self", "chartName", "chartName", "chartName can not be specified for git Helm charts", "")
+			sl.ReportError("self", "chartName", "chartName", "chartName cannot be specified for git Helm charts", "")
 		}
 		if c.ChartVersion != nil {
-			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion can not be specified for git Helm charts", "")
+			sl.ReportError("self", "chartVersion", "chartVersion", "chartVersion cannot be specified for git Helm charts", "")
+		}
+	} else if c.TarUrl != "" {
+		// Additional validation for URL if needed
+		if c.ChartName == "" {
+			sl.ReportError("self", "chartName", "chartName", "chartName must be specified when using a tarUrl", "")
 		}
 	}
 }
