@@ -26,7 +26,7 @@ func (l MessageCallbacks) AskForPassword(prompt string) (string, error) {
 		return l.AskForPasswordFn(prompt)
 	}
 	err := fmt.Errorf("AskForPasswordFn not provided, skipping prompt: %s", prompt)
-	l.Warning(err.Error())
+	l.Warning("%s", err.Error())
 	return "", err
 }
 

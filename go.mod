@@ -25,7 +25,7 @@ require (
 	github.com/aws/smithy-go v1.22.1
 	github.com/coder/websocket v1.8.12
 	github.com/coreos/go-oidc/v3 v3.11.0
-	github.com/cyphar/filepath-securejoin v0.3.6
+	github.com/cyphar/filepath-securejoin v0.4.1
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/docker/cli v28.0.4+incompatible
@@ -35,9 +35,9 @@ require (
 	github.com/gin-contrib/sessions v1.0.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-errors/errors v1.5.1 // indirect
-	github.com/go-git/go-git/v5 v5.12.1-0.20240409060936-cd6633c3c665
+	github.com/go-git/go-git/v5 v5.15.0
 	github.com/go-logr/logr v1.4.2
-	github.com/go-playground/validator/v10 v10.23.0
+	github.com/go-playground/validator/v10 v10.26.0
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/gops v0.3.28
@@ -57,12 +57,12 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/ohler55/ojg v1.25.0
 	github.com/onsi/gomega v1.36.1
-	github.com/otiai10/copy v1.14.0
+	github.com/otiai10/copy v1.14.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/r3labs/diff/v2 v2.15.1
-	github.com/rogpeppe/go-internal v1.13.1
+	github.com/rogpeppe/go-internal v1.14.1
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
@@ -122,7 +122,7 @@ require (
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Microsoft/hcsshim v0.12.4 // indirect
-	github.com/ProtonMail/go-crypto v1.1.3 // indirect
+	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.7 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.21 // indirect
@@ -149,7 +149,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.3 // indirect
-	github.com/cloudflare/circl v1.5.0 // indirect
+	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20241213214725-57cfbe6fad57 // indirect
@@ -178,11 +178,11 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.7 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/getsops/gopgagent v0.0.0-20240527072608-0c14999532fe // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.6.0 // indirect
+	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -200,7 +200,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -255,9 +255,10 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pjbgf/sha1cd v0.3.0 // indirect
+	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -274,7 +275,7 @@ require (
 	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/skeema/knownhosts v1.3.0 // indirect
+	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect

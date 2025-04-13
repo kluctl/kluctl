@@ -557,7 +557,7 @@ func (p *TestProject) KluctlProcess(t *testing.T, argsIn ...string) (string, str
 func (p *TestProject) KluctlProcessMust(t *testing.T, argsIn ...string) (string, string) {
 	stdout, stderr, err := p.KluctlProcess(t, argsIn...)
 	if err != nil {
-		t.Logf(stderr)
+		t.Log(stderr)
 		t.Fatal(fmt.Errorf("kluctl failed: %w", err))
 	}
 	return stdout, stderr

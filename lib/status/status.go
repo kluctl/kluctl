@@ -108,7 +108,7 @@ func WithStatus(message string) Option {
 }
 
 func WithStatusf(message string, args ...any) Option {
-	return WithStatusf(fmt.Sprintf(message, args...))
+	return WithStatus(fmt.Sprintf(message, args...))
 }
 
 func WithTotal(t int) Option {

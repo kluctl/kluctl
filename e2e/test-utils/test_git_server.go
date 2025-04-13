@@ -1,6 +1,7 @@
 package test_utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	config2 "github.com/go-git/go-git/v5/config"
@@ -12,14 +13,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sigs.k8s.io/yaml"
 	"strings"
 	"sync"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/jinzhu/copier"
 )
 
 type TestGitServer struct {
@@ -90,11 +89,13 @@ func (p *TestGitServer) initGitServer() {
 		if p.failWhenAuth {
 			if ok {
 				writer.WriteHeader(http.StatusUnauthorized)
+				_, _ = writer.Write([]byte("forcing test failure"))
 				return
 			}
 		} else if p.authUsername != "" {
 			if p.authUsername != username || p.authPassword != password {
 				writer.WriteHeader(http.StatusUnauthorized)
+				_, _ = writer.Write([]byte("invalid credentials"))
 				return
 			}
 		}
@@ -220,7 +221,7 @@ func (p *TestGitServer) CommitFiles(repo string, add []string, all bool, message
 	return hash
 }
 
-func (p *TestGitServer) CommitYaml(repo string, pth string, message string, o map[string]any) {
+func (p *TestGitServer) CommitFile(repo string, pth string, message string, content []byte) {
 	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 
 	dir, _ := filepath.Split(fullPath)
@@ -231,11 +232,7 @@ func (p *TestGitServer) CommitYaml(repo string, pth string, message string, o ma
 		}
 	}
 
-	b, err := yaml.Marshal(o)
-	if err != nil {
-		p.t.Fatal(err)
-	}
-	err = os.WriteFile(fullPath, b, 0o600)
+	err := os.WriteFile(fullPath, content, 0o600)
 	if err != nil {
 		p.t.Fatal(err)
 	}
@@ -279,13 +276,14 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 	fullPath := filepath.Join(p.LocalWorkDir(repo), pth)
 
 	var o map[string]any
+	var origBytes []byte
 	isNew := false
 	if _, err := os.Stat(fullPath); err == nil {
-		b, err := os.ReadFile(fullPath)
+		origBytes, err = os.ReadFile(fullPath)
 		if err != nil {
 			p.t.Fatal(err)
 		}
-		err = yaml.Unmarshal(b, &o)
+		err = yaml.Unmarshal(origBytes, &o)
 		if err != nil {
 			p.t.Fatal(err)
 		}
@@ -294,20 +292,19 @@ func (p *TestGitServer) UpdateYaml(repo string, pth string, update func(o map[st
 		isNew = true
 	}
 
-	var orig map[string]any
-	err := copier.CopyWithOption(&orig, &o, copier.Option{DeepCopy: true})
+	err := update(o)
 	if err != nil {
 		p.t.Fatal(err)
 	}
 
-	err = update(o)
+	newBytes, err := yaml.Marshal(o)
 	if err != nil {
 		p.t.Fatal(err)
 	}
-	if !isNew && reflect.DeepEqual(o, orig) {
+	if !isNew && bytes.Equal(origBytes, newBytes) {
 		return
 	}
-	p.CommitYaml(repo, pth, message, o)
+	p.CommitFile(repo, pth, message, newBytes)
 }
 
 func (p *TestGitServer) DeleteFile(repo string, pth string, message string) {
