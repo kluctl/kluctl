@@ -55,16 +55,23 @@ func prepareCRDsTest(t *testing.T, k *test_utils.EnvTestCluster, crds bool, barr
 func TestDeployCRDUnordered(t *testing.T) {
 	t.Parallel()
 
-	k := createTestCluster(t, "cluster1")
-	p := prepareCRDsTest(t, k, true, false)
-
 	for i := 0; i < 100; i++ {
-		stdout, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test1")
-		if err != nil && strings.Contains(err.Error(), "command failed") && strings.Contains(stdout, `no matches for kind "CronTab" in version`) {
-			// success
+		success := func() bool {
+			k := createTestCluster(t, "cluster1")
+			defer k.Stop()
+
+			p := prepareCRDsTest(t, k, true, false)
+
+			stdout, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test1")
+			if err != nil && strings.Contains(err.Error(), "command failed") && strings.Contains(stdout, `no matches for kind "CronTab" in version`) {
+				// success
+				return true
+			}
+			return false
+		}()
+		if success {
 			return
 		}
-		p.KluctlMust(t, "delete", "--yes", "-t", "test1")
 	}
 
 	t.Errorf("could not cause missing CRD error")

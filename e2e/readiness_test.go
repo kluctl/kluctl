@@ -49,13 +49,19 @@ func testWaitReadiness(t *testing.T, fn func(p *test_project.TestProject)) {
 	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
 
+	tt := time.Now()
+	t.Logf("testReadiness: starting background goroutine startTime=%s", tt.String())
+
 	// we run a goroutine in the background that will wait for a few seconds and then annotate kluctl.io/is-ready=true,
 	// which will then cause the hook to get ready
 	go func() {
+		t.Logf("testReadiness (goroutine): begin elapsed=%s", time.Now().Sub(tt).String())
 		time.Sleep(3 * time.Second)
+		t.Logf("testReadiness (goroutine): patching elapsed=%s", time.Now().Sub(tt).String())
 		patchConfigMap(t, k, p.TestSlug(), "cm2", func(o *uo.UnstructuredObject) {
 			o.SetK8sAnnotation("kluctl.io/is-ready", "true")
 		})
+		t.Logf("testReadiness (goroutine): done elapsed=%s", time.Now().Sub(tt).String())
 	}()
 
 	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
