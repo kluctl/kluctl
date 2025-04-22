@@ -22,7 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.43.3
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19
-	github.com/aws/smithy-go v1.22.2
+	github.com/aws/smithy-go v1.22.3
 	github.com/coder/websocket v1.8.12
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/cyphar/filepath-securejoin v0.4.1
