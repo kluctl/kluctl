@@ -8,13 +8,13 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/go-errors/errors v1.5.1
-	github.com/go-git/go-git/v5 v5.15.0
+	github.com/go-git/go-git/v5 v5.16.0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/gobwas/glob v0.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1
+	github.com/kluctl/go-embed-python v0.0.0-3.13.1-20241219-1
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mitchellh/reflectwalk v1.0.2
