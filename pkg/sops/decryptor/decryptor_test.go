@@ -323,7 +323,8 @@ func TestDecryptor_DecryptResource(t *testing.T) {
 			"auth": "dGlnZXI6cGFzczEyMzQ="
 		}
 	}
-}`)
+}
+`)
 		encData, err := d.sopsEncryptWithFormat(sops.Metadata{
 			KeyGroups: []sops.KeyGroup{
 				{&sopsage.MasterKey{Recipient: ageID.Recipient().String()}},
