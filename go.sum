@@ -458,8 +458,8 @@ github.com/klauspost/compress v1.18.0/go.mod h1:2Pp+KzxcywXVXMr50+X0Q/Lsb43OQHYW
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.2.10 h1:tBs3QSyvjDyFTq3uoc/9xFpCuOsJQFNPiAhYdw2skhE=
 github.com/klauspost/cpuid/v2 v2.2.10/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
-github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1 h1:yVXFTxa6cvhLC6TwkDEHmNaiWlDyaFEGiXd1DQdoeOU=
-github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1/go.mod h1:3ebNU9QBrNpUO+Hj6bHaGpkh5pymDHQ+wwVPHTE4mCE=
+github.com/kluctl/go-embed-python v0.0.0-3.13.1-20241219-1 h1:x1cSEj4Ug5mpuZgUHLvUmlc5r//KHFn6iYiRSrRcVy4=
+github.com/kluctl/go-embed-python v0.0.0-3.13.1-20241219-1/go.mod h1:3ebNU9QBrNpUO+Hj6bHaGpkh5pymDHQ+wwVPHTE4mCE=
 github.com/knz/go-libedit v1.10.1/go.mod h1:MZTVkCWyz0oBc7JOWP3wNAzd002ZbM/5hgShxwh4x8M=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
