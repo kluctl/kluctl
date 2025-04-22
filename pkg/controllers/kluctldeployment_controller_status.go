@@ -56,15 +56,30 @@ func (r *KluctlDeploymentReconciler) patchFail(ctx context.Context, obj *kluctlv
 }
 
 func (r *KluctlDeploymentReconciler) patchFailPrepare(ctx context.Context, obj *kluctlv1.KluctlDeployment, err error) error {
-	obj.Status.LastPrepareError = err.Error()
+	patchErr1 := r.patchStatus(ctx, client.ObjectKeyFromObject(obj), func(status *kluctlv1.KluctlDeploymentStatus) error {
+		status.LastPrepareError = err.Error()
+		return nil
+	})
+
 	var err2 *multierror.Error
+	var statusErr error
 	if errors2.As(err, &err2) {
 		// prepare errors tend to be extremely long, which makes tools like k9s unusable
-		err = fmt.Errorf("prepare failed with %d errors. Check status.lastPrepareError for details", len(err2.Errors))
+		statusErr = fmt.Errorf("prepare failed with %d errors. Check status.lastPrepareError for details", len(err2.Errors))
 	} else {
-		err = fmt.Errorf("prepare failed. Check status.lastPrepareError for details")
+		statusErr = fmt.Errorf("prepare failed. Check status.lastPrepareError for details")
 	}
-	return r.patchFail(ctx, obj, kluctlv1.PrepareFailedReason, err)
+
+	patchErr2 := r.patchFail(ctx, obj, kluctlv1.PrepareFailedReason, statusErr)
+
+	if patchErr1 != nil {
+		err = multierror.Append(err, patchErr1)
+	}
+	if patchErr2 != nil {
+		err = multierror.Append(err, patchErr2)
+	}
+
+	return err
 }
 
 func (r *KluctlDeploymentReconciler) patchProgressingCondition(ctx context.Context, obj *kluctlv1.KluctlDeployment, message string, keepOldReadyStatus bool) error {

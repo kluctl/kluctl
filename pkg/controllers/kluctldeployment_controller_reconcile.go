@@ -182,8 +182,6 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 		return false, nil
 	}
 
-	obj.Status.LastPrepareError = ""
-
 	doError := func(resultId string, err error) (bool, error) {
 		err2 := r.patchFailPrepare(ctx, obj, err)
 		if err2 != nil {
@@ -204,6 +202,11 @@ func (r *KluctlDeploymentReconciler) reconcileManualRequest(ctx context.Context,
 	if err != nil {
 		return doError("", err)
 	}
+
+	err = r.patchStatus(ctx, client.ObjectKeyFromObject(obj), func(status *kluctlv1.KluctlDeploymentStatus) error {
+		status.LastPrepareError = ""
+		return nil
+	})
 
 	objectsHash, err := targetContext.DeploymentCollection.CalcObjectsHash()
 	if err != nil {
