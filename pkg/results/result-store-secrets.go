@@ -631,7 +631,7 @@ func (s *ResultStoreSecrets) GetCommandResult(options GetCommandResultOptions) (
 		return nil, err
 	}
 	if len(l.Items) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("command result with id %s not found", options.Id)
 	}
 
 	secret := l.Items[0]
