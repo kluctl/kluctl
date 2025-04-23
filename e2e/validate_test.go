@@ -250,14 +250,21 @@ func TestValidateWithoutPermissions(t *testing.T) {
 		err = k.Client.Delete(context.TODO(), cronTab2.ToUnstructured())
 		assert.NoError(t, err)
 
+		startTime := time.Now()
+
+		t.Logf("testSucces: startTime=%s", startTime.String())
+
 		// this should succeed without any warning
 		go func() {
+			t.Logf("testSuccess: in goroutine start d=%s", time.Now().Sub(startTime).String())
 			// set the status sub-resource after a few seconds so that the wait finishes
 			time.Sleep(3 * time.Second)
 			x := cronTab2.Clone()
 			_ = x.SetNestedField("test", "status", "x")
+			t.Logf("testSuccess: in goroutine applying status d=%s", time.Now().Sub(startTime).String())
 			k.MustApplyStatus(t, x)
 		}()
+
 		stdout, _, err = p.Kluctl(t, "deploy", "--yes", "--timeout=10s")
 		assert.NoError(t, err)
 		assert.NotContains(t, stdout, "CronTab/crontab: unable to determine if a status is expected")
