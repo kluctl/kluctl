@@ -42,7 +42,7 @@ require (
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/gops v0.3.28
 	github.com/google/uuid v1.6.0
-	github.com/googleapis/gax-go/v2 v2.14.1
+	github.com/googleapis/gax-go/v2 v2.14.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/hexops/gotextdiff v1.0.3
@@ -73,12 +73,12 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/net v0.39.0
-	golang.org/x/oauth2 v0.29.0
-	golang.org/x/sync v0.13.0
+	golang.org/x/oauth2 v0.30.0
+	golang.org/x/sync v0.14.0
 	golang.org/x/sys v0.32.0
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	google.golang.org/genproto v0.0.0-20250422160041-2d3770c4ea7f
+	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	helm.sh/helm/v3 v3.17.3
@@ -98,7 +98,7 @@ require (
 require (
 	cel.dev/expr v0.23.1 // indirect
 	cloud.google.com/go v0.120.1 // indirect
-	cloud.google.com/go/auth v0.16.0 // indirect
+	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	cloud.google.com/go/iam v1.5.2 // indirect
@@ -320,10 +320,10 @@ require (
 	golang.org/x/arch v0.16.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
-	google.golang.org/api v0.229.0 // indirect
+	google.golang.org/api v0.232.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250422160041-2d3770c4ea7f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250422160041-2d3770c4ea7f // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
