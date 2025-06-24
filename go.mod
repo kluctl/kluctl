@@ -55,7 +55,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/ohler55/ojg v1.26.4
+	github.com/ohler55/ojg v1.26.7
 	github.com/onsi/gomega v1.37.0
 	github.com/otiai10/copy v1.14.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
