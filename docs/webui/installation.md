@@ -19,7 +19,7 @@ deployments:
       url: https://github.com/kluctl/kluctl.git
       subDir: install/webui
       ref:
-        tag: v2.26.0
+        tag: v2.27.0
 ```
 
 ## Login
@@ -61,7 +61,7 @@ deployments:
       url: https://github.com/kluctl/kluctl.git
       subDir: install/webui
       ref:
-        tag: v2.26.0
+        tag: v2.27.0
     vars:
       - values:
           webui_args:
@@ -82,7 +82,7 @@ deployments:
     vars:
       - values:
           args:
-            kluctl_version: v2.26.0
+            kluctl_version: v2.27.0
 ```
 
 ### Passing arguments
@@ -95,7 +95,7 @@ deployments:
       url: https://github.com/kluctl/kluctl.git
       subDir: install/webui
       ref:
-        tag: v2.26.0
+        tag: v2.27.0
     vars:
       - values:
           webui_args:

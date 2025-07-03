@@ -1,6 +1,6 @@
 {% set kluctl_image = get_var("args.kluctl_image", "ghcr.io/kluctl/kluctl") %}
 # TODO remove controller_version
-{% set kluctl_version = get_var(["args.kluctl_version", "args.controller_version"], "v2.26.0") %}
+{% set kluctl_version = get_var(["args.kluctl_version", "args.controller_version"], "v2.27.0") %}
 {% set pull_policy = "Always" if ("-devel" in kluctl_version or "-snapshot" in kluctl_version) else "IfNotPresent" %}
 
 resources:
