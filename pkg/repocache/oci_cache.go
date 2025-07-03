@@ -180,7 +180,7 @@ func (e *OciCacheEntry) GetExtractedDir(ref *types.OciRef) (string, git.Checkout
 		return ociDir, git.CheckoutInfo{}, err
 	}
 
-	image := strings.TrimPrefix(e.url.String(), "oci://") + ":" + ref.String()
+	image := strings.TrimPrefix(e.url.String(), "oci://") + ref.ImageSuffix()
 
 	md, err := e.ociClient.Pull(e.rp.ctx, image, ociDir)
 	if err != nil {

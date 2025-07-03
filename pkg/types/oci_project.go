@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/lib/yaml"
+	"strings"
 )
 
 type OciProject struct {
@@ -36,6 +37,16 @@ func (ref *OciRef) String() string {
 		return ref.Tag + "@" + ref.Digest
 	}
 	return ref.Tag
+}
+
+// ImageSuffix returns a string that can be appended to a repository name,
+// e.g. :my-tag, :my-tag@sha256:xxx or @sha256:xxx (when no tag is set)
+func (ref *OciRef) ImageSuffix() string {
+	s := ref.String()
+	if !strings.HasPrefix(s, "@") {
+		s = ":" + s
+	}
+	return s
 }
 
 func ValidateOciProject(sl validator.StructLevel) {
