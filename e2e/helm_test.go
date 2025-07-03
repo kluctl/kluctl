@@ -163,13 +163,13 @@ var helmTests = []helmTestCase{
 		name: "oci-creds-missing", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>-invalid", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "no basic auth credentials",
+		expectedPrepareError: "basic credential not found",
 	},
 	{
 		name: "oci-creds-invalid", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "401 Unauthorized",
+		expectedPrepareError: "401: Unauthorized",
 	},
 	{
 		name: "oci-creds-valid", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
@@ -179,13 +179,13 @@ var helmTests = []helmTestCase{
 		name: "oci-creds-missing-path", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart2", argUsername: "test-user", argPassword: "secret-password",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "no basic auth credentials",
+		expectedPrepareError: "basic credential not found",
 	},
 	{
 		name: "oci-creds-invalid-path", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
 		argCredsHost: "<host>", argCredsPath: "test-chart1", argUsername: "test-user", argPassword: "invalid",
 		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "401 Unauthorized",
+		expectedPrepareError: "401: Unauthorized",
 	},
 	{
 		name: "oci-creds-valid-path", helmType: test_utils.TestHelmRepo_Oci, testAuth: true,
