@@ -10,7 +10,7 @@ import (
 )
 
 func testWaitReadiness(t *testing.T, fn func(p *test_project.TestProject)) {
-	t.Parallel()
+	// don't run this in parallel to other tests as timing can easily go bad
 
 	k := defaultCluster1
 
