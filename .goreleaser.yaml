@@ -33,15 +33,15 @@ builds:
 archives:
   - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     id: nix
-    builds: [linux, darwin]
-    format: tar.gz
+    ids: [linux, darwin]
+    formats: [tar.gz]
     files:
       - none*
     strip_binary_directory: true
   - name_template: "{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     id: windows
-    builds: [windows]
-    format: zip
+    ids: [windows]
+    formats: [zip]
     files:
       - none*
     strip_binary_directory: true
@@ -56,9 +56,9 @@ sboms:
 checksum:
   name_template: '{{ .ProjectName }}_v{{ .Version }}_checksums.txt'
 snapshot:
-  name_template: "{{ incminor .Version }}-snapshot"
+  version_template: "{{ incminor .Version }}-snapshot"
 nightly:
-  name_template: '{{ incminor .Version }}-devel'
+  version_template: '{{ incminor .Version }}-devel'
   tag_name: devel
   publish_release: true
   keep_single_release: true
