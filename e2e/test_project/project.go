@@ -3,6 +3,14 @@ package test_project
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/huandu/xstrings"
 	"github.com/jinzhu/copier"
@@ -13,13 +21,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	cp "github.com/otiai10/copy"
-	"os"
-	"os/exec"
-	"path"
-	"path/filepath"
-	"reflect"
-	"strings"
-	"testing"
 )
 
 type TestProject struct {
@@ -246,10 +247,6 @@ func (p *TestProject) UpdateKustomizeDeployment(dir string, update func(o *uo.Un
 
 func (p *TestProject) UpdateTarget(name string, cb func(target *uo.UnstructuredObject)) {
 	p.UpdateNamedListItem(uo.KeyPath{"targets"}, name, cb)
-}
-
-func (p *TestProject) UpdateSecretSet(name string, cb func(secretSet *uo.UnstructuredObject)) {
-	p.UpdateNamedListItem(uo.KeyPath{"secretsConfig", "secretSets"}, name, cb)
 }
 
 func (p *TestProject) UpdateNamedListItem(path uo.KeyPath, name string, cb func(item *uo.UnstructuredObject)) {
