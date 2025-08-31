@@ -2,6 +2,13 @@ package deployment
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path"
+	"path/filepath"
+	"slices"
+	"strings"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/helm"
@@ -13,11 +20,6 @@ import (
 	securefs "github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/kustomize/filesys"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
-	"io/fs"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
 )
 
 type DeploymentItem struct {
@@ -429,26 +431,49 @@ func (di *DeploymentItem) postprocessObjects(images *Images) error {
 	}
 
 	var errs *multierror.Error
+
+	commonLabels := di.getCommonLabels()
+	commonAnnotations := di.getCommonAnnotations()
+
+	checkIgnore := func(o *uo.UnstructuredObject) bool {
+		ignore, _ := o.GetK8sAnnotationBool("kluctl.io/ignore", false)
+		return ignore
+	}
+
+	di.Objects = slices.DeleteFunc(di.Objects, checkIgnore)
+
+	handleObject := func(o *uo.UnstructuredObject) {
+		// Set common labels/annotations
+		for n, v := range commonLabels {
+			o.SetK8sLabel(n, v)
+		}
+		for n, v := range commonAnnotations {
+			o.SetK8sAnnotation(n, v)
+		}
+
+		// Resolve image placeholders
+		err := images.ResolvePlaceholders(di.ctx.Ctx, di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys(), di.VarsCtx.Vars)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
+
 	for _, o := range di.Objects {
-		commonLabels := di.getCommonLabels()
-		commonAnnotations := di.getCommonAnnotations()
+		handleObject(o)
 
-		_ = k8s.UnwrapListItems(o, true, func(o *uo.UnstructuredObject) error {
-			// Set common labels/annotations
-			for n, v := range commonLabels {
-				o.SetK8sLabel(n, v)
-			}
-			for n, v := range commonAnnotations {
-				o.SetK8sAnnotation(n, v)
-			}
-
-			// Resolve image placeholders
-			err := images.ResolvePlaceholders(di.ctx.Ctx, di.ctx.K, o, di.RelRenderedDir, di.Tags.ListKeys(), di.VarsCtx.Vars)
+		if k8s.IsListGVK(o.GetK8sGVK()) {
+			items, ok, err := o.GetNestedObjectList("items")
 			if err != nil {
 				errs = multierror.Append(errs, err)
+				continue
+			} else if ok {
+				items = slices.DeleteFunc(items, checkIgnore)
+				for _, o := range items {
+					handleObject(o)
+				}
+				_ = o.SetNestedObjectList(items, "items")
 			}
-			return nil
-		})
+		}
 	}
 
 	return errs.ErrorOrNil()

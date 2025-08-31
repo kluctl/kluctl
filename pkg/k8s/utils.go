@@ -3,6 +3,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	corev1 "k8s.io/api/core/v1"
@@ -13,29 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func UnwrapListItems(o *uo.UnstructuredObject, withListCallback bool, cb func(o *uo.UnstructuredObject) error) error {
+func IsListGVK(gvk schema.GroupVersionKind) bool {
 	listGvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "List"}
-	if o.GetK8sGVK() == listGvk {
-		if withListCallback {
-			err := cb(o)
-			if err != nil {
-				return err
-			}
-		}
-		items, _, err := o.GetNestedObjectList("items")
-		if err != nil {
-			return err
-		}
-		for _, x := range items {
-			err = cb(x)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	} else {
-		return cb(o)
-	}
+	return gvk == listGvk
 }
 
 func FixNamespace(o *uo.UnstructuredObject, namespaced bool, def string) {
