@@ -71,6 +71,13 @@ context.
 Only simple pathes are supported that do not contain wildcards or lists.
 
 For some variable sources, `targetPath` will become mandatory when the resulting variable is not a dictionary.
+It is also mandatory when `multidoc` is set to `true`.
+
+##### multidoc
+When set to `true`, the vars source's underlying yaml document is treated as a yaml multidoc and the resulting variable
+will be an array.
+
+Using `multidoc` also requires you to set `targetPath`.
 
 ## Variable source types
 Different types of vars entries are possible:

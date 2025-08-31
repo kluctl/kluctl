@@ -5,6 +5,10 @@ import (
 	"encoding/base64"
 	errors2 "errors"
 	"fmt"
+	"os"
+	"sort"
+	"strings"
+
 	types2 "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/kluctl/kluctl/lib/go-jinja2"
@@ -25,9 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"os"
-	"sort"
-	"strings"
 )
 
 type usernamePassword struct {
@@ -103,6 +104,15 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		ignoreMissing = *source.IgnoreMissing
 	}
 
+	multidoc := false
+	if source.Multidoc != nil {
+		multidoc = *source.Multidoc
+	}
+
+	if multidoc && source.TargetPath == "" {
+		return fmt.Errorf("multidoc vars sources can only be used when targetPath is also specified")
+	}
+
 	var newValue any
 	var sensitive bool
 	if source.Values != nil {
@@ -114,15 +124,15 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 			newValue = source.Values
 		}
 	} else if source.File != nil {
-		newValue, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs)
+		newValue, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs, multidoc)
 	} else if source.Git != nil {
-		newValue, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing)
+		newValue, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing, multidoc)
 	} else if source.GitFiles != nil {
 		newValue, sensitive, err = v.loadGitFiles(ctx, varsCtx, source.GitFiles, ignoreMissing)
 	} else if source.ClusterConfigMap != nil {
-		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, false)
+		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterConfigMap, "ConfigMap", ignoreMissing, multidoc, false)
 	} else if source.ClusterSecret != nil {
-		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, true)
+		newValue, err = v.loadFromK8sConfigMapOrSecret(varsCtx, *source.ClusterSecret, "Secret", ignoreMissing, multidoc, true)
 		sensitive = true
 	} else if source.ClusterObject != nil {
 		newValue, err = v.loadFromK8sObject(varsCtx, *source.ClusterObject, ignoreMissing)
@@ -131,18 +141,18 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		newValue, err = v.loadSystemEnvs(varsCtx, &source, ignoreMissing, rootKey)
 		sensitive = true
 	} else if source.Http != nil {
-		newValue, sensitive, err = v.loadHttp(varsCtx, &source, ignoreMissing)
+		newValue, sensitive, err = v.loadHttp(varsCtx, &source, ignoreMissing, multidoc)
 	} else if source.AwsSecretsManager != nil {
-		newValue, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadAwsSecretsManager(varsCtx, &source, ignoreMissing, multidoc)
 		sensitive = true
 	} else if source.GcpSecretManager != nil {
-		newValue, err = v.loadGcpSecretManager(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadGcpSecretManager(varsCtx, &source, ignoreMissing, multidoc)
 		sensitive = true
 	} else if source.Vault != nil {
-		newValue, err = v.loadVault(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadVault(varsCtx, &source, ignoreMissing, multidoc)
 		sensitive = true
 	} else if source.AzureKeyVault != nil {
-		newValue, err = v.loadAzureKeyVault(varsCtx, &source, ignoreMissing)
+		newValue, err = v.loadAzureKeyVault(varsCtx, &source, ignoreMissing, multidoc)
 		sensitive = true
 	} else {
 		return fmt.Errorf("invalid vars source")
@@ -168,10 +178,16 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 			return fmt.Errorf("failed to set value to targetPath: %w", err)
 		}
 	} else {
-		var ok bool
-		newVars, ok = newValue.(*uo.UnstructuredObject)
-		if !ok {
-			return fmt.Errorf("'targetPath' is required for this variable source")
+		m, ok := newValue.(map[string]any)
+		if ok {
+			newVars = uo.FromMap(m)
+		} else {
+			o, ok := newValue.(*uo.UnstructuredObject)
+			if ok {
+				newVars = o
+			} else {
+				return fmt.Errorf("'targetPath' is required for this variable source")
+			}
 		}
 	}
 
@@ -196,7 +212,7 @@ func (v *VarsLoader) mergeVars(varsCtx *VarsCtx, newVars *uo.UnstructuredObject,
 	}
 }
 
-func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string) (*uo.UnstructuredObject, bool, error) {
+func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool, searchDirs []string, multidoc bool) (any, bool, error) {
 	rendered, err := varsCtx.RenderFile(path, searchDirs)
 	if err != nil {
 		// TODO the Jinja2 renderer should be able to better report this error
@@ -214,10 +230,12 @@ func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool,
 	}
 	rendered = string(decrypted)
 
-	newVars := uo.New()
-	err = yaml.ReadYamlString(rendered, newVars)
-	if err != nil {
-		return nil, false, err
+	var newVars any
+	if multidoc {
+		newVars, err = yaml.ReadYamlAllString(rendered)
+	} else {
+		newVars = uo.New()
+		err = yaml.ReadYamlString(rendered, newVars)
 	}
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to load vars from %s: %w", path, err)
@@ -279,7 +297,7 @@ func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, 
 	return newVars, nil
 }
 
-func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, multidoc bool) (any, error) {
 	if v.aws == nil {
 		return uo.New(), fmt.Errorf("no AWS client factory provided")
 	}
@@ -294,10 +312,10 @@ func (v *VarsLoader) loadAwsSecretsManager(varsCtx *VarsCtx, source *types.VarsS
 		}
 		return nil, err
 	}
-	return v.loadFromString(varsCtx, secret)
+	return v.loadFromString(varsCtx, secret, multidoc)
 }
 
-func (v *VarsLoader) loadGcpSecretManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadGcpSecretManager(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, multidoc bool) (any, error) {
 	if v.gcp == nil {
 		return uo.New(), fmt.Errorf("no GCP client factory provided")
 	}
@@ -312,10 +330,10 @@ func (v *VarsLoader) loadGcpSecretManager(varsCtx *VarsCtx, source *types.VarsSo
 		}
 		return nil, err
 	}
-	return v.loadFromString(varsCtx, secret)
+	return v.loadFromString(varsCtx, secret, multidoc)
 }
 
-func (v *VarsLoader) loadAzureKeyVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadAzureKeyVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, multidoc bool) (any, error) {
 	secret, err := azure.GetAzureKeyVaultSecret(v.ctx, source.AzureKeyVault.VaultUri, source.AzureKeyVault.SecretName)
 	if err != nil {
 		return nil, err
@@ -326,10 +344,10 @@ func (v *VarsLoader) loadAzureKeyVault(varsCtx *VarsCtx, source *types.VarsSourc
 		}
 		return nil, fmt.Errorf("the specified azure-key-vault secret was not found")
 	}
-	return v.loadFromString(varsCtx, secret)
+	return v.loadFromString(varsCtx, secret, multidoc)
 }
 
-func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, multidoc bool) (any, error) {
 	secret, err := vault.GetSecret(source.Vault.Address, source.Vault.Path)
 	if err != nil {
 		return nil, err
@@ -340,10 +358,10 @@ func (v *VarsLoader) loadVault(varsCtx *VarsCtx, source *types.VarsSource, ignor
 		}
 		return nil, fmt.Errorf("the specified vault secret was not found")
 	}
-	return v.loadFromString(varsCtx, *secret)
+	return v.loadFromString(varsCtx, *secret, multidoc)
 }
 
-func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool) (*uo.UnstructuredObject, bool, error) {
+func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *types.VarsSourceGit, ignoreMissing bool, multidoc bool) (any, bool, error) {
 	ge, err := v.rp.GetEntry(gitFile.Url.String())
 	if err != nil {
 		return nil, false, err
@@ -360,10 +378,10 @@ func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *typ
 		return nil, false, fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
 	}
 
-	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir})
+	return v.loadFile(varsCtx, gitFile.Path, ignoreMissing, []string{clonedDir}, multidoc)
 }
 
-func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, ignoreMissing bool, base64Decode bool) (*uo.UnstructuredObject, error) {
+func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource types.VarsSourceClusterConfigMapOrSecret, kind string, ignoreMissing bool, multidoc bool, base64Decode bool) (any, error) {
 	if v.k == nil {
 		return nil, fmt.Errorf("loading vars from cluster is disabled")
 	}
@@ -429,18 +447,13 @@ func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource t
 		return nil, fmt.Errorf("failed to load vars from kubernetes object %s and key %s: %w", ref.String(), varsSource.Key, err)
 	}
 
-	var parsed any
-	err = v.renderYamlString(varsCtx, value, &parsed)
+	parsed, err := v.renderYamlString(varsCtx, value, multidoc)
 	if err != nil {
 		return doError(err)
 	}
 
 	if varsSource.TargetPath == "" {
-		m, ok := parsed.(map[string]any)
-		if !ok {
-			return doError(fmt.Errorf("value is not a YAML dictionary"))
-		}
-		return uo.FromMap(m), nil
+		return parsed, nil
 	} else {
 		status.Deprecation(v.ctx, "cm-or-secret-target-path", "'targetPath' in clusterConfigMap and clusterSecret is deprecated, use the common 'targetPath' property from one level above instead.")
 
@@ -588,25 +601,29 @@ func (v *VarsLoader) loadFromK8sObject(varsCtx *VarsCtx, varsSource types.VarsSo
 	}
 }
 
-func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string) (*uo.UnstructuredObject, error) {
-	newVars := uo.New()
-	err := v.renderYamlString(varsCtx, s, newVars)
+func (v *VarsLoader) loadFromString(varsCtx *VarsCtx, s string, multidoc bool) (any, error) {
+	newVars, err := v.renderYamlString(varsCtx, s, multidoc)
 	if err != nil {
 		return nil, err
 	}
 	return newVars, nil
 }
 
-func (v *VarsLoader) renderYamlString(varsCtx *VarsCtx, s string, out interface{}) error {
+func (v *VarsLoader) renderYamlString(varsCtx *VarsCtx, s string, multidoc bool) (any, error) {
 	ret, err := varsCtx.RenderString(s, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	err = yaml.ReadYamlString(ret, out)
+	var out any
+	if multidoc {
+		out, err = yaml.ReadYamlAllString(s)
+	} else {
+		err = yaml.ReadYamlString(ret, &out)
+	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return out, nil
 }

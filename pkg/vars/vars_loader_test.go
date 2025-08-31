@@ -3,13 +3,6 @@ package vars
 import (
 	"context"
 	"fmt"
-	"github.com/huandu/xstrings"
-	gittypes "github.com/kluctl/kluctl/lib/git/types"
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
-	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
-	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
-	"github.com/stretchr/testify/suite"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/huandu/xstrings"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
+	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/getsops/sops/v3/age"
 	git2 "github.com/go-git/go-git/v5"
@@ -168,6 +169,11 @@ func (s *VarsLoaderTestSuite) TestWhen() {
 func (s *VarsLoaderTestSuite) TestFile() {
 	d := s.T().TempDir()
 	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`{"test1": {"test2": 42}}`), 0o600)
+	_ = os.WriteFile(filepath.Join(d, "multidoc.yaml"), []byte(`
+{"test1": {"test2": 42}}
+---
+{"test1": {"test2": 43}}
+`), 0o600)
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		vs := &types.VarsSource{
@@ -200,6 +206,21 @@ func (s *VarsLoaderTestSuite) TestFile() {
 			File:          utils.Ptr("test-missing.yaml"),
 		}, []string{d}, "")
 		assert.NoError(s.T(), err)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		vs := &types.VarsSource{
+			File:       utils.Ptr("multidoc.yaml"),
+			Multidoc:   utils.Ptr(true),
+			TargetPath: "nested",
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("nested", 0, "test1", "test2")
+		assert.Equal(s.T(), int64(42), v)
+		v, _, _ = vc.Vars.GetNestedInt("nested", 1, "test1", "test2")
+		assert.Equal(s.T(), int64(43), v)
 	})
 }
 
@@ -278,6 +299,13 @@ func (s *VarsLoaderTestSuite) TestGit() {
 		}
 		return nil
 	}, "")
+	gs.UpdateFile("repo", "multidoc.yaml", func(f string) (string, error) {
+		return `
+{"test1": {"test2": 42}}
+---
+{"test1": {"test2": 43}}
+`, nil
+	}, "")
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
 		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
@@ -304,6 +332,24 @@ func (s *VarsLoaderTestSuite) TestGit() {
 			},
 		}, nil, "")
 		assert.NoError(s.T(), err)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		url, _ := gittypes.ParseGitUrl(gs.GitRepoUrl("repo"))
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			Git: &types.VarsSourceGit{
+				Url:  *url,
+				Path: "multidoc.yaml",
+			},
+			Multidoc:   utils.Ptr(true),
+			TargetPath: "nested",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("nested", 0, "test1", "test2")
+		assert.Equal(s.T(), int64(42), v)
+		v, _, _ = vc.Vars.GetNestedInt("nested", 1, "test1", "test2")
+		assert.Equal(s.T(), int64(43), v)
 	})
 }
 
@@ -354,6 +400,11 @@ func (s *VarsLoaderTestSuite) TestClusterConfigMap() {
 		Data: map[string]string{
 			"vars":  `{"test1": {"test2": 42}}`,
 			"value": "42",
+			"multidoc": `
+{"test1": {"test2": 42}}
+---
+{"test1": {"test2": 43}}
+`,
 		},
 	}
 
@@ -431,6 +482,24 @@ func (s *VarsLoaderTestSuite) TestClusterConfigMap() {
 
 		v, _, _ := vc.Vars.GetNestedInt("deep", "nested", "path")
 		assert.Equal(s.T(), int64(42), v)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "cm",
+				Namespace: s.namespace(),
+				Key:       "multidoc",
+			},
+			Multidoc:   utils.Ptr(true),
+			TargetPath: "nested",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("nested", 0, "test1", "test2")
+		assert.Equal(s.T(), int64(42), v)
+		v, _, _ = vc.Vars.GetNestedInt("nested", 1, "test1", "test2")
+		assert.Equal(s.T(), int64(43), v)
 	})
 }
 
@@ -988,6 +1057,12 @@ func (s *VarsLoaderTestSuite) TestHttp_GET() {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/ok") {
 			_, _ = w.Write([]byte(`{"test1": {"test2": 42}}`))
+		} else if strings.HasSuffix(r.URL.Path, "/multidoc") {
+			_, _ = w.Write([]byte(`
+{"test1": {"test2": 42}}
+---
+{"test1": {"test2": 43}}
+`))
 		} else if strings.HasSuffix(r.URL.Path, "/error") {
 			http.Error(w, "error", http.StatusInternalServerError)
 		} else {
@@ -1036,6 +1111,25 @@ func (s *VarsLoaderTestSuite) TestHttp_GET() {
 		}, nil, "")
 		assert.Error(s.T(), err)
 		assert.Contains(s.T(), err.Error(), "failed with status code 500")
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		u, _ := url.Parse(ts.URL)
+		u.Path += "/multidoc"
+
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			Http: &types.VarsSourceHttp{
+				Url: types.YamlUrl{URL: *u},
+			},
+			Multidoc:   utils.Ptr(true),
+			TargetPath: "nested",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("nested", 0, "test1", "test2")
+		assert.Equal(s.T(), int64(42), v)
+		v, _, _ = vc.Vars.GetNestedInt("nested", 1, "test1", "test2")
+		assert.Equal(s.T(), int64(43), v)
 	})
 }
 
@@ -1223,5 +1317,73 @@ func (s *VarsLoaderTestSuite) TestGcpSecretManager() {
 			},
 		}, nil, "")
 		assert.NoError(s.T(), err)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		gcp.Secrets = map[string]string{
+			"projects/my-project/secrets/secret/versions/latest": `
+{"test1": {"test2": 42}}
+---
+{"test1": {"test2": 43}}`,
+		}
+
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			GcpSecretManager: &types.VarsSourceGcpSecretManager{
+				SecretName: "projects/my-project/secrets/secret/versions/latest",
+			},
+			Multidoc:   utils.Ptr(true),
+			TargetPath: "nested",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+		v, _, _ := vc.Vars.GetNestedInt("nested", 0, "test1", "test2")
+		assert.Equal(s.T(), int64(42), v)
+		v, _, _ = vc.Vars.GetNestedInt("nested", 1, "test1", "test2")
+		assert.Equal(s.T(), int64(43), v)
+	})
+}
+
+func (s *VarsLoaderTestSuite) TestMultidoc() {
+	d := s.T().TempDir()
+	_ = os.WriteFile(filepath.Join(d, "test.yaml"), []byte(`---
+a: 42
+---
+b: 43
+`), 0o600)
+
+	// multidoc=false should result in only the first doc to be loaded
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		vs := &types.VarsSource{
+			File:     utils.Ptr("test.yaml"),
+			Multidoc: utils.Ptr(false),
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("a")
+		assert.Equal(s.T(), int64(42), v)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		vs := &types.VarsSource{
+			File:     utils.Ptr("test.yaml"),
+			Multidoc: utils.Ptr(true),
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
+		assert.ErrorContains(s.T(), err, "multidoc vars sources can only be used when targetPath is also specified")
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		vs := &types.VarsSource{
+			File:       utils.Ptr("test.yaml"),
+			Multidoc:   utils.Ptr(true),
+			TargetPath: "nested",
+		}
+		err := vl.LoadVars(context.TODO(), vc, vs, []string{d}, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("nested", 0, "a")
+		assert.Equal(s.T(), int64(42), v)
+		v, _, _ = vc.Vars.GetNestedInt("nested", 1, "b")
+		assert.Equal(s.T(), int64(43), v)
 	})
 }

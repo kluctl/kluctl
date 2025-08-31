@@ -3,15 +3,16 @@ package vars
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/Azure/go-ntlmssp"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/prompts"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"io"
-	"net/http"
-	"strings"
 )
 
 func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, ignoreMissing bool, username string, password string) (*http.Response, string, error) {
@@ -64,7 +65,7 @@ func (v *VarsLoader) doHttp(httpSource *types.VarsSourceHttp, ignoreMissing bool
 	return resp, string(respBody), nil
 }
 
-func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool) (*uo.UnstructuredObject, bool, error) {
+func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, multidoc bool) (any, bool, error) {
 	sensitive := false
 	resp, respBody, err := v.doHttp(source.Http, ignoreMissing, "", "")
 	if err != nil && resp != nil && resp.StatusCode == http.StatusUnauthorized {
@@ -108,12 +109,13 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 		return nil, false, err
 	}
 
-	var respObj interface{}
-	var newVars *uo.UnstructuredObject
+	var respObj any
+	var newVars any
 
-	err = yaml.ReadYamlString(respBody, &respObj)
-	if err != nil {
-		return nil, false, err
+	if multidoc {
+		respObj, err = yaml.ReadYamlAllString(respBody)
+	} else {
+		err = yaml.ReadYamlString(respBody, &respObj)
 	}
 	if err != nil {
 		return nil, false, err
@@ -136,11 +138,7 @@ func (v *VarsLoader) loadHttp(varsCtx *VarsCtx, source *types.VarsSource, ignore
 			return nil, false, err
 		}
 	} else {
-		x, ok := respObj.(map[string]interface{})
-		if !ok {
-			return nil, false, fmt.Errorf("result of http request %s is not an object", source.Http.Url.String())
-		}
-		newVars = uo.FromMap(x)
+		newVars = respObj
 	}
 	return newVars, sensitive, nil
 }

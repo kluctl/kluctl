@@ -788,6 +788,11 @@ func (in *VarsSource) DeepCopyInto(out *VarsSource) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Multidoc != nil {
+		in, out := &in.Multidoc, &out.Multidoc
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Values != nil {
 		in, out := &in.Values, &out.Values
 		*out = (*in).DeepCopy()
