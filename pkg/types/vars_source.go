@@ -1,12 +1,13 @@
 package types
 
 import (
+	"reflect"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
 )
 
 type VarsSourceGit struct {
@@ -127,6 +128,7 @@ type VarsSource struct {
 	IgnoreMissing *bool `json:"ignoreMissing,omitempty"`
 	NoOverride    *bool `json:"noOverride,omitempty"`
 	Sensitive     *bool `json:"sensitive,omitempty"`
+	Multidoc      *bool `json:"multidoc,omitempty"`
 
 	Values            *uo.UnstructuredObject              `json:"values,omitempty" isVarsSource:"true"`
 	File              *string                             `json:"file,omitempty" isVarsSource:"true"`

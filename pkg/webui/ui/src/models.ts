@@ -478,6 +478,7 @@ export class VarsSource {
     ignoreMissing?: boolean;
     noOverride?: boolean;
     sensitive?: boolean;
+    multidoc?: boolean;
     values?: any;
     file?: string;
     git?: VarsSourceGit;
@@ -501,6 +502,7 @@ export class VarsSource {
         this.ignoreMissing = source["ignoreMissing"];
         this.noOverride = source["noOverride"];
         this.sensitive = source["sensitive"];
+        this.multidoc = source["multidoc"];
         this.values = source["values"];
         this.file = source["file"];
         this.git = this.convertValues(source["git"], VarsSourceGit);
