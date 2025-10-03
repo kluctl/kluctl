@@ -18,7 +18,7 @@ a bit "loose".
 
 One thing we'd like to ask for is to first search for issues that might already represent what you plan to report.
 In many cases it turns out that other people stumbled across the same thing already. If not, then you're "lucky" to
-report first :)
+report it first. :slightly_smiling_face:
 
 It might also be useful to ask inside the #kluctl channel of the [CNCF Slack](https://slack.cncf.io) if you are unsure
 about your issue.
