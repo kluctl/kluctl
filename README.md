@@ -62,7 +62,7 @@ community members and contributors/developers.
 
 Documentation, news and blog posts can be found on https://kluctl.io.
 
-The underlying documentation is synced from this repo (look into ./docs) to the website whenever something is merged
+The underlying documentation is synced from this repo (look in ./docs) to the website whenever something is merged
 into main.
 
 ## Development and contributions
