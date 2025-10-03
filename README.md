@@ -81,7 +81,7 @@ handles these matters.
 | 🌌 Multiple clusters | Manage multiple target clusters (in multiple clouds or bare-metal if you want). |
 | 🔩 Configuration and Templating | Kluctl allows to use templating in nearly all places, making it easy to have dynamic configuration. |
 | ⎈ Helm and Kustomize | The Helm and Kustomize integrations allow you to reuse plenty of third-party charts and kustomizations. |
-| 🔍 See what's different | Always know what the state of your deployments is by being able to run diffs on the whole deployment. |
+| 🔍 See what's different | Always know what the state of your deployments are by running diffs on the whole deployment. |
 | 🔎 See what happened | Always know what you actually changed after performing a deployment. |
 | 💥 Know what went wrong | Kluctl will show you what part of your deployment failed and why. |
 | 👐 Live and let live | Kluctl tries to not interfere with any other tools or operators. This is possible due to it's use of server-side-apply. |
