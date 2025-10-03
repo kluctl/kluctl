@@ -9,7 +9,7 @@ follow the [Code of Conduct](./CODE_OF_CONDUCT.md) whenever you communicate.
 
 ## Creating issues / Reporting bugs
 
-Probably the easiest way to contribute is to create issues on Github. An issue could for example be a bug report or
+Probably the easiest way to contribute is to create issues on GitHub. An issue could for example be a bug report or
 a feature request. It's also fine to create an issue that requests some change, for example to documentation. Issues
 can also be used as reminders/TODOs that something needs to be done in the future.
 
