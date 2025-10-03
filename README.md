@@ -84,7 +84,7 @@ handles these matters.
 | 🔍 See what's different | Always know what the state of your deployments are by running diffs on the whole deployment. |
 | 🔎 See what happened | Always know what you actually changed after performing a deployment. |
 | 💥 Know what went wrong | Kluctl will show you what part of your deployment failed and why. |
-| 👐 Live and let live | Kluctl tries to not interfere with any other tools or operators. This is possible due to it's use of server-side-apply. |
+| 👐 Live and let live | Kluctl tries to not interfere with any other tools or operators. This is possible due to its use of server-side-apply. |
 | 🧹 Keep it clean | Keep your clusters clean by issuing regular prune calls. |
 | 🔐 Encrypted Secrets | Manage encrypted secrets for multiple target environments and clusters. |
 
