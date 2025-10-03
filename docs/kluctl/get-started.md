@@ -29,7 +29,7 @@ which was not stable enough in older versions of Kubernetes.
 ### Prepare your kubeconfig
 
 Your local kubeconfig should be configured to have access to the target Kubernetes cluster via a dedicated context. The context
-name should match with the name that you want to use for the cluster from now on. Let's assume the name is `test.example.com`,
+name should match the name that you want to use for the cluster from now on. Let's assume the name is `test.example.com`,
 then you'd have to ensure that the kubeconfig context `test.example.com` is correctly pointing and authorized for this
 cluster.
 
