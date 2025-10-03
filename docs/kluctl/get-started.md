@@ -75,7 +75,9 @@ $ git clone https://github.com/kluctl/kluctl-examples.git
 ## Choose one of the examples
 
 You can choose whatever example you like from the cloned repository. We will however continue this guide by referring
-to the `simple-helm` example found in that repository. Change the current directory:
+to the `simple-helm` example found in that repository.
+
+Change directory:
 
 ```shell
 $ cd kluctl-examples/simple-helm
