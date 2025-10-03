@@ -1,6 +1,6 @@
 # Contributing
 
-As all Open Source projects, Kluctl lives from contributions. If you consider contributing, we are welcoming you to do so.
+As all Open Source projects do, Kluctl lives on from contributions. We welcome you to consider contributing.
 
 ## Communication
 
