@@ -51,7 +51,7 @@ $ git clone https://github.com/kluctl/kluctl
 $ cd kluctl
 ```
 
-Build the `kluctl` binary (requires go >= 1.19):
+Build the `kluctl` binary (requires Go >= 1.19):
 
 ```bash
 $ make build
