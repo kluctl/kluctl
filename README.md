@@ -19,7 +19,7 @@ operations for every target, no matter how simple or complex the deployment and/
 
 Kluctl does not strictly depend on a controller and allows to use the same deployment wherever you want,
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
-local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
+local machine, from your CI/CD pipelines or any automation platform/system that allows calling custom tools.
 
 ## What can I do with Kluctl?
 
