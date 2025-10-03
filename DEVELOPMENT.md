@@ -43,7 +43,7 @@ See [CONTRIBUTING](./CONTRIBUTING.md) for details.
 ## Releasing process
 
 The release process is currently partly manual and partly automated. A maintainer has to create a version tag and
-manually push it to Github. A Github workflow will then react to this tag by running `goreleaser`, which will then
+manually push it to GitHub. A GitHub workflow will then react to this tag by running `goreleaser`, which will then
 create a draft release. The maintainer then has to manually update the pre-generated release notes and publish the
 release.
 
