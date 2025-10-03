@@ -18,7 +18,7 @@ A few things must be prepared before you actually begin.
 
 ### Get a Kubernetes cluster
 
-The first step is of course: You need a kubernetes cluster. It doesn't really matter where this cluster is hosted, if
+The first step is of course: You need a Kubernetes cluster. It doesn't really matter where this cluster is hosted, if
 it's a local (e.g. [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)) cluster, managed cluster, or a self-hosted
 cluster, kops or kubespray based, AWS, GCE, Azure, ... and so on. Kluctl
 is completely independent of how Kubernetes is deployed and where it is hosted.
