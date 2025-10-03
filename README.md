@@ -75,7 +75,7 @@ handles these matters.
 |     |     |
 | --- | --- |
 | 💪 Kluctl handles all your deployments | You can manage all your deployments with Kluctl, including infrastructure related and your applications. |
-| 🪶 Complex or simple, all the same | You can manage complex and simple deployments with Kluctl. Simple deployments are lightweight while complex deployment are easily manageable. |
+| 🪶 Complex or simple, all the same | You can manage complex and simple deployments with Kluctl. Simple deployments are lightweight while complex deployments are easily manageable. |
 | 🤖 Native git support | Kluctl has native Git support integrated, meaning that it can easily deploy remote Kluctl projects or externalize parts (e.g. configuration) of your Kluctl project. |
 | 🪐 Multiple environments | Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration. |
 | 🌌 Multiple clusters | Manage multiple target clusters (in multiple clouds or bare-metal if you want). |
