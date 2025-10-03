@@ -53,8 +53,8 @@ Installation instructions can be found [here](docs/kluctl/installation.md). For 
 
 Check the [community page](https://kluctl.io/community/) for details about the Kluctl community.
 
-In short: We use [Github Issues](https://github.com/kluctl/kluctl/issues) and
-[Github Discussions](https://github.com/kluctl/kluctl/discussions) to track and discuss Kluctl related development.
+In short: We use [GitHub Issues](https://github.com/kluctl/kluctl/issues) and
+[GitHub Discussions](https://github.com/kluctl/kluctl/discussions) to track and discuss Kluctl related development.
 You can also join the #kluctl channel inside the [CNCF Slack](https://slack.cncf.io) to get in contact with other
 community members and contributors/developers.
 
