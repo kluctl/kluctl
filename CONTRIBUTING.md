@@ -13,7 +13,7 @@ Probably the easiest way to contribute is to create issues on GitHub. An issue c
 a feature request. It's also fine to create an issue that requests some change, for example to documentation. Issues
 can also be used as reminders/TODOs that something needs to be done in the future.
 
-The project is still in early stage when it comes to project management, so please bare with us if processes are still
+The project is still in early stage when it comes to project management, so please bear with us if processes are still
 a bit "loose".
 
 One thing we'd like to ask for is to first search for issues that might already represent what you plan to report.
