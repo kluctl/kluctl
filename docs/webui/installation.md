@@ -11,7 +11,9 @@ weight: 10
 # Installation
 
 The Kluctl Webui can be installed by using a [Git Include](../kluctl/deployments/deployment-yml.md#git-includes) that refers
-to the [webui deployment project](https://github.com/kluctl/kluctl/tree/main/install/webui). Example:
+to the [webui deployment project](https://github.com/kluctl/kluctl/tree/main/install/webui).
+
+Example:
 
 ```yaml
 deployments:
@@ -28,7 +30,9 @@ deployments:
 
 By default, the Webui will automatically generate an static credentials for an admin and for a viewer user. These
 credentials can be extracted from the `kluctl-system/webui-secret` Secret after the Webui has started up for the first
-time. To get the admin password, invoke:
+time.
+
+To get the admin password, invoke:
 
 ```shell
 $ kubectl -n kluctl-system get secret webui-secret -o jsonpath='{.data.admin-password}' | base64 -d
