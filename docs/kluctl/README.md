@@ -67,7 +67,7 @@ The problems to solve turned out to be always the same:
 * (Encrypted) Secrets needed to be managed and orchestrated for multiple environments and clusters
 * Updates of components was always risky and required keeping track of what actually changed since the last deployment
 * Available tools (Helm, Kustomize) were not suitable to solve this on its own in an easy/natural way
-* A lot of bash scripting was required to put things together
+* A lot of Bash scripting was required to put things together
 
 When this got more and more complex, and the bash scripts started to become a mess (as "simple" Bash scripts always tend to become),
 kluctl was started from scratch. It now tries to solve the mentioned problems and provide a useful set of features (commands)
