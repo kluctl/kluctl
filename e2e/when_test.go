@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"github.com/stretchr/testify/assert"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"path/filepath"
@@ -89,3 +90,49 @@ func TestWhen(t *testing.T) {
 		}
 	}
 }
+
+func TestWhenWithNonExistentDir(t *testing.T) {
+	t.Parallel()
+
+	// Test case 1: when: true with non-existent directory should fail
+	t.Run("when_true_non_existent", func(t *testing.T) {
+		p := test_utils.NewTestProject(t)
+		p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
+		
+		// Add a deployment item with path to non-existing directory and when: true
+		p.UpdateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
+			deployments, _, _ := o.GetNestedObjectList("deployments")
+			deployments = append(deployments, uo.FromMap(map[string]interface{}{
+				"path": "non-existing",
+				"when": "True",
+			}))
+			return o.SetNestedObjectList(deployments, "deployments")
+		})
+
+		stdout, stderr, err := p.Kluctl(t, "deploy", "--yes", "-t", "test")
+		assert.Error(t, err)
+		// Error message could be in either stdout or stderr
+		output := stdout + stderr + err.Error()
+		assert.Contains(t, output, "deployment directory does not exist: non-existing")
+	})
+
+	// Test case 2: when: false with non-existent directory should succeed
+	t.Run("when_false_non_existent", func(t *testing.T) {
+		p := test_utils.NewTestProject(t)
+		p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
+		
+		// Add a deployment item with path to non-existing directory and when: false
+		p.UpdateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
+			deployments, _, _ := o.GetNestedObjectList("deployments")
+			deployments = append(deployments, uo.FromMap(map[string]interface{}{
+				"path": "non-existing",
+				"when": "False",
+			}))
+			return o.SetNestedObjectList(deployments, "deployments")
+		})
+
+		_, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test")
+		assert.NoError(t, err)
+	})
+}
+

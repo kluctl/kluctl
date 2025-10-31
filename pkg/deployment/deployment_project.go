@@ -153,6 +153,14 @@ func (p *DeploymentProject) checkDeploymentDirs() error {
 			continue
 		}
 
+		whenTrue, err := p.VarsCtx.CheckConditional(di.When)
+		if err != nil {
+			return err
+		}
+		if !whenTrue {
+			continue
+		}
+
 		diDir, err := securejoin.SecureJoin(p.source.dir, filepath.Join(p.relDir, *di.Path))
 		if err != nil {
 			return err
