@@ -6,6 +6,7 @@ import textwrap
 
 import sys
 
+from git.exc import GitError
 import jinja2
 from jinja2 import TemplateError, TemplateNotFound
 from jinja2.ext import Extension
@@ -13,6 +14,8 @@ from jinja2.runtime import Context
 
 from .dict_utils import get_dict_value, merge_dict
 from .yaml_utils import yaml_dump, yaml_load
+
+from git import Repo
 
 
 class KluctlExtension(Extension):
@@ -59,13 +62,14 @@ def sha256(s, digest_len=None):
 
 def slugify(s, **slugify_args):
     from slugify import slugify as _slugify
+
     return _slugify(s, **slugify_args)
 
 
 @jinja2.pass_context
 def load_template(ctx, path, **kwargs):
     ctx.environment.print_debug("load_template(%s)" % path)
-    t = ctx.environment.get_template(path.replace(os.path.sep, '/'), parent=ctx.name)
+    t = ctx.environment.get_template(path.replace(os.path.sep, "/"), parent=ctx.name)
     vars = merge_dict(ctx.get_all(), kwargs)
     return t.render(vars)
 
@@ -73,7 +77,7 @@ def load_template(ctx, path, **kwargs):
 @jinja2.pass_context
 def load_base64(ctx, path, width=None):
     ctx.environment.print_debug("load_base64(%s)" % path)
-    p = path.replace(os.path.sep, '/')
+    p = path.replace(os.path.sep, "/")
     if ctx.name:
         p = ctx.environment.join_path(path, ctx.name)
 
@@ -81,7 +85,9 @@ def load_base64(ctx, path, width=None):
     if not p:
         raise TemplateNotFound(path)
 
-    contents, _, _ = ctx.environment.loader.read_template_helper(ctx.environment, p, True)
+    contents, _, _ = ctx.environment.loader.read_template_helper(
+        ctx.environment, p, True
+    )
 
     contents = base64.b64encode(contents).decode("utf-8")
     if width:
@@ -133,23 +139,48 @@ def load_sha256(ctx: Context, path, digest_len=None):
     return hash
 
 
+@jinja2.pass_context
+def load_latest_git_sha(ctx, path, width=None):
+    ctx.environment.print_debug("load_latest_git_sha_1(%s)" % path)
+    p = path.replace(os.path.sep, "/")
+    if ctx.name:
+        p = ctx.environment.join_path(path, ctx.name)
+
+    p = ctx.environment.loader._find_path(path)
+    if not p:
+        raise FileNotFoundError(path)
+
+    rp = os.path.dirname(p)
+    repo = Repo(rp, search_parent_directories=True)
+    commits_for_file_generator = repo.iter_commits(all=True, max_count=1, paths=p)
+    commits_for_file = list(commits_for_file_generator)
+    if len(commits_for_file) == 0:
+        raise GitError("No commits found for path: %s" % path)
+    sha1 = commits_for_file[0].hexsha
+
+    if width:
+        return sha1[:width]
+    return sha1
+
+
 def add_jinja2_filters(jinja2_env):
-    jinja2_env.filters['b64encode'] = b64encode
-    jinja2_env.filters['b64decode'] = b64decode
-    jinja2_env.filters['to_yaml'] = to_yaml
-    jinja2_env.filters['to_json'] = to_json
-    jinja2_env.filters['from_yaml'] = from_yaml
+    jinja2_env.filters["b64encode"] = b64encode
+    jinja2_env.filters["b64decode"] = b64decode
+    jinja2_env.filters["to_yaml"] = to_yaml
+    jinja2_env.filters["to_json"] = to_json
+    jinja2_env.filters["from_yaml"] = from_yaml
     # render is available as filter and as global function. The filter should be deprecated in the future as it is
     # unable to access local variables
-    jinja2_env.filters['render'] = render
-    jinja2_env.filters['sha256'] = sha256
-    jinja2_env.filters['slugify'] = slugify
-    jinja2_env.globals['load_template'] = load_template
-    jinja2_env.globals['load_base64'] = load_base64
-    jinja2_env.globals['get_var'] = get_var
-    jinja2_env.globals['merge_dict'] = merge_dict
-    jinja2_env.globals['update_dict'] = update_dict
-    jinja2_env.globals['raise'] = raise_helper
-    jinja2_env.globals['debug_print'] = debug_print
-    jinja2_env.globals['load_sha256'] = load_sha256
-    jinja2_env.globals['render'] = render
+    jinja2_env.filters["render"] = render
+    jinja2_env.filters["sha256"] = sha256
+    jinja2_env.filters["slugify"] = slugify
+    jinja2_env.globals["load_template"] = load_template
+    jinja2_env.globals["load_base64"] = load_base64
+    jinja2_env.globals["get_var"] = get_var
+    jinja2_env.globals["merge_dict"] = merge_dict
+    jinja2_env.globals["update_dict"] = update_dict
+    jinja2_env.globals["raise"] = raise_helper
+    jinja2_env.globals["debug_print"] = debug_print
+    jinja2_env.globals["load_sha256"] = load_sha256
+    jinja2_env.globals["render"] = render
+    jinja2_env.globals["load_latest_git_sha"] = load_latest_git_sha

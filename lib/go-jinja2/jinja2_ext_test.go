@@ -95,3 +95,9 @@ func TestGetVarAndRender(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadLatestGitSha(t *testing.T) {
+	j2 := newJinja2(t)
+	_, err := j2.RenderString("{{ load_latest_git_sha('../../README.md') }}")
+	assert.NoError(t, err)
+}
