@@ -5,12 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	"github.com/kevinburke/ssh_config"
-	"github.com/kluctl/kluctl/lib/git/messages"
-	"github.com/kluctl/kluctl/lib/git/types"
-	sshagent "github.com/xanzy/ssh-agent"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 	"io"
 	"net"
 	"os"
@@ -18,6 +12,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"github.com/kevinburke/ssh_config"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	"github.com/kluctl/kluctl/lib/git/types"
+	sshagent "github.com/xanzy/ssh-agent"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 type GitSshAuthProvider struct {
@@ -48,7 +49,7 @@ func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
 		User: a.user,
 		Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(a.Signers)},
 	}
-	cc.HostKeyCallback = buildVerifyHostCallback(a.authProvider.MessageCallbacks, nil)
+	cc.HostKeyCallback = buildVerifyHostCallback(a.authProvider.MessageCallbacks, nil, false)
 	return cc, nil
 }
 
