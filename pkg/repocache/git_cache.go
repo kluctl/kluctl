@@ -170,16 +170,11 @@ func (e *GitCacheEntry) Update() error {
 		return err
 	}
 
-	defaultRefStr, err := e.mr.DefaultRef()
+	defaultRef, err := e.mr.DefaultRef()
 	if err != nil {
 		return err
 	}
-
-	defaultRef, err := types.ParseGitRef(defaultRefStr)
-	if err != nil {
-		return err
-	}
-	e.defaultRef = defaultRef
+	e.defaultRef = *defaultRef
 
 	return nil
 }
