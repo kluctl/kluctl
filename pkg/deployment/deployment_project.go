@@ -2,16 +2,16 @@ package deployment
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
+
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
-	"path/filepath"
-	"strings"
 )
 
 type DeploymentProject struct {
@@ -211,11 +211,6 @@ func (p *DeploymentProject) loadIncludes() error {
 			ge, err := p.ctx.GitRP.GetEntry(inc.Git.Url.String())
 			if err != nil {
 				return err
-			}
-			if inc.Git.Ref != nil && inc.Git.Ref.Ref != "" {
-				status.Deprecation(p.ctx.Ctx, "git-include-string-ref", "Passing 'ref' as string into git includes is "+
-					"deprecated and support for this will be removed in a future version of Kluctl. Please refer to the "+
-					"documentation for details: https://kluctl.io/docs/kluctl/reference/deployments/deployment-yml/#git-includes")
 			}
 			cloneDir, _, err := ge.GetClonedDir(inc.Git.Ref)
 			if err != nil {

@@ -7,17 +7,6 @@ import (
 	"testing"
 )
 
-func TestMarshaGitRefString(t *testing.T) {
-	var ref types.GitRef
-	err := json.Unmarshal([]byte(`"as_string"`), &ref)
-	assert.NoError(t, err)
-	assert.Equal(t, "as_string", ref.Ref)
-
-	b, err := json.Marshal(&ref)
-	assert.NoError(t, err)
-	assert.Equal(t, `"as_string"`, string(b))
-}
-
 func TestMarshalGitRef(t *testing.T) {
 	s := `{"branch": "branch1"}`
 	var ref types.GitRef

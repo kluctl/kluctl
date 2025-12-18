@@ -2,13 +2,14 @@ package e2e
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func prepareIncludeProject(t *testing.T, prefix string, subDir string, gitServer *test_utils.TestGitServer) *test_project.TestProject {
@@ -122,20 +123,6 @@ func TestGitIncludeRef(t *testing.T) {
 		})
 	})
 
-	createBranchAndTag(t, ip1, "branch3", "tag3", "", func() {
-		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "branch3"}, resourceOpts{
-			name:      "branch3",
-			namespace: p.TestSlug(),
-		})
-	})
-
-	createBranchAndTag(t, ip1, "branch4", "tag4", "", func() {
-		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag4"}, resourceOpts{
-			name:      "tag4",
-			namespace: p.TestSlug(),
-		})
-	})
-
 	createBranchAndTag(t, ip1, "branch5", "tag5", "tag5", func() {
 		addConfigMapDeployment(ip1, "cm", map[string]string{"a": "tag5"}, resourceOpts{
 			name:      "tag5",
@@ -183,18 +170,6 @@ func TestGitIncludeRef(t *testing.T) {
 	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
 		"git": map[string]any{
 			"url": ip1.GitUrl(),
-			"ref": "branch3",
-		},
-	}))
-	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
-		"git": map[string]any{
-			"url": ip1.GitUrl(),
-			"ref": "tag4",
-		},
-	}))
-	p.AddDeploymentItem("", uo.FromMap(map[string]interface{}{
-		"git": map[string]any{
-			"url": ip1.GitUrl(),
 			"ref": map[string]any{
 				"tag": "tag5",
 			},
@@ -214,8 +189,6 @@ func TestGitIncludeRef(t *testing.T) {
 	assertConfigMapExists(t, k, p.TestSlug(), "head")
 	assertConfigMapExists(t, k, p.TestSlug(), "branch1")
 	assertConfigMapExists(t, k, p.TestSlug(), "tag2")
-	assertConfigMapExists(t, k, p.TestSlug(), "branch3")
-	assertConfigMapExists(t, k, p.TestSlug(), "tag4")
 	assertConfigMapExists(t, k, p.TestSlug(), "tag5")
 	assertConfigMapExists(t, k, p.TestSlug(), "commit6")
 }

@@ -367,12 +367,6 @@ func (v *VarsLoader) loadGit(ctx context.Context, varsCtx *VarsCtx, gitFile *typ
 		return nil, false, err
 	}
 
-	if gitFile.Ref != nil && gitFile.Ref.Ref != "" {
-		status.Deprecation(ctx, "git-vars-string-ref", "Passing 'ref' as string into git vars source is "+
-			"deprecated and support for this will be removed in a future version of Kluctl. Please refer to the "+
-			"documentation for details: https://kluctl.io/docs/kluctl/reference/templating/variable-sources/#git")
-	}
-
 	clonedDir, _, err := ge.GetClonedDir(gitFile.Ref)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to load vars from git repository %s: %w", gitFile.Url.String(), err)
