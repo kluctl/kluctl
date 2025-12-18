@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
 	"github.com/go-git/go-git/v5/storage/memory"
 	auth2 "github.com/kluctl/kluctl/lib/git/auth"
 	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/lib/git/types"
-	"strconv"
 )
 
 // ListRemoteRefsFastSsh will reuse existing ssh connections from a pool
@@ -101,4 +103,25 @@ func ListRemoteRefs(ctx context.Context, url types.GitUrl, sshPool *ssh_pool.Ssh
 		}
 	}
 	return ListRemoteRefsSlow(ctx, url, auth)
+}
+
+func FindCommitByRef(mr *MirroredGitRepo, refsMap map[string]string, ref types.GitRef) (string, error) {
+	objectHash, ok := refsMap[ref.String()]
+	if !ok {
+		return "", fmt.Errorf("ref %s not found", ref)
+	}
+
+	o, err := mr.GetObjectByHash(objectHash)
+	if err != nil {
+		return "", err
+	}
+
+	if o.Type() == plumbing.CommitObject {
+		return objectHash, nil
+	} else if o.Type() == plumbing.TagObject {
+		o2 := o.(*object.Tag)
+		return o2.Target.String(), nil
+	} else {
+		return "", fmt.Errorf("unsupported object type %s", o.Type().String())
+	}
 }
