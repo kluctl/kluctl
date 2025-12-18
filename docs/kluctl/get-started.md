@@ -18,7 +18,7 @@ A few things must be prepared before you actually begin.
 
 ### Get a Kubernetes cluster
 
-The first step is of course: You need a kubernetes cluster. It doesn't really matter where this cluster is hosted, if
+The first step is of course: You need a Kubernetes cluster. It doesn't really matter where this cluster is hosted, if
 it's a local (e.g. [kind](https://kind.sigs.k8s.io/docs/user/quick-start/)) cluster, managed cluster, or a self-hosted
 cluster, kops or kubespray based, AWS, GCE, Azure, ... and so on. Kluctl
 is completely independent of how Kubernetes is deployed and where it is hosted.
@@ -29,7 +29,7 @@ which was not stable enough in older versions of Kubernetes.
 ### Prepare your kubeconfig
 
 Your local kubeconfig should be configured to have access to the target Kubernetes cluster via a dedicated context. The context
-name should match with the name that you want to use for the cluster from now on. Let's assume the name is `test.example.com`,
+name should match the name that you want to use for the cluster from now on. Let's assume the name is `test.example.com`,
 then you'd have to ensure that the kubeconfig context `test.example.com` is correctly pointing and authorized for this
 cluster.
 
@@ -75,7 +75,9 @@ $ git clone https://github.com/kluctl/kluctl-examples.git
 ## Choose one of the examples
 
 You can choose whatever example you like from the cloned repository. We will however continue this guide by referring
-to the `simple-helm` example found in that repository. Change the current directory:
+to the `simple-helm` example found in that repository.
+
+Change directory:
 
 ```shell
 $ cd kluctl-examples/simple-helm

@@ -1,6 +1,6 @@
 # Contributing
 
-As all Open Source projects, Kluctl lives from contributions. If you consider contributing, we are welcoming you to do so.
+As all Open Source projects do, Kluctl lives on from contributions. We welcome you to consider contributing.
 
 ## Communication
 
@@ -9,16 +9,16 @@ follow the [Code of Conduct](./CODE_OF_CONDUCT.md) whenever you communicate.
 
 ## Creating issues / Reporting bugs
 
-Probably the easiest way to contribute is to create issues on Github. An issue could for example be a bug report or
+Probably the easiest way to contribute is to create issues on GitHub. An issue could for example be a bug report or
 a feature request. It's also fine to create an issue that requests some change, for example to documentation. Issues
 can also be used as reminders/TODOs that something needs to be done in the future.
 
-The project is still in early stage when it comes to project management, so please bare with us if processes are still
+The project is still in early stage when it comes to project management, so please bear with us if processes are still
 a bit "loose".
 
 One thing we'd like to ask for is to first search for issues that might already represent what you plan to report.
 In many cases it turns out that other people stumbled across the same thing already. If not, then you're "lucky" to
-report first :)
+report it first. :slightly_smiling_face:
 
 It might also be useful to ask inside the #kluctl channel of the [CNCF Slack](https://slack.cncf.io) if you are unsure
 about your issue.

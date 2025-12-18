@@ -19,7 +19,7 @@ operations for every target, no matter how simple or complex the deployment and/
 
 Kluctl does not strictly depend on a controller and allows to use the same deployment wherever you want,
 as long as access to the kluctl project and clusters is available. This means, that you can use it from your
-local machine, from your CI/CD pipelines or any automation platform/system that allows to call custom tools.
+local machine, from your CI/CD pipelines or any automation platform/system that allows calling custom tools.
 
 ## What can I do with Kluctl?
 
@@ -53,8 +53,8 @@ Installation instructions can be found [here](docs/kluctl/installation.md). For 
 
 Check the [community page](https://kluctl.io/community/) for details about the Kluctl community.
 
-In short: We use [Github Issues](https://github.com/kluctl/kluctl/issues) and
-[Github Discussions](https://github.com/kluctl/kluctl/discussions) to track and discuss Kluctl related development.
+In short: We use [GitHub Issues](https://github.com/kluctl/kluctl/issues) and
+[GitHub Discussions](https://github.com/kluctl/kluctl/discussions) to track and discuss Kluctl related development.
 You can also join the #kluctl channel inside the [CNCF Slack](https://slack.cncf.io) to get in contact with other
 community members and contributors/developers.
 
@@ -62,7 +62,7 @@ community members and contributors/developers.
 
 Documentation, news and blog posts can be found on https://kluctl.io.
 
-The underlying documentation is synced from this repo (look into ./docs) to the website whenever something is merged
+The underlying documentation is synced from this repo (look in [./docs](docs)) to the website whenever something is merged
 into main.
 
 ## Development and contributions
@@ -75,16 +75,16 @@ handles these matters.
 |     |     |
 | --- | --- |
 | 💪 Kluctl handles all your deployments | You can manage all your deployments with Kluctl, including infrastructure related and your applications. |
-| 🪶 Complex or simple, all the same | You can manage complex and simple deployments with Kluctl. Simple deployments are lightweight while complex deployment are easily manageable. |
+| 🪶 Complex or simple, all the same | You can manage complex and simple deployments with Kluctl. Simple deployments are lightweight while complex deployments are easily manageable. |
 | 🤖 Native git support | Kluctl has native Git support integrated, meaning that it can easily deploy remote Kluctl projects or externalize parts (e.g. configuration) of your Kluctl project. |
 | 🪐 Multiple environments | Deploy the same deployment to multiple environments (dev, test, prod, ...), with flexible differences in configuration. |
 | 🌌 Multiple clusters | Manage multiple target clusters (in multiple clouds or bare-metal if you want). |
 | 🔩 Configuration and Templating | Kluctl allows to use templating in nearly all places, making it easy to have dynamic configuration. |
 | ⎈ Helm and Kustomize | The Helm and Kustomize integrations allow you to reuse plenty of third-party charts and kustomizations. |
-| 🔍 See what's different | Always know what the state of your deployments is by being able to run diffs on the whole deployment. |
+| 🔍 See what's different | Always know what the state of your deployments are by running diffs on the whole deployment. |
 | 🔎 See what happened | Always know what you actually changed after performing a deployment. |
 | 💥 Know what went wrong | Kluctl will show you what part of your deployment failed and why. |
-| 👐 Live and let live | Kluctl tries to not interfere with any other tools or operators. This is possible due to it's use of server-side-apply. |
+| 👐 Live and let live | Kluctl tries to not interfere with any other tools or operators. This is possible due to its use of server-side-apply. |
 | 🧹 Keep it clean | Keep your clusters clean by issuing regular prune calls. |
 | 🔐 Encrypted Secrets | Manage encrypted secrets for multiple target environments and clusters. |
 
