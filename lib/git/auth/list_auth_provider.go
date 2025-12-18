@@ -2,12 +2,13 @@ package auth
 
 import (
 	"context"
+	"strings"
+
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
-	"strings"
 )
 
 type ListAuthProvider struct {
@@ -26,8 +27,9 @@ type AuthEntry struct {
 	Username string
 	Password string
 
-	SshKey     []byte
-	KnownHosts []byte
+	SshKey           []byte
+	KnownHosts       []byte
+	IgnoreKnownHosts bool
 
 	CABundle []byte
 }
@@ -91,7 +93,7 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 			if err != nil {
 				a.MessageCallbacks.Trace("ListAuthProvider: failed to parse private key: %v", err)
 			} else {
-				pk.HostKeyCallback = buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts)
+				pk.HostKeyCallback = buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts, e.IgnoreKnownHosts)
 				return AuthMethodAndCA{
 					AuthMethod: pk,
 					Hash: func() ([]byte, error) {

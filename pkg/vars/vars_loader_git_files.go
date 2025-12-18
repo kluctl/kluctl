@@ -3,6 +3,12 @@ package vars
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/gobwas/glob"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
@@ -11,12 +17,7 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/sops"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"io/fs"
 	"k8s.io/apimachinery/pkg/runtime"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 )
 
 func (v *VarsLoader) loadGitFiles(ctx context.Context, varsCtx *VarsCtx, gitFiles *types.VarsSourceGitFiles, ignoreMissing bool) ([]*uo.UnstructuredObject, bool, error) {
@@ -25,10 +26,6 @@ func (v *VarsLoader) loadGitFiles(ctx context.Context, varsCtx *VarsCtx, gitFile
 	ge, err := v.rp.GetEntry(gitFiles.Url.String())
 	if err != nil {
 		return nil, false, err
-	}
-
-	if gitFiles.Ref != nil && gitFiles.Ref.Ref != "" {
-		return nil, false, fmt.Errorf("passing 'ref' as string is not supported for the 'gitFiles' vars source")
 	}
 
 	matchingRefs, err := v.filterGitRefs(gitFiles.Ref, ge)

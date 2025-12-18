@@ -3,20 +3,26 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/git/auth/goph"
-	"github.com/kluctl/kluctl/lib/git/messages"
-	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
+
+	"github.com/kluctl/kluctl/lib/git/auth/goph"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 var askHostMutex sync.Mutex
 
-func buildVerifyHostCallback(messageCallbacks messages.MessageCallbacks, knownHosts []byte) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+func buildVerifyHostCallback(messageCallbacks messages.MessageCallbacks, knownHosts []byte, ignoreKnownHosts bool) func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+	if ignoreKnownHosts {
+		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil
+		}
+	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		return verifyHost(messageCallbacks, hostname, remote, key, knownHosts)
 	}

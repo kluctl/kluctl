@@ -5,6 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -17,11 +23,6 @@ import (
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/rogpeppe/go-internal/lockedfile"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 )
 
 func init() {
@@ -178,19 +179,34 @@ func (g *MirroredGitRepo) RemoteRefHashesMap() (map[string]string, error) {
 	return refs, nil
 }
 
-func (g *MirroredGitRepo) DefaultRef() (string, error) {
+func (g *MirroredGitRepo) DefaultRef() (*types.GitRef, error) {
 	r, err := git.PlainOpen(g.mirrorDir)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	ref, err := r.Reference("HEAD", false)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	s := ref.Target().String()
-	return s, nil
+	ret, err := types.ParseGitRef(s)
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
+}
+
+func (g *MirroredGitRepo) Delete() error {
+	if !g.IsLocked() {
+		panic("tried to delete a project that is not locked")
+	}
+	err := os.RemoveAll(g.mirrorDir)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {
@@ -247,7 +263,7 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 	})
 
 	var toDelete []*plumbing.Reference
-	changed := true
+	changed := false
 	for name, ref := range remoteRefsMap {
 		if name.String() != "HEAD" && !strings.HasPrefix(name.String(), "refs/heads/") && !strings.HasPrefix(name.String(), "refs/tags/") {
 			// we only fetch branches and tags
@@ -377,6 +393,10 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 }
 
 func (g *MirroredGitRepo) Update() error {
+	if !g.IsLocked() {
+		panic("tried to update a project that is not locked")
+	}
+
 	err := g.cloneOrUpdate()
 	if err != nil {
 		return err

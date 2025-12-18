@@ -3,17 +3,16 @@ package repocache
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/kluctl/kluctl/lib/git/types"
-	"github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 
 	"github.com/kluctl/kluctl/lib/git"
 	"github.com/kluctl/kluctl/lib/git/auth"
@@ -170,16 +169,11 @@ func (e *GitCacheEntry) Update() error {
 		return err
 	}
 
-	defaultRefStr, err := e.mr.DefaultRef()
+	defaultRef, err := e.mr.DefaultRef()
 	if err != nil {
 		return err
 	}
-
-	defaultRef, err := types.ParseGitRef(defaultRefStr)
-	if err != nil {
-		return err
-	}
-	e.defaultRef = defaultRef
+	e.defaultRef = *defaultRef
 
 	return nil
 }
@@ -197,49 +191,8 @@ func (e *GitCacheEntry) GetRepoInfo() RepoInfo {
 	return info
 }
 
-func (e *GitCacheEntry) findCommit(ref string) (string, string, error) {
-	ref, objectHash, err := e.findRef(ref)
-	if err != nil {
-		return "", "", err
-	}
-
-	o, err := e.mr.GetObjectByHash(objectHash)
-	if err != nil {
-		return "", "", err
-	}
-
-	if o.Type() == plumbing.CommitObject {
-		return ref, objectHash, nil
-	} else if o.Type() == plumbing.TagObject {
-		o2 := o.(*object.Tag)
-		return ref, o2.Target.String(), nil
-	} else {
-		return "", "", fmt.Errorf("unsupported object type %s", o.Type().String())
-	}
-}
-
-func (e *GitCacheEntry) findRef(ref string) (string, string, error) {
-	switch {
-	case strings.HasPrefix(ref, "refs/heads"), strings.HasPrefix(ref, "refs/tags"):
-		c, ok := e.refs[ref]
-		if !ok {
-			return "", "", fmt.Errorf("ref %s not found", ref)
-		}
-		return ref, c, nil
-	default:
-		// TODO remove this compatibility code
-		ref2 := "refs/heads/" + ref
-		c, ok := e.refs[ref2]
-		if ok {
-			return ref2, c, nil
-		}
-		ref2 = "refs/tags/" + ref
-		c, ok = e.refs[ref2]
-		if ok {
-			return ref2, c, nil
-		}
-		return "", "", fmt.Errorf("ref %s not found", ref)
-	}
+func (e *GitCacheEntry) findCommit(ref types.GitRef) (string, error) {
+	return git.FindCommitByRef(e.mr, e.refs, ref)
 }
 
 func (e *GitCacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInfo, error) {
@@ -295,15 +248,11 @@ func (e *GitCacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInf
 		checkoutInfo.CheckedOutRef = *ref
 		checkoutInfo.CheckedOutCommit = ref.Commit
 	} else {
-		var ref2 string
-		ref2, commit, err = e.findCommit(ref.String())
+		commit, err = e.findCommit(*ref)
 		if err != nil {
 			return "", git.CheckoutInfo{}, err
 		}
-		checkoutInfo.CheckedOutRef, err = types.ParseGitRef(ref2)
-		if err != nil {
-			return "", git.CheckoutInfo{}, err
-		}
+		checkoutInfo.CheckedOutRef = *ref
 		checkoutInfo.CheckedOutCommit = commit
 	}
 

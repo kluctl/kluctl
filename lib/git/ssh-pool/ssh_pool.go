@@ -6,113 +6,180 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/kluctl/kluctl/lib/git/auth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
-	"sync"
-	"time"
 )
 
-const maxAge = time.Minute * 1
+const defaultMaxAge = time.Minute * 1
+const defailtMaxErrorAge = time.Second * 10
 
 type SshPool struct {
-	pool sync.Map
+	MaxAge      time.Duration
+	MaxErrorAge time.Duration
+
+	pool map[string]*poolEntry
+
+	m sync.Mutex
 }
 
 type poolEntry struct {
 	hash string
-	pc   *poolClient
-	m    sync.Mutex
-}
+	addr string
 
-type poolClient struct {
-	time         time.Time
 	sessionCount int
-	client       *ssh.Client
+	time         time.Time
+
+	client *ssh.Client
+	err    error
+
+	m sync.Mutex
 }
 
 type PooledSession struct {
 	Session *ssh.Session
 	pe      *poolEntry
-	pc      *poolClient
-	hash    string
 }
 
 func (p *SshPool) GetSession(ctx context.Context, host string, port int, auth auth.AuthMethodAndCA) (*PooledSession, error) {
+	pe, isNew, err := p.getLockedPoolEntry(ctx, host, port, auth)
+	if err != nil {
+		return nil, err
+	}
+	defer pe.m.Unlock()
+
+	if pe.err != nil {
+		return nil, pe.err
+	}
+
+	s, err := pe.client.NewSession()
+	if err != nil {
+		_ = pe.client.Close()
+		if isNew {
+			// don't retry with a fresh connection and cause the pool entry to expire earlier
+			pe.err = err
+			return nil, err
+		} else {
+			// retry with a fresh connection
+			client, err := p.newClient(ctx, pe.addr, auth)
+			if err != nil {
+				// make the pool entry expire earlier and return errors until then
+				pe.err = err
+				return nil, err
+			}
+
+			pe.client = client
+			s, err = pe.client.NewSession()
+			if err != nil {
+				// something is completely wrong here
+				pe.err = err
+				return nil, err
+			}
+		}
+	}
+
+	pe.sessionCount += 1
+
+	ps := &PooledSession{
+		pe:      pe,
+		Session: s,
+	}
+	return ps, nil
+}
+
+func (p *SshPool) init() {
+	p.pool = map[string]*poolEntry{}
+	if p.MaxAge == 0 {
+		p.MaxAge = defaultMaxAge
+	}
+	if p.MaxErrorAge == 0 {
+		p.MaxErrorAge = defailtMaxErrorAge
+	}
+}
+
+func (p *SshPool) getLockedPoolEntry(ctx context.Context, host string, port int, auth auth.AuthMethodAndCA) (*poolEntry, bool, error) {
 	addr := getHostWithPort(host, port)
 
 	h, err := p.buildHash(addr, auth)
 	if err != nil {
-		return nil, err
-	}
-
-	pe1, _ := p.pool.LoadOrStore(h, &poolEntry{hash: h})
-	pe, _ := pe1.(*poolEntry)
-
-	pe.m.Lock()
-	defer pe.m.Unlock()
-
-	if pe.pc != nil {
-		if time.Now().Sub(pe.pc.time) > maxAge {
-			if pe.pc.sessionCount == 0 {
-				_ = pe.pc.client.Close()
-			}
-			pe.pc = nil
-		}
+		return nil, false, err
 	}
 
 	isNew := false
-	if pe.pc == nil {
+
+	p.m.Lock()
+	if p.pool == nil {
+		p.init()
+	}
+	pe := p.pool[h]
+	if pe == nil {
 		isNew = true
+		pe = &poolEntry{
+			hash: h,
+			addr: addr,
+			time: time.Now(),
+		}
+		p.pool[h] = pe
+	}
+	p.m.Unlock()
+
+	// caller must unlock
+	pe.m.Lock()
+
+	if pe.err != nil {
+		return pe, isNew, nil
+	}
+
+	if isNew {
 		client, err := p.newClient(ctx, addr, auth)
 		if err != nil {
-			p.pool.Delete(h)
-			return nil, err
-		}
-		pe.pc = &poolClient{
-			time:   time.Now(),
-			client: client,
-		}
-	}
-
-	s, err := pe.pc.client.NewSession()
-	if err != nil {
-		_ = pe.pc.client.Close()
-		pe.pc = nil
-		if isNew {
-			// don't retry with a fresh connection
-			p.pool.Delete(h)
-			return nil, err
+			pe.err = err
 		} else {
-			// retry with a fresh connection
-			client, err := p.newClient(ctx, addr, auth)
-			if err != nil {
-				p.pool.Delete(h)
-				return nil, err
-			}
+			pe.client = client
+		}
+		p.startExpire(pe)
+	}
+	return pe, isNew, nil
+}
 
-			pe.pc = &poolClient{
-				time:   time.Now(),
-				client: client,
+func (p *SshPool) startExpire(pe *poolEntry) {
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+
+			pe.m.Lock()
+			if pe.sessionCount != 0 {
+				pe.m.Unlock()
+				continue
 			}
-			s, err = pe.pc.client.NewSession()
-			if err != nil {
-				// something is completely wrong here, forget about the client
-				p.pool.Delete(h)
-				return nil, err
+			elapsed := time.Now().Sub(pe.time)
+			expired := false
+			if pe.err != nil && elapsed > p.MaxErrorAge {
+				expired = true
+			} else if pe.err == nil && elapsed >= p.MaxAge {
+				expired = true
+			}
+			pe.m.Unlock()
+
+			if expired {
+				break
 			}
 		}
-	}
 
-	pe.pc.sessionCount += 1
+		p.m.Lock()
+		delete(p.pool, pe.hash)
+		p.m.Unlock()
 
-	ps := &PooledSession{
-		hash:    h,
-		pe:      pe,
-		pc:      pe.pc,
-		Session: s,
-	}
-	return ps, nil
+		pe.m.Lock()
+		defer pe.m.Unlock()
+		if pe.client != nil {
+			_ = pe.client.Close()
+		}
+		pe.client = nil
+	}()
 }
 
 func (ps *PooledSession) Close() error {
@@ -121,14 +188,7 @@ func (ps *PooledSession) Close() error {
 	ps.pe.m.Lock()
 	defer ps.pe.m.Unlock()
 
-	ps.pc.sessionCount--
-
-	if ps.pe.pc != ps.pc {
-		_ = ps.pc.client.Close()
-	} else if ps.pc.sessionCount == 0 && time.Now().Sub(ps.pc.time) > maxAge {
-		_ = ps.pc.client.Close()
-		ps.pe.pc = nil
-	}
+	ps.pe.sessionCount--
 
 	return err
 }

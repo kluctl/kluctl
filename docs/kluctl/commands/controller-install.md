@@ -11,10 +11,9 @@ description: >
 
 ## Command
 <!-- BEGIN SECTION "controller install" "Usage" false -->
-Usage: `kluctl controller install [flags]`
+Usage: kluctl controller install [flags]
 
 Install the Kluctl controller
-
 This command will install the kluctl-controller to the current Kubernetes clusters.
 
 <!-- END SECTION -->

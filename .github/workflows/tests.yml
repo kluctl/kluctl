@@ -153,7 +153,7 @@ jobs:
             run_e2e_non_gitops: false
             run_e2e_gitops: true
             name: ubuntu-gitops
-          - os: macos-13
+          - os: macos-14
             run_unit_tests: true
             # only run e2e tests on branches
             run_e2e_non_gitops: ${{ github.event_name != 'pull_request' }}
