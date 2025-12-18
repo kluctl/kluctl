@@ -198,6 +198,17 @@ func (g *MirroredGitRepo) DefaultRef() (*types.GitRef, error) {
 	return &ret, nil
 }
 
+func (g *MirroredGitRepo) Delete() error {
+	if !g.IsLocked() {
+		panic("tried to delete a project that is not locked")
+	}
+	err := os.RemoveAll(g.mirrorDir)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {
 	return git.PlainOpen(g.mirrorDir)
 }
@@ -382,6 +393,10 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 }
 
 func (g *MirroredGitRepo) Update() error {
+	if !g.IsLocked() {
+		panic("tried to update a project that is not locked")
+	}
+
 	err := g.cloneOrUpdate()
 	if err != nil {
 		return err
