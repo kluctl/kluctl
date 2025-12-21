@@ -140,7 +140,7 @@ def load_sha256(ctx: Context, path, digest_len=None):
 
 
 @jinja2.pass_context
-def load_latest_git_sha(ctx, path, width=None):
+def load_latest_git_sha(ctx, path, sha_len=None):
     ctx.environment.print_debug("load_latest_git_sha_1(%s)" % path)
     p = path.replace(os.path.sep, "/")
     if ctx.name:
@@ -158,8 +158,8 @@ def load_latest_git_sha(ctx, path, width=None):
         raise GitError("No commits found for path: %s" % path)
     sha1 = commits_for_file[0].hexsha
 
-    if width:
-        return sha1[:width]
+    if sha_len:
+        return sha1[:sha_len]
     return sha1
 
 
