@@ -727,6 +727,11 @@ func (in *Target) DeepCopyInto(out *Target) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.Kubeconfig != nil {
+		in, out := &in.Kubeconfig, &out.Kubeconfig
+		*out = new(string)
+		**out = **in
+	}
 	if in.Args != nil {
 		in, out := &in.Args, &out.Args
 		*out = (*in).DeepCopy()
