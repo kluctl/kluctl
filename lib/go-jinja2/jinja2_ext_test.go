@@ -3,6 +3,7 @@ package jinja2
 import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"strings"
 	"testing"
 )
@@ -98,13 +99,14 @@ func TestGetVarAndRender(t *testing.T) {
 }
 
 func TestLoadLatestGitSha(t *testing.T) {
-	j2 := newJinja2(t)
-	s, err := j2.RenderString("sha: {{ load_latest_git_sha('../../README.md') }}")
+	cwd, _ := os.Getwd()
+	j2 := newJinja2(t, WithSearchDir(cwd))
+	s, err := j2.RenderString("sha: {{ load_latest_git_sha('./README.md') }}")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(s, "sha: "))
 	assert.Equal(t, 5+40, len(s)) // 5 for "sha: ", 40 for sha length (from `man git-rev-parse`: "The full SHA-1 object name (40-byte hexadecimal string)").
 
-	s, err = j2.RenderString("sha: {{ load_latest_git_sha('../../README.md', 6) }}")
+	s, err = j2.RenderString("sha: {{ load_latest_git_sha('./README.md', 6) }}")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(s, "sha: "))
 	assert.Equal(t, 5+6, len(s)) // 5 for "sha: ", 6 for sha length
