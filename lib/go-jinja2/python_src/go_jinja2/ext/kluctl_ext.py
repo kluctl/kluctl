@@ -2,20 +2,17 @@ import base64
 import hashlib
 import json
 import os
+import sys
 import textwrap
 
-import sys
-
-from git.exc import GitError
 import jinja2
+from dulwich.repo import Repo
 from jinja2 import TemplateError, TemplateNotFound
 from jinja2.ext import Extension
 from jinja2.runtime import Context
 
 from .dict_utils import get_dict_value, merge_dict
 from .yaml_utils import yaml_dump, yaml_load
-
-from git import Repo
 
 
 class KluctlExtension(Extension):
@@ -141,7 +138,7 @@ def load_sha256(ctx: Context, path, digest_len=None):
 
 @jinja2.pass_context
 def load_latest_git_sha(ctx, path, sha_len=None):
-    ctx.environment.print_debug("load_latest_git_sha_1(%s)" % path)
+    ctx.environment.print_debug("load_latest_git_sha(%s)" % path)
     p = path.replace(os.path.sep, "/")
     if ctx.name:
         p = ctx.environment.join_path(path, ctx.name)
@@ -150,13 +147,20 @@ def load_latest_git_sha(ctx, path, sha_len=None):
     if not p:
         raise FileNotFoundError(path)
 
-    rp = os.path.dirname(p)
-    repo = Repo(rp, search_parent_directories=True)
-    commits_for_file_generator = repo.iter_commits(all=True, max_count=1, paths=p)
-    commits_for_file = list(commits_for_file_generator)
+    repo_discovery_path = os.path.dirname(p)
+    repo = Repo.discover(repo_discovery_path)
+    relative_file_path = os.path.relpath(p, repo.get_worktree().path).replace(
+        os.path.sep, "/"
+    )
+    commits_for_file = list(
+        repo.get_walker(
+            max_entries=1,
+            paths=[relative_file_path.encode("utf-8")],
+        )
+    )
     if len(commits_for_file) == 0:
-        raise GitError("No commits found for path: %s" % path)
-    sha1 = commits_for_file[0].hexsha
+        raise Exception("No commits found for path: %s" % path)
+    sha1 = commits_for_file[0].commit.id.decode("utf-8")
 
     if sha_len:
         return sha1[:sha_len]
