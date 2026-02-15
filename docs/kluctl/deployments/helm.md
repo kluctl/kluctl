@@ -76,10 +76,6 @@ helmChart:
   output: helm-rendered.yaml # this is optional
 ```
 
-When running the `helm-pull` command, it will search for all `helm-chart.yaml` files in your project and then pull the
-chart from the specified repository with the specified version. The pull chart will then be located in the sub-directory
-`charts` below the same directory as the `helm-chart.yaml`
-
 The same filename that was specified in `output` must then be referred in a `kustomization.yaml` as a normal local
 resource. If `output` is omitted, the default value `helm-rendered.yaml` is used and must also be referenced in
 `kustomization.yaml`.
