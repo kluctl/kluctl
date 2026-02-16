@@ -25,7 +25,7 @@ require (
 	github.com/aws/smithy-go v1.24.0
 	github.com/coder/websocket v1.8.13
 	github.com/coreos/go-oidc/v3 v3.14.1
-	github.com/cyphar/filepath-securejoin v0.4.1
+	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/distribution/distribution/v3 v3.0.0
 	github.com/docker/cli v28.3.3+incompatible
