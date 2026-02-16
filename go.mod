@@ -89,7 +89,7 @@ require (
 	k8s.io/klog/v2 v2.130.1
 	sigs.k8s.io/cli-utils v0.37.2
 	sigs.k8s.io/controller-runtime v0.21.0
-	sigs.k8s.io/kustomize/api v0.20.0
+	sigs.k8s.io/kustomize/api v0.21.0
 	sigs.k8s.io/kustomize/kyaml v0.21.0
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0
 	sigs.k8s.io/yaml v1.6.0
@@ -146,7 +146,6 @@ require (
 	github.com/bshuster-repo/logrus-logstash-hook v1.1.0 // indirect
 	github.com/bytedance/sonic v1.13.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
-	github.com/carapace-sh/carapace-shlex v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.2 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
