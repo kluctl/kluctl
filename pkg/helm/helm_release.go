@@ -64,7 +64,7 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 		credentialsIdValue = *config.CredentialsId
 	}
 
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsIdValue, ociAuthProvider, gitRp, ociRp)
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsIdValue, ociAuthProvider, gitRp, ociRp, config.TarUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +87,10 @@ func (hr *Release) GetAbstractVersion() ChartVersion {
 	} else if hr.Chart.IsGitRepositoryChart() {
 		return ChartVersion{
 			GitRef: hr.Config.Git.Ref,
+		}
+	} else if hr.Chart.IsURLChart() { // Add this condition
+		return ChartVersion{
+			Version: hr.Config.ChartVersion,
 		}
 	}
 	panic("neither chart version nor tag, commit or branch are defined")
@@ -130,11 +134,17 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 		version.GitRef = hr.Config.Git.Ref
 	} else if hr.Chart.IsRegistryChart() {
 		version.Version = hr.Config.ChartVersion
+	} else if hr.Chart.IsURLChart() {
+		version.Version = hr.Config.ChartVersion
 	} else {
 		return nil, fmt.Errorf("unkown source of Helm Chart. Please set either path, repo or git")
 	}
 
 	if !hr.Config.SkipPrePull {
+		if hr.baseChartsDir == "" {
+			return nil, fmt.Errorf("can't determine pulled chart dir. No ")
+		}
+
 		pc, err := hr.Chart.GetPrePulledChart(hr.baseChartsDir, version)
 		if err != nil {
 			return nil, err
@@ -169,6 +179,7 @@ func (hr *Release) getPulledChart(ctx context.Context) (*PulledChart, error) {
 
 		return pc, nil
 	}
+
 }
 
 func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion string, sopsDecrypter *decryptor.Decryptor) error {

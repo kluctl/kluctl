@@ -3,8 +3,8 @@ package helm
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/git/types"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -12,6 +12,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/kluctl/kluctl/lib/git/types"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -41,13 +44,14 @@ type Chart struct {
 	ociAuthProvider  ociauth.OciAuthProvider
 	gitRp            *repocache.GitRepoCache
 	ociRp            *repocache.OciRepoCache
+	tarUrl           string
 
 	credentialsId string
 
 	versions []ChartVersion
 }
 
-func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache, tarUrl string) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
 		localPath:        localPath,
@@ -56,10 +60,11 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 		ociAuthProvider:  ociAuthProvider,
 		gitRp:            gitRp,
 		ociRp:            ociRp,
+		tarUrl:           tarUrl,
 	}
 
-	if localPath == "" && repo == "" && git == nil {
-		return nil, fmt.Errorf("repo, localPath and git are missing")
+	if localPath == "" && repo == "" && git == nil && tarUrl == "" {
+		return nil, fmt.Errorf("repo, localPath, git, or url are missing")
 	}
 
 	if hc.IsLocalChart() {
@@ -104,6 +109,13 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 				return nil, fmt.Errorf("invalid git url: %s", git.Url.String())
 			}
 		}
+	} else if tarUrl != "" {
+		// Handle the case where a Helm chart Tar URL is specified
+		if chartName == "" {
+			return nil, fmt.Errorf("chartName must be specified when using a URL")
+		}
+		hc.chartName = chartName
+		// Additional logic to handle the URL can be added here
 	} else if chartName == "" {
 		return nil, fmt.Errorf("chartName is missing")
 	} else {
@@ -111,6 +123,14 @@ func NewChart(repo string, localPath string, chartName string, git *types2.GitPr
 	}
 
 	return hc, nil
+}
+
+func (c *Chart) IsURLChart() bool {
+	return c.tarUrl != ""
+}
+
+func (c *Chart) GetURL() string {
+	return c.tarUrl
 }
 func (c *Chart) IsLocalChart() bool {
 	return c.localPath != ""
@@ -247,6 +267,9 @@ func (c *Chart) BuildPulledChartDir(baseDir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+	} else if c.IsURLChart() {
+		// Handle URL-based charts
+		dir = filepath.Join(baseDir, "url-charts", c.chartName)
 	}
 	err = utils.CheckInDir(baseDir, dir)
 	if err != nil {
@@ -270,6 +293,12 @@ func (c *Chart) BuildVersionedPulledChartDir(baseDir string, version ChartVersio
 		dir, err = c.BuildVersionedGitRepositoryPulledChartDir(baseDir, version)
 		if err != nil {
 			return "", err
+		}
+	} else if c.IsURLChart() {
+		// Handle versioned URL-based charts
+		dir = filepath.Join(baseDir, "url-charts", c.chartName)
+		if version.Version != nil {
+			dir = filepath.Join(dir, *version.Version)
 		}
 	}
 	err = utils.CheckInDir(baseDir, dir)
@@ -419,6 +448,40 @@ func (c *Chart) pullFromGitRepository(ctx context.Context, chartDir string, vers
 	return nil
 }
 
+func (c *Chart) pullFromURL(ctx context.Context, chartDir string) error {
+	// Create chart directory
+	if err := os.MkdirAll(chartDir, 0755); err != nil {
+		return fmt.Errorf("failed to create chart directory: %v", err)
+	}
+
+	// Download the chart
+	resp, err := http.Get(c.tarUrl)
+	if err != nil {
+		return fmt.Errorf("failed to download chart from tarUrl: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the tgz data
+	tgzData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	// Decompress gzip
+	uncompressed, err := utils.UncompressGzip(tgzData)
+	if err != nil {
+		return fmt.Errorf("failed to uncompress chart: %v", err)
+	}
+
+	// Extract tar
+	err = utils.ExtractTar(uncompressed, chartDir)
+	if err != nil {
+		return fmt.Errorf("failed to extract chart: %v", err)
+	}
+
+	return nil
+}
+
 func (c *Chart) PullToTmp(ctx context.Context, version ChartVersion) (*PulledChart, error) {
 	if c.IsLocalChart() {
 		return nil, fmt.Errorf("can not pull local charts")
@@ -434,10 +497,13 @@ func (c *Chart) PullToTmp(ctx context.Context, version ChartVersion) (*PulledCha
 	if err != nil {
 		return nil, err
 	}
+
 	if c.IsRegistryChart() {
 		err = c.pullFromRegistry(ctx, version, tmpPullDir, chartDir)
 	} else if c.IsGitRepositoryChart() {
 		err = c.pullFromGitRepository(ctx, chartDir, version)
+	} else if c.IsURLChart() {
+		err = c.pullFromURL(ctx, chartDir)
 	} else {
 		return nil, fmt.Errorf("unknown type of helm chart source")
 	}
