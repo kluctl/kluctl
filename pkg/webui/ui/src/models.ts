@@ -781,6 +781,7 @@ export class AwsConfig {
 export class Target {
     name: string;
     context?: string;
+    kubeconfig?: string;
     args?: any;
     aws?: AwsConfig;
     images?: FixedImage[];
@@ -790,6 +791,7 @@ export class Target {
         if ('string' === typeof source) source = JSON.parse(source);
         this.name = source["name"];
         this.context = source["context"];
+        this.kubeconfig = source["kubeconfig"];
         this.args = source["args"];
         this.aws = this.convertValues(source["aws"], AwsConfig);
         this.images = this.convertValues(source["images"], FixedImage);
