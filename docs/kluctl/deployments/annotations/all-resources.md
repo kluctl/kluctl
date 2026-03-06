@@ -52,7 +52,7 @@ If more than one field needs to be specified, add `-xxx` to the annotation key, 
 As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
 
 ### kluctl.io/ignore-conflicts
-If set to "true", the whole all fields of the object are going to be ignored when conflicts arise.
+If set to "true", all object fields are going to be ignored when conflicts arise.
 This effectively disables the warnings that are shown when field ownership is lost.
 
 As an alternative, conflict resolution can be controlled via [conflictResolution](../deployment-yml.md#conflictresolution).
