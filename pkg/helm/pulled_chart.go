@@ -41,6 +41,20 @@ func (pc *PulledChart) CheckNeedsPull() (bool, bool, ChartVersion, error) {
 	if !utils.IsDirectory(pc.dir) {
 		return true, false, nullVersion, nil
 	}
+
+	if pc.chart.IsURLChart() {
+		// Similar to registry chart handling
+		chartYamlPath := yaml.FixPathExt(filepath.Join(pc.dir, "Chart.yaml"))
+		_, err := os.Stat(chartYamlPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return true, false, nullVersion, nil
+			}
+			return false, false, nullVersion, err
+		}
+
+	}
+
 	if pc.chart.IsRegistryChart() {
 		chartYamlPath := yaml.FixPathExt(filepath.Join(pc.dir, "Chart.yaml"))
 		st, err := os.Stat(chartYamlPath)
