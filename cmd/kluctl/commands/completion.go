@@ -2,6 +2,11 @@ package commands
 
 import (
 	"context"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/kluctl/kluctl/lib/status"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
@@ -15,10 +20,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
 )
 
 func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) error {
@@ -170,7 +171,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
-		if strings.Index(toComplete, "=") != -1 {
+		if strings.Contains(toComplete, "=") {
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
@@ -268,7 +269,7 @@ func loadKubeconfig(ctx context.Context, cmdStruct interface{}) (api.Config, *re
 
 func buildContextCompletionFunc(ctx context.Context, cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if strings.Index(toComplete, "=") != -1 {
+		if strings.Contains(toComplete, "=") {
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
@@ -285,9 +286,9 @@ func buildContextCompletionFunc(ctx context.Context, cmdStruct interface{}) func
 	}
 }
 
-func buildObjectNamespaceCompletionFunc(ctx context.Context, cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildObjectNamespaceCompletionFunc(ctx context.Context, cmdStruct any) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if strings.Index(toComplete, "=") != -1 {
+		if strings.Contains(toComplete, "=") {
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
@@ -314,9 +315,9 @@ func buildObjectNamespaceCompletionFunc(ctx context.Context, cmdStruct interface
 	}
 }
 
-func buildObjectNameCompletionFunc(ctx context.Context, cmdStruct interface{}, gvr schema.GroupVersionResource) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildObjectNameCompletionFunc(ctx context.Context, cmdStruct any, gvr schema.GroupVersionResource) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		if strings.Index(toComplete, "=") != -1 {
+		if strings.Contains(toComplete, "=") {
 			return nil, cobra.ShellCompDirectiveDefault
 		}
 
