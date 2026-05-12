@@ -29,13 +29,13 @@ jobs:
       - name: Install some tools
         run: |
           PB_REL="https://github.com/protocolbuffers/protobuf/releases"
-          PB_VER="29.1"
+          PB_VER="34.1"
           curl -LO $PB_REL/download/v$PB_VER/protoc-$PB_VER-linux-x86_64.zip
           sudo unzip protoc-$PB_VER-linux-x86_64.zip -d /usr/local
           rm protoc-$PB_VER-linux-x86_64.zip
 
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.35.2
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
       - name: Check links on changed files
         run: |
           make markdown-link-check
