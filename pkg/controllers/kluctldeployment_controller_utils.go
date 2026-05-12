@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"time"
+
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/utils/flux_utils/meta"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/client-go/tools/reference"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.KluctlDeployment, warning bool, msg string, metadata map[string]string) {
@@ -30,7 +31,7 @@ func (r *KluctlDeploymentReconciler) event(ctx context.Context, obj *kluctlv1.Kl
 		eventtype = "Warning"
 	}
 
-	r.EventRecorder.AnnotatedEventf(obj, metadata, eventtype, reason, msg)
+	r.EventRecorder.AnnotatedEventf(obj, metadata, eventtype, reason, "%s", msg)
 }
 
 func (r *KluctlDeploymentReconciler) recordReadiness(ctx context.Context, obj *kluctlv1.KluctlDeployment) {
