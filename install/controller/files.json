@@ -1,5 +1,5 @@
 {
-  "contentHash": "3ff535f4e2ce9401d0b5bed51ba14dfbb3816afc29c2430964d0933975945cfe",
+  "contentHash": "4cd63ce983bfba05d57cc75dd3ee0fb32cf5c547d7f5f25d2c8f08fc0054eeb1",
   "files": [
     {
       "name": ".kluctl-library.yaml",
@@ -13,7 +13,7 @@
     },
     {
       "name": "controller/crd.yaml",
-      "size": 42735,
+      "size": 41789,
       "perm": 420
     },
     {
