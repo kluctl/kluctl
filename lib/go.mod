@@ -27,8 +27,8 @@ require (
 	golang.org/x/sys v0.44.0
 	golang.org/x/text v0.37.0
 	gotest.tools v2.2.0+incompatible
-	k8s.io/apimachinery v0.33.2
-	k8s.io/client-go v0.33.2
+	k8s.io/apimachinery v0.36.0
+	k8s.io/client-go v0.36.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
