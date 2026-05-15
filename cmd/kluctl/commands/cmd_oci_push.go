@@ -4,19 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/git"
-	"github.com/kluctl/kluctl/lib/git/sourceignore"
-	"github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/fluxcd/pkg/oci"
+	"github.com/fluxcd/pkg/sourceignore"
+	"github.com/kluctl/kluctl/lib/git"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+
 	reg "github.com/google/go-containerregistry/pkg/name"
-	"github.com/kluctl/kluctl/v2/pkg/oci/client"
 )
 
 var excludeOCI = append(strings.Split(sourceignore.ExcludeVCS, ","), strings.Split(sourceignore.ExcludeExt, ",")...)
@@ -60,7 +61,8 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ignorePatterns, err := git.LoadGitignore(absPath)
+
+	ignorePaths, err := git.LoadGitignorePaths(absPath)
 	if err != nil {
 		return err
 	}
@@ -78,7 +80,7 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		ociAuthProvider.RegisterAuthProvider(x, false)
 	}
 
-	url, err := client.ParseArtifactURL(cmd.Url)
+	url, err := oci.ParseArtifactURL(cmd.Url)
 	if err != nil {
 		return err
 	}
@@ -97,7 +99,7 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	meta := client.Metadata{
+	meta := oci.Metadata{
 		Revision:    gitInfo.Commit,
 		Annotations: annotations,
 	}
@@ -113,7 +115,7 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	opts := client.DefaultOptions()
+	opts := oci.DefaultOptions()
 
 	if ae != nil {
 		authOpts, err := ae.BuildCraneOptions()
@@ -129,8 +131,8 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		defer st.Failed()
 	}
 
-	ociClient := client.NewClient(opts)
-	digestURL, err := ociClient.Push(ctx, url, path, client.WithPushIgnorePatterns(ignorePatterns), client.WithPushMetadata(meta))
+	ociClient := oci.NewClient(opts)
+	digestURL, err := ociClient.Push(ctx, url, path, oci.WithPushIgnorePaths(ignorePaths...), oci.WithPushMetadata(meta))
 	if err != nil {
 		return fmt.Errorf("pushing artifact failed: %w", err)
 	}

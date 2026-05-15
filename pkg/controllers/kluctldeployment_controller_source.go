@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/git/auth"
 	"github.com/kluctl/kluctl/lib/git/messages"
@@ -17,10 +20,8 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"net/url"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 type gitRepoSecrets struct {

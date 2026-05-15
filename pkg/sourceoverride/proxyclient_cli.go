@@ -10,11 +10,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/fluxcd/pkg/oci"
 	"github.com/kluctl/kluctl/lib/git"
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
-	oci_client "github.com/kluctl/kluctl/v2/pkg/oci/client"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -303,13 +303,13 @@ func (c *ProxyClientCli) handleRequest(req *ResolveOverrideRequest) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	ignorePatterns, err := git.LoadGitignore(absPath)
+	ignorePaths, err := git.LoadGitignorePaths(absPath)
 	if err != nil {
 		return nil, err
 	}
 
-	ociClient := oci_client.NewClient(nil)
-	err = ociClient.Build(f.Name(), p, ignorePatterns)
+	ociClient := oci.NewClient(nil)
+	err = ociClient.Build(f.Name(), p, ignorePaths)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build artifact: %w", err)
 	}

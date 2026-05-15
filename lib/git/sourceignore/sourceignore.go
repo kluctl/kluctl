@@ -22,87 +22,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 )
-
-const (
-	IgnoreFile   = ".sourceignore"
-	ExcludeVCS   = ".git/,.gitignore,.gitmodules,.gitattributes"
-	ExcludeExt   = "*.jpg,*.jpeg,*.gif,*.png,*.wmv,*.flv,*.tar.gz,*.zip"
-	ExcludeCI    = ".github/,.circleci/,.travis.yml,.gitlab-ci.yml,appveyor.yml,.drone.yml,cloudbuild.yaml,codeship-services.yml,codeship-steps.yml"
-	ExcludeExtra = "**/.goreleaser.yml,**/.sops.yaml,**/.flux.yaml"
-)
-
-// NewMatcher returns a gitignore.Matcher for the given gitignore.Pattern
-// slice. It mainly exists to compliment the API.
-func NewMatcher(ps []gitignore.Pattern) gitignore.Matcher {
-	return gitignore.NewMatcher(ps)
-}
-
-// NewDefaultMatcher returns a gitignore.Matcher with the DefaultPatterns
-// as lowest priority patterns.
-func NewDefaultMatcher(ps []gitignore.Pattern, domain []string) gitignore.Matcher {
-	var defaultPs []gitignore.Pattern
-	defaultPs = append(defaultPs, VCSPatterns(domain)...)
-	defaultPs = append(defaultPs, DefaultPatterns(domain)...)
-	ps = append(defaultPs, ps...)
-	return gitignore.NewMatcher(ps)
-}
-
-// VCSPatterns returns a gitignore.Pattern slice with ExcludeVCS
-// patterns.
-func VCSPatterns(domain []string) []gitignore.Pattern {
-	var ps []gitignore.Pattern
-	for _, p := range strings.Split(ExcludeVCS, ",") {
-		ps = append(ps, gitignore.ParsePattern(p, domain))
-	}
-	return ps
-}
-
-// DefaultPatterns returns a gitignore.Pattern slice with the default
-// ExcludeExt, ExcludeCI, ExcludeExtra patterns.
-func DefaultPatterns(domain []string) []gitignore.Pattern {
-	all := strings.Join([]string{ExcludeExt, ExcludeCI, ExcludeExtra}, ",")
-	var ps []gitignore.Pattern
-	for _, p := range strings.Split(all, ",") {
-		ps = append(ps, gitignore.ParsePattern(p, domain))
-	}
-	return ps
-}
-
-// ReadPatterns collects ignore patterns from the given reader and
-// returns them as a gitignore.Pattern slice.
-// If a domain is supplied, this is used as the scope of the read
-// patterns.
-func ReadPatterns(reader io.Reader, domain []string) []gitignore.Pattern {
-	var ps []gitignore.Pattern
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		s := scanner.Text()
-		if !strings.HasPrefix(s, "#") && len(strings.TrimSpace(s)) > 0 {
-			ps = append(ps, gitignore.ParsePattern(s, domain))
-		}
-	}
-	return ps
-}
-
-// ReadIgnoreFile attempts to read the file at the given path and
-// returns the read patterns.
-func ReadIgnoreFile(path string, domain []string) ([]gitignore.Pattern, error) {
-	var ps []gitignore.Pattern
-	if f, err := os.Open(path); err == nil {
-		defer f.Close()
-		ps = append(ps, ReadPatterns(f, domain)...)
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	}
-	return ps, nil
-}
 
 // LoadIgnorePatterns recursively loads the IgnoreFile patterns found
 // in the directory.
-func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]gitignore.Pattern, error) {
+func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]string, error) {
 	// Make a copy of the domain so that the underlying string array of domain
 	// in the gitignore patterns are unique without any side effects.
 	dom := make([]string, len(domain))
@@ -118,7 +42,7 @@ func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]gitig
 	}
 	for _, fi := range fis {
 		if fi.IsDir() && fi.Name() != ".git" {
-			var subps []gitignore.Pattern
+			var subps []string
 			if subps, err = LoadIgnorePatterns(filepath.Join(dir, fi.Name()), append(dom, fi.Name()), ignoreFile); err != nil {
 				return nil, err
 			}
@@ -128,4 +52,34 @@ func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]gitig
 		}
 	}
 	return ps, nil
+}
+
+func ReadIgnoreFile(path string, domain []string) ([]string, error) {
+	var ps []string
+	if f, err := os.Open(path); err == nil {
+		defer f.Close()
+		ps = append(ps, ReadPatterns(f, domain)...)
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	return ps, nil
+}
+
+func ReadPatterns(reader io.Reader, domain []string) []string {
+	var ps []string
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		s := scanner.Text()
+		if strings.HasPrefix(s, "#") {
+			continue
+		}
+
+		p := strings.TrimPrefix(s, "!")
+		p = strings.Join(domain, "/") + "/" + p
+		if strings.HasPrefix(s, "!") {
+			p = "!" + p
+		}
+		ps = append(ps, p)
+	}
+	return ps
 }
