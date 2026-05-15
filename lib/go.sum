@@ -27,8 +27,6 @@ github.com/elazarl/goproxy v1.7.2 h1:Y2o6urb7Eule09PjlhQRGNsqRfPmYI3KKQLFpCAV3+o
 github.com/elazarl/goproxy v1.7.2/go.mod h1:82vkLNir0ALaW14Rc399OTTjyNREgmdL2cVoIbS6XaE=
 github.com/emirpasic/gods v1.18.1 h1:FXtiHYKDGKCW2KzwZKx0iC0PQmdlorYgdFG9jPXJ1Bc=
 github.com/emirpasic/gods v1.18.1/go.mod h1:8tpGGwCnJ5H4r6BWwaV6OrWmMoPhUl5jm/FMNAnJvWQ=
-github.com/fluxcd/pkg/sourceignore v0.18.0 h1:WU2tPKasG9AM7/H/LlqdjULyaSknnZBTrpHsDDtOuns=
-github.com/fluxcd/pkg/sourceignore v0.18.0/go.mod h1:mnH7rFFlEbMTclhz7JZP7tiHssKdXRNpCqnly2JGvaI=
 github.com/gabriel-vasile/mimetype v1.4.13 h1:46nXokslUBsAJE/wMsp5gtO500a4F3Nkz9Ufpk2AcUM=
 github.com/gabriel-vasile/mimetype v1.4.13/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
 github.com/gliderlabs/ssh v0.3.8 h1:a4YXD1V7xMF9g5nTkdfnja3Sxy1PVDCj1Zg4Wb8vY6c=
@@ -72,8 +70,8 @@ github.com/kevinburke/ssh_config v1.6.0 h1:J1FBfmuVosPHf5GRdltRLhPJtJpTlMdKTBjRg
 github.com/kevinburke/ssh_config v1.6.0/go.mod h1:q2RIzfka+BXARoNexmF9gkxEX7DmvbW9P4hIVx2Kg4M=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
-github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1 h1:yVXFTxa6cvhLC6TwkDEHmNaiWlDyaFEGiXd1DQdoeOU=
-github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1/go.mod h1:3ebNU9QBrNpUO+Hj6bHaGpkh5pymDHQ+wwVPHTE4mCE=
+github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260510-2 h1:uAhJzKgOpQZiRkanfJ4HBF//3hN6EVA1+S/rqf2JyPs=
+github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260510-2/go.mod h1:yOaLjaCTUoD64QTRbn7JN+aLz+B2WRMtzdo4OWmDCOA=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

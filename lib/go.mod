@@ -7,7 +7,6 @@ toolchain go1.26.3
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
-	github.com/fluxcd/pkg/sourceignore v0.18.0
 	github.com/go-errors/errors v1.5.1
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.0
@@ -16,7 +15,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.6.0
-	github.com/kluctl/go-embed-python v0.0.0-3.11.11-20241219-1
+	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260510-2
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/mitchellh/reflectwalk v1.0.2
@@ -51,6 +50,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/onsi/gomega v1.40.0 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
