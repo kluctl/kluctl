@@ -5,3 +5,4 @@ pyyaml==6.0.2
 python-slugify==8.0.4
 MarkupSafe==3.0.2
 dulwich==1.2.1
+urllib3==2.7.0

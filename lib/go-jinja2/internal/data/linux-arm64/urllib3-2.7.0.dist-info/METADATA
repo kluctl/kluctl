@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urllib3
-Version: 2.6.3
+Version: 2.7.0
 Summary: HTTP library with thread-safe connection pooling, file post, and more.
 Project-URL: Changelog, https://github.com/urllib3/urllib3/blob/main/CHANGES.rst
 Project-URL: Documentation, https://urllib3.readthedocs.io
@@ -17,7 +17,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,7 +27,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: brotli
 Requires-Dist: brotli>=1.2.0; (platform_python_implementation == 'CPython') and extra == 'brotli'
 Requires-Dist: brotlicffi>=1.2.0.0; (platform_python_implementation != 'CPython') and extra == 'brotli'

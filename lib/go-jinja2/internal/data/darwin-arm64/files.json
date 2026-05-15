@@ -1,5 +1,5 @@
 {
-  "contentHash": "96de6bcab27b6498230bbee0fa73ff8def3343aac41b15bf8438f76a6b24b914",
+  "contentHash": "26925536f894442043f2727de26a491b805d2fcde6bd63807592c5f7417969e7",
   "files": [
     {
       "name": "MarkupSafe-3.0.2.dist-info",
@@ -1357,37 +1357,42 @@
       "perm": 2147484141
     },
     {
-      "name": "urllib3-2.6.3.dist-info",
+      "name": "urllib3-2.7.0.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "urllib3-2.6.3.dist-info/INSTALLER",
+      "name": "urllib3-2.7.0.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "urllib3-2.6.3.dist-info/METADATA",
-      "size": 6901,
+      "name": "urllib3-2.7.0.dist-info/METADATA",
+      "size": 6852,
       "perm": 420
     },
     {
-      "name": "urllib3-2.6.3.dist-info/RECORD",
-      "size": 5527,
+      "name": "urllib3-2.7.0.dist-info/RECORD",
+      "size": 5615,
       "perm": 420
     },
     {
-      "name": "urllib3-2.6.3.dist-info/WHEEL",
+      "name": "urllib3-2.7.0.dist-info/REQUESTED",
+      "size": 0,
+      "perm": 420
+    },
+    {
+      "name": "urllib3-2.7.0.dist-info/WHEEL",
       "size": 87,
       "perm": 420
     },
     {
-      "name": "urllib3-2.6.3.dist-info/licenses",
+      "name": "urllib3-2.7.0.dist-info/licenses",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "urllib3-2.6.3.dist-info/licenses/LICENSE.txt",
+      "name": "urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
       "size": 1093,
       "perm": 420
     },
@@ -1398,12 +1403,12 @@
     },
     {
       "name": "urllib3/_base_connection.py",
-      "size": 5568,
+      "size": 5580,
       "perm": 420
     },
     {
       "name": "urllib3/_collections.py",
-      "size": 17595,
+      "size": 17522,
       "perm": 420
     },
     {
@@ -1413,17 +1418,17 @@
     },
     {
       "name": "urllib3/_version.py",
-      "size": 704,
+      "size": 520,
       "perm": 420
     },
     {
       "name": "urllib3/connection.py",
-      "size": 42800,
+      "size": 42786,
       "perm": 420
     },
     {
       "name": "urllib3/connectionpool.py",
-      "size": 43371,
+      "size": 44164,
       "perm": 420
     },
     {
@@ -1468,27 +1473,27 @@
     },
     {
       "name": "urllib3/contrib/emscripten/response.py",
-      "size": 9507,
+      "size": 9719,
       "perm": 420
     },
     {
       "name": "urllib3/contrib/pyopenssl.py",
-      "size": 19724,
+      "size": 19734,
       "perm": 420
     },
     {
       "name": "urllib3/contrib/socks.py",
-      "size": 7547,
+      "size": 7639,
       "perm": 420
     },
     {
       "name": "urllib3/exceptions.py",
-      "size": 9952,
+      "size": 9945,
       "perm": 420
     },
     {
       "name": "urllib3/fields.py",
-      "size": 10829,
+      "size": 10801,
       "perm": 420
     },
     {
@@ -1518,7 +1523,7 @@
     },
     {
       "name": "urllib3/poolmanager.py",
-      "size": 23811,
+      "size": 23895,
       "perm": 420
     },
     {
@@ -1528,7 +1533,7 @@
     },
     {
       "name": "urllib3/response.py",
-      "size": 52931,
+      "size": 53219,
       "perm": 420
     },
     {
@@ -1563,17 +1568,17 @@
     },
     {
       "name": "urllib3/util/retry.py",
-      "size": 19235,
+      "size": 19577,
       "perm": 420
     },
     {
       "name": "urllib3/util/ssl_.py",
-      "size": 19929,
+      "size": 17742,
       "perm": 420
     },
     {
       "name": "urllib3/util/ssl_match_hostname.py",
-      "size": 5845,
+      "size": 5479,
       "perm": 420
     },
     {
