@@ -56,13 +56,20 @@ class SortedThis(This):
         return datum
 
     def __eq__(self, other):
-        return isinstance(other, Len)
+        return (
+            isinstance(other, SortedThis)
+            and self.expressions == other.expressions
+        )
 
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self.expressions)
 
     def __str__(self):
-        return '[?%s]' % self.expressions
+        expressions: list[str] = []
+        for (field, reverse) in self.expressions:
+            prefix = "\\" if reverse else "/"
+            expressions.append(f"{prefix}{field}")
+        return f"[{', '.join(expressions)}]"
 
 
 class Len(JSONPath):

@@ -3,7 +3,8 @@ import fnmatch
 import logging
 import os
 
-import ply
+import jsonpath_ng
+
 from jsonpath_ng import auto_id_field, jsonpath, JSONPath
 from jsonpath_ng.exceptions import JsonPathParserError
 from jsonpath_ng.ext.parser import ExtentedJsonPathParser
@@ -46,7 +47,7 @@ class MyJsonPathParser(ExtentedJsonPathParser):
             module_name = __name__
 
         parsing_table_module = '_'.join([module_name, start_symbol, 'parsetab'])
-        self.parser = ply.yacc.yacc(module=self,
+        self.parser = jsonpath_ng._ply.yacc.yacc(module=self,
                                    debug=self.debug,
                                    tabmodule=parsing_table_module,
                                    outputdir=output_directory,
