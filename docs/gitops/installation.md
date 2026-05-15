@@ -11,7 +11,10 @@ description: "Installing the Kluctl Controller"
 # Installation
 
 The controller can be installed via two available options.
-
+Note: if you are using KinD cluster, you need to pull the image into local host then load it into KinD cluster
+  . docker pull ghcr.io/kluctl/kluctl:v2.26.0
+  . kind load docker-image ghcr.io/kluctl/kluctl:v2.26.0 --name <cluster name>
+  
 ## Using the "install" sub-command
 
 The [`kluctl controller install`](../kluctl/commands/controller-install.md) command can be used to install the
@@ -30,3 +33,4 @@ deployments:
       ref:
         tag: v2.27.0
 ```
+
