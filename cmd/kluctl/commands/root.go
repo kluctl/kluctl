@@ -18,21 +18,22 @@ package commands
 import (
 	"context"
 	"fmt"
-	go_container_logs "github.com/google/go-containerregistry/pkg/logs"
-	"github.com/google/gops/agent"
-	status2 "github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/pkg/prompts"
-	flag "github.com/spf13/pflag"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 	"time"
+
+	go_container_logs "github.com/google/go-containerregistry/pkg/logs"
+	"github.com/google/gops/agent"
+	status2 "github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/pkg/prompts"
+	flag "github.com/spf13/pflag"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -193,7 +194,7 @@ func checkNewVersion(ctx context.Context) {
 	var versionCheckState VersionCheckState
 	err := yaml.ReadYamlFile(versionCheckPath, &versionCheckState)
 	if err == nil {
-		if time.Now().Sub(versionCheckState.LastVersionCheck) < time.Hour {
+		if time.Since(versionCheckState.LastVersionCheck) < time.Hour {
 			return
 		}
 	}
@@ -220,9 +221,7 @@ func checkNewVersion(ctx context.Context) {
 	if !ok {
 		return
 	}
-	if strings.HasPrefix(latestVersionStr, "v") {
-		latestVersionStr = latestVersionStr[1:]
-	}
+	latestVersionStr = strings.TrimPrefix(latestVersionStr, "v")
 	latestVersion, err := semver.NewVersion(latestVersionStr)
 	if err != nil {
 		s.FailedWithMessagef("Failed to parse latest version: %v", err)

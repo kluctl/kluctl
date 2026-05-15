@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
 	"github.com/kluctl/kluctl/v2/pkg/deployment/commands"
-	"time"
 )
 
 type validateCmd struct {
@@ -67,7 +68,7 @@ func (cmd *validateCmd) doValidate(ctx context.Context, cmdCtx *commandCtx, cmd2
 			return nil
 		}
 
-		if cmd.Wait <= 0 || time.Now().Sub(startTime) > cmd.Wait {
+		if cmd.Wait <= 0 || time.Since(startTime) > cmd.Wait {
 			return fmt.Errorf("Validation failed")
 		}
 
