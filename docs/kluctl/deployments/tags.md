@@ -72,7 +72,7 @@ resources to be deployed as well.
 
 Imagine a large deployment is able to deploy 10 applications, but you only want to deploy one of them. When using tags
 to achieve this, there might be some base resources (e.g. Namespaces) which are needed no matter if everything or just
-this single application is deployed. In that case, you'd need to set [alwaysDeploy](./deployment-yml.md#deployments)
+this single application is deployed. In that case, you'd need to set [alwaysDeploy](./deployment-yml.md#alwaysdeploy)
 to `true`.
 
 ## Deleting with tag inclusion/exclusion
