@@ -2,13 +2,13 @@ package jinja2
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"strings"
-	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestToYaml(t *testing.T) {
+func (suite *Jinja2TestSuite) TestToYaml() {
 	type testCase struct {
 		v      any
 		result string
@@ -21,33 +21,33 @@ func TestToYaml(t *testing.T) {
 		{v: "01", result: "v: '01'"},
 		{v: "09", result: "v: '09'"},
 	}
-	j2 := newJinja2(t)
+	j2 := suite.newJinja2()
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("%v-%s", tc.v, tc.result), func(t *testing.T) {
+		suite.Run(fmt.Sprintf("%v-%s", tc.v, tc.result), func() {
 			s, err := j2.RenderString("{{ m | to_yaml }}", WithGlobal("m", map[string]any{"v": tc.v}))
-			assert.NoError(t, err)
-			assert.Equal(t, tc.result+"\n", s)
+			assert.NoError(suite.T(), err)
+			assert.Equal(suite.T(), tc.result+"\n", s)
 		})
 	}
 }
 
-func TestSha256(t *testing.T) {
-	j2 := newJinja2(t)
+func (suite *Jinja2TestSuite) TestSha256() {
+	j2 := suite.newJinja2()
 	s, err := j2.RenderString("{{ 'test' | sha256 }}")
-	assert.NoError(t, err)
-	assert.Equal(t, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", s)
 }
 
-func TestSha256PrefixLength(t *testing.T) {
-	j2 := newJinja2(t)
+func (suite *Jinja2TestSuite) TestSha256PrefixLength() {
+	j2 := suite.newJinja2()
 	s, err := j2.RenderString("{{ 'test' | sha256(6) }}")
-	assert.NoError(t, err)
-	assert.Equal(t, "9f86d0", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "9f86d0", s)
 }
 
-func TestGetVarAndRender(t *testing.T) {
-	j2 := newJinja2(t, WithGlobals(map[string]any{
+func (suite *Jinja2TestSuite) TestGetVarAndRender() {
+	j2 := suite.newJinja2(WithGlobals(map[string]any{
 		"g1": "v1",
 		"g2": "v2",
 		"g3": map[string]any{
@@ -90,25 +90,25 @@ func TestGetVarAndRender(t *testing.T) {
 
 	for i, tc := range tests {
 		tc := tc
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		suite.Run(fmt.Sprintf("%d", i), func() {
 			s, err := j2.RenderString(tc.tmpl)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.result, s)
+			assert.NoError(suite.T(), err)
+			assert.Equal(suite.T(), tc.result, s)
 		})
 	}
 }
 
-func TestLoadLatestGitSha(t *testing.T) {
+func (suite *Jinja2TestSuite) TestLoadLatestGitSha() {
 	cwd, _ := os.Getwd()
-	j2 := newJinja2(t, WithSearchDir(cwd))
+	j2 := suite.newJinja2(WithSearchDir(cwd))
 	s, err := j2.RenderString("sha: {{ load_latest_git_sha('./README.md') }}")
-	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(s, "sha: "))
-	assert.Equal(t, 5+40, len(s)) // 5 for "sha: ", 40 for sha length (from `man git-rev-parse`: "The full SHA-1 object name (40-byte hexadecimal string)").
+	assert.NoError(suite.T(), err)
+	assert.True(suite.T(), strings.HasPrefix(s, "sha: "))
+	assert.Equal(suite.T(), 5+40, len(s)) // 5 for "sha: ", 40 for sha length (from `man git-rev-parse`: "The full SHA-1 object name (40-byte hexadecimal string)").
 
 	s, err = j2.RenderString("sha: {{ load_latest_git_sha('./README.md', 6) }}")
-	assert.NoError(t, err)
-	assert.True(t, strings.HasPrefix(s, "sha: "))
-	assert.Equal(t, 5+6, len(s)) // 5 for "sha: ", 6 for sha length
+	assert.NoError(suite.T(), err)
+	assert.True(suite.T(), strings.HasPrefix(s, "sha: "))
+	assert.Equal(suite.T(), 5+6, len(s)) // 5 for "sha: ", 6 for sha length
 
 }

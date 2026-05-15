@@ -1,12 +1,12 @@
 package jinja2
 
 import (
-	"github.com/stretchr/testify/assert"
 	"path/filepath"
-	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestRenderDirectoryTemplateIgnore(t *testing.T) {
+func (suite *Jinja2TestSuite) TestRenderDirectoryTemplateIgnore() {
 	type testCase struct {
 		name  string
 		files map[string]string
@@ -146,19 +146,19 @@ func TestRenderDirectoryTemplateIgnore(t *testing.T) {
 		},
 	}
 
-	j2 := newJinja2(t)
+	j2 := suite.newJinja2()
 
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := newTemplateDir(t, tc.files)
-			targetDir := t.TempDir()
+		suite.Run(tc.name, func() {
+			dir := newTemplateDir(suite.T(), tc.files)
+			targetDir := suite.T().TempDir()
 			var opts []Jinja2Opt
 			if tc.ignoreRoot != "" {
 				opts = append(opts, WithTemplateIgnoreRootDir(filepath.Join(dir, tc.ignoreRoot)))
 			}
 			err := j2.RenderDirectory(filepath.Join(dir, tc.subdir), targetDir, nil, opts...)
-			assert.NoError(t, err)
-			assertDirSame(t, targetDir, tc.r)
+			assert.NoError(suite.T(), err)
+			assertDirSame(suite.T(), targetDir, tc.r)
 		})
 	}
 }

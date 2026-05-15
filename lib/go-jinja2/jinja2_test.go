@@ -2,18 +2,45 @@ package jinja2
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/fs"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kluctl/go-embed-python/python"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
+
+type Jinja2TestSuite struct {
+	suite.Suite
+
+	ep *python.EmbeddedPython
+}
+
+func TestJinja2TestSuite(t *testing.T) {
+	suite.Run(t, new(Jinja2TestSuite))
+}
+
+func (suite *Jinja2TestSuite) SetupSuite() {
+	rndName := fmt.Sprintf("test-%d", rand.Uint32())
+	ep, err := python.NewEmbeddedPython(rndName)
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	suite.ep = ep
+}
+
+func (suite *Jinja2TestSuite) TearDownSuite() {
+	suite.ep.Cleanup()
+}
 
 func newJinja2WithErr(t *testing.T, opts ...Jinja2Opt) (*Jinja2, error) {
 	name := fmt.Sprintf("jinja2-%d", rand.Uint32())
-	opts2 := append(opts, WithExtension("go_jinja2.ext.kluctl"))
-	j2, err := NewJinja2(name, 1, opts2...)
+	opts = append([]Jinja2Opt{}, opts...)
+	opts = append(opts, WithExtension("go_jinja2.ext.kluctl"))
+	j2, err := NewJinja2(name, 1, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -28,6 +55,20 @@ func newJinja2(t *testing.T, opts ...Jinja2Opt) *Jinja2 {
 	j2, err := newJinja2WithErr(t, opts...)
 	if err != nil {
 		t.Fatal(err)
+	}
+	return j2
+}
+
+func (suite *Jinja2TestSuite) newJinja2WithErr(opts ...Jinja2Opt) (*Jinja2, error) {
+	opts = append([]Jinja2Opt{}, opts...)
+	opts = append(opts, WithPython(suite.ep.Python))
+	return newJinja2WithErr(suite.T(), opts...)
+}
+
+func (suite *Jinja2TestSuite) newJinja2(opts ...Jinja2Opt) *Jinja2 {
+	j2, err := suite.newJinja2WithErr(opts...)
+	if err != nil {
+		suite.T().Fatal(err)
 	}
 	return j2
 }
@@ -89,8 +130,8 @@ func assertDirSame(t *testing.T, dir string, expected map[string]string) {
 	assert.Equal(t, expected, found)
 }
 
-func TestJinja2(t *testing.T) {
-	j2 := newJinja2(t, WithGlobals(map[string]any{
+func (suite *Jinja2TestSuite) TestJinja2() {
+	j2 := suite.newJinja2(WithGlobals(map[string]any{
 		"test_var1": "1",
 		"test_var2": map[string]any{
 			"test": "2",
@@ -98,38 +139,38 @@ func TestJinja2(t *testing.T) {
 	}))
 
 	s, err := j2.RenderString("test")
-	assert.NoError(t, err)
-	assert.Equal(t, "test", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test", s)
 
 	s, err = j2.RenderString("test - {{ test_var1 }}")
-	assert.NoError(t, err)
-	assert.Equal(t, "test - 1", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test - 1", s)
 
 	s, err = j2.RenderString("test - {{ test_var2.test }}")
-	assert.NoError(t, err)
-	assert.Equal(t, "test - 2", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test - 2", s)
 
 	s, err = j2.RenderString("test - {{ get_var('test_var2.test', 'd') }}", WithExtension("go_jinja2.ext.kluctl"))
-	assert.NoError(t, err)
-	assert.Equal(t, "test - 2", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test - 2", s)
 
 	s, err = j2.RenderString("test - {{ get_var('test_var2.test1', 'd') }}", WithExtension("go_jinja2.ext.kluctl"))
-	assert.NoError(t, err)
-	assert.Equal(t, "test - d", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test - d", s)
 
 	s, err = j2.RenderString("test - {{ test_var1 | add(2) }}", WithFilter("add", `
 def add(a, b):
 	return int(a) + int(b)
 `))
-	assert.NoError(t, err)
-	assert.Equal(t, "test - 3", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test - 3", s)
 
 	s, err = j2.RenderString("test - {{ test_var2.test | mul(3) }}", WithFilter("mul:multiply", `
 def multiply(a, b):
 	return int(a) * int(b)
 `))
-	assert.NoError(t, err)
-	assert.Equal(t, "test - 6", s)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "test - 6", s)
 }
 
 type testStruct struct {
@@ -142,8 +183,8 @@ type testStruct2 struct {
 	V2 string `json:"v2"`
 }
 
-func TestRenderStruct(t *testing.T) {
-	j2 := newJinja2(t)
+func (suite *Jinja2TestSuite) TestRenderStruct() {
+	j2 := suite.newJinja2()
 
 	s := testStruct{
 		V1: `{{ "1" }}`,
@@ -181,54 +222,54 @@ func TestRenderStruct(t *testing.T) {
 	}
 
 	changed, err := j2.RenderStruct(&s)
-	assert.NoError(t, err)
-	assert.True(t, changed)
-	assert.Equal(t, e, s)
+	assert.NoError(suite.T(), err)
+	assert.True(suite.T(), changed)
+	assert.Equal(suite.T(), e, s)
 
 	changed, err = j2.RenderStruct(&s)
-	assert.NoError(t, err)
-	assert.False(t, changed)
-	assert.Equal(t, e, s)
+	assert.NoError(suite.T(), err)
+	assert.False(suite.T(), changed)
+	assert.Equal(suite.T(), e, s)
 }
 
-func TestRenderFiles(t *testing.T) {
-	j2 := newJinja2(t)
+func (suite *Jinja2TestSuite) TestRenderFiles() {
+	j2 := suite.newJinja2()
 
-	t1 := newTemplateFile(t, `{{ "a" }}`)
-	t2 := newTemplateFile(t, `{{ "b" }}`)
+	t1 := newTemplateFile(suite.T(), `{{ "a" }}`)
+	t2 := newTemplateFile(suite.T(), `{{ "b" }}`)
 
 	r1, err := j2.RenderFile(t1)
-	assert.NoError(t, err)
-	assert.Equal(t, "a", r1)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "a", r1)
 
 	r2, err := j2.RenderFile(t2)
-	assert.NoError(t, err)
-	assert.Equal(t, "b", r2)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "b", r2)
 }
 
-func TestRenderRelativeFiles(t *testing.T) {
-	j2 := newJinja2(t)
+func (suite *Jinja2TestSuite) TestRenderRelativeFiles() {
+	j2 := suite.newJinja2()
 
-	d := newTemplateDir(t, map[string]string{
+	d := newTemplateDir(suite.T(), map[string]string{
 		"template":        "{{ a }}",
 		"subdir/template": "{{ b }}",
 	})
 
 	r1, err := j2.RenderFile("template", WithSearchDirs([]string{d}), WithGlobal("a", "a"))
-	assert.NoError(t, err)
-	assert.Equal(t, "a", r1)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "a", r1)
 
 	r2, err := j2.RenderFile("template", WithSearchDirs([]string{filepath.Join(d, "subdir")}), WithGlobal("b", "b"))
-	assert.NoError(t, err)
-	assert.Equal(t, "b", r2)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "b", r2)
 
 	r3, err := j2.RenderFile("../template", WithSearchDirs([]string{filepath.Join(d, "subdir")}), WithGlobal("a", "b"))
-	assert.NoError(t, err)
-	assert.Equal(t, "b", r3)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), "b", r3)
 }
 
-func TestRenderFiles_Includes(t *testing.T) {
-	includeDir := newTemplateDir(t, map[string]string{
+func (suite *Jinja2TestSuite) TestRenderFiles_Includes() {
+	includeDir := newTemplateDir(suite.T(), map[string]string{
 		"include.yaml":        "test",
 		"include-dot.yaml":    `{% include "./include.yaml" %}`,
 		"include-caller.yaml": `{% include "include-caller2.yaml" %}`,
@@ -382,11 +423,11 @@ func TestRenderFiles_Includes(t *testing.T) {
 		},
 	}
 
-	j2 := newJinja2(t)
+	j2 := suite.newJinja2()
 
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := newTemplateDir(t, tc.files)
+		suite.Run(tc.name, func() {
+			dir := newTemplateDir(suite.T(), tc.files)
 			var sd []string
 			for _, x := range tc.sd {
 				if x == "self" {
@@ -397,16 +438,16 @@ func TestRenderFiles_Includes(t *testing.T) {
 			}
 			r, err := j2.RenderFile(filepath.Join(dir, tc.t), WithSearchDirs(sd))
 			if tc.err == "" {
-				assert.NoError(t, err)
+				assert.NoError(suite.T(), err)
 			} else {
-				assert.EqualError(t, err, tc.err)
+				assert.EqualError(suite.T(), err, tc.err)
 			}
-			assert.Equal(t, tc.r, r)
+			assert.Equal(suite.T(), tc.r, r)
 		})
 	}
 }
 
-func TestRenderDirectory(t *testing.T) {
+func (suite *Jinja2TestSuite) TestRenderDirectory() {
 	type testCase struct {
 		name  string
 		files map[string]string
@@ -416,7 +457,7 @@ func TestRenderDirectory(t *testing.T) {
 		err   string
 	}
 
-	includeDir := newTemplateDir(t, map[string]string{
+	includeDir := newTemplateDir(suite.T(), map[string]string{
 		"include-dir.yaml": "test",
 	})
 
@@ -463,11 +504,11 @@ func TestRenderDirectory(t *testing.T) {
 		},
 	}
 
-	j2 := newJinja2(t)
+	j2 := suite.newJinja2()
 
 	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			dir := newTemplateDir(t, tc.files)
+		suite.Run(tc.name, func() {
+			dir := newTemplateDir(suite.T(), tc.files)
 			var sd []string
 			for _, x := range tc.sd {
 				if x == "self" {
@@ -476,14 +517,14 @@ func TestRenderDirectory(t *testing.T) {
 					sd = append(sd, x)
 				}
 			}
-			targetDir := t.TempDir()
+			targetDir := suite.T().TempDir()
 			err := j2.RenderDirectory(dir, targetDir, tc.excl, WithSearchDirs(sd))
 			if tc.err == "" {
-				assert.NoError(t, err)
+				assert.NoError(suite.T(), err)
 			} else {
-				assert.EqualError(t, err, tc.err)
+				assert.EqualError(suite.T(), err, tc.err)
 			}
-			assertDirSame(t, targetDir, tc.r)
+			assertDirSame(suite.T(), targetDir, tc.r)
 		})
 	}
 }
