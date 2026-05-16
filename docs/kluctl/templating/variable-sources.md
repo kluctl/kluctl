@@ -504,7 +504,7 @@ substitute PROJECT-NAME with your real project name in google. Service account i
 To run kluctl locally with gcpSecretManager enabled refer to [setting local development environment](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-dev) article.
 
 ### azureKeyVault
-[Azure Key Vault](https://azure.microsoft.com/en-us/products/key-vault/) integration.
+[Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/overview) integration.
 Loads a variables YAML from an Azure Key Vault.
 
 Example
