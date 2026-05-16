@@ -3,6 +3,8 @@ package target_context
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
@@ -14,7 +16,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/vars"
-	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

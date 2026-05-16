@@ -3,6 +3,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+
 	"github.com/getsops/sops/v3/keyservice"
 	"github.com/getsops/sops/v3/kms"
 	"github.com/google/uuid"
@@ -25,10 +30,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"helm.sh/helm/v3/pkg/repo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"

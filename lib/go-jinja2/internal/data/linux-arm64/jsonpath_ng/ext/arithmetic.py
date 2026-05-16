@@ -26,6 +26,7 @@ OPERATOR_MAP = {
 class Operation(JSONPath):
     def __init__(self, left, op, right):
         self.left = left
+        self.op_symbol = op
         self.op = OPERATOR_MAP[op]
         self.right = right
 
@@ -65,8 +66,17 @@ class Operation(JSONPath):
         return [DatumInContext.wrap(r) for r in result]
 
     def __repr__(self):
-        return '%s(%r%s%r)' % (self.__class__.__name__, self.left, self.op,
+        return '%s(%r%s%r)' % (self.__class__.__name__, self.left, self.op_symbol,
                                self.right)
 
     def __str__(self):
-        return '%s%s%s' % (self.left, self.op, self.right)
+        return '%s %s %s' % (self.left, self.op_symbol, self.right)
+
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Operation)
+            and self.left == other.left
+            and self.op_symbol == other.op_symbol
+            and self.right == other.right
+        )

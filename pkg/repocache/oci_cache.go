@@ -4,22 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/kluctl/kluctl/lib/git"
-	gittypes "github.com/kluctl/kluctl/lib/git/types"
-	"github.com/kluctl/kluctl/lib/status"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
-	"github.com/kluctl/kluctl/v2/pkg/oci/client"
-	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
-	"github.com/kluctl/kluctl/v2/pkg/types"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
-	cp "github.com/otiai10/copy"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/kluctl/kluctl/lib/git"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
+	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
+	"github.com/kluctl/kluctl/v2/pkg/types"
+	"github.com/kluctl/kluctl/v2/pkg/utils"
+	cp "github.com/otiai10/copy"
+
+	"github.com/fluxcd/pkg/oci"
 )
 
 type OciRepoCache struct {
@@ -40,7 +42,7 @@ type OciRepoCache struct {
 type OciCacheEntry struct {
 	rp          *OciRepoCache
 	url         url.URL
-	ociClient   *client.Client
+	ociClient   *oci.Client
 	ociCacheDir string
 
 	pulledDirs   map[types.OciRef]clonedDir
@@ -140,7 +142,7 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		clientOpts = append(clientOpts, authOpts...)
 	}
 
-	ociClient := client.NewClient(clientOpts)
+	ociClient := oci.NewClient(clientOpts)
 
 	e = &OciCacheEntry{
 		rp:          rp,

@@ -53,14 +53,14 @@ class ExtendedJsonPathLexer(lexer.JsonPathLexer):
         return t
 
 
-class ExtentedJsonPathParser(parser.JsonPathParser):
+class ExtendedJsonPathParser(parser.JsonPathParser):
     """Custom LALR-parser for JsonPath"""
 
     tokens = ExtendedJsonPathLexer.tokens
 
     def __init__(self, debug=False, lexer_class=None):
         lexer_class = lexer_class or ExtendedJsonPathLexer
-        super(ExtentedJsonPathParser, self).__init__(debug, lexer_class)
+        super(ExtendedJsonPathParser, self).__init__(debug, lexer_class)
 
     def p_jsonpath_operator_jsonpath(self, p):
         """jsonpath : NUMBER operator NUMBER
@@ -107,7 +107,7 @@ class ExtentedJsonPathParser(parser.JsonPathParser):
         elif p[1].startswith("str("):
             p[0] = _string.Str(p[1])
         else:
-            super(ExtentedJsonPathParser, self).p_jsonpath_named_operator(p)
+            super(ExtendedJsonPathParser, self).p_jsonpath_named_operator(p)
 
     def p_expression(self, p):
         """expression : jsonpath
@@ -171,6 +171,8 @@ class ExtentedJsonPathParser(parser.JsonPathParser):
         ('nonassoc', 'ID'),
     ]
 
+# XXX This is here for backward compatibility
+ExtentedJsonPathParser = ExtendedJsonPathParser
 
 def parse(path, debug=False):
-    return ExtentedJsonPathParser(debug=debug).parse(path)
+    return ExtendedJsonPathParser(debug=debug).parse(path)

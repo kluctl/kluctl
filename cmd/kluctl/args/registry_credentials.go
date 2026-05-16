@@ -3,11 +3,12 @@ package args
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"os"
-	"strings"
 )
 
 type RegistryCredentials struct {

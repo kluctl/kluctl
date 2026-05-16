@@ -3,11 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/git/types"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/kluctl/kluctl/lib/git/types"
 
 	gitauth "github.com/kluctl/kluctl/lib/git/auth"
 	"github.com/kluctl/kluctl/lib/git/messages"

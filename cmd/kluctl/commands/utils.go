@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
+
 	"github.com/google/uuid"
 	"github.com/kluctl/kluctl/lib/git"
 	"github.com/kluctl/kluctl/lib/git/auth"
@@ -26,7 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"os"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
 

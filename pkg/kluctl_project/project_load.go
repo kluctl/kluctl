@@ -2,6 +2,8 @@ package kluctl_project
 
 import (
 	"context"
+	"path/filepath"
+
 	"github.com/kluctl/kluctl/lib/yaml"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
@@ -11,7 +13,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
-	"path/filepath"
 )
 
 type LoadKluctlProjectArgs struct {

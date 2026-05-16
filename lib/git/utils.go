@@ -5,18 +5,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/go-errors/errors"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
-	"github.com/kluctl/kluctl/lib/git/sourceignore"
-	"github.com/kluctl/kluctl/lib/git/types"
-	"github.com/kluctl/kluctl/lib/status"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-errors/errors"
+	"github.com/go-git/go-git/v5"
+	sourceignore2 "github.com/kluctl/kluctl/lib/git/sourceignore"
+	"github.com/kluctl/kluctl/lib/git/types"
+	"github.com/kluctl/kluctl/lib/status"
 )
 
 type CheckoutInfo struct {
@@ -117,14 +117,15 @@ func parsePorcelainStatus(out string) (git.Status, error) {
 	return ret, nil
 }
 
-func LoadGitignore(p string) ([]gitignore.Pattern, error) {
-	p = filepath.Clean(p)
-	domain := strings.Split(p, string(filepath.Separator))
-	ignorePatterns, err := sourceignore.LoadIgnorePatterns(p, domain, ".gitignore")
+func LoadGitignorePaths(rootPath string) ([]string, error) {
+	rootPath = filepath.Clean(rootPath)
+	domain := []string{}
+	ignorePatterns, err := sourceignore2.LoadIgnorePatterns(rootPath, domain, ".gitignore")
 	if err != nil {
 		return nil, err
 	}
-	ignorePatterns = append(ignorePatterns, sourceignore.ReadPatterns(strings.NewReader(".git"), domain)...)
+	ignorePatterns = append(ignorePatterns, sourceignore2.ReadPatterns(strings.NewReader(".git"), domain)...)
+
 	return ignorePatterns, nil
 }
 

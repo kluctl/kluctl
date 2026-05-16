@@ -1,9 +1,9 @@
 package e2e
 
 import (
-	"github.com/stretchr/testify/assert"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/stretchr/testify/assert"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -98,7 +98,7 @@ func TestWhenWithNonExistentDir(t *testing.T) {
 	t.Run("when_true_non_existent", func(t *testing.T) {
 		p := test_utils.NewTestProject(t)
 		p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
-		
+
 		// Add a deployment item with path to non-existing directory and when: true
 		p.UpdateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
 			deployments, _, _ := o.GetNestedObjectList("deployments")
@@ -120,7 +120,7 @@ func TestWhenWithNonExistentDir(t *testing.T) {
 	t.Run("when_false_non_existent", func(t *testing.T) {
 		p := test_utils.NewTestProject(t)
 		p.UpdateTarget("test", func(target *uo.UnstructuredObject) {})
-		
+
 		// Add a deployment item with path to non-existing directory and when: false
 		p.UpdateDeploymentYaml(".", func(o *uo.UnstructuredObject) error {
 			deployments, _, _ := o.GetNestedObjectList("deployments")
@@ -135,4 +135,3 @@ func TestWhenWithNonExistentDir(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
-

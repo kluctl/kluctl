@@ -3,8 +3,6 @@ package helm
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/git/types"
-	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 	"net/url"
 	"os"
 	"path"
@@ -12,6 +10,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/kluctl/kluctl/lib/git/types"
+	types2 "github.com/kluctl/kluctl/v2/pkg/types"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/crane"
