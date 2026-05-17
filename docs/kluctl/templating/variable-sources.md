@@ -95,6 +95,35 @@ will be an array.
 
 Using `multidoc` also requires you to set `targetPath`.
 
+Consider the following example.
+
+```yaml
+# file: deployment.yaml
+vars:
+- file: vars1.yaml
+  multidoc: true
+  targetPath: myvars
+```
+
+```yaml
+# file: vars1.yaml
+---
+var1: test1
+---
+var1: test2
+---
+var1: test3
+```
+
+This will load all documents from `vars1.yaml`, separated by `---` and stored in the list `myvars`. The variables are
+then accessible via `{{ myvars[x].var1 }}`.
+
+Standard Jinja2 [for loops](https://jinja.palletsprojects.com/en/stable/templates/#for) can also be used with the
+documents loaded in `myvars`.
+
+Without `multidoc: true`, `vars1.yaml` would be loaded as a single document, stored in `myvars`. This means that only
+the first document is loaded while the rest is discarded.
+
 ## Variable source types
 Different types of vars entries are possible:
 
