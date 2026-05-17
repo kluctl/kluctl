@@ -68,10 +68,26 @@ Kubernetes secrets.
 Specifies a [JSON path](https://goessner.net/articles/JsonPath/) to be used as the target path in the new templating
 context.
 
-Only simple pathes are supported that do not contain wildcards or lists.
+Only simple paths are supported that do not contain wildcards or lists.
 
 For some variable sources, `targetPath` will become mandatory when the resulting variable is not a dictionary.
 It is also mandatory when `multidoc` is set to `true`.
+
+Consider the following example:
+
+```yaml
+# file: deployment.yaml
+vars:
+- file: vars1.yaml
+  targetPath: myvars
+```
+
+```yaml
+# file: vars1.yaml
+var1: test
+```
+
+This will make the variables found in `vars1.yaml` accessible via `{{ myvars.xxx }}`.
 
 ##### multidoc
 When set to `true`, the vars source's underlying yaml document is treated as a yaml multidoc and the resulting variable
