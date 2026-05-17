@@ -57,6 +57,12 @@ func GetWorktreeStatus(ctx context.Context, path string) (git.Status, error) {
 	}
 	gitStatus, err := wt.Status()
 	if err != nil {
+		// there is no good reason for this to fail, except some form of incompatibility between go-git and upstream git.
+		// in that case, try to run "git status"
+		gitStatus2, err2 := getWorktreeStatusByExec(ctx, path)
+		if err2 == nil {
+			return gitStatus2, nil
+		}
 		return nil, err
 	}
 
@@ -73,25 +79,45 @@ func GetWorktreeStatus(ctx context.Context, path string) (git.Status, error) {
 
 	status.Trace(ctx, "Running git status --porcelain to verify CRLF issues are not what cause the dirty status")
 
+	gitStatus2, err := getWorktreeStatusByExec(ctx, path)
+	if err != nil {
+		// fall back to initial status
+		return gitStatus, nil
+	}
+	return gitStatus2, nil
+}
+
+func getWorktreeStatusByExec(ctx context.Context, path string) (git.Status, error) {
 	commandPath, err := exec.LookPath("git")
 	if err != nil {
 		status.Tracef(ctx, "Failed to lookup git binary: %v", err)
 		return nil, err
 	}
 
-	out := bytes.NewBuffer(nil)
+	stdout := bytes.NewBuffer(nil)
+	stderr := bytes.NewBuffer(nil)
 
-	cmd := &exec.Cmd{Path: commandPath, Dir: path, Env: os.Environ(), Args: []string{"git", "status", "--porcelain"}, Stdout: out, Stderr: out}
+	cmd := &exec.Cmd{
+		Path:   commandPath,
+		Dir:    path,
+		Env:    os.Environ(),
+		Args:   []string{"git", "status", "--porcelain"},
+		Stdout: stdout,
+		Stderr: stderr,
+	}
 	err = cmd.Run()
+	if stderr.Len() != 0 {
+		status.Warning(ctx, strings.TrimSpace(stderr.String()))
+	}
 	if err != nil {
-		status.Tracef(ctx, "Failed to run git status --porcelain: err=%v, out=%s", err, out.String())
-		return gitStatus, nil
+		status.Tracef(ctx, "Failed to run git status --porcelain: err=%v, out=%s", err, stdout.String())
+		return nil, err
 	}
 
-	parsedStatus, err := parsePorcelainStatus(out.String())
+	parsedStatus, err := parsePorcelainStatus(stdout.String())
 	if err != nil {
 		status.Tracef(ctx, "Failed to parse output of git status --porcelain: %v", err)
-		return gitStatus, err
+		return nil, err
 	}
 
 	return parsedStatus, nil
