@@ -27,7 +27,7 @@ require (
 	github.com/docker/cli v29.5.0+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/evanphx/json-patch/v5 v5.9.11
-	github.com/getsops/sops/v3 v3.13.0
+	github.com/getsops/sops/v3 v3.13.1
 	github.com/gin-contrib/sessions v1.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-errors/errors v1.5.1 // indirect
