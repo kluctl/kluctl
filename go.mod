@@ -57,7 +57,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/r3labs/diff/v2 v2.15.1
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 	github.com/sergi/go-diff v1.4.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
@@ -66,8 +66,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tkrajina/typescriptify-golang-structs v0.2.0
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
-	golang.org/x/net v0.54.0
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/net v0.55.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.45.0
