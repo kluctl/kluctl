@@ -19,11 +19,11 @@ require (
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mattn/go-runewidth v0.0.23
 	github.com/mitchellh/reflectwalk v1.0.2
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 	github.com/stretchr/testify v1.11.1
 	github.com/xanzy/ssh-agent v0.3.3
-	golang.org/x/crypto v0.51.0
-	golang.org/x/net v0.54.0
+	golang.org/x/crypto v0.52.0
+	golang.org/x/net v0.55.0
 	golang.org/x/sys v0.45.0
 	golang.org/x/text v0.37.0
 	k8s.io/apimachinery v0.36.1
