@@ -10,20 +10,20 @@ require (
 	github.com/go-errors/errors v1.5.1
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
-	github.com/go-playground/validator/v10 v10.30.2
+	github.com/go-playground/validator/v10 v10.30.3
 	github.com/gobwas/glob v0.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.6.0
 	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260510-2
 	github.com/mattn/go-isatty v0.0.22
-	github.com/mattn/go-runewidth v0.0.23
+	github.com/mattn/go-runewidth v0.0.24
 	github.com/mitchellh/reflectwalk v1.0.2
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 	github.com/stretchr/testify v1.11.1
 	github.com/xanzy/ssh-agent v0.3.3
-	golang.org/x/crypto v0.51.0
-	golang.org/x/net v0.54.0
+	golang.org/x/crypto v0.52.0
+	golang.org/x/net v0.55.0
 	golang.org/x/sys v0.45.0
 	golang.org/x/text v0.37.0
 	k8s.io/apimachinery v0.36.1
