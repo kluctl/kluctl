@@ -33,7 +33,7 @@ require (
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/go-logr/logr v1.4.3
-	github.com/go-playground/validator/v10 v10.30.2
+	github.com/go-playground/validator/v10 v10.30.3
 	github.com/gobwas/glob v0.2.3
 	github.com/google/go-containerregistry v0.21.5
 	github.com/google/gops v0.3.29
@@ -49,7 +49,7 @@ require (
 	github.com/kluctl/kluctl/lib v0.0.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.22
-	github.com/mattn/go-runewidth v0.0.23 // indirect
+	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/ohler55/ojg v1.28.1
 	github.com/onsi/gomega v1.40.0
@@ -57,7 +57,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/r3labs/diff/v2 v2.15.1
-	github.com/rogpeppe/go-internal v1.14.1
+	github.com/rogpeppe/go-internal v1.15.0
 	github.com/sergi/go-diff v1.4.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
@@ -66,8 +66,8 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tkrajina/typescriptify-golang-structs v0.2.0
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
-	golang.org/x/net v0.54.0
+	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/net v0.55.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/sys v0.45.0
