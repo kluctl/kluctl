@@ -23,6 +23,8 @@ jobs:
           fetch-depth: 0
       - name: Fetch all tags
         run: git fetch --force --tags
+      - name: Cleanup disk space
+        run: sudo ./hack/cleanup-github-runner-disk.sh
       - name: Set up Go
         uses: actions/setup-go@v6
         with:

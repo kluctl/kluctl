@@ -17,6 +17,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Cleanup disk space
+        run: sudo ./hack/cleanup-github-runner-disk.sh
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -171,6 +173,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Cleanup disk space (non-windows)
+        run: sudo ./hack/cleanup-github-runner-disk.sh
+        if: matrix.name != 'windows'
+      - name: Cleanup disk space (windows)
+        run: ./hack/cleanup-github-runner-disk.sh
+        if: matrix.name == 'windows'
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
