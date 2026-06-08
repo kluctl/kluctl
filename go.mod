@@ -46,7 +46,7 @@ require (
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260510-2
 	github.com/kluctl/kluctl/lib v0.0.0
-	github.com/mattn/go-colorable v0.1.14
+	github.com/mattn/go-colorable v0.1.15
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
