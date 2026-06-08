@@ -398,7 +398,7 @@ func (g *MirroredGitRepo) CloneProjectByCommit(commit string, targetDir string) 
 		panic("tried to clone from a project that is not locked/updated")
 	}
 
-	err := FastSharedClone(g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
+	err := FastSharedClone(g.ctx, g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
 	if err != nil {
 		return fmt.Errorf("failed to clone %s from %s: %w", commit, g.url.String(), err)
 	}

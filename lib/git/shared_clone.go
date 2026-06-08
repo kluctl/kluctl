@@ -1,22 +1,26 @@
 package git
 
 import (
+	"context"
+
 	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-git/v6"
 	"github.com/go-git/go-git/v6/plumbing/cache"
 	"github.com/go-git/go-git/v6/storage/filesystem"
 )
 
-func FastSharedClone(sourceDir string, targetDir string, coOptions *git.CheckoutOptions) error {
+func FastSharedClone(ctx context.Context, sourceDir string, targetDir string, coOptions *git.CheckoutOptions) error {
 	fs := osfs.New(targetDir, osfs.WithBoundOS())
 	gitFs, err := fs.Chroot(".git")
 	if err != nil {
 		return err
 	}
-	s := filesystem.NewStorageWithOptions(gitFs, cache.NewObjectLRUDefault(), filesystem.Options{})
+	s := filesystem.NewStorageWithOptions(gitFs, cache.NewObjectLRUDefault(), filesystem.Options{
+		AlternatesFS: osfs.New("/"),
+	})
 	defer s.Close()
 
-	r, err := git.Clone(s, fs, &git.CloneOptions{
+	r, err := git.CloneContext(ctx, s, fs, &git.CloneOptions{
 		URL:        sourceDir,
 		Shared:     true,
 		NoCheckout: true,
