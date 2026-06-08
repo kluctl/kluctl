@@ -3,11 +3,12 @@ package git
 import (
 	"context"
 	"errors"
-	git2 "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/kluctl/kluctl/lib/git/types"
 	"os"
 	"path/filepath"
+
+	git2 "github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/kluctl/kluctl/lib/git/types"
 )
 
 func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (types.GitInfo, types.ProjectKey, error) {
@@ -37,6 +38,7 @@ func BuildGitInfo(ctx context.Context, repoRoot string, projectDir string) (type
 	if err != nil {
 		return gitInfo, projectKey, err
 	}
+	defer g.Close()
 
 	s, err := GetWorktreeStatus(ctx, repoRoot)
 	if err != nil {

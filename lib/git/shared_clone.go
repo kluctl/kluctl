@@ -1,10 +1,10 @@
 package git
 
 import (
-	"github.com/go-git/go-billy/v5/osfs"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/cache"
-	"github.com/go-git/go-git/v5/storage/filesystem"
+	"github.com/go-git/go-billy/v6/osfs"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/cache"
+	"github.com/go-git/go-git/v6/storage/filesystem"
 )
 
 func FastSharedClone(sourceDir string, targetDir string, coOptions *git.CheckoutOptions) error {
@@ -24,6 +24,8 @@ func FastSharedClone(sourceDir string, targetDir string, coOptions *git.Checkout
 	if err != nil {
 		return err
 	}
+	defer r.Close()
+
 	err = r.DeleteRemote("origin")
 	if err != nil {
 		return err
@@ -33,6 +35,7 @@ func FastSharedClone(sourceDir string, targetDir string, coOptions *git.Checkout
 	if err != nil {
 		return err
 	}
+	defer sourceRepo.Close()
 	remotes, err := sourceRepo.Remotes()
 	if err != nil {
 		return err

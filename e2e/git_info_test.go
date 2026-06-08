@@ -1,14 +1,15 @@
 package e2e
 
 import (
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
+	"os"
+	"testing"
+
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	copy2 "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
 )
 
 func copyProject(t *testing.T, p *test_project.TestProject) string {
@@ -79,8 +80,10 @@ func TestGitSingleCommit(t *testing.T) {
 	assert.NoError(t, err)
 	cfg.User.Name = "Test User"
 	cfg.User.Email = "no@mail.com"
-	cfg.Author = cfg.User
-	cfg.Committer = cfg.User
+	cfg.Author.Email = cfg.User.Email
+	cfg.Author.Name = cfg.User.Name
+	cfg.Committer.Name = cfg.User.Name
+	cfg.Committer.Email = cfg.User.Email
 	err = gr.SetConfig(cfg)
 	assert.NoError(t, err)
 

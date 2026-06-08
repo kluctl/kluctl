@@ -4,21 +4,21 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	config2 "github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/huandu/xstrings"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
-	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v6"
+	config2 "github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/huandu/xstrings"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
+	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
+	"sigs.k8s.io/yaml"
 )
 
 type TestGitServer struct {
@@ -171,8 +171,10 @@ func (p *TestGitServer) GitInit(repo string) {
 
 	config.User.Name = "Test User"
 	config.User.Email = "no@mail.com"
-	config.Author = config.User
-	config.Committer = config.User
+	config.Author.Name = config.User.Name
+	config.Author.Email = config.User.Email
+	config.Committer.Name = config.User.Name
+	config.Committer.Email = config.User.Email
 	err = r.SetConfig(config)
 	if err != nil {
 		p.t.Fatal(err)

@@ -2,10 +2,11 @@ package jinja2
 
 import (
 	"bufio"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
 )
 
 const (

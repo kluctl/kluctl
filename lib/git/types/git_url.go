@@ -3,11 +3,12 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	"github.com/kluctl/kluctl/lib/yaml"
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/go-git/go-git/v6/plumbing/transport"
+	"github.com/kluctl/kluctl/lib/yaml"
 )
 
 // +kubebuilder:validation:Type=string
@@ -17,16 +18,16 @@ type GitUrl struct {
 
 func ParseGitUrl(u string) (*GitUrl, error) {
 	// we re-use go-git's parsing capabilities (especially in regard to SCP urls)
-	ep, err := transport.NewEndpoint(u)
+	parsed, err := transport.ParseURL(u)
 	if err != nil {
 		return nil, err
 	}
 
-	if ep.Protocol == "file" {
+	if parsed.Scheme == "file" {
 		return nil, fmt.Errorf("file:// protocol is not supported: %s", u)
 	}
 
-	u2 := ep.String()
+	u2 := parsed.String()
 
 	// and we also rely on the standard lib to treat escaping properly
 	u3, err := url.Parse(u2)

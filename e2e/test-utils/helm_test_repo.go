@@ -2,7 +2,14 @@ package test_utils
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/go-git/go-git/v6"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/kluctl/kluctl/lib/git/types"
 	cp "github.com/otiai10/copy"
@@ -11,12 +18,6 @@ import (
 	registry2 "helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/uploader"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
 )
 
 type TestHelmRepoType int

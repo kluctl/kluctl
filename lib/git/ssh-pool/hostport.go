@@ -2,8 +2,10 @@ package ssh_pool
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"strconv"
+
+	"github.com/go-git/go-git/v6/plumbing/transport/ssh"
+	"github.com/kevinburke/ssh_config"
 )
 
 func getHostWithPort(host string, port int) string {
@@ -19,11 +21,11 @@ func getHostWithPort(host string, port int) string {
 }
 
 func doGetHostWithPortFromSSHConfig(host string, port int) (addr string, found bool) {
-	if ssh.DefaultSSHConfig == nil {
+	if ssh_config.DefaultUserSettings == nil {
 		return
 	}
 
-	configHost := ssh.DefaultSSHConfig.Get(host, "Hostname")
+	configHost := ssh_config.DefaultUserSettings.Get(host, "Hostname")
 	if configHost != "" {
 		host = configHost
 		found = true
@@ -33,7 +35,7 @@ func doGetHostWithPortFromSSHConfig(host string, port int) (addr string, found b
 		return
 	}
 
-	configPort := ssh.DefaultSSHConfig.Get(host, "Port")
+	configPort := ssh_config.DefaultUserSettings.Get(host, "Port")
 	if configPort != "" {
 		if i, err := strconv.Atoi(configPort); err == nil {
 			port = i

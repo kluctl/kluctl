@@ -2,12 +2,13 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/go-git/go-git/v5"
-	"github.com/kluctl/kluctl/lib/go-jinja2"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
 	"testing"
+
+	"github.com/go-git/go-git/v6"
+	"github.com/kluctl/kluctl/lib/go-jinja2"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestJinjaLoadLatestGitSha(t *testing.T) {
@@ -22,8 +23,10 @@ func TestJinjaLoadLatestGitSha(t *testing.T) {
 	assert.NoError(t, err)
 	cfg.User.Name = "Test User"
 	cfg.User.Email = "no@mail.com"
-	cfg.Author = cfg.User
-	cfg.Committer = cfg.User
+	cfg.Author.Email = cfg.User.Email
+	cfg.Author.Name = cfg.User.Name
+	cfg.Committer.Name = cfg.User.Name
+	cfg.Committer.Email = cfg.User.Email
 	err = gr.SetConfig(cfg)
 	assert.NoError(t, err)
 

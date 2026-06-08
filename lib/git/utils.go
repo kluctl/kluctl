@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
-	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v6"
 	sourceignore2 "github.com/kluctl/kluctl/lib/git/sourceignore"
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
@@ -51,6 +51,7 @@ func GetWorktreeStatus(ctx context.Context, path string) (git.Status, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer g.Close()
 	wt, err := g.Worktree()
 	if err != nil {
 		return nil, err
