@@ -8,9 +8,9 @@ require (
 	cloud.google.com/go/secretmanager v1.20.0
 	dario.cat/mergo v1.0.2
 	filippo.io/age v1.3.1
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
-	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets v1.5.0
 	github.com/Azure/go-ntlmssp v0.1.1
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
