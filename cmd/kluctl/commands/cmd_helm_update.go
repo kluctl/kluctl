@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/format/index"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/format/index"
 	git2 "github.com/kluctl/kluctl/lib/git"
 	gitauth "github.com/kluctl/kluctl/lib/git/auth"
 	"github.com/kluctl/kluctl/lib/git/messages"

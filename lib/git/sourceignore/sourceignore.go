@@ -22,11 +22,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
 )
 
 // LoadIgnorePatterns recursively loads the IgnoreFile patterns found
 // in the directory.
-func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]string, error) {
+func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]gitignore.Pattern, error) {
 	// Make a copy of the domain so that the underlying string array of domain
 	// in the gitignore patterns are unique without any side effects.
 	dom := make([]string, len(domain))
@@ -42,7 +44,7 @@ func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]strin
 	}
 	for _, fi := range fis {
 		if fi.IsDir() && fi.Name() != ".git" {
-			var subps []string
+			var subps []gitignore.Pattern
 			if subps, err = LoadIgnorePatterns(filepath.Join(dir, fi.Name()), append(dom, fi.Name()), ignoreFile); err != nil {
 				return nil, err
 			}
@@ -54,8 +56,8 @@ func LoadIgnorePatterns(dir string, domain []string, ignoreFile string) ([]strin
 	return ps, nil
 }
 
-func ReadIgnoreFile(path string, domain []string) ([]string, error) {
-	var ps []string
+func ReadIgnoreFile(path string, domain []string) ([]gitignore.Pattern, error) {
+	var ps []gitignore.Pattern
 	if f, err := os.Open(path); err == nil {
 		defer f.Close()
 		ps = append(ps, ReadPatterns(f, domain)...)
@@ -65,21 +67,17 @@ func ReadIgnoreFile(path string, domain []string) ([]string, error) {
 	return ps, nil
 }
 
-func ReadPatterns(reader io.Reader, domain []string) []string {
-	var ps []string
+func ReadPatterns(reader io.Reader, domain []string) []gitignore.Pattern {
+	var ps []gitignore.Pattern
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		s := scanner.Text()
-		if strings.HasPrefix(s, "#") {
+		if len(s) == 0 || strings.HasPrefix(s, "#") {
 			continue
 		}
 
-		p := strings.TrimPrefix(s, "!")
-		p = strings.Join(domain, "/") + "/" + p
-		if strings.HasPrefix(s, "!") {
-			p = "!" + p
-		}
-		ps = append(ps, p)
+		parsed := gitignore.ParsePattern(s, domain)
+		ps = append(ps, parsed)
 	}
 	return ps
 }

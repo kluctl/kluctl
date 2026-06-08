@@ -103,7 +103,7 @@ func (p *SshPool) init() {
 func (p *SshPool) getLockedPoolEntry(ctx context.Context, host string, port int, auth auth.AuthMethodAndCA) (*poolEntry, bool, error) {
 	addr := getHostWithPort(host, port)
 
-	h, err := p.buildHash(addr, auth)
+	h, err := p.buildHash(ctx, addr, auth)
 	if err != nil {
 		return nil, false, err
 	}
@@ -194,12 +194,16 @@ func (ps *PooledSession) Close() error {
 }
 
 func (p *SshPool) newClient(ctx context.Context, addr string, auth auth.AuthMethodAndCA) (*ssh.Client, error) {
+	if auth.BuildSSHClientConfig == nil {
+		return nil, fmt.Errorf("auth has no BuildSSHClientConfig")
+	}
+
 	conn, err := proxy.Dial(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := auth.SshClientConfig()
+	config, err := auth.BuildSSHClientConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -211,13 +215,16 @@ func (p *SshPool) newClient(ctx context.Context, addr string, auth auth.AuthMeth
 	return ssh.NewClient(c, chans, reqs), nil
 }
 
-func (p *SshPool) buildHash(addr string, auth auth.AuthMethodAndCA) (string, error) {
+func (p *SshPool) buildHash(ctx context.Context, addr string, auth auth.AuthMethodAndCA) (string, error) {
+	if auth.BuildSSHClientConfig == nil {
+		return "", fmt.Errorf("auth has no BuildSSHClientConfig")
+	}
 	if auth.Hash == nil {
 		// this should not happen
 		return "", fmt.Errorf("auth has no Hash")
 	}
 
-	config, err := auth.SshClientConfig()
+	config, err := auth.BuildSSHClientConfig(ctx)
 	if err != nil {
 		return "", err
 	}

@@ -11,12 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
-	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/object"
 	auth2 "github.com/kluctl/kluctl/lib/git/auth"
 	_ "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
@@ -24,18 +22,6 @@ import (
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/rogpeppe/go-internal/lockedfile"
 )
-
-func init() {
-	// see https://github.com/go-git/go-git/pull/613
-	old := transport.UnsupportedCapabilities
-	transport.UnsupportedCapabilities = nil
-	for _, c := range old {
-		if c == capability.MultiACK || c == capability.MultiACKDetailed {
-			continue
-		}
-		transport.UnsupportedCapabilities = append(transport.UnsupportedCapabilities, c)
-	}
-}
 
 var defaultFetch = []config.RefSpec{
 	"+refs/heads/*:refs/heads/*",
@@ -153,6 +139,7 @@ func (g *MirroredGitRepo) RemoteRefHashesMap() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 
 	localRemoteRefs, err := r.References()
 	if err != nil {
@@ -184,6 +171,7 @@ func (g *MirroredGitRepo) DefaultRef() (*types.GitRef, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 
 	ref, err := r.Reference("HEAD", false)
 	if err != nil {
@@ -209,10 +197,6 @@ func (g *MirroredGitRepo) Delete() error {
 	return nil
 }
 
-func (g *MirroredGitRepo) buildRepositoryObject() (*git.Repository, error) {
-	return git.PlainOpen(g.mirrorDir)
-}
-
 func (g *MirroredGitRepo) cleanupMirrorDir() error {
 	st, err := os.Stat(g.mirrorDir)
 	if err == nil && st.IsDir() {
@@ -235,13 +219,17 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 	if err != nil {
 		return err
 	}
+	defer r.Close()
 
 	auth, err := g.authProviders.BuildAuth(g.ctx, g.url)
 	if err != nil {
 		return err
 	}
+	if auth == nil {
+		auth = &auth2.AuthMethodAndCA{}
+	}
 
-	remoteRefs, err := ListRemoteRefs(g.ctx, g.url, g.sshPool, auth)
+	remoteRefs, err := ListRemoteRefs(g.ctx, g.url, g.sshPool, *auth)
 	if err != nil {
 		return err
 	}
@@ -292,10 +280,9 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		// this currently is to panic when the deadline is exceeded too much.
 		err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
 			return remote.FetchContext(g.ctx, &git.FetchOptions{
-				Auth:     auth.AuthMethod,
-				CABundle: auth.CABundle,
-				Tags:     git.AllTags,
-				Force:    true,
+				ClientOptions: auth.ClientOptions,
+				Tags:          git.AllTags,
+				Force:         true,
 			})
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
@@ -359,6 +346,7 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 	if err != nil {
 		return err
 	}
+	defer repo.Close()
 
 	_, err = repo.CreateRemote(&config.RemoteConfig{
 		Name:  "origin",
@@ -410,7 +398,7 @@ func (g *MirroredGitRepo) CloneProjectByCommit(commit string, targetDir string) 
 		panic("tried to clone from a project that is not locked/updated")
 	}
 
-	err := FastSharedClone(g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
+	err := FastSharedClone(g.ctx, g.mirrorDir, targetDir, &git.CheckoutOptions{Hash: plumbing.NewHash(commit)})
 	if err != nil {
 		return fmt.Errorf("failed to clone %s from %s: %w", commit, g.url.String(), err)
 	}
@@ -430,6 +418,7 @@ func (g *MirroredGitRepo) GetGitTreeByCommit(commitHash string) (*object.Tree, e
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 
 	h := plumbing.NewHash(commitHash)
 
@@ -453,6 +442,7 @@ func (g *MirroredGitRepo) GetObjectByHash(hash string) (object.Object, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 
 	h := plumbing.NewHash(hash)
 	return object.GetObject(r.Storer, h)

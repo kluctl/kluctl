@@ -2,9 +2,11 @@ package vars
 
 import (
 	"context"
+	"strings"
+
 	"github.com/getsops/sops/v3/age"
-	git2 "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
+	git2 "github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
@@ -15,7 +17,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
-	"strings"
 )
 
 func (s *VarsLoaderTestSuite) TestGitFiles() {

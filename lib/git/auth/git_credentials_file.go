@@ -3,46 +3,48 @@ package auth
 import (
 	"bufio"
 	"context"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/kluctl/kluctl/lib/git/messages"
-	"github.com/kluctl/kluctl/lib/git/types"
 	"net/url"
 	"os"
 	"path/filepath"
+
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/transport/http"
+	"github.com/kluctl/kluctl/lib/git/messages"
+	"github.com/kluctl/kluctl/lib/git/types"
 )
 
 type GitCredentialsFileAuthProvider struct {
 	MessageCallbacks messages.MessageCallbacks
 }
 
-func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error) {
+func (a *GitCredentialsFileAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (*AuthMethodAndCA, error) {
 	if gitUrl.Scheme != "http" && gitUrl.Scheme != "https" {
-		return AuthMethodAndCA{}, nil
+		return nil, nil
 	}
 	a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: BuildAuth for %s", gitUrl.String())
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		a.MessageCallbacks.Warning("Could not determine home directory: %v", err)
-		return AuthMethodAndCA{}, err
+		return nil, err
 	}
 	auth := a.tryBuildAuth(gitUrl, filepath.Join(home, ".git-credentials"))
 	if auth != nil {
-		return *auth, nil
+		return auth, nil
 	}
 
 	if xdgHome, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok && xdgHome != "" {
 		auth = a.tryBuildAuth(gitUrl, filepath.Join(xdgHome, ".git-credentials"))
 		if auth != nil {
-			return *auth, nil
+			return auth, nil
 		}
 	} else {
 		auth = a.tryBuildAuth(gitUrl, filepath.Join(home, ".config/.git-credentials"))
 		if auth != nil {
-			return *auth, nil
+			return auth, nil
 		}
 	}
-	return AuthMethodAndCA{}, nil
+	return nil, nil
 }
 
 func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl types.GitUrl, gitCredentialsPath string) *AuthMethodAndCA {
@@ -95,9 +97,11 @@ func (a *GitCredentialsFileAuthProvider) tryBuildAuth(gitUrl types.GitUrl, gitCr
 
 		a.MessageCallbacks.Trace("GitCredentialsFileAuthProvider: matched")
 		return &AuthMethodAndCA{
-			AuthMethod: &http.BasicAuth{
-				Username: u.User.Username(),
-				Password: password,
+			ClientOptions: []client.Option{
+				client.WithHTTPAuth(&http.BasicAuth{
+					Username: u.User.Username(),
+					Password: password,
+				}),
 			},
 		}
 	}

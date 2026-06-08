@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/transport"
 	"github.com/kevinburke/ssh_config"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
@@ -44,7 +46,7 @@ func (a *sshDefaultIdentityAndAgent) Name() string {
 	return "ssh-default-identity-and-agent"
 }
 
-func (a *sshDefaultIdentityAndAgent) ClientConfig() (*ssh.ClientConfig, error) {
+func (a *sshDefaultIdentityAndAgent) ClientConfig(context.Context, *transport.Request) (*ssh.ClientConfig, error) {
 	cc := &ssh.ClientConfig{
 		User: a.user,
 		Auth: []ssh.AuthMethod{ssh.PublicKeysCallback(a.Signers)},
@@ -145,12 +147,12 @@ func (a *sshDefaultIdentityAndAgent) addAgentIdentities(gitUrl types.GitUrl) {
 	}
 }
 
-func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error) {
+func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (*AuthMethodAndCA, error) {
 	if !gitUrl.IsSsh() {
-		return AuthMethodAndCA{}, nil
+		return nil, nil
 	}
 	if gitUrl.User == nil {
-		return AuthMethodAndCA{}, nil
+		return nil, nil
 	}
 
 	auth := &sshDefaultIdentityAndAgent{
@@ -165,8 +167,14 @@ func (a *GitSshAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl)
 	auth.addDefaultIdentities(gitUrl)
 	auth.addConfigIdentities(gitUrl)
 
-	return AuthMethodAndCA{
-		AuthMethod: auth,
+	return &AuthMethodAndCA{
+		ClientOptions: []client.Option{
+			client.WithSSHAuth(auth),
+		},
+		BuildSSHClientConfig: func(ctx context.Context) (*ssh.ClientConfig, error) {
+			return auth.ClientConfig(ctx, nil)
+		},
+
 		Hash: func() ([]byte, error) {
 			signers, err := auth.Signers()
 			if err != nil {

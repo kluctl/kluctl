@@ -21,8 +21,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/getsops/sops/v3/age"
-	git2 "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
+	git2 "github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing"
 	"github.com/kluctl/kluctl/lib/git/auth"
 	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"

@@ -4,8 +4,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v6/plumbing/client"
+	"github.com/go-git/go-git/v6/plumbing/transport/http"
+	"github.com/go-git/go-git/v6/plumbing/transport/ssh"
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
@@ -38,7 +39,7 @@ func (a *ListAuthProvider) AddEntry(e AuthEntry) {
 	a.entries = append(a.entries, e)
 }
 
-func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl) (AuthMethodAndCA, error) {
+func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl) (*AuthMethodAndCA, error) {
 	gitUrl := gitUrlIn.Normalize()
 
 	a.MessageCallbacks.Trace("ListAuthProvider: BuildAuth for %s", gitUrl.String())
@@ -94,8 +95,10 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 				a.MessageCallbacks.Trace("ListAuthProvider: failed to parse private key: %v", err)
 			} else {
 				pk.HostKeyCallback = buildVerifyHostCallback(a.MessageCallbacks, e.KnownHosts, e.IgnoreKnownHosts)
-				return AuthMethodAndCA{
-					AuthMethod: pk,
+				return &AuthMethodAndCA{
+					ClientOptions: []client.Option{
+						client.WithSSHAuth(pk),
+					},
 					Hash: func() ([]byte, error) {
 						return buildHash(pk.Signer)
 					},
@@ -107,14 +110,19 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 				continue
 			}
 			a.MessageCallbacks.Trace("ListAuthProvider: using username+password")
-			return AuthMethodAndCA{
-				AuthMethod: &http.BasicAuth{
-					Username: username,
-					Password: e.Password,
+			auth := &AuthMethodAndCA{
+				ClientOptions: []client.Option{
+					client.WithHTTPAuth(&http.BasicAuth{
+						Username: username,
+						Password: e.Password,
+					}),
 				},
-				CABundle: e.CABundle,
-			}, nil
+			}
+			if len(e.CABundle) != 0 {
+				auth.ClientOptions = append(auth.ClientOptions, client.WithCABundle(e.CABundle))
+			}
+			return auth, nil
 		}
 	}
-	return AuthMethodAndCA{}, nil
+	return nil, nil
 }

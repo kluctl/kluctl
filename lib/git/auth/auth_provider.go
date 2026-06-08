@@ -2,9 +2,8 @@ package auth
 
 import (
 	"context"
-	"fmt"
-	"github.com/go-git/go-git/v5/plumbing/transport"
-	ssh2 "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+
+	"github.com/go-git/go-git/v6/plumbing/client"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
@@ -12,22 +11,15 @@ import (
 )
 
 type AuthMethodAndCA struct {
-	AuthMethod transport.AuthMethod
-	CABundle   []byte
+	ClientOptions []client.Option
+
+	BuildSSHClientConfig func(ctx context.Context) (*ssh.ClientConfig, error)
 
 	Hash func() ([]byte, error)
 }
 
-func (a *AuthMethodAndCA) SshClientConfig() (*ssh.ClientConfig, error) {
-	gitSshAuth, ok := a.AuthMethod.(ssh2.AuthMethod)
-	if !ok {
-		return nil, fmt.Errorf("auth is not a git ssh.AuthMethod")
-	}
-	return gitSshAuth.ClientConfig()
-}
-
 type GitAuthProvider interface {
-	BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error)
+	BuildAuth(ctx context.Context, gitUrl types.GitUrl) (*AuthMethodAndCA, error)
 }
 
 type GitAuthProviders struct {
@@ -42,7 +34,7 @@ func (a *GitAuthProviders) RegisterAuthProvider(p GitAuthProvider, last bool) {
 	}
 }
 
-func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error) {
+func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (*AuthMethodAndCA, error) {
 	var errs *multierror.Error
 	for _, p := range a.authProviders {
 		auth, err := p.BuildAuth(ctx, gitUrl)
@@ -50,12 +42,11 @@ func (a *GitAuthProviders) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		if auth.AuthMethod == nil {
-			continue
+		if auth != nil {
+			return auth, nil
 		}
-		return auth, nil
 	}
-	return AuthMethodAndCA{}, errs.ErrorOrNil()
+	return nil, errs.ErrorOrNil()
 }
 
 func NewDefaultAuthProviders(envPrefix string, messageCallbacks *messages.MessageCallbacks) *GitAuthProviders {

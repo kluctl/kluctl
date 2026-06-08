@@ -3,20 +3,21 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/e2e/test_project"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/object"
+	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type helmTestCase struct {

@@ -2,19 +2,20 @@ package jinja2
 
 import (
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
 	"github.com/Masterminds/semver/v3"
-	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
+	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
 	"github.com/gobwas/glob"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/go-embed-python/embed_util"
 	"github.com/kluctl/go-embed-python/python"
 	"github.com/kluctl/kluctl/lib/go-jinja2/internal/data"
 	"github.com/kluctl/kluctl/lib/go-jinja2/python_src"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 )
 
 var minimumPythonVersion = semver.MustParse("3.10.0")

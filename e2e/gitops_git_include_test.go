@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"context"
+	"testing"
+
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
@@ -10,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
 )
 
 type GitOpsIncludesSuite struct {
@@ -45,7 +46,7 @@ func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(kd.Status.LastPrepareError).To(Equal("failed to clone git source: authentication required: invalid credentials"))
+		g.Expect(kd.Status.LastPrepareError).To(And(ContainSubstring("failed to clone git source: http transport: authentication required"), ContainSubstring("status code: 401: invalid credentials")))
 	})
 
 	secret := corev1.Secret{
@@ -102,7 +103,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(kd.Status.LastPrepareError).To(Equal("failed to clone git source: authentication required: invalid credentials"))
+		g.Expect(kd.Status.LastPrepareError).To(And(ContainSubstring("failed to clone git source: http transport: authentication required"), ContainSubstring("status code: 401: invalid credentials")))
 	})
 
 	createSecret := func(username string, password string) string {

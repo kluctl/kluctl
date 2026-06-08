@@ -5,15 +5,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/go-errors/errors"
-	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/plumbing/format/gitignore"
 	sourceignore2 "github.com/kluctl/kluctl/lib/git/sourceignore"
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
@@ -51,6 +54,7 @@ func GetWorktreeStatus(ctx context.Context, path string) (git.Status, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer g.Close()
 	wt, err := g.Worktree()
 	if err != nil {
 		return nil, err
@@ -143,16 +147,56 @@ func parsePorcelainStatus(out string) (git.Status, error) {
 	return ret, nil
 }
 
+// LoadGitignorePaths returns the files/dirs that get ignored via the gitignore files. It does NOT return the patterns
 func LoadGitignorePaths(rootPath string) ([]string, error) {
 	rootPath = filepath.Clean(rootPath)
-	domain := []string{}
+	var domain []string
 	ignorePatterns, err := sourceignore2.LoadIgnorePatterns(rootPath, domain, ".gitignore")
 	if err != nil {
 		return nil, err
 	}
 	ignorePatterns = append(ignorePatterns, sourceignore2.ReadPatterns(strings.NewReader(".git"), domain)...)
 
-	return ignorePatterns, nil
+	matcher := gitignore.NewMatcher(ignorePatterns)
+
+	var ignorePaths []string
+	parentDirs := map[string]struct{}{}
+
+	err = filepath.WalkDir(rootPath, func(path string, d fs.DirEntry, err error) error {
+		relPath, err := filepath.Rel(rootPath, path)
+		if err != nil {
+			return err
+		}
+
+		pathSlice := strings.Split(relPath, string(filepath.Separator))
+		exclude := matcher.Match(pathSlice, d.IsDir())
+		if exclude {
+			ignorePaths = append(ignorePaths, relPath)
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+		} else {
+			dir := filepath.Dir(relPath)
+			for dir != "." {
+				parentDirs[dir] = struct{}{}
+				dir = filepath.Dir(dir)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ignorePaths = slices.DeleteFunc(ignorePaths, func(s string) bool {
+		_, o := parentDirs[s]
+		if o {
+			return true
+		}
+		return false
+	})
+
+	return ignorePaths, nil
 }
 
 func RunWithDeadlineAndPanic(ctx context.Context, extraDeadline time.Duration, f func() error) error {

@@ -62,5 +62,6 @@ func TestOciPushWithGitignore(t *testing.T) {
 	testPush("cm/configmap-cm2.yml", []string{"cm/configmap-cm2.yml"}, []string{"cm/configmap-cm1.yml"})
 	testPush("cm/configmap-*", []string{"cm/configmap-cm1.yml", "cm/configmap-cm2.yml"}, nil)
 	testPush("cm/configmap-*\n!cm/configmap-cm1.yml", []string{"cm/configmap-cm2.yml"}, []string{"cm/configmap-cm1.yml"})
-	testPush("cm\n!cm/configmap-cm1.yml", []string{"cm/configmap-cm2.yml"}, []string{"cm/configmap-cm1.yml"})
+	testPush("cm\n!cm/configmap-cm1.yml", []string{"cm/configmap-cm1.yml", "cm/configmap-cm2.yml"}, []string{})
+	testPush("cm/*\n!cm/configmap-cm1.yml", []string{"cm/configmap-cm2.yml"}, []string{"cm/configmap-cm1.yml"})
 }

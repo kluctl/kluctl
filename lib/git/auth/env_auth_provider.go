@@ -2,13 +2,14 @@ package auth
 
 import (
 	"context"
+	"os"
+	"sync"
+
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/envutils"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
-	"os"
-	"sync"
 )
 
 type GitEnvAuthProvider struct {
@@ -94,10 +95,10 @@ func (a *GitEnvAuthProvider) doBuildList(ctx context.Context) error {
 	return nil
 }
 
-func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (AuthMethodAndCA, error) {
+func (a *GitEnvAuthProvider) BuildAuth(ctx context.Context, gitUrl types.GitUrl) (*AuthMethodAndCA, error) {
 	err := a.buildList(ctx)
 	if err != nil {
-		return AuthMethodAndCA{}, err
+		return nil, err
 	}
 	return a.list.BuildAuth(ctx, gitUrl)
 }

@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
-	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/config"
+	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/object"
+	"github.com/go-git/go-git/v6/plumbing/protocol/packp"
+	"github.com/go-git/go-git/v6/storage/memory"
 	auth2 "github.com/kluctl/kluctl/lib/git/auth"
 	ssh_pool "github.com/kluctl/kluctl/lib/git/ssh-pool"
 	"github.com/kluctl/kluctl/lib/git/types"
@@ -49,32 +49,18 @@ func ListRemoteRefsFastSsh(ctx context.Context, url types.GitUrl, sshPool *ssh_p
 		return nil, fmt.Errorf("git-upload-pack failed: %w\nstderr=%s", err, stderr.String())
 	}
 
-	ar := packp.NewAdvRefs()
+	var ar packp.AdvRefs
 	err = ar.Decode(stdout)
 	if err != nil {
 		return nil, err
 	}
 
-	allRefs, err := ar.AllReferences()
+	allRefs, err := ar.ResolvedReferences()
 	if err != nil {
 		return nil, err
 	}
 
-	refs, err := allRefs.IterReferences()
-	if err != nil {
-		return nil, err
-	}
-
-	var resultRefs []*plumbing.Reference
-	err = refs.ForEach(func(ref *plumbing.Reference) error {
-		resultRefs = append(resultRefs, ref)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resultRefs, nil
+	return allRefs, nil
 }
 
 func ListRemoteRefsSlow(ctx context.Context, url types.GitUrl, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
@@ -86,8 +72,7 @@ func ListRemoteRefsSlow(ctx context.Context, url types.GitUrl, auth auth2.AuthMe
 	})
 
 	remoteRefs, err := remote.ListContext(ctx, &git.ListOptions{
-		Auth:     auth.AuthMethod,
-		CABundle: auth.CABundle,
+		ClientOptions: auth.ClientOptions,
 	})
 	if err != nil {
 		return nil, err
