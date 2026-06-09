@@ -10,6 +10,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
+	ssh2 "golang.org/x/crypto/ssh"
 )
 
 type ListAuthProvider struct {
@@ -98,6 +99,9 @@ func (a *ListAuthProvider) BuildAuth(ctx context.Context, gitUrlIn types.GitUrl)
 				return &AuthMethodAndCA{
 					ClientOptions: []client.Option{
 						client.WithSSHAuth(pk),
+					},
+					BuildSSHClientConfig: func(ctx context.Context) (*ssh2.ClientConfig, error) {
+						return pk.ClientConfig(ctx, nil)
 					},
 					Hash: func() ([]byte, error) {
 						return buildHash(pk.Signer)
