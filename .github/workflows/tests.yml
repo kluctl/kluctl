@@ -178,6 +178,7 @@ jobs:
         if: matrix.name != 'windows'
       - name: Cleanup disk space (windows)
         run: ./hack/cleanup-github-runner-disk.sh
+        shell: bash
         if: matrix.name == 'windows'
       - uses: actions/setup-go@v6
         with:
