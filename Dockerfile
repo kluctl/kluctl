@@ -10,6 +10,9 @@ ARG TARGETPLATFORM
 # gpg is needed for SOPS
 RUN apk update && apk add git tzdata gpg gpg-agent
 
+# go-git is failing with no valid known_hosts file exists, even if we provide known hosts via code
+RUN mkdir -p /etc/ssh && touch /etc/ssh/ssh_known_hosts
+
 # Ensure helm is not trying to access /
 ENV HELM_CACHE_HOME=/tmp/helm-cache
 ENV KLUCTL_CACHE_DIR=/tmp/kluctl-cache
