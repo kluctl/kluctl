@@ -688,7 +688,7 @@ spec:
 ```
 
 The `sops-keys` Secret has the same format as in the
-[Flux Kustomize Controller](https://fluxcd.io/flux/components/kustomize/kustomization/#decryption-secret-reference).
+[Flux Kustomize Controller](https://fluxcd.io/flux/components/kustomize/kustomizations/#decryption).
 
 ### AWS KMS with IRSA
 
