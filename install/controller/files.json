@@ -1,5 +1,5 @@
 {
-  "contentHash": "a96ec0c80d25cbc62e89b1705722b0bbbcd0e8c265855edc01ebf7694adefdf1",
+  "contentHash": "78955ebb1a936ca9b814f9bfdfb7b63dd90c7ec9c5c60784b7b6fdb4d1ef47f6",
   "files": [
     {
       "name": ".gitattributes",
@@ -18,7 +18,7 @@
     },
     {
       "name": "controller/crd.yaml",
-      "size": 41789,
+      "size": 39725,
       "perm": 420
     },
     {
