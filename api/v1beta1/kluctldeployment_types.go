@@ -279,10 +279,8 @@ type ProjectSource struct {
 
 	// SecretRef specifies the Secret containing authentication credentials for
 	// See ProjectSourceCredentials.SecretRef for details
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git
-	// instead.
-	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
-	// Use spec.credentials.git with a proper Host field instead.
+	// DEPRECATED this field is deprecated and will cause errors on reconciliation. It will be removed in the next API version bump.
+	// Use spec.credentials.git instead.
 	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
 
 	// Credentials specifies a list of secrets with credentials

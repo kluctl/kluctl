@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"testing"
 
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
@@ -9,7 +8,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/suite"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -21,58 +19,6 @@ type GitOpsIncludesSuite struct {
 func TestGitOpsIncludes(t *testing.T) {
 	t.Parallel()
 	suite.Run(t, new(GitOpsIncludesSuite))
-}
-
-func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
-	g := NewWithT(suite.T())
-	_ = g
-
-	mainGs := git2.NewTestGitServer(suite.T(), git2.WithTestGitServerAuth("user1", "password1"))
-	gs1 := git2.NewTestGitServer(suite.T(), git2.WithTestGitServerAuth("user1", "password1"))
-	gs2 := git2.NewTestGitServer(suite.T())
-
-	p, _, _ := prepareGitIncludeTest(suite.T(), suite.k, mainGs, gs1, gs2)
-
-	key := suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
-		kd.Spec.Source.URL = utils.Ptr(p.GitUrl())
-	})
-
-	suite.Run("fail without authentication", func() {
-		suite.waitForCommit(key, "")
-
-		kd := suite.getKluctlDeployment(key)
-
-		readinessCondition := suite.getReadiness(kd)
-		g.Expect(readinessCondition).ToNot(BeNil())
-		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
-		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(kd.Status.LastPrepareError).To(ContainSubstring("failed to clone git source: http transport: authentication required"))
-	})
-
-	secret := corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "git-secrets",
-			Namespace: key.Namespace,
-		},
-		Data: map[string][]byte{
-			"username": []byte("user1"),
-			"password": []byte("password1"),
-		},
-	}
-	err := suite.k.Client.Create(context.Background(), &secret)
-	g.Expect(err).To(Succeed())
-
-	suite.updateKluctlDeployment(key, func(kd *v1beta1.KluctlDeployment) {
-		kd.Spec.Source.SecretRef = &v1beta1.LocalObjectReference{Name: "git-secrets"}
-	})
-
-	suite.Run("retry with authentication", func() {
-		kd := suite.waitForCommit(key, getHeadRevision(suite.T(), p))
-
-		readinessCondition := suite.getReadiness(kd)
-		g.Expect(readinessCondition).ToNot(BeNil())
-		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionTrue))
-	})
 }
 
 func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSource bool) {
