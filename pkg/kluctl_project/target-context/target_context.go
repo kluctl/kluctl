@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/aws"
 	"github.com/kluctl/kluctl/v2/pkg/clouds/gcp"
 	"github.com/kluctl/kluctl/v2/pkg/deployment"
@@ -65,7 +64,6 @@ func NewTargetContext(ctx context.Context, p *kluctl_project.LoadedKluctlProject
 		target = &*t
 	} else {
 		if len(p.Targets) != 0 {
-			status.Deprecation(ctx, "no-target", "Warning, tried to use Kluctl without explicitly specifying a target, while the Kluctl project contains target definitions. This was allowed in older version of Kluctl, but is forbidden since v2.23.0. If mixing deployments with and without targets was actually intended, please switch to creating and using a dedicated target that serves as a replacement for no-target deployments.")
 			return nil, fmt.Errorf("a target must be explicitly selected when targets are defined in the Kluctl project")
 		} else if p.NoNameTarget == nil {
 			return nil, fmt.Errorf("missing no-name target, which is unexpected")
