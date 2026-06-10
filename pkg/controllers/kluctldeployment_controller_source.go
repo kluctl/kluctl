@@ -135,7 +135,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credentials kluctlv1.ProjectCredentials, objNs string) ([]ociRepoSecrets, error) {
 	var ret []ociRepoSecrets
 
-	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
+	loadCredentials := func(registry string, repo string, secretName string) error {
 		var secret corev1.Secret
 		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
@@ -150,7 +150,7 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credenti
 	}
 
 	for _, c := range credentials.Oci {
-		err := loadCredentials(false, c.Registry, c.Repository, c.SecretRef.Name)
+		err := loadCredentials(c.Registry, c.Repository, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
 		}
