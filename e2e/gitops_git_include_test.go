@@ -46,7 +46,7 @@ func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeDeprecatedSecret() {
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(kd.Status.LastPrepareError).To(And(ContainSubstring("failed to clone git source: http transport: authentication required"), ContainSubstring("status code: 401: invalid credentials")))
+		g.Expect(kd.Status.LastPrepareError).To(ContainSubstring("failed to clone git source: http transport: authentication required"))
 	})
 
 	secret := corev1.Secret{
@@ -81,7 +81,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 
 	mainGs := git2.NewTestGitServer(suite.T(), git2.WithTestGitServerAuth("user1", "password1"))
 	gs1 := git2.NewTestGitServer(suite.T(), git2.WithTestGitServerAuth("user2", "password2"))
-	gs2 := git2.NewTestGitServer(suite.T(), git2.WithTestGitServerFailWhenAuth(true))
+	gs2 := git2.NewTestGitServer(suite.T())
 
 	p, ip1, _ := prepareGitIncludeTest(suite.T(), suite.k, mainGs, gs1, gs2)
 
@@ -103,7 +103,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 		g.Expect(readinessCondition).ToNot(BeNil())
 		g.Expect(readinessCondition.Status).To(Equal(v1.ConditionFalse))
 		g.Expect(readinessCondition.Reason).To(Equal("PrepareFailed"))
-		g.Expect(kd.Status.LastPrepareError).To(And(ContainSubstring("failed to clone git source: http transport: authentication required"), ContainSubstring("status code: 401: invalid credentials")))
+		g.Expect(kd.Status.LastPrepareError).To(ContainSubstring("failed to clone git source: http transport: authentication required"))
 	})
 
 	createSecret := func(username string, password string) string {

@@ -171,7 +171,7 @@ func LoadGitignorePaths(rootPath string) ([]string, error) {
 		pathSlice := strings.Split(relPath, string(filepath.Separator))
 		exclude := matcher.Match(pathSlice, d.IsDir())
 		if exclude {
-			ignorePaths = append(ignorePaths, relPath)
+			ignorePaths = append(ignorePaths, filepath.ToSlash(relPath))
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
@@ -179,7 +179,7 @@ func LoadGitignorePaths(rootPath string) ([]string, error) {
 			dir := filepath.Dir(relPath)
 			for dir != "." {
 				parentDirs[dir] = struct{}{}
-				dir = filepath.Dir(dir)
+				dir = filepath.Dir(filepath.ToSlash(dir))
 			}
 		}
 		return nil
