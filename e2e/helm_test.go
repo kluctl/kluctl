@@ -27,9 +27,7 @@ type helmTestCase struct {
 	testAuth          bool
 	testTLS           bool
 	testTLSClientCert bool
-	credsId           string
 
-	argCredsId   string
 	argCredsHost string
 	argCredsPath string
 	argUsername  string
@@ -100,29 +98,6 @@ var helmTests = []helmTestCase{
 		argPassCA:         true,
 		argPassClientCert: true,
 		argCredsHost:      "<host>",
-	},
-
-	// deprecated helm credentials flags
-	{
-		name: "dep-helm-creds-missing", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, credsId: "test-creds",
-		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "401 Unauthorized",
-	},
-	{
-		name: "dep-helm-creds-invalid", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, credsId: "test-creds",
-		argCredsId: "test-creds", argUsername: "test-user", argPassword: "invalid",
-		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "401 Unauthorized",
-	},
-	{
-		name: "dep-helm-creds-valid", helmType: test_utils.TestHelmRepo_Helm, testAuth: true, credsId: "test-creds",
-		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
-	},
-	{
-		name: "dep-oci-creds-fail", helmType: test_utils.TestHelmRepo_Oci, testAuth: true, credsId: "test-creds",
-		argCredsId: "test-creds", argUsername: "test-user", argPassword: "secret-password",
-		expectedReadyError:   "prepare failed with 1 errors. Check status.lastPrepareError for details",
-		expectedPrepareError: "OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments",
 	},
 
 	// new helm credentials flags
@@ -270,10 +245,7 @@ func buildHelmTestExtraArgs(t *testing.T, tc helmTestCase, repo *test_utils.Test
 			}
 		}
 	} else if tc.helmType == test_utils.TestHelmRepo_Helm {
-		if tc.argCredsId != "" {
-			ret = append(ret, fmt.Sprintf("--helm-username=%s:%s", tc.argCredsId, tc.argUsername))
-			ret = append(ret, fmt.Sprintf("--helm-password=%s:%s", tc.argCredsId, tc.argPassword))
-		} else if tc.argCredsHost != "" {
+		if tc.argCredsHost != "" {
 			r := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 			if tc.argCredsPath != "" {
 				r += "/" + tc.argCredsPath
@@ -347,9 +319,6 @@ func buildHelmTestEnvVars(t *testing.T, tc helmTestCase, p *test_project.TestPro
 			setEnv("KLUCTL_REGISTRY_KEY_FILE", newTmpFile(t, repo.HttpServer.ClientKey))
 		}
 	} else if tc.helmType == test_utils.TestHelmRepo_Helm {
-		if tc.argCredsId != "" {
-			setEnv("KLUCTL_HELM_CREDENTIALS_ID", tc.argCredsId)
-		}
 		if tc.argCredsHost != "" {
 			setEnv("KLUCTL_HELM_HOST", strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host))
 		}
@@ -445,15 +414,6 @@ func prepareHelmTestCase(t *testing.T, k *test_utils.EnvTestCluster, tc helmTest
 	extraArgs := buildHelmTestExtraArgs(t, tc, repo)
 
 	p.AddHelmDeployment("helm1", repo, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
-
-	if tc.testAuth {
-		if tc.credsId != "" {
-			p.UpdateYaml("helm1/helm-chart.yaml", func(o *uo.UnstructuredObject) error {
-				_ = o.SetNestedField(tc.credsId, "helmChart", "credentialsId")
-				return nil
-			}, "")
-		}
-	}
 
 	if prePull {
 		args := []string{"helm-pull"}

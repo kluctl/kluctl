@@ -39,10 +39,9 @@ type ociRepoSecrets struct {
 }
 
 type helmRepoSecrets struct {
-	credentialsId string
-	host          string
-	path          string
-	secret        corev1.Secret
+	host   string
+	path   string
+	secret corev1.Secret
 }
 
 func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Context, obj *kluctlv1.KluctlDeployment) ([]*sourceoverride.ProxyClientController, error) {
@@ -198,26 +197,8 @@ func (r *KluctlDeploymentReconciler) getHelmSecrets(ctx context.Context, obj *kl
 		}
 	}
 
-	for _, c := range obj.Spec.HelmCredentials {
-		err := loadCredentials("", "", c.SecretRef.Name)
-		if err != nil {
-			return nil, err
-		}
-		e := &ret[len(ret)-1]
-		cid := e.secret.Data["credentialsId"]
-		u := e.secret.Data["url"]
-		if cid != nil {
-			e.credentialsId = string(cid)
-		}
-		if u != nil {
-			u2, err := url.Parse(string(u))
-			if err != nil {
-				return nil, err
-			}
-			e.host = u2.Host
-			e.path = strings.TrimPrefix(u2.Path, "/")
-			e.path = strings.TrimSuffix(e.path, "/")
-		}
+	if len(obj.Spec.HelmCredentials) != 0 {
+		return nil, fmt.Errorf("spec.helmCredentials can not be used anymore, please switch to spec.credentials.helm")
 	}
 
 	return ret, nil
@@ -349,8 +330,7 @@ func (r *KluctlDeploymentReconciler) buildHelmAuth(ctx context.Context, helmSecr
 
 	for _, secret := range helmSecrets {
 		e := helm_auth.AuthEntry{
-			CredentialsId: secret.credentialsId,
-			Host:          secret.host,
+			Host: secret.host,
 		}
 
 		if secret.path != "" {

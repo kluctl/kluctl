@@ -3,14 +3,15 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"sync"
+
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/envutils"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/repo"
-	"net/url"
-	"os"
-	"sync"
 )
 
 type HelmEnvAuthProvider struct {
@@ -51,13 +52,11 @@ func (a *HelmEnvAuthProvider) doBuildList(ctx context.Context) error {
 	for _, s := range envutils.ParseEnvConfigSets(a.Prefix) {
 		m := s.Map
 		host := m["HOST"]
-		cid := m["CREDENTIALS_ID"]
-		if host == "" && cid == "" {
+		if host == "" {
 			continue
 		}
 
 		e := AuthEntry{
-			CredentialsId:         cid,
 			Host:                  host,
 			PathStr:               m["PATH"],
 			Username:              m["USERNAME"],
@@ -105,10 +104,10 @@ func (a *HelmEnvAuthProvider) doBuildList(ctx context.Context) error {
 	return nil
 }
 
-func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error) {
+func (a *HelmEnvAuthProvider) FindAuthEntry(ctx context.Context, repoUrl url.URL) (*repo.Entry, CleanupFunc, error) {
 	err := a.buildList(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	return a.list.FindAuthEntry(ctx, repoUrl, credentialsId)
+	return a.list.FindAuthEntry(ctx, repoUrl)
 }

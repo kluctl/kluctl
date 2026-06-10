@@ -192,11 +192,6 @@ All [commands](../commands/README.md) that interact with Helm Chart repositories
 [helm arguments](../commands/common-arguments.md#helm-arguments) and [registry arguments](../commands/common-arguments.md#registry-arguments)
 to specify authentication per repository and/or OCI registry.
 
-⚠️DEPRECATION WARNING ⚠️
-Previous versions (prior to v2.22.0) of Kluctl supported managing Helm credentials via `credentialsId` in `helm-chart.yaml`.
-This is deprecated now and will be removed in the future. Please switch to hostname/registry-name based authentication
-instead. See [helm arguments](../commands/common-arguments.md#helm-arguments) for details.
-
 ### Use environment variables to specify authentication
 You can also use environment variables to specify Helm Chart repository authentication. For OCI based registries, see
 [OCI authentication](./oci.md#authentication) for details.

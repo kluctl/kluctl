@@ -58,13 +58,8 @@ func NewRelease(ctx context.Context, projectRoot string, relDirInProject string,
 			return nil, err
 		}
 	}
-	credentialsIdValue := ""
-	if config.CredentialsId != nil {
-		status.Deprecation(ctx, "helm-release-credentials-id", "'credentialsId' in helm-chart.yaml is deprecated and support for it will be removed in a future version of Kluctl.")
-		credentialsIdValue = *config.CredentialsId
-	}
 
-	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, credentialsIdValue, ociAuthProvider, gitRp, ociRp)
+	chart, err := NewChart(config.Repo, localPath, config.ChartName, config.Git, helmAuthProvider, ociAuthProvider, gitRp, ociRp)
 	if err != nil {
 		return nil, err
 	}

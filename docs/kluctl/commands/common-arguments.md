@@ -205,38 +205,22 @@ Helm arguments:
 
       --helm-ca-file stringArray                    Specify ca bundle certificate to use for Helm Repository
                                                     authentication. Must be in the form
-                                                    --helm-ca-file=<host>/<path>=<filePath> or in the deprecated
-                                                    form --helm-ca-file=<credentialsId>:<filePath>, where
-                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+                                                    --helm-ca-file=<host>/<path>=<filePath>
       --helm-cert-file stringArray                  Specify key to use for Helm Repository authentication. Must be
-                                                    in the form --helm-cert-file=<host>/<path>=<filePath> or in
-                                                    the deprecated form
-                                                    --helm-cert-file=<credentialsId>:<filePath>, where
-                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+                                                    in the form --helm-cert-file=<host>/<path>=<filePath>
       --helm-creds stringArray                      This is a shortcut to --helm-username and --helm-password.
                                                     Must be in the form
                                                     --helm-creds=<host>/<path>=<username>:<password>, which
                                                     specifies the username and password for the same repository.
       --helm-insecure-skip-tls-verify stringArray   Controls skipping of TLS verification. Must be in the form
-                                                    --helm-insecure-skip-tls-verify=<host>/<path> or in the
-                                                    deprecated form
-                                                    --helm-insecure-skip-tls-verify=<credentialsId>, where
-                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+                                                    --helm-insecure-skip-tls-verify=<host>/<path>
       --helm-key-file stringArray                   Specify client certificate to use for Helm Repository
                                                     authentication. Must be in the form
-                                                    --helm-key-file=<host>/<path>=<filePath> or in the deprecated
-                                                    form --helm-key-file=<credentialsId>:<filePath>, where
-                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
+                                                    --helm-key-file=<host>/<path>=<filePath>
       --helm-password stringArray                   Specify password to use for Helm Repository authentication.
                                                     Must be in the form --helm-password=<host>/<path>=<password>
-                                                    or in the deprecated form
-                                                    --helm-password=<credentialsId>:<password>, where
-                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
       --helm-username stringArray                   Specify username to use for Helm Repository authentication.
                                                     Must be in the form --helm-username=<host>/<path>=<username>
-                                                    or in the deprecated form
-                                                    --helm-username=<credentialsId>:<username>, where
-                                                    <credentialsId> must match the id specified in the helm-chart.yaml.
 
 ```
 <!-- END SECTION -->

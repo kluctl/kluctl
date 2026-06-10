@@ -17,13 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"time"
 )
 
 const (
@@ -107,7 +108,7 @@ type KluctlDeploymentSpec struct {
 
 	// HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
 	// Kluctl deployment.
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.
+	// DEPRECATED this field is deprecated and setting will result in errors. It will be removed in the next API version bump. Use spec.credentials.helm instead.
 	// +optional
 	HelmCredentials []HelmCredentials `json:"helmCredentials,omitempty"`
 
@@ -448,10 +449,9 @@ type Decryption struct {
 
 type HelmCredentials struct {
 	// SecretRef holds the name of a secret that contains the Helm credentials.
-	// The secret must either contain the fields `credentialsId` which refers to the credentialsId
-	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories or an `url` used
+	// The secret must contain a `url` field used
 	// to match the credentials found in Kluctl projects helm-chart.yaml files.
-	// The secret can either container basic authentication credentials via `username` and `password` or
+	// The secret can either contain basic authentication credentials via `username` and `password` or
 	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
 	// contacting the repository.
 	// The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.

@@ -132,7 +132,6 @@ export class HelmChartConfig {
     repo?: string;
     git?: GitProject;
     path?: string;
-    credentialsId?: string;
     chartName?: string;
     chartVersion?: string;
     updateConstraints?: string;
@@ -148,7 +147,6 @@ export class HelmChartConfig {
         this.repo = source["repo"];
         this.git = this.convertValues(source["git"], GitProject);
         this.path = source["path"];
-        this.credentialsId = source["credentialsId"];
         this.chartName = source["chartName"];
         this.chartVersion = source["chartVersion"];
         this.updateConstraints = source["updateConstraints"];

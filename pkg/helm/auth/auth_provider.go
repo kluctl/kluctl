@@ -2,9 +2,10 @@ package auth
 
 import (
 	"context"
+	"net/url"
+
 	"github.com/hashicorp/go-multierror"
 	"helm.sh/helm/v3/pkg/repo"
-	"net/url"
 )
 
 type CleanupFunc func()
@@ -12,7 +13,7 @@ type CleanupFunc func()
 var cleanupNoop = func() {}
 
 type HelmAuthProvider interface {
-	FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error)
+	FindAuthEntry(ctx context.Context, repoUrl url.URL) (*repo.Entry, CleanupFunc, error)
 }
 
 type HelmAuthProviders struct {
@@ -27,10 +28,10 @@ func (a *HelmAuthProviders) RegisterAuthProvider(p HelmAuthProvider, last bool) 
 	}
 }
 
-func (a *HelmAuthProviders) FindAuthEntry(ctx context.Context, repoUrl url.URL, credentialsId string) (*repo.Entry, CleanupFunc, error) {
+func (a *HelmAuthProviders) FindAuthEntry(ctx context.Context, repoUrl url.URL) (*repo.Entry, CleanupFunc, error) {
 	var errs *multierror.Error
 	for _, p := range a.authProviders {
-		auth, cf, err := p.FindAuthEntry(ctx, repoUrl, credentialsId)
+		auth, cf, err := p.FindAuthEntry(ctx, repoUrl)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
