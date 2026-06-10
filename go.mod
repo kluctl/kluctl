@@ -44,7 +44,7 @@ require (
 	github.com/huandu/xstrings v1.5.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260602-2
+	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260602-debug6
 	github.com/kluctl/kluctl/lib v0.0.0
 	github.com/mattn/go-colorable v0.1.15
 	github.com/mattn/go-isatty v0.0.22
@@ -66,7 +66,7 @@ require (
 	github.com/tkrajina/typescriptify-golang-structs v0.2.0
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.55.0
+	golang.org/x/net v0.56.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0
