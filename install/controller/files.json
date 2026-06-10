@@ -1,6 +1,11 @@
 {
-  "contentHash": "4cd63ce983bfba05d57cc75dd3ee0fb32cf5c547d7f5f25d2c8f08fc0054eeb1",
+  "contentHash": "a96ec0c80d25cbc62e89b1705722b0bbbcd0e8c265855edc01ebf7694adefdf1",
   "files": [
+    {
+      "name": ".gitattributes",
+      "size": 64,
+      "perm": 420
+    },
     {
       "name": ".kluctl-library.yaml",
       "size": 464,

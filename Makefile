@@ -76,6 +76,7 @@ api-docs: gen-crd-api-reference-docs
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	cd lib && go generate ./...
 	go generate ./...
 
 .PHONY: fmt
