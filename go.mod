@@ -92,6 +92,7 @@ require (
 require (
 	github.com/fluxcd/pkg/oci v0.66.0
 	github.com/fluxcd/pkg/sourceignore v0.18.0
+	github.com/go-git/go-billy/v6 v6.0.0-alpha.1.0.20260601132126-1b220c4d6092
 	github.com/go-git/go-git/v6 v6.0.0-alpha.4.0.20260608211510-8daf58784007
 )
 
@@ -176,7 +177,6 @@ require (
 	github.com/getsops/gopgagent v0.0.0-20241224165529-7044f28e491e // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
 	github.com/go-git/gcfg/v2 v2.0.2 // indirect
-	github.com/go-git/go-billy/v6 v6.0.0-alpha.1.0.20260601132126-1b220c4d6092 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

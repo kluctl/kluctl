@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/go-git/go-billy/v6/osfs"
 	"github.com/go-git/go-git/v6"
+	"github.com/go-git/go-git/v6/backend"
 	config2 "github.com/go-git/go-git/v6/config"
 	"github.com/go-git/go-git/v6/plumbing"
+	"github.com/go-git/go-git/v6/plumbing/cache"
+	"github.com/go-git/go-git/v6/storage"
+	"github.com/go-git/go-git/v6/storage/filesystem"
 	"github.com/huandu/xstrings"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils/http-server"
 	port_tool "github.com/kluctl/kluctl/v2/e2e/test-utils/port-tool"
 	"sigs.k8s.io/yaml"
 )
@@ -26,13 +31,12 @@ type TestGitServer struct {
 
 	baseDir string
 
-	gitServer     *http_server.Server
+	backend       *backend.Backend
 	gitHttpServer *http.Server
 	gitServerPort int
 
 	authUsername string
 	authPassword string
-	failWhenAuth bool
 
 	cleanupMutex  sync.RWMutex
 	cleanupDoneCh chan struct{}
@@ -44,12 +48,6 @@ func WithTestGitServerAuth(username string, password string) TestGitServerOpt {
 	return func(server *TestGitServer) {
 		server.authUsername = username
 		server.authPassword = password
-	}
-}
-
-func WithTestGitServerFailWhenAuth(fail bool) TestGitServerOpt {
-	return func(server *TestGitServer) {
-		server.failWhenAuth = fail
 	}
 }
 
@@ -74,37 +72,27 @@ func NewTestGitServer(t *testing.T, opts ...TestGitServerOpt) *TestGitServer {
 }
 
 func (p *TestGitServer) initGitServer() {
-	p.gitServer = http_server.New(p.baseDir)
+	p.backend = backend.New(p)
 
-	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		p.cleanupMutex.RLock()
-		defer p.cleanupMutex.RUnlock()
-
-		if p.gitServer == nil {
-			http.Error(writer, "server closed", http.StatusInternalServerError)
-			return
-		}
-
-		username, password, ok := request.BasicAuth()
-		if p.failWhenAuth {
-			if ok {
-				writer.WriteHeader(http.StatusUnauthorized)
-				_, _ = writer.Write([]byte("forcing test failure"))
+	serveHttp := func(w http.ResponseWriter, r *http.Request) {
+		if p.authUsername != "" {
+			username, password, ok := r.BasicAuth()
+			if !ok {
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-		} else if p.authUsername != "" {
 			if p.authUsername != username || p.authPassword != password {
-				writer.WriteHeader(http.StatusUnauthorized)
-				_, _ = writer.Write([]byte("invalid credentials"))
+				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
-		p.gitServer.ServeHTTP(writer, request)
-	})
+
+		p.backend.ServeHTTP(w, r)
+	}
 
 	p.gitHttpServer = &http.Server{
 		Addr:    "127.0.0.1:0",
-		Handler: handler,
+		Handler: http.HandlerFunc(serveHttp),
 	}
 
 	ln := port_tool.NewListenerWithUniquePort("127.0.0.1")
@@ -122,6 +110,13 @@ func (p *TestGitServer) initGitServer() {
 	}()
 }
 
+func (p *TestGitServer) Load(u *url.URL) (storage.Storer, error) {
+	pth := u.Path
+	fs := osfs.New(filepath.Join(p.baseDir, pth))
+	s := filesystem.NewStorage(fs, cache.NewObjectLRUDefault())
+	return s, nil
+}
+
 func (p *TestGitServer) Cleanup() {
 	p.cleanupMutex.Lock()
 	defer p.cleanupMutex.Unlock()
@@ -131,7 +126,7 @@ func (p *TestGitServer) Cleanup() {
 	if p.gitHttpServer != nil {
 		_ = p.gitHttpServer.Shutdown(context.Background())
 		p.gitHttpServer = nil
-		p.gitServer = nil
+		p.backend = nil
 		<-p.cleanupDoneCh
 	}
 
