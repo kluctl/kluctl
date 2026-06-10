@@ -284,7 +284,8 @@ type ProjectSource struct {
 	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
 
 	// Credentials specifies a list of secrets with credentials
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.
+	// DEPRECATED this field is deprecated and will cause errors on reconciliation. It will be removed in the next API version bump.
+	// Use spec.credentials.git instead.
 	// +optional
 	Credentials []ProjectCredentialsGitDeprecated `json:"credentials,omitempty"`
 }

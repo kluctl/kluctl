@@ -12,7 +12,6 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/git/auth"
 	"github.com/kluctl/kluctl/lib/git/messages"
-	"github.com/kluctl/kluctl/lib/status"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
@@ -127,13 +126,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 		return nil, fmt.Errorf("spec.source.secretRef is not supported anymore, use 'spec.credentials.git' instead")
 	}
 	if len(source.Credentials) != 0 {
-		status.Deprecation(ctx, "spec.source.credentials", "'spec.source.credentials' is deprecated and will be removed in the next API version bump. Use 'spec.credentials.git' instead")
-		for _, c := range source.Credentials {
-			err := loadCredentials(c.Host, c.PathPrefix+"**", c.SecretRef.Name)
-			if err != nil {
-				return nil, err
-			}
-		}
+		return nil, fmt.Errorf("spec.source.credentials is not supported anymore, use 'spec.credentials.git' instead")
 	}
 
 	return ret, nil

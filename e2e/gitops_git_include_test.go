@@ -5,11 +5,9 @@ import (
 
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
-	"github.com/kluctl/kluctl/v2/pkg/utils"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type GitOpsIncludesSuite struct {
@@ -21,7 +19,7 @@ func TestGitOpsIncludes(t *testing.T) {
 	suite.Run(t, new(GitOpsIncludesSuite))
 }
 
-func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSource bool) {
+func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials() {
 	g := NewWithT(suite.T())
 	_ = g
 
@@ -31,14 +29,7 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 
 	p, ip1, _ := prepareGitIncludeTest(suite.T(), suite.k, mainGs, gs1, gs2)
 
-	var key client.ObjectKey
-	if legacyGitSource {
-		key = suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
-			kd.Spec.Source.URL = utils.Ptr(p.GitUrl())
-		})
-	} else {
-		key = suite.createKluctlDeployment(p, "test", nil)
-	}
+	key := suite.createKluctlDeployment(p, "test", nil)
 
 	suite.Run("fail without authentication", func() {
 		suite.waitForCommit(key, "")
@@ -63,41 +54,22 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 	secret2 := createSecret("user2", "password2")
 
 	suite.updateKluctlDeployment(key, func(kd *v1beta1.KluctlDeployment) {
-		if legacyGitSource {
-			var credentials []v1beta1.ProjectCredentialsGitDeprecated
-			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
-				Host:       gs1.GitHost(),
-				PathPrefix: ip1.GitUrlPath(),
-				SecretRef:  v1beta1.LocalObjectReference{Name: secret2},
-			})
-			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
-				Host:      mainGs.GitHost(),
-				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-			})
-			// make sure this one is ignored for http based urls
-			credentials = append(credentials, v1beta1.ProjectCredentialsGitDeprecated{
-				Host:      "*",
-				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-			})
-			kd.Spec.Source.Credentials = credentials
-		} else {
-			var credentials []v1beta1.ProjectCredentialsGit
-			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-				Host:      gs1.GitHost(),
-				Path:      ip1.GitUrlPath(),
-				SecretRef: v1beta1.LocalObjectReference{Name: secret2},
-			})
-			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-				Host:      mainGs.GitHost(),
-				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-			})
-			// make sure this one is ignored for http based urls
-			credentials = append(credentials, v1beta1.ProjectCredentialsGit{
-				Host:      "*",
-				SecretRef: v1beta1.LocalObjectReference{Name: secret1},
-			})
-			kd.Spec.Credentials.Git = credentials
-		}
+		var credentials []v1beta1.ProjectCredentialsGit
+		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+			Host:      gs1.GitHost(),
+			Path:      ip1.GitUrlPath(),
+			SecretRef: v1beta1.LocalObjectReference{Name: secret2},
+		})
+		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+			Host:      mainGs.GitHost(),
+			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+		})
+		// make sure this one is ignored for http based urls
+		credentials = append(credentials, v1beta1.ProjectCredentialsGit{
+			Host:      "*",
+			SecretRef: v1beta1.LocalObjectReference{Name: secret1},
+		})
+		kd.Spec.Credentials.Git = credentials
 	})
 
 	suite.Run("retry with authentication", func() {
@@ -110,9 +82,5 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials(legacyGitSourc
 }
 
 func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeCredentials() {
-	suite.testGitOpsGitIncludeCredentials(false)
-}
-
-func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeCredentialsLegacy() {
-	suite.testGitOpsGitIncludeCredentials(true)
+	suite.testGitOpsGitIncludeCredentials()
 }
