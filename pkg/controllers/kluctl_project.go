@@ -28,7 +28,6 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/prometheus/client_golang/prometheus"
-	"helm.sh/helm/v3/pkg/repo"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
@@ -450,27 +449,6 @@ func (pt *preparedTarget) buildImages(ctx context.Context) (*deployment.Images, 
 		images.AddFixedImage(fi)
 	}
 	return images, nil
-}
-
-type helmCredentialsProvider []repo.Entry
-
-func (p helmCredentialsProvider) FindCredentials(repoUrl string, credentialsId *string) *repo.Entry {
-	if credentialsId != nil {
-		for _, e := range p {
-			if e.Name != "" && e.Name == *credentialsId {
-				return &e
-			}
-		}
-	}
-	if repoUrl == "" {
-		return nil
-	}
-	for _, e := range p {
-		if e.URL == repoUrl {
-			return &e
-		}
-	}
-	return nil
 }
 
 func (pt *preparedTarget) buildInclusion() *utils.Inclusion {

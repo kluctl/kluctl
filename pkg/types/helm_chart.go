@@ -10,7 +10,6 @@ type HelmChartConfig2 struct {
 	Repo              string      `json:"repo,omitempty"`
 	Git               *GitProject `json:"git,omitempty"`
 	Path              string      `json:"path,omitempty"`
-	CredentialsId     *string     `json:"credentialsId,omitempty"`
 	ChartName         string      `json:"chartName,omitempty"`
 	ChartVersion      *string     `json:"chartVersion,omitempty"`
 	UpdateConstraints *string     `json:"updateConstraints,omitempty"`

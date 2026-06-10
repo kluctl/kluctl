@@ -5,17 +5,17 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/status"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
+
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	k8s2 "github.com/kluctl/kluctl/v2/pkg/types/k8s"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"regexp"
-	"sort"
-	"strings"
-	"sync"
 )
 
 type Images struct {
@@ -150,8 +150,7 @@ const beginPlaceholder = "XXXXXbegin_get_image_"
 const endPlaceholder = "_end_get_imageXXXXX"
 
 type placeHolder struct {
-	Image            string `json:"image"`
-	HasLatestVersion bool   `json:"hasLatestVersion"`
+	Image string `json:"image"`
 
 	Container string
 
@@ -286,10 +285,6 @@ func (images *Images) ResolvePlaceholders(ctx context.Context, k *k8s.K8sCluster
 }
 
 func (images *Images) resolveImage(ctx context.Context, ph placeHolder, ref k8s2.ObjectRef, deployment string, deployed *string, deploymentDir string, tags []string, vars *uo.UnstructuredObject) (*string, error) {
-	if ph.HasLatestVersion {
-		status.Deprecation(ctx, "latest-version-filter", "latest_version is deprecated when using images.get_image() and is completely ignored. Please remove usages of latest_version as it will fail to render in a future kluctl release.")
-	}
-
 	result, err := images.getFixedImage(ph.Image, ref.Namespace, deployment, ph.Container, vars)
 	if err != nil {
 		return nil, err

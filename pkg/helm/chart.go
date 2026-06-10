@@ -43,17 +43,14 @@ type Chart struct {
 	gitRp            *repocache.GitRepoCache
 	ociRp            *repocache.OciRepoCache
 
-	credentialsId string
-
 	versions []ChartVersion
 }
 
-func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, credentialsId string, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
+func NewChart(repo string, localPath string, chartName string, git *types2.GitProject, helmAuthProvider helmauth.HelmAuthProvider, ociAuthProvider ociauth.OciAuthProvider, gitRp *repocache.GitRepoCache, ociRp *repocache.OciRepoCache) (*Chart, error) {
 	hc := &Chart{
 		repo:             repo,
 		localPath:        localPath,
 		helmAuthProvider: helmAuthProvider,
-		credentialsId:    credentialsId,
 		ociAuthProvider:  ociAuthProvider,
 		gitRp:            gitRp,
 		ociRp:            ociRp,
@@ -348,14 +345,8 @@ func (c *Chart) pullFromRegistry(ctx context.Context, version ChartVersion, tmpP
 		a.Version = *version.Version
 	}
 
-	if c.credentialsId != "" {
-		if registry.IsOCI(c.repo) {
-			return fmt.Errorf("OCI charts can currently only be authenticated via registry login and environment variables but not via cli arguments")
-		}
-	}
-
 	if !registry.IsOCI(c.repo) {
-		helmCreds, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
+		helmCreds, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u)
 		if err != nil {
 			return err
 		}
@@ -634,15 +625,12 @@ func (c *Chart) queryVersionsHelmRepo(ctx context.Context) error {
 		return err
 	}
 
-	e, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u, c.credentialsId)
+	e, cf, err := c.helmAuthProvider.FindAuthEntry(ctx, *u)
 	if err != nil {
 		return err
 	}
 	defer cf()
 	if e == nil {
-		if c.credentialsId != "" {
-			return fmt.Errorf("no credentials found for Chart %s", c.chartName)
-		}
 		e = &repo.Entry{
 			URL: c.repo,
 		}

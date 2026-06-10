@@ -96,10 +96,9 @@ LocalObjectReference
 </td>
 <td>
 <p>SecretRef holds the name of a secret that contains the Helm credentials.
-The secret must either contain the fields <code>credentialsId</code> which refers to the credentialsId
-found in <a href="https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories">https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories</a> or an <code>url</code> used
+The secret must contain a <code>url</code> field used
 to match the credentials found in Kluctl projects helm-chart.yaml files.
-The secret can either container basic authentication credentials via <code>username</code> and <code>password</code> or
+The secret can either contain basic authentication credentials via <code>username</code> and <code>password</code> or
 TLS authentication via <code>certFile</code> and <code>keyFile</code>. <code>caFile</code> can be specified to override the CA to use while
 contacting the repository.
 The secret can also contain <code>insecureSkipTlsVerify: &quot;true&quot;</code>, which will disable TLS verification.
@@ -311,7 +310,7 @@ it does not apply to already started executions. Defaults to false.</p>
 <em>(Optional)</em>
 <p>HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
 Kluctl deployment.
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.</p>
+DEPRECATED this field is deprecated and setting will result in errors. It will be removed in the next API version bump. Use spec.credentials.helm instead.</p>
 </td>
 </tr>
 <tr>
@@ -811,7 +810,7 @@ it does not apply to already started executions. Defaults to false.</p>
 <em>(Optional)</em>
 <p>HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
 Kluctl deployment.
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.</p>
+DEPRECATED this field is deprecated and setting will result in errors. It will be removed in the next API version bump. Use spec.credentials.helm instead.</p>
 </td>
 </tr>
 <tr>
@@ -1406,10 +1405,8 @@ the KluctlDeployment.</p>
 <a href="#gitops.kluctl.io/v1beta1.Decryption">Decryption</a>, 
 <a href="#gitops.kluctl.io/v1beta1.HelmCredentials">HelmCredentials</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGit">ProjectCredentialsGit</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGitDeprecated">ProjectCredentialsGitDeprecated</a>, 
 <a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsHelm">ProjectCredentialsHelm</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsOci">ProjectCredentialsOci</a>, 
-<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
+<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsOci">ProjectCredentialsOci</a>)
 </p>
 <div class="md-typeset__scrollwrap">
 <div class="md-typeset__table">
@@ -1694,71 +1691,6 @@ and &lsquo;known_hosts&rsquo; fields.</p>
 </table>
 </div>
 </div>
-<h3 id="gitops.kluctl.io/v1beta1.ProjectCredentialsGitDeprecated">ProjectCredentialsGitDeprecated
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectSource">ProjectSource</a>)
-</p>
-<div class="md-typeset__scrollwrap">
-<div class="md-typeset__table">
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>host</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Host specifies the hostname that this secret applies to. If set to &lsquo;<em>&rsquo;, this set of credentials
-applies to all hosts.
-Using &lsquo;</em>&rsquo; for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
-You must always set a proper hostname in that case.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>pathPrefix</code><br>
-<em>
-string
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
-this set of credentials.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>secretRef</code><br>
-<em>
-<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
-LocalObjectReference
-</a>
-</em>
-</td>
-<td>
-<p>SecretRef specifies the Secret containing authentication credentials for
-the git repository.
-For HTTPS git repositories the Secret must contain &lsquo;username&rsquo; and &lsquo;password&rsquo;
-fields.
-For SSH git repositories the Secret must contain &lsquo;identity&rsquo;
-and &lsquo;known_hosts&rsquo; fields.</p>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
 <h3 id="gitops.kluctl.io/v1beta1.ProjectCredentialsHelm">ProjectCredentialsHelm
 </h3>
 <p>
@@ -1936,7 +1868,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Url specifies the Git url where the project source is located
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.</p>
+DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.url instead.</p>
 </td>
 </tr>
 <tr>
@@ -1949,7 +1881,7 @@ github.com/kluctl/kluctl/lib/git/types.GitRef
 <td>
 <em>(Optional)</em>
 <p>Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.</p>
+DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.ref instead.</p>
 </td>
 </tr>
 <tr>
@@ -1962,40 +1894,35 @@ string
 <td>
 <em>(Optional)</em>
 <p>Path specifies the sub-directory to be used as project directory
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.</p>
+DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.path instead.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>secretRef</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.LocalObjectReference">
-LocalObjectReference
-</a>
+k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
 <p>SecretRef specifies the Secret containing authentication credentials for
 See ProjectSourceCredentials.SecretRef for details
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git
-instead.
-WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
-Use spec.credentials.git with a proper Host field instead.</p>
+DEPRECATED this field is deprecated and will cause errors on reconciliation. It will be removed in the next API version bump.
+Use spec.credentials.git instead.</p>
 </td>
 </tr>
 <tr>
 <td>
 <code>credentials</code><br>
 <em>
-<a href="#gitops.kluctl.io/v1beta1.ProjectCredentialsGitDeprecated">
-[]ProjectCredentialsGitDeprecated
-</a>
+[]k8s.io/apimachinery/pkg/runtime.RawExtension
 </em>
 </td>
 <td>
 <em>(Optional)</em>
 <p>Credentials specifies a list of secrets with credentials
-DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.</p>
+DEPRECATED this field is deprecated and will cause errors on reconciliation. It will be removed in the next API version bump.
+Use spec.credentials.git instead.</p>
 </td>
 </tr>
 </tbody>

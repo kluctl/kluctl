@@ -1,14 +1,15 @@
 package e2e
 
 import (
+	"strings"
+	"testing"
+
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	test_utils "github.com/kluctl/kluctl/v2/e2e/test-utils"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"testing"
 )
 
 type GitOpsHelmSuite struct {
@@ -31,19 +32,9 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 		return
 	}
 
-	var legacyHelmCreds []kluctlv1.HelmCredentials
 	var projectCreds kluctlv1.ProjectCredentials
 
-	if tc.argCredsId != "" {
-		name := suite.createGitopsSecret(map[string]string{
-			"credentialsId": tc.argCredsId,
-			"username":      tc.argUsername,
-			"password":      tc.argPassword,
-		})
-		legacyHelmCreds = append(legacyHelmCreds, kluctlv1.HelmCredentials{
-			SecretRef: kluctlv1.LocalObjectReference{Name: name},
-		})
-	} else if tc.argCredsHost != "" {
+	if tc.argCredsHost != "" {
 		host := strings.ReplaceAll(tc.argCredsHost, "<host>", repo.URL.Host)
 		if tc.helmType == test_utils.TestHelmRepo_Oci {
 			m := map[string]string{
@@ -122,7 +113,6 @@ func (suite *GitOpsHelmSuite) testHelmPull(tc helmTestCase, prePull bool) {
 				URL: p.GitUrl(),
 			},
 		}
-		kd.Spec.HelmCredentials = legacyHelmCreds
 		kd.Spec.Credentials = projectCreds
 	})
 

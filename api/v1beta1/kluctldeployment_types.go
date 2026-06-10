@@ -17,13 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/types/result"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"time"
 )
 
 const (
@@ -107,7 +108,7 @@ type KluctlDeploymentSpec struct {
 
 	// HelmCredentials is a list of Helm credentials used when non pre-pulled Helm Charts are used inside a
 	// Kluctl deployment.
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.helm instead.
+	// DEPRECATED this field is deprecated and setting will result in errors. It will be removed in the next API version bump. Use spec.credentials.helm instead.
 	// +optional
 	HelmCredentials []HelmCredentials `json:"helmCredentials,omitempty"`
 
@@ -262,32 +263,31 @@ type ProjectSource struct {
 	Oci *ProjectSourceOci `json:"oci,omitempty"`
 
 	// Url specifies the Git url where the project source is located
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.url instead.
 	// +optional
 	URL *string `json:"url,omitempty"`
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.ref instead.
 	// +optional
 	Ref *gittypes.GitRef `json:"ref,omitempty"`
 
 	// Path specifies the sub-directory to be used as project directory
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.path instead.
 	// +optional
 	Path string `json:"path,omitempty"`
 
 	// SecretRef specifies the Secret containing authentication credentials for
 	// See ProjectSourceCredentials.SecretRef for details
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git
-	// instead.
-	// WARNING using this field causes the controller to pass http basic auth credentials to ALL repositories involved.
-	// Use spec.credentials.git with a proper Host field instead.
-	SecretRef *LocalObjectReference `json:"secretRef,omitempty"`
+	// DEPRECATED this field is deprecated and will cause errors on reconciliation. It will be removed in the next API version bump.
+	// Use spec.credentials.git instead.
+	SecretRef *runtime.RawExtension `json:"secretRef,omitempty"`
 
 	// Credentials specifies a list of secrets with credentials
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.credentials.git instead.
+	// DEPRECATED this field is deprecated and will cause errors on reconciliation. It will be removed in the next API version bump.
+	// Use spec.credentials.git instead.
 	// +optional
-	Credentials []ProjectCredentialsGitDeprecated `json:"credentials,omitempty"`
+	Credentials []runtime.RawExtension `json:"credentials,omitempty"`
 }
 
 type ProjectSourceGit struct {
@@ -366,29 +366,6 @@ type ProjectCredentialsGit struct {
 	SecretRef LocalObjectReference `json:"secretRef"`
 }
 
-type ProjectCredentialsGitDeprecated struct {
-	// Host specifies the hostname that this secret applies to. If set to '*', this set of credentials
-	// applies to all hosts.
-	// Using '*' for http(s) based repositories is not supported, meaning that such credentials sets will be ignored.
-	// You must always set a proper hostname in that case.
-	// +required
-	Host string `json:"host,omitempty"`
-
-	// PathPrefix specifies the path prefix to be used to filter source urls. Only urls that have this prefix will use
-	// this set of credentials.
-	// +optional
-	PathPrefix string `json:"pathPrefix,omitempty"`
-
-	// SecretRef specifies the Secret containing authentication credentials for
-	// the git repository.
-	// For HTTPS git repositories the Secret must contain 'username' and 'password'
-	// fields.
-	// For SSH git repositories the Secret must contain 'identity'
-	// and 'known_hosts' fields.
-	// +required
-	SecretRef LocalObjectReference `json:"secretRef"`
-}
-
 type ProjectCredentialsOci struct {
 	// Registry specifies the hostname that this secret applies to.
 	// +required
@@ -448,10 +425,9 @@ type Decryption struct {
 
 type HelmCredentials struct {
 	// SecretRef holds the name of a secret that contains the Helm credentials.
-	// The secret must either contain the fields `credentialsId` which refers to the credentialsId
-	// found in https://kluctl.io/docs/kluctl/reference/deployments/helm/#private-repositories or an `url` used
+	// The secret must contain a `url` field used
 	// to match the credentials found in Kluctl projects helm-chart.yaml files.
-	// The secret can either container basic authentication credentials via `username` and `password` or
+	// The secret can either contain basic authentication credentials via `username` and `password` or
 	// TLS authentication via `certFile` and `keyFile`. `caFile` can be specified to override the CA to use while
 	// contacting the repository.
 	// The secret can also contain `insecureSkipTlsVerify: "true"`, which will disable TLS verification.

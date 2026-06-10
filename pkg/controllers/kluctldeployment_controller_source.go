@@ -12,7 +12,6 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/git/auth"
 	"github.com/kluctl/kluctl/lib/git/messages"
-	"github.com/kluctl/kluctl/lib/status"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	helm_auth "github.com/kluctl/kluctl/v2/pkg/helm/auth"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
@@ -25,8 +24,6 @@ import (
 )
 
 type gitRepoSecrets struct {
-	deprecatedSecret bool
-
 	host   string
 	path   string
 	secret corev1.Secret
@@ -39,10 +36,9 @@ type ociRepoSecrets struct {
 }
 
 type helmRepoSecrets struct {
-	credentialsId string
-	host          string
-	path          string
-	secret        corev1.Secret
+	host   string
+	path   string
+	secret corev1.Secret
 }
 
 func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Context, obj *kluctlv1.KluctlDeployment) ([]*sourceoverride.ProxyClientController, error) {
@@ -103,7 +99,7 @@ func (r *KluctlDeploymentReconciler) buildSourceOverridesClients(ctx context.Con
 func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source kluctlv1.ProjectSource, credentials kluctlv1.ProjectCredentials, objNs string) ([]gitRepoSecrets, error) {
 	var ret []gitRepoSecrets
 
-	loadCredentials := func(deprecatedSecret bool, host string, path string, secretName string) error {
+	loadCredentials := func(host string, path string, secretName string) error {
 		if host == "" {
 			host = "*"
 		}
@@ -113,35 +109,24 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 			return fmt.Errorf("failed to get secret '%s': %w", secretName, err)
 		}
 		ret = append(ret, gitRepoSecrets{
-			deprecatedSecret: deprecatedSecret,
-			host:             host,
-			path:             path,
-			secret:           secret,
+			host:   host,
+			path:   path,
+			secret: secret,
 		})
 		return nil
 	}
 
 	for _, c := range credentials.Git {
-		err := loadCredentials(false, c.Host, c.Path, c.SecretRef.Name)
+		err := loadCredentials(c.Host, c.Path, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if source.SecretRef != nil {
-		status.Deprecation(ctx, "spec.source.secretRef", "the 'spec.source.secretRef' is deprecated and will be removed in the next API version bump.")
-		err := loadCredentials(true, "", "", source.SecretRef.Name)
-		if err != nil {
-			return nil, err
-		}
+		return nil, fmt.Errorf("spec.source.secretRef is not supported anymore, use 'spec.credentials.git' instead")
 	}
 	if len(source.Credentials) != 0 {
-		status.Deprecation(ctx, "spec.source.credentials", "'spec.source.credentials' is deprecated and will be removed in the next API version bump. Use 'spec.credentials.git' instead")
-		for _, c := range source.Credentials {
-			err := loadCredentials(false, c.Host, c.PathPrefix+"**", c.SecretRef.Name)
-			if err != nil {
-				return nil, err
-			}
-		}
+		return nil, fmt.Errorf("spec.source.credentials is not supported anymore, use 'spec.credentials.git' instead")
 	}
 
 	return ret, nil
@@ -150,7 +135,7 @@ func (r *KluctlDeploymentReconciler) getGitSecrets(ctx context.Context, source k
 func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credentials kluctlv1.ProjectCredentials, objNs string) ([]ociRepoSecrets, error) {
 	var ret []ociRepoSecrets
 
-	loadCredentials := func(deprecatedSecret bool, registry string, repo string, secretName string) error {
+	loadCredentials := func(registry string, repo string, secretName string) error {
 		var secret corev1.Secret
 		err := r.Client.Get(ctx, client.ObjectKey{Namespace: objNs, Name: secretName}, &secret)
 		if err != nil {
@@ -165,7 +150,7 @@ func (r *KluctlDeploymentReconciler) getOciSecrets(ctx context.Context, credenti
 	}
 
 	for _, c := range credentials.Oci {
-		err := loadCredentials(false, c.Registry, c.Repository, c.SecretRef.Name)
+		err := loadCredentials(c.Registry, c.Repository, c.SecretRef.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -198,26 +183,8 @@ func (r *KluctlDeploymentReconciler) getHelmSecrets(ctx context.Context, obj *kl
 		}
 	}
 
-	for _, c := range obj.Spec.HelmCredentials {
-		err := loadCredentials("", "", c.SecretRef.Name)
-		if err != nil {
-			return nil, err
-		}
-		e := &ret[len(ret)-1]
-		cid := e.secret.Data["credentialsId"]
-		u := e.secret.Data["url"]
-		if cid != nil {
-			e.credentialsId = string(cid)
-		}
-		if u != nil {
-			u2, err := url.Parse(string(u))
-			if err != nil {
-				return nil, err
-			}
-			e.host = u2.Host
-			e.path = strings.TrimPrefix(u2.Path, "/")
-			e.path = strings.TrimSuffix(e.path, "/")
-		}
+	if len(obj.Spec.HelmCredentials) != 0 {
+		return nil, fmt.Errorf("spec.helmCredentials can not be used anymore, please switch to spec.credentials.helm")
 	}
 
 	return ret, nil
@@ -243,8 +210,6 @@ func (r *KluctlDeploymentReconciler) buildGitAuth(ctx context.Context, gitSecret
 
 	for _, secret := range gitSecrets {
 		e := auth.AuthEntry{
-			AllowWildcardHostForHttp: secret.deprecatedSecret,
-
 			Host:     secret.host,
 			Username: "*",
 		}
@@ -349,8 +314,7 @@ func (r *KluctlDeploymentReconciler) buildHelmAuth(ctx context.Context, helmSecr
 
 	for _, secret := range helmSecrets {
 		e := helm_auth.AuthEntry{
-			CredentialsId: secret.credentialsId,
-			Host:          secret.host,
+			Host: secret.host,
 		}
 
 		if secret.path != "" {
