@@ -263,17 +263,17 @@ type ProjectSource struct {
 	Oci *ProjectSourceOci `json:"oci,omitempty"`
 
 	// Url specifies the Git url where the project source is located
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.url instead.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.url instead.
 	// +optional
 	URL *string `json:"url,omitempty"`
 
 	// Ref specifies the branch, tag or commit that should be used. If omitted, the default branch of the repo is used.
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.ref instead.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.ref instead.
 	// +optional
 	Ref *gittypes.GitRef `json:"ref,omitempty"`
 
 	// Path specifies the sub-directory to be used as project directory
-	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.git.path instead.
+	// DEPRECATED this field is deprecated and will be removed in the next API version bump. Use spec.source.git.path instead.
 	// +optional
 	Path string `json:"path,omitempty"`
 
