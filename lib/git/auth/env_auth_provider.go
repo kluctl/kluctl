@@ -9,7 +9,6 @@ import (
 	"github.com/kluctl/kluctl/lib/envutils"
 	"github.com/kluctl/kluctl/lib/git/messages"
 	"github.com/kluctl/kluctl/lib/git/types"
-	"github.com/kluctl/kluctl/lib/status"
 )
 
 type GitEnvAuthProvider struct {
@@ -49,14 +48,7 @@ func (a *GitEnvAuthProvider) doBuildList(ctx context.Context) error {
 			continue
 		}
 
-		path, ok := m["PATH"]
-		if !ok {
-			path, ok = m["PATH_PREFIX"]
-			if ok {
-				status.Deprecation(ctx, "git-prefix-path", "The environment variable KLUCTL_GIT_PREFIX_PATH is deprecated and support for it will be removed in a future Kluctl version. Please switch to KLUCTL_GIT_PATH with wildcards instead.")
-				path += "**"
-			}
-		}
+		path := m["PATH"]
 		if path != "" {
 			e.PathStr = path
 			g, err := glob.Compile(e.PathStr, '/')
