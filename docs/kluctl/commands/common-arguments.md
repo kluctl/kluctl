@@ -71,7 +71,9 @@ Project arguments:
                                                cause kluctl to not use git to clone for the specified repository
                                                but instead use the local directory. This is useful in case you
                                                need to test out changes in external git repositories without
-                                               pushing them.
+                                               pushing them. Repositories are specified as 'normalized repo keys',
+                                               which are in the format '<host>/<path>', meaning that no schema (no
+                                               git://) must be specified.
       --local-oci-group-override stringArray   Same as --local-git-group-override, but for OCI repositories.
       --local-oci-override stringArray         Same as --local-git-override, but for OCI repositories.
   -c, --project-config existingfile            Location of the .kluctl.yaml config file. Defaults to
