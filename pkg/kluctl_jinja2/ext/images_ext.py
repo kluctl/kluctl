@@ -11,13 +11,9 @@ class ImagesExtension(Extension):
         super().__init__(environment)
         environment.globals.update(self.build_images_vars())
 
-    def get_image_wrapper(self, image, latest_version=None):
-        has_latest_version = False
-        if latest_version is not None:
-            has_latest_version = True
+    def get_image_wrapper(self, image):
         placeholder = {
             "image": image,
-            "hasLatestVersion": has_latest_version,
         }
         j = json.dumps(placeholder)
         j = base64.b64encode(j.encode("utf8")).decode("utf8")
