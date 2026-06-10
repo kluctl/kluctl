@@ -28,6 +28,8 @@ spec:
         image: ghcr.io/kluctl/kluctl:latest
         imagePullPolicy: IfNotPresent
         command:
+          - tini
+          - --
           - kluctl
           - webui
           - run

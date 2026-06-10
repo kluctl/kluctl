@@ -41,6 +41,8 @@ spec:
       - args:
         - --leader-elect
         command:
+        - tini
+        - --
         - kluctl
         - controller
         - run

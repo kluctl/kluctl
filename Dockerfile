@@ -7,8 +7,8 @@ FROM --platform=$TARGETPLATFORM cgr.dev/chainguard/wolfi-base@sha256:b78bb982194
 ARG TARGETPLATFORM
 
 # We need git for kustomize to support overlays from git
-# gpg is needed for SOPS
-RUN apk update && apk add git tzdata gpg gpg-agent
+# gpg is needed for SOPS. tini is needed to reap gpg-agent zombies
+RUN apk update && apk add git tzdata gpg gpg-agent tini
 
 # go-git is failing with no valid known_hosts file exists, even if we provide known hosts via code
 RUN mkdir -p /etc/ssh && touch /etc/ssh/ssh_known_hosts
