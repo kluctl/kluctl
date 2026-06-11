@@ -3,7 +3,7 @@ package types
 import (
 	"github.com/go-playground/validator/v10"
 	"github.com/kluctl/kluctl/lib/yaml"
-	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v4/pkg/registry"
 )
 
 type HelmChartConfig2 struct {

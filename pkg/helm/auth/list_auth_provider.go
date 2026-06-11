@@ -9,7 +9,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/repo/v1"
 )
 
 type ListAuthProvider struct {
@@ -73,7 +73,7 @@ func (e *AuthEntry) BuildEntry(ctx context.Context, repoUrl url.URL) (*repo.Entr
 		URL:                   repoUrl.String(),
 		Username:              e.Username,
 		Password:              e.Password,
-		InsecureSkipTLSverify: e.InsecureSkipTLSverify,
+		InsecureSkipTLSVerify: e.InsecureSkipTLSverify,
 		PassCredentialsAll:    e.PassCredentialsAll,
 	}
 	var err error

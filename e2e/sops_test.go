@@ -1,13 +1,15 @@
 package e2e
 
 import (
+	"fmt"
+	"testing"
+
 	"github.com/getsops/sops/v3/age"
 	"github.com/kluctl/kluctl/v2/e2e/test-utils"
 	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/kluctl/kluctl/v2/pkg/vars/sops_test_resources"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func setSopsKey(p *test_project.TestProject) {
@@ -102,8 +104,9 @@ func TestSopsHelmValues(t *testing.T) {
 		{ChartName: "test-chart1", Version: "0.1.0"},
 	}
 	repo := test_utils.NewHelmTestRepo(test_utils.TestHelmRepo_Oci, "", charts)
-
 	repo.Start(t)
+
+	p.AddExtraArgs(fmt.Sprintf("--registry-plain-http=%s", repo.URL.Host))
 
 	valuesBytes, err := sops_test_resources.TestResources.ReadFile("helm-values.yaml")
 	assert.NoError(t, err)

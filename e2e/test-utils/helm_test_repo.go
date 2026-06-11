@@ -13,11 +13,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/kluctl/kluctl/lib/git/types"
 	cp "github.com/otiai10/copy"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/pusher"
-	registry2 "helm.sh/helm/v3/pkg/registry"
-	"helm.sh/helm/v3/pkg/repo"
-	"helm.sh/helm/v3/pkg/uploader"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/pusher"
+	registry2 "helm.sh/helm/v4/pkg/registry"
+	"helm.sh/helm/v4/pkg/repo/v1"
+	"helm.sh/helm/v4/pkg/uploader"
 )
 
 type TestHelmRepoType int

@@ -25,11 +25,11 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	cp "github.com/otiai10/copy"
 	"github.com/rogpeppe/go-internal/lockedfile"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/registry"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/getter"
+	"helm.sh/helm/v4/pkg/registry"
+	"helm.sh/helm/v4/pkg/repo/v1"
 )
 
 type Chart struct {
@@ -332,12 +332,12 @@ func (c *Chart) pullFromRegistry(ctx context.Context, version ChartVersion, tmpP
 	}
 	defer cleanup()
 
-	cfg, err := buildHelmConfig(nil, registryClient)
+	cfg, err := buildHelmConfig(nil, registryClient, "", nil)
 	if err != nil {
 		return err
 	}
 
-	a := action.NewPullWithOpts(action.WithConfig(cfg))
+	a := action.NewPull(action.WithConfig(cfg))
 	a.Settings = settings
 	a.Untar = true
 	a.DestDir = tmpPullDir
@@ -358,7 +358,7 @@ func (c *Chart) pullFromRegistry(ctx context.Context, version ChartVersion, tmpP
 			a.CertFile = helmCreds.CertFile
 			a.CaFile = helmCreds.CAFile
 			a.KeyFile = helmCreds.KeyFile
-			a.InsecureSkipTLSverify = helmCreds.InsecureSkipTLSverify
+			a.InsecureSkipTLSVerify = helmCreds.InsecureSkipTLSVerify
 			a.PassCredentialsAll = helmCreds.PassCredentialsAll
 		}
 	}

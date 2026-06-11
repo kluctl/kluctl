@@ -1,17 +1,18 @@
 package test_utils
 
 import (
-	"github.com/kluctl/kluctl/lib/yaml"
-	"github.com/kluctl/kluctl/v2/e2e/test-utils/test-helm-chart"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/cli/values"
-	"helm.sh/helm/v3/pkg/getter"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kluctl/kluctl/lib/yaml"
+	"github.com/kluctl/kluctl/v2/e2e/test-utils/test-helm-chart"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/cli/values"
+	"helm.sh/helm/v4/pkg/getter"
 )
 
 func CreateHelmDir(t *testing.T, name string, version string, dest string) {
