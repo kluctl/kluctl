@@ -40,6 +40,7 @@ func PullCached(ctx context.Context, craneOptions []crane.Option, c cache.Cache,
 		return nil, err
 	}
 
+	c = &dummyCacheDiffIdWrapper{c}
 	img = cache.Image(img, c)
 
 	digest, err := img.Digest()
@@ -76,8 +77,28 @@ func PullCached(ctx context.Context, craneOptions []crane.Option, c cache.Cache,
 	return meta, nil
 }
 
+type dummyDiffIdWrapper struct {
+	gcrv1.Layer
+}
+
+type dummyCacheDiffIdWrapper struct {
+	cache.Cache
+}
+
+func (d *dummyCacheDiffIdWrapper) Put(l gcrv1.Layer) (gcrv1.Layer, error) {
+	l = &dummyDiffIdWrapper{Layer: l}
+	return d.Cache.Put(l)
+}
+
+func (d *dummyDiffIdWrapper) DiffID() (gcrv1.Hash, error) {
+	return d.Digest()
+}
+
 // extractLayer extracts the Layer to the path
 func extractLayer(layer gcrv1.Layer, path string, layerType oci.LayerType) error {
+	// cached images required DiffID to work, but this only works for images with a rootfs (which we don't have)
+	layer = &dummyDiffIdWrapper{layer}
+
 	var blob io.Reader
 	blob, err := layer.Compressed()
 	if err != nil {
