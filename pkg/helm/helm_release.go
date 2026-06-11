@@ -206,6 +206,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	}
 
 	client := action.NewInstall(cfg)
+	client.KubeVersion = &cfg.Capabilities.KubeVersion
 	client.DryRunStrategy = action.DryRunClient
 	if k != nil {
 		client.DryRunStrategy = action.DryRunServer
@@ -213,6 +214,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	client.Namespace = namespace
 	client.ReleaseName = hr.Config.ReleaseName
 	client.Replace = true
+	client.TakeOwnership = true
 
 	if hr.Config.SkipCRDs {
 		client.SkipCRDs = true

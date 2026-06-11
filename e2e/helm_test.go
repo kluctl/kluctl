@@ -583,10 +583,12 @@ func testHelmManualUpgrade(t *testing.T, helmType test_utils.TestHelmRepoType) {
 	switch helmType {
 	case test_utils.TestHelmRepo_Helm, test_utils.TestHelmRepo_Oci:
 		repo = test_utils.NewHelmTestRepo(helmType, "", charts)
+		repo.Start(t)
+		p.AddExtraArgs(fmt.Sprintf("--registry-plain-http=%s", repo.URL.Host))
 	case test_utils.TestHelmRepo_Git:
 		repo = test_utils.NewHelmTestRepoGit(t, "", charts, "", "")
+		repo.Start(t)
 	}
-	repo.Start(t)
 
 	p.AddHelmDeployment("helm1", repo, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 
@@ -649,12 +651,16 @@ func testHelmUpdate(t *testing.T, helmType test_utils.TestHelmRepoType, upgrade 
 	case test_utils.TestHelmRepo_Helm, test_utils.TestHelmRepo_Oci:
 		repo1 = test_utils.NewHelmTestRepo(helmType, "", charts1)
 		repo2 = test_utils.NewHelmTestRepo(helmType, "", charts2)
+		repo1.Start(t)
+		repo2.Start(t)
+		p.AddExtraArgs(fmt.Sprintf("--registry-plain-http=%s", repo1.URL.Host))
+		p.AddExtraArgs(fmt.Sprintf("--registry-plain-http=%s", repo2.URL.Host))
 	case test_utils.TestHelmRepo_Git:
 		repo1 = test_utils.NewHelmTestRepoGit(t, "", charts1, "", "")
 		repo2 = test_utils.NewHelmTestRepoGit(t, "", charts2, "", "")
+		repo1.Start(t)
+		repo2.Start(t)
 	}
-	repo1.Start(t)
-	repo2.Start(t)
 
 	p.AddHelmDeployment("helm1", repo1, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 	p.AddHelmDeployment("helm2", repo2, "test-chart2", "0.1.0", "test-helm2", p.TestSlug(), nil)
@@ -790,6 +796,9 @@ func testHelmUpdateConstraints(t *testing.T, helmType test_utils.TestHelmRepoTyp
 	}
 	repo := test_utils.NewHelmTestRepo(helmType, "", charts)
 	repo.Start(t)
+	if helmType == test_utils.TestHelmRepo_Oci {
+		p.AddExtraArgs(fmt.Sprintf("--registry-plain-http=%s", repo.URL.Host))
+	}
 
 	p.AddHelmDeployment("helm1", repo, "test-chart1", "0.1.0", "test-helm1", p.TestSlug(), nil)
 	p.AddHelmDeployment("helm2", repo, "test-chart1", "0.1.0", "test-helm2", p.TestSlug(), nil)
