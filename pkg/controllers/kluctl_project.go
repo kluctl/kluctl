@@ -216,6 +216,10 @@ func (pp *preparedProject) cleanup(ctx context.Context) {
 		pp.gitRP.Clear()
 		pp.gitRP = nil
 	}
+	if pp.ociRP != nil {
+		pp.ociRP.Clear()
+		pp.ociRP = nil
+	}
 	for _, c := range pp.soClients {
 		_ = c.Close()
 		c.Cleanup()

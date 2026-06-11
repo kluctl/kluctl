@@ -3,6 +3,9 @@ package auth_provider
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"os"
+
 	"github.com/docker/cli/cli/config/configfile"
 	types2 "github.com/docker/cli/cli/config/types"
 	"github.com/gobwas/glob"
@@ -12,8 +15,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"helm.sh/helm/v3/pkg/registry"
-	"net/http"
-	"os"
 )
 
 type AuthEntry struct {
@@ -101,6 +102,8 @@ func (a *AuthEntry) BuildCraneOptions() ([]crane.Option, error) {
 	if a.AuthConfig != (authn.AuthConfig{}) {
 		ret = append(ret, crane.WithAuth(authn.FromConfig(a.AuthConfig)))
 	}
+
+	ret = append(ret, crane.WithUserAgent("kluctl/v2"))
 
 	return ret, nil
 }

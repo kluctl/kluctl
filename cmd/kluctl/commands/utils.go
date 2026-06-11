@@ -101,7 +101,7 @@ func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.Kubeco
 	defer gitRp.Clear()
 
 	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, sourceOverrides, projectFlags.GitCacheUpdateInterval)
-	defer gitRp.Clear()
+	defer ociRp.Clear()
 
 	externalArgs, err := argsFlags.LoadArgs()
 	if err != nil {
