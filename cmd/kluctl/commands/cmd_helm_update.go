@@ -85,8 +85,8 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 	defer gitRp.Clear()
 
 	ociRp := repocache.NewOciRepoCache(ctx, ociAuthProvider, nil, time.Second*60)
-
 	defer ociRp.Clear()
+
 	if cmd.Commit {
 		gitStatus, err := git2.GetWorktreeStatus(ctx, gitRootPath)
 		if err != nil {

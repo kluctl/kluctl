@@ -12,16 +12,16 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/kluctl/kluctl/lib/git"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/lib/status"
+	"github.com/kluctl/kluctl/v2/pkg/oci"
 	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 	"github.com/kluctl/kluctl/v2/pkg/sourceoverride"
 	"github.com/kluctl/kluctl/v2/pkg/types"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	cp "github.com/otiai10/copy"
-
-	"github.com/fluxcd/pkg/oci"
 )
 
 type OciRepoCache struct {
@@ -29,6 +29,7 @@ type OciRepoCache struct {
 	updateInterval time.Duration
 
 	ociAuthProvider auth_provider.OciAuthProvider
+	ociCache        cache.Cache
 
 	repos      map[gittypes.RepoKey]*OciCacheEntry
 	reposMutex sync.Mutex
@@ -40,10 +41,9 @@ type OciRepoCache struct {
 }
 
 type OciCacheEntry struct {
-	rp          *OciRepoCache
-	url         url.URL
-	ociClient   *oci.Client
-	ociCacheDir string
+	rp           *OciRepoCache
+	url          url.URL
+	craneOptions []crane.Option
 
 	pulledDirs   map[types.OciRef]clonedDir
 	updateMutex  sync.Mutex
@@ -51,10 +51,14 @@ type OciCacheEntry struct {
 }
 
 func NewOciRepoCache(ctx context.Context, ociAuthProvider auth_provider.OciAuthProvider, repoOverrides sourceoverride.Resolver, updateInterval time.Duration) *OciRepoCache {
+	cacheDir := filepath.Join(utils.GetCacheDir(ctx), "oci")
+	c := cache.NewFilesystemCache(cacheDir)
+
 	return &OciRepoCache{
 		ctx:             ctx,
 		updateInterval:  updateInterval,
 		ociAuthProvider: ociAuthProvider,
+		ociCache:        c,
 		repos:           map[gittypes.RepoKey]*OciCacheEntry{},
 		repoOverrides:   repoOverrides,
 	}
@@ -98,7 +102,6 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		e := &OciCacheEntry{
 			rp:           rp,
 			url:          *urlN,
-			ociClient:    nil, // mark as overridden
 			pulledDirs:   map[types.OciRef]clonedDir{},
 			overridePath: overridePath,
 		}
@@ -111,45 +114,23 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 		return e, nil
 	}
 
-	hostOciCacheDir := filepath.Join(utils.GetCacheDir(rp.ctx), "oci")
-	hostOciCacheDir = filepath.Join(hostOciCacheDir, strings.ReplaceAll(urlN.Host, ":", "-"))
-
-	ociCacheDir := filepath.Join(hostOciCacheDir, urlN.Path)
-	err = utils.CheckSubInDir(hostOciCacheDir, ociCacheDir)
-	if err != nil {
-		return nil, err
-	}
-
-	err = os.MkdirAll(ociCacheDir, 0700)
-	if err != nil {
-		return nil, err
-	}
-
-	rp.cleanupDirsMutex.Lock()
-	rp.cleanupDirs = append(rp.cleanupDirs, ociCacheDir)
-	rp.cleanupDirsMutex.Unlock()
-
-	var clientOpts []crane.Option
+	var authOpts []crane.Option
 	if rp.ociAuthProvider != nil {
 		auth, err := rp.ociAuthProvider.FindAuthEntry(rp.ctx, urlN.String())
 		if err != nil {
 			return nil, err
 		}
-		authOpts, err := auth.BuildCraneOptions()
+		authOpts, err = auth.BuildCraneOptions()
 		if err != nil {
 			return nil, err
 		}
-		clientOpts = append(clientOpts, authOpts...)
 	}
 
-	ociClient := oci.NewClient(clientOpts)
-
 	e = &OciCacheEntry{
-		rp:          rp,
-		url:         *urlN,
-		ociClient:   ociClient,
-		ociCacheDir: ociCacheDir,
-		pulledDirs:  map[types.OciRef]clonedDir{},
+		rp:           rp,
+		url:          *urlN,
+		craneOptions: authOpts,
+		pulledDirs:   map[types.OciRef]clonedDir{},
 	}
 	rp.repos[repoKey] = e
 
@@ -169,34 +150,44 @@ func (e *OciCacheEntry) GetExtractedDir(ref *types.OciRef) (string, git.Checkout
 		return ed.dir, ed.info, nil
 	}
 
-	ociDir, err := os.MkdirTemp(e.ociCacheDir, "")
+	tmpDir := filepath.Join(utils.GetTmpBaseDir(e.rp.ctx), "oci-pulled")
+	err := os.MkdirAll(tmpDir, 0700)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
 
-	if e.ociClient == nil { // local override exist
-		err = cp.Copy(e.overridePath, ociDir)
+	pullDir, err := os.MkdirTemp(tmpDir, strings.ReplaceAll(e.url.Host, ":", "-")+"-")
+	if err != nil {
+		return "", git.CheckoutInfo{}, err
+	}
+
+	e.rp.cleanupDirsMutex.Lock()
+	e.rp.cleanupDirs = append(e.rp.cleanupDirs, pullDir)
+	e.rp.cleanupDirsMutex.Unlock()
+
+	if e.overridePath != "" { // local override exist
+		err = cp.Copy(e.overridePath, pullDir)
 		if err != nil {
 			return "", git.CheckoutInfo{}, err
 		}
-		return ociDir, git.CheckoutInfo{}, err
+		return pullDir, git.CheckoutInfo{}, err
 	}
 
 	image := strings.TrimPrefix(e.url.String(), "oci://") + ref.ImageSuffix()
 
-	md, err := e.ociClient.Pull(e.rp.ctx, image, ociDir)
+	md, err := oci.PullCached(e.rp.ctx, e.craneOptions, e.rp.ociCache, image, pullDir)
 	if err != nil {
 		return "", git.CheckoutInfo{}, err
 	}
 
 	var cd clonedDir
-	cd.dir = ociDir
+	cd.dir = pullDir
 
 	if a, ok := md.Annotations["io.kluctl.image.git_info"]; ok {
 		var gitInfo gittypes.GitInfo
 		err = json.Unmarshal([]byte(a), &gitInfo)
 		if err != nil {
-			return ociDir, git.CheckoutInfo{}, err
+			return pullDir, git.CheckoutInfo{}, err
 		}
 		if gitInfo.Ref != nil {
 			cd.info.CheckedOutRef = *gitInfo.Ref
