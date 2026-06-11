@@ -14,7 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-multierror"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"helm.sh/helm/v3/pkg/registry"
+	"helm.sh/helm/v4/pkg/registry"
 )
 
 type AuthEntry struct {

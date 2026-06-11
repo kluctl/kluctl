@@ -5,7 +5,7 @@ import (
 	"net/url"
 
 	"github.com/hashicorp/go-multierror"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/repo/v1"
 )
 
 type CleanupFunc func()

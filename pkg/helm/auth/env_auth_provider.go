@@ -11,7 +11,7 @@ import (
 	"github.com/kluctl/kluctl/lib/envutils"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/v2/pkg/utils"
-	"helm.sh/helm/v3/pkg/repo"
+	"helm.sh/helm/v4/pkg/repo/v1"
 )
 
 type HelmEnvAuthProvider struct {

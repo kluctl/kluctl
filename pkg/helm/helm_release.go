@@ -20,14 +20,14 @@ import (
 	"github.com/kluctl/kluctl/v2/pkg/utils"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 	"github.com/pkg/errors"
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/cli/values"
-	"helm.sh/helm/v3/pkg/getter"
-	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v4/pkg/action"
+	"helm.sh/helm/v4/pkg/chart"
+	"helm.sh/helm/v4/pkg/chart/common"
+	"helm.sh/helm/v4/pkg/chart/loader"
+	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/cli/values"
+	"helm.sh/helm/v4/pkg/getter"
+	"helm.sh/helm/v4/pkg/release"
 )
 
 const InstallNamespaceAnnotation = "kluctl.io/helm-install-namespace"
@@ -178,7 +178,12 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	}
 	valuesPath := yaml.FixPathExt(filepath.Join(filepath.Dir(hr.ConfigFile), "helm-values.yml"))
 
-	cfg, err := buildHelmConfig(k, nil)
+	apiVersions, err := hr.getApiVersions(k)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := buildHelmConfig(k, nil, k8sVersion, apiVersions)
 	if err != nil {
 		return err
 	}
@@ -195,39 +200,19 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 		valueOpts.ValueFiles = append(valueOpts.ValueFiles, tmpValues)
 	}
 
-	var kubeVersion *chartutil.KubeVersion
-	if k != nil {
-		kubeVersion, err = chartutil.ParseKubeVersion(k.ServerVersion.String())
-		if err != nil {
-			return err
-		}
-	}
-	if k8sVersion != "" {
-		kubeVersion, err = chartutil.ParseKubeVersion(k8sVersion)
-		if err != nil {
-			return err
-		}
-	}
-
 	namespace := "default"
 	if hr.Config.Namespace != nil {
 		namespace = *hr.Config.Namespace
 	}
 
 	client := action.NewInstall(cfg)
-	client.DryRun = true
+	client.DryRunStrategy = action.DryRunClient
 	if k != nil {
-		client.DryRunOption = "server"
+		client.DryRunStrategy = action.DryRunServer
 	}
 	client.Namespace = namespace
 	client.ReleaseName = hr.Config.ReleaseName
 	client.Replace = true
-	client.ClientOnly = true
-	client.KubeVersion = kubeVersion
-	client.APIVersions, err = hr.getApiVersions(k)
-	if err != nil {
-		return err
-	}
 
 	if hr.Config.SkipCRDs {
 		client.SkipCRDs = true
@@ -246,12 +231,16 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	if err != nil {
 		return err
 	}
-
-	if err := checkIfInstallable(chartRequested); err != nil {
+	chartAccessor, err := chart.NewAccessor(chartRequested)
+	if err != nil {
 		return err
 	}
 
-	if chartRequested.Metadata.Deprecated {
+	if err := checkIfInstallable(chartAccessor); err != nil {
+		return err
+	}
+
+	if chartAccessor.Deprecated() {
 		status.Warningf(ctx, "Chart %s is deprecated", hr.Config.ChartName)
 	}
 
@@ -260,17 +249,28 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 		return err
 	}
 
-	parsed, err := hr.parseRenderedManifests(rel.Manifest)
+	relAccessor, err := release.NewAccessor(rel)
+	if err != nil {
+		return err
+	}
+
+	parsed, err := hr.parseRenderedManifests(relAccessor.Manifest())
 	if err != nil {
 		return err
 	}
 
 	if !client.DisableHooks {
-		for _, m := range rel.Hooks {
-			if isTestHook(m) {
+		for _, h := range relAccessor.Hooks() {
+			if ish, err := isTestHook(h); err == nil && ish {
 				continue
+			} else if err != nil {
+				return err
 			}
-			parsedHooks, err := hr.parseRenderedManifests(m.Manifest)
+			ha, err := release.NewHookAccessor(h)
+			if err != nil {
+				return err
+			}
+			parsedHooks, err := hr.parseRenderedManifests(ha.Manifest())
 			if err != nil {
 				return err
 			}
@@ -299,7 +299,7 @@ func (hr *Release) doRender(ctx context.Context, k *k8s.K8sCluster, k8sVersion s
 	return nil
 }
 
-func (hr *Release) getApiVersions(k *k8s.K8sCluster) (chartutil.VersionSet, error) {
+func (hr *Release) getApiVersions(k *k8s.K8sCluster) (common.VersionSet, error) {
 	if k == nil {
 		return nil, nil
 	}
@@ -354,21 +354,35 @@ func (hr *Release) Save() error {
 	return yaml.WriteYamlFile(hr.ConfigFile, hr.Config)
 }
 
-func checkIfInstallable(ch *chart.Chart) error {
-	switch ch.Metadata.Type {
+func checkIfInstallable(ch chart.Accessor) error {
+	m := ch.MetadataAsMap()
+	switch m["Type"] {
 	case "", "application":
 		return nil
 	}
-	return errors.Errorf("%s charts are not installable", ch.Metadata.Type)
+	return errors.Errorf("%s charts are not installable", m["Type"])
 }
 
-func isTestHook(h *release.Hook) bool {
-	for _, e := range h.Events {
-		if e == release.HookTest {
-			return true
+func isTestHook(h release.Hook) (bool, error) {
+	a, err := release.NewHookAccessor(h)
+	if err != nil {
+		return false, err
+	}
+	o, err := uo.FromString(a.Manifest())
+	if err != nil {
+		return false, err
+	}
+	eventsStr := o.GetK8sAnnotation("helm.sh/hook")
+	if eventsStr == nil {
+		return false, nil
+	}
+	events := strings.Split(*eventsStr, ",")
+	for _, event := range events {
+		if strings.TrimSpace(event) == "test" {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func isLocalChart(config types.HelmChartConfig) bool {

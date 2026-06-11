@@ -3,17 +3,19 @@ package k8s
 import (
 	"context"
 	"fmt"
-	"github.com/kluctl/kluctl/lib/envutils"
-	"github.com/kluctl/kluctl/lib/status"
 	"io"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kluctl/kluctl/lib/envutils"
+	"github.com/kluctl/kluctl/lib/status"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -534,7 +536,7 @@ func (k *K8sCluster) ResetMapper() {
 }
 
 func (k *K8sCluster) ToRESTConfig() (*rest.Config, error) {
-	return k.config, nil
+	return rest.CopyConfig(k.config), nil
 }
 
 func (k *K8sCluster) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
@@ -555,4 +557,10 @@ func (k *K8sCluster) ToClient() (client.Client, error) {
 		return nil, err
 	}
 	return p.client, nil
+}
+
+// ToRawKubeConfigLoader is only a dummy for now to satisfy helm's kube client. It currently only uses it to get the
+// namespace from the kubeconfig, which we prevent by explicitely setting it
+func (k *K8sCluster) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	panic("ToRawKubeConfigLoader not implemented")
 }
