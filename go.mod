@@ -90,7 +90,7 @@ require (
 )
 
 require (
-	github.com/fluxcd/pkg/oci v0.66.0
+	github.com/fluxcd/pkg/oci v0.68.0
 	github.com/fluxcd/pkg/sourceignore v0.18.0
 	github.com/fluxcd/pkg/tar v1.2.0
 	github.com/go-git/go-billy/v6 v6.0.0-alpha.1.0.20260601132126-1b220c4d6092
@@ -169,7 +169,7 @@ require (
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fluxcd/cli-utils v1.2.0 // indirect
-	github.com/fluxcd/pkg/version v0.15.0 // indirect
+	github.com/fluxcd/pkg/version v0.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
