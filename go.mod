@@ -44,7 +44,7 @@ require (
 	github.com/huandu/xstrings v1.5.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
-	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260602-2
+	github.com/kluctl/go-embed-python v0.0.0-3.14.6-20260610-1
 	github.com/kluctl/kluctl/lib v0.0.0
 	github.com/mattn/go-colorable v0.1.15
 	github.com/mattn/go-isatty v0.0.22

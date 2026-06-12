@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.6.0
-	github.com/kluctl/go-embed-python v0.0.0-3.14.5-20260602-2
+	github.com/kluctl/go-embed-python v0.0.0-3.14.6-20260610-1
 	github.com/mattn/go-isatty v0.0.22
 	github.com/mattn/go-runewidth v0.0.24
 	github.com/mitchellh/reflectwalk v1.0.2
