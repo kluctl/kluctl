@@ -450,6 +450,47 @@ func (s *VarsLoaderTestSuite) TestClusterConfigMap() {
 		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
 			IgnoreMissing: &b,
 			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "cm",
+				Namespace: s.namespace(),
+				Key:       "vars1",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		_, found, _ := vc.Vars.GetNestedField("test1", "test2")
+		assert.False(s.T(), found)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		// A default provided by an earlier vars source must survive a missing
+		// key on an ignoreMissing source that uses targetPath (the documented
+		// defaults workaround).
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			Values: uo.FromStringMust(`{"deep": {"nested": {"path": 7}}}`),
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		b := true
+		err = vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "cm",
+				Namespace: s.namespace(),
+				Key:       "vars1",
+			},
+			TargetPath: "deep.nested.path",
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		v, _, _ := vc.Vars.GetNestedInt("deep", "nested", "path")
+		assert.Equal(s.T(), int64(7), v)
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		b := true
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			ClusterConfigMap: &types.VarsSourceClusterConfigMapOrSecret{
 				Name:      "cm-missing",
 				Namespace: s.namespace(),
 				Key:       "vars",
@@ -548,6 +589,22 @@ func (s *VarsLoaderTestSuite) TestClusterSecret() {
 			},
 		}, nil, "")
 		assert.EqualError(s.T(), err, fmt.Sprintf("key vars1 not found in %s/Secret/s on cluster", s.namespace()))
+	})
+
+	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
+		b := true
+		err := vl.LoadVars(context.TODO(), vc, &types.VarsSource{
+			IgnoreMissing: &b,
+			ClusterSecret: &types.VarsSourceClusterConfigMapOrSecret{
+				Name:      "s",
+				Namespace: s.namespace(),
+				Key:       "vars1",
+			},
+		}, nil, "")
+		assert.NoError(s.T(), err)
+
+		_, found, _ := vc.Vars.GetNestedField("test1", "test2")
+		assert.False(s.T(), found)
 	})
 
 	s.testVarsLoader(func(vl *VarsLoader, vc *VarsCtx, aws *aws.FakeAwsClientFactory, gcp *gcp.FakeClientFactory) {
