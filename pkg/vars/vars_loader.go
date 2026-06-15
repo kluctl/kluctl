@@ -161,6 +161,19 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		return err
 	}
 
+	// loadFromK8sConfigMapOrSecret returns an empty object when ignoreMissing
+	// skipped a missing object or a missing key. That empty result contributes
+	// no values, so skip the merge: wrapping it into targetPath would otherwise
+	// overwrite a default provided by an earlier vars source with {}. A present
+	// key always parses to a non-empty result or errors, so an empty result
+	// from these sources unambiguously means "skipped".
+	skipMerge := false
+	if ignoreMissing && (source.ClusterConfigMap != nil || source.ClusterSecret != nil) {
+		if o, ok := newValue.(*uo.UnstructuredObject); ok && o.IsZero() {
+			skipMerge = true
+		}
+	}
+
 	if sourceIn.Sensitive != nil {
 		// override the default
 		sensitive = *sourceIn.Sensitive
@@ -193,6 +206,10 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 
 	sourceIn.RenderedSensitive = sensitive
 	sourceIn.RenderedVars = newVars.Clone()
+
+	if skipMerge {
+		return nil
+	}
 
 	if source.NoOverride == nil || !*source.NoOverride {
 		varsCtx.Vars.Merge(newVars)
@@ -419,6 +436,9 @@ func (v *VarsLoader) loadFromK8sConfigMapOrSecret(varsCtx *VarsCtx, varsSource t
 		return nil, err
 	}
 	if !found {
+		if ignoreMissing {
+			return uo.New(), nil
+		}
 		return nil, fmt.Errorf("key %s not found in %s on cluster", varsSource.Key, ref.String())
 	}
 
