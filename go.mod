@@ -34,7 +34,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/gobwas/glob v0.2.3
-	github.com/google/go-containerregistry v0.21.6
+	github.com/google/go-containerregistry v0.21.7
 	github.com/google/gops v0.3.29
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/gax-go/v2 v2.22.0
