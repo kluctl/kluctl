@@ -265,6 +265,7 @@ export class DeploymentItemConfig {
     tags?: string[];
     barrier?: boolean;
     message?: string;
+    recursive?: boolean;
     waitReadiness?: boolean;
     waitReadinessObjects?: WaitReadinessObjectItemConfig[];
     args?: any;
@@ -288,6 +289,7 @@ export class DeploymentItemConfig {
         this.tags = source["tags"];
         this.barrier = source["barrier"];
         this.message = source["message"];
+        this.recursive = source["recursive"];
         this.waitReadiness = source["waitReadiness"];
         this.waitReadinessObjects = this.convertValues(source["waitReadinessObjects"], WaitReadinessObjectItemConfig);
         this.args = source["args"];

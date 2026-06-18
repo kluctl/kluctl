@@ -298,34 +298,71 @@ func (di *DeploymentItem) generateKustomizationYaml(subDir string) (*uo.Unstruct
 		return nil, nil
 	}
 
-	des, err := os.ReadDir(filepath.Join(di.RenderedDir, subDir))
-	if err != nil {
-		return nil, err
+	var files []string
+
+	baseDir := filepath.Join(di.RenderedDir, subDir)
+	if di.Config != nil && di.Config.Recursive {
+		err := filepath.WalkDir(baseDir, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if p == baseDir {
+				return nil
+			}
+			if d.IsDir() {
+				return nil
+			}
+			relPath, err := filepath.Rel(baseDir, p)
+			if err != nil {
+				return err
+			}
+			baseName := filepath.Base(p)
+			if baseName == "kustomization.yaml" || baseName == "kustomization.yml" {
+				return fmt.Errorf("recursive: true cannot be used when a nested kustomization.yaml/yml already exists in %s", relPath)
+			}
+			files = append(files, relPath)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		des, err := os.ReadDir(baseDir)
+		if err != nil {
+			return nil, err
+		}
+		for _, de := range des {
+			if de.IsDir() {
+				continue
+			}
+			files = append(files, de.Name())
+		}
 	}
 
-	list := make([]any, 0, len(des))
+	list := make([]any, 0, len(files))
 	m := map[string]bool{}
 
-	for _, de := range des {
-		if de.IsDir() {
-			continue
-		}
-
-		lname := strings.ToLower(de.Name())
+	for _, file := range files {
+		lname := strings.ToLower(file)
 		resourcePath := ""
 
-		if di.isHelmValuesYaml(de.Name()) {
+		baseName := filepath.Base(file)
+		if di.isHelmValuesYaml(baseName) {
 			continue
-		} else if di.isHelmChartYaml(de.Name()) {
-			hr, err := di.newHelmRelease(subDir)
+		} else if di.isHelmChartYaml(baseName) {
+			helmSubDir := filepath.Clean(filepath.Join(subDir, filepath.Dir(file)))
+			if helmSubDir == "." {
+				helmSubDir = ""
+			}
+			hr, err := di.newHelmRelease(helmSubDir)
 			if err != nil {
 				return nil, err
 			}
-			if !utils.IsFile(filepath.Join(di.RenderedDir, subDir, hr.GetOutputPath())) {
-				resourcePath = hr.GetOutputPath()
+			if !utils.IsFile(filepath.Join(di.RenderedDir, helmSubDir, hr.GetOutputPath())) {
+				resourcePath = filepath.Join(filepath.Dir(file), hr.GetOutputPath())
 			}
 		} else if strings.HasSuffix(lname, ".yml") || strings.HasSuffix(lname, ".yaml") {
-			resourcePath = de.Name()
+			resourcePath = file
 		}
 
 		if resourcePath != "" {
@@ -353,6 +390,11 @@ func (di *DeploymentItem) prepareKustomizationYaml() (*uo.UnstructuredObject, er
 	ky, err := di.readKustomizationYaml("")
 	if err != nil {
 		return nil, err
+	}
+	if ky != nil {
+		if di.Config != nil && di.Config.Recursive {
+			return nil, fmt.Errorf("recursive: true cannot be used when a kustomization.yaml/yml already exists in %s", di.RelToSourceItemDir)
+		}
 	}
 	if ky == nil {
 		ky, err = di.generateKustomizationYaml("")
