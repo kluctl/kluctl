@@ -52,6 +52,18 @@ deployments:
 - path: path/to/manifests
 ```
 
+If the manifests are stored in a nested directory structure (for example, when using the [Rendered Manifests Pattern](https://akuity.io/blog/the-rendered-manifests-pattern)), you can configure Kluctl to recursively walk and discover manifests by setting `recursive: true`.
+
+Note that `recursive: true` is mutually exclusive with having a `kustomization.yaml` or `kustomization.yml` in the root directory of the deployment item. If a root kustomization file is present, setting `recursive: true` will result in a validation error.
+
+Example:
+```yaml
+deployments:
+- path: path/to/manifests
+  recursive: true
+```
+
+
 ### Kustomize deployments
 
 When the deployment item directory specified via `path` contains a `kustomization.yaml`, Kluctl will use this file

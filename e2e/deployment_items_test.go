@@ -84,6 +84,124 @@ func TestGeneratedKustomize(t *testing.T) {
 	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
 }
 
+func TestGeneratedKustomizeRecursive(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+
+	p := test_project.NewTestProject(t)
+
+	createNamespace(t, k, p.TestSlug())
+
+	p.UpdateTarget("test", nil)
+
+	p.UpdateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField([]any{
+			map[string]any{
+				"path":      "generated-kustomize",
+				"recursive": true,
+			},
+		}, "deployments")
+		return nil
+	})
+	p.UpdateYaml("generated-kustomize/sub1/cm1.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *createConfigMapObject(nil, resourceOpts{
+			name:      "cm1",
+			namespace: p.TestSlug(),
+		})
+		return nil
+	}, "")
+	p.UpdateYaml("generated-kustomize/sub2/sub3/cm2.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *createConfigMapObject(nil, resourceOpts{
+			name:      "cm2",
+			namespace: p.TestSlug(),
+		})
+		return nil
+	}, "")
+	p.UpdateYaml("generated-kustomize/sub1/cm3._yaml", func(o *uo.UnstructuredObject) error {
+		*o = *createConfigMapObject(nil, resourceOpts{
+			name:      "cm3",
+			namespace: p.TestSlug(),
+		})
+		return nil
+	}, "")
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm1")
+	assertConfigMapExists(t, k, p.TestSlug(), "cm2")
+	assertConfigMapNotExists(t, k, p.TestSlug(), "cm3")
+}
+
+func TestGeneratedKustomizeRecursiveConflict(t *testing.T) {
+	t.Parallel()
+
+	p := test_project.NewTestProject(t)
+
+	p.UpdateTarget("test", nil)
+
+	p.UpdateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField([]any{
+			map[string]any{
+				"path":      "generated-kustomize",
+				"recursive": true,
+			},
+		}, "deployments")
+		return nil
+	})
+	p.UpdateYaml("generated-kustomize/kustomization.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *uo.FromMap(map[string]any{
+			"resources": []any{"cm1.yaml"},
+		})
+		return nil
+	}, "")
+	p.UpdateYaml("generated-kustomize/cm1.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *createConfigMapObject(nil, resourceOpts{
+			name:      "cm1",
+			namespace: p.TestSlug(),
+		})
+		return nil
+	}, "")
+
+	_, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "recursive: true cannot be used when a kustomization.yaml/yml already exists")
+}
+
+func TestGeneratedKustomizeRecursiveNestedConflict(t *testing.T) {
+	t.Parallel()
+
+	p := test_project.NewTestProject(t)
+
+	p.UpdateTarget("test", nil)
+
+	p.UpdateDeploymentYaml("", func(o *uo.UnstructuredObject) error {
+		_ = o.SetNestedField([]any{
+			map[string]any{
+				"path":      "generated-kustomize",
+				"recursive": true,
+			},
+		}, "deployments")
+		return nil
+	})
+	p.UpdateYaml("generated-kustomize/sub/kustomization.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *uo.FromMap(map[string]any{
+			"resources": []any{"cm1.yaml"},
+		})
+		return nil
+	}, "")
+	p.UpdateYaml("generated-kustomize/sub/cm1.yaml", func(o *uo.UnstructuredObject) error {
+		*o = *createConfigMapObject(nil, resourceOpts{
+			name:      "cm1",
+			namespace: p.TestSlug(),
+		})
+		return nil
+	}, "")
+
+	_, _, err := p.Kluctl(t, "deploy", "--yes", "-t", "test")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "recursive: true cannot be used when a nested kustomization.yaml/yml already exists")
+}
+
 func TestOnlyRender(t *testing.T) {
 	t.Parallel()
 

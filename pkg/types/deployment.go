@@ -14,9 +14,10 @@ type DeploymentItemConfig struct {
 	Oci           *OciProject              `json:"oci,omitempty"`
 	DeleteObjects []DeleteObjectItemConfig `json:"deleteObjects,omitempty"`
 
-	Tags    []string `json:"tags,omitempty"`
-	Barrier bool     `json:"barrier,omitempty"`
-	Message *string  `json:"message,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	Barrier   bool     `json:"barrier,omitempty"`
+	Message   *string  `json:"message,omitempty"`
+	Recursive bool     `json:"recursive,omitempty"`
 
 	WaitReadiness        bool                            `json:"waitReadiness,omitempty"`
 	WaitReadinessObjects []WaitReadinessObjectItemConfig `json:"waitReadinessObjects,omitempty"`
@@ -57,6 +58,9 @@ func ValidateDeploymentItemConfig(sl validator.StructLevel) {
 	}
 	if cnt > 1 {
 		sl.ReportError(s, "self", "self", "only one of path, include, git and oci can be set at the same time", "")
+	}
+	if s.Recursive && s.Path == nil {
+		sl.ReportError(s, "recursive", "recursive", "recursive can only be set when path is set", "")
 	}
 	if s.Path == nil && s.WaitReadiness {
 		sl.ReportError(s, "waitReadiness", "WaitReadiness", "only kustomize deployments are allowed to have waitReadiness set", "")
