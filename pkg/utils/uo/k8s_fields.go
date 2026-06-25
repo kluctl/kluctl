@@ -2,12 +2,13 @@ package uo
 
 import (
 	"fmt"
-	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func (uo *UnstructuredObject) GetK8sGVK() schema.GroupVersionKind {
@@ -61,9 +62,19 @@ func (uo *UnstructuredObject) SetK8sName(name string) {
 }
 
 func (uo *UnstructuredObject) GetK8sNamespace() string {
-	s, _, err := uo.GetNestedString("metadata", "namespace")
+	v, found, err := uo.GetNestedField("metadata", "namespace")
 	if err != nil {
 		panic(err)
+	}
+	if !found {
+		return ""
+	}
+	if v == nil {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		panic("metadata.namespace is not a string")
 	}
 	return s
 }
