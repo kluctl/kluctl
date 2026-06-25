@@ -46,16 +46,16 @@ data:
 
 `digest_len` is an optional parameter that allows to limit the length of the returned hex digest.
 
-### load_latest_git_sha(file, sha_len)
+### load_latest_git_commit(file, sha_len)
 Loads the first parent git repository of the given file and returns the latest commit sha1 hash as a hex string.
 
-The filename given to `load_latest_git_sha` is treated the same as in `load_template` and `load_sha256`.
+The filename given to `load_latest_git_commit` is treated the same as in `load_template` and `load_sha256`.
 
 ```
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-config-{{ load_latest_git_sha("configmap.yaml") }}
+  name: my-config-{{ load_latest_git_commit("configmap.yaml") }}
 data:
 ```
 

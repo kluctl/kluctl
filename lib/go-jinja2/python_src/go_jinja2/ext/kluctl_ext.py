@@ -137,8 +137,8 @@ def load_sha256(ctx: Context, path, digest_len=None):
 
 
 @jinja2.pass_context
-def load_latest_git_sha(ctx, path, sha_len=None):
-    ctx.environment.print_debug("load_latest_git_sha(%s)" % path)
+def load_latest_git_commit(ctx, path, sha_len=None):
+    ctx.environment.print_debug("load_latest_git_commit(%s)" % path)
     p = path.replace(os.path.sep, "/")
     if ctx.name:
         p = ctx.environment.join_path(path, ctx.name)
@@ -187,4 +187,4 @@ def add_jinja2_filters(jinja2_env):
     jinja2_env.globals["debug_print"] = debug_print
     jinja2_env.globals["load_sha256"] = load_sha256
     jinja2_env.globals["render"] = render
-    jinja2_env.globals["load_latest_git_sha"] = load_latest_git_sha
+    jinja2_env.globals["load_latest_git_commit"] = load_latest_git_commit

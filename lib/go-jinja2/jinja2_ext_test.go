@@ -101,12 +101,12 @@ func (suite *Jinja2TestSuite) TestGetVarAndRender() {
 func (suite *Jinja2TestSuite) TestLoadLatestGitSha() {
 	cwd, _ := os.Getwd()
 	j2 := suite.newJinja2(WithSearchDir(cwd))
-	s, err := j2.RenderString("sha: {{ load_latest_git_sha('./README.md') }}")
+	s, err := j2.RenderString("sha: {{ load_latest_git_commit('./README.md') }}")
 	assert.NoError(suite.T(), err)
 	assert.True(suite.T(), strings.HasPrefix(s, "sha: "))
 	assert.Equal(suite.T(), 5+40, len(s)) // 5 for "sha: ", 40 for sha length (from `man git-rev-parse`: "The full SHA-1 object name (40-byte hexadecimal string)").
 
-	s, err = j2.RenderString("sha: {{ load_latest_git_sha('./README.md', 6) }}")
+	s, err = j2.RenderString("sha: {{ load_latest_git_commit('./README.md', 6) }}")
 	assert.NoError(suite.T(), err)
 	assert.True(suite.T(), strings.HasPrefix(s, "sha: "))
 	assert.Equal(suite.T(), 5+6, len(s)) // 5 for "sha: ", 6 for sha length

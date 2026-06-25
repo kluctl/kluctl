@@ -50,7 +50,7 @@ func TestJinjaLoadLatestGitSha(t *testing.T) {
 	t.Cleanup(j2.Close)
 	t.Cleanup(j2.Cleanup)
 
-	s, err := j2.RenderString("{{ load_latest_git_sha('./README.md') }}")
+	s, err := j2.RenderString("{{ load_latest_git_commit('./README.md') }}")
 	assert.NoError(t, err)
 	assert.Equal(t, 40, len(s)) // 40 is sha length (from `man git-rev-parse`: "The full SHA-1 object name (40-byte hexadecimal string)").
 	assert.Equal(t, c.String(), s)
