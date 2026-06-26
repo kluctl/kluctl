@@ -51,7 +51,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/ohler55/ojg v1.28.1
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/gomega v1.42.1
 	github.com/otiai10/copy v1.14.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
