@@ -1,6 +1,8 @@
 package helm
 
 import (
+	"io"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"helm.sh/helm/v4/pkg/action"
@@ -37,10 +39,23 @@ func buildHelmConfig(k *k8s.K8sCluster, registryClient *registry.Client, k8sVers
 
 	return &action.Configuration{
 		RESTClientGetter: k,
-		KubeClient:       kc,
-		RegistryClient:   registryClient,
-		Capabilities:     c,
+		KubeClient: &fakeBuildKubeClient{
+			Interface: kc,
+		},
+		RegistryClient: registryClient,
+		Capabilities:   c,
 	}, nil
+}
+
+// fakeBuildKubeClient replaces Build with a simple dummy that returns no objects.
+// This causes Helm to completely skip its adoption logic, which we really don't want to use (we have our own conflict
+// resolution and adoption logic). Also, Build fails when we render CRs that don't have the CRD installed yet.
+type fakeBuildKubeClient struct {
+	kube.Interface
+}
+
+func (c *fakeBuildKubeClient) Build(reader io.Reader, validate bool) (kube.ResourceList, error) {
+	return nil, nil
 }
 
 func IsSemantic(version string) bool {
