@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
       - name: Cleanup disk space
         run: sudo ./hack/cleanup-github-runner-disk.sh
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: "**/*.sum"
@@ -115,7 +115,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: "**/*.sum"
@@ -179,7 +179,7 @@ jobs:
         run: ./hack/cleanup-github-runner-disk.sh
         shell: bash
         if: matrix.name == 'windows'
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: "**/*.sum"
