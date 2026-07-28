@@ -197,7 +197,7 @@ func (cmd *helmUpdateCmd) Run(ctx context.Context) error {
 		}
 		currentVersion := hr.GetAbstractVersion()
 
-		if currentVersion == latestVersion {
+		if currentVersion.String() == latestVersion.String() {
 			continue
 		}
 
