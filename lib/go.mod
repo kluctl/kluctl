@@ -16,18 +16,18 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/kevinburke/ssh_config v1.6.0
 	github.com/kluctl/go-embed-python v0.0.0-3.14.6-20260610-1
-	github.com/mattn/go-isatty v0.0.22
-	github.com/mattn/go-runewidth v0.0.24
+	github.com/mattn/go-isatty v0.0.24
+	github.com/mattn/go-runewidth v0.0.27
 	github.com/mitchellh/reflectwalk v1.0.2
-	github.com/rogpeppe/go-internal v1.15.0
+	github.com/rogpeppe/go-internal v1.16.0
 	github.com/stretchr/testify v1.11.1
 	github.com/xanzy/ssh-agent v0.3.3
-	golang.org/x/crypto v0.54.0
+	golang.org/x/crypto v0.55.0
 	golang.org/x/net v0.57.0
 	golang.org/x/sys v0.47.0
-	golang.org/x/text v0.40.0
-	k8s.io/apimachinery v0.36.2
-	k8s.io/client-go v0.36.2
+	golang.org/x/text v0.41.0
+	k8s.io/apimachinery v0.36.3
+	k8s.io/client-go v0.36.3
 	sigs.k8s.io/yaml v1.6.0
 )
 
