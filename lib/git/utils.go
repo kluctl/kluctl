@@ -34,7 +34,7 @@ func DetectGitRepositoryRoot(path string) (string, error) {
 	}
 	for true {
 		st, err := os.Stat(filepath.Join(path, ".git"))
-		if err == nil && st.IsDir() {
+		if err == nil && (st.IsDir() || st.Mode().IsRegular()) {
 			break
 		}
 		old := path
