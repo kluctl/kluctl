@@ -239,8 +239,9 @@ func (di *DeploymentItem) renderHelmCharts() error {
 }
 
 func resourcesIncludeRenderedChart(resources []string, outputPath string) bool {
+	outputPath = path.Clean(outputPath)
 	for _, r := range resources {
-		if r == outputPath {
+		if path.Clean(r) == outputPath {
 			return true
 		}
 	}
