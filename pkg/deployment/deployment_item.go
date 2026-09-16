@@ -223,14 +223,7 @@ func (di *DeploymentItem) renderHelmCharts() error {
 		ky, err := di.readKustomizationYaml(subDir)
 		if err == nil && ky != nil {
 			resources, _, _ := ky.GetNestedStringList("resources")
-			found := false
-			for _, r := range resources {
-				if r == hr.GetOutputPath() {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if !resourcesIncludeRenderedChart(resources, hr.GetOutputPath()) {
 				return fmt.Errorf("%s/kustomization.yaml does not include the rendered helm chart: %s", di.RelRenderedDir, hr.GetOutputPath())
 			}
 		}
@@ -243,6 +236,16 @@ func (di *DeploymentItem) renderHelmCharts() error {
 		return err
 	}
 	return nil
+}
+
+func resourcesIncludeRenderedChart(resources []string, outputPath string) bool {
+	outputPath = path.Clean(outputPath)
+	for _, r := range resources {
+		if path.Clean(r) == outputPath {
+			return true
+		}
+	}
+	return false
 }
 
 func (di *DeploymentItem) buildInclusionEntries() []utils.InclusionEntry {
