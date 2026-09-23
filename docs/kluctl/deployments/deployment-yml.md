@@ -357,7 +357,7 @@ deployments:
 ```
 
 ### alwaysDeploy
-Forces a deployment to be included everytime, ignoring inclusion/exclusion sets from the command line.
+Forces a deployment to be included every time, ignoring inclusion/exclusion sets from the command line.
 See [Deploying with tag inclusion/exclusion](./tags.md#deploying-with-tag-inclusionexclusion) for details.
 
 ```yaml
@@ -463,7 +463,7 @@ ignoreForDiff:
 
 This will ignore differences for the `spec.replicas` field in the `Deployment` with the name `my-deployment`.
 
-Using regex expressions instead of JSON Pathes is also supported:
+Using regex expressions instead of JSON Paths is also supported:
 
 ```yaml
 deployments:
@@ -523,7 +523,7 @@ conflictResolution:
 
 This will cause Kluctl to ignore conflicts on all matching fields of all `ValidatingWebhookConfiguration` objects.
 
-Using regex expressions instead of JSON Pathes is also supported:
+Using regex expressions instead of JSON Paths is also supported:
 
 ```yaml
 deployments:

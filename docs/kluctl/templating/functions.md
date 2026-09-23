@@ -102,8 +102,8 @@ my:
 Then `{{ get_var('my.deep.var', 'my-default') }}` would return `value`.
 When any of the elements inside the field path are non-existent, the given default value is returned instead.
 
-The `field_path` parameter can also be a list of pathes, which are then tried one after the another, returning the first
-result that gives a value that is not None. For example, `{{ get_var(['non.existing.var', my.deep.var'], 'my-default') }}`
+The `field_path` parameter can also be a list of paths, which are then tried one after the another, returning the first
+result that gives a value that is not None. For example, `{{ get_var(['non.existing.var', 'my.deep.var'], 'my-default') }}`
 would also return `value`.
 
 Please note that there is a limitation in this (and other) functions in regard to loop variables. You can currently not

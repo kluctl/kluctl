@@ -19,6 +19,6 @@ of Kluctl Deployments.
     + [Spec fields](./kluctldeployment.md#spec-fields)
     + [Reconciliation](./kluctldeployment.md#reconciliation)
     + [Kubeconfigs and RBAC](./kluctldeployment.md#kubeconfigs-and-rbac)
-    + [Credentilas](kluctldeployment.md#credentials)
+    + [Credentials](kluctldeployment.md#credentials)
     + [Secrets Decryption](./kluctldeployment.md#secrets-decryption)
     + [Status](./kluctldeployment.md#status)

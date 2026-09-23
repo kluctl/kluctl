@@ -74,7 +74,7 @@ deployments:
 
 ### Overriding the version
 
-The image version of the Webui can be overriden with the `kluctl_version` arg:
+The image version of the Webui can be overridden with the `kluctl_version` arg:
 
 ```yaml
 deployments:

@@ -77,7 +77,7 @@ to `true`.
 
 ## Deleting with tag inclusion/exclusion
 
-Also, in most cases, even more special care has to be taken for the same types of resources as decribed before.
+Also, in most cases, even more special care has to be taken for the same types of resources as described before.
 
 Imagine a kustomize deployment being responsible for namespaces deployments. If you now want to delete everything except
 deployments that have the `persistency` tag assigned, the exclusion logic would NOT exclude deletion of the namespace.

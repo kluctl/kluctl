@@ -64,7 +64,7 @@ args:
         nested2: arg2
 ```
 
-The meaning and function of these arguements is identical to the [args in .kluctl.yaml](../kluctl-project/README.md#args).
+The meaning and function of these arguments is identical to the [args in .kluctl.yaml](../kluctl-project/README.md#args).
 
 ## Using Kluctl Libraries without .kluctl-library.yaml
 
