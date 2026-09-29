@@ -246,7 +246,7 @@ Specifies a list of file filters. Each entry can have the following fields:
 |--------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | glob         | yes      | Specifies the globbing pattern to test files against. `/` must be used as separator, even on Windows.                                                                                                                                |
 | render       | no       | If set to `true`, Kluctl will render the content of matching files with the current context (excluding the currently loaded `gitFiles`.                                                                                              |
-| parseYaml    | no       | If set to `true`, Kluctl will parse and interpret the content of matching files as YAML.<br/>The result is stored in the `parsed` field of the resulting file dict.<br/>Parsing happend after rendering (if `render: true` is used). |
+| parseYaml    | no       | If set to `true`, Kluctl will parse and interpret the content of matching files as YAML.<br/>The result is stored in the `parsed` field of the resulting file dict.<br/>Parsing happens after rendering (if `render: true` is used). |
 | yamlMultiDoc | no       | If set to `true`, Kluctl will treat the content of matching files as multi-document YAML file.                                                                                                                                       |
 
 

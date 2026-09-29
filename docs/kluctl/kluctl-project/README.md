@@ -101,7 +101,7 @@ will only modify the value below `my.nested1` and keep the value of `my.nested2`
 ### aws
 If specified, configures the default AWS configuration to use for
 [awsSecretsManager](../templating/variable-sources.md#awssecretsmanager) vars sources and KMS based
-[SOPS descryption](../deployments/sops.md).
+[SOPS decryption](../deployments/sops.md).
 
 Example:
 

@@ -113,7 +113,7 @@ Image arguments:
 ## Inclusion/Exclusion arguments
 
 These arguments are available for some target based commands.
-They control inclusion/exclusion based on tags and deployment item pathes.
+They control inclusion/exclusion based on tags and deployment item paths.
 
 <!-- BEGIN SECTION "deploy" "Inclusion/Exclusion arguments" true -->
 ```

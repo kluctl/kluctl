@@ -18,7 +18,7 @@ finishes successfully.
 ## Control via Annotations
 
 Multiple [annotations](./annotations/README.md) control the behaviour when waiting for readiness of resources. These are
-the following annoations:
+the following annotations:
 
 - [kluctl.io/wait-readiness in resources](./annotations/all-resources.md#kluctliowait-readiness)
 - [kluctl.io/wait-readiness in kustomization.yaml](./annotations/kustomization.md#kluctliowait-readiness)

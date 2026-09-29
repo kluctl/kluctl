@@ -26,7 +26,7 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --concurrency int                       Configures how many KluctlDeployments can be be reconciled
+      --concurrency int                       Configures how many KluctlDeployments can be reconciled
                                               concurrently. (default 4)
       --context string                        Override the context to use.
       --controller-name string                The controller name used for metrics and logs. (default
