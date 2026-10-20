@@ -237,7 +237,8 @@ Specified the Git url.
 
 ##### ref
 Specifies the ref to match. The ref field has the same format at found in [Git includes](../deployments/deployment-yml.md#git-includes),
-with the addition that branches and tags can specify regular expressions.
+with the addition that branches and tags can specify regular expressions. A `ref` (e.g. `refs/merge-requests/123/head`)
+is matched literally and is not interpreted as regular expression.
 
 ##### files
 Specifies a list of file filters. Each entry can have the following fields:
