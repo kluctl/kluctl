@@ -23,10 +23,11 @@ import (
 	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
-// we mirror all refs (not only branches and tags), so that arbitrary refs like
-// refs/merge-requests/<iid>/merge (GitLab) or refs/pull/<id>/head (GitHub) can be checked out
+// by default, we only mirror branches and tags. Other refs (e.g. refs/merge-requests/<iid>/merge or
+// refs/pull/<id>/head) are only fetched on demand via FetchRef and then kept up-to-date by update()
 var defaultFetch = []config.RefSpec{
-	"+refs/*:refs/*",
+	"+refs/heads/*:refs/heads/*",
+	"+refs/tags/*:refs/tags/*",
 }
 
 type MirroredGitRepo struct {
@@ -253,13 +254,14 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 
 	var toDelete []*plumbing.Reference
 	changed := false
+	refSpecs := append([]config.RefSpec{}, defaultFetch...)
 	for name, ref := range remoteRefsMap {
-		if name.String() != "HEAD" && !strings.HasPrefix(name.String(), "refs/") {
-			continue
-		}
-		if strings.HasSuffix(name.String(), "^{}") {
-			// peeled tag
-			continue
+		if name.String() != "HEAD" && !isDefaultFetchRef(name) {
+			// non branch/tag refs are only fetched when they were explicitly requested before via FetchRef
+			if _, ok := localRemoteRefsMap[name]; !ok {
+				continue
+			}
+			refSpecs = append(refSpecs, buildSingleRefSpec(name))
 		}
 		if x, ok := localRemoteRefsMap[name]; !ok {
 			changed = true
@@ -285,10 +287,9 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
 			return remote.FetchContext(g.ctx, &git.FetchOptions{
 				ClientOptions: auth.ClientOptions,
-				// pass refspecs explicitly so that mirrors created by older versions (heads/tags only) also fetch all refs
-				RefSpecs: defaultFetch,
-				Tags:     git.AllTags,
-				Force:    true,
+				RefSpecs:      refSpecs,
+				Tags:          git.AllTags,
+				Force:         true,
 			})
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {
@@ -396,6 +397,60 @@ func (g *MirroredGitRepo) Update() error {
 		return err
 	}
 	g.hasUpdated = true
+	return nil
+}
+
+func isDefaultFetchRef(name plumbing.ReferenceName) bool {
+	return strings.HasPrefix(name.String(), "refs/heads/") || strings.HasPrefix(name.String(), "refs/tags/")
+}
+
+func buildSingleRefSpec(name plumbing.ReferenceName) config.RefSpec {
+	return config.RefSpec(fmt.Sprintf("+%s:%s", name, name))
+}
+
+// FetchRef fetches a single ref (e.g. refs/merge-requests/123/merge) into the mirror. This is used for refs that are
+// not covered by defaultFetch (branches and tags), so that the mirror does not need to fetch all refs of the remote.
+// Once fetched, the ref is kept up-to-date by subsequent updates and removed when it vanishes on the remote.
+func (g *MirroredGitRepo) FetchRef(refName string) error {
+	if !g.IsLocked() {
+		panic("tried to fetch a ref on a project that is not locked")
+	}
+	name := plumbing.ReferenceName(refName)
+	if isDefaultFetchRef(name) {
+		// already handled by the normal update
+		return nil
+	}
+
+	r, err := git.PlainOpen(g.mirrorDir)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	auth, err := g.authProviders.BuildAuth(g.ctx, g.url)
+	if err != nil {
+		return err
+	}
+	if auth == nil {
+		auth = &auth2.AuthMethodAndCA{}
+	}
+
+	remote, err := r.Remote("origin")
+	if err != nil {
+		return err
+	}
+
+	err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
+		return remote.FetchContext(g.ctx, &git.FetchOptions{
+			ClientOptions: auth.ClientOptions,
+			RefSpecs:      []config.RefSpec{buildSingleRefSpec(name)},
+			Tags:          git.NoTags,
+			Force:         true,
+		})
+	})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return fmt.Errorf("failed to fetch ref %s from %s: %w", refName, g.url.String(), err)
+	}
 	return nil
 }
 

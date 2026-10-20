@@ -173,6 +173,11 @@ func (v *VarsLoader) filterGitRefs(ref *gittypes.GitRef, ge *repocache.GitCacheE
 	var err error
 	matchingRefs := map[gittypes.GitRef]string{}
 
+	err = ge.EnsureRef(ref)
+	if err != nil {
+		return nil, err
+	}
+
 	ri := ge.GetRepoInfo()
 
 	if ref == nil {

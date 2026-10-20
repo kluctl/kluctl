@@ -191,7 +191,39 @@ func (e *GitCacheEntry) GetRepoInfo() RepoInfo {
 	return info
 }
 
+// EnsureRef makes sure that a non branch/tag ref (e.g. refs/merge-requests/123/merge) is present in the mirror,
+// fetching it on demand if needed. Branches and tags are always mirrored.
+func (e *GitCacheEntry) EnsureRef(ref *types.GitRef) error {
+	if ref == nil || ref.Ref == "" || e.mr == nil {
+		return nil
+	}
+	e.updateMutex.Lock()
+	defer e.updateMutex.Unlock()
+
+	err := e.mr.Lock()
+	if err != nil {
+		return err
+	}
+	defer e.mr.Unlock()
+
+	_, err = e.findCommit(*ref)
+	return err
+}
+
 func (e *GitCacheEntry) findCommit(ref types.GitRef) (string, error) {
+	if ref.Ref != "" {
+		if _, ok := e.refs[ref.Ref]; !ok {
+			// non branch/tag refs are not mirrored by default, so fetch it on demand
+			err := e.mr.FetchRef(ref.Ref)
+			if err != nil {
+				return "", err
+			}
+			e.refs, err = e.mr.RemoteRefHashesMap()
+			if err != nil {
+				return "", err
+			}
+		}
+	}
 	return git.FindCommitByRef(e.mr, e.refs, ref)
 }
 
