@@ -23,9 +23,10 @@ import (
 	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
-// by default, we only mirror branches and tags. Other refs (e.g. refs/merge-requests/<iid>/merge or
-// refs/pull/<id>/head) are only fetched on demand via FetchRef and then kept up-to-date by update()
-var defaultFetch = []config.RefSpec{
+// initialFetch is the initial fetch config of the "origin" remote of new mirrors. Additional refs (e.g.
+// refs/merge-requests/<iid>/merge or refs/pull/<id>/head) are added on demand to the on-disk remote config via FetchRef,
+// so that update() keeps them up-to-date by simply relying on the on-disk config.
+var initialFetch = []config.RefSpec{
 	"+refs/heads/*:refs/heads/*",
 	"+refs/tags/*:refs/tags/*",
 }
@@ -252,16 +253,18 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		return nil
 	})
 
+	// remove single-ref fetch specs (added via FetchRef) for refs that vanished on the remote, e.g. because the merge
+	// request got merged. Otherwise the fetch would fail with "couldn't find remote ref"
+	fetchSpecs, err := g.pruneFetchSpecs(r, remoteRefsMap)
+	if err != nil {
+		return err
+	}
+
 	var toDelete []*plumbing.Reference
 	changed := false
-	refSpecs := append([]config.RefSpec{}, defaultFetch...)
 	for name, ref := range remoteRefsMap {
-		if name.String() != "HEAD" && !isDefaultFetchRef(name) {
-			// non branch/tag refs are only fetched when they were explicitly requested before via FetchRef
-			if _, ok := localRemoteRefsMap[name]; !ok {
-				continue
-			}
-			refSpecs = append(refSpecs, buildSingleRefSpec(name))
+		if name.String() != "HEAD" && !matchesAnyRefSpec(fetchSpecs, name) {
+			continue
 		}
 		if x, ok := localRemoteRefsMap[name]; !ok {
 			changed = true
@@ -285,9 +288,9 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		// This leads to hanging fetches, which can easily deadlock the whole kluctl process. The only way to handle
 		// this currently is to panic when the deadline is exceeded too much.
 		err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
+			// RefSpecs are not passed, so that the on-disk config of the remote is used
 			return remote.FetchContext(g.ctx, &git.FetchOptions{
 				ClientOptions: auth.ClientOptions,
-				RefSpecs:      refSpecs,
 				Tags:          git.AllTags,
 				Force:         true,
 			})
@@ -358,7 +361,7 @@ func (g *MirroredGitRepo) cloneOrUpdate() error {
 	_, err = repo.CreateRemote(&config.RemoteConfig{
 		Name:  "origin",
 		URLs:  []string{g.url.String()},
-		Fetch: defaultFetch,
+		Fetch: initialFetch,
 	})
 	if err != nil {
 		return err
@@ -400,26 +403,76 @@ func (g *MirroredGitRepo) Update() error {
 	return nil
 }
 
-func isDefaultFetchRef(name plumbing.ReferenceName) bool {
-	return strings.HasPrefix(name.String(), "refs/heads/") || strings.HasPrefix(name.String(), "refs/tags/")
+func matchesAnyRefSpec(specs []config.RefSpec, name plumbing.ReferenceName) bool {
+	for _, s := range specs {
+		if s.Match(name) {
+			return true
+		}
+	}
+	return false
 }
 
 func buildSingleRefSpec(name plumbing.ReferenceName) config.RefSpec {
 	return config.RefSpec(fmt.Sprintf("+%s:%s", name, name))
 }
 
-// FetchRef fetches a single ref (e.g. refs/merge-requests/123/merge) into the mirror. This is used for refs that are
-// not covered by defaultFetch (branches and tags), so that the mirror does not need to fetch all refs of the remote.
-// Once fetched, the ref is kept up-to-date by subsequent updates and removed when it vanishes on the remote.
+// pruneFetchSpecs removes non-wildcard fetch specs from the on-disk config of the "origin" remote when the referenced
+// ref does not exist on the remote anymore. It returns the resulting fetch specs.
+func (g *MirroredGitRepo) pruneFetchSpecs(r *git.Repository, remoteRefsMap map[plumbing.ReferenceName]*plumbing.Reference) ([]config.RefSpec, error) {
+	cfg, err := r.Config()
+	if err != nil {
+		return nil, err
+	}
+	rc, ok := cfg.Remotes["origin"]
+	if !ok {
+		return nil, fmt.Errorf("remote origin not found in mirror of %s", g.url.String())
+	}
+
+	var newSpecs []config.RefSpec
+	for _, s := range rc.Fetch {
+		if !s.IsWildcard() {
+			if _, ok := remoteRefsMap[plumbing.ReferenceName(s.Src())]; !ok {
+				status.Tracef(g.ctx, "Removing fetch spec %s from mirror of %s as the ref vanished", s, g.url.String())
+				continue
+			}
+		}
+		newSpecs = append(newSpecs, s)
+	}
+	if len(newSpecs) != len(rc.Fetch) {
+		rc.Fetch = newSpecs
+		err = r.SetConfig(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newSpecs, nil
+}
+
+// HasRef returns true if the given ref is covered by the fetch config of the mirror, meaning that it is already
+// mirrored and kept up-to-date by Update.
+func (g *MirroredGitRepo) HasRef(refName string) (bool, error) {
+	r, err := git.PlainOpen(g.mirrorDir)
+	if err != nil {
+		return false, err
+	}
+	defer r.Close()
+
+	rc, err := r.Remote("origin")
+	if err != nil {
+		return false, err
+	}
+	return matchesAnyRefSpec(rc.Config().Fetch, plumbing.ReferenceName(refName)), nil
+}
+
+// FetchRef adds a single ref (e.g. refs/merge-requests/123/merge) to the on-disk fetch config of the mirror and fetches
+// it. This is used for refs that are not covered by the initial fetch config (branches and tags), so that the mirror
+// does not need to fetch all refs of the remote. Once added, the ref is kept up-to-date by subsequent updates and
+// removed when it vanishes on the remote.
 func (g *MirroredGitRepo) FetchRef(refName string) error {
 	if !g.IsLocked() {
 		panic("tried to fetch a ref on a project that is not locked")
 	}
 	name := plumbing.ReferenceName(refName)
-	if isDefaultFetchRef(name) {
-		// already handled by the normal update
-		return nil
-	}
 
 	r, err := git.PlainOpen(g.mirrorDir)
 	if err != nil {
@@ -440,16 +493,31 @@ func (g *MirroredGitRepo) FetchRef(refName string) error {
 		return err
 	}
 
+	spec := buildSingleRefSpec(name)
 	err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
 		return remote.FetchContext(g.ctx, &git.FetchOptions{
 			ClientOptions: auth.ClientOptions,
-			RefSpecs:      []config.RefSpec{buildSingleRefSpec(name)},
+			RefSpecs:      []config.RefSpec{spec},
 			Tags:          git.NoTags,
 			Force:         true,
 		})
 	})
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return fmt.Errorf("failed to fetch ref %s from %s: %w", refName, g.url.String(), err)
+	}
+
+	// only persist the fetch spec after a successful fetch, so that non-existing refs do not end up in the config
+	cfg, err := r.Config()
+	if err != nil {
+		return err
+	}
+	rc := cfg.Remotes["origin"]
+	if !matchesAnyRefSpec(rc.Fetch, name) {
+		rc.Fetch = append(rc.Fetch, spec)
+		err = r.SetConfig(cfg)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

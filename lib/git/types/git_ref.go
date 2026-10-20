@@ -21,9 +21,9 @@ type GitRef struct {
 	// +optional
 	Commit string `json:"commit,omitempty"`
 
-	// Ref is a full git ref name to use, e.g. "refs/merge-requests/123/merge" or "refs/pull/123/head".
+	// Raw is a full git ref name to use, e.g. "refs/merge-requests/123/merge" or "refs/pull/123/head".
 	// +optional
-	Ref string `json:"ref,omitempty"`
+	Raw string `json:"raw,omitempty"`
 }
 
 func (ref *GitRef) UnmarshalJSON(b []byte) error {
@@ -43,14 +43,14 @@ func (ref *GitRef) UnmarshalJSON(b []byte) error {
 	if ref.Commit != "" {
 		cnt++
 	}
-	if ref.Ref != "" {
-		if !strings.HasPrefix(ref.Ref, "refs/") {
-			return fmt.Errorf("ref must be a full ref name starting with 'refs/'")
+	if ref.Raw != "" {
+		if !strings.HasPrefix(ref.Raw, "refs/") {
+			return fmt.Errorf("raw must be a full ref name starting with 'refs/'")
 		}
 		cnt++
 	}
 	if cnt == 0 {
-		return fmt.Errorf("either branch, tag, commit or ref must be set")
+		return fmt.Errorf("either branch, tag, commit or raw must be set")
 	}
 	if cnt != 1 {
 		return fmt.Errorf("only one of the ref fields can be set")
@@ -71,8 +71,8 @@ func (ref *GitRef) String() string {
 		return fmt.Sprintf("refs/tags/%s", ref.Tag)
 	} else if ref.Branch != "" {
 		return fmt.Sprintf("refs/heads/%s", ref.Branch)
-	} else if ref.Ref != "" {
-		return ref.Ref
+	} else if ref.Raw != "" {
+		return ref.Raw
 	} else {
 		return ""
 	}
@@ -84,7 +84,7 @@ func ParseGitRef(s string) (GitRef, error) {
 	} else if strings.HasPrefix(s, "refs/tags/") {
 		return GitRef{Tag: strings.SplitN(s, "/", 3)[2]}, nil
 	} else if strings.HasPrefix(s, "refs/") {
-		return GitRef{Ref: s}, nil
+		return GitRef{Raw: s}, nil
 	} else {
 		return GitRef{}, fmt.Errorf("can't parse %s as GitRef", s)
 	}
