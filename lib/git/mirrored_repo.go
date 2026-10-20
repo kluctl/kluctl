@@ -23,9 +23,10 @@ import (
 	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
+// we mirror all refs (not only branches and tags), so that arbitrary refs like
+// refs/merge-requests/<iid>/merge (GitLab) or refs/pull/<id>/head (GitHub) can be checked out
 var defaultFetch = []config.RefSpec{
-	"+refs/heads/*:refs/heads/*",
-	"+refs/tags/*:refs/tags/*",
+	"+refs/*:refs/*",
 }
 
 type MirroredGitRepo struct {
@@ -253,8 +254,11 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 	var toDelete []*plumbing.Reference
 	changed := false
 	for name, ref := range remoteRefsMap {
-		if name.String() != "HEAD" && !strings.HasPrefix(name.String(), "refs/heads/") && !strings.HasPrefix(name.String(), "refs/tags/") {
-			// we only fetch branches and tags
+		if name.String() != "HEAD" && !strings.HasPrefix(name.String(), "refs/") {
+			continue
+		}
+		if strings.HasSuffix(name.String(), "^{}") {
+			// peeled tag
 			continue
 		}
 		if x, ok := localRemoteRefsMap[name]; !ok {
@@ -281,8 +285,10 @@ func (g *MirroredGitRepo) update(repoDir string) error {
 		err = RunWithDeadlineAndPanic(g.ctx, 5*time.Second, func() error {
 			return remote.FetchContext(g.ctx, &git.FetchOptions{
 				ClientOptions: auth.ClientOptions,
-				Tags:          git.AllTags,
-				Force:         true,
+				// pass refspecs explicitly so that mirrors created by older versions (heads/tags only) also fetch all refs
+				RefSpecs: defaultFetch,
+				Tags:     git.AllTags,
+				Force:    true,
 			})
 		})
 		if err != nil && err != git.NoErrAlreadyUpToDate {

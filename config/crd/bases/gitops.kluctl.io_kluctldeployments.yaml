@@ -462,6 +462,10 @@ spec:
                           commit:
                             description: Commit SHA to use.
                             type: string
+                          ref:
+                            description: Ref is a full git ref name to use, e.g. "refs/merge-requests/123/merge"
+                              or "refs/pull/123/head".
+                            type: string
                           tag:
                             description: Tag to use.
                             type: string
@@ -518,6 +522,10 @@ spec:
                         type: string
                       commit:
                         description: Commit SHA to use.
+                        type: string
+                      ref:
+                        description: Ref is a full git ref name to use, e.g. "refs/merge-requests/123/merge"
+                          or "refs/pull/123/head".
                         type: string
                       tag:
                         description: Tag to use.

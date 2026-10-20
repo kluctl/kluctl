@@ -19,5 +19,6 @@ export class GitRef {
         this.branch = source["branch"];
         this.tag = source["tag"];
         this.commit = source["commit"];
+        this.ref = source["ref"];
     }
 }

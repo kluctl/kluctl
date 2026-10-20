@@ -215,6 +215,11 @@ func (v *VarsLoader) filterGitRefs(ref *gittypes.GitRef, ge *repocache.GitCacheE
 		if err != nil {
 			return nil, fmt.Errorf("invalid branch regex specified: %w", err)
 		}
+	} else if ref.Ref != "" {
+		regex, err = regexp.Compile(fmt.Sprintf("^%s$", regexp.QuoteMeta(ref.Ref)))
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		return nil, fmt.Errorf("ref is empty")
 	}
