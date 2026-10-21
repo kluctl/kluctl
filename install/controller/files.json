@@ -4,17 +4,17 @@
     {
       "name": ".gitattributes",
       "size": 64,
-      "perm": 420
+      "perm": 436
     },
     {
       "name": ".kluctl-library.yaml",
       "size": 464,
-      "perm": 420
+      "perm": 436
     },
     {
       "name": "controller",
       "size": 0,
-      "perm": 2147484141
+      "perm": 2147484157
     },
     {
       "name": "controller/crd.yaml",
@@ -24,27 +24,27 @@
     {
       "name": "controller/kustomization.yaml",
       "size": 2278,
-      "perm": 420
+      "perm": 436
     },
     {
       "name": "controller/manager.yaml",
       "size": 2331,
-      "perm": 420
+      "perm": 436
     },
     {
       "name": "controller/rbac.yaml",
       "size": 3452,
-      "perm": 420
+      "perm": 436
     },
     {
       "name": "deployment.yaml",
       "size": 35,
-      "perm": 420
+      "perm": 436
     },
     {
       "name": "embed.go",
       "size": 74,
-      "perm": 420
+      "perm": 436
     }
   ]
 }
