@@ -28,5 +28,26 @@ func TestMarshalGitRefErrors(t *testing.T) {
 	assert.EqualError(t, err, "only one of the ref fields can be set")
 
 	err = json.Unmarshal([]byte(`{}`), &types.GitRef{})
-	assert.EqualError(t, err, "either branch, tag or commit must be set")
+	assert.EqualError(t, err, "either branch, tag, commit or raw must be set")
+}
+
+func TestMarshalGitRefRaw(t *testing.T) {
+	var ref types.GitRef
+	err := json.Unmarshal([]byte(`{"raw": "refs/merge-requests/123/merge"}`), &ref)
+	assert.NoError(t, err)
+	assert.Equal(t, types.GitRef{Raw: "refs/merge-requests/123/merge"}, ref)
+	assert.Equal(t, "refs/merge-requests/123/merge", ref.String())
+
+	b, err := json.Marshal(ref)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"raw":"refs/merge-requests/123/merge"}`, string(b))
+
+	parsed, err := types.ParseGitRef("refs/pull/5/head")
+	assert.NoError(t, err)
+	assert.Equal(t, types.GitRef{Raw: "refs/pull/5/head"}, parsed)
+
+	err = json.Unmarshal([]byte(`{"raw": "merge-requests/123/merge"}`), &types.GitRef{})
+	assert.EqualError(t, err, "raw must be a full ref name starting with 'refs/'")
+	err = json.Unmarshal([]byte(`{"raw": "refs/x", "branch": "b"}`), &types.GitRef{})
+	assert.EqualError(t, err, "only one of the ref fields can be set")
 }

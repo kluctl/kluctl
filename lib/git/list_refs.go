@@ -66,9 +66,8 @@ func ListRemoteRefsFastSsh(ctx context.Context, url types.GitUrl, sshPool *ssh_p
 func ListRemoteRefsSlow(ctx context.Context, url types.GitUrl, auth auth2.AuthMethodAndCA) ([]*plumbing.Reference, error) {
 	storage := memory.NewStorage()
 	remote := git.NewRemote(storage, &config.RemoteConfig{
-		Name:  "origin",
-		URLs:  []string{url.String()},
-		Fetch: defaultFetch,
+		Name: "origin",
+		URLs: []string{url.String()},
 	})
 
 	remoteRefs, err := remote.ListContext(ctx, &git.ListOptions{
