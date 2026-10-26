@@ -173,6 +173,11 @@ func (v *VarsLoader) filterGitRefs(ref *gittypes.GitRef, ge *repocache.GitCacheE
 	var err error
 	matchingRefs := map[gittypes.GitRef]string{}
 
+	err = ge.EnsureRef(ref)
+	if err != nil {
+		return nil, err
+	}
+
 	ri := ge.GetRepoInfo()
 
 	if ref == nil {
@@ -214,6 +219,11 @@ func (v *VarsLoader) filterGitRefs(ref *gittypes.GitRef, ge *repocache.GitCacheE
 		regex, err = regexp.Compile(fmt.Sprintf("^refs/heads/%s$", ref.Branch))
 		if err != nil {
 			return nil, fmt.Errorf("invalid branch regex specified: %w", err)
+		}
+	} else if ref.Raw != "" {
+		regex, err = regexp.Compile(fmt.Sprintf("^%s$", regexp.QuoteMeta(ref.Raw)))
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		return nil, fmt.Errorf("ref is empty")
