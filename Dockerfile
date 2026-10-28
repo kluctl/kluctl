@@ -1,7 +1,7 @@
 # We must use a glibc based distro due to embedded python not supporting musl libc for aarch64 (only amd64+musl is supported)
 # see https://github.com/indygreg/python-build-standalone/issues/87
 # use `docker buildx imagetools inspect cgr.dev/chainguard/wolfi-base:latest` to find latest sha256 of multiarch image
-FROM --platform=$TARGETPLATFORM cgr.dev/chainguard/wolfi-base@sha256:e161445c05b19e668cb5cc44df2f0403329fd4f0ac892794255e328e760612a1
+FROM --platform=$TARGETPLATFORM cgr.dev/chainguard/wolfi-base@sha256:dbcc3a4a3b1b9e68420a4742940aa6267c97e61811736a5fef0918a06ade1827
 
 # See https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope
 ARG TARGETPLATFORM
