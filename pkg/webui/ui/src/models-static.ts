@@ -2,6 +2,7 @@ export class GitRef {
     branch?: string;
     tag?: string;
     commit?: string;
+    raw?: string;
 
     ref?: string
 
@@ -19,5 +20,6 @@ export class GitRef {
         this.branch = source["branch"];
         this.tag = source["tag"];
         this.commit = source["commit"];
+        this.raw = source["raw"];
     }
 }

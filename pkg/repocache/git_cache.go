@@ -191,6 +191,44 @@ func (e *GitCacheEntry) GetRepoInfo() RepoInfo {
 	return info
 }
 
+// EnsureRef makes sure that a raw ref (e.g. refs/merge-requests/123/merge) is present in the mirror,
+// fetching it on demand if needed. Branches and tags are always mirrored.
+func (e *GitCacheEntry) EnsureRef(ref *types.GitRef) error {
+	if ref == nil || ref.Raw == "" || e.mr == nil {
+		return nil
+	}
+	e.updateMutex.Lock()
+	defer e.updateMutex.Unlock()
+
+	err := e.mr.Lock()
+	if err != nil {
+		return err
+	}
+	defer e.mr.Unlock()
+
+	return e.ensureRefLocked(ref)
+}
+
+// ensureRefLocked requires updateMutex and the mirror lock to be held
+func (e *GitCacheEntry) ensureRefLocked(ref *types.GitRef) error {
+	if ref == nil || ref.Raw == "" {
+		return nil
+	}
+	has, err := e.mr.HasRef(ref.Raw)
+	if err != nil {
+		return err
+	}
+	if has {
+		return nil
+	}
+	err = e.mr.FetchRef(ref.Raw)
+	if err != nil {
+		return err
+	}
+	e.refs, err = e.mr.RemoteRefHashesMap()
+	return err
+}
+
 func (e *GitCacheEntry) findCommit(ref types.GitRef) (string, error) {
 	return git.FindCommitByRef(e.mr, e.refs, ref)
 }
@@ -248,6 +286,10 @@ func (e *GitCacheEntry) GetClonedDir(ref *types.GitRef) (string, git.CheckoutInf
 		checkoutInfo.CheckedOutRef = *ref
 		checkoutInfo.CheckedOutCommit = ref.Commit
 	} else {
+		err = e.ensureRefLocked(ref)
+		if err != nil {
+			return "", git.CheckoutInfo{}, err
+		}
 		commit, err = e.findCommit(*ref)
 		if err != nil {
 			return "", git.CheckoutInfo{}, err

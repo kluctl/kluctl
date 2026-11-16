@@ -3,9 +3,13 @@ package e2e
 import (
 	"testing"
 
+	"github.com/go-git/go-git/v6/plumbing"
+	gittypes "github.com/kluctl/kluctl/lib/git/types"
 	"github.com/kluctl/kluctl/v2/api/v1beta1"
 	git2 "github.com/kluctl/kluctl/v2/e2e/test-utils"
+	"github.com/kluctl/kluctl/v2/e2e/test_project"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -83,4 +87,41 @@ func (suite *GitOpsIncludesSuite) testGitOpsGitIncludeCredentials() {
 
 func (suite *GitOpsIncludesSuite) TestGitOpsGitIncludeCredentials() {
 	suite.testGitOpsGitIncludeCredentials()
+}
+
+func (suite *GitOpsIncludesSuite) TestGitSourceRawRef() {
+	t := suite.T()
+	g := NewWithT(t)
+	p := test_project.NewTestProject(t)
+	createNamespace(t, suite.k, p.TestSlug())
+	p.UpdateTarget("test", nil)
+
+	const ref = "refs/merge-requests/123/merge"
+	setValue := func(value string) string {
+		return createRawRefCommit(t, p, ref, func() {
+			addConfigMapDeployment(p, "cm", map[string]string{"value": value}, resourceOpts{
+				name: "raw-ref", namespace: p.TestSlug(),
+			})
+		})
+	}
+	firstCommit := setValue("first")
+	key := suite.createKluctlDeployment2(p, "test", nil, func(kd *v1beta1.KluctlDeployment) {
+		kd.Spec.Source.Git = &v1beta1.ProjectSourceGit{
+			URL: p.GitUrl(),
+			Ref: &gittypes.GitRef{Raw: ref},
+		}
+	})
+	check := func(commit, value string) {
+		kd := suite.waitForCommit(key, commit)
+		readiness := suite.getReadiness(kd)
+		g.Expect(readiness).ToNot(BeNil())
+		g.Expect(readiness.Status).To(Equal(v1.ConditionTrue))
+		cm := assertConfigMapExists(t, suite.k, p.TestSlug(), "raw-ref")
+		assertNestedFieldEquals(t, cm, value, "data", "value")
+	}
+	check(firstCommit, "first")
+	check(setValue("second"), "second")
+	err := p.GetGitRepo().Storer.SetReference(plumbing.NewHashReference(plumbing.ReferenceName(ref), plumbing.NewHash(firstCommit)))
+	assert.NoError(t, err)
+	check(firstCommit, "first")
 }

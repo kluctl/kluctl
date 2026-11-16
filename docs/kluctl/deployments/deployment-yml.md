@@ -128,6 +128,24 @@ The url specifies the Git url to be cloned and checked out.
 
 `ref` is optional and specifies the branch or tag to be used. To specify a branch, set the sub-field `branch` as seen
 in the above example. To pass a tag, set the `tag` field instead. To pass a commit, set the `commit` field instead.
+To pass any other git ref, set the `raw` field to the full ref name (it must start with `refs/`). This is useful for
+example to deploy GitLab merge requests or GitHub pull requests:
+
+```yaml
+deployments:
+- git:
+    url: git@gitlab.com:example/example.git
+    ref:
+      raw: refs/merge-requests/123/merge
+```
+
+Only one of `branch`, `tag`, `commit` and `raw` can be set.
+
+Kluctl only mirrors branches and tags by default. Refs specified via `raw` are fetched on demand, so only the requested
+refs end up in the local git cache. Please note that some refs are recreated by the Git hosting provider, e.g.
+`refs/merge-requests/<iid>/merge` (GitLab) and `refs/pull/<id>/merge` (GitHub) are updated whenever the source or
+target branch changes, so the resolved commit can change between deployments. These refs might also vanish after the
+merge request/pull request is merged or closed.
 
 If `ref` is omitted, the default branch will be checked out.
 

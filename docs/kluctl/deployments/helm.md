@@ -110,7 +110,7 @@ The version of the chart. Must be a valid semantic version.
 ### git
 Instead of using `repo` for OCI/Helm registries or `path` for local charts, you can also pull Charts from Git repositories.
 This is helpful in cases where you don't want to publish a chart to a registry or as page, e.g. because of the overhead or other internal restrictions.
-You have to set the `url` as well as the `branch`, `tag` or `commit`. If the chart itself is in a sub directory, you can also specify a `subDir`:
+You have to set the `url` as well as the `branch`, `tag`, `commit` or `raw`. If the chart itself is in a sub directory, you can also specify a `subDir`:
 
 ```yaml
 helmChart:
@@ -118,8 +118,9 @@ helmChart:
     url: https://github.com/mycharts/salt
     ref:
       branch: main
-      #tag: v1.0.0 -- branch, tag and commit are mutually exclusive
-      #commit: 015244630b53eb69d77858e5587641b741e91706 -- branch, tag and commit are mutually exclusive
+      #tag: v1.0.0 -- branch, tag, commit and raw are mutually exclusive
+      #commit: 015244630b53eb69d77858e5587641b741e91706 -- branch, tag, commit and raw are mutually exclusive
+      #raw: refs/merge-requests/123/head -- branch, tag, commit and raw are mutually exclusive
     subDir: charts/path/to/chart
   releaseName: salt
   namespace: salt
