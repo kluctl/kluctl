@@ -1,11 +1,16 @@
 package args
 
 import (
-	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
-	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/getsops/sops/v3/cmd/sops/formats"
+	"github.com/kluctl/kluctl/v2/pkg/kluctl_project"
+	"github.com/kluctl/kluctl/v2/pkg/sops"
+	"github.com/kluctl/kluctl/v2/pkg/sops/decryptor"
+	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
 )
 
 type ProjectDir struct {
@@ -52,8 +57,23 @@ func (a *ArgsFlags) LoadArgs() (*uo.UnstructuredObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, a := range a.ArgsFromFile {
-		optionArgs2, err := uo.FromFile(a)
+	d := decryptor.NewDecryptor("", decryptor.MaxEncryptedFileSize)
+	d.AddLocalKeyService()
+	for _, path := range a.ArgsFromFile {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		// Arguments are YAML (or JSON), including files without an extension.
+		format := formats.Yaml
+		if filepath.Ext(path) == ".json" {
+			format = formats.Json
+		}
+		content, _, err = sops.MaybeDecrypt(d, content, format, formats.Yaml)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt args file %s: %w", path, err)
+		}
+		optionArgs2, err := uo.FromString(string(content))
 		if err != nil {
 			return nil, err
 		}

@@ -37,6 +37,15 @@ Global arguments:
 These arguments are available for all commands that are based on a Kluctl project.
 They control where and how to load the kluctl project and deployment project.
 
+`--args-from-file` automatically decrypts SOPS-encrypted YAML and JSON files using locally
+available SOPS keys and credentials (for example, `SOPS_AGE_KEY` or `SOPS_AGE_KEY_FILE`).
+Decryption happens in memory; the source file is not modified. Unencrypted files are also
+supported, and when multiple files are passed, later files override earlier ones.
+
+```shell
+kluctl deploy --args-from-file args.sops.yaml
+```
+
 <!-- BEGIN SECTION "deploy" "Project arguments" true -->
 ```
 Project arguments:

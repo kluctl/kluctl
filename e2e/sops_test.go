@@ -2,6 +2,8 @@ package e2e
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/getsops/sops/v3/age"
@@ -15,6 +17,33 @@ import (
 func setSopsKey(p *test_project.TestProject) {
 	key, _ := sops_test_resources.TestResources.ReadFile("test-key.txt")
 	p.SetEnv(age.SopsAgeKeyEnv, string(key))
+}
+
+func TestSopsArgsFromFile(t *testing.T) {
+	t.Parallel()
+
+	k := defaultCluster1
+	p := test_project.NewTestProject(t, test_project.WithUseProcess(true))
+	setSopsKey(p)
+
+	createNamespace(t, k, p.TestSlug())
+	p.UpdateTarget("test", nil)
+	addConfigMapDeployment(p, "cm", map[string]string{
+		"v1": "{{ args.test1.test2 }}",
+	}, resourceOpts{
+		name:      "cm",
+		namespace: p.TestSlug(),
+	})
+
+	encrypted, err := sops_test_resources.TestResources.ReadFile("test.yaml")
+	assert.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "args.sops.yaml")
+	assert.NoError(t, os.WriteFile(path, encrypted, 0o600))
+
+	p.KluctlMust(t, "deploy", "--yes", "-t", "test", "--args-from-file", path)
+
+	cm := assertConfigMapExists(t, k, p.TestSlug(), "cm")
+	assertNestedFieldEquals(t, cm, map[string]any{"v1": "42"}, "data")
 }
 
 func TestSopsVars(t *testing.T) {
