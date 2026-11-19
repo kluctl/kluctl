@@ -458,8 +458,8 @@ github.com/klauspost/compress v1.20.4 h1:dD0v/bvxtjCBqQu6sx1TNWkalEY5lNTIe+HY9w8
 github.com/klauspost/compress v1.20.4/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
 github.com/klauspost/cpuid/v2 v2.4.2 h1:xRw7IZEsAgVCp6trS/DgWbTAqpixhmywgVgBjYGg1bQ=
 github.com/klauspost/cpuid/v2 v2.4.2/go.mod h1:19jmZ9mjzoF//ddRSUsv0zfBTJWh3QJh9FNxZTMrGxU=
-github.com/kluctl/go-embed-python v0.0.0-3.14.10-20261110-1 h1:J6EMw+JT/Tmhrb0vjWPqMci/dyOAPtjv4cJxZsF+4TU=
-github.com/kluctl/go-embed-python v0.0.0-3.14.10-20261110-1/go.mod h1:pN7DPqud9XARA7QH+oWKEmD7/RKi3ESTdnNLuZljsSk=
+github.com/kluctl/go-embed-python v0.0.0-3.14.6-20260610-1 h1:oGUS7++Wm3LgxUfD6AmJgKbKQD2wdQFO9PzyJv6T+E4=
+github.com/kluctl/go-embed-python v0.0.0-3.14.6-20260610-1/go.mod h1:nMLEqpwngR8gAq3WFt2XjstgEjHrWtOnTv8gmUcxIik=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
