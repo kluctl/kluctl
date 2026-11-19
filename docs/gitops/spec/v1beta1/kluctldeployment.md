@@ -261,7 +261,7 @@ The above example will cause the `images.get_image("nginx")` invocations of the 
 to return `registry.gitlab.com/my-org/my-repo/image:1.2.3`.
 
 The fixed images provided here take precedence over the ones provided in the
-[target definition](../../../kluctl/kluctl-project/targets#images).
+[target definition](../../../kluctl/kluctl-project/targets/README.md#images).
 
 `spec.images` is equivalent to calling `kluctl deploy -t prod --fixed-image=nginx:example-namespace:Deployment/example=nginx:1.21.6 ...`
 and to `kluctl deploy -t prod --fixed-images-file=fixed-images.yaml` with `fixed-images.yaml` containing:
@@ -669,7 +669,7 @@ in the `v1beta1` api version. These fields are however deprecated and will be re
 
 Kluctl offers a [SOPS Integration](../../../kluctl/deployments/sops.md) that allows to use encrypted
 manifests and variable sources in Kluctl deployments. Decryption by the controller is also supported and currently
-mirrors how the [Secrets Decryption configuration](https://fluxcd.io/flux/components/kustomize/kustomization/#secrets-decryption)
+mirrors how the [Secrets Decryption configuration](https://fluxcd.io/flux/components/kustomize/kustomizations/#decryption)
 of the Flux Kustomize Controller. To configure it in the `KluctlDeployment`, simply set the `decryption` field in the
 spec:
 
@@ -692,8 +692,8 @@ The `sops-keys` Secret has the same format as in the
 
 ### AWS KMS with IRSA
 
-In addition to the [AWS KMS Secret Entry](https://fluxcd.io/flux/components/kustomize/kustomization/#aws-kms-secret-entry)
-in the secret and the [global AWS KMS](https://fluxcd.io/flux/components/kustomize/kustomization/#aws-kms)
+In addition to the [AWS KMS Secret Entry](https://fluxcd.io/flux/components/kustomize/kustomizations/#aws-kms-secret-entry)
+in the secret and the [global AWS KMS](https://fluxcd.io/flux/components/kustomize/kustomizations/#controller-global-decryption)
 authentication via the controller's service account, the Kluctl controller also supports using the IRSA role of the
 impersonated service account of the `KluctlDeployment` (specified via `serviceAccountName` in the spec or
 `--default-service-account`):

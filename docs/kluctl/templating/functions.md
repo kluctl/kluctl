@@ -22,7 +22,7 @@ Loads the given file into memory, renders it with the current Jinja2 context and
 {{ a }}
 ```
 
-`load_template` uses the same path searching rules as described in [includes/imports](../templating#includes-and-imports).
+`load_template` uses the same path searching rules as described in [includes/imports](./README.md#includes-and-imports).
 
 Please note that there is a limitation in this (and other) functions in regard to loop variables. You can currently not
 use loop variables directly as they are not accessible inside Jinja2 extensions/filters. There is an open issue in 

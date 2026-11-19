@@ -56,7 +56,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser-pro
-          version: latest
+          version: v2.20.2
           args: release --nightly --clean
         env:
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
