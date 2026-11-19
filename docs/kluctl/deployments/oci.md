@@ -22,6 +22,12 @@ Kluctl can include sub-deployments from OCI artifacts via [OCI includes](./deplo
 These artifacts can be pushed via [kluctl oci push](../commands/oci-push.md) and downloaded and extracted locally via
 [kluctl oci pull](../commands/oci-pull.md).
 
+## Run a project from an OCI artifact
+
+Use [`--project-url`](../commands/common-arguments.md#project-arguments) with commands
+such as `deploy` or `diff` to run a project directly from an OCI artifact without
+keeping a local copy of the extracted files.
+
 ## Authentication
 Private registries are supported as well. To authenticate to these, use one of the following methods.
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/cache"
 	"github.com/kluctl/kluctl/lib/git"
 	gittypes "github.com/kluctl/kluctl/lib/git/types"
@@ -135,6 +136,33 @@ func (rp *OciRepoCache) GetEntry(urlIn string) (*OciCacheEntry, error) {
 	rp.repos[repoKey] = e
 
 	return e, nil
+}
+
+// GetExtractedDirForURL extracts an OCI artifact URL with an optional tag or digest.
+// The directory is valid until Clear is called.
+func (rp *OciRepoCache) GetExtractedDirForURL(artifactURL string) (string, error) {
+	image, ok := strings.CutPrefix(artifactURL, "oci://")
+	if !ok {
+		return "", fmt.Errorf("project URL must use the oci:// scheme")
+	}
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return "", fmt.Errorf("invalid OCI artifact URL: %w", err)
+	}
+
+	ociRef := types.OciRef{}
+	switch r := ref.(type) {
+	case name.Tag:
+		ociRef.Tag = r.TagStr()
+	case name.Digest:
+		ociRef.Digest = r.DigestStr()
+	}
+	entry, err := rp.GetEntry("oci://" + ref.Context().Name())
+	if err != nil {
+		return "", err
+	}
+	dir, _, err := entry.GetExtractedDir(&ociRef)
+	return dir, err
 }
 
 func (e *OciCacheEntry) GetExtractedDir(ref *types.OciRef) (string, git.CheckoutInfo, error) {

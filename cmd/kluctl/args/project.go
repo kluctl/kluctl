@@ -32,6 +32,7 @@ type ProjectFlags struct {
 	ProjectDir
 	SourceOverrides
 
+	ProjectUrl    string           `group:"project" help:"Load the project from an OCI artifact URL instead of --project-dir."`
 	ProjectConfig ExistingFileType `group:"project" short:"c" help:"Location of the .kluctl.yaml config file. Defaults to $PROJECT/.kluctl.yaml" exts:"yml,yaml"`
 
 	Timeout                time.Duration `group:"project" help:"Specify timeout for all operations, including loading of the project, all external api calls and waiting for readiness." default:"10m"`
