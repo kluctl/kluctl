@@ -19,7 +19,8 @@ the [Helm integration](./helm.md).
 ## OCI includes
 Kluctl can include sub-deployments from OCI artifacts via [OCI includes](./deployment-yml.md#oci-includes).
 
-These artifacts can be pushed via the [kluctl oci push](../commands/oci-push.md) sub-command.
+These artifacts can be pushed via [kluctl oci push](../commands/oci-push.md) and downloaded and extracted locally via
+[kluctl oci pull](../commands/oci-pull.md).
 
 ## Authentication
 Private registries are supported as well. To authenticate to these, use one of the following methods.
