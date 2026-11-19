@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/cli/cli/config/configfile"
 	types2 "github.com/docker/cli/cli/config/types"
-	"github.com/gobwas/glob"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -19,7 +18,7 @@ import (
 
 type AuthEntry struct {
 	Registry string
-	RepoGlob glob.Glob
+	RepoGlob interface{ Match(string) bool }
 	RepoStr  string
 
 	AuthConfig authn.AuthConfig
