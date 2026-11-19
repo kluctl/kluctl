@@ -35,29 +35,32 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --abort-on-error               Abort deploying when an error occurs instead of trying the remaining deployments
-      --discriminator string         Override the target discriminator.
-      --dry-run                      Performs all kubernetes API calls in dry-run mode.
-      --force-apply                  Force conflict resolution when applying. See documentation for details
-      --force-replace-on-error       Same as --replace-on-error, but also try to delete and re-create objects. See
-                                     documentation for more details.
-      --no-obfuscate                 Disable obfuscation of sensitive/secret data
-      --no-wait                      Don't wait for objects readiness.
-  -o, --output-format stringArray    Specify output format and target file, in the format 'format=path'. Format
-                                     can either be 'text' or 'yaml'. Can be specified multiple times. The actual
-                                     format for yaml is currently not documented and subject to change.
-      --prune                        Prune orphaned objects directly after deploying. See the help for the 'prune'
-                                     sub-command for details.
-      --readiness-timeout duration   Maximum time to wait for object readiness. The timeout is meant per-object.
-                                     Timeouts are in the duration format (1s, 1m, 1h, ...). If not specified, a
-                                     default timeout of 5m is used. (default 5m0s)
-      --render-output-dir string     Specifies the target directory to render the project into. If omitted, a
-                                     temporary directory is used.
-      --replace-on-error             When patching an object fails, try to replace it. See documentation for more
-                                     details.
-      --short-output                 When using the 'text' output format (which is the default), only names of
-                                     changes objects are shown instead of showing all changes.
-  -y, --yes                          Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+      --abort-on-error[=true|false]           Abort deploying when an error occurs instead of trying the remaining
+                                              deployments
+      --discriminator string                  Override the target discriminator.
+      --dry-run[=true|false]                  Performs all kubernetes API calls in dry-run mode.
+      --force-apply[=true|false]              Force conflict resolution when applying. See documentation for details
+      --force-replace-on-error[=true|false]   Same as --replace-on-error, but also try to delete and re-create
+                                              objects. See documentation for more details.
+      --no-obfuscate[=true|false]             Disable obfuscation of sensitive/secret data
+      --no-wait[=true|false]                  Don't wait for objects readiness.
+  -o, --output-format stringArray             Specify output format and target file, in the format 'format=path'.
+                                              Format can either be 'text' or 'yaml'. Can be specified multiple
+                                              times. The actual format for yaml is currently not documented and
+                                              subject to change.
+      --prune[=true|false]                    Prune orphaned objects directly after deploying. See the help for
+                                              the 'prune' sub-command for details.
+      --readiness-timeout duration            Maximum time to wait for object readiness. The timeout is meant
+                                              per-object. Timeouts are in the duration format (1s, 1m, 1h, ...).
+                                              If not specified, a default timeout of 5m is used. (default 5m0s)
+      --render-output-dir string              Specifies the target directory to render the project into. If
+                                              omitted, a temporary directory is used.
+      --replace-on-error[=true|false]         When patching an object fails, try to replace it. See documentation
+                                              for more details.
+      --short-output[=true|false]             When using the 'text' output format (which is the default), only
+                                              names of changes objects are shown instead of showing all changes.
+  -y, --yes[=true|false]                      Suppresses 'Are you sure?' questions and proceeds as if you would
+                                              answer 'yes'.
 
 ```
 <!-- END SECTION -->

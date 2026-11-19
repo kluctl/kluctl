@@ -47,11 +47,11 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
-      --no-obfuscate                Disable obfuscation of sensitive/secret data
+      --no-obfuscate[=true|false]   Disable obfuscation of sensitive/secret data
   -o, --output-format stringArray   Specify output format and target file, in the format 'format=path'. Format can
                                     either be 'text' or 'yaml'. Can be specified multiple times. The actual format
                                     for yaml is currently not documented and subject to change.
-      --short-output                When using the 'text' output format (which is the default), only names of
+      --short-output[=true|false]   When using the 'text' output format (which is the default), only names of
                                     changes objects are shown instead of showing all changes.
 
 ```
@@ -75,7 +75,7 @@ Log arguments:
                                      batches to make reading them easier. This argument allows to modify the
                                      grouping time. (default 1s)
       --log-since duration           Show logs since this time. (default 1m0s)
-      --log-time                     If enabled, adds timestamps to log lines
+      --log-time[=true|false]        If enabled, adds timestamps to log lines
 
 ```
 <!-- END SECTION -->
@@ -84,7 +84,7 @@ Log arguments:
 GitOps overrides:
   Override settings for GitOps deployments.
 
-      --abort-on-error                         Abort deploying when an error occurs instead of trying the
+      --abort-on-error[=true|false]            Abort deploying when an error occurs instead of trying the
                                                remaining deployments
   -a, --arg stringArray                        Passes a template argument in the form of name=value. Nested args
                                                can be set with the '-a my.nested.arg=value' syntax. Values are
@@ -95,7 +95,7 @@ GitOps overrides:
                                                of the file will be loaded and treated as yaml.
       --args-from-file stringArray             Loads a yaml file and makes it available as arguments, meaning that
                                                they will be available thought the global 'args' variable.
-      --dry-run                                Performs all kubernetes API calls in dry-run mode.
+      --dry-run[=true|false]                   Performs all kubernetes API calls in dry-run mode.
       --exclude-deployment-dir stringArray     Exclude deployment dir. The path must be relative to the root
                                                deployment project. Exclusion has precedence over inclusion, same
                                                as in --exclude-tag
@@ -107,8 +107,8 @@ GitOps overrides:
       --fixed-images-file existingfile         Use .yaml file to pin image versions. See output of list-images
                                                sub-command or read the documentation for details about the output
                                                format
-      --force-apply                            Force conflict resolution when applying. See documentation for details
-      --force-replace-on-error                 Same as --replace-on-error, but also try to delete and re-create
+      --force-apply[=true|false]               Force conflict resolution when applying. See documentation for details
+      --force-replace-on-error[=true|false]    Same as --replace-on-error, but also try to delete and re-create
                                                objects. See documentation for more details.
       --include-deployment-dir stringArray     Include deployment dir. The path must be relative to the root
                                                deployment project.
@@ -132,7 +132,7 @@ GitOps overrides:
                                                git://) must be specified.
       --local-oci-group-override stringArray   Same as --local-git-group-override, but for OCI repositories.
       --local-oci-override stringArray         Same as --local-git-override, but for OCI repositories.
-      --replace-on-error                       When patching an object fails, try to replace it. See documentation
+      --replace-on-error[=true|false]          When patching an object fails, try to replace it. See documentation
                                                for more details.
   -t, --target string                          Target name to run command for. Target must exist in .kluctl.yaml.
       --target-context string                  Overrides the context name specified in the target. If the selected

@@ -35,24 +35,26 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --discriminator string        Override the target discriminator.
-      --force-apply                 Force conflict resolution when applying. See documentation for details
-      --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
-                                    documentation for more details.
-      --ignore-annotations          Ignores changes in annotations when diffing
-      --ignore-kluctl-metadata      Ignores changes in Kluctl related metadata (e.g. tags, discriminators, ...)
-      --ignore-labels               Ignores changes in labels when diffing
-      --ignore-tags                 Ignores changes in tags when diffing
-      --no-obfuscate                Disable obfuscation of sensitive/secret data
-  -o, --output-format stringArray   Specify output format and target file, in the format 'format=path'. Format can
-                                    either be 'text' or 'yaml'. Can be specified multiple times. The actual format
-                                    for yaml is currently not documented and subject to change.
-      --render-output-dir string    Specifies the target directory to render the project into. If omitted, a
-                                    temporary directory is used.
-      --replace-on-error            When patching an object fails, try to replace it. See documentation for more
-                                    details.
-      --short-output                When using the 'text' output format (which is the default), only names of
-                                    changes objects are shown instead of showing all changes.
+      --discriminator string                  Override the target discriminator.
+      --force-apply[=true|false]              Force conflict resolution when applying. See documentation for details
+      --force-replace-on-error[=true|false]   Same as --replace-on-error, but also try to delete and re-create
+                                              objects. See documentation for more details.
+      --ignore-annotations[=true|false]       Ignores changes in annotations when diffing
+      --ignore-kluctl-metadata[=true|false]   Ignores changes in Kluctl related metadata (e.g. tags,
+                                              discriminators, ...)
+      --ignore-labels[=true|false]            Ignores changes in labels when diffing
+      --ignore-tags[=true|false]              Ignores changes in tags when diffing
+      --no-obfuscate[=true|false]             Disable obfuscation of sensitive/secret data
+  -o, --output-format stringArray             Specify output format and target file, in the format 'format=path'.
+                                              Format can either be 'text' or 'yaml'. Can be specified multiple
+                                              times. The actual format for yaml is currently not documented and
+                                              subject to change.
+      --render-output-dir string              Specifies the target directory to render the project into. If
+                                              omitted, a temporary directory is used.
+      --replace-on-error[=true|false]         When patching an object fails, try to replace it. See documentation
+                                              for more details.
+      --short-output[=true|false]             When using the 'text' output format (which is the default), only
+                                              names of changes objects are shown instead of showing all changes.
 
 ```
 <!-- END SECTION -->

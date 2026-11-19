@@ -38,17 +38,17 @@ Misc arguments:
   Command specific arguments.
 
       --discriminator string        Override the discriminator used to find objects for deletion.
-      --dry-run                     Performs all kubernetes API calls in dry-run mode.
-      --no-obfuscate                Disable obfuscation of sensitive/secret data
-      --no-wait                     Don't wait for deletion of objects to finish.'
+      --dry-run[=true|false]        Performs all kubernetes API calls in dry-run mode.
+      --no-obfuscate[=true|false]   Disable obfuscation of sensitive/secret data
+      --no-wait[=true|false]        Don't wait for deletion of objects to finish.'
   -o, --output-format stringArray   Specify output format and target file, in the format 'format=path'. Format can
                                     either be 'text' or 'yaml'. Can be specified multiple times. The actual format
                                     for yaml is currently not documented and subject to change.
       --render-output-dir string    Specifies the target directory to render the project into. If omitted, a
                                     temporary directory is used.
-      --short-output                When using the 'text' output format (which is the default), only names of
+      --short-output[=true|false]   When using the 'text' output format (which is the default), only names of
                                     changes objects are shown instead of showing all changes.
-  -y, --yes                         Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+  -y, --yes[=true|false]            Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
 
 ```
 <!-- END SECTION -->

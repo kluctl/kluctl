@@ -44,8 +44,8 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
-      --all                   Follow all controller logs, including all deployments and non-deployment related logs.
-  -f, --follow                Follow logs after printing old logs.
+      --all[=true|false]      Follow all controller logs, including all deployments and non-deployment related logs.
+  -f, --follow[=true|false]   Follow logs after printing old logs.
       --reconcile-id string   If specified, logs are filtered for the given reconcile ID.
 
 ```
@@ -69,7 +69,7 @@ Log arguments:
                                      batches to make reading them easier. This argument allows to modify the
                                      grouping time. (default 1s)
       --log-since duration           Show logs since this time. (default 1m0s)
-      --log-time                     If enabled, adds timestamps to log lines
+      --log-time[=true|false]        If enabled, adds timestamps to log lines
 
 ```
 <!-- END SECTION -->

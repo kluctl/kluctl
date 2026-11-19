@@ -30,9 +30,9 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --commit        Create a git commit for every updated chart
-  -i, --interactive   Ask for every Helm Chart if it should be upgraded.
-      --upgrade       Write new versions into helm-chart.yaml and perform helm-pull afterwards
+      --commit[=true|false]        Create a git commit for every updated chart
+  -i, --interactive[=true|false]   Ask for every Helm Chart if it should be upgraded.
+      --upgrade[=true|false]       Write new versions into helm-chart.yaml and perform helm-pull afterwards
 
 ```
 <!-- END SECTION -->

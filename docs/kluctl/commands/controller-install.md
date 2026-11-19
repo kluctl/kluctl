@@ -29,9 +29,9 @@ Misc arguments:
   Command specific arguments.
 
       --context string          Override the context to use.
-      --dry-run                 Performs all kubernetes API calls in dry-run mode.
+      --dry-run[=true|false]    Performs all kubernetes API calls in dry-run mode.
       --kluctl-version string   Specify the controller version to install.
-  -y, --yes                     Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
+  -y, --yes[=true|false]        Suppresses 'Are you sure?' questions and proceeds as if you would answer 'yes'.
 
 ```
 <!-- END SECTION -->

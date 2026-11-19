@@ -25,8 +25,8 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --only-names           If provided --only-names will only output 
-  -o, --output stringArray   Specify output target file. Can be specified multiple times
+      --only-names[=true|false]   If provided --only-names will only output 
+  -o, --output stringArray        Specify output target file. Can be specified multiple times
 
 ```
 <!-- END SECTION -->
