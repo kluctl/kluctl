@@ -47,9 +47,6 @@ aws_secret_access_key = %s
 	assert.NoError(t, err)
 	err = os.WriteFile(configPath+".creds", []byte(string(oldCredentials)+newCredentials), 0o666)
 	assert.NoError(t, err)
-
-	t.Setenv("AWS_CONFIG_FILE", configPath)
-	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", configPath+".creds")
 }
 
 func TestAwsConfig(t *testing.T) {
@@ -108,11 +105,12 @@ func TestAwsConfig(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			configPath := buildConfigPath(t)
+			// Use only the test's config files, even when it defines no profiles.
+			t.Setenv("AWS_CONFIG_FILE", configPath)
+			t.Setenv("AWS_SHARED_CREDENTIALS_FILE", configPath+".creds")
+			t.Setenv("AWS_PROFILE", tc.envProfile)
 			for _, p := range tc.configProfiles {
 				addProfile(t, configPath, p, p)
-			}
-			if tc.envProfile != "" {
-				t.Setenv("AWS_PROFILE", tc.envProfile)
 			}
 
 			c := k.Client
